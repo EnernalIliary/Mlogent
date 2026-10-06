@@ -1,0 +1,12 @@
+{
+  "type": "PowerSource",
+  "localizedName": "[#7FD8FF]调试电力源[]",
+  "description": "无限电力（100 万输出）。它本身是电力节点，会自动连线，把 laserRange 调大就能覆盖全图。",
+  "size": 1,
+  "health": 2000.0,
+  "category": "power",
+  "buildVisibility": "shown",
+  "requirements": [{"item": "copper", "amount": 1}],
+  "powerProduction": 1000000.0,
+  "laserRange": 25.0
+}

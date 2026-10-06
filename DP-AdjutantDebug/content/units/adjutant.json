@@ -1,0 +1,29 @@
+{
+  "type": "flying",
+  "localizedName": "[#7FD8FF]副官[]",
+  "description": "调试用辅助单位。\n· 20000 血、30 护甲，几乎打不死\n· 自带 140 范围治疗场，跟着修你的建筑\n· 视野 150 格，用来点亮地图找问题\n· 可用指令：移动 / 修复",
+  "credit": "DP-调试样板",
+  "alwaysUnlocked": true,
+  "health": 20000.0,
+  "armor": 30.0,
+  "speed": 4.0,
+  "rotateSpeed": 15.0,
+  "hitSize": 12.0,
+  "fogRadius": 150.0,
+  "range": 160.0,
+  "commands": ["move", "repair"],
+  "abilities": [
+    {
+      "type": "RepairFieldAbility",
+      "amount": 400.0,
+      "reload": 20.0,
+      "range": 140.0,
+      "healPercent": 4.0
+    }
+  ],
+  "requirements": {
+    "block": "dp-adjutant-factory",
+    "time": 10.0,
+    "requirements": []
+  }
+}

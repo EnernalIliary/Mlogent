@@ -1,0 +1,56 @@
+diff --git a/core/src/mindustry/input/DesktopInput.java b/core/src/mindustry/input/DesktopInput.java
+index ac14d1f..4e17255 100644
+--- a/core/src/mindustry/input/DesktopInput.java
++++ b/core/src/mindustry/input/DesktopInput.java
+@@ -280,8 +280,10 @@ public class DesktopInput extends InputHandler{
+                 }
+ 
+                 Core.camera.position.add(Tmp.v1.setZero().add(Core.input.axis(Binding.moveX), Core.input.axis(Binding.moveY)).nor().scl(camSpeed));
+-            }else if((!player.dead() || spectating != null) && !panning){
++            }else if((!player.dead() || spectating != null) && !panning && settings.getBool("freecam-recenter", true)){
+                 //TODO do not pan
++                //NOTE: 原版无条件把相机朝 panTarget 插值。加了 freecam-recenter 开关后，
++                //      关掉它就等于"视角永远不自动回到单位 / 核心"，其余（死亡、观察单位）也一并交给玩家手动控制。
+                 Team corePanTeam = state.won ? state.rules.waveTeam : player.team();
+                 Position coreTarget = state.gameOver && !state.rules.pvp && corePanTeam.data().lastCore != null ? corePanTeam.data().lastCore : null;
+                 Position panTarget = coreTarget != null ? coreTarget : spectating != null ? spectating : player;
+@@ -977,11 +979,21 @@ public class DesktopInput extends InputHandler{
+         boolean boosted = (unit instanceof Mechc && unit.isFlying());
+ 
+         if(settings.getBool("detach-camera")){
+-            Vec2 targetPos = camera.position;
++            //自由视角下单位移动的目标：
++            //  原版 = camera.position（屏幕中心）→ 单位永远朝屏幕中心飞，松开键也不停，画面一直滚
++            //  开关打开 = 按住"鼠标移动"时走到**鼠标指的位置**，够近就停；松开就停
++            Vec2 targetPos = settings.getBool("freecam-cursor-move", true) && Core.input.keyDown(Binding.mouseMove)
++                ? Tmp.v1.set(input.mouseWorld()) : camera.position;
+ 
+             movement.set(targetPos).sub(player).limit(speed);
+ 
+-            if(player.within(targetPos, 15f)){
++            float arrive = settings.getBool("freecam-cursor-move", true) ? 6f : 15f;
++
++            if(settings.getBool("freecam-cursor-move", true) && !Core.input.keyDown(Binding.mouseMove)){
++                //松开移动键 → 原地停下（原版这里没有"松手"的概念）
++                movement.setZero();
++                unit.vel.approachDelta(Vec2.ZERO, unit.speed() * unit.type().accel / 2f);
++            }else if(player.within(targetPos, arrive)){
+                 movement.setZero();
+                 unit.vel.approachDelta(Vec2.ZERO, unit.speed() * unit.type().accel / 2f);
+             }
+diff --git a/core/src/mindustry/ui/dialogs/SettingsMenuDialog.java b/core/src/mindustry/ui/dialogs/SettingsMenuDialog.java
+index 389ce62..caadda2 100644
+--- a/core/src/mindustry/ui/dialogs/SettingsMenuDialog.java
++++ b/core/src/mindustry/ui/dialogs/SettingsMenuDialog.java
+@@ -516,6 +516,11 @@ public class SettingsMenuDialog extends BaseDialog{
+         graphics.checkPref("smoothcamera", true);
+         if(!mobile){
+             graphics.checkPref("detach-camera", false);
++            //自由视角的两个附加开关（默认 = 修掉原版这两个手感问题）
++            //  freecam-recenter   : 关掉后视角永远不自动回到单位/核心
++            //  freecam-cursor-move: 自由视角下按住"鼠标移动"时，单位走到鼠标位置并停下
++            graphics.checkPref("freecam-recenter", true);
++            graphics.checkPref("freecam-cursor-move", true);
+         }
+         graphics.checkPref("position", false);
+         if(!mobile){

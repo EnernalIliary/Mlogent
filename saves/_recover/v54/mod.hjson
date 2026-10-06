@@ -1,0 +1,19 @@
+name: "camera-unbind"
+displayName: "自由视角修复"
+author: "DP"
+description: "自由视角下按住「鼠标移动」键拖动时：① 单位走到**鼠标指的位置**停下、松开即停（原版是让单位一直朝屏幕中心飞）；② **镜头不被推向鼠标**（原版 update() 第 278/294 行让同一个键既移动单位又把镜头推向鼠标）。③ **按住平移键（默认中键）+ 移动键时，镜头与单位同时移动** —— 按平移键时相机完全交回原版。做法：覆写 DesktopInput.updateMovement（Rhino JavaAdapter）+ 按住移动键期间把 panSpeed/panBoostSpeed 置 0 并把相机钉在进入拖拽时的位置，其余时刻一个字节都不碰相机，**不需要重新构建游戏**。控制台（全局函数）：camVersion() / camWhere() / camMeasure(6) / camDrift(6) / camHold(true|false) / camCursor(false) / camOverride(false)。"
+version: "5.4"
+minGameVersion: "146"
+# hidden: true —— 关键的一行（学 MindustryX 的做法）
+#
+# 作用：客户端 join 时上报给服务器的 mod 列表由 Mods.getModStrings() 生成，而它的定义是
+#     mods.select(l -> !l.meta.hidden && l.enabled())
+#   —— 标了 hidden 就**不上报**，服务端 NetServer.java:210 的 "Incompatible mods" 校验
+#   （extraMods 非空就踢）也就永远不会命中。于是：你自己照常享受本模组，
+#   而进任何服务器都不会因为"多余 mod"被踢。
+#
+# 为什么本模组可以安全地 hidden：
+#   hidden 只会跳过 Mod.loadContent()（Mods.java:837 的 `!mod.meta.hidden` 判断），
+#   也就是"不能注册新方块/新单位"；本模组是**纯代码**改动（覆写 DesktopInput.updateMovement），
+#   init() 与事件监听照常执行，所以功能完全不受影响。
+hidden: true

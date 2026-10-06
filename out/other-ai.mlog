@@ -1,0 +1,159 @@
+set haulerUnitName:2:4 "星辉"
+set haulerUnit:5:4 @flare
+op strictEqual &t0 haulerUnitName:2:4 "独影"
+jump 6 equal &t0 0
+set haulerUnit:5:4 @mono
+jump 13 always x false
+op strictEqual &t1 haulerUnitName:2:4 "幻形"
+jump 10 equal &t1 0
+set haulerUnit:5:4 @poly
+jump 13 always x false
+op strictEqual &t2 haulerUnitName:2:4 "巨像"
+jump 13 equal &t2 0
+set haulerUnit:5:4 @mega
+getlink resetSwitch:14:6 0
+getlink container:15:6 1
+getlink overdriveDome:16:6 2
+sensor &t3 container:15:6 @x
+op mul &t4 &t3 4096
+sensor &t5 container:15:6 @y
+op add &t6 &t4 &t5
+op add MODULE_ID:18:6 &t6 1
+op idiv leaseEpoch:26:6 @time 10000
+op mul &t7 leaseEpoch:26:6 4194304
+op add moduleFlag:27:6 &t7 MODULE_ID:18:6
+control enabled overdriveDome:16:6 1 0 0 0
+sensor &t8 resetSwitch:14:6 @enabled
+jump 39 equal &t8 0
+set index:35:11 0
+jump 37 greaterThanEq index:35:11 80
+ubind haulerUnit:5:4
+sensor unitFlag:38:10 @unit @flag
+op mod ownerId:39:10 unitFlag:38:10 4194304
+jump 35 notEqual ownerId:39:10 MODULE_ID:18:6
+ucontrol stop 0 0 0 0 0
+ucontrol flag 0 0 0 0 0
+op add index:35:11 index:35:11 1
+jump 28 always x false
+control enabled resetSwitch:14:6 0 0 0 0
+end
+sensor siliconInContainer:51:6 container:15:6 @silicon
+sensor phaseFabricInContainer:52:6 container:15:6 @phase-fabric
+op lessThan &t9 siliconInContainer:51:6 25
+op lessThan &t10 phaseFabricInContainer:52:6 25
+op or needsResupply:53:6 &t9 &t10
+op greaterThanEq &t11 siliconInContainer:51:6 50
+op greaterThanEq &t12 phaseFabricInContainer:52:6 50
+op land canReleaseHauler:56:6 &t11 &t12
+op lessThan &t13 siliconInContainer:51:6 50
+op lessThan &t14 phaseFabricInContainer:52:6 50
+op or needsFillToRelease:59:6 &t13 &t14
+set hasHauler:64:4 0
+set index:66:9 0
+jump 67 greaterThanEq index:66:9 80
+ubind haulerUnit:5:4
+sensor unitFlag:69:8 @unit @flag
+op mod ownerId:70:8 unitFlag:69:8 4194304
+jump 65 notEqual ownerId:70:8 MODULE_ID:18:6
+op idiv ownerEpoch:73:10 unitFlag:69:8 4194304
+op sub &t15 leaseEpoch:26:6 1
+op greaterThanEq &t16 ownerEpoch:73:10 &t15
+op lessThanEq &t17 ownerEpoch:73:10 leaseEpoch:26:6
+op land leaseValid:74:10 &t16 &t17
+jump 65 equal leaseValid:74:10 0
+set hasHauler:64:4 1
+jump 67 always x false
+op add index:66:9 index:66:9 1
+jump 52 always x false
+op equal &t15 hasHauler:64:4 0
+op land &t16 needsResupply:53:6 &t15
+jump 87 equal &t16 0
+set index:87:11 0
+jump 87 greaterThanEq index:87:11 80
+ubind haulerUnit:5:4
+sensor unitFlag:90:10 @unit @flag
+op idiv ownerEpoch:91:10 unitFlag:90:10 4194304
+op equal isFree:92:10 unitFlag:90:10 0
+op sub &t17 leaseEpoch:26:6 1
+op lessThan &t18 ownerEpoch:91:10 &t17
+op greaterThan &t19 ownerEpoch:91:10 leaseEpoch:26:6
+op or leaseExpired:93:10 &t18 &t19
+op or &t20 isFree:92:10 leaseExpired:93:10
+jump 85 equal &t20 0
+ucontrol flag moduleFlag:27:6 0 0 0 0
+set hasHauler:64:4 1
+jump 87 always x false
+op add index:87:11 index:87:11 1
+jump 71 always x false
+jump 158 equal hasHauler:64:4 0
+sensor carriedItems:106:8 @unit @totalItems
+sensor carriedItem:107:8 @unit @firstItem
+op strictEqual &t17 carriedItem:107:8 @silicon
+op strictEqual &t18 carriedItem:107:8 @phase-fabric
+op or carryingSupply:108:8 &t17 &t18
+op equal &t19 carriedItems:106:8 0
+op land &t20 canReleaseHauler:56:6 &t19
+jump 99 equal &t20 0
+ucontrol stop 0 0 0 0 0
+ucontrol flag 0 0 0 0 0
+jump 158 always 0 false
+ucontrol flag moduleFlag:27:6 0 0 0 0
+op greaterThan &t21 carriedItems:106:8 0
+op land &t22 &t21 carryingSupply:108:8
+jump 113 equal &t22 0
+sensor &t23 container:15:6 @x
+sensor &t24 container:15:6 @y
+ucontrol within &t23 &t24 5 canDrop:120:12 0
+jump 109 equal canDrop:120:12 0
+ucontrol itemDrop container:15:6 carriedItems:106:8 0 0 0
+jump 112 always 0 false
+sensor &t25 container:15:6 @x
+sensor &t26 container:15:6 @y
+ucontrol move &t25 &t26 0 0 0
+jump 158 always 0 false
+jump 122 equal &t21 0
+ulocate building core 0 @copper coreX:133:24 coreY:133:31 foundCore:133:13 core:133:38
+jump 121 equal foundCore:133:13 0
+ucontrol within coreX:133:24 coreY:133:31 5 canReturn:139:14 0
+jump 120 equal canReturn:139:14 0
+ucontrol itemDrop core:133:38 carriedItems:106:8 0 0 0
+jump 121 always 0 false
+ucontrol move coreX:133:24 coreY:133:31 0 0 0
+jump 158 always 0 false
+jump 157 equal needsFillToRelease:59:6 0
+ulocate building core 0 @copper coreX:152:24 coreY:152:31 foundCore:152:13 core:152:38
+jump 156 equal foundCore:152:13 0
+op sub &t23 50 siliconInContainer:51:6
+op max siliconDeficit:158:14 0 &t23
+op sub &t24 50 phaseFabricInContainer:52:6
+op max phaseFabricDeficit:159:14 0 &t24
+sensor siliconInCore:160:14 core:152:38 @silicon
+sensor phaseFabricInCore:161:14 core:152:38 @phase-fabric
+op greaterThan &t25 siliconDeficit:158:14 0
+op greaterThan &t26 siliconInCore:160:14 0
+op land canTakeSilicon:162:14 &t25 &t26
+op greaterThan &t27 phaseFabricDeficit:159:14 0
+op greaterThan &t28 phaseFabricInCore:161:14 0
+op land canTakePhaseFabric:163:14 &t27 &t28
+op equal &t29 canTakePhaseFabric:163:14 0
+op lessThanEq &t30 siliconInContainer:51:6 phaseFabricInContainer:52:6
+op or &t31 &t29 &t30
+op land takeSilicon:164:14 canTakeSilicon:162:14 &t31
+ucontrol within coreX:152:24 coreY:152:31 5 canTake:168:14 0
+jump 145 notEqual canTake:168:14 0
+ucontrol move coreX:152:24 coreY:152:31 0 0 0
+jump 156 always 0 false
+jump 150 equal takeSilicon:164:14 0
+op min &t32 siliconDeficit:158:14 siliconInCore:160:14
+op min takeAmount:177:16 10 &t32
+ucontrol itemTake core:152:38 @silicon takeAmount:177:16 0 0
+jump 156 always 0 false
+jump 155 equal canTakePhaseFabric:163:14 0
+op min &t32 phaseFabricDeficit:159:14 phaseFabricInCore:161:14
+op min takeAmount:180:16 10 &t32
+ucontrol itemTake core:152:38 @phase-fabric takeAmount:180:16 0 0
+jump 156 always 0 false
+ucontrol idle 0 0 0 0 0
+jump 158 always 0 false
+ucontrol idle 0 0 0 0 0
+end
