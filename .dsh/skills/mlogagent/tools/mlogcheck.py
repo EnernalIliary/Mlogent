@@ -677,6 +677,14 @@ def analyse(lines: list[str], links: list[str] | None = None) -> list[Finding]:
                     f"`{v}` is never assigned -- signature only (it shows up in "
                     f"the editor's variable list; print outputs `null`)"))
                 continue
+            if kinds and kinds <= {"print", "printflush"}:
+                out.append(Finding(
+                    "INFO", orig + 1, c,
+                    f"`{v}` is never assigned and is not a linked message block, "
+                    f"so this `printflush` does nothing -- a common way to park a "
+                    f"name in the variable list (the old string form was added "
+                    f"later, so back then this was the only way to write a note)"))
+                continue
             if _null_guard_only(v) or _constant_guard(c):
                 out.append(Finding(
                     "WARN", orig + 1, c,
@@ -1228,6 +1236,59 @@ def main() -> int:
                          t.logic.code.split("\n"),
                          [l.name for l in t.logic.links])
     return rc
+
+
+_CP_RE = re.compile(r'^(read|write)\s+(\S+)\s+(\S+)\s+"([^"]*)"')
+
+
+def cross_processor(tiles) -> list[Finding]:
+    """Check `read`/`write` string addressing between logic processors.
+
+    `read r processor1 "name"` / `write v processor1 "name"` reaches INTO
+    another processor's variable BY NAME, and that slot has to exist there
+    already -- the game does not create it on demand (confirmed by the author of
+    the blueprint library this was tested against: "跨逻辑读写必须提前声明").
+    So a name the target never mentions is a silent no-op.
+
+    Resolution is exact, not a guess: a link stores its offset relative to the
+    processor, so the target tile is `(t.x + link.x, t.y + link.y)`. A name
+    counts as declared when it appears as ANY token of ANY statement in the
+    target, because the parser calls var() on every argument -- that is what
+    actually creates the slot.
+    """
+    tiles = [t for t in tiles if getattr(t, "logic", None) is not None]
+    if not tiles:
+        return []
+    by_pos = {(t.x, t.y): t for t in tiles}
+    declared: dict[int, set[str]] = {}
+    for t in tiles:
+        names: set[str] = set()
+        for c in t.logic.code.split("\n"):
+            names.update(tokenize(c)[1:])
+        declared[id(t)] = names
+
+    out: list[Finding] = []
+    for t in tiles:
+        by_name = {}
+        for ln in t.logic.links:
+            by_name[ln.name] = by_pos.get((t.x + ln.x, t.y + ln.y))
+        for i, c in enumerate(t.logic.code.split("\n")):
+            m = _CP_RE.match(c.strip())
+            if not m:
+                continue
+            kind, _dst, target, name = m.groups()
+            dst = by_name.get(target)
+            if dst is None or dst is t:
+                continue                      # not a logic block, or itself
+            if name in declared[id(dst)]:
+                continue
+            out.append(Finding(
+                "WARN", i + 1, c,
+                f"cross-processor {kind}: `{name}` is never mentioned in "
+                f"{dst.block} @({dst.x},{dst.y}) -- the slot must be declared "
+                f"there first (the game does not create it on demand), so this "
+                f"{kind} does nothing"))
+    return out
 
 
 if __name__ == "__main__":

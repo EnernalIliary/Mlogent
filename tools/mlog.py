@@ -439,10 +439,20 @@ def cmd_ir(args) -> int:
             rc |= _ir_report(p, fh.read().split("\n"), show_all)
     for p in args.msch:
         sch = msch.parse_file(p)
-        for t in sch.logic_tiles():
+        tiles = list(sch.logic_tiles())
+        for t in tiles:
             assert t.logic is not None
             rc |= _ir_report(f"{p} [{t.block} @({t.x},{t.y})]",
                              t.logic.code.split("\n"), show_all)
+        # Cross-processor `read`/`write` addresses a NAMED slot in another
+        # processor, and that slot must already exist there. Needs the whole
+        # schematic, so it cannot live inside the per-tile report.
+        blocks = [(f"{p} [{t.block} @({t.x},{t.y})]", t.logic.code.split("\n"))
+                  for t in tiles if t.logic is not None]
+        for f in _check.cross_processor(blocks):
+            print(f"[{f.sev}] L{f.line} {f.code}")
+            print(f"          {f.msg}")
+            rc |= 1 if f.sev == "ERR" else 0
     return rc
 
 
