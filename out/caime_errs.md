@@ -6,8 +6,8 @@
 
 | 层 | 含义 | 条数 |
 |---|---|---:|
-| **A 真错** | 名字被读的地方,值真的改变行为 | **77** |
-| B 恒真守卫 | `jump` 两侧都是常量 ⇒ 分支固定,常是署名 | 56 |
+| **A 真错** | 名字被读的地方,值真的改变行为 | **78** |
+| B 恒真守卫 | `jump` 两侧都是常量 ⇒ 分支固定,常是署名 | 55 |
 | C 无效参数 | 名字落在指令读不到的参数位上 | 944 |
 | D 死引用 | 形如链接名,但这块处理器没有这个链接 | 788 |
 | E 署名 | 只为出现在变量列表里 | 5540 |
@@ -18,7 +18,7 @@ D 的危险在于它**看起来**是有效引用:`control shootp scatter1` 不�
 
 ## A 真错 —— 按变量
 
-### 共 77 条 / 20 个名字
+### 共 78 条 / 21 个名字
 
 | 次数 | 变量 | 被哪种语句读 | 为什么是错 |
 |---:|---|---|---|
@@ -37,6 +37,7 @@ D 的危险在于它**看起来**是有效引用:`control shootp scatter1` 不�
 | 1 | `b` | `op`×1 | 算术里静默当 0 |
 | 1 | `bx` | `ucontrol`×1 | 控制/定位参数写成变量名 ⇒ 退化成默认值 |
 | 1 | `by` | `ucontrol`×1 | 控制/定位参数写成变量名 ⇒ 退化成默认值 |
+| 1 | `noop` | `noop`×1 | 未赋值就被用 |
 | 1 | `scatter` | `radar`×1 | 未赋值就被用 |
 | 1 | `selectedItem` | `set`×1 | 未赋值就被用 |
 | 1 | `size` | `op`×1 | 算术里静默当 0 |
@@ -66,7 +67,7 @@ D 的危险在于它**看起来**是有效引用:`control shootp scatter1` 不�
 | 1 | `op mod map.x point N` | 算术:操作数静默当 0 |
 | 1 | `op idiv map.y point N` | 算术:操作数静默当 0 |
 | 1 | `op add d dtc size` | 算术:操作数静默当 0 |
-| 1 | `ucontrol within x t ctrlr ctrlmod N` | 目标:控制参数无效 |
+| 1 | `noop` | ? |
 
 ## B 恒真守卫 —— 按变量
 
@@ -83,7 +84,6 @@ D 的危险在于它**看起来**是有效引用:`control shootp scatter1` 不�
 | 1 | `coalx` | `jump`×1 | 改写成 `always`,或那是署名 |
 | 1 | `euardamount` | `jump`×1 | 改写成 `always`,或那是署名 |
 | 1 | `forceOff` | `jump`×1 | 改写成 `always`,或那是署名 |
-| 1 | `noop` | `noop`×1 | 改写成 `always`,或那是署名 |
 | 1 | `out` | `jump`×1 | 改写成 `always`,或那是署名 |
 | 1 | `selectedItem` | `jump`×1 | 改写成 `always`,或那是署名 |
 | 1 | `t` | `jump`×1 | 改写成 `always`,或那是署名 |
@@ -370,6 +370,7 @@ D 的危险在于它**看起来**是有效引用:`control shootp scatter1` 不�
 |---:|---|---|---|
 | 12 | hyper-processor @(1,1) | `ucontrol within bx by 60 aat 0` | `bx` 未赋值 |
 | 12 | hyper-processor @(1,1) | `ucontrol within bx by 60 aat 0` | `by` 未赋值 |
+| 17 | hyper-processor @(1,1) | `noop` | `noop` 未赋值 |
 
 ### 通用自动进攻寻路版 大.msch
 

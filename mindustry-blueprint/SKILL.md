@@ -220,7 +220,7 @@ schematic 里 Stile 存的是方块的**中心格**,不是左上角。**已双�
 
 `set // 装载电池组`(变量名纯标点)也在这套习惯里:mlog 只有 `#` 起注释(`LParser.java:98-99`),想让注释在变量列表可见就这么写 —— 归 `annotation` 层或整行跳过。
 
-`noop` 单列一条:它是 `LStatements.InvalidStatement`(`LStatements.java:48-59`),`build()` 返回空跑的 `NoopI` —— 游戏把**解析不了的语句**替换成它。所以看到 `noop` 基本等于「这里原本有一条语句,没了」:最常见的原因是**高版本写的逻辑在低版本打开**,旧解析器不认识的语句被丢掉。程序照常加载、照常运行,所以这个洞是**静默**的,检查器报 WARN 让作者自己判断(有时也确实只是空行占位)。
+`noop` 单列一条:**判 ERR**。它是 `LStatements.InvalidStatement`(`LStatements.java:48-59`),`build()` 返回空跑的 `NoopI` —— 游戏把**解析不了的语句**替换成它。所以看到 `noop` 等于「这里原本有一条语句,没了」:最常见的原因是**高版本写的逻辑在低版本打开**,旧解析器不认识的语句被丢掉。这种程序**基本就死了** —— 丢的正是干活的那条,后面的 `jump` 还会照旧指向错位置。(极少数只是空行占位,那是特例;按错误报,让人去看一眼。)
 
 真正要改的 A 层:`op mod n n padNeedCount`(模数 0 ⇒ null)、`ubind u` 而 `u` 从未赋值、`control config unloader1 mmm 0 0 0`、`flase` 拼错落在 `ulocate` 的 enemy 位。
 

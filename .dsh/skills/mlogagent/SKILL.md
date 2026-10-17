@@ -77,7 +77,7 @@ mlog **只有 `#` 起注释**（`LParser.java:98-99`），没有行尾注释 —
 | `ucontrol within x y r result` | `LExecutor.java:377` `p4.setnum(unit.within(...))` | `r` 是半径，`result` 是 1/0 |
 | `equal X null` ⇔ `X.num() == 0` | `ConditionOp.java:31-40` | 对未赋值变量**恒真**；只有 `===` 区分 null 与 0 |
 | NaN / ±Infinity 被静默转成 null | `LVar.setnum()` | 这是按位剥离循环的退出机制，也是"不能把 `rand` 建模成 NaN"的原因 |
-| `noop` 是 `InvalidStatement` | `LStatements.java:48-59` 的类名就叫 `InvalidStatement`，`build()` 返回空跑的 `NoopI` | 游戏把**解析不了的语句**写成 `noop`。绝大多数是「高版本逻辑在低版本打开」时丢了一条语句，不是空行占位 |
+| `noop` 是 `InvalidStatement` | `LStatements.java:48-59` 的类名就叫 `InvalidStatement`，`build()` 返回空跑的 `NoopI` | 游戏把**解析不了的语句**写成 `noop`。它是**丢失语句的墓碑**：高版本逻辑在低版本打开时丢一条语句，程序往往就此跑不动（丢的正是干活的那条）⇒ 判 **ERR** |
 | `//` **不是**注释 | `LParser.java:98-99` 只认 `#` | `set // 上个位置` 是真语句 |
 | `jump -1 always` 是 **nop** | `JumpI.run()` 有 `if(address != -1)` | 不是终止，继续往下走；当成终止会误报整片不可达 |
 | `jump T always x false` 的 `x`/`false` 是补位 | `LParser` 多 token 惰性丢弃 | 派发表生成器的常见产物，不读 |

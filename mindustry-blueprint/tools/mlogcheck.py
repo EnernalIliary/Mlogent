@@ -599,11 +599,13 @@ def analyse(lines: list[str], links: list[str] | None = None) -> list[Finding]:
         # hole is silent -- worth flagging, never auto-removing.
         if c.split(None, 1)[0].lower() == "noop":
             out.append(Finding(
-                "WARN", orig + 1, c,
-                "`noop` is the game's InvalidStatement: the placeholder for a "
-                "line it could not parse. Often a statement lost when logic "
-                "written for a newer version is loaded in an older one -- "
-                "check whether a jump or a setup line is missing here"))
+                "ERR", orig + 1, c,
+                "`noop` is the game's InvalidStatement -- the placeholder for a "
+                "line it could not parse. Nearly always a statement lost when "
+                "logic written for a newer version is opened in an older one, "
+                "and such a program is usually dead because the missing line "
+                "was doing the work. Open and fix it on the version it was "
+                "written for"))
             continue
         surplus = _surplus_names(c)
         p = tokenize(c)
