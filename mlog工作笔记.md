@@ -121,6 +121,32 @@ tags[key] = r.utf()
 
 修复后重新生成了 `logic-corpus/`,**403/430 个蓝图恢复了 labels**(之前是 0)。
 
+### 0.7 ⭐ 预算按"执行到几条语句"算,不按语句种类算
+
+**`jump` 不额外花钱 —— 它和 `op`、`print` 一样就是 1 条。**
+
+`runOnce()` 里 **`counter` 先自增再执行**,**不看指令类型**([LExecutor.java:111-121](Mindustry-Source/core/src/mindustry/logic/LExecutor.java#L111-L121)):
+
+```java
+instructions[(int)(counter.numval++)].run(this);   // ← 无条件 +1
+```
+
+⇒ **钱花在"循环圈数 × 循环体语句数"上,不花在 `jump` 这个字上。**
+⇒ 也别指望"用 `jump` 跳过一段能省钱":跳过去的行确实不执行(不花钱),但**跳转自己仍然收 1 条**。
+
+**每 tick 的额度**由 [LogicBlock.java:564-578](Mindustry-Source/core/src/mindustry/world/blocks/logic/LogicBlock.java#L564-L578) 的 accumulator 循环发放,`ipt = instructionsPerTick`:
+
+| 处理器 | ipt | 每秒 |
+|---|---|---|
+| 微型 | **2** | 120 |
+| 逻辑 | **8** | 480 |
+| 超级 | **25** | 1500 |
+| 世界 | **8**(上限 1000) | 480 |
+
+**只有 `wait` / `stop` / `printflush @wait` 会 `yield`,提前结束这一 tick**;
+**`jump 0 always` 没有这个机制,会在一个 tick 内把额度烧光。**
+改写循环前先用 `mlog.py check --cost` 看最坏路径(§15.11、§15.12 有完整机制)。
+
 
 ## 1. 链接与命名
 
@@ -1219,6 +1245,78 @@ L31 jump 0 always 0 false
 (程序实际靠 `end` 重启去跑下半段)。
 **教训:给用户写逻辑要删掉 `end` 之后的残留。**
 
+### 15.12 ⭐ 指令预算:一条语句 = 一条指令,`jump` 不额外花钱
+
+**问题**:`jump` 占用 `@ipt` 吗?
+**答**:**占,而且和 `op` / `print` 完全一样,就是 1 条。** 但它**不额外花钱**。
+
+**机制(`LExecutor.runOnce()`,L111–121)**:
+
+```java
+public void runOnce(){
+    if(counter.numval >= instructions.length || counter.numval < 0) counter.numval = 0;
+    if(counter.numval < instructions.length){
+        counter.isobj = false;
+        instructions[(int)(counter.numval++)].run(this);   // ← 计数器无条件 +1,不看指令类型
+    }
+}
+```
+
+**`counter` 先自增再执行,跳转只是把 `counter` 写成了别的值。** 所以账很清楚:
+
+| 写法 | 消耗 |
+|---|---|
+| `op add a b c` | 1 条 |
+| `print x` | 1 条 |
+| **`jump 5 always 0 false`** | **1 条** |
+| `jump 0 lessThan i 80` | 1 条 |
+| **`jump` 走回头路再执行一次循环体** | **每次迭代再花循环体的语句数** |
+
+⇒ **决定预算的不是"语句种类",是"实际执行到了几条语句"。** 循环圈数才是成本,`jump` 本身不是。
+⇒ 写 `--cost` 时**按每条被执行的语句 +1** 就是对的,不用给 `jump` 加权。
+
+**每 tick 的预算怎么来的(`LogicBlock.java` L45 / L564–578)**:
+
+```java
+public int maxInstructionScale = 5;
+
+if(accumulator > maxInstructionScale * ipt) accumulator = maxInstructionScale * ipt;
+while(accumulator >= 1f){
+    executor.runOnce();
+    if(executor.yield){ executor.yield = false; break; }   // ← wait / stop 提前结束
+    accumulator --;
+}
+accumulator += edelta() * ipt;
+```
+
+| 处理器 | `instructionsPerTick` | 每秒额度 |
+|---|---|---|
+| 微型处理器 micro-processor | **2** | 120 条/s |
+| 逻辑处理器 logic-processor | **8** | 480 条/s |
+| 超级处理器 hyper-processor | **25** | 1500 条/s |
+| 世界处理器 world-processor | **8**(`maxInstructionsPerTick = 1000`) | 480 条/s,可用 `setrate` 拉满 |
+
+出处:`Blocks.java:6849`(micro)、`:6856`(logic)、`:6867`(hyper)、`:6954`+`:6958`(world);
+`LogicBlock.java:46`(默认 1)、`:48`(`maxInstructionsPerTick = 40`)。
+
+**三个容易漏的点**:
+
+**① 那个"跑不完"的后果正是 `--cost` 预测的东西。**
+微型处理器 2 条/tick ⇒ 一次决策 2000 条要 **1000 tick ≈ 16.7 秒**。这就是 159 行租约程序的病 → `--cost` 报 ~2001。
+
+**② 欠账会攒,但有上限。**
+`accumulator` 是浮点(tick 级,`edelta()` 是秒 × 60),落后时下一 tick 多跑,**封顶 `maxInstructionScale * ipt` = 5 ticks 的量**。所以启动时补一次,但别指望攒着追。
+
+**③ 只有 `wait` 和 `stop` 会提前让出这一 tick。**
+`yield = true` 会 `break` 掉 `while`,这一 tick 剩下的额度作废:
+`wait` 在自己的行上挂起(`WaitI`,`counter.numval--` 后 yield);`stop` 卡在自己那一行(`StopI`,同样 `counter.numval--` 再 yield);`printflush ... @wait` 等 HUD 空位时也是这个行为。
+⇒ **`jump` 没有这个机制**,所以 `jump 0 always` 会在**一个 tick 内**把额度烧光(每次都算 1 条)。
+
+**④ `setrate` 是唯一能改 ipt 的指令,也是唯一能超过方块默认值的办法。**
+`exec.build.ipt = Mathf.clamp(amount.numi(), 1, ((LogicBlock)exec.build.block).maxInstructionsPerTick)`(`LExecutor.java:2031-2034`)
+⇒ 微型处理器最高 **40 条/tick**(`LogicBlock.java:48`),世界处理器最高 **1000**。
+`@ipt` 立即变成新值,但**这一 tick 的循环边界早已固定**,下一个 tick 才生效。
+
 ---
 
 ## 16. ⚠️ 我写错的逻辑清单(生成前对照)
@@ -1438,4 +1536,5 @@ F:\OneDrive\桌面\AtomicStates\mindustry-blueprint\                ← 开发�
 | 第 11 次整理 | **修正 §15.8「方块坐标是中心格」**:Iliary 实测抓出"穹顶与逻辑空一格"。双重验证 —— 源码 `Tile.setBlock()` 的 `offset = -(block.size-1)/2`;**624 个真实蓝图里按"角"解释产生 11 处重叠、按"中心"解释 0 处**。生成器 `bounds()` / `link_report()` 同步修正。**方法论:坐标语义这类约定,用全量语料做"哪种假设不产生矛盾"的统计验证最可靠。** |
 | 第 12 次整理 | **把工具+规范+数据打包成 DSH skill** `mindustry-blueprint/`(§17),统一 CLI `mlog.py`(parse/gen/check/id/cmd/selftest),`gen` 内置自验证(解析回来不一致就拒绝输出);**去掉全部硬编码路径**(schematics 目录自动发现);安装到**项目专有 skill 库 `.dsh/skills/`**(§17.4 记了各 agent 的路径表;`~/.dsh/skills` 是 junction,**写全局会随 profile 失效**);新增位置无关的 [tools/fix_skill_links.py](tools/fix_skill_links.py)(向上找 `Mindustry-Source` 定根,§17.5 —— 我按固定层数改了三轮才全对) |
 | 第 13 次整理 | **新增 `check --cost` 成本分析**(§15.11):可达性(死代码)+ 循环圈数推定 + 最坏指令数与三档处理器耗时。实现中踩了 6 个坑,其中三个是**同一份代码连续三次算错**(78 → 643686 → 2001):只在回边乘圈数会让循环体只算 1 次;全局松弛会**重复计费嵌套循环**;**`float('inf')` 当哨兵会让比较静默返回 False、所有程序都报 1**。最终用"按 head 降序、内层先解、每循环只定价一次 + clamp 1000"解决。**实测校准**:另一 AI 的 159 行程序手算 ~2494 → 工具 2001;**批量 4151 个真实逻辑块 0 失败**;并用它审出我自己的 `out\无线超2.mlog` 有 6 条 `end` 之后的死代码(教训进 §16 与 SKILL 铁律 12) |
+| 第 15 次整理 | **答「`jump` 占不占 ipt」并落成 §15.12 指令预算**:`runOnce()` 里 `counter` **先自增再执行、不看指令类型**(`LExecutor.java:111-121`)⇒ **`jump` 和 `op`/`print` 一样就是 1 条,不额外花钱;真正的成本是"实际执行到几条语句"**(循环圈数才是钱)。补全每 tick 预算机制:`LogicBlock.java:45` `maxInstructionScale = 5`、`:564-578` 的 accumulator 循环与 **`yield` 提前 break**(只有 `wait`/`stop`/`printflush @wait` 有);四张卡 ipt 表(**微型 2 / 逻辑 8 / 超级 25 / 世界 8**,`Blocks.java:6849/6856/6867/6954`,世界卡 `maxInstructionsPerTick = 1000`);`setrate` 是唯一能改 ipt 的指令且上限是 `maxInstructionsPerTick`(逻辑卡 **40**,`LogicBlock.java:48`),**`@ipt` 立即变但本 tick 循环边界已固定** |
 | 第 14 次整理 | 评完那份 159 行「flag 位域租约」程序:**四路单位选择器是正确的**(我一度误判为死代码,根因是把跳转目标当成下一行执行)。真实缺陷:① `jump 28 always` 无条件回跳使 `end` 前的 `control enabled resetSwitch 0` 永不执行(复位开关卡死);② 缺 `@unit` 判空;③ 硬编码扫描上限 80 与"`ubind` 计数器按单位类型推进"语义不匹配;④ 每 10 秒全体同时换代;⑤ 每轮重复写 flag 使单位永不自然脱控。**用户结论:"工程上标准,但是不适合游戏"** —— 错不在工程化,而在**把通用协议当起点而非终点**。值得留的三个想法:让 `0` 天然表示空闲(ID 加 1)、用容器坐标派生模块 ID(不依赖 `@thisx/@thisy`)、租约容忍一代重叠 |

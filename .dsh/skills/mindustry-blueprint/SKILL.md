@@ -80,6 +80,35 @@ worst-case path : ~2001 instructions       ← 一次完整决策最坏多少条
 - 结果是**上界**(互斥分支不剪枝),意思是"最坏能到多少",不是"平时多少"
 - 回到第 0 行的回边 = 主循环,只算**一圈**(mlog 本来就每 tick 重跑一遍)
 
+## 指令预算:别猜,这是确定的
+
+**一条语句 = 一条指令,`jump` 也是 1 条,和 `op` / `print` 没有区别。**
+
+`runOnce()` 里 **`counter` 先自增再执行,不看指令类型**(`LExecutor.java:111-121`):
+
+```java
+instructions[(int)(counter.numval++)].run(this);   // ← 无条件 +1
+```
+
+⇒ **钱花在"循环圈数 × 循环体语句数"上,不花在 `jump` 这个字上。**
+⇒ 用 `jump` 跳过一段确实省下被跳过那些行,但**跳转自己仍然收 1 条**。
+
+**每 tick 的额度**(`LogicBlock.java:564-578`,`ipt = instructionsPerTick`):
+
+| 处理器 | ipt | 每秒 |
+|---|---|---|
+| 微型 micro-processor | **2** | 120 |
+| 逻辑 logic-processor | **8** | 480 |
+| 超级 hyper-processor | **25** | 1500 |
+| 世界 world-processor | **8**(`maxInstructionsPerTick = 1000`) | 480 |
+
+**两条容易漏的**:
+
+- **只有 `wait` / `stop` / `printflush @wait` 会 `yield`**,提前结束这一 tick 的额度;**`jump 0 always` 没有这个机制**,会在一个 tick 内把额度烧光
+- `setrate` 是唯一能改 ipt 的指令,上限是 `maxInstructionsPerTick`(逻辑卡 **40**,比默认 8 大 5 倍);`@ipt` 立即变新值,但**本 tick 的循环边界已经固定**,下个 tick 才生效
+
+**所以改循环之前先跑 `check --cost`。** 算完的秒数就是单位从"看到"到"反应"的延迟。
+
 ## 常用调用
 
 ```bash

@@ -50,7 +50,7 @@
 
 `ucontrol` / `uradar` / `ulocate` **全部只对当前 `@unit` 生效**。
 
-源码 [LExecutor.java:323](Mindustry-Source/core/src/mindustry/logic/LExecutor.java#L323):
+源码 [LExecutor.java:323](../Mindustry-Source/core/src/mindustry/logic/LExecutor.java#L323):
 
 ```java
 if(unitObj instanceof Unit unit && unit.isValid()
@@ -121,6 +121,32 @@ tags[key] = r.utf()
 
 修复后重新生成了 `logic-corpus/`,**403/430 个蓝图恢复了 labels**(之前是 0)。
 
+### 0.7 ⭐ 预算按"执行到几条语句"算,不按语句种类算
+
+**`jump` 不额外花钱 —— 它和 `op`、`print` 一样就是 1 条。**
+
+`runOnce()` 里 **`counter` 先自增再执行**,**不看指令类型**([LExecutor.java:111-121](../Mindustry-Source/core/src/mindustry/logic/LExecutor.java#L111-L121)):
+
+```java
+instructions[(int)(counter.numval++)].run(this);   // ← 无条件 +1
+```
+
+⇒ **钱花在"循环圈数 × 循环体语句数"上,不花在 `jump` 这个字上。**
+⇒ 也别指望"用 `jump` 跳过一段能省钱":跳过去的行确实不执行(不花钱),但**跳转自己仍然收 1 条**。
+
+**每 tick 的额度**由 [LogicBlock.java:564-578](../Mindustry-Source/core/src/mindustry/world/blocks/logic/LogicBlock.java#L564-L578) 的 accumulator 循环发放,`ipt = instructionsPerTick`:
+
+| 处理器 | ipt | 每秒 |
+|---|---|---|
+| 微型 | **2** | 120 |
+| 逻辑 | **8** | 480 |
+| 超级 | **25** | 1500 |
+| 世界 | **8**(上限 1000) | 480 |
+
+**只有 `wait` / `stop` / `printflush @wait` 会 `yield`,提前结束这一 tick**;
+**`jump 0 always` 没有这个机制,会在一个 tick 内把额度烧光。**
+改写循环前先用 `mlog.py check --cost` 看最坏路径(§15.11、§15.12 有完整机制)。
+
 
 ## 1. 链接与命名
 
@@ -138,7 +164,7 @@ tags[key] = r.utf()
 | `large-logic-display` | `display1`(不是 `logic1`) |
 | `phase-conveyor` / `conveyor` | `conveyor1` |
 
-源码 [LogicBlock.getLinkName()](Mindustry-Source/core/src/mindustry/world/blocks/logic/LogicBlock.java#L123) 里另有一句"最后一段是 `large` 或纯数字时取倒数第二段"的分支,
+源码 [LogicBlock.getLinkName()](../Mindustry-Source/core/src/mindustry/world/blocks/logic/LogicBlock.java#L123) 里另有一句"最后一段是 `large` 或纯数字时取倒数第二段"的分支,
 但**在本环境下结论就是"永远取最后一段"**,已由 Iliary 确认。
 
 ### 1.2 ⭐ `core` 是**变量**,不是内置关键字【重要修正】
@@ -231,15 +257,15 @@ jump 0 strictEqual by null       # 一个就够,不用两个都判
 | 星辉 `@flare` | **10** | 只能带 10 个**某一种**物品 |
 | 超速穹顶 `overdrive-dome` | **10** | `@totalItems` 是**合计**,硅+相织布之和 |
 
-源码:`UnitComp` 的 `case itemCapacity -> type.itemCapacity`([:267](Mindustry-Source/core/src/mindustry/entities/comp/UnitComp.java#L267));
-`Block.itemCapacity` 默认 10([:75](Mindustry-Source/core/src/mindustry/world/Block.java#L75))。
+源码:`UnitComp` 的 `case itemCapacity -> type.itemCapacity`([:267](../Mindustry-Source/core/src/mindustry/entities/comp/UnitComp.java#L267));
+`Block.itemCapacity` 默认 10([:75](../Mindustry-Source/core/src/mindustry/world/Block.java#L75))。
 
 > **这是我的第一个大错**:我让它 `itemTake` 两次(硅+相织布),实际各只能拿 5 个。
 > **正确做法是"一次只带一种,按缺口选带哪种"。**
 
 ### 3.2 `itemTake` 的请求量给大无害
 
-[LExecutor.java:540](Mindustry-Source/core/src/mindustry/logic/LExecutor.java#L540):
+[LExecutor.java:540](../Mindustry-Source/core/src/mindustry/logic/LExecutor.java#L540):
 
 ```java
 int taken = Math.min(build.items.get(item), Math.min(amount, unit.maxAccepted(item)));
@@ -257,7 +283,7 @@ int taken = Math.min(build.items.get(item), Math.min(amount, unit.maxAccepted(it
 
 ### 3.4 投料距离
 
-`logicItemTransferRange + 建筑尺寸 × tileSize / 2`,**`logicItemTransferRange = 45px`**([Vars.java:125](Mindustry-Source/core/src/mindustry/Vars.java#L125))。
+`logicItemTransferRange + 建筑尺寸 × tileSize / 2`,**`logicItemTransferRange = 45px`**([Vars.java:125](../Mindustry-Source/core/src/mindustry/Vars.java#L125))。
 
 | 建筑 | 判定距离 |
 |---|---|
@@ -291,7 +317,7 @@ ucontrol itemDrop core 999 0 0 0                      # 带错了 → 丢进核�
 
 ### 4.1 消耗与效率
 
-源码 [OverdriveProjector.java](Mindustry-Source/core/src/mindustry/world/blocks/defense/OverdriveProjector.java):
+源码 [OverdriveProjector.java](../Mindustry-Source/core/src/mindustry/world/blocks/defense/OverdriveProjector.java):
 
 ```java
 overdriveDome = new OverdriveProjector("overdrive-dome"){{
@@ -306,7 +332,7 @@ overdriveDome = new OverdriveProjector("overdrive-dome"){{
 
 ### 4.2 ⭐ 效率判据:只要有 ≥1 个就满效率
 
-`ConsumeItems.efficiency()`([:52](Mindustry-Source/core/src/mindustry/world/consumers/ConsumeItems.java#L52)):
+`ConsumeItems.efficiency()`([:52](../Mindustry-Source/core/src/mindustry/world/consumers/ConsumeItems.java#L52)):
 
 ```java
 return build.consumeTriggerValid() || build.items.has(items, multiplier.get(build)) ? 1f : 0f;
@@ -319,7 +345,7 @@ return build.consumeTriggerValid() || build.items.has(items, multiplier.get(buil
 
 ### 4.3 扣料是周期性的,不是每帧
 
-[:117](Mindustry-Source/core/src/mindustry/world/blocks/defense/OverdriveProjector.java#L117):
+[:117](../Mindustry-Source/core/src/mindustry/world/blocks/defense/OverdriveProjector.java#L117):
 
 ```java
 if(useProgress >= useTime){ consume(); useProgress %= useTime; }
@@ -336,13 +362,13 @@ if(useProgress >= useTime){ consume(); useProgress %= useTime; }
 | 物品容量 | 10(合计) |
 | 范围 | 200px = 25 格 |
 | 加速 | +150%(`speedBoost = 2.5f`) |
-| 接受投料 | ✅ `acceptsItems = true`(由 `ConsumeItems` 自动设置,[:25](Mindustry-Source/core/src/mindustry/world/consumers/ConsumeItems.java#L25)) |
+| 接受投料 | ✅ `acceptsItems = true`(由 `ConsumeItems` 自动设置,[:25](../Mindustry-Source/core/src/mindustry/world/consumers/ConsumeItems.java#L25)) |
 
 ---
 
 ## 5. `ulocate` 完整参数(源码 + 文档双核对)
 
-**9 个参数,顺序固定,导出时永远全部写出**([LStatements.java:1195](Mindustry-Source/core/src/mindustry/logic/LStatements.java#L1195),文档 L1331):
+**9 个参数,顺序固定,导出时永远全部写出**([LStatements.java:1195](../Mindustry-Source/core/src/mindustry/logic/LStatements.java#L1195),文档 L1331):
 
 ```
 ulocate <locate> <flag> <enemy> <ore> <outX> <outY> <outFound> <outBuild>
@@ -402,7 +428,7 @@ ulocate building storage 0 @copper 0 0 f st        # 找己方仓库
 
 我以为 `ucontrol move x y <半径>` 的第三个参数是半径,写出了 `ucontrol move core 8 0 0 0`。
 
-**实际上 `move` 不读第 3 个参数**([LExecutor.java:358](Mindustry-Source/core/src/mindustry/logic/LExecutor.java#L358),文档 L405):
+**实际上 `move` 不读第 3 个参数**([LExecutor.java:358](../Mindustry-Source/core/src/mindustry/logic/LExecutor.java#L358),文档 L405):
 
 ```java
 case move, stop, approach, pathfind -> {
@@ -441,7 +467,7 @@ case move, stop, approach, pathfind -> {
 | 小型建筑(1×1) | 45 + 4 = 49px ≈ **6.1 格** |
 
 **如果用 `approach` + 较大半径,单位停在半径外,可能够不到仓库。**
-而 `itemTake` 不满足 `within` 时**只是静默跳过、不报错**([LExecutor.java:539](Mindustry-Source/core/src/mindustry/logic/LExecutor.java#L539)),
+而 `itemTake` 不满足 `within` 时**只是静默跳过、不报错**([LExecutor.java:539](../Mindustry-Source/core/src/mindustry/logic/LExecutor.java#L539)),
 所以表现为"单位空手跑一趟"——极难排查。
 
 **→ 取货点一律用 `move`,飞到精确坐标,保证进范围。**
@@ -504,14 +530,14 @@ set myUnit @unit
 |---|---|---|
 | `op abs` / `op floor` 等"多写一个参数是错误" | **多出的 token 不参与执行,行为完全正常** | LParser 按各语句声明的参数个数读取 |
 | `@pingX` 返回 NaN,判 null 是死判断 | **NaN 在本环境统一返回 null**,判断有效 | Iliary 确认 |
-| 超速穹顶 `efficiency` 是部分效率,要算余量 | **只有 0/1**,有 ≥1 个就满效率 | [ConsumeItems.java:52](Mindustry-Source/core/src/mindustry/world/consumers/ConsumeItems.java#L52) |
+| 超速穹顶 `efficiency` 是部分效率,要算余量 | **只有 0/1**,有 ≥1 个就满效率 | [ConsumeItems.java:52](../Mindustry-Source/core/src/mindustry/world/consumers/ConsumeItems.java#L52) |
 | 单星辉跑不了 100 格 | **实测能跑**,我的前提就是错的 | Iliary 确认 |
-| 星辉能带 10 硅 + 10 相织布 | **单堆叠,只能带一种 10 个** | [UnitComp.java:267](Mindustry-Source/core/src/mindustry/entities/comp/UnitComp.java#L267) |
-| `ucontrol move` 第 3 参是半径 | **`move` 不读第 3 参**,只有 `approach` 读 | [LExecutor.java:362](Mindustry-Source/core/src/mindustry/logic/LExecutor.java#L362) |
+| 星辉能带 10 硅 + 10 相织布 | **单堆叠,只能带一种 10 个** | [UnitComp.java:267](../Mindustry-Source/core/src/mindustry/entities/comp/UnitComp.java#L267) |
+| `ucontrol move` 第 3 参是半径 | **`move` 不读第 3 参**,只有 `approach` 读 | [LExecutor.java:362](../Mindustry-Source/core/src/mindustry/logic/LExecutor.java#L362) |
 | `large-logic-display` → `logic1` | **永远取最后一段 → `display1`** | Iliary 确认 |
 | **`core` 是内置关键字** | **是变量,必须由 `ulocate` 第 8 参赋值** | 源码无 `core` 内置;`ulocate outBuild` 输出 |
 | `ulocate` 第 8 参可以填 `0` | **填 0 就丢掉了建筑引用**,后面没法取货/投料 | 同上 |
-| 归属检查写完就能控制单位 | **必须先 `ubind`**,否则 `@unit` 是 `null`,所有 `ucontrol` 静默无效 | [LExecutor.java:323](Mindustry-Source/core/src/mindustry/logic/LExecutor.java#L323) 要求 `exec.unit.obj() == unit` |
+| 归属检查写完就能控制单位 | **必须先 `ubind`**,否则 `@unit` 是 `null`,所有 `ucontrol` 静默无效 | [LExecutor.java:323](../Mindustry-Source/core/src/mindustry/logic/LExecutor.java#L323) 要求 `exec.unit.obj() == unit` |
 
 **共同教训**:我倾向于用"通用编程直觉 + 理论计算"去补我不知道的东西,然后当成结论。
 **以后遇到不确定的,要么翻源码,要么查 `Logic-Docs`,要么问,不要推算。**
@@ -535,7 +561,7 @@ ulocate building core 0 @copper cx cy found core
 ## 9. 排版与注释约定
 
 - **`print` 是 mlog 唯一的注释机制**(`#` 注释导入时被 `LParser` 清除)
-- **`print` 本身不输出**,只往缓冲区追加;必须 `printflush` 才显示([LExecutor.java:1054](Mindustry-Source/core/src/mindustry/logic/LExecutor.java#L1054) / [:1171](Mindustry-Source/core/src/mindustry/logic/LExecutor.java#L1171))
+- **`print` 本身不输出**,只往缓冲区追加;必须 `printflush` 才显示([LExecutor.java:1054](../Mindustry-Source/core/src/mindustry/logic/LExecutor.java#L1054) / [:1171](../Mindustry-Source/core/src/mindustry/logic/LExecutor.java#L1171))
 - **`printflush null`** = 丢弃缓冲区(目标不是消息块 → 不显示,但缓冲区被清空)
 - 所以:**要游戏内可见** → `print` + `printflush message1`;**只备忘** → 放 `end` 之后
 
@@ -545,7 +571,7 @@ ulocate building core 0 @copper cx cy found core
 
 ## 10. 附录 A:sensor 属性总表(源码 `LAccess.java` 全文)
 
-**这就是权威清单** —— [LAccess.java](Mindustry-Source/core/src/mindustry/logic/LAccess.java) 是 `sensor` 能读的全部属性。
+**这就是权威清单** —— [LAccess.java](../Mindustry-Source/core/src/mindustry/logic/LAccess.java) 是 `sensor` 能读的全部属性。
 `@名字` 就是枚举名原样(小驼峰),**所以 `@totalItems`、`@firstItem`、`@itemCapacity` 是准确的,不用猜。**
 
 ### 10.1 纯读取属性(`senseable`,无参数)
@@ -943,7 +969,7 @@ printflush message1
 - 版本:160.5
 - **内容页 URL 的 slug 带内容 ID**:`content/blocks/crafting/181-graphite-press/`
 - mkdocs 有搜索索引,**一次就能抓全**:`search/search_index.json`
-- 我写了 [tools/fetch_wiki_ids.py](tools/fetch_wiki_ids.py) 抓下来 → [tools/wiki_block_ids.json](tools/wiki_block_ids.json)
+- 我写了 [tools/fetch_wiki_ids.py](../tools/fetch_wiki_ids.py) 抓下来 → [tools/wiki_block_ids.json](tools/wiki_block_ids.json)
   **422 个方块,ID 1–446**
 
 关键 ID:
@@ -988,16 +1014,16 @@ printflush message1
 
 #### 完整链条(源码级)
 
-1. **ID 是构造顺序号** —— [Content.java:21](../../Mindustry-Source/core/src/mindustry/ctype/Content.java#L21)
+1. **ID 是构造顺序号** —— [Content.java:21](../Mindustry-Source/core/src/mindustry/ctype/Content.java#L21)
    ```java
    this.id = (short)Vars.content.getBy(getContentType()).size;
    ```
-2. **原版先构造,mod 后追加** —— [ContentLoader.java:57-81](../../Mindustry-Source/core/src/mindustry/core/ContentLoader.java#L57)
+2. **原版先构造,mod 后追加** —— [ContentLoader.java:57-81](../Mindustry-Source/core/src/mindustry/core/ContentLoader.java#L57)
    ```java
    public void createBaseContent(){ ... Blocks.load(); }   // ← 原版方块 ID 在此固定
    public void createModContent(){ mods.loadContent(); }   // ← mod 只能往后追加
    ```
-3. **游戏自检 ID 必须连续递增** —— [ContentLoader.java:86-93](../../Mindustry-Source/core/src/mindustry/core/ContentLoader.java#L86)
+3. **游戏自检 ID 必须连续递增** —— [ContentLoader.java:86-93](../Mindustry-Source/core/src/mindustry/core/ContentLoader.java#L86)
    ```java
    if(id != i) throw new IllegalArgumentException("Out-of-order IDs for content ...");
    ```
@@ -1008,9 +1034,9 @@ printflush message1
 
 #### 推导方法:数 `Blocks.load()` 里的构造顺序
 
-[Blocks.java](Mindustry-Source/core/src/mindustry/content/Blocks.java) 的 `load()` 里,
+[Blocks.java](../Mindustry-Source/core/src/mindustry/content/Blocks.java) 的 `load()` 里,
 每执行一次 `new XxxBlock("name")` 就占一个 ID。
-工具:[tools/block_ids_from_source.py](tools/block_ids_from_source.py)
+工具:[tools/block_ids_from_source.py](../tools/block_ids_from_source.py)
 
 **⚠️ 两个容易漏掉的坑(我踩了):**
 
@@ -1048,7 +1074,7 @@ printflush message1
 
 **双重验证结论:Stile 里存的是方块的「中心格」。**
 
-**① 源码** —— [Tile.java:255](../../Mindustry-Source/core/src/mindustry/world/Tile.java#L255)
+**① 源码** —— [Tile.java:255](../Mindustry-Source/core/src/mindustry/world/Tile.java#L255)
 
 ```java
 //set up multiblock
@@ -1058,7 +1084,7 @@ if(block.isMultiblock()){
     int worldx = dx + offset + x;            // 以 (x,y) 为中心铺开
 ```
 
-[Block.java:761](../../Mindustry-Source/core/src/mindustry/world/Block.java#L761) 同样:`sizeOffset = -((size - 1) / 2)`
+[Block.java:761](../Mindustry-Source/core/src/mindustry/world/Block.java#L761) 同样:`sizeOffset = -((size - 1) / 2)`
 
 **② 实证(决定性)** —— 拿 624 个真实蓝图,两种解释各算一遍方块重叠数:
 
@@ -1101,7 +1127,7 @@ if(block.isMultiblock()){
 | **官方 wiki** | `mindustrygame.github.io/wiki/` 内容页 slug 带 ID | `overdrive-dome` = 248 |
 
 **而且原版方块 ID 是"版本函数",与 mod 无关** —— 因为
-[ContentLoader](../../Mindustry-Source/core/src/mindustry/core/ContentLoader.java#L57) 先 `createBaseContent()`、
+[ContentLoader](../Mindustry-Source/core/src/mindustry/core/ContentLoader.java#L57) 先 `createBaseContent()`、
 后 `createModContent()`,且游戏自检 ID 必须连续递增,**mod 内容只能追加在原版之后**。
 
 ⚠️ **唯一残余风险是版本差异**:wiki 记的是 160.5,我的源码快照更新,你的游戏是 159.1。
@@ -1218,6 +1244,78 @@ L31 jump 0 always 0 false
 原因是 L25 是 `end`,且**全程序没有任何 jump 指向 26** ⇒ 这段尾码永远不执行
 (程序实际靠 `end` 重启去跑下半段)。
 **教训:给用户写逻辑要删掉 `end` 之后的残留。**
+
+### 15.12 ⭐ 指令预算:一条语句 = 一条指令,`jump` 不额外花钱
+
+**问题**:`jump` 占用 `@ipt` 吗?
+**答**:**占,而且和 `op` / `print` 完全一样,就是 1 条。** 但它**不额外花钱**。
+
+**机制(`LExecutor.runOnce()`,L111–121)**:
+
+```java
+public void runOnce(){
+    if(counter.numval >= instructions.length || counter.numval < 0) counter.numval = 0;
+    if(counter.numval < instructions.length){
+        counter.isobj = false;
+        instructions[(int)(counter.numval++)].run(this);   // ← 计数器无条件 +1,不看指令类型
+    }
+}
+```
+
+**`counter` 先自增再执行,跳转只是把 `counter` 写成了别的值。** 所以账很清楚:
+
+| 写法 | 消耗 |
+|---|---|
+| `op add a b c` | 1 条 |
+| `print x` | 1 条 |
+| **`jump 5 always 0 false`** | **1 条** |
+| `jump 0 lessThan i 80` | 1 条 |
+| **`jump` 走回头路再执行一次循环体** | **每次迭代再花循环体的语句数** |
+
+⇒ **决定预算的不是"语句种类",是"实际执行到了几条语句"。** 循环圈数才是成本,`jump` 本身不是。
+⇒ 写 `--cost` 时**按每条被执行的语句 +1** 就是对的,不用给 `jump` 加权。
+
+**每 tick 的预算怎么来的(`LogicBlock.java` L45 / L564–578)**:
+
+```java
+public int maxInstructionScale = 5;
+
+if(accumulator > maxInstructionScale * ipt) accumulator = maxInstructionScale * ipt;
+while(accumulator >= 1f){
+    executor.runOnce();
+    if(executor.yield){ executor.yield = false; break; }   // ← wait / stop 提前结束
+    accumulator --;
+}
+accumulator += edelta() * ipt;
+```
+
+| 处理器 | `instructionsPerTick` | 每秒额度 |
+|---|---|---|
+| 微型处理器 micro-processor | **2** | 120 条/s |
+| 逻辑处理器 logic-processor | **8** | 480 条/s |
+| 超级处理器 hyper-processor | **25** | 1500 条/s |
+| 世界处理器 world-processor | **8**(`maxInstructionsPerTick = 1000`) | 480 条/s,可用 `setrate` 拉满 |
+
+出处:`Blocks.java:6849`(micro)、`:6856`(logic)、`:6867`(hyper)、`:6954`+`:6958`(world);
+`LogicBlock.java:46`(默认 1)、`:48`(`maxInstructionsPerTick = 40`)。
+
+**三个容易漏的点**:
+
+**① 那个"跑不完"的后果正是 `--cost` 预测的东西。**
+微型处理器 2 条/tick ⇒ 一次决策 2000 条要 **1000 tick ≈ 16.7 秒**。这就是 159 行租约程序的病 → `--cost` 报 ~2001。
+
+**② 欠账会攒,但有上限。**
+`accumulator` 是浮点(tick 级,`edelta()` 是秒 × 60),落后时下一 tick 多跑,**封顶 `maxInstructionScale * ipt` = 5 ticks 的量**。所以启动时补一次,但别指望攒着追。
+
+**③ 只有 `wait` 和 `stop` 会提前让出这一 tick。**
+`yield = true` 会 `break` 掉 `while`,这一 tick 剩下的额度作废:
+`wait` 在自己的行上挂起(`WaitI`,`counter.numval--` 后 yield);`stop` 卡在自己那一行(`StopI`,同样 `counter.numval--` 再 yield);`printflush ... @wait` 等 HUD 空位时也是这个行为。
+⇒ **`jump` 没有这个机制**,所以 `jump 0 always` 会在**一个 tick 内**把额度烧光(每次都算 1 条)。
+
+**④ `setrate` 是唯一能改 ipt 的指令,也是唯一能超过方块默认值的办法。**
+`exec.build.ipt = Mathf.clamp(amount.numi(), 1, ((LogicBlock)exec.build.block).maxInstructionsPerTick)`(`LExecutor.java:2031-2034`)
+⇒ 微型处理器最高 **40 条/tick**(`LogicBlock.java:48`),世界处理器最高 **1000**。
+`@ipt` 立即变成新值,但**这一 tick 的循环边界早已固定**,下一个 tick 才生效。
 
 ---
 
@@ -1427,7 +1525,7 @@ F:\OneDrive\桌面\AtomicStates\mindustry-blueprint\                ← 开发�
 |---|---|
 | 第 1 次整理 | 建立本文件;收录链接名规则、null 传染、单堆叠容量、`move`/`approach` 取舍、`ulocate` 参数、单位归属片段、7 条被推翻的旧结论;补 `LAccess.java` 完整 sensor 总表 + `setprop` 合法清单(附录 A) |
 | 第 2 次整理 | **重大修正:`core` 不是内置关键字,是 `ulocate` 第 8 参输出的变量**(§1.2 / §5.1 / §8.1);补 `ulocate` 完整 9 参数表与距离规则(§5);补 `move`/`approach` 精确差异表与判定半径计算(§6);补 `uradar` 不刷新计时器(§6.5);补 `itemDrop`/`itemTake` 的完整传输条件与静默失败风险(§3)|
-| 第 3 次整理 | 通读 `Logic-Docs` 全部 86 个命令章节,建成**附录 B 全命令格式索引**(§13);新增脚本 [tools/build_cmd_index.py](tools/build_cmd_index.py) → [tools/cmd_index.json](tools/cmd_index.json);记录 `getblock` 与 `ucontrol getBlock` **参数顺序不同**的坑 |
+| 第 3 次整理 | 通读 `Logic-Docs` 全部 86 个命令章节,建成**附录 B 全命令格式索引**(§13);新增脚本 [tools/build_cmd_index.py](../tools/build_cmd_index.py) → [tools/cmd_index.json](tools/cmd_index.json);记录 `getblock` 与 `ucontrol getBlock` **参数顺序不同**的坑 |
 | 第 4 次整理 | **新增铁律 §0.5:控制单位前必须先 `ubind`**,否则 `@unit` 为 null、所有控制语句静默无效;归纳"mlog 没有隐式上下文"这条通用教训(要用什么先取什么);订正 `corea` 为笔误,正确是 `core` |
 | 第 5 次整理 | 新增工具 **[tools/mschgen.py](tools/mschgen.py) 蓝图生成器**(§14),429/429 逐字节往返验证通过;新增"生成代码前必查清单"(§14.1),把之前犯的 4 个错变成 4 条检查项 |
 | 第 6 次整理 | **新增铁律 §0.6:`tags[r.utf()] = r.utf()` 这种写法会把键值对调**(Python 先算右边)。这个 bug 让全部 625 个蓝图的 name/labels 读反,而往返自测完全抓不到(读写同错互相抵消)。修复后重新生成语料,恢复 403/430 个 labels。**教训:自洽的往返测试必须配真实文件地面真值比对。** 工具改为默认输出可直接粘贴的 base64 蓝图码(`-f code`,另有 `file`/`both`) |
@@ -1436,6 +1534,7 @@ F:\OneDrive\桌面\AtomicStates\mindustry-blueprint\                ← 开发�
 | 第 9 次整理 | 核实 **`plandustry` 是什么**(§15.4):已归档的 Rust 蓝图编辑器(print/edit),有完整方块库(含尺寸/造价)但**`registry.rs` 只有 `by_name` HashMap、零数字 ID** —— **从第二个独立实现反证"外部工具给不出 content ID"**;并指出 **mindus 的真正执行部分是 `lemu/` 子目录**。新增 §15.5:用 `lookup block` + `@name` **在游戏里一次性导出全部方块 ID 表**的现成代码 |
 | 第 10 次整理 | 抓到**官方 wiki 的完整方块 ID 表**(§15.6):`mindustrygame.github.io/wiki/` 的内容页 slug 带 ID,从 mkdocs 搜索索引一次抓全 → [tools/wiki_block_ids.json](tools/wiki_block_ids.json),422 个方块、ID 1–446,**`overdrive-dome` = 248**。同时确认该表**混入了 MindustryX 内容**(`world-cell` 等),故只对"同款环境"有效;MDT 中文 wiki([mdtwiki.top](https://mdtwiki.top/),v159.7)指向的 MindustryX 飞书文档**需登录抓不到**;MindustryX 源码([TinyLake/MindustryX](https://github.com/TinyLake/MindustryX))是 81 个补丁,`0046-UI-ARC-logic-Support` 经查是**编辑器 UI 增强、非语法扩展**。新增 **§15.7:编号体系不止一套**——`Content.id`=248 vs 建筑分类序号=#38,**别混用** |
 | 第 11 次整理 | **修正 §15.8「方块坐标是中心格」**:Iliary 实测抓出"穹顶与逻辑空一格"。双重验证 —— 源码 `Tile.setBlock()` 的 `offset = -(block.size-1)/2`;**624 个真实蓝图里按"角"解释产生 11 处重叠、按"中心"解释 0 处**。生成器 `bounds()` / `link_report()` 同步修正。**方法论:坐标语义这类约定,用全量语料做"哪种假设不产生矛盾"的统计验证最可靠。** |
-| 第 12 次整理 | **把工具+规范+数据打包成 DSH skill** `mindustry-blueprint/`(§17),统一 CLI `mlog.py`(parse/gen/check/id/cmd/selftest),`gen` 内置自验证(解析回来不一致就拒绝输出);**去掉全部硬编码路径**(schematics 目录自动发现);安装到**项目专有 skill 库 `.dsh/skills/`**(§17.4 记了各 agent 的路径表;`~/.dsh/skills` 是 junction,**写全局会随 profile 失效**);新增位置无关的 [tools/fix_skill_links.py](tools/fix_skill_links.py)(向上找 `Mindustry-Source` 定根,§17.5 —— 我按固定层数改了三轮才全对) |
+| 第 12 次整理 | **把工具+规范+数据打包成 DSH skill** `mindustry-blueprint/`(§17),统一 CLI `mlog.py`(parse/gen/check/id/cmd/selftest),`gen` 内置自验证(解析回来不一致就拒绝输出);**去掉全部硬编码路径**(schematics 目录自动发现);安装到**项目专有 skill 库 `.dsh/skills/`**(§17.4 记了各 agent 的路径表;`~/.dsh/skills` 是 junction,**写全局会随 profile 失效**);新增位置无关的 [tools/fix_skill_links.py](../tools/fix_skill_links.py)(向上找 `Mindustry-Source` 定根,§17.5 —— 我按固定层数改了三轮才全对) |
 | 第 13 次整理 | **新增 `check --cost` 成本分析**(§15.11):可达性(死代码)+ 循环圈数推定 + 最坏指令数与三档处理器耗时。实现中踩了 6 个坑,其中三个是**同一份代码连续三次算错**(78 → 643686 → 2001):只在回边乘圈数会让循环体只算 1 次;全局松弛会**重复计费嵌套循环**;**`float('inf')` 当哨兵会让比较静默返回 False、所有程序都报 1**。最终用"按 head 降序、内层先解、每循环只定价一次 + clamp 1000"解决。**实测校准**:另一 AI 的 159 行程序手算 ~2494 → 工具 2001;**批量 4151 个真实逻辑块 0 失败**;并用它审出我自己的 `out\无线超2.mlog` 有 6 条 `end` 之后的死代码(教训进 §16 与 SKILL 铁律 12) |
+| 第 15 次整理 | **答「`jump` 占不占 ipt」并落成 §15.12 指令预算**:`runOnce()` 里 `counter` **先自增再执行、不看指令类型**(`LExecutor.java:111-121`)⇒ **`jump` 和 `op`/`print` 一样就是 1 条,不额外花钱;真正的成本是"实际执行到几条语句"**(循环圈数才是钱)。补全每 tick 预算机制:`LogicBlock.java:45` `maxInstructionScale = 5`、`:564-578` 的 accumulator 循环与 **`yield` 提前 break**(只有 `wait`/`stop`/`printflush @wait` 有);四张卡 ipt 表(**微型 2 / 逻辑 8 / 超级 25 / 世界 8**,`Blocks.java:6849/6856/6867/6954`,世界卡 `maxInstructionsPerTick = 1000`);`setrate` 是唯一能改 ipt 的指令且上限是 `maxInstructionsPerTick`(逻辑卡 **40**,`LogicBlock.java:48`),**`@ipt` 立即变但本 tick 循环边界已固定** |
 | 第 14 次整理 | 评完那份 159 行「flag 位域租约」程序:**四路单位选择器是正确的**(我一度误判为死代码,根因是把跳转目标当成下一行执行)。真实缺陷:① `jump 28 always` 无条件回跳使 `end` 前的 `control enabled resetSwitch 0` 永不执行(复位开关卡死);② 缺 `@unit` 判空;③ 硬编码扫描上限 80 与"`ubind` 计数器按单位类型推进"语义不匹配;④ 每 10 秒全体同时换代;⑤ 每轮重复写 flag 使单位永不自然脱控。**用户结论:"工程上标准,但是不适合游戏"** —— 错不在工程化,而在**把通用协议当起点而非终点**。值得留的三个想法:让 `0` 天然表示空闲(ID 加 1)、用容器坐标派生模块 ID(不依赖 `@thisx/@thisy`)、租约容忍一代重叠 |
