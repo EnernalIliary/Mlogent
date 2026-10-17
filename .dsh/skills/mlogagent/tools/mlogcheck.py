@@ -182,6 +182,21 @@ def defs_of(c: str) -> list[str]:
         # `ucontrol getBlock x y scatter f 0` assigns both `scatter` and `f`.
         if p[1] == "getBlock" and len(p) >= 7:
             return [x for x in p[4:7] if x != "0"]
+    # Generic fallback: `defs` in the semantics table are ARG-relative indices
+    # (0 = first argument after the mnemonic). Any output slot not special-cased
+    # above still counts as a definition: `getblock block b ax+ ay` writes `b`,
+    # not `block` (layer is the first field, LStatements.java:1359-1398).
+    # Without this, `b` looked undeclared and every such program gained a
+    # phantom "typo" in the A layer.
+    spec = SPECS.get(op.lower())
+    if spec:
+        got = []
+        for idx in spec.get("defs", []):
+            j = idx + 1
+            if j < len(p) and p[j] not in ("0", "null"):
+                got.append(p[j])
+        if got:
+            return got
     return []
 
 
