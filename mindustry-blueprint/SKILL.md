@@ -18,6 +18,7 @@ whenToUse: 涉及 Mindustry 蓝图（.msch / 蓝图码）、mlog 逻辑编写或
 | **查方块 ID / 尺寸** | `mlog.py id [名称]` |
 | **查物品 ID / 解打包配置** | `mlog.py item [名称] [--unpack N]` |
 | **查指令格式** | `mlog.py cmd [关键字]` |
+| **查一条指令的读写位** —— 哪个参数是输出 | `mlog.py explain <指令> [子命令]` |
 | **回归自测** —— 429 个真实蓝图往返校验 | `mlog.py selftest` |
 
 工具在 `tools/` 下,零第三方依赖(纯标准库)。`python tools/mlog.py --help`。
@@ -143,6 +144,12 @@ python tools/mlog.py id overdrive
 
 # 查指令格式
 python tools/mlog.py cmd ulocate
+
+# 查一条指令到底哪个参数是输出(哪个是枚举、哪个会被读)
+python tools/mlog.py explain ulocate
+python tools/mlog.py explain ulocate ore     # 只看 ore 分支
+python tools/mlog.py explain select
+python tools/mlog.py explain op add
 ```
 
 ## ⚠️ 最容易搞错的一件事:方块坐标是「中心格」

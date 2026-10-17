@@ -15,6 +15,8 @@ Usage
   python mlog.py id     [name]                 # block content ids / sizes
   python mlog.py item   [name] [--unpack N]    # item content ids / packed configs
   python mlog.py cmd    [pattern]              # mlog instruction reference
+  python mlog.py explain <mnemonic> [sub]      # one instruction: syntax + which
+                                               #   positions are read / written
   python mlog.py selftest                      # round-trip every real blueprint
 
 Examples
@@ -29,6 +31,10 @@ Examples
   # check logic before generating
   python mlog.py check logic.mlog
   python mlog.py check --msch out.msch
+
+  # "which argument of this instruction is the output?"
+  python mlog.py explain ulocate
+  python mlog.py explain op add
 
 Notes
 -----
@@ -45,6 +51,7 @@ import json
 import os
 import re
 import sys
+import textwrap
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 if HERE not in sys.path:
@@ -472,6 +479,156 @@ def cmd_cmd(args) -> int:
 
 
 # --------------------------------------------------------------------------- #
+# explain -- syntax from cmd_index.json merged with semantics from LExecutor.java
+# --------------------------------------------------------------------------- #
+
+SEMANTICS = _load_json("instr_semantics.json")
+_INSTR = {k.lower(): (k, v)
+          for k, v in (SEMANTICS.get("instructions") or {}).items()}
+_DISAGREE = [d for d in ((SEMANTICS.get("docs_crosscheck") or {})
+                         .get("disagreements") or []) if isinstance(d, dict)]
+
+
+def _kv(label: str, text: str, indent: int = 13) -> None:
+    """`  label   : text`, wrapped so continuation lines stay aligned."""
+    print(textwrap.fill(str(text), width=94,
+                        initial_indent=f"  {label:<{indent}} ",
+                        subsequent_indent=" " * (indent + 4)))
+
+
+def _slots(idxs, params) -> str:
+    if not idxs:
+        return "-"
+    out = []
+    for i in idxs:
+        nm = params[i] if i < len(params) else f"arg{i}"
+        out.append(f"{i}={nm}")
+    return ", ".join(out)
+
+
+def _bullet(text: str, indent: int = 18) -> None:
+    print(textwrap.fill(str(text), width=94,
+                        initial_indent=" " * indent + "- ",
+                        subsequent_indent=" " * (indent + 2)))
+
+
+def _explain_ops(args) -> int:
+    meta = SEMANTICS.get("ops_meta") or {}
+    ops = SEMANTICS.get("ops") or {}
+    want = (args.sub or "").strip().lower()
+    for k, v in meta.items():
+        if k == "legacy_aliases":
+            _kv("aliases", ", ".join(f"{a} -> {b}" for a, b in v.items()))
+        else:
+            _kv(k, v)
+    print()
+    print(f"  {'op':<15}{'n':>2}  {'symbol':<9} what it does")
+    for name, spec in ops.items():
+        if want and want not in name.lower():
+            continue
+        print(f"  {name:<15}{spec.get('operands', '?'):>2}  "
+              f"{spec.get('symbol', ''):<9}")
+    if want and not any(want in n.lower() for n in ops):
+        print(f"  (no operator matching {args.sub!r})")
+        return 1
+    return 0
+
+
+def cmd_explain(args) -> int:
+    key = args.name.strip().lower()
+    if key in ("op", "ops"):
+        return _explain_ops(args)
+
+    hit = _INSTR.get(key)
+
+    def _mnemonic_of(c) -> str:
+        """First token of the documented format, lowercased.
+
+        Matching on the format rather than on the title matters, because some
+        titles begin with a *different* instruction: `ucontrol getBlock ...`
+        would otherwise be listed as documentation for `getblock`.
+        """
+        toks = (c.get("format") or "").strip().split()
+        return toks[0].lower() if toks else ""
+
+    docs = [c for c in CMD_INDEX if _mnemonic_of(c) == key]
+    if not docs:                       # some sections have no format line
+        docs = [c for c in CMD_INDEX
+                if (c.get("title") or "").strip().lower().startswith(key)]
+    if args.sub:
+        s = args.sub.lower()
+        docs = [c for c in docs if s in (c.get("title") or "").lower()
+                or s in (c.get("format") or "").lower()]
+    if hit is None and not docs:
+        print(f"unknown instruction {args.name!r}", file=sys.stderr)
+        print(f"  try: python mlog.py cmd {key}", file=sys.stderr)
+        return 1
+
+    print(f"=== {args.name}")
+    params: list = []
+    if hit:
+        canon, spec = hit
+        params = spec.get("params") or []
+        arity = spec.get("arity")
+        _kv("arity", f"{arity}   (statement indices run 1..{arity}; "
+                     f"index 0 is the mnemonic itself)")
+        _kv("text", " ".join([canon] + [f"<{p}>" for p in params]))
+        toks = spec.get("tokens") or {}
+        for i, p in enumerate(params):
+            tok = toks.get(str(i))
+            tail = f"    [fixed token: {tok}]" if tok else ""
+            print(f"  {'params' if i == 0 else '':<13} {i}  {p:<12}{tail}")
+        _kv("writes", _slots(spec.get("defs") or [], params))
+        _kv("reads", _slots(spec.get("uses") or [], params))
+        if spec.get("maybe_uses"):
+            _kv("maybe reads", _slots(spec["maybe_uses"], params))
+        if spec.get("defs_conditional"):
+            _kv("cond. writes", _slots(spec["defs_conditional"], params))
+        if spec.get("always_evaluated"):
+            _kv("always eval.",
+                "positions " + ", ".join(str(i) for i in
+                                         spec["always_evaluated"]))
+        if spec.get("note"):
+            _kv("semantics", spec["note"])
+
+        subs = spec.get("subcommands") or {}
+        if subs:
+            print(f"  {'subcommands':<13} {len(subs)}: {', '.join(subs)}")
+            for nm, s in subs.items():
+                if args.sub and args.sub.lower() != nm.lower():
+                    continue
+                print(f"  {'':<13} {nm:<10} reads {_slots(s.get('uses') or [], params)}"
+                      f"   writes {_slots(s.get('defs') or [], params)}")
+                if s.get("note"):
+                    print(textwrap.fill(s["note"], width=94,
+                                        initial_indent=" " * 16,
+                                        subsequent_indent=" " * 16))
+
+    for c in docs:
+        print(f"  {'docs':<13} {c.get('num', '?')}  {c.get('title', '')}"
+              f"   (cmd_index.json:{c.get('line', '?')})")
+        fmt = [l.strip() for l in (c.get("format") or "").split("\n") if l.strip()]
+        for n, line in enumerate(fmt):
+            print(f"  {'format' if n == 0 else '':<13} {line}")
+        for pname, pdesc in (c.get("params") or []):
+            print(textwrap.fill(f"{pname} : {pdesc}", width=94,
+                                initial_indent=" " * 18,
+                                subsequent_indent=" " * 22))
+        for note in (c.get("notes") or []):
+            _bullet(note)
+
+    for d in _DISAGREE:
+        if (d.get("instruction") or "").lower() != key:
+            continue
+        print(f"  {'!! DOCS WRONG':<13} the doc above is not what the game parses")
+        _kv("docs say", d.get("docs_format", "?"))
+        _kv("actually", d.get("source_order", "?"))
+        _kv("impact", d.get("impact", ""))
+        _kv("evidence", d.get("evidence", ""))
+    return 0
+
+
+# --------------------------------------------------------------------------- #
 
 def main() -> int:
     ap = argparse.ArgumentParser(
@@ -534,6 +691,12 @@ def main() -> int:
     p = sub.add_parser("cmd", help="mlog instruction reference")
     p.add_argument("pattern", nargs="?", help="substring filter")
     p.set_defaults(fn=cmd_cmd)
+
+    p = sub.add_parser("explain", help="one instruction: syntax + what it reads/writes")
+    p.add_argument("name", help="mnemonic, e.g. ulocate | op | select | getblock")
+    p.add_argument("sub", nargs="?",
+                   help="subcommand or operator filter, e.g. `explain ulocate ore`")
+    p.set_defaults(fn=cmd_explain)
 
     p = sub.add_parser("selftest", help="round-trip every blueprint in the game dir")
     p.set_defaults(fn=lambda a: _gen.selftest())

@@ -18,6 +18,7 @@ whenToUse: 涉及 Mindustry 蓝图（.msch / 蓝图码）、mlog 逻辑编写或
 | **查方块 ID / 尺寸** | `mlog.py id [名称]` |
 | **查物品 ID / 解打包配置** | `mlog.py item [名称] [--unpack N]` |
 | **查指令格式** | `mlog.py cmd [关键字]` |
+| **查一条指令的读写位** —— 哪个参数是输出 | `mlog.py explain <指令> [子命令]` |
 | **回归自测** —— 429 个真实蓝图往返校验 | `mlog.py selftest` |
 
 工具在 `tools/` 下,零第三方依赖(纯标准库)。`python tools/mlog.py --help`。
@@ -128,6 +129,7 @@ python tools/mlog.py check --msch out.msch --cost
 # 死存储:赋值了但整个程序(含跨周期)从未读取
 python tools/mlog.py ir logic.mlog
 python tools/mlog.py ir --msch out.msch
+python tools/mlog.py ir --all logic.mlog    # 连语法强制的输出槽一起列
 
 # 生成:只放处理器(链接目标需自己摆)
 python tools/mlog.py gen logic.mlog --name "我的逻辑" --link dome1@3,1
@@ -142,6 +144,12 @@ python tools/mlog.py id overdrive
 
 # 查指令格式
 python tools/mlog.py cmd ulocate
+
+# 查一条指令到底哪个参数是输出(哪个是枚举、哪个会被读)
+python tools/mlog.py explain ulocate
+python tools/mlog.py explain ulocate ore     # 只看 ore 分支
+python tools/mlog.py explain select
+python tools/mlog.py explain op add
 ```
 
 ## ⚠️ 最容易搞错的一件事:方块坐标是「中心格」
@@ -154,6 +162,23 @@ schematic 里 Stile 存的是方块的**中心格**,不是左上角。**已双�
 所以一个 3×3 方块,要让它的成品占据 `(3,1)–(5,3)`,**中心要写 `(4,2)`**。
 
 链接的 `name@dx,dy` 也要对到**方块覆盖范围内的任意格**(工具会按 footprint 校验并提示)。
+
+## `ir` 看什么、不看什么
+
+四层分级,默认只打第一层:
+
+| 层 | 含义 | 该不该管 |
+|---|---|---|
+| `reported` | 算出来的值被覆盖 / 从没人读 | **是 bug,去看** |
+| `slot` | `ulocate`/`ucontrol`/`radar`/`sensor` 的多输出槽没读 | 语法强制,不是错 |
+| `declaration` | `set x 字面量` 且没人读 | 作者的"声明",忽略 |
+| `annotation` | 变量名是纯标点(`//`) | mlog 没有行尾注释(只有 `#`),作者拿它当注释 |
+
+**校准(全语料 617 文件 / 2409 块,已排除模拟器蓝图)**:82.0% 的处理器**一条都不报**,p50=0、p90=1;均值 0.650/块是被约 20 个代码生成式蓝图拉高的。抽样 28 个站点人工核对,**全部为真**。
+
+**它不能证明你的逻辑是对的**:
+- 不跨处理器 —— 别的处理器用 `read x cell1 "名字"` 读它,这里看不见(实测全语料 0 例,但报了 `never-read` 仍要自己确认)
+- 只判"值有没有人用",不判"值算得对不对"(`op add dx dy dx` 想算距离却写加法,`ir` 不报)
 
 ## 参考数据
 
