@@ -53,7 +53,15 @@ KIND_VAR = "var"          # identifier the program owns
 KIND_BUILTIN = "builtin"  # @something
 KIND_WORD = "word"        # bare keyword-ish token (operator name, sub-command)
 
-_NUM_RE = re.compile(r"^[+-]?(\d+\.?\d*|\.\d+)([eE][+-]?\d+)?$")
+# LAssembler.var() turns every one of these into a constant, never a variable:
+# decimal/float, 0x hex, 0b binary (all with optional sign), and the %rrggbb /
+# %[name] colour literals. See LAssembler.parseDouble().
+_NUM_RE = re.compile(
+    r"^[+-]?(?:"
+    r"(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?"
+    r"|0[xX][0-9a-fA-F]+"
+    r"|0[bB][01]+"
+    r")$|^%[0-9a-fA-F]{6}(?:[0-9a-fA-F]{2})?$|^%\[[A-Za-z]+\]$")
 
 
 @dataclass(frozen=True)
@@ -358,6 +366,13 @@ def build_stmt(index: int, line_no: int, raw: str, table: dict) -> Stmt:
             uses_idx |= {int(i) for i in v if int(i) < len(args)}
     uses_idx |= blind
 
+    # `jump T always x false` is the shape emitted by generators and dispatch
+    # tables: arity is padded to four tokens for every jump, and `always` reads
+    # neither operand. Counting them as reads invents undefined variables named
+    # `x`/`false` in hundreds of blocks.
+    if mnemonic == "jump" and len(args) >= 2 and args[1].text == "always":
+        uses_idx = set()
+
     for i in kw:
         defs_idx.discard(i)
         uses_idx.discard(i)
@@ -415,6 +430,13 @@ class Program:
             tgt = s.jump_target()
             if tgt is not None and 0 <= tgt < n:
                 out.append(tgt)
+            elif tgt is not None and tgt < 0:
+                # `jump -1 always` is the idiomatic way of DISABLING a jump:
+                # JumpI.run() is guarded by `if(address != -1)`, so a negative
+                # address does nothing and control falls through. Treating it as
+                # a terminator reported the whole rest of the program as dead
+                # (坦克大战.msch: 182 of 190 statements).
+                return [i + 1] if i + 1 < n else []
             cond = s.arg_text(1).lower()
             if cond != "always" and i + 1 < n:
                 out.append(i + 1)
@@ -437,6 +459,17 @@ class Program:
     def dead(self) -> list[int]:
         live = self.reachable()
         return [i for i in range(len(self.stmts)) if i not in live]
+
+    def writes_counter(self) -> bool:
+        """True if the program computes its own control flow via `@counter`.
+
+        `op add @counter @counter id` is a dispatch table: the next statement is
+        whatever the id-th line is, so static reachability is meaningless and
+        `dead()` reports the whole table as unreachable. Real example in the
+        wild: 388 consecutive `jump T always x false` lines indexed by a block
+        content id (质驱T4 大超.msch), of which 584 statements looked dead.
+        """
+        return any("@counter" in s.defs for s in self.stmts)
 
     def def_use_map(self) -> dict[str, list[tuple[int, str]]]:
         """variable -> [(stmt index, 'def'|'use'), ...] in program order."""

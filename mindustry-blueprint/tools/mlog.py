@@ -376,15 +376,19 @@ def _ir_report(label: str, lines: list[str], show_all: bool = False) -> int:
         ops[s.mnemonic] = ops.get(s.mnemonic, 0) + 1
 
     print(f"=== {label}")
+    printed_dead = [] if prog.writes_counter() else dead
     print(f"  statements      : {len(prog)}"
-          + (f"   ({len(dead)} unreachable)" if dead else ""))
+          + (f"   ({len(printed_dead)} unreachable)" if printed_dead else ""))
     print("  unknown         : "
           + (", ".join(sorted(prog.unknown_mnemonics)) or "none"))
     print(f"  variables       : {len(reads)} read, {len(writes)} written")
-    if dead:
-        print(f"  UNREACHABLE     : {len(dead)} statement(s) can never run: "
-              + ", ".join(f"L{prog.stmts[i].line}" for i in dead[:12])
-              + (" ..." if len(dead) > 12 else ""))
+    if printed_dead:
+        print(f"  UNREACHABLE     : {len(printed_dead)} statement(s) can never run: "
+              + ", ".join(f"L{prog.stmts[i].line}" for i in printed_dead[:12])
+              + (" ..." if len(printed_dead) > 12 else ""))
+    elif dead and prog.writes_counter():
+        print("  UNREACHABLE     : not reported -- this program writes @counter "
+              "(dispatch table), so static reachability is meaningless")
     if shown:
         print(f"  DEAD STORES     : {len(shown)} worth a look:")
         for i, v, kind, _tier in shown[:20]:

@@ -166,6 +166,25 @@ def defs_of(c: str) -> list[str]:
 
 QUOTED = re.compile(r'"[^"]*"')
 
+# Everything LAssembler.var() turns into a constant instead of a variable:
+#   parseDouble() handles 0x / 0b (and their +/- forms) and %rrggbb / %[name]
+#   colour literals before falling back to Strings.parseDouble, which accepts
+#   ordinary float syntax (1e5, .5, +3). A token that parses as a number is
+#   never a variable read -- treating it as one produced hard errors on
+#   `write 0x00003008 bank1 5` in a real blueprint pack.
+_NUMERIC = re.compile(
+    r"^(?:"
+    r"[+-]?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?"
+    r"|[+-]?0[xX][0-9a-fA-F]+"
+    r"|[+-]?0[bB][01]+"
+    r"|%[0-9a-fA-F]{6}(?:[0-9a-fA-F]{2})?"
+    r"|%\[[A-Za-z]+\]"
+    r")$")
+
+
+def is_number(t: str) -> bool:
+    return bool(_NUMERIC.match(t))
+
 
 def tokenize(line: str) -> list[str]:
     """Split into tokens, keeping a quoted string as ONE token."""
@@ -197,7 +216,7 @@ def _vars(tokens) -> list[str]:
     for t in tokens:
         if not t:
             continue
-        if t == "0" or t in KEYWORDS or BUILTIN.match(t):
+        if is_number(t) or t in KEYWORDS or BUILTIN.match(t):
             continue
         if t.startswith('"'):                     # string literal
             continue
