@@ -62,9 +62,14 @@ OP_BINARY = {"add", "sub", "mul", "div", "idiv", "mod", "emod", "pow",
              "shl", "shr", "ushr", "or", "and", "xor",
              "max", "min", "angle", "angleDiff", "len", "noise", "logn"}
 
-# built-in / magic symbols that are always in scope
+# built-in / magic symbols that are always in scope.
+# NOTE: `true` / `false` are deliberately NOT here. `LAssembler.var()` only
+# makes a constant out of a quoted string or something `parseDouble` accepts;
+# "true" is neither, so it becomes an ordinary variable (`putVar("true")`) that
+# nobody ever assigns -- i.e. 0. `jump 34 equal aat true` is `aat == 0`, and the
+# in-game editor shows it as an undeclared name.
 BUILTIN = re.compile(
-    r"^(@|_|null$|true$|false$|-?\d+(\.\d+)?$|\"[^\"]*\"$|%[0-9a-fA-F]+$)")
+    r"^(@|_|null$|-?\d+(\.\d+)?$|\"[^\"]*\"$|%[0-9a-fA-F]+$)")
 
 # reserved words that appear in operand positions but are NOT variables
 KEYWORDS = {
@@ -345,6 +350,37 @@ def _surplus_names(c: str) -> set[str]:
             if not is_number(t) and not QUOTED.match(t) and t not in ("0", "null")}
 
 
+# Parameters the game reads as a BOOLEAN (`p1.bool()`). An unset name there is
+# 0, i.e. always false -- a constant, not a missing value. `ucontrol payTake`
+# is the classic case: it only ever takes "pick up units?" as a boolean, so
+# `ucontrol payTake upt ...` with `upt` never assigned just means "always
+# buildings". Values are indices into the tokenised statement.
+_BOOL_PARAM: dict[tuple[str, str], int] = {
+    ("ucontrol", "paytake"): 2,
+    ("ucontrol", "boost"): 2,
+    ("control", "enabled"): 3,
+    ("status", ""): 1,
+    ("setflag", ""): 2,
+    ("spawnwave", ""): 3,
+}
+
+
+def _bool_slot(p: list[str]) -> int | None:
+    """Index of this statement's boolean parameter, if it has one."""
+    if not p:
+        return None
+    mnem = p[0].lower()
+    if mnem == "ulocate":
+        # `ulocate building <group> <enemy> <ore> ...` -- the enemy flag is the
+        # 3rd argument. `ore`/`spawn`/`damaged` forms have no boolean.
+        return 3 if len(p) > 1 and p[1].lower() == "building" else None
+    sub = p[1].lower() if len(p) > 1 else ""
+    for key in ((mnem, sub), (mnem, "")):
+        if key in _BOOL_PARAM:
+            return _BOOL_PARAM[key]
+    return None
+
+
 def _comment_stmt(c: str) -> bool:
     """True for `set <punctuation-name> <prose>` -- mlog's de-facto comment.
 
@@ -583,6 +619,22 @@ def analyse(lines: list[str], links: list[str] | None = None) -> list[Finding]:
                         f"has no such link (it has: {', '.join(sorted(link_vars)) or 'none'})"))
                 continue
             kinds = use_kinds.get(v, set())
+            if v in ("true", "false"):
+                out.append(Finding(
+                    "WARN", orig + 1, c,
+                    f"`{v}` is not a keyword in mlog -- `LAssembler.var()` makes "
+                    f"a constant only from numbers and quoted strings, so this "
+                    f"is an ordinary variable nobody assigns: it is 0. "
+                    f"Use 1/0 instead"))
+                continue
+            bslot = _bool_slot(p)
+            if bslot is not None and len(p) > bslot and p[bslot] == v:
+                out.append(Finding(
+                    "WARN", orig + 1, c,
+                    f"`{v}` is never assigned, and this parameter is read as a "
+                    f"boolean -- so it is constantly 0 (false). Harmless if "
+                    f"that is the intent; a typo of `true`/`false` lands here"))
+                continue
             if v in surplus:
                 out.append(Finding(
                     "WARN", orig + 1, c,

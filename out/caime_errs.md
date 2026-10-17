@@ -6,26 +6,26 @@
 
 | 层 | 含义 | 条数 |
 |---|---|---:|
-| **A 真错** | 名字被读的地方,值真的改变行为 | **81** |
-| B 恒真守卫 | `jump` 两侧都是常量 ⇒ 分支固定,常是署名 | 51 |
+| **A 真错** | 名字被读的地方,值真的改变行为 | **77** |
+| B 恒真守卫 | `jump` 两侧都是常量 ⇒ 分支固定,常是署名 | 55 |
 | C 无效参数 | 名字落在指令读不到的参数位上 | 944 |
 | D 死引用 | 形如链接名,但这块处理器没有这个链接 | 788 |
-| E 署名 | 只为出现在变量列表里 | 5540 |
+| E 真假字面量 | 把 `true`/`false` 当关键字用,实际是未赋值变量 = 0 | 653 |
+| F 署名 | 只为出现在变量列表里 | 5549 |
 
-A 和 D 需要改;B/C/E 都是这个社区的写作习惯,不是错误。
+A、D、E 需要改;B/C/F 是这个社区的写作习惯,不是错误。
 D 的危险在于它**看起来**是有效引用:`control shootp scatter1` 不会报错,
 `LExecutor` 的 `validLink` 直接把它挡掉,塔一发不发。
 
 ## A 真错 —— 按变量
 
-### 共 81 条 / 22 个名字
+### 共 77 条 / 20 个名字
 
 | 次数 | 变量 | 被哪种语句读 | 为什么是错 |
 |---:|---|---|---|
 | 42 | `max` | `jump`×30, `set`×12 | 想要无穷大/极值,实际拿到 0 |
 | 7 | `unit3.distance` | `ucontrol`×7 | 控制/定位参数写成变量名 ⇒ 退化成默认值 |
 | 4 | `x` | `write`×2, `set`×2 | 未赋值就被用 |
-| 3 | `flase` | `ulocate`×3 | `false` 拼错 ⇒ 参数变成 0 |
 | 2 | `0:` | `set`×2 | 未赋值就被用 |
 | 2 | `a` | `op`×2 | 算术里静默当 0 |
 | 2 | `itemName` | `control`×2 | 指向不存在的方块 ⇒ 指令无效果 |
@@ -43,7 +43,6 @@ D 的危险在于它**看起来**是有效引用:`control shootp scatter1` 不�
 | 1 | `size` | `op`×1 | 算术里静默当 0 |
 | 1 | `t` | `ucontrol`×1 | 控制/定位参数写成变量名 ⇒ 退化成默认值 |
 | 1 | `ucontrol` | `ucontrol`×1 | 控制/定位参数写成变量名 ⇒ 退化成默认值 |
-| 1 | `upt` | `ucontrol`×1 | 控制/定位参数写成变量名 ⇒ 退化成默认值 |
 
 ## A 真错 —— 按语句形态
 
@@ -55,7 +54,6 @@ D 的危险在于它**看起来**是有效引用:`control shootp scatter1` 不�
 | 6 | `jump N greaterThanEq now max` | 控制流:比较对象恒为 0/null ⇒ 分支恒真或恒假 |
 | 6 | `jump N equal now max` | 控制流:比较对象恒为 0/null ⇒ 分支恒真或恒假 |
 | 6 | `jump N greaterThanEq i max` | 控制流:比较对象恒为 0/null ⇒ 分支恒真或恒假 |
-| 3 | `ulocate building core flase @copper outx outy found building` | 目标:定位参数无效 |
 | 2 | `control config pad itemName N N N` | 目标:指向的方块名/参数不存在 ⇒ 指令无效果 |
 | 2 | `op mod n n padNeedCount` | 算术:操作数静默当 0 |
 | 2 | `control config unloaderN mmm N N N` | 目标:指向的方块名/参数不存在 ⇒ 指令无效果 |
@@ -69,6 +67,7 @@ D 的危险在于它**看起来**是有效引用:`control shootp scatter1` 不�
 | 1 | `op mod map.x point N` | 算术:操作数静默当 0 |
 | 1 | `op idiv map.y point N` | 算术:操作数静默当 0 |
 | 1 | `op add d dtc size` | 算术:操作数静默当 0 |
+| 1 | `ucontrol within x t ctrlr ctrlmod N` | 目标:控制参数无效 |
 
 ## B 恒真守卫 —— 按变量
 
@@ -79,6 +78,7 @@ D 的危险在于它**看起来**是有效引用:`control shootp scatter1` 不�
 | 16 | `colour` | `jump`×16 | 改写成 `always`,或那是署名 |
 | 16 | `ender` | `jump`×16 | 改写成 `always`,或那是署名 |
 | 6 | `padNeedCount` | `jump`×6 | 改写成 `always`,或那是署名 |
+| 3 | `flase` | `ulocate`×3 | 改写成 `always`,或那是署名 |
 | 3 | `resourceTB` | `jump`×3 | 改写成 `always`,或那是署名 |
 | 3 | `x` | `jump`×3 | 改写成 `always`,或那是署名 |
 | 1 | `coalx` | `jump`×1 | 改写成 `always`,或那是署名 |
@@ -87,6 +87,7 @@ D 的危险在于它**看起来**是有效引用:`control shootp scatter1` 不�
 | 1 | `out` | `jump`×1 | 改写成 `always`,或那是署名 |
 | 1 | `selectedItem` | `jump`×1 | 改写成 `always`,或那是署名 |
 | 1 | `t` | `jump`×1 | 改写成 `always`,或那是署名 |
+| 1 | `upt` | `ucontrol`×1 | 改写成 `always`,或那是署名 |
 | 1 | `y` | `jump`×1 | 改写成 `always`,或那是署名 |
 
 ## C 无效参数 —— 按变量
@@ -166,7 +167,16 @@ D 的危险在于它**看起来**是有效引用:`control shootp scatter1` 不�
 | 3 | `generator3` | `sensor`×2, `control`×1 | `control`/`printflush`/`sensor` 用到时静默无效 |
 | 3 | `hail1` | `sensor`×2, `control`×1 | `control`/`printflush`/`sensor` 用到时静默无效 |
 
-## E 署名 —— 出现最多的名字
+## E 真假字面量 —— 引用了 `true` / `false`
+
+### mlog 没有布尔关键字,这两个名字等于未赋值变量 0
+
+| 次数 | 变量 | 被哪种语句读 | 判读 |
+|---:|---|---|---|
+| 463 | `false` | `jump`×333, `ulocate`×80, `op`×30, `set`×12 | 写 1 / 0,或先用 `set` 赋值 |
+| 190 | `true` | `jump`×86, `ulocate`×47, `set`×28, `ucontrol`×12 | 写 1 / 0,或先用 `set` 赋值 |
+
+## F 署名 —— 出现最多的名字
 
 ### 只为在编辑器变量列表里留名
 
@@ -222,18 +232,6 @@ D 的危险在于它**看起来**是有效引用:`control shootp scatter1` 不�
 |---:|---|---|---|
 | 53 | hyper-processor @(5,2) | `set i 0:` | `0:` 未赋值 |
 | 528 | hyper-processor @(5,2) | `set i 0:` | `0:` 未赋值 |
-
-### 45氧化 小超.msch
-
-| 行 | 块 | 语句 | 说明 |
-|---:|---|---|---|
-| 26 | micro-processor @(11,10) | `ulocate building core flase @copper outx outy found building` | `flase` 未赋值 |
-
-### 87钍电 质驱 大超.msch
-
-| 行 | 块 | 语句 | 说明 |
-|---:|---|---|---|
-| 26 | micro-processor @(20,17) | `ulocate building core flase @copper outx outy found building` | `flase` 未赋值 |
 
 ### fly bird高级版.msch
 
@@ -375,24 +373,12 @@ D 的危险在于它**看起来**是有效引用:`control shootp scatter1` 不�
 |---:|---|---|---|
 | 1 | micro-processor @(4,0) | `control config Carrot 0914 0 0 0` | `Carrot` 未赋值 |
 
-### 核心双T5.msch
-
-| 行 | 块 | 语句 | 说明 |
-|---:|---|---|---|
-| 69 | micro-processor @(8,6) | `ucontrol payTake upt yaddrx2 yaddrx2 yaddrx2 yaddrx2` | `upt` 未赋值 |
-
 ### 死星自动进攻.msch
 
 | 行 | 块 | 语句 | 说明 |
 |---:|---|---|---|
 | 12 | hyper-processor @(1,1) | `ucontrol within bx by 60 aat 0` | `bx` 未赋值 |
 | 12 | hyper-processor @(1,1) | `ucontrol within bx by 60 aat 0` | `by` 未赋值 |
-
-### 水45氧化 小超.msch
-
-| 行 | 块 | 语句 | 说明 |
-|---:|---|---|---|
-| 26 | micro-processor @(15,10) | `ulocate building core flase @copper outx outy found building` | `flase` 未赋值 |
 
 ### 通用自动进攻寻路版 大.msch
 
