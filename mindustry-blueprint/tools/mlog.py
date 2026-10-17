@@ -213,9 +213,7 @@ def _report(label: str, findings: list) -> int:
 
 def _cost(lines: list[str], links: list[str] | None = None) -> None:
     """Print the reachability / loop-bound / instruction-cost summary."""
-    stmts = [(i, _check.strip_comment(l)) for i, l in enumerate(lines)
-             if _check.strip_comment(l)]
-    print(_check.cost_report(stmts, links))
+    print(_check.cost_report(_check.prepare(lines), links))
     print()
 
 

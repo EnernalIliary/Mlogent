@@ -1378,6 +1378,66 @@ accumulator += edelta() * ipt;
 
 ---
 
+## 15.14 `wait` 的节拍成本:一条 ipt 都不烧,却常常是节拍本身
+
+### 为什么必须单独算
+
+`--cost` 只数"执行到几条语句"。但 `wait` 在 `WaitI.run()` 里把 `counter` **减 1** 再 yield,
+所以它连一条 ipt 都不花,却在整整 N 个 tick 里一个字都不执行。一个循环是
+`op + op + wait 0.5` 还是 `op + op + wait 0`,指令数完全一样,实际周期差 30 倍。
+只报指令数,等于把最贵的那个参数藏起来了。
+
+### 源码事实(`LExecutor.java`)
+
+```java
+// :1219-1233  WaitI.run()
+if(value.num() <= 0){ exec.yield = true; curTime = 0f; }
+else if(curTime >= value.num()){ curTime = 0f; }
+else { exec.counter.numval--; exec.yield = true; curTime += Time.delta / 60f; }
+```
+
+- **参数单位是"秒"**,每 tick 累加 `Time.delta/60f` ⇒ **60 tick = 1 秒**,`wait 0.5` = 30 tick。
+- **`wait 0` 或负数不阻塞**,只是 yield 一次(让出本 tick 剩余额度,下一 tick 从自己重跑)。
+  所以 `wait 0` 的真实作用是"每 tick 只跑一遍循环",不是"睡 0 秒"。
+- `StopI`(`:1236-1245`)同样 `counter.numval--; yield = true; stop = true;`。
+- `printflush` 的**旧写法**`printflush <变量名> @wait` 也会 `counter--; yield`(`:1916-1919`),
+  等价于 `wait 0`;用 `message` 传 `@wait` 才是"刷完就停"。
+
+### 三个把数字算错的坑(都已修,`mlogcheck.py`)
+
+| 坑 | 症状 | 修法 |
+|---|---|---|
+| 标签行当语句 | 所有 `main:` 风格循环报 `L0(?)` = 无上界 | `prepare()` 先摘掉标签行、把 `jump 标签` 换成索引(标签不占槽,§15.13 已证) |
+| 内层常量外泄 | 外层 `i<3` 里套内层 `j<10`,外层被报成 ×10 | `find_loop_bounds` **优先用回边自身的条件**,取到就不再扫循环体 |
+| 循环被自己的出口路径乘了一遍 | `_wait1`(4 次循环、每次 3 条)报 113 条;内层循环在外层里只算一遍 | ①出口候选算进 `cnt` **之前**先取 `body`;②进入内层循环头时直接加 `loop_cost[inner]`;③最后一遍扫描**不再走回边**(循环已被计价过) |
+
+修完后与手算对齐:`_wait1` **16**(手算 16)、`_wait2` **77**(手算 74,多的 3 是出口那一步的保守加一)。
+改之前这两个数分别是 **113** 和 **1241** —— 也就是说旧模型能把一个 16 条的程序说成 113 条。
+
+### 输出长什么样
+
+```
+  worst-case path : ~16 instructions per full cycle (approximate)
+      micro-processor  @ipt=2        248 ticks (    4.1 s) per cycle
+      logic-processor  @ipt=8        242 ticks (    4.0 s) per cycle
+      hyper-processor  @ipt=25       241 ticks (    4.0 s) per cycle
+  ⏸ blocking      : 2 wait statement(s), ~240 ticks (4.0 s) blocked per cycle, added above
+      L3: wait -> ~120 ticks
+      L5: wait -> ~120 ticks
+```
+
+`blocked` 已经加进三种处理器的 tick 数里;每条 `wait` 的 tick 数**乘上了包含它的所有循环上界**
+(`wait 0.5` 在 4 次循环里 = 30×4 = 120)。参数不是字面量时报 `UNBOUNDED`,不编数字。
+
+### 边界
+
+- 仍然 **approximate**:分支按最坏路径取,max 而非期望值;`min(bound*body, 1000)` 会截断超大循环
+  (遇到 `~1001` 就是"被截断了,真实值 ≥1001")。
+- 循环上界只认**常量比较**(`lessThan i 10`),`while(@links 变化)` 这种没有上界的按"一趟"算。
+- `wait` 与 `@wait` 语义不同,别混:`wait 0` 是"每 tick 一遍",不是"无限等"。
+
+---
+
 ## 16. ⚠️ 我写错的逻辑清单(生成前对照)
 
 这一节记录**实际被抓到的逻辑错误**,不是猜测。
@@ -1598,3 +1658,4 @@ F:\OneDrive\桌面\AtomicStates\mindustry-blueprint\                ← 开发�
 | 第 15 次整理 | **答「`jump` 占不占 ipt」并落成 §15.12 指令预算**:`runOnce()` 里 `counter` **先自增再执行、不看指令类型**(`LExecutor.java:111-121`)⇒ **`jump` 和 `op`/`print` 一样就是 1 条,不额外花钱;真正的成本是"实际执行到几条语句"**(循环圈数才是钱)。补全每 tick 预算机制:`LogicBlock.java:45` `maxInstructionScale = 5`、`:564-578` 的 accumulator 循环与 **`yield` 提前 break**(只有 `wait`/`stop`/`printflush @wait` 有);四张卡 ipt 表(**微型 2 / 逻辑 8 / 超级 25 / 世界 8**,`Blocks.java:6849/6856/6867/6954`,世界卡 `maxInstructionsPerTick = 1000`);`setrate` 是唯一能改 ipt 的指令且上限是 `maxInstructionsPerTick`(逻辑卡 **40**,`LogicBlock.java:48`),**`@ipt` 立即变但本 tick 循环边界已固定** |
 | 第 14 次整理 | 评完那份 159 行「flag 位域租约」程序:**四路单位选择器是正确的**(我一度误判为死代码,根因是把跳转目标当成下一行执行)。真实缺陷:① `jump 28 always` 无条件回跳使 `end` 前的 `control enabled resetSwitch 0` 永不执行(复位开关卡死);② 缺 `@unit` 判空;③ 硬编码扫描上限 80 与"`ubind` 计数器按单位类型推进"语义不匹配;④ 每 10 秒全体同时换代;⑤ 每轮重复写 flag 使单位永不自然脱控。**用户结论:"工程上标准,但是不适合游戏"** —— 错不在工程化,而在**把通用协议当起点而非终点**。值得留的三个想法:让 `0` 天然表示空闲(ID 加 1)、用容器坐标派生模块 ID(不依赖 `@thisx/@thisy`)、租约容忍一代重叠 |
 | 第 16 次整理 | **死存储分析落地 `mlog.py ir`**(§15.13):CFG + 后向活跃变量不动点,`end` 的回边让"跨周期写读"自动判活。四层分级(`reported`/`slot`/`declaration`/`annotation`)。**三条语言事实**:`//` 不是注释(`#` 才是,`LParser.java:98-99`)⇒ 那些是**真死存储**;跳转标签**不占指令槽**(`LParser.java:117-125` 记的是"已解析语句数");`@counter` 必须排除(否则 18266 条假阳性)。**实测 626 个 `.msch`**:排除 8 个模拟器蓝图(3365 块)后,真实 617 文件 / 2409 块,`reported 1566 = 0.650/块`,但 **p50=0、p90=1、82.0% 的块一条都不报**,均值被约 20 个代码生成式蓝图拉高 ⇒ **"干净块占比"才是可用性指标,均值不是**。抽样 28 个站点**逐条人工核对全部为真**(半交换写反 / 跳转落点错 / 连写两次 / 守卫递减无人读 / 全角 `cy！` 打错字 / 重算前没 `draw`)。**方法论:先量误报再谈可用;分层比压噪声有效。** |
+| 第 17 次整理 | **`--cost` 接上 `wait` 的节拍成本 + 修掉循环计价的三处系统性错误**(§15.14)。`wait` 在 `WaitI.run()` 里 `counter--` 再 yield,**一条 ipt 都不烧**,却常常是真实周期的全部 —— 只报指令数等于把最贵的参数藏起来。源码定案:`wait` 参数是**秒**(`curTime += Time.delta/60f` ⇒ 60 tick = 1 秒),`wait 0` 不阻塞、只是"每 tick 跑一遍"。顺带发现旧模型严重高估:`_wait1`(4 次循环 × 3 条)报 **113**(真值 16)、`_wait2` 报 **1241**(真值 74)。三处根因:①出口候选先写回 `cnt` 再取循环体长度 ⇒ **循环被自己的出口路径乘一遍**(4×3 变 4×14);②外层循环只按"内层跑一遍"算;③到底后再走一遍回边 ⇒ 循环二次计费。修法:先取 `body` 再算出口、进内层头时直接加 `loop_cost[inner]`、末轮不再走回边;`find_loop_bounds` 改为**优先用回边自身条件**(内层常量原本会外泄,外层 ×3 被报成 ×10)。修后与手算对齐 **16 / 77**。另修 `strip_comment` 的 BOM(`\ufeffset` 认不出助记符)。**方法论:一个"近似"数字也要能对上两个手算样例,否则它只是看起来像数字。** |

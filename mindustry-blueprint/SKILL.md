@@ -67,6 +67,8 @@ loop heads      : L28(×80), L52(×80)       ← 循环起始行 + 推定圈数
 worst-case path : ~2001 instructions       ← 一次完整决策最坏多少条
     ⚠ over LExecutor.maxInstructions (1000/tick): one cycle needs 2.0 ticks
     micro-processor  @ipt=2    1000 ticks (  16.7 s) per cycle
+  ⏸ blocking      : 2 wait statement(s), ~240 ticks (4.0 s) blocked per cycle
+      L3: wait -> ~120 ticks
 ```
 
 **怎么用这三个数**:
@@ -76,12 +78,17 @@ worst-case path : ~2001 instructions       ← 一次完整决策最坏多少条
 | **UNREACHABLE 非空** | 有死代码。多半是 `end` 之后写了东西,或跳转目标写错 |
 | **worst-case > 1000** | 一个决策周期跑不完一 tick,单位响应会有对应延迟 |
 | **@ipt 换算的秒数** | 直接回答"这套逻辑跟得上战况吗" |
+| **⏸ blocking 那行** | `wait` 一条 ipt 都不烧,但周期时间几乎全在这里 |
 
 **注意**:
 
 - 循环圈数靠**守卫里的常量**推定(`jump 37 greaterThanEq index 80`)。看不到常量的循环按一圈算并给出警告
 - 结果是**上界**(互斥分支不剪枝),意思是"最坏能到多少",不是"平时多少"
 - 回到第 0 行的回边 = 主循环,只算**一圈**(mlog 本来就每 tick 重跑一遍)
+- **`wait` 单独算**:参数是**秒**(60 tick = 1 秒),`wait 0` 不阻塞、只是"每 tick 跑一遍";
+  `blocked` 已乘上包含它的循环圈数并加进三种处理器的 tick 数里。参数不是字面量时报 `UNBOUNDED`,不编数字
+- 看到 `>=1001` 这种写法,意思是**循环体自己就把 1000 的预算填满了**,真实总量更大、算不出来;
+  平静的 `~N` 才是量出来的
 
 ## 指令预算:别猜,这是确定的
 

@@ -120,6 +120,9 @@ class Finding:
 
 
 def strip_comment(line: str) -> str:
+    # A BOM on the first line would otherwise become part of the mnemonic
+    # ("\ufeffset"), and no rule or opcode tally would recognise it.
+    line = line.lstrip("\ufeff")
     out, in_str = [], False
     for ch in line:
         if ch == '"':
@@ -530,7 +533,16 @@ def find_loop_bounds(stmts: list[tuple[int, str]]) -> dict[int, int]:
         if not (0 <= target < j):
             continue                      # not a backward branch
         best = None
+        # The back edge's OWN condition is the loop's trip counter, so it wins
+        # over anything found in the body. Scanning the body and taking the max
+        # let an inner loop's constant leak outward: `jump inner lessThan j 10`
+        # inside an `i < 3` loop reported the outer loop as x10.
+        own = _GUARD_JMP.match(stmts[j][1])
+        if own and own.group(1) in COND_OPS:
+            best = _bound_from_guard(own.group(2), own.group(3))
         for k in range(target, j + 1):
+            if best is not None:
+                break                     # own condition already answered it
             c = stmts[k][1]
             # each pattern: group(1)=comparison, then the two operands
             g = _GUARD_OP.match(c)
@@ -546,6 +558,75 @@ def find_loop_bounds(stmts: list[tuple[int, str]]) -> dict[int, int]:
         if best:
             bounds[target] = max(bounds.get(target, 0), best)
     return bounds
+
+
+def prepare(lines: list[str]) -> list[tuple[int, str]]:
+    """Statements for analysis: comments stripped, labels dropped, jumps resolved.
+
+    A label line is NOT a statement. LParser.java:117-125 records it against the
+    count of statements parsed so far (`jumpLocations.put(label, line)`), so it
+    names the *next* statement and consumes no instruction slot. Keeping label
+    lines in the list shifted every index after them, which is why `--cost` used
+    to print `L0(?)` -- "no visible constant bound" -- for every loop written
+    with `main:` style labels.
+
+    Line numbers stay 0-based, like the rest of this file's output.
+    """
+    stmts: list[tuple[int, str]] = []
+    labels: dict[str, int] = {}
+    for ln, raw in enumerate(lines):
+        code = strip_comment(raw)
+        if not code:
+            continue
+        toks = code.split()
+        if len(toks) == 1 and len(toks[0]) > 1 and toks[0].endswith(":"):
+            labels.setdefault(toks[0][:-1], len(stmts))
+            continue
+        stmts.append((ln, code))
+    if not labels:
+        return stmts
+    out: list[tuple[int, str]] = []
+    for ln, code in stmts:
+        toks = code.split()
+        if len(toks) >= 2 and toks[0] == "jump" and toks[1] in labels:
+            toks[1] = str(labels[toks[1]])
+            code = " ".join(toks)
+        out.append((ln, code))
+    return out
+
+
+def wait_ticks(stmts: list[tuple[int, str]],
+               bounds: dict[int, int],
+               loops: list[tuple[int, int, int]]) -> list[tuple[int, int | None]]:
+    """Ticks each `wait` blocks, multiplied by every loop that contains it.
+
+    `wait` never shows up in the instruction count: WaitI decrements the counter
+    and yields every tick (LExecutor.java:1227-1232), so it consumes no ipt --
+    it *is* the reason no further instruction runs. Its argument is in SECONDS,
+    accumulated as `Time.delta / 60f` per tick, i.e. 60 ticks to the second.
+
+    `wait 0` (or negative) only yields without counting up (LExecutor.java:1220),
+    so it blocks nothing. A non-literal argument cannot be bounded: reported as
+    None so the caller can say "unknown" instead of inventing a number.
+    """
+    out: list[tuple[int, int | None]] = []
+    for i, (ln, code) in enumerate(stmts):
+        toks = code.split()
+        if not toks or toks[0] != "wait" or len(toks) < 2:
+            continue
+        try:
+            sec = float(toks[1])
+        except ValueError:
+            out.append((ln, None))        # variable wait: cannot be priced
+            continue
+        if sec <= 0:
+            continue                      # pure yield, blocks no time
+        mult = 1
+        for head, latch, bound in loops:
+            if head <= i <= latch:        # this wait sits inside that loop
+                mult *= max(bound, 1)
+        out.append((ln, int(round(sec * 60)) * mult))
+    return out
 
 
 def cost_report(stmts: list[tuple[int, str]],
@@ -622,20 +703,6 @@ def cost_report(stmts: list[tuple[int, str]],
     MAX_INSTR_PER_TICK = 1000
     CAP = 10_000_000
 
-    # (head, latch, bound_or_None) for each detected loop
-    loops: list[tuple[int, int, int | None]] = []
-    for head in sorted(bounds):
-        latch = None
-        for i in range(n - 1, head, -1):
-            if head in succ[i]:
-                latch = i
-                break
-        if latch is None:
-            continue
-        if head == 0:
-            continue                      # main loop: one pass per tick
-        loops.append((head, latch, bounds[head]))
-
     # Iterative forward-only propagation, inner loops resolved first.
     #
     # `f[i]` = worst instruction count from entry 0 to the point just after
@@ -651,7 +718,6 @@ def cost_report(stmts: list[tuple[int, str]],
     #
     # Exiting a loop: the latch's forward edges leave it, and their cost is
     # `loop_cost + 1` (run the loop `bound` times, then take one step out).
-    MAX_INSTR_PER_TICK = 1000
 
     loops: list[tuple[int, int, int]] = []
     for head in sorted(bounds, reverse=True):
@@ -680,10 +746,18 @@ def cost_report(stmts: list[tuple[int, str]],
                 if s <= i:
                     continue              # backward edge: priced by loop_cost
                 if i == latch and s > latch:
-                    # leaving the loop: pay the whole loop plus this step
-                    cand = max(f[head], cnt[head]) + bound * best + 1
+                    # `body` must be measured BEFORE this exit candidate is
+                    # merged into cnt: feeding the candidate back into `best`
+                    # multiplied the loop by its own exit path (a 4-iteration
+                    # loop of 3 statements was billed as 4 x 14 = 56).
+                    body = max(cnt[head:latch + 1])
+                    cand = max(f[head], cnt[head]) + bound * body + 1
                 elif s <= latch:
-                    cand = cnt[i] + 1
+                    # Stepping INTO an inner loop head costs that whole loop.
+                    # Inner loops were priced first (heads descend), so their
+                    # cost is already known; without this the outer loop was
+                    # billed for a single pass of the inner one.
+                    cand = cnt[i] + loop_cost.get(s, 1)
                 else:
                     continue              # forward exit taken from inside
                 if s < n:
@@ -693,7 +767,7 @@ def cost_report(stmts: list[tuple[int, str]],
                         best = cnt[s]
                     if i == latch and cand > f[s]:
                         f[s] = cand
-        lc = min(bound * best, MAX_INSTR_PER_TICK)
+        lc = min(bound * max(cnt[head:latch + 1]), MAX_INSTR_PER_TICK)
         loop_cost[head] = lc
         for i in range(head, latch + 1):
             if cnt[i]:
@@ -705,26 +779,60 @@ def cost_report(stmts: list[tuple[int, str]],
         if f[i] == 0:
             continue
         for s in succ[i]:
+            if s < i:
+                # Backward edges were already priced: a statement inside a
+                # counted loop has its whole loop included in f[], so walking
+                # the back edge again billed the loop a second time (_wait1
+                # came out at 25 instead of ~16). Loops without a constant
+                # bound get the documented "one pass" treatment.
+                continue
             cand = f[i] + 1
-            if s < i:                     # back edge to a known loop head
-                cand = f[i] + loop_cost.get(s, 1)
             if s < n and cand > f[s]:
                 f[s] = cand
 
     worst_n = max(f)
 
-    lines.append(f"  worst-case path : ~{worst_n} instructions per full cycle "
+    # `wait` burns no ipt (it yields and re-enters itself), so it is invisible in
+    # `worst_n` -- yet it is often what dominates the real cycle time. Priced
+    # separately and then added to the per-processor tick counts below.
+    waits = wait_ticks(stmts, bounds, loops)
+    blocked = sum(t for _, t in waits if t is not None)
+    unpriced = sum(1 for _, t in waits if t is None)
+
+    # A loop whose body alone blows the per-tick budget is priced as exactly
+    # MAX_INSTR_PER_TICK, so `worst_n` saturates there instead of growing. Report
+    # that as a lower bound (`>=`) -- printing "~1000" would read as a measurement.
+    capped = worst_n >= MAX_INSTR_PER_TICK
+    marks = ">=" if capped else "~"
+    lines.append(f"  worst-case path : {marks}{worst_n} instructions per full cycle "
                  f"(approximate)")
+    if capped:
+        lines.append(f"      ! a loop body alone fills {MAX_INSTR_PER_TICK} "
+                     f"instructions, so this is a lower bound, not the total")
     if worst_n > MAX_INSTR_PER_TICK:
         lines.append(f"      ⚠ over LExecutor.maxInstructions "
                      f"({MAX_INSTR_PER_TICK}/tick): one cycle needs "
-                     f"{worst_n / MAX_INSTR_PER_TICK:.1f} ticks of pure work, "
+                     f"{marks}{worst_n / MAX_INSTR_PER_TICK:.1f} ticks of pure work, "
                      f"so the unit reacts with that much latency")
     for ipt, name in ((2, "micro-processor"), (8, "logic-processor"),
                       (25, "hyper-processor")):
-        ticks = worst_n / ipt
+        ticks = worst_n / ipt + blocked
         lines.append(f"      {name:<16} @ipt={ipt:<3} {ticks:8.0f} ticks "
                      f"({ticks/60:7.1f} s) per cycle")
+
+    if waits:
+        if unpriced:
+            head = f"{len(waits)} wait statement(s)"
+            tail = f"{unpriced} of them take a variable argument, so blocking is UNBOUNDED"
+        else:
+            head = f"{len(waits)} wait statement(s)"
+            tail = f"~{blocked} ticks ({blocked/60:.1f} s) blocked per cycle, added above"
+        lines.append(f"  ⏸ blocking      : {head}, {tail}")
+        for ln, t in waits[:6]:
+            shown = "?" if t is None else f"~{t} ticks"
+            lines.append(f"      L{ln}: wait -> {shown}")
+        if len(waits) > 6:
+            lines.append(f"      ... and {len(waits) - 6} more")
 
     if links:
         lines.append(f"  links           : {len(links)} "
@@ -759,9 +867,7 @@ def main() -> int:
     def do(path: str, lines: list[str], links: list[str] | None = None) -> int:
         rc = show(path, analyse(lines, links))
         if args.cost:
-            stmts = [(i, strip_comment(l)) for i, l in enumerate(lines)
-                     if strip_comment(l)]
-            print(cost_report(stmts, links))
+            print(cost_report(prepare(lines), links))
             print()
         return rc
 
