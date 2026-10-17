@@ -7,6 +7,7 @@ One entry point for everything this skill does.
 Usage
 -----
   python mlog.py parse  <file.msch>            # dump a blueprint's blocks + logic
+  python mlog.py text   <file.msch...> [--plain] # what the message block (信息板) says
   python mlog.py gen    <logic.mlog> [opts]    # build a .msch (or paste code)
   python mlog.py check  <logic.mlog | --msch F> # static analysis of mlog
   python mlog.py ir     <logic.mlog | --msch F> # CFG: unreachable code, dead stores
@@ -691,6 +692,56 @@ def cmd_explain(args) -> int:
 
 
 # --------------------------------------------------------------------------- #
+# text: read what a message block (信息板) actually says
+# --------------------------------------------------------------------------- #
+
+_MARKUP = re.compile(r"\[[^\]]{1,24}\]")
+# Mindustry's icon font lives in the Private Use Area; in a console it is
+# unreadable noise, but stripping it silently would lose information -- so it is
+# only removed by --plain, and reported by count.
+_PUA = re.compile("[\ue000-\uf8ff]")
+_STRING_BLOCKS = ("message", "world-message", "world-label")
+
+
+def _plain(s: str) -> str:
+    return _PUA.sub("", _MARKUP.sub("", s)).strip()
+
+
+def cmd_text(args) -> int:
+    files = list(args.files)
+    rc = 0
+    for path in files:
+        try:
+            sch = msch.parse_file(path)
+        except (msch.MschError, ValueError, OSError) as exc:
+            print(f"!! {path}: {exc}", file=sys.stderr)
+            rc = 1
+            continue
+        hits = [t for t in sch.tiles
+                if t.block in _STRING_BLOCKS and isinstance(t.config, str)]
+        if not hits and not (args.all and sch.description):
+            print(f"--- {path}: no message block")
+            continue
+        print("=" * 70)
+        print(f"{path}  ({sch.name})")
+        if args.all and sch.description:
+            print("--- description ---")
+            print(_plain(sch.description) if args.plain else sch.description)
+        for t in hits:
+            text = t.config or ""
+            body = _plain(text) if args.plain else text
+            icons = len(_PUA.findall(text))
+            head = f"--- {t.block} @({t.x},{t.y})"
+            if icons:
+                head += f"  [{icons} icon(s) in the private-use area]"
+            print(head)
+            if args.strip:
+                body = "\n".join(l for l in body.split("\n") if l.strip())
+            print(body)
+    return rc
+
+
+# --------------------------------------------------------------------------- #
 
 def main() -> int:
     ap = argparse.ArgumentParser(
@@ -701,6 +752,16 @@ def main() -> int:
     p = sub.add_parser("parse", help="dump a .msch blueprint")
     p.add_argument("file")
     p.set_defaults(fn=cmd_parse)
+
+    p = sub.add_parser("text", help="read message-block (信息板) contents")
+    p.add_argument("files", nargs="+")
+    p.add_argument("--plain", action="store_true",
+                   help="strip [colour] markup and private-use icon glyphs")
+    p.add_argument("--strip", action="store_true",
+                   help="drop blank lines (markup kept unless --plain)")
+    p.add_argument("--all", action="store_true",
+                   help="also print the blueprint description")
+    p.set_defaults(fn=cmd_text)
 
     p = sub.add_parser("gen", help="build a blueprint / paste code from mlog")
     p.add_argument("source", nargs="?", help=".mlog file (default: stdin)")

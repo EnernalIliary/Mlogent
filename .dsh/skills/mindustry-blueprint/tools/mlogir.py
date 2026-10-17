@@ -334,6 +334,22 @@ def build_stmt(index: int, line_no: int, raw: str, table: dict) -> Stmt:
     # Over-approximating reads can only hide a finding, never invent one,
     # which is the right trade for a linter whose output a human acts on.
     blind = set(range(len(args))) - defs_all - kw
+
+    # `op` is the one instruction whose arity depends on arg0. The game parses
+    # every token on the line and then hands only the operands it wants to the
+    # operator (UnaryOp reads `a`, BinaryOp reads `a` and `b`), so a 4th token
+    # on a unary op -- `op rand flag 1000 b` -- is parsed and silently dropped.
+    # Counting it as a read produced a hard error on clean code:
+    # "`b` is read here but is never assigned anywhere in this program".
+    if mnemonic == "op" and len(args) >= 2:
+        _opname = getattr(args[0], "text", "").lower()
+        _meta = (table.get("op") or {}).get("ops") or {}
+        _n = (_meta.get(_opname) or {}).get("operands")
+        if _n in (1, 2):
+            _keep = {2} if _n == 1 else {2, 3}
+            uses_idx = {i for i in _keep if i < len(args)}
+            blind = {i for i in blind if i in _keep}
+
     for extra in ("maybe_uses", "semantic_uses"):
         v = spec.get(extra, [])
         if v == "all":

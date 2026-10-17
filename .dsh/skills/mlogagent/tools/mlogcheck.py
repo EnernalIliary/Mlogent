@@ -218,6 +218,12 @@ def uses_of(c: str) -> list[str]:
             return []
         return _vars(p[3:5])
     if op == "op":
+        # arity depends on the operator name: the game parses every token on
+        # the line and then hands UnaryOp only `a`, so `op rand flag 1000 b`
+        # never reads `b`. Counting it as a read made a clean program fail with
+        # "`b` is read here but is never assigned anywhere".
+        if len(p) > 1 and p[1] in OP_UNARY:
+            return _vars(p[3:4])
         return _vars(p[3:5])
     if op == "ulocate":
         return _vars([p[3], p[4]])

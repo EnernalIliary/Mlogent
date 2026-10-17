@@ -20,6 +20,7 @@ whenToUse: 涉及 Mindustry 蓝图（.msch / 蓝图码）、mlog 逻辑编写或
 | **查方块 ID / 尺寸** | `mlog.py id [名称]` |
 | **查物品 ID / 解打包配置** | `mlog.py item [名称] [--unpack N]` |
 | **查指令格式** | `mlog.py cmd [关键字]` |
+| **读信息板内容** —— 蓝图里 message 方块写的字 | mlog.py text <file.msch> [--plain] |
 | **查一条指令的读写位** —— 哪个参数是输出 | `mlog.py explain <指令> [子命令]` |
 | **回归自测** —— 429 个真实蓝图往返校验 | `mlog.py selftest` |
 

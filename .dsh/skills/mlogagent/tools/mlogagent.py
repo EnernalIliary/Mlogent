@@ -61,7 +61,24 @@ ALL_SECTIONS = list(SECTION_HELP)
 # --------------------------------------------------------------------------- #
 
 def _add_blueprint(out, p: str) -> None:
-    sch = msch.parse_file(p)
+    try:
+        sch = msch.parse_file(p)
+    except (msch.MschError, ValueError):
+        # A blueprint copied out of the in-game clipboard (or off a blueprint
+        # site) is base64 TEXT, not the binary .msch the game writes to disk.
+        # The suffix cannot tell the two apart, so sniff the content instead:
+        # the 'msch' magic means binary, anything else gets tried as base64.
+        with open(p, "rb") as fh:
+            raw = fh.read()
+        if raw[:4] == b"msch":
+            sch = msch.parse_bytes(raw)
+        else:
+            try:
+                sch = msch.parse_base64(raw.decode("utf-8"))
+            except (msch.MschError, ValueError, UnicodeDecodeError) as exc:
+                raise SystemExit(
+                    f"!! {p}: not a .msch binary and not a base64 blueprint "
+                    f"({exc})") from exc
     for t in sch.logic_tiles():
         assert t.logic is not None
         out.append((f"{p} [{t.block} @({t.x},{t.y})]",
