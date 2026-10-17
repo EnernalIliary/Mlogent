@@ -674,19 +674,6 @@ def analyse(lines: list[str], links: list[str] | None = None) -> list[Finding]:
                 f"`{v}` is read here but is never assigned anywhere in this "
                 f"program (and is not a link or built-in)"))
 
-    # ---- report: variable with MULTIPLE reaching definitions ------------
-    # Downgraded to INFO: informative, but common and usually intentional.
-    for i, (orig, c) in enumerate(stmts):
-        for v in uses_of(c):
-            if v in link_vars:
-                continue
-            defs = REACH[i].get(v, set())
-            if len(defs) > 1:
-                where = ", ".join(f"L{stmts[d][0]}" for d in sorted(defs)[:4])
-                out.append(Finding(
-                    "INFO", orig + 1, c,
-                    f"`{v}` has {len(defs)} reaching assignments ({where})"))
-
     # ---- jump diagnostics (only structural problems) ---------------------
     for i, (orig, c) in enumerate(stmts):
         m = JMP_RE.match(c)

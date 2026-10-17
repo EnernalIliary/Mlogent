@@ -79,6 +79,7 @@ def read_scan() -> tuple[list, list, list, list, list]:
     arity: list[tuple[str, str, int, str, str]] = []
     deadlinks: list[tuple[str, str, int, str, str]] = []
     signed: list[tuple[str, str, int, str, str]] = []
+    hints: list[tuple[str, str, int, str, str]] = []
     for r in data["rows"]:
         name = Path(r["file"]).name
         for b in r["detail"]:
@@ -88,7 +89,13 @@ def read_scan() -> tuple[list, list, list, list, list]:
                 if sev == "ERR":
                     errs.append(row)
                 elif sev == "INFO":
-                    signed.append(row)
+                    # INFO is not one thing. Only the signature notes belong in
+                    # the signature tier; "target N is itself a jump" is a jump
+                    # chain, and anything else is a plain hint.
+                    if "signature" in msg:
+                        signed.append(row)
+                    else:
+                        hints.append(row)
                 elif "has no such link" in msg:
                     deadlinks.append(row)
                 elif "given " in msg and " args, expects " in msg:
@@ -103,7 +110,7 @@ def read_scan() -> tuple[list, list, list, list, list]:
                     surplus.append(row)
                 elif sev == "WARN":
                     guards.append(row)
-    return errs, guards, surplus, arity, deadlinks, signed
+    return errs, guards, surplus, arity, deadlinks, signed, hints
 
 
 def reason_for(var: str, kinds: collections.Counter) -> str:
@@ -162,7 +169,7 @@ def shape_table(rows: list[tuple[str, str, int, str, str]], top: int = 20) -> li
 
 
 def main() -> int:
-    errs, guards, surplus, arity, deadlinks, signed = read_scan()
+    errs, guards, surplus, arity, deadlinks, signed, hints = read_scan()
 
     out: list[str] = []
     out.append("# 蓝图包错误清单(926 份)—— 按「是不是真错」分四层")
@@ -217,6 +224,16 @@ def main() -> int:
     out.append("## E 署名 —— 出现最多的名字")
     out.append("")
     out.extend(var_table(signed, "只为在编辑器变量列表里留名", "不用改"))
+    out.append("## F 提示 —— 不算错,只是值得知道的形状")
+    out.append("")
+    chains = collections.Counter(code.split()[1] for _n, _w, _l, code, msg in hints
+                                 if "is itself a jump" in msg)
+    out.append(f"- `jump` 指向另一条 `jump`:**{sum(chains.values())}** 处。多跳一次多烧一条 ipt,"
+               "但不改变行为。")
+    rest = [h for h in hints if "is itself a jump" not in h[4]]
+    if rest:
+        out.append(f"- 其它提示:**{len(rest)}** 条")
+    out.append("")
 
     out.append("## 附录:A 层逐条明细")
     out.append("")
