@@ -62,6 +62,8 @@ def _load_json(name: str) -> dict:
 BLOCK_IDS = _load_json("wiki_block_ids.json").get("blocks", {})
 BLOCK_SIZES = _load_json("block_sizes.json")
 CMD_INDEX = _load_json("cmd_index.json")
+ITEM_IDS = _load_json("item_ids.json").get("items", {})
+ITEM_NAME_TO_ID = {v: int(k) for k, v in ITEM_IDS.items()}
 
 
 # --------------------------------------------------------------------------- #
@@ -248,6 +250,56 @@ def cmd_id(args) -> int:
     return 0
 
 
+def cmd_item(args) -> int:
+    """Item content ids, plus decoding of the common packed-config idiom."""
+    if args.unpack:
+        # The "portable config" idiom seen in the wild:
+        #   data = status * 1e8 + outputID * 1e6 + inputMask
+        # Decoding outputID is only valid when status == 0, because
+        # idiv(data, 1e6) folds status into the quotient.
+        data = int(args.unpack)
+        status, rest = divmod(data, 1_000_000_000)
+        output_id, mask = divmod(rest, 1_000_000)
+        print(f"packed  : {data}  (0x{data:X})")
+        print(f"status  : {status}")
+        out_name = ITEM_IDS.get(str(output_id), f"<unknown id {output_id}>")
+        print(f"output  : {output_id} = {out_name}"
+              + ("   ⚠ status != 0: this field is NOT just the output id"
+                 if status else ""))
+        bits = [i for i in range(32) if mask >> i & 1]
+        print(f"mask    : {mask}  (0x{mask:X}) -> bit positions {bits}")
+        for b in bits:
+            print(f"  bit {b:>2} -> {ITEM_IDS.get(str(b), f'<unknown id {b}>')}")
+        if mask >= 1_000_000:
+            print("  ⚠ mask overflows the 6-digit field")
+        if max(bits, default=-1) >= 20:
+            print(f"  ⚠ bit {max(bits)} >= 20: outside what this 20-bit slot "
+                  f"holds safely")
+        return 0
+
+    if args.name:
+        q = args.name.strip().lower()
+        hits = []
+        for k, v in ITEM_IDS.items():
+            if q in v.lower() or q == k:
+                hits.append((int(k), v))
+        if not hits:
+            print(f"no item matching {args.name!r} in the id table")
+            return 1
+        for i, v in sorted(hits):
+            print(f"  id={i:>3}  {v}")
+        return 0
+
+    print(f"{len(ITEM_IDS)} items known (vanilla id = Items.java construction order)")
+    print()
+    for k in sorted(ITEM_IDS, key=int):
+        print(f"  {k:>3}  {ITEM_IDS[k]}")
+    print()
+    print("tip: mlog.py item --unpack <number>  decodes "
+          "status*1e8 + outputID*1e6 + inputMask")
+    return 0
+
+
 def cmd_cmd(args) -> int:
     if not CMD_INDEX:
         print("cmd_index.json missing", file=sys.stderr)
@@ -317,6 +369,12 @@ def main() -> int:
     p = sub.add_parser("id", help="look up block content ids / sizes")
     p.add_argument("name", nargs="?", help="substring; omit to list all")
     p.set_defaults(fn=cmd_id)
+
+    p = sub.add_parser("item", help="item content ids; decode packed configs")
+    p.add_argument("name", nargs="?", help="name or id; omit to list all")
+    p.add_argument("--unpack", metavar="N",
+                   help="decode status*1e8 + outputID*1e6 + inputMask")
+    p.set_defaults(fn=cmd_item)
 
     p = sub.add_parser("cmd", help="mlog instruction reference")
     p.add_argument("pattern", nargs="?", help="substring filter")
