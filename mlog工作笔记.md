@@ -1683,6 +1683,7 @@ low field `1e6` holds 0..999999  =>  20 usable bit positions (ids 0..19)
 - `ucontrol getBlock x y a b c` 有**三个输出**(`LExecutor.java:491-509`,p3/p4/p5);`within` 的第 4 个值参数才是结果。
 - `jump -1 always` 是 **nop** 不是终止(`JumpI.run()` 的 `if(address != -1)`),当成终止会误报整片不可达(`坦克大战.msch` 190 条里报 182 条)。
 - `0x`/`0b`/`%rrggbb` 是字面量(`LAssembler.java:87-99`),不是变量。
+- **`noop` = `InvalidStatement`**:`LStatements.java:48-59` 的类名就叫 `InvalidStatement`,`build(LAssembler)` 返回 `NoopI`(空 `run`)。游戏把**解析不了的语句**替换成它,所以 `noop` 不是空行,是**丢失语句的墓碑**。用户给的原因最准确:「可能是版本更新导致的逻辑语句丢失,这也比较常见。特别是高版本逻辑在低版本被使用的时候」。程序照常加载照常跑,洞是静默的 ⇒ 检查器报 WARN。全包 926 份里只出现 1 次(`死星自动进攻.msch` hyper-processor 第 17 行)。
 - 形如链接名的名字**不等于**存在这个链接:`control shootp scatter1` 只会被 `validLink(b)` 挡掉,不报错、不崩溃 —— 只有 `.msch` 有链接表可查。
 
 **判级原则**:一个检查器报出的「错误」里,哪些是错误取决于这个社区的写作习惯,不取决于语言规范。所以低置信层会一直存在,关键是每一层都要能说出"为什么这一层不用管" —— 说不出就该并回上一层。`tools/_err_table.py` 就是把这条原则产物化:同一批 finding,按五层重排给用户看。
