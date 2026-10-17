@@ -1672,7 +1672,10 @@ low field `1e6` holds 0..999999  =>  20 usable bit positions (ids 0..19)
 用户给的三条判词构成了这五层的骨架:
 
 1. 「游戏内部的逻辑编辑器会对变量列表,使用自己的名字作为变量名并且不定义是很常见的署名方法」⇒ E 层。`print by:NOSB(hghg`、`set Madeby mineqwwe`、`jump 21 equal colour ender`、`control config Carrot 0914 0 0 0` 全是署名。
-2. 「不要判断无效参数。control 的有效参数只有三个」⇒ C 层。`control` 的 p2–p4 虽被 `num()` 求值,但各方块类型的 `control()` 忽略;`ucontrol` 每个子命令按 `semantic_uses` 算(`flag`/`payTake` 只有一个语义参数);一元 `op` 的第三位永远丢掉。
+2. 「不要判断无效参数。control 的有效参数只有三个」⇒ C 层。
+   用户后来补了一句判据:「并不会,最多就会用无效参数」—— **无效参数最坏的结果就是被忽略**,所以 C 层可以放心地不报为错。这句话也是 C 层的全部理由,不必再逐条验证。
+   我自己在这层犯过一个**展示**错误:表格的"按变量"一节把 `op rand`/`op floor`/`op abs` 当成变量名列了出来(`op` 的第二个 token 是**运算符号**,不是变量)。成因是 `var_table` 取消息里第一对反引号的内容,而 `op rand g 255 b` 那条警告的文案正好是 `` `op rand` given 3 args `` ⇒ 把 `op rand` 当名字。修法:C 层拆成两节 —— 按变量(真名字落在读不到的参数位)、按语句(参数给多了,列算子名)。
+`control` 的 p2–p4 虽被 `num()` 求值,但各方块类型的 `control()` 忽略;`ucontrol` 每个子命令按 `semantic_uses` 算(`flag`/`payTake` 只有一个语义参数);一元 `op` 的第三位永远丢掉。
 3. 「所有布尔值的未赋值降级到 warn」⇒ 布尔参数表(`payTake`/`boost`/`control enabled`/`ulocate building` 的 enemy/`status`/`setflag`/`spawnwave`):未赋值 ⇒ 恒 false。
 
 **语言事实(每条都曾让我误判)**

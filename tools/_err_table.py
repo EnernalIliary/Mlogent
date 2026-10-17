@@ -76,6 +76,7 @@ def read_scan() -> tuple[list, list, list, list, list]:
     errs: list[tuple[str, str, int, str, str]] = []
     guards: list[tuple[str, str, int, str, str]] = []
     surplus: list[tuple[str, str, int, str, str]] = []
+    arity: list[tuple[str, str, int, str, str]] = []
     deadlinks: list[tuple[str, str, int, str, str]] = []
     signed: list[tuple[str, str, int, str, str]] = []
     for r in data["rows"]:
@@ -90,14 +91,19 @@ def read_scan() -> tuple[list, list, list, list, list]:
                     signed.append(row)
                 elif "has no such link" in msg:
                     deadlinks.append(row)
-                elif "parameter slot" in msg or "given 3 args" in msg:
-                    # Both are the same disease: the name sits where the
-                    # instruction never looks. `op rand g 255 b` is a signature
-                    # parked in a unary operator's third (ignored) slot.
+                elif "given " in msg and " args, expects " in msg:
+                    # `op rand g 255 b` -- too many arguments. The first
+                    # backticked token here is `op rand`, the OPERATOR, not a
+                    # variable: `op`'s second token is the operation symbol.
+                    # Grouping these by "variable" invents names like `op floor`.
+                    arity.append(row)
+                elif "parameter slot" in msg:
+                    # A name parked where the instruction never looks. Same
+                    # disease, different shape: here the name IS an identifier.
                     surplus.append(row)
                 elif sev == "WARN":
                     guards.append(row)
-    return errs, guards, surplus, deadlinks, signed
+    return errs, guards, surplus, arity, deadlinks, signed
 
 
 def reason_for(var: str, kinds: collections.Counter) -> str:
@@ -156,7 +162,7 @@ def shape_table(rows: list[tuple[str, str, int, str, str]], top: int = 20) -> li
 
 
 def main() -> int:
-    errs, guards, surplus, deadlinks, signed = read_scan()
+    errs, guards, surplus, arity, deadlinks, signed = read_scan()
 
     out: list[str] = []
     out.append("# 蓝图包错误清单(926 份)—— 按「是不是真错」分四层")
@@ -169,7 +175,7 @@ def main() -> int:
     out.append("|---|---|---:|")
     out.append(f"| **A 真错** | 名字被读的地方,值真的改变行为 | **{len(errs)}** |")
     out.append(f"| B 恒真守卫 | `jump` 两侧都是常量 ⇒ 分支固定,常是署名 | {len(guards)} |")
-    out.append(f"| C 无效参数 | 名字落在指令读不到的参数位上 | {len(surplus)} |")
+    out.append(f"| C 无效参数 | 名字落在指令读不到的参数位上 | {len(surplus) + len(arity)} |")
     out.append(f"| D 死引用 | 形如链接名,但这块处理器没有这个链接 | {len(deadlinks)} |")
     out.append(f"| E 署名 | 只为出现在变量列表里 | {len(signed)} |")
     out.append("")
@@ -191,6 +197,19 @@ def main() -> int:
     out.append("## C 无效参数 —— 按变量")
     out.append("")
     out.extend(var_table(surplus, "落在指令读不到的参数位上,运行时被忽略", "不用改"))
+    out.append("## C 无效参数 —— 按语句(参数给多了)")
+    out.append("")
+    out.append("这一节的\"名字\"是**算子/子命令**,不是变量:`op` 的第二个 token 是运算符号。")
+    out.append("`op` 是一元的却给了三个参数时,第三个参数永远不被读 —— 署名常塞在这里。")
+    out.append("")
+    shapes = collections.Counter(code.split()[1] if mnemonic(code) == "op" else mnemonic(code)
+                                 for _n, _w, _l, code, _m in arity)
+    out.append("| 次数 | 语句 | 运算符 | 判读 |")
+    out.append("|---:|---|---|---|")
+    for shape, n in shapes.most_common(24):
+        tail = "参数给多了,多余的被丢弃" if shape != "op" else "一元算子多给一个参数,第三个不读"
+        out.append(f"| {n} | `op` | `{shape}` | {tail} |")
+    out.append("")
     out.append("## D 死引用 —— 引用了不存在的链接")
     out.append("")
     out.extend(var_table(deadlinks, "形如链接名,但这块处理器的链接表里没有它",
