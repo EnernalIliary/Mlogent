@@ -352,19 +352,49 @@ def parse_link(spec: str) -> Link:
 
 # --------------------------------------------------------------------------- #
 
-def selftest() -> int:
+def default_schematics_dir() -> str | None:
+    """Locate Mindustry's schematics folder without hardcoding a user path.
+
+    Order: $MINDUSTRY_SCHEMATICS  ->  %APPDATA%/Mindustry/schematics
+           ->  ~/.local/share/Mindustry/schematics  ->  macOS location
     """
-    Round-trip every blueprint we can parse.
+    env = os.environ.get("MINDUSTRY_SCHEMATICS")
+    if env and os.path.isdir(env):
+        return env
+    cands = []
+    appdata = os.environ.get("APPDATA")
+    if appdata:
+        cands.append(os.path.join(appdata, "Mindustry", "schematics"))
+    home = os.path.expanduser("~")
+    cands += [
+        os.path.join(home, ".local", "share", "Mindustry", "schematics"),
+        os.path.join(home, "Library", "Application Support", "Mindustry", "schematics"),
+    ]
+    for c in cands:
+        if os.path.isdir(c):
+            return c
+    return None
+
+
+def selftest(schem_dir: str | None = None) -> int:
+    """
+    Round-trip every blueprint found in the schematics folder.
 
     We measure two things separately, because they matter differently:
       * LOGIC fidelity -- every logic block's code + links survive a rebuild.
         This is what this tool is for, and it must be 100%.
       * BUILD success  -- the whole blueprint (including unrelated blocks such as
         power-node link lists) could be re-emitted. Nice to have, not required:
-        we only ever *generate* processor-only blueprints.
+        we only ever *generate* processor blueprints.
     """
     import glob
-    schem_dir = r"C:\Users\lliary\AppData\Roaming\Mindustry\schematics"
+    schem_dir = schem_dir or default_schematics_dir()
+    if not schem_dir:
+        print("selftest: could not find the Mindustry schematics folder.\n"
+              "  set MINDUSTRY_SCHEMATICS=/path/to/schematics and retry.",
+              file=sys.stderr)
+        return 2
+    print(f"selftest against {schem_dir}")
     files = sorted(glob.glob(os.path.join(schem_dir, "*.msch")))
 
     logic_ok = logic_bad = 0

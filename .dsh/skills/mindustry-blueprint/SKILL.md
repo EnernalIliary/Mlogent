@@ -15,6 +15,7 @@ whenToUse: 涉及 Mindustry 蓝图（.msch / 蓝图码）、mlog 逻辑编写或
 | **静态检查 mlog** —— 抓 `@dead` 反用等真实 bug | `mlog.py check <logic.mlog>` |
 | **成本分析** —— 死代码 + 最坏指令数 + 折合耗时 | `mlog.py check <logic.mlog> --cost` |
 | **死存储 / 不可达代码** —— CFG + 活跃变量不动点 | `mlog.py ir <logic.mlog>` |
+| **常量分支 / 可证 null** —— 抽象值不动点 | `mlog.py values <logic.mlog>` |
 | **查方块 ID / 尺寸** | `mlog.py id [名称]` |
 | **查物品 ID / 解打包配置** | `mlog.py item [名称] [--unpack N]` |
 | **查指令格式** | `mlog.py cmd [关键字]` |
@@ -138,6 +139,11 @@ python tools/mlog.py ir logic.mlog
 python tools/mlog.py ir --msch out.msch
 python tools/mlog.py ir --all logic.mlog    # 连语法强制的输出槽一起列
 
+# 值域分析:常量分支 + 可证 null
+python tools/mlog.py values logic.mlog
+python tools/mlog.py values --msch blueprints/*.msch
+python tools/mlog.py values logic.mlog --trace r   # 逐次打印 r 的抽象值
+
 # 生成:只放处理器(链接目标需自己摆)
 python tools/mlog.py gen logic.mlog --name "我的逻辑" --link dome1@3,1
 
@@ -186,6 +192,34 @@ schematic 里 Stile 存的是方块的**中心格**,不是左上角。**已双�
 **它不能证明你的逻辑是对的**:
 - 不跨处理器 —— 别的处理器用 `read x cell1 "名字"` 读它,这里看不见(实测全语料 0 例,但报了 `never-read` 仍要自己确认)
 - 只判"值有没有人用",不判"值算得对不对"(`op add dx dy dx` 想算距离却写加法,`ir` 不报)
+
+## `values` 看什么、不看什么
+
+`mlog.py values` 跑的是**抽象值不动点**:给每个变量在每个位置算一个区间/常量,然后回答两个 token 流回答不了的问题。
+
+```
+resolved branches: 1
+  L3   always taken  jump 5 strictEqual r null    (cond = 1)
+provably null: L3 r is null
+```
+
+| 输出 | 含义 | 该怎么用 |
+|---|---|---|
+| `always taken` / `never taken` | 条件两边都是常量,分支恒定 | 要么写错了,要么是刻意的死分支 —— 去看 |
+| `... is null` | 这条语句执行时该变量必定是 null | `===` 能区分,`==` 不能(见下) |
+| `?` | 不知道(外部输入、`rand`/`noise`) | 正常,别当 bug |
+
+**必须先知道的两条语言事实**:
+
+- **未赋值的变量是数字 `0`,不是 null**(`new LVar` 的 `numval = 0`)。所以 **`equal x null` ⇔ `x.num() == 0`**,对没赋过值的 `x` 恒真;**只有 `strictEqual`(`===`)区分 null 和 0**(`ConditionOp.java:31-40`:两边都是对象才比对象,否则比数字)。看到 `jump ... equal var null`,先怀疑它想写的是 `===`。
+- **NaN / ±Infinity 会被静默转成 null**(`LVar.setnum` 的 `invalid()` 检查)。这正是按位剥离循环能退出的原因:`op logn x 2` 在 `x=0` 时得 `-Infinity` → null → `=== null` 成立。
+
+**校准(全语料 2396 块,排除模拟器,39 ms/块)**:4.1% 的块有信号,平均 0.120 条分支 / 0.060 条可证 null;未收敛 0。抽样人工核对,结论都为真。
+
+**它不能证明什么**:
+- 外部输入一律 `⊤` —— `sensor`/`getlink`/`ulocate` 拿到的值都算"不知道",所以**只对纯计算链有效**
+- 同一变量连改 3 轮就丢精度到 `⊤`(widen),深循环里会变回 `?`
+- 不跨处理器,也不判"值算得对不对"(那是人的事)
 
 ## 参考数据
 

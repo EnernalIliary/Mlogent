@@ -12,6 +12,8 @@ Usage
   python mlog.py ir     <logic.mlog | --msch F> # CFG: unreachable code, dead stores
                                                #   (--all also shows forced output
                                                #    slots and literal declarations)
+  python mlog.py values <logic.mlog | --msch F> # abstract values: constant branches,
+                                               #   provable nulls (--trace VAR)
   python mlog.py id     [name]                 # block content ids / sizes
   python mlog.py item   [name] [--unpack N]    # item content ids / packed configs
   python mlog.py cmd    [pattern]              # mlog instruction reference
@@ -59,6 +61,7 @@ if HERE not in sys.path:
 
 import mlogcheck as _check          # noqa: E402
 import mlogir as _ir                # noqa: E402
+import mlogval as _val              # noqa: E402
 import msch                          # noqa: E402
 import mschgen as _gen              # noqa: E402
 
@@ -378,6 +381,36 @@ def cmd_ir(args) -> int:
     return rc
 
 
+def _val_report(label: str, lines: list[str],
+                traces: list[str] | None = None) -> int:
+    prog = _ir.parse(lines)
+    st = _val.analyze(prog)
+    print(_val.format_report(label, prog, st))
+    for v in traces or []:
+        rows = _val.trace(prog, st, v)
+        print(f"  -- trace {v} --")
+        for r in rows:
+            print(r)
+        if not rows:
+            print("      (never written)")
+    return 0
+
+
+def cmd_values(args) -> int:
+    rc = 0
+    traces = list(getattr(args, "trace", None) or [])
+    for p in args.files:
+        with open(p, encoding="utf-8") as fh:
+            rc |= _val_report(p, fh.read().split("\n"), traces)
+    for p in args.msch:
+        sch = msch.parse_file(p)
+        for t in sch.logic_tiles():
+            assert t.logic is not None
+            rc |= _val_report(f"{p} [{t.block} @({t.x},{t.y})]",
+                              t.logic.code.split("\n"), traces)
+    return rc
+
+
 # --------------------------------------------------------------------------- #
 # id / cmd reference
 # --------------------------------------------------------------------------- #
@@ -675,6 +708,15 @@ def main() -> int:
                    help="also list forced output slots and literal "
                         "declarations (noisy: ~1.2 per block)")
     p.set_defaults(fn=cmd_ir)
+
+    p = sub.add_parser("values",
+                       help="abstract values: constant branches, provable nulls")
+    p.add_argument("files", nargs="*", metavar="logic.mlog")
+    p.add_argument("--msch", action="append", default=[],
+                   help="take the logic from a .msch instead")
+    p.add_argument("--trace", action="append", metavar="VAR",
+                   help="trace one variable (repeatable)")
+    p.set_defaults(fn=cmd_values)
 
     p = sub.add_parser("id", help="look up block content ids / sizes")
     p.add_argument("name", nargs="?", help="substring; omit to list all")

@@ -1438,6 +1438,90 @@ else { exec.counter.numval--; exec.yield = true; curTime += Time.delta / 60f; }
 
 ---
 
+## 15.15 ⭐ 值域分析:`mlog.py values`(常量分支 + 可证 null)
+
+`--cost` 数的是**指令**,`ir` 看的是**变量有没有人读**。这两样都看不见一件事:
+某个分支的**条件永远成立**。`values` 就是补这一块的 —— 它跑前向不动点,给每条语句处
+每个变量算一个抽象值,于是能说出 token 流里根本没有任何字面信息的话。
+
+### 三条语言事实(全部是值域分析的地基)
+
+源码都在 `Mindustry-Source/core/src/mindustry/logic/LVar.java`:
+
+```java
+public double num(){ return isobj ? objval != null ? 1 : 0 : invalid(numval) ? 0 : numval; }
+public static boolean invalid(double d){ return Double.isNaN(d) || Double.isInfinite(d); }
+// setnum() 里:
+if(invalid(value)){ objval = null; isobj = true; }   // ← NaN / ±Infinity 一律变 null
+```
+
+1. **null 当数字用就是 0**,非 null 对象是 1。
+2. **NaN 和 ±Infinity 会被静默归一成 null** —— 所以 `-Infinity` 不是"一个很大的负数",是 null。
+3. `bool()` 是 `isobj ? objval != null : Math.abs(numval) >= 0.00001`。
+
+第 2 条正是「按位剥离循环」能退出的全部原因:`op logn inputID lowbit 2` 在
+`lowbit == 0` 时得 `-Infinity` → 变成 null → `strictEqual inputID null` 成立。
+**写这段逻辑的人没有在任何地方"判断是否还有位",他靠的是数学**。值域分析能证明它。
+
+### `==` 与 `===` 不是一回事(这条踩过)
+
+`ConditionOp.test()`(`ConditionOp.java:31-40`)只有在**两边都是对象**时才走
+`objFunction`,否则一律按数字比:
+
+```java
+if(objFunction != null && va.isobj && vb.isobj) return objFunction.get(va.obj(), vb.obj());
+return function.get(va.num(), vb.num());
+```
+
+于是 **`equal x null` ⇔ `x.num() == 0`**,而"从未赋值过的变量"就是数字 0 ⇒
+**用 `==` 判"这个变量有没有值"恒为真,永远进不去 else 分支**。只有 `===` 才区分
+null 与 0。全语料 288 条被解析出来的分支里,大半都是这个形态 —— 它们不是工具猜的,
+是作者写了恒真的判断。工具现在会在这种分支后面直接标一句
+`[== against null is numeric: an unset variable is 0, so only === tells null from 0]`。
+
+### 实测(617 真实蓝图 / 2396 块,排除 1 个模拟器文件 3354 块)
+
+| 指标 | 数 |
+| --- | --- |
+| 有信号的块 | 98 / 2396 = **4.1%** |
+| 常量分支 | 288(0.120/块) |
+| 可证 null | 144(0.060/块),集中在 10 块 |
+| 未收敛 | **0** |
+| 速度 | 39 ms/块,全量 94 秒 |
+
+样例(`无线四厄兆.msch` micro @(5,8),238 条语句,12 条常量分支):
+
+```
+L37    always  taken   `jump 39 equal Cth:Core null`   (cond = 1)
+L42    never   taken   `jump 84 equal Cth:Key1 1`      (cond = 0)
+L118   never   taken   `jump 96 notEqual Cth:Unit:1 null`   (cond = 0)
+```
+
+### 三个自己踩的坑(都已成为回归样例)
+
+- **`op rand` 被当成"必定 null"** —— 最初把 `rand`/`noise` 的实现写成 `math.nan`,
+  而 `setnum()` 会把 NaN 变 null ⇒ `1v1.msch` 一次报了 10 条假阳性。
+  **教训:在这个域里 NaN 不是"不知道"的哨兵,它就是 null。** 现在这两个算子
+  直接落到 `TOP`(不知道),不再猜。
+- **入口状态留空 → 回边的值直接冒充初值** —— `ILOS.test.msch` 因此报
+  `L28 jump 29 strictEqual message null`,而 `message` 只在 L29 才被置 null
+  (第一遍是 0、第二遍才是 null,诚实的答案是"0 或 null")。
+  修法:pc 0 的入口状态预置 `NUM0`(`new LVar(name)` 本来就是 `numval = 0`)。
+- **`null` 字面量被当成变量名**,`strictEqual x null` 永远不解析;以及算子名
+  大小写不匹配(`strictEqual` vs `strictequal`)导致所有比较静默失效 ——
+  这类 bug 的表现是"报告里什么都没有",比报错难查得多。
+
+### 边界
+
+- 外部输入一律 `TOP`:`sensor` / `getlink` / `ulocate` / `@` 内置量拿到的都是运行期
+  状态,不猜。**所以它只在"纯计算链"上说话** —— 这恰好也包括
+  `set` → `op` → `jump` 的计数器与状态机。
+- 变量连改 3 轮后按变量丢精度到 `TOP`(widen),保证收敛;`unstable` 目前是 0。
+- 不跨处理器,不判断值**算得对不对**,只判断"它是不是必然为 null / 条件是不是必然成立"。
+- 报告只给前 20 条,多的自己用 `--trace VAR` 追。
+
+---
+
 ## 16. ⚠️ 我写错的逻辑清单(生成前对照)
 
 这一节记录**实际被抓到的逻辑错误**,不是猜测。
@@ -1659,3 +1743,4 @@ F:\OneDrive\桌面\AtomicStates\mindustry-blueprint\                ← 开发�
 | 第 14 次整理 | 评完那份 159 行「flag 位域租约」程序:**四路单位选择器是正确的**(我一度误判为死代码,根因是把跳转目标当成下一行执行)。真实缺陷:① `jump 28 always` 无条件回跳使 `end` 前的 `control enabled resetSwitch 0` 永不执行(复位开关卡死);② 缺 `@unit` 判空;③ 硬编码扫描上限 80 与"`ubind` 计数器按单位类型推进"语义不匹配;④ 每 10 秒全体同时换代;⑤ 每轮重复写 flag 使单位永不自然脱控。**用户结论:"工程上标准,但是不适合游戏"** —— 错不在工程化,而在**把通用协议当起点而非终点**。值得留的三个想法:让 `0` 天然表示空闲(ID 加 1)、用容器坐标派生模块 ID(不依赖 `@thisx/@thisy`)、租约容忍一代重叠 |
 | 第 16 次整理 | **死存储分析落地 `mlog.py ir`**(§15.13):CFG + 后向活跃变量不动点,`end` 的回边让"跨周期写读"自动判活。四层分级(`reported`/`slot`/`declaration`/`annotation`)。**三条语言事实**:`//` 不是注释(`#` 才是,`LParser.java:98-99`)⇒ 那些是**真死存储**;跳转标签**不占指令槽**(`LParser.java:117-125` 记的是"已解析语句数");`@counter` 必须排除(否则 18266 条假阳性)。**实测 626 个 `.msch`**:排除 8 个模拟器蓝图(3365 块)后,真实 617 文件 / 2409 块,`reported 1566 = 0.650/块`,但 **p50=0、p90=1、82.0% 的块一条都不报**,均值被约 20 个代码生成式蓝图拉高 ⇒ **"干净块占比"才是可用性指标,均值不是**。抽样 28 个站点**逐条人工核对全部为真**(半交换写反 / 跳转落点错 / 连写两次 / 守卫递减无人读 / 全角 `cy！` 打错字 / 重算前没 `draw`)。**方法论:先量误报再谈可用;分层比压噪声有效。** |
 | 第 17 次整理 | **`--cost` 接上 `wait` 的节拍成本 + 修掉循环计价的三处系统性错误**(§15.14)。`wait` 在 `WaitI.run()` 里 `counter--` 再 yield,**一条 ipt 都不烧**,却常常是真实周期的全部 —— 只报指令数等于把最贵的参数藏起来。源码定案:`wait` 参数是**秒**(`curTime += Time.delta/60f` ⇒ 60 tick = 1 秒),`wait 0` 不阻塞、只是"每 tick 跑一遍"。顺带发现旧模型严重高估:`_wait1`(4 次循环 × 3 条)报 **113**(真值 16)、`_wait2` 报 **1241**(真值 74)。三处根因:①出口候选先写回 `cnt` 再取循环体长度 ⇒ **循环被自己的出口路径乘一遍**(4×3 变 4×14);②外层循环只按"内层跑一遍"算;③到底后再走一遍回边 ⇒ 循环二次计费。修法:先取 `body` 再算出口、进内层头时直接加 `loop_cost[inner]`、末轮不再走回边;`find_loop_bounds` 改为**优先用回边自身条件**(内层常量原本会外泄,外层 ×3 被报成 ×10)。修后与手算对齐 **16 / 77**。另修 `strip_comment` 的 BOM(`\ufeffset` 认不出助记符)。**方法论:一个"近似"数字也要能对上两个手算样例,否则它只是看起来像数字。** |
+| 第 18 次整理 | **新增值域分析 `mlog.py values`(§15.15):常量分支 + 可证 null**。`--cost` 数指令、`ir` 看谁读,两者都看不见「这个条件永远成立」。三条源码事实打底(`LVar.java`):`num()` 里 **null 当数字用就是 0**;`invalid()` 的 NaN / ±Infinity 在 `setnum()` 里**静默变成 null**;`ConditionOp.test()` 只在两边都是对象时才走对象比较,否则一律按数字比 —— 于是 **`equal x null` ⇔ `x == 0`,对未赋值变量恒真,只有 `===` 才区分 null 与 0**(全语料 288 条常量分支里大半是这个形态,工具现在会在这种行后面标出来)。全量 617 文件 / 2396 块(排除 1 个模拟器文件 3354 块):**4.1% 的块有信号**、常量分支 288(0.120/块)、可证 null 144(0.060/块)、**未收敛 0**、39 ms/块。三个自己踩的坑:①把 `rand`/`noise` 写成 `math.nan` ⇒ NaN 被归一成 null ⇒ `1v1.msch` 报 10 条假阳性(**在这个域里 NaN 不是「不知道」的哨兵,它就是 null**);②入口状态留空 ⇒ 回边的值冒充初值(`ILOS.test.msch` 报 `strictEqual message null`,而它只在下一行才被置 null);③`null` 字面量被当变量名 + 算子名大小写不匹配 ⇒ 所有比较静默失效(表现是「报告里什么都没有」,比报错难查)。**方法论:一个分析工具的第一次全量运行,主要产出是它自己的 bug 列表。** |
