@@ -70,14 +70,13 @@ def var_of(msg: str) -> str:
     return m.group(1) if m else "?"
 
 
-def read_scan() -> tuple[list, list, list, list, list, list]:
-    """(errs, guards, surplus, dead_links, boolconst, signatures) as row tuples."""
+def read_scan() -> tuple[list, list, list, list, list]:
+    """(errs, guards, surplus, dead_links, signatures) as row tuples."""
     data = json.loads(SCAN.read_text("utf-8"))
     errs: list[tuple[str, str, int, str, str]] = []
     guards: list[tuple[str, str, int, str, str]] = []
     surplus: list[tuple[str, str, int, str, str]] = []
     deadlinks: list[tuple[str, str, int, str, str]] = []
-    truthy: list[tuple[str, str, int, str, str]] = []
     signed: list[tuple[str, str, int, str, str]] = []
     for r in data["rows"]:
         name = Path(r["file"]).name
@@ -89,8 +88,6 @@ def read_scan() -> tuple[list, list, list, list, list, list]:
                     errs.append(row)
                 elif sev == "INFO":
                     signed.append(row)
-                elif "is not a keyword in mlog" in msg:
-                    truthy.append(row)
                 elif "has no such link" in msg:
                     deadlinks.append(row)
                 elif "parameter slot" in msg or "given 3 args" in msg:
@@ -100,7 +97,7 @@ def read_scan() -> tuple[list, list, list, list, list, list]:
                     surplus.append(row)
                 elif sev == "WARN":
                     guards.append(row)
-    return errs, guards, surplus, deadlinks, truthy, signed
+    return errs, guards, surplus, deadlinks, signed
 
 
 def reason_for(var: str, kinds: collections.Counter) -> str:
@@ -159,7 +156,7 @@ def shape_table(rows: list[tuple[str, str, int, str, str]], top: int = 20) -> li
 
 
 def main() -> int:
-    errs, guards, surplus, deadlinks, truthy, signed = read_scan()
+    errs, guards, surplus, deadlinks, signed = read_scan()
 
     out: list[str] = []
     out.append("# 蓝图包错误清单(926 份)—— 按「是不是真错」分四层")
@@ -174,10 +171,9 @@ def main() -> int:
     out.append(f"| B 恒真守卫 | `jump` 两侧都是常量 ⇒ 分支固定,常是署名 | {len(guards)} |")
     out.append(f"| C 无效参数 | 名字落在指令读不到的参数位上 | {len(surplus)} |")
     out.append(f"| D 死引用 | 形如链接名,但这块处理器没有这个链接 | {len(deadlinks)} |")
-    out.append(f"| E 真假字面量 | 把 `true`/`false` 当关键字用,实际是未赋值变量 = 0 | {len(truthy)} |")
-    out.append(f"| F 署名 | 只为出现在变量列表里 | {len(signed)} |")
+    out.append(f"| E 署名 | 只为出现在变量列表里 | {len(signed)} |")
     out.append("")
-    out.append("A、D、E 需要改;B/C/F 是这个社区的写作习惯,不是错误。")
+    out.append("A 和 D 需要改;B/C/E 是这个社区的写作习惯,不是错误。")
     out.append("D 的危险在于它**看起来**是有效引用:`control shootp scatter1` 不会报错,")
     out.append("`LExecutor` 的 `validLink` 直接把它挡掉,塔一发不发。")
     out.append("")
@@ -199,11 +195,7 @@ def main() -> int:
     out.append("")
     out.extend(var_table(deadlinks, "形如链接名,但这块处理器的链接表里没有它",
                          "`control`/`printflush`/`sensor` 用到时静默无效"))
-    out.append("## E 真假字面量 —— 引用了 `true` / `false`")
-    out.append("")
-    out.extend(var_table(truthy, "mlog 没有布尔关键字,这两个名字等于未赋值变量 0",
-                         "写 1 / 0,或先用 `set` 赋值"))
-    out.append("## F 署名 —— 出现最多的名字")
+    out.append("## E 署名 —— 出现最多的名字")
     out.append("")
     out.extend(var_table(signed, "只为在编辑器变量列表里留名", "不用改"))
 

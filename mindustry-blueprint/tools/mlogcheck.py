@@ -63,13 +63,12 @@ OP_BINARY = {"add", "sub", "mul", "div", "idiv", "mod", "emod", "pow",
              "max", "min", "angle", "angleDiff", "len", "noise", "logn"}
 
 # built-in / magic symbols that are always in scope.
-# NOTE: `true` / `false` are deliberately NOT here. `LAssembler.var()` only
-# makes a constant out of a quoted string or something `parseDouble` accepts;
-# "true" is neither, so it becomes an ordinary variable (`putVar("true")`) that
-# nobody ever assigns -- i.e. 0. `jump 34 equal aat true` is `aat == 0`, and the
-# in-game editor shows it as an undeclared name.
+# `true` / `false` ARE here: GlobalVars.init() registers them as plain constants
+# (`putEntry("false", 0)`, `putEntry("true", 1)` at GlobalVars.java:54-55), and
+# `LAssembler.var()` returns that constant before ever reaching putVar(). So
+# `jump 34 equal aat true` really is `aat == 1` -- correct code.
 BUILTIN = re.compile(
-    r"^(@|_|null$|-?\d+(\.\d+)?$|\"[^\"]*\"$|%[0-9a-fA-F]+$)")
+    r"^(@|_|null$|true$|false$|-?\d+(\.\d+)?$|\"[^\"]*\"$|%[0-9a-fA-F]+$)")
 
 # reserved words that appear in operand positions but are NOT variables
 KEYWORDS = {
@@ -619,14 +618,6 @@ def analyse(lines: list[str], links: list[str] | None = None) -> list[Finding]:
                         f"has no such link (it has: {', '.join(sorted(link_vars)) or 'none'})"))
                 continue
             kinds = use_kinds.get(v, set())
-            if v in ("true", "false"):
-                out.append(Finding(
-                    "WARN", orig + 1, c,
-                    f"`{v}` is not a keyword in mlog -- `LAssembler.var()` makes "
-                    f"a constant only from numbers and quoted strings, so this "
-                    f"is an ordinary variable nobody assigns: it is 0. "
-                    f"Use 1/0 instead"))
-                continue
             bslot = _bool_slot(p)
             if bslot is not None and len(p) > bslot and p[bslot] == v:
                 out.append(Finding(

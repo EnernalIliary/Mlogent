@@ -18,11 +18,11 @@ python tools/mlogagent.py info --verify                # 校验 MANIFEST.sha256
 
 位置参数按**后缀**分派：`.msch` 走蓝图解析（一个逻辑块一节），其余按 UTF-8 文本读。
 
-## 先读这一节：六层各自能证明什么
+## 先读这一节：五层各自能证明什么
 
 | 层 | 回答的问题 | 证据强度 | 全语料命中 |
 |---|---|---|---|
-| `check` | 语法/参数位/`@dead` 反用这类**确定**错误，以及未定义变量的六层分级 | 最强，可直接改 | A 层误报 ~0 |
+| `check` | 语法/参数位/`@dead` 反用这类**确定**错误，以及未定义变量的五层分级 | 最强，可直接改 | A 层误报 ~0 |
 | `ir` → 死存储 | 某个变量**写了没人读** | 强，但分四层（见下） | 抽检 28 站全真 |
 | `ir` → 不可达 | 某些语句**永远执行不到** | 最强 | 0 |
 | `cost` | 一圈**最坏**要多少指令、`wait` 占多少秒 | 近似，可对拍 | — |
@@ -46,9 +46,9 @@ python tools/mlogagent.py info --verify                # 校验 MANIFEST.sha256
 
 mlog **只有 `#` 起注释**（`LParser.java:98-99`），没有行尾注释 —— 所以 `set // 上个位置` 是**真语句**，游戏照执行。这类占语料 `reported` 的 222 条，已归入 `annotation`。
 
-## 「未定义变量」要先分六层，再决定改不改
+## 「未定义变量」要先分五层，再决定改不改
 
-`check` 报 `` `X` is read here but is never assigned `` 时**先别改**：mlog 圈有一整套只用变量列表承载的写作习惯，靠语言规范测不出来，只能从用户嘴里知道。全包 926 份蓝图的实测分布（A 从 883 条降到 77 条，就是这六层分出来的）：
+`check` 报 `` `X` is read here but is never assigned `` 时**先别改**：mlog 圈有一整套只用变量列表承载的写作习惯，靠语言规范测不出来，只能从用户嘴里知道。全包 926 份蓝图的实测分布（A 从 883 条降到 77 条，就是这五层分出来的）：
 
 | 层 | 含义 | 条数 | 改不改 |
 |---|---|---:|---|
@@ -56,16 +56,14 @@ mlog **只有 `#` 起注释**（`LParser.java:98-99`），没有行尾注释 —
 | B 恒真守卫 | `jump` 两侧都是常量 ⇒ 分支固定 | 55 | 一般不用 |
 | C 无效参数 | 名字落在指令**读不到**的参数位上 | 944 | 不用 |
 | D 死引用 | 形如链接名，但这块处理器没有这个链接 | 788 | **要改**（静默失效） |
-| E `true`/`false` | 当成关键字用，其实是未赋值变量 = 0 | 653 | **要改**（分支反向） |
-| F 署名 | 只为出现在编辑器变量列表里 | 5549 | 不用 |
+| E 署名 | 只为出现在编辑器变量列表里 | 5540 | 不用 |
 
 各层的判据与实例：
 
-- **F 署名**。编辑器变量列表会显示程序用到的所有变量，所以写个自己的名字当变量就是署名：`print by:NOSB(hghg`、`set Madeby mineqwwe`、`jump 21 equal colour ender`（整合者彩色末影的名字，两个都未赋值 ⇒ 0==0 恒真，既是署名又当 `always` 用）、`control config Carrot 0914 0 0 0`。检查器判 **INFO**：目标变量全程序无人读、名字只出现在 `print` 里、或纯标点名。
+- **E 署名**。编辑器变量列表会显示程序用到的所有变量，所以写个自己的名字当变量就是署名：`print by:NOSB(hghg`、`set Madeby mineqwwe`、`jump 21 equal colour ender`（整合者彩色末影的名字，两个都未赋值 ⇒ 0==0 恒真，既是署名又当 `always` 用）、`control config Carrot 0914 0 0 0`。检查器判 **INFO**：目标变量全程序无人读、名字只出现在 `print` 里、或纯标点名。
 - **C 无效参数**。语句长度 > 指令真正读的位数时，多出来的 token 是**惰性**的（`LParser` 按 `arity` 填字段，多的丢掉）。`control` 只有三个有效位（类型 / 目标 / p1，p2–p4 被各方块类型忽略）；`ucontrol` 各子命令按 `semantic_uses` 算，`flag`/`payTake` 只有一个语义参数；一元 `op` 的第三位永远丢掉（`op rand g 255 b` 的 `b`）。署名和"占位开关"都塞在这里。
 - **B 恒真守卫**。`jump T equal X Y` 两边都不是变量赋值时，分支是常量。要么是署名，要么作者想要 `always`。
 - **D 死引用**。`scatter1` 这种名字**看着**是有效链接，但处理器的链接表里没有它 —— `LExecutor` 的 `validLink(b)` 直接挡掉，`control shootp scatter1` 一发不发，不报错、不崩溃。`.mlog` 单独文件没有链接表，只有 `.msch` 能查。
-- **E `true`/`false`**。见下面语言事实表第 1 条。这是**修改优先级最高**的一类：`jump 31 equal nrg true` 想表达"等于真"，实际是 `nrg == 0`，条件完全反向。
 
 真正要改的 A 层长这样：`op mod n n padNeedCount`（模数 0 ⇒ null）、`ubind u` 而 `u` 从未赋过、`control config unloader1 mmm 0 0 0`（`mmm` 当 0 用，但写成了名字）、`flase` 拼错落在 `ulocate` 的 enemy 位。
 
@@ -73,7 +71,7 @@ mlog **只有 `#` 起注释**（`LParser.java:98-99`），没有行尾注释 —
 
 | 事实 | 源码 | 后果 |
 |---|---|---|
-| `true`/`false` **不是关键字** | `LAssembler.java:61-80` 只把带引号字符串和 `parseDouble` 认得的数字造常量 | 它们是普通变量 = 0；`equal X true` ⇒ `X == 0` |
+| `true`/`false` 是**注册常量**（1 / 0） | `GlobalVars.java:54-55` `putEntry("false", 0)`、`putEntry("true", 1)`，`LAssembler.var()` 先查 `logicVars` 才轮到 `putVar` | `jump T equal X true` 就是 `X == 1`，**不是**未赋值变量 |
 | `lookup` 的结果在**第 2 参** | `LStatements.java:875-909`，第 0 位是 `ContentType` 关键字 | 把 `unit` 当目标 ⇒ 每个 `ubind u` 都变假错 |
 | `ucontrol getBlock x y a b c` 有**三个输出** | `LExecutor.java:491-509`（p3/p4/p5） | 只认一个输出会把 `b` 当未赋值 |
 | `ucontrol within x y r result` | `LExecutor.java:377` `p4.setnum(unit.within(...))` | `r` 是半径，`result` 是 1/0 |
@@ -97,6 +95,7 @@ mlog **只有 `#` 起注释**（`LParser.java:98-99`），没有行尾注释 —
 - 派发表（写 `@counter`）⇒ 不可达 9384 → 495。
 - `jump -1 always` 当终止 ⇒ `坦克大战.msch` 190 条里报 182 条不可达，实际全部可达。
 - `lookup` 目标位算错 ⇒ `u` 族 23 条假错。
+- **只看 `LAssembler.var()` 就断定 `true`/`false` 不是关键字** ⇒ 653 条假 WARN。真相在 `GlobalVars.init()`:它们是 `putEntry` 注册的常量 1 / 0。教训:**判一个名字是不是内建，要查"注册了什么"，不是查"解析函数怎么处理"** —— `var()` 第一步 `logicVars.get()` 就把它们接走了。
 - `ucontrol getBlock` 只认一个输出 ⇒ `f` 假错。
 - `struct` 层面的教训：**一个分析工具的第一次全量运行，主要产出是它自己的 bug 列表。**先抽样人工核对 20–30 站，再谈精度。
 
@@ -110,7 +109,7 @@ mlog **只有 `#` 起注释**（`LParser.java:98-99`），没有行尾注释 —
 
 **蓝图包 926 份（481 份有逻辑、1698 块、359,131 条语句）**
 
-- 六层分布见上面那张表：A 77 / B 55 / C 944 / D 788 / E 653 / F 5549。
+- 五层分布见上面那张表：A 77 / B 55 / C 944 / D 788 / E 5540。
 - 死存储 `reported` 2156 条 / 232 隐藏；常量分支 `values` 命中 98 块（4.1%）。
 - 每块语句数：中位 **41**、p90 **902**、上限 **1000**（正好是 `maxInstructionsPerTick`，说明有人把预算写满）。
 - 两批语料要分开算：`⭐不正经的东西⭐` + `🎯逻辑小游戏🎯` 只有 109 份文件却占 **87% 的语句量**（热舞 / 坏苹果 / 香蕉君这类动画演示，自旋是设计意图）。严肃子集 817 文件 / 902 块 / 45,722 语句里，硬错 16.6 条/千语句。
