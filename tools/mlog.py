@@ -9,7 +9,11 @@ Usage
   python mlog.py parse  <file.msch>            # dump a blueprint's blocks + logic
   python mlog.py gen    <logic.mlog> [opts]    # build a .msch (or paste code)
   python mlog.py check  <logic.mlog | --msch F> # static analysis of mlog
+  python mlog.py ir     <logic.mlog | --msch F> # CFG: unreachable code, dead stores
+                                               #   (--all also shows forced output
+                                               #    slots and literal declarations)
   python mlog.py id     [name]                 # block content ids / sizes
+  python mlog.py item   [name] [--unpack N]    # item content ids / packed configs
   python mlog.py cmd    [pattern]              # mlog instruction reference
   python mlog.py selftest                      # round-trip every real blueprint
 
@@ -238,13 +242,66 @@ def cmd_check(args) -> int:
 # these are technically dead stores, but reporting them is pure noise.
 _ANNOTATION = re.compile(r"^[^A-Za-z0-9_@\"]*$")
 
+# A def that is *forced by syntax*: these statements have several output
+# slots and the author must name every one, so an unread slot is not a
+# mistake, it is unavoidable. Measured over the corpus: 0.267/block for
+# `ulocate` alone -- reporting those would bury the real findings.
+_SLOT_FORCED = frozenset({
+    "ulocate", "ucontrol", "radar", "uradar", "getlink", "getblock",
+    "lookup", "weathersense", "spawn", "bullet", "status",
+})
 
-def _ir_report(label: str, lines: list[str]) -> int:
+# `set x 3` with nothing reading x is how mlog authors "declare" a variable
+# or leave a note. 0.99 per block across the corpus, so hidden by default.
+_LITERAL = re.compile(r"^(?:-?\d+(?:\.\d+)?|true|false|@\S+|\"[^\"]*\")$")
+
+# A *fullwidth punctuation* character inside a name is nearly always a typo'd
+# `!` or `(` typed with a Chinese IME, and it silently creates a brand-new
+# variable (`cy！` vs `cy!`). Pure Chinese names like `关闭时长` are perfectly
+# legitimate, so the test is the fullwidth punctuation block only -- not
+# "non-ASCII".
+_FULLWIDTH = re.compile(
+    "[\uff01-\uff0f\uff1a-\uff20\uff3b-\uff40\uff5b-\uff5e\u3000-\u303f]")
+
+
+def _text(t) -> str:
+    """A token's text, whichever shape `mlogir` hands us (Tok or str)."""
+    return getattr(t, "text", t)
+
+
+def _ir_tier(prog, i: int, v: str, kind: str) -> str:
+    """`reported`, `slot` (forced by syntax), `declaration` or `annotation`."""
+    # A name made only of punctuation (`//`, `--`, `===`) is a note the author
+    # typed into the code, taken as a variable name because mlog has no
+    # end-of-line comment (only `#` starts one, `LParser.java:98-99`). 222 of
+    # these across the corpus -- the single largest noise source after `set`.
+    if _ANNOTATION.match(v):
+        return "annotation"
+    if kind == "overwritten":
+        return "reported"
+    s = prog.stmts[i]
+    if s.mnemonic in _SLOT_FORCED:
+        return "slot"
+    if s.mnemonic == "set" and all(_LITERAL.match(_text(a))
+                                   for a in s.args[1:]):
+        return "declaration"
+    return "reported"
+
+
+def _ir_report(label: str, lines: list[str], show_all: bool = False) -> int:
     prog = _ir.parse(lines)
     if not len(prog):
         return 0
     dead = prog.dead()
-    stores = [(i, v) for i, v in prog.dead_stores() if not _ANNOTATION.match(v)]
+    graded = [(i, v, k) for i, v, k in prog.classify_dead_stores()
+              if not _ANNOTATION.match(v)]
+    tiers = [(i, v, k, _ir_tier(prog, i, v, k)) for i, v, k in graded]
+    shown = [t for t in tiers if show_all or t[3] == "reported"]
+    hidden: dict[str, int] = {}
+    for t in tiers:
+        if t not in shown:
+            hidden[t[3]] = hidden.get(t[3], 0) + 1
+
     reads = {v for s in prog.stmts for v in s.uses}
     writes = {v for s in prog.stmts for v in s.defs}
     ops: dict[str, int] = {}
@@ -261,17 +318,39 @@ def _ir_report(label: str, lines: list[str]) -> int:
         print(f"  UNREACHABLE     : {len(dead)} statement(s) can never run: "
               + ", ".join(f"L{prog.stmts[i].line}" for i in dead[:12])
               + (" ..." if len(dead) > 12 else ""))
-    if stores:
-        print(f"  DEAD STORES     : {len(stores)} assignment(s) never read:")
-        for i, v in stores[:20]:
-            print(f"      L{prog.stmts[i].line:<5} {v:<22} "
-                  f"{prog.stmts[i].raw.strip()[:70]}")
-        if len(stores) > 20:
-            print(f"      ... and {len(stores) - 20} more")
-        print('      note: another processor can still read these with '
-              'read result <this processor> "<name>"')
+    if shown:
+        print(f"  DEAD STORES     : {len(shown)} worth a look:")
+        for i, v, kind, _tier in shown[:20]:
+            why = ("value overwritten before any read"
+                   if kind == "overwritten" else "computed, never read")
+            print(f"      L{prog.stmts[i].line:<5} {v:<22} {why}")
+            print(f"      {'':<5} {'':<22} {prog.stmts[i].raw.strip()[:70]}")
+        if len(shown) > 20:
+            print(f"      ... and {len(shown) - 20} more")
     else:
         print("  dead stores     : none")
+    if hidden:
+        bits = []
+        if hidden.get("slot"):
+            bits.append(f"{hidden['slot']} forced output slot(s)")
+        if hidden.get("declaration"):
+            bits.append(f"{hidden['declaration']} literal declaration(s)")
+        print("  (hidden)        : " + ", ".join(bits)
+              + "   -- rerun with --all to list them")
+    weird: dict[str, list[int]] = {}
+    for s in prog.stmts:
+        for v in sorted(s.defs | s.uses):
+            if v.startswith("@") or not _FULLWIDTH.search(v):
+                continue
+            weird.setdefault(v, []).append(s.line)
+    if weird:
+        print("  ODD NAMES       : fullwidth punctuation in a variable name "
+              "(usually an IME typo, which silently "
+              "creates a different variable):")
+        for v, lns in list(weird.items())[:8]:
+            print(f"      {v:<22} at "
+                  + ", ".join(f"L{n}" for n in lns[:6])
+                  + (" ..." if len(lns) > 6 else ""))
     print("  opcodes         : "
           + ", ".join(f"{k}x{v}" for k, v in
                       sorted(ops.items(), key=lambda kv: -kv[1])[:10]))
@@ -281,15 +360,16 @@ def _ir_report(label: str, lines: list[str]) -> int:
 
 def cmd_ir(args) -> int:
     rc = 0
+    show_all = bool(getattr(args, "all", False))
     for p in args.files:
         with open(p, encoding="utf-8") as fh:
-            rc |= _ir_report(p, fh.read().split("\n"))
+            rc |= _ir_report(p, fh.read().split("\n"), show_all)
     for p in args.msch:
         sch = msch.parse_file(p)
         for t in sch.logic_tiles():
             assert t.logic is not None
             rc |= _ir_report(f"{p} [{t.block} @({t.x},{t.y})]",
-                             t.logic.code.split("\n"))
+                             t.logic.code.split("\n"), show_all)
     return rc
 
 
@@ -436,6 +516,9 @@ def main() -> int:
     p.add_argument("files", nargs="*", metavar="logic.mlog")
     p.add_argument("--msch", action="append", default=[],
                    help="take the logic from a .msch instead")
+    p.add_argument("--all", action="store_true",
+                   help="also list forced output slots and literal "
+                        "declarations (noisy: ~1.2 per block)")
     p.set_defaults(fn=cmd_ir)
 
     p = sub.add_parser("id", help="look up block content ids / sizes")

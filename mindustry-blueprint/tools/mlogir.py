@@ -276,7 +276,7 @@ class Stmt:
 
 def strip_comment(line: str) -> str:
     """Drop a comment line. mlog comments start with '#' at the beginning of a line."""
-    s = line.strip()
+    s = line.strip().lstrip("\ufeff")
     if not s or s.startswith("#"):
         return ""
     return s
@@ -310,16 +310,41 @@ def build_stmt(index: int, line_no: int, raw: str, table: dict) -> Stmt:
     mnemonic = toks[0].text.lower()
     args = toks[1:]
     spec = _resolve_spec(mnemonic, args, table)
-    defs_idx = _index_set(spec.get("defs", []), len(args))
+    defs_all = _index_set(spec.get("defs", []), len(args))
     uses_idx = _index_set(spec.get("uses", "all"), len(args))
 
     # keyword slots (operator name, sub-command, radar filter, ...) are not vars
     kw = spec.get("keywords", DEFAULT_KEYWORDS.get(mnemonic, []))
     if isinstance(kw, dict):
         kw = [int(k) for k in kw]
+    kw = {int(i) for i in kw}
+    defs_idx = set(defs_all)
+
+    # A checker must never claim "nobody reads this" when the game might.
+    # Three sources of doubt, all resolved in favour of "read":
+    #   maybe_uses   -- read on *some* executions: `select` dereferences
+    #                   only one of a/b (Java ternary at LExecutor.java:892),
+    #                   ulocate writes outX/outY only on a hit.
+    #   semantic_uses -- read by the executor rather than by a text argument.
+    #   unaccounted  -- a position that is neither an output slot nor a
+    #                   keyword, so the table simply does not say. `playsound`
+    #                   declares 8 params and marks only 1 as read; `setrule`
+    #                   6 and only 1. Leaving these out produced a wave of
+    #                   false "overwritten before any read" reports.
+    # Over-approximating reads can only hide a finding, never invent one,
+    # which is the right trade for a linter whose output a human acts on.
+    blind = set(range(len(args))) - defs_all - kw
+    for extra in ("maybe_uses", "semantic_uses"):
+        v = spec.get(extra, [])
+        if v == "all":
+            uses_idx |= set(range(len(args)))
+        else:
+            uses_idx |= {int(i) for i in v if int(i) < len(args)}
+    uses_idx |= blind
+
     for i in kw:
-        defs_idx.discard(int(i))
-        uses_idx.discard(int(i))
+        defs_idx.discard(i)
+        uses_idx.discard(i)
 
     def vars_at(idx: set[int]) -> set[str]:
         out = set()
@@ -350,6 +375,7 @@ def build_stmt(index: int, line_no: int, raw: str, table: dict) -> Stmt:
 @dataclass
 class Program:
     stmts: list[Stmt]
+    labels: dict[str, int] = field(default_factory=dict)
 
     def __len__(self) -> int:
         return len(self.stmts)
@@ -461,17 +487,66 @@ class Program:
                     out.append((s.index, v))
         return out
 
+    def classify_dead_stores(self) -> list[tuple[int, str, str]]:
+        """(stmt index, variable, kind) with kind in `overwritten`/`never-read`.
+
+        The two kinds are very different evidence, and reporting them as one
+        list is what made the first version unusable:
+
+        `overwritten` -- the variable *is* read somewhere in this program, so
+        some other write destroys this value before any read can reach it.
+        That is almost always a mistake: a copy-paste, or a destination
+        variable typo'd into a fresh name.
+
+        `never-read` -- nothing in this program reads the variable at all.
+        It may be a deliberate declaration or an in-editor annotation, so it
+        is much weaker evidence and callers normally hide it.
+        """
+        used = {v for s in self.stmts for v in s.uses}
+        return [(i, v, "overwritten" if v in used else "never-read")
+                for i, v in self.dead_stores()]
+
+
+def _is_label(body: str) -> str | None:
+    """A line whose only token ends with ':' is a jump label, not a statement."""
+    toks = tokenize(body)
+    if len(toks) == 1:
+        t = toks[0].text
+        if t.endswith(":") and len(t) > 1:
+            return t[:-1]
+    return None
+
 
 def parse(source: str | list[str], table: dict | None = None) -> Program:
     tbl = table if table is not None else load_table()
     lines = source.split("\n") if isinstance(source, str) else list(source)
-    stmts: list[Stmt] = []
+    # Pass 1: drop comments, blanks and jump labels. A label names the position
+    # of the *next* statement -- `LParser.java:117-125` stores
+    # `jumpLocations.put(label, line)` with `line` being the count of statements
+    # already parsed, so a label consumes no instruction slot.
+    bodies: list[tuple[int, str]] = []
+    labels: dict[str, int] = {}
     for ln, raw in enumerate(lines, 1):
         body = strip_comment(raw)
         if not body:
             continue
-        stmts.append(build_stmt(len(stmts), ln, body, tbl))
-    return Program(stmts)
+        label = _is_label(body)
+        if label is not None:
+            labels[label] = len(bodies)
+            continue
+        bodies.append((ln, body))
+    stmts = [build_stmt(i, ln, body, tbl) for i, (ln, body) in enumerate(bodies)]
+    # Pass 2: resolve `jump <label>` to the numeric address it names. A trailing
+    # label sits at the very end, so jumps to it go one past the last statement,
+    # which is where `end` would restart anyway.
+    for st in stmts:
+        if st.mnemonic != "jump" or not st.args:
+            continue
+        t = st.args[0]
+        if t.kind == KIND_NUM or t.text not in labels:
+            continue
+        st.args[0] = Tok(str(labels[t.text]), KIND_NUM)
+    return Program(stmts, labels)
 
 
 # --------------------------------------------------------------------------- #
