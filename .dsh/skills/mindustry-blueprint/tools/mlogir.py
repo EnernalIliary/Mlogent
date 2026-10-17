@@ -488,23 +488,40 @@ class Program:
         return out
 
     def classify_dead_stores(self) -> list[tuple[int, str, str]]:
-        """(stmt index, variable, kind) with kind in `overwritten`/`never-read`.
+        """(stmt index, variable, kind) with kind in
+        `overwritten` / `stale-write` / `never-read`.
 
-        The two kinds are very different evidence, and reporting them as one
-        list is what made the first version unusable:
+        The kinds are very different evidence, and reporting them as one list
+        is what made the first version unusable:
 
         `overwritten` -- the variable *is* read somewhere in this program, so
         some other write destroys this value before any read can reach it.
         That is almost always a mistake: a copy-paste, or a destination
         variable typo'd into a fresh name.
 
-        `never-read` -- nothing in this program reads the variable at all.
-        It may be a deliberate declaration or an in-editor annotation, so it
-        is much weaker evidence and callers normally hide it.
+        `stale-write` -- nothing reads the variable anywhere, but it is written
+        more than once, so every write after the first is provably discarded
+        work.  This is the shape of a real bug found in the corpus: a checker
+        that does `ulocate ... found ...` twice and never looks at `found`
+        (17十七硫幽灵四熔毁四油海啸组.msch).  A single never-read write can be
+        a declaration; a second one cannot be anything but waste.
+
+        `never-read` -- exactly one write and no read at all.  It may be a
+        deliberate declaration or an in-editor annotation, so it is much
+        weaker evidence and callers normally hide it.
         """
         used = {v for s in self.stmts for v in s.uses}
-        return [(i, v, "overwritten" if v in used else "never-read")
-                for i, v in self.dead_stores()]
+        writes: dict[str, int] = {}
+        for s in self.stmts:
+            for v in s.defs:
+                writes[v] = writes.get(v, 0) + 1
+
+        def kind(v: str) -> str:
+            if v in used:
+                return "overwritten"
+            return "stale-write" if writes.get(v, 0) > 1 else "never-read"
+
+        return [(i, v, kind(v)) for i, v in self.dead_stores()]
 
 
 def _is_label(body: str) -> str | None:

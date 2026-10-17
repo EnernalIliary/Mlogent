@@ -288,7 +288,13 @@ def _ir_tier(prog, i: int, v: str, kind: str) -> str:
     # these across the corpus -- the single largest noise source after `set`.
     if _ANNOTATION.match(v):
         return "annotation"
-    if kind == "overwritten":
+    # `stale-write` (written 2+ times, read nowhere) outranks the slot and
+    # declaration tiers on purpose: a forced output slot written *once* is just
+    # the syntax making you name a variable you don't need, but writing the
+    # same slot twice and never reading it means the first write is provably
+    # discarded -- the `found`/`found` bug in
+    # 17十七硫幽灵四熔毁四油海啸组.msch, which the slot tier used to hide.
+    if kind in ("overwritten", "stale-write"):
         return "reported"
     s = prog.stmts[i]
     if s.mnemonic in _SLOT_FORCED:
@@ -332,8 +338,10 @@ def _ir_report(label: str, lines: list[str], show_all: bool = False) -> int:
     if shown:
         print(f"  DEAD STORES     : {len(shown)} worth a look:")
         for i, v, kind, _tier in shown[:20]:
-            why = ("value overwritten before any read"
-                   if kind == "overwritten" else "computed, never read")
+            why = {"overwritten": "value overwritten before any read",
+                   "stale-write": "written more than once, read nowhere -- "
+                                  "every write after the first is wasted",
+                   }.get(kind, "computed, never read")
             print(f"      L{prog.stmts[i].line:<5} {v:<22} {why}")
             print(f"      {'':<5} {'':<22} {prog.stmts[i].raw.strip()[:70]}")
         if len(shown) > 20:
