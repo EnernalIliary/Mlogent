@@ -201,6 +201,20 @@ schematic 里 Stile 存的是方块的**中心格**,不是左上角。**已双�
 - 不跨处理器 —— 别的处理器用 `read x cell1 "名字"` 读它,这里看不见(实测全语料 0 例,但报了 `never-read` 仍要自己确认)
 - 只判"值有没有人用",不判"值算得对不对"(`op add dx dy dx` 想算距离却写加法,`ir` 不报)
 
+## 「未定义变量」不等于错误:两种社区写法
+
+静态检查报「`X` is read here but is never assigned anywhere」时,**先别改**。mlog 圈有两个约定俗成的写法,靠规范测不出来:
+
+| 写法 | 为什么不是错 | 检查器怎么判 |
+|---|---|---|
+| `print 我的名字`(名字从不赋值) | 编辑器**变量列表会显示程序里用到的所有变量** ⇒ 写个自己的名字当变量就是**署名**;打印出 `null` 无所谓 | **INFO**,文案 `signature only` |
+| `set // 装载电池组`(变量名是纯标点) | mlog 只有 `#` 起注释(`LParser.java:98-99`),想让注释在变量列表里可见就这么写 | 整个变量名归 `annotation` 层 / 整行跳过 |
+| 写了不读的变量 | 同上,为了出现在变量列表里 | `declaration` / `stale-write` 分开看 |
+
+真正要改的是**参与运算或控制流**的未赋值变量:`op add a b c` 里 `c` 未定义 ⇒ 静默当 0;`jump T lessThan i max` 里 `max` 未定义 ⇒ 循环一次都不进;`jump T equal X null` 未定义 ⇒ **恒真**(未赋值=0,`null` 读成 0,只有 `===` 才会假)。
+
+参数槽之外的 token 是**惰性的**(`LParser` 按 `arity` 填字段,多的丢掉),所以 `op rand g 255 b` 不读 `b`、`jump T always x false` 的 `x`/`false` 也不读 —— 署名常写在这些位置。但若署名写进了参数槽**内部**(`control enabled reactor enable 0 by bicker` 的 `by`/`bicker` 正好占 p3/p4),游戏确实会读它们。
+
 ## `values` 看什么、不看什么
 
 `mlog.py values` 跑的是**抽象值不动点**:给每个变量在每个位置算一个区间/常量,然后回答两个 token 流回答不了的问题。

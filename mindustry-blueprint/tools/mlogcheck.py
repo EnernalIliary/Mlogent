@@ -18,9 +18,11 @@ from __future__ import annotations
 
 import argparse
 import collections
+import json
 import os
 import re
 import sys
+from pathlib import Path
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
@@ -138,6 +140,12 @@ def defs_of(c: str) -> list[str]:
     p = tokenize(c)
     if not p:
         return []
+    # Drop surplus tokens: the game fills the statement's fields by index and
+    # never looks at the rest, so `control enabled reactor enable 0 by bicker`
+    # does not read `by`/`bicker` -- the author appended a signature there.
+    limit = ARITY.get(p[0].lower())
+    if limit is not None and len(p) > limit + 1:
+        p = p[:limit + 1]
     op = p[0]
     # `draw triangle a b c d e f` placed after `end` is a DECLARATION TABLE:
     # LParser calls var() on every argument, creating the variable slots.
@@ -224,9 +232,54 @@ def _vars(tokens) -> list[str]:
     return out
 
 
+_PUNCT_NAME = re.compile(r"^[^A-Za-z0-9_@\"]*$")
+
+
+def _load_arity() -> dict[str, int]:
+    """Tokens each mnemonic actually consumes (from `instr_semantics.json`).
+
+    Anything past the declared `arity` is parsed and then dropped by the game
+    (`LParser` fills the statement's fields by index and never reads the rest),
+    which is exactly why `op rand g 255 b` does not read `b` -- and why authors
+    can sign a program by appending `by bicker` to a real statement.
+    """
+    try:
+        raw = (Path(__file__).with_name("instr_semantics.json")).read_text("utf-8")
+        data = json.loads(raw)
+    except Exception:
+        return {}
+    out: dict[str, int] = {}
+    for name, spec in (data.get("instructions") or {}).items():
+        n = spec.get("arity")
+        if isinstance(n, int) and n >= 0:
+            out[name.lower()] = n
+    return out
+
+
+ARITY = _load_arity()
+
+
+def _comment_stmt(c: str) -> bool:
+    """True for `set <punctuation-name> <prose>` -- mlog's de-facto comment.
+
+    The game only treats `#` as a comment, so authors who want a visible note
+    write `set // 装载电池组` and let the right-hand side read as null. The
+    destination name being pure punctuation is the tell; it also shows up in
+    the editor's variable list, which is the point.
+    """
+    p = tokenize(c)
+    return len(p) >= 2 and p[0] == "set" and bool(_PUNCT_NAME.match(p[1]))
+
+
 def uses_of(c: str) -> list[str]:
     """Variables this statement READS (operators/keywords filtered out)."""
     p = tokenize(c)
+    if not p:
+        return []
+    # See defs_of: tokens past the declared arity are inert filler.
+    limit = ARITY.get(p[0].lower())
+    if limit is not None and len(p) > limit + 1:
+        p = p[:limit + 1]
     if not p:
         return []
     op = p[0]
@@ -346,13 +399,67 @@ def analyse(lines: list[str], links: list[str] | None = None) -> list[Finding]:
     for _, c in stmts:
         ever_defined |= set(defs_of(c))
     ever_defined |= link_vars
+
+    # How is each name USED? A name that only ever appears in `print` is not a
+    # mistake: the in-game editor shows every variable of a program in its
+    # variable list, so signing a blueprint by printing an unassigned name is a
+    # real convention (the print itself outputs "null" -- the point is the list).
+    # Likewise names that only appear as `jump ... equal X null`: legal, but the
+    # comparison is constant. Everything else (arithmetic, control, sensor...)
+    # silently reads 0, which is a genuine mistake.
+    use_kinds: dict[str, set[str]] = {}
+    for _, c in stmts:
+        p = tokenize(c)
+        if not p:
+            continue
+        kind = p[0]
+        if kind == "jump" and len(p) >= 3 and p[2] == "always":
+            kind = "jump-always"
+        for v in uses_of(c):
+            use_kinds.setdefault(v, set()).add(kind)
+
+    def _null_guard_only(name: str) -> bool:
+        """True if every read of `name` is a jump comparing it against null."""
+        for _, c in stmts:
+            if name not in uses_of(c):
+                continue
+            p = tokenize(c)
+            if not p or p[0] != "jump" or len(p) < 5:
+                return False
+            if p[2] not in ("equal", "notEqual"):
+                return False
+            if "null" not in (p[4], p[5] if len(p) > 5 else ""):
+                return False
+        return True
+
     for i, (orig, c) in enumerate(stmts):
+        # `set // read anything` is the de-facto comment idiom: the author names
+        # the destination with punctuation so it stands out in the variable
+        # list, and the "value" is prose. mlog has no line comments (only `#`),
+        # so the right operand is a variable read that outputs null -- harmless
+        # and certainly not an undefined-variable error.
+        if _comment_stmt(c):
+            continue
         for v in uses_of(c):
             if v in ever_defined:
                 continue
             # auto-detect link names by the game's `name + index` convention so
             # plain .mlog files (which carry no link table) don't false-positive
             if LINK_RE.match(v):
+                continue
+            kinds = use_kinds.get(v, set())
+            if kinds == {"print"}:
+                out.append(Finding(
+                    "INFO", orig + 1, c,
+                    f"`{v}` is never assigned -- signature only (it shows up in "
+                    f"the editor's variable list; print outputs `null`)"))
+                continue
+            if _null_guard_only(v):
+                out.append(Finding(
+                    "WARN", orig + 1, c,
+                    f"`{v}` is never assigned, so this comparison against null is "
+                    f"constant: an unset variable is 0 and `null` reads as 0, so "
+                    f"only `===` would ever be false"))
                 continue
             out.append(Finding(
                 "ERR", orig + 1, c,

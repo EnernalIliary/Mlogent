@@ -1623,8 +1623,28 @@ low field `1e6` holds 0..999999  =>  20 usable bit positions (ids 0..19)
 - **把链接名当变量名用**:87 个块引用 `message1`(22)、`switch1`(19)、`sorter1`(11)、
   `projector1`(9)这类名字,但那些方块**没被链接** ⇒ `printflush`/`control` 指向不存在的
   方块,静默无效果。
-- **`print` 不带引号**:`print by:NOSB(hghg`(34 处)。`LAssembler.java:67-69` 只有首尾都是
-  `"` 才生成字符串常量,否则当变量读 ⇒ **永远打印空**。
+- **`print` 不带引号 —— 起初判错,已按用户纠正改判**:`print by:NOSB(hghg`(34 处)。
+  `LAssembler.java:67-69` 只有首尾都是 `"` 才生成字符串常量,否则当变量读 ⇒ 打印出
+  `null`。**但从没赋值的变量会出现在游戏逻辑编辑器的变量列表里**,所以"写一个自己的
+  名字当变量"是常见的**署名手法**,不是错误 —— 打印出什么根本无所谓,作者要的是那个
+  名字出现在列表里。同理"写了不读"的变量也可能只是为了列表可见。
+  **改判后的证据分级**(`mlogcheck.py` 的"NEVER defined"块):
+  - 只出现在 `print` 里 ⇒ **INFO**,文案 `signature only (it shows up in the editor's
+    variable list; print outputs null)`;
+  - 只出现在 `jump … equal/notEqual X null` 里 ⇒ **WARN**,恒真但无害
+    (未赋值 = 0,`null` 读成 0,只有 `===` 才会假);
+  - 其余(参与 `op`/`control`/`sensor` 等)⇒ 仍是 **ERR**,因为算术里它静默当 0。
+  效果:全包硬错 **883 → 416**(只改这一处判级)。
+- **`set // 说明文字` 是 mlog 的"注释"写法**:变量名用纯标点,右侧是散文。mlog 只有 `#`
+  起注释(`LParser.java:98-99`),作者想让注释在变量列表里可见就这么写。原先把右侧散文
+  当变量读,`障碍躲避.msch` 一个文件就报 58 条假错。`mlogcheck._comment_stmt()` 现在整行
+  跳过 ⇒ 硬错 **416 → 367**。
+- **超过声明参数个数的 token 是惰性的**:`LParser` 按下标填语句字段,多的 token 解析完
+  就丢。`mlogcheck` 现在按 `instr_semantics.json` 的 `arity` 截断(`defs_of`/`uses_of`),
+  这样 `op rand g 255 b` 的 `b`、`jump T always x false` 的 `x`/`false` 都不会被当成读。
+  **例外**:署名若写在这些参数槽**内部**(`control enabled reactor enable 0 by bicker`
+  的 `by`/`bicker` 正好落在 p3/p4),游戏确实会读它们,仍算 ERR —— 这类约占残余 367 条
+  里的 60~70 条。
 - **换行丢失只有 1 处**(`control config unloader4 null 0 0 0sensor`):这个包的搬运不是
   批量机械损坏。
 
@@ -1863,3 +1883,4 @@ F:\OneDrive\桌面\AtomicStates\mindustry-blueprint\                ← 开发�
 | 第 20 次整理 | **把六种分析打包成独立技能 `mlogagent`**:一个 `report` 命令依次跑 `check`/`cost`/`ir`/`values`/`pack`,再按**证据强弱**给出「先看这里」(check 报错 → 死存储 → 不可达 → 常量分支 → 可证 null → 打包配置 → 未知助记符),末尾一行机器可读的 VERDICT。**退出码只有 `check` 能影响**(`ir`/`values`/`pack` 是建议性输出,永不让脚本失败)—— 因为 `ir` 一个错平均要陪着 0.65 条噪声,让它失败等于让脚本天天失败。技能**自带 13 个工具文件副本 + MANIFEST.sha256**(拷到 `%TEMP%` 单独跑通验证过),由 `tools/sync_mlogagent.py` 单向生成,`--check` 只比对不动文件。**三个自己踩的坑**:①`_targets()` 按内容而不是后缀判断 `.msch` ⇒ 蓝图被当 UTF-8 读,`UnicodeDecodeError: 'utf-8' codec can't decode byte 0xda in position 6`;②同步脚本一度把**蓝图技能的 SKILL.md 覆盖到 mlogagent 上**,症状不是报错而是**该技能从可用技能目录里整条消失**(front matter 变成另一个名字)⇒ payload 永不含 SKILL.md;③PowerShell 的 here-string 会把反引号 r / t 变成 CR/TAB,把一行注释劈成两半 —— **含反引号的正文只能用写文件的工具落地,不要塞进 shell 字符串**。**方法论:工具集的最后一层不是分析能力,是「哪一条结论值得先信」的排序。** |
 | 第 21 次整理 | **新增 `stale-write` 层:把「写两次从不读」从 `slot` 里救出来**。起因是 `mlogagent report` 对一份已人工确认的蓝图报 `dead-store 0(+3 hidden)` —— `17十七硫幽灵四熔毁四油海啸组.msch` 的 micro-processor @(16,8) 里 `found` 在 `L6` 与 `L61` 各被 `ulocate` 写一次、全程序无读,却被归进 `slot`(语法强制的输出槽)隐藏了。**判据的修正**:写**一次**的未读输出槽,确实只是语法逼你起个名字(`ulocate` 必须写出 4 个变量),降级为 `slot` 合理;但同一个槽**写两次**且从没人读时,**第一次写可证被丢弃** —— 单次未读可能是声明,第二次不可能是别的。实现:`classify_dead_stores()` 增加第三种 kind(统计每变量写次数,`>1` 且无读 ⇒ `stale-write`),`_ir_tier` 把 `overwritten` 与 `stale-write` 一起返回 `reported`,**刻意放在 `slot`/`declaration` 之前**。全语料重测:真实蓝图 `reported` **1566 → 1998(+27.6%)**,多出的 432 条全部是「同一槽写两次、无读」;`slot` 478 → 138、`declaration` 302 → 210;干净块只从 **82.0% 掉到 80.9%**(−1.1 个百分点),p99 15 → 19。**方法论:噪声不可怕,可怕的是把真 bug 降级成噪声 —— 分层的每一层都要能说出"为什么这一层不用管",说不出就该并回上一层。** |
 | 第 22 次整理 | **批量扫描反噬:926 份蓝图包逼出五个工具 bug**。①`0x`/`0b`/`%rrggbb` 是字面量不是变量(`LAssembler.java:87-99`),修前硬错 1100→883;②`op rand g 255 b` 里 `b` 从不被读(一元算子只取 `a`),182 条假警告清零;③`jump T always x false` 的 `x`/`false` 是补齐位,修前 276 个块凭空多出未定义变量;④`op add @counter @counter id` 是**派发表**,静态可达性失效 —— 9,384 条「不可达」里 8,533 条是假的(质驱系列每块 584 条其实是一张 388 行 jump 表),现在 `Program.writes_counter()` 为真时不报;⑤`jump -1 always` 是 nop 不是终止(`JumpI.run()` 有 `if(address != -1)` 保护),修前 `坦克大战.msch` 190 条报 182 条不可达,修后全包 9,384→495。横向发现:`equal X null` 在 166 处守卫上恒真(未赋值变量=0、`null.num()`=0),`obv超射程 大.msch` 因此有约 550 条语句从不执行;87 个块引用`message1`/`switch1` 这类**未链接**的方块名。**方法论:每个块报几条这种数字,在换一份语料之前都只是关于你自己解析器的数字。** |
+| 第 23 次整理 | **用户纠正:「未定义变量」常常是署名,不是错误**。原话:「游戏内部的逻辑编辑器会对变量列表，使用自己的名字作为变量名并且不定义是很常见的署名方法，因为可以在变量列表看到。这同样也适用于不被读但是也会在变量列表显示的例子，不算很大的错误。」据 `LAssembler.java:67-69`(首尾都是 `"` 才成字符串常量)和编辑器行为,改判三档:只出现在 `print` 里 ⇒ INFO 署名;只出现在 `jump … equal/notEqual X null` 里 ⇒ WARN 恒真但无害;其余仍是 ERR。再加上两个同源发现:`set // 说明文字` 是 mlog 的注释写法(`#` 之外没有注释语法),整行跳过,`障碍躲避.msch` 一个文件就少 58 条假错;`LParser` 按 `arity` 填字段,多余 token 惰性丢弃,`mlogcheck` 据此截断。全包硬错 **883 → 416 → 367**。**方法论:一个检查器报出的「错误」里,哪些是错误取决于这个社区的写作习惯,不取决于语言规范 —— 这类知识只能从用户嘴里得到,测不出来。** |

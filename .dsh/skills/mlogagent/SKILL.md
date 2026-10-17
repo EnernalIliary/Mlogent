@@ -46,6 +46,20 @@ python tools/mlogagent.py info --verify                # 校验 MANIFEST.sha256
 
 mlog **只有 `#` 起注释**（`LParser.java:98-99`），没有行尾注释 —— 所以 `set // 上个位置` 是**真语句**，游戏照执行。这类占语料 `reported` 的 222 条，已归入 `annotation`。
 
+## 「未定义变量」不等于错误：两种社区写法
+
+静态检查报 ``X` is read here but is never assigned anywhere`` 时，**先别改**。mlog 圈有两个约定俗成的写法，靠语言规范测不出来，只能从用户嘴里知道：
+
+| 写法 | 为什么不是错 | 检查器怎么判 |
+|---|---|---|
+| `print 我的名字`（从不赋值） | 编辑器**变量列表会显示程序里用到的所有变量**，写个自己的名字当变量就是**署名**；打印出 `null` 无所谓 | **INFO** `signature only` |
+| `set // 装载电池组`（变量名纯标点） | 想让注释在变量列表里可见就这么写 | 整行跳过 / `annotation` 层 |
+| 写了不读的变量 | 同上，为了出现在变量列表里 | `declaration` / `stale-write` 分开看 |
+
+真正要改的是**参与运算或控制流**的未赋值变量：`op add a b c` 里 `c` 未定义 ⇒ 静默当 0；`jump T lessThan i max` 里 `max` 未定义 ⇒ 循环一次都不进；`jump T equal X null` 未定义 ⇒ **恒真**（未赋值 = 0，`null` 读成 0，只有 `===` 才会假）。
+
+参数槽之外的 token 是**惰性**的（`LParser` 按 `arity` 填字段，多的丢掉）：`op rand g 255 b` 不读 `b`、`jump T always x false` 不读 `x`/`false`，署名常放这些位置。但署名写进参数槽**内部**时（`control enabled reactor enable 0 by bicker` 的 `by`/`bicker` 占 p3/p4）游戏确实会读它们。
+
 ## 校准数字（真实蓝图 617 文件 / 2409 块）
 
 - `ir`：**80.9% 的处理器一条都不报**，p50 = 0、p90 = 1；均值 0.829/块是被约 20 个代码生成式蓝图（每个 60–78 条）拉高的。看**干净块占比**，别看均值。
