@@ -254,6 +254,10 @@ provably null: L3 r is null
 
 **边界**:只认 `op idiv|mod <dst> <src> 10**exp`,且同一个 `src` 上要**至少两个不同指数**才算一个 pack site;不重建表达式;`10^3` 以下不算分隔;掩码检测是全程序文本匹配(不做数据流),别处同形的 `mul`+`sub` 可能让真漏判静默通过。
 
+## 独立副本
+
+同一套工具已经打包成独立的 mlogagent 技能（.dsh/skills/mlogagent/），目录自带全部模块与数据，可整体拷走。一审一整套分析用 mlogagent.py report <file>；改完模块后用 python tools/sync_mlogagent.py 刷新那份副本（--check 只比对）。
+
 ## 参考数据
 
 | 文件 | 内容 |
