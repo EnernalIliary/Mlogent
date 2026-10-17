@@ -157,8 +157,13 @@ def defs_of(c: str) -> list[str]:
         return [x for x in p[5:9] if x not in ("0", "null")]
     if op in ("sensor", "getlink", "set", "read", "packcolor"):
         return [p[1]] if len(p) >= 2 and p[1] != "0" else []
-    if op in ("select", "lookup"):
+    if op == "select":
         return [p[1]] if len(p) >= 2 and p[1] != "0" else []
+    # `lookup unit u i` -- index 0 is the ContentType keyword, the result is
+    # index 1 (LStatements.java:875-909). Treating `unit` as the destination
+    # made every `ubind u` look like a read of an undeclared variable.
+    if op == "lookup":
+        return [p[2]] if len(p) >= 3 and p[2] != "0" else []
     if op == "unpackcolor" and len(p) >= 6:
         return [x for x in p[1:5] if x != "0"]
     if op in ("radar", "uradar"):
@@ -304,6 +309,15 @@ def _effective_params(p: list[str]) -> int:
         if sub is not None:
             if mnem == "ucontrol" and p[1].lower() == "autopathfind":
                 return 3          # 3rd argument is a literal flag, ignored
+            # `semantic_uses` is the smaller set that actually changes
+            # behaviour: `ucontrol flag <value>` reads one argument even though
+            # the statement carries six slots (`LUnitControl.java:20`).
+            if "semantic_uses" in sub:
+                sem = [int(i) for i in (sub.get("semantic_uses") or [])]
+                if sem:
+                    return max(sem) + 1
+                if not (sub.get("defs") or sub.get("tokens")):
+                    return 1          # sub-command takes no argument at all
             idx = ([int(i) for i in (sub.get("uses") or [])]
                    + [int(i) for i in (sub.get("defs") or [])]
                    + [int(k) for k in (sub.get("tokens") or {})])
