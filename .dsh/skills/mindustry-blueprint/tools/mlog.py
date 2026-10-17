@@ -87,11 +87,35 @@ ITEM_NAME_TO_ID = {v: int(k) for k, v in ITEM_IDS.items()}
 
 
 # --------------------------------------------------------------------------- #
+# loading: a blueprint can arrive in two shapes with the same suffix
+# --------------------------------------------------------------------------- #
+
+def _load_schematic(path: str):
+    """Read a blueprint from either the binary .msch the game writes or the
+    base64 text you copy off a blueprint site / the in-game clipboard. The
+    magic tells them apart, so the suffix does not have to be trusted."""
+    with open(path, "rb") as fh:
+        raw = fh.read()
+    if raw[:4] == b"msch":
+        return msch.parse_bytes(raw)
+    try:
+        text = raw.decode("utf-8")
+    except UnicodeDecodeError as exc:
+        raise SystemExit(
+            f"!! {path}: not a .msch binary and not base64 text ({exc})")
+    try:
+        return msch.parse_base64(text)
+    except Exception as exc:                      # noqa: BLE001 - report, don't trace
+        raise SystemExit(f"!! {path}: not a .msch binary and not a base64 "
+                         f"blueprint ({exc})")
+
+
+# --------------------------------------------------------------------------- #
 # parse
 # --------------------------------------------------------------------------- #
 
 def cmd_parse(args) -> int:
-    sch = msch.parse_file(args.file)
+    sch = _load_schematic(args.file)
     print(f"name  : {sch.name}")
     if sch.description:
         print(f"desc  : {sch.description}")
@@ -114,6 +138,31 @@ def cmd_parse(args) -> int:
         print(f"  {t.block:22} center@({t.x},{t.y}) span {span}{extra}")
 
     logic = sch.logic_tiles()
+
+    # Message blocks (信息板) are where authors explain what the blueprint is
+    # for -- far more often than in the description tag (360 of 626 files here
+    # carry one, versus 92 with a non-empty description). Printing it next to
+    # the block list is usually what makes a dump readable at all.
+    if not getattr(args, "no_text", False):
+        texts = [t for t in sch.tiles
+                 if t.block in _STRING_BLOCKS and isinstance(t.config, str)
+                 and t.config.strip()]
+        if texts:
+            print()
+            print("=" * 70)
+            for t in texts:
+                raw = t.config or ""
+                body = _plain(raw) if getattr(args, "plain", False) else raw
+                if getattr(args, "strip", False):
+                    body = "\n".join(l for l in body.split("\n") if l.strip())
+                icons = len(_PUA.findall(raw))
+                head = f"--- {t.block} @({t.x},{t.y})"
+                if icons:
+                    head += f"  [{icons} icon(s) in the private-use area]"
+                print(head)
+                print(body)
+                print()
+
     if logic:
         print()
         print("=" * 70)
@@ -712,9 +761,10 @@ def cmd_text(args) -> int:
     rc = 0
     for path in files:
         try:
-            sch = msch.parse_file(path)
-        except (msch.MschError, ValueError, OSError) as exc:
-            print(f"!! {path}: {exc}", file=sys.stderr)
+            sch = _load_schematic(path)
+        except (SystemExit, OSError) as exc:
+            print(str(exc) if not isinstance(exc, SystemExit) else exc,
+                  file=sys.stderr)
             rc = 1
             continue
         hits = [t for t in sch.tiles
@@ -751,6 +801,12 @@ def main() -> int:
 
     p = sub.add_parser("parse", help="dump a .msch blueprint")
     p.add_argument("file")
+    p.add_argument("--plain", action="store_true",
+                   help="strip [colour] markup and private-use icon glyphs")
+    p.add_argument("--strip", action="store_true",
+                   help="drop blank lines from message text")
+    p.add_argument("--no-text", action="store_true",
+                   help="do not print message-block (信息板) contents")
     p.set_defaults(fn=cmd_parse)
 
     p = sub.add_parser("text", help="read message-block (信息板) contents")

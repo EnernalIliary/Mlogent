@@ -10,7 +10,7 @@ whenToUse: 涉及 Mindustry 蓝图（.msch / 蓝图码）、mlog 逻辑编写或
 
 | 能力 | 命令 |
 |---|---|
-| **解析蓝图** —— 提取逻辑源码、方块、链接 | `mlog.py parse <file.msch>` |
+| **解析蓝图** —— 提取逻辑源码、方块、链接 | `mlog.py parse <file.msch> [--plain] [--no-text]` |
 | **生成蓝图** —— 从 mlog 产出可粘贴蓝图码 | `mlog.py gen <logic.mlog> ...` |
 | **静态检查 mlog** —— 抓 `@dead` 反用等真实 bug | `mlog.py check <logic.mlog>` |
 | **成本分析** —— 死代码 + 最坏指令数 + 折合耗时 | `mlog.py check <logic.mlog> --cost` |
