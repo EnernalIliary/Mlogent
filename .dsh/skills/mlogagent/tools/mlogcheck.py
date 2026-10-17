@@ -259,6 +259,74 @@ def _load_arity() -> dict[str, int]:
 ARITY = _load_arity()
 
 
+def _load_specs() -> dict[str, dict]:
+    """`defs` / `uses` / `tokens` per mnemonic, from `instr_semantics.json`.
+
+    Needed because a statement's first argument is often an ENUM KEYWORD, not a
+    variable: `setmarker rotation mid 45 1 0` names a control kind, and
+    `fetch buildCount max team 0 @sorter` names a fetch mode. Without the table
+    those keywords were reported as undeclared variables -- 18 of the 310 hard
+    errors in the blueprint-pack scan were that bug.
+    """
+    try:
+        raw = (Path(__file__).with_name("instr_semantics.json")).read_text("utf-8")
+        data = json.loads(raw)
+    except Exception:
+        return {}
+    out: dict[str, dict] = {}
+    for name, spec in (data.get("instructions") or {}).items():
+        if isinstance(spec, dict):
+            out[name.lower()] = spec
+    return out
+
+
+SPECS = _load_specs()
+
+
+def _effective_params(p: list[str]) -> int:
+    """How many parameters this instruction actually consumes, for the form in use.
+
+    A statement's syntax can be longer than its useful arguments. `control` has
+    six slots but only three are ever meaningful (`type`, `target`, `p1`): the
+    building's `control()` receives p2..p4 and ignores them for every type that
+    matters here. `ucontrol` is worse -- each sub-command uses a different
+    subset. Authors park their signature in those dead slots, so a name found
+    there is a hidden byline, not a bug (user-confirmed convention: a name that
+    is not a string still shows up in the editor's variable list).
+    """
+    mnem = p[0].lower()
+    if mnem == "control":
+        return 3
+    spec = SPECS.get(mnem) or {}
+    subs = spec.get("subcommands") or {}
+    if subs and len(p) > 1:
+        sub = subs.get(p[1]) or subs.get(p[1].lower())
+        if sub is not None:
+            if mnem == "ucontrol" and p[1].lower() == "autopathfind":
+                return 3          # 3rd argument is a literal flag, ignored
+            idx = ([int(i) for i in (sub.get("uses") or [])]
+                   + [int(i) for i in (sub.get("defs") or [])]
+                   + [int(k) for k in (sub.get("tokens") or {})])
+            if idx:
+                return max(idx) + 1
+    idx = ([int(i) for i in (spec.get("uses") or [])]
+           + [int(i) for i in (spec.get("defs") or [])]
+           + [int(k) for k in (spec.get("tokens") or {})])
+    if idx:
+        return max(idx) + 1
+    arity = spec.get("arity")
+    return arity if isinstance(arity, int) else max(len(p) - 1, 0)
+
+
+def _surplus_names(c: str) -> set[str]:
+    """Names sitting in parameter slots the instruction never actually uses."""
+    p = tokenize(c)
+    if len(p) < 3:
+        return set()
+    return {t for t in p[1 + _effective_params(p):]
+            if not is_number(t) and not QUOTED.match(t) and t not in ("0", "null")}
+
+
 def _comment_stmt(c: str) -> bool:
     """True for `set <punctuation-name> <prose>` -- mlog's de-facto comment.
 
@@ -334,6 +402,14 @@ def uses_of(c: str) -> list[str]:
               "setrule", "fetch", "sync", "message", "cutscene", "spawnwave",
               "weatherset", "weathersense", "getflag", "setflag", "setrate",
               "query", "clientdata", "getblock", "setblock", "localeprint"):
+        # Prefer the semantics table here: the first N arguments are often enum
+        # keywords (`setmarker rotation`, `fetch ... max`), and reporting those
+        # as undeclared variables is a false positive. Fall back to "everything
+        # after the mnemonic is a read" only when the table knows nothing.
+        spec = SPECS.get(op)
+        if spec is not None and "uses" in spec:
+            idx = [i for i in (spec.get("uses") or []) if 1 + i < len(p)]
+            return _vars([p[1 + i] for i in idx])
         return _vars(p[1:9])
     return _vars(p[1:6])
 
@@ -432,6 +508,27 @@ def analyse(lines: list[str], links: list[str] | None = None) -> list[Finding]:
                 return False
         return True
 
+    ever_read: set[str] = set()
+    for _, c in stmts:
+        ever_read |= set(uses_of(c))
+
+    def _constant_guard(c: str) -> bool:
+        """A `jump` whose comparison cannot vary: both operands are constants,
+        builtins, or names nothing ever assigns. `jump 21 equal colour ender`
+        is how one author signs a blueprint AND jumps unconditionally at once.
+        """
+        p = tokenize(c)
+        if not p or p[0] != "jump" or len(p) < 5 or p[2] == "always":
+            return False
+        if p[2] not in (COND_OPS | {"equal", "notEqual", "strictEqual"}):
+            return False
+        for tok in (p[3], p[4]):
+            if is_number(tok) or tok == "null" or tok.startswith("@"):
+                continue
+            if LINK_RE.match(tok) or tok in ever_defined:
+                return False
+        return True
+
     for i, (orig, c) in enumerate(stmts):
         # `set // read anything` is the de-facto comment idiom: the author names
         # the destination with punctuation so it stands out in the variable
@@ -440,26 +537,50 @@ def analyse(lines: list[str], links: list[str] | None = None) -> list[Finding]:
         # and certainly not an undefined-variable error.
         if _comment_stmt(c):
             continue
+        surplus = _surplus_names(c)
+        p = tokenize(c)
+        # `set Madeby mineqwwe` -- the destination is never read anywhere, so
+        # the whole statement is a name tag written in the variable list.
+        tag = (len(p) >= 3 and p[0] == "set" and p[1] not in ever_read)
         for v in uses_of(c):
             if v in ever_defined:
+                continue
+            # A name made only of punctuation (`/`, `///`, `//`) is never data;
+            # it is a comment marker the author parks in a real argument slot
+            # (`control config sorter1 / 0 0 0` clears the sorter). Reporting it
+            # as an undeclared variable is noise.
+            if _PUNCT_NAME.match(v):
                 continue
             # auto-detect link names by the game's `name + index` convention so
             # plain .mlog files (which carry no link table) don't false-positive
             if LINK_RE.match(v):
                 continue
             kinds = use_kinds.get(v, set())
+            if v in surplus:
+                out.append(Finding(
+                    "WARN", orig + 1, c,
+                    f"`{v}` sits in a parameter slot this instruction never "
+                    f"reads -- ignored at runtime (often a hidden signature)"))
+                continue
+            if tag:
+                out.append(Finding(
+                    "INFO", orig + 1, c,
+                    f"`{v}` is never assigned, but the destination `{p[1]}` is "
+                    f"never read either -- a signature written into the "
+                    f"editor's variable list"))
+                continue
             if kinds == {"print"}:
                 out.append(Finding(
                     "INFO", orig + 1, c,
                     f"`{v}` is never assigned -- signature only (it shows up in "
                     f"the editor's variable list; print outputs `null`)"))
                 continue
-            if _null_guard_only(v):
+            if _null_guard_only(v) or _constant_guard(c):
                 out.append(Finding(
                     "WARN", orig + 1, c,
-                    f"`{v}` is never assigned, so this comparison against null is "
-                    f"constant: an unset variable is 0 and `null` reads as 0, so "
-                    f"only `===` would ever be false"))
+                    f"`{v}` is never assigned, so this comparison is constant: an "
+                    f"unset variable is 0 and `null` reads as 0, so only `===` "
+                    f"tells null from 0 (a constant branch is often a signature)"))
                 continue
             out.append(Finding(
                 "ERR", orig + 1, c,
