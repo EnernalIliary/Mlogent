@@ -14,7 +14,9 @@ whenToUse: 涉及 Mindustry 蓝图（.msch / 蓝图码）、mlog 逻辑编写或
 | **生成蓝图** —— 从 mlog 产出可粘贴蓝图码 | `mlog.py gen <logic.mlog> ...` |
 | **静态检查 mlog** —— 抓 `@dead` 反用等真实 bug | `mlog.py check <logic.mlog>` |
 | **成本分析** —— 死代码 + 最坏指令数 + 折合耗时 | `mlog.py check <logic.mlog> --cost` |
+| **死存储 / 不可达代码** —— CFG + 活跃变量不动点 | `mlog.py ir <logic.mlog>` |
 | **查方块 ID / 尺寸** | `mlog.py id [名称]` |
+| **查物品 ID / 解打包配置** | `mlog.py item [名称] [--unpack N]` |
 | **查指令格式** | `mlog.py cmd [关键字]` |
 | **回归自测** —— 429 个真实蓝图往返校验 | `mlog.py selftest` |
 
@@ -122,6 +124,10 @@ python tools/mlog.py check --msch out.msch
 # 成本分析:死代码 + 最坏多少条指令 + 折合几秒
 python tools/mlog.py check logic.mlog --cost
 python tools/mlog.py check --msch out.msch --cost
+
+# 死存储:赋值了但整个程序(含跨周期)从未读取
+python tools/mlog.py ir logic.mlog
+python tools/mlog.py ir --msch out.msch
 
 # 生成:只放处理器(链接目标需自己摆)
 python tools/mlog.py gen logic.mlog --name "我的逻辑" --link dome1@3,1

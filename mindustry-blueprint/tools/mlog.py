@@ -9,7 +9,9 @@ Usage
   python mlog.py parse  <file.msch>            # dump a blueprint's blocks + logic
   python mlog.py gen    <logic.mlog> [opts]    # build a .msch (or paste code)
   python mlog.py check  <logic.mlog | --msch F> # static analysis of mlog
+  python mlog.py ir     <logic.mlog | --msch F> # CFG: unreachable code, dead stores
   python mlog.py id     [name]                 # block content ids / sizes
+  python mlog.py item   [name] [--unpack N]    # item content ids / packed configs
   python mlog.py cmd    [pattern]              # mlog instruction reference
   python mlog.py selftest                      # round-trip every real blueprint
 
@@ -39,6 +41,7 @@ import argparse
 import base64
 import json
 import os
+import re
 import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -46,6 +49,7 @@ if HERE not in sys.path:
     sys.path.insert(0, HERE)
 
 import mlogcheck as _check          # noqa: E402
+import mlogir as _ir                # noqa: E402
 import msch                          # noqa: E402
 import mschgen as _gen              # noqa: E402
 
@@ -228,6 +232,70 @@ def cmd_check(args) -> int:
 
 
 # --------------------------------------------------------------------------- #
+# ir -- structural / dataflow view
+# --------------------------------------------------------------------------- #
+
+# Names authors use purely as in-editor annotations. The game really does
+# execute `set // foo` (only `#` starts a comment -- LParser.java:98-99), so
+# these are technically dead stores, but reporting them is pure noise.
+_ANNOTATION = re.compile(r"^[^A-Za-z0-9_@\"]*$")
+
+
+def _ir_report(label: str, lines: list[str]) -> int:
+    prog = _ir.parse(lines)
+    if not len(prog):
+        return 0
+    dead = prog.dead()
+    stores = [(i, v) for i, v in prog.dead_stores() if not _ANNOTATION.match(v)]
+    reads = {v for s in prog.stmts for v in s.uses}
+    writes = {v for s in prog.stmts for v in s.defs}
+    ops: dict[str, int] = {}
+    for s in prog.stmts:
+        ops[s.mnemonic] = ops.get(s.mnemonic, 0) + 1
+
+    print(f"=== {label}")
+    print(f"  statements      : {len(prog)}"
+          + (f"   ({len(dead)} unreachable)" if dead else ""))
+    print("  unknown         : "
+          + (", ".join(sorted(prog.unknown_mnemonics)) or "none"))
+    print(f"  variables       : {len(reads)} read, {len(writes)} written")
+    if dead:
+        print(f"  UNREACHABLE     : {len(dead)} statement(s) can never run: "
+              + ", ".join(f"L{prog.stmts[i].line}" for i in dead[:12])
+              + (" ..." if len(dead) > 12 else ""))
+    if stores:
+        print(f"  DEAD STORES     : {len(stores)} assignment(s) never read:")
+        for i, v in stores[:20]:
+            print(f"      L{prog.stmts[i].line:<5} {v:<22} "
+                  f"{prog.stmts[i].raw.strip()[:70]}")
+        if len(stores) > 20:
+            print(f"      ... and {len(stores) - 20} more")
+        print('      note: another processor can still read these with '
+              'read result <this processor> "<name>"')
+    else:
+        print("  dead stores     : none")
+    print("  opcodes         : "
+          + ", ".join(f"{k}x{v}" for k, v in
+                      sorted(ops.items(), key=lambda kv: -kv[1])[:10]))
+    print()
+    return 0
+
+
+def cmd_ir(args) -> int:
+    rc = 0
+    for p in args.files:
+        with open(p, encoding="utf-8") as fh:
+            rc |= _ir_report(p, fh.read().split("\n"))
+    for p in args.msch:
+        sch = msch.parse_file(p)
+        for t in sch.logic_tiles():
+            assert t.logic is not None
+            rc |= _ir_report(f"{p} [{t.block} @({t.x},{t.y})]",
+                             t.logic.code.split("\n"))
+    return rc
+
+
+# --------------------------------------------------------------------------- #
 # id / cmd reference
 # --------------------------------------------------------------------------- #
 
@@ -365,6 +433,12 @@ def main() -> int:
                    help="also report statement count, unreachable code, loop "
                         "bounds and worst-case instruction cost per cycle")
     p.set_defaults(fn=cmd_check)
+
+    p = sub.add_parser("ir", help="structural view: dead code, dead stores")
+    p.add_argument("files", nargs="*", metavar="logic.mlog")
+    p.add_argument("--msch", action="append", default=[],
+                   help="take the logic from a .msch instead")
+    p.set_defaults(fn=cmd_ir)
 
     p = sub.add_parser("id", help="look up block content ids / sizes")
     p.add_argument("name", nargs="?", help="substring; omit to list all")

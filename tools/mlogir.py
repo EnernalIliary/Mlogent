@@ -221,6 +221,10 @@ def load_table(path: str | None = None) -> dict:
                 base["subcommands"] = spec["subcommands"]
             if spec.get("keywords"):
                 base["keywords"] = spec["keywords"]
+            # "tokens" are positions holding an enum literal (ConditionOp,
+            # TileLayer, ...) -- never storage, so treat them as keywords.
+            if spec.get("tokens"):
+                base["keywords"] = sorted(int(k) for k in spec["tokens"])
             if spec.get("note"):
                 base["note"] = spec["note"]
         if data.get("ops"):
@@ -401,6 +405,61 @@ class Program:
             for v in sorted(s.defs):
                 m.setdefault(v, []).append((s.index, "def"))
         return m
+
+    # ----------------------------------------------------------------- #
+    # liveness  (backward dataflow over the CFG, restart edge included)
+    # ----------------------------------------------------------------- #
+
+    def liveness(self) -> tuple[dict[int, set[str]], dict[int, set[str]]]:
+        """Return (live_in, live_out) per statement index.
+
+        The graph is cyclic because `end` jumps back to 0, so the usual
+        backward worklist converges to the least fixpoint -- which is
+        exactly what we want: a value written on the last line and read on
+        the first line of the next cycle *is* live, and the fixpoint finds
+        that without any special-casing.
+        """
+        n = len(self.stmts)
+        succ: list[list[int]] = [[] for _ in range(n)]
+        for i in range(n):
+            succ[i] = [s for s in self.successors(i) if 0 <= s < n]
+
+        live_in: dict[int, set[str]] = {i: set() for i in range(n)}
+        live_out: dict[int, set[str]] = {i: set() for i in range(n)}
+
+        changed = True
+        while changed:
+            changed = False
+            for i in range(n - 1, -1, -1):
+                out: set[str] = set()
+                for s in succ[i]:
+                    out |= live_in[s]
+                inn = self.stmts[i].uses | (out - self.stmts[i].defs)
+                if out != live_out[i] or inn != live_in[i]:
+                    live_out[i] = out
+                    live_in[i] = inn
+                    changed = True
+        return live_in, live_out
+
+    def dead_stores(self) -> list[tuple[int, str]]:
+        """(stmt index, variable) pairs whose value can never be read.
+
+        A def is dead when the variable is not live-out of that statement.
+        Caveat surfaced by the caller: a processor's variables are readable
+        from *outside* via `read result someProcessor "name"`, so "not read
+        in this file" is not proof of uselessness on a multi-processor map.
+        """
+        _, live_out = self.liveness()
+        out: list[tuple[int, str]] = []
+        for s in self.stmts:
+            for v in sorted(s.defs):
+                # `@counter` is a control transfer, not a value: writing it
+                # changes what runs next, so "never read" means nothing.
+                if v == "@counter":
+                    continue
+                if v not in live_out[s.index]:
+                    out.append((s.index, v))
+        return out
 
 
 def parse(source: str | list[str], table: dict | None = None) -> Program:
