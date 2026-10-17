@@ -16,6 +16,7 @@ whenToUse: 涉及 Mindustry 蓝图（.msch / 蓝图码）、mlog 逻辑编写或
 | **成本分析** —— 死代码 + 最坏指令数 + 折合耗时 | `mlog.py check <logic.mlog> --cost` |
 | **死存储 / 不可达代码** —— CFG + 活跃变量不动点 | `mlog.py ir <logic.mlog>` |
 | **常量分支 / 可证 null** —— 抽象值不动点 | `mlog.py values <logic.mlog>` |
+| **打包配置** —— 字段布局 + 低位能装几个 id | `mlog.py pack <logic.mlog>` |
 | **查方块 ID / 尺寸** | `mlog.py id [名称]` |
 | **查物品 ID / 解打包配置** | `mlog.py item [名称] [--unpack N]` |
 | **查指令格式** | `mlog.py cmd [关键字]` |
@@ -144,6 +145,10 @@ python tools/mlog.py values logic.mlog
 python tools/mlog.py values --msch blueprints/*.msch
 python tools/mlog.py values logic.mlog --trace r   # 逐次打印 r 的抽象值
 
+# 打包配置:字段布局 + 低位字段能装几个 id(能直接指认容量 bug)
+python tools/mlog.py pack logic.mlog
+python tools/mlog.py pack --msch out.msch
+
 # 生成:只放处理器(链接目标需自己摆)
 python tools/mlog.py gen logic.mlog --name "我的逻辑" --link dome1@3,1
 
@@ -220,6 +225,34 @@ provably null: L3 r is null
 - 外部输入一律 `⊤` —— `sensor`/`getlink`/`ulocate` 拿到的值都算"不知道",所以**只对纯计算链有效**
 - 同一变量连改 3 轮就丢精度到 `⊤`(widen),深循环里会变回 `?`
 - 不跨处理器,也不判"值算得对不对"(那是人的事)
+
+## `pack` 看什么、不看什么
+
+`mlog.py pack` 认的是**把多个字段塞进一个数字**的惯用法(`data = status*1e8 + outputID*1e6 + inputMask`),然后算**低位字段能装多少个 id**。
+
+```
+    `data`  (first seen L2)
+      1e8  ->  status   (= data / 1e8)   at L2
+      1e6  ->  outputID (= data / 1e6)   at L3
+      1e6  ->  mask     (= data % 1e6)   at L4
+      low field `1e6` holds 0..999999  =>  20 usable bit positions (ids 0..19)
+      !! 22 items exist but only 20 fit: ids 20..21 overflow into the next field
+         (raise the separator, e.g. 1e6 -> 1e7)
+      note: `outputID` also contains 100x `status`; a correct decode must first
+            assert `status == 0`
+```
+
+| 输出 | 含义 |
+|---|---|
+| `1e8 -> status` | 这一层剥出来的是 `status` |
+| `N usable bit positions` | 低位字段能表示 `0..10^N-1`,`(10**N-1).bit_length()` 就是能装几个 id |
+| `!! ... only 20 fit` | **真 bug**:原版有 22 个物品,`fissile-matter`(20)与 `dormant-cyst`(21)放不下 |
+| `note: ... must first assert X == 0` | `op idiv` 不掩高位,`idiv` 出来的值里还含着更高位 ⇒ 必须先断言高位为 0 |
+| `ok: ... subtract-mask` | 先 `op mul hi 1eN` 再 `op sub` 减掉高位 —— **解码正确,不报警** |
+
+**它是全套工具里唯一能直接给出"这段代码有 bug"结论的地方**,代价是出现率极低:**全语料 2420 块里只有 3 块(0.1%)** 用这个惯用法。所以它**不是 linter**:拿它扫整个语料几乎什么都看不到,但一旦命中,给出的是具体容量数字,不是"这里可能有问题"。
+
+**边界**:只认 `op idiv|mod <dst> <src> 10**exp`,且同一个 `src` 上要**至少两个不同指数**才算一个 pack site;不重建表达式;`10^3` 以下不算分隔;掩码检测是全程序文本匹配(不做数据流),别处同形的 `mul`+`sub` 可能让真漏判静默通过。
 
 ## 参考数据
 

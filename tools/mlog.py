@@ -14,6 +14,8 @@ Usage
                                                #    slots and literal declarations)
   python mlog.py values <logic.mlog | --msch F> # abstract values: constant branches,
                                                #   provable nulls (--trace VAR)
+  python mlog.py pack   <logic.mlog | --msch F> # packed configs: field layout + how
+                                               #   many ids still fit the low field
   python mlog.py id     [name]                 # block content ids / sizes
   python mlog.py item   [name] [--unpack N]    # item content ids / packed configs
   python mlog.py cmd    [pattern]              # mlog instruction reference
@@ -61,6 +63,7 @@ if HERE not in sys.path:
 
 import mlogcheck as _check          # noqa: E402
 import mlogir as _ir                # noqa: E402
+import mlogpack as _pk              # noqa: E402
 import mlogval as _val              # noqa: E402
 import msch                          # noqa: E402
 import mschgen as _gen              # noqa: E402
@@ -411,6 +414,26 @@ def cmd_values(args) -> int:
     return rc
 
 
+def cmd_pack(args) -> int:
+    """Recognise packed-config encode/decode and report field capacity."""
+    rc = 0
+    item_count = len(ITEM_IDS) or None
+    for p in args.files:
+        with open(p, encoding="utf-8") as fh:
+            lines = fh.read().split("\n")
+        print(_pk.format_report(_ir.parse(lines), item_count=item_count,
+                                label=p))
+        rc = 0
+    for p in args.msch:
+        sch = msch.parse_file(p)
+        for t in sch.logic_tiles():
+            assert t.logic is not None
+            print(_pk.format_report(
+                _ir.parse(t.logic.code.split("\n")), item_count=item_count,
+                label=f"{p} [{t.block} @({t.x},{t.y})]"))
+    return rc
+
+
 # --------------------------------------------------------------------------- #
 # id / cmd reference
 # --------------------------------------------------------------------------- #
@@ -717,6 +740,13 @@ def main() -> int:
     p.add_argument("--trace", action="append", metavar="VAR",
                    help="trace one variable (repeatable)")
     p.set_defaults(fn=cmd_values)
+
+    p = sub.add_parser("pack",
+                       help="packed configs: field layout + how many ids fit")
+    p.add_argument("files", nargs="*", metavar="logic.mlog")
+    p.add_argument("--msch", action="append", default=[],
+                   help="take the logic from a .msch instead")
+    p.set_defaults(fn=cmd_pack)
 
     p = sub.add_parser("id", help="look up block content ids / sizes")
     p.add_argument("name", nargs="?", help="substring; omit to list all")
