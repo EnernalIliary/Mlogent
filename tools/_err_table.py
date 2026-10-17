@@ -173,7 +173,9 @@ def main() -> int:
     out.append(f"| D 死引用 | 形如链接名,但这块处理器没有这个链接 | {len(deadlinks)} |")
     out.append(f"| E 署名 | 只为出现在变量列表里 | {len(signed)} |")
     out.append("")
-    out.append("只有 A 需要改。B/C/D 都是这个社区的写作习惯,不是错误。")
+    out.append("A 和 D 需要改;B/C/E 都是这个社区的写作习惯,不是错误。")
+    out.append("D 的危险在于它**看起来**是有效引用:`control shootp scatter1` 不会报错,")
+    out.append("`LExecutor` 的 `validLink` 直接把它挡掉,塔一发不发。")
     out.append("")
 
     out.append("## A 真错 —— 按变量")
