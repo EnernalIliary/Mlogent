@@ -70,12 +70,13 @@ def var_of(msg: str) -> str:
     return m.group(1) if m else "?"
 
 
-def read_scan() -> tuple[list, list, list, list]:
-    """(errs, constant_guards, surplus, signatures) as row tuples."""
+def read_scan() -> tuple[list, list, list, list, list]:
+    """(errs, constant_guards, surplus, dead_links, signatures) as row tuples."""
     data = json.loads(SCAN.read_text("utf-8"))
     errs: list[tuple[str, str, int, str, str]] = []
     guards: list[tuple[str, str, int, str, str]] = []
     surplus: list[tuple[str, str, int, str, str]] = []
+    deadlinks: list[tuple[str, str, int, str, str]] = []
     signed: list[tuple[str, str, int, str, str]] = []
     for r in data["rows"]:
         name = Path(r["file"]).name
@@ -87,6 +88,8 @@ def read_scan() -> tuple[list, list, list, list]:
                     errs.append(row)
                 elif sev == "INFO":
                     signed.append(row)
+                elif "has no such link" in msg:
+                    deadlinks.append(row)
                 elif "parameter slot" in msg or "given 3 args" in msg:
                     # Both are the same disease: the name sits where the
                     # instruction never looks. `op rand g 255 b` is a signature
@@ -94,7 +97,7 @@ def read_scan() -> tuple[list, list, list, list]:
                     surplus.append(row)
                 elif sev == "WARN":
                     guards.append(row)
-    return errs, guards, surplus, signed
+    return errs, guards, surplus, deadlinks, signed
 
 
 def reason_for(var: str, kinds: collections.Counter) -> str:
@@ -153,7 +156,7 @@ def shape_table(rows: list[tuple[str, str, int, str, str]], top: int = 20) -> li
 
 
 def main() -> int:
-    errs, guards, surplus, signed = read_scan()
+    errs, guards, surplus, deadlinks, signed = read_scan()
 
     out: list[str] = []
     out.append("# 蓝图包错误清单(926 份)—— 按「是不是真错」分四层")
@@ -167,7 +170,8 @@ def main() -> int:
     out.append(f"| **A 真错** | 名字被读的地方,值真的改变行为 | **{len(errs)}** |")
     out.append(f"| B 恒真守卫 | `jump` 两侧都是常量 ⇒ 分支固定,常是署名 | {len(guards)} |")
     out.append(f"| C 无效参数 | 名字落在指令读不到的参数位上 | {len(surplus)} |")
-    out.append(f"| D 署名 | 只为出现在变量列表里 | {len(signed)} |")
+    out.append(f"| D 死引用 | 形如链接名,但这块处理器没有这个链接 | {len(deadlinks)} |")
+    out.append(f"| E 署名 | 只为出现在变量列表里 | {len(signed)} |")
     out.append("")
     out.append("只有 A 需要改。B/C/D 都是这个社区的写作习惯,不是错误。")
     out.append("")
@@ -185,7 +189,11 @@ def main() -> int:
     out.append("## C 无效参数 —— 按变量")
     out.append("")
     out.extend(var_table(surplus, "落在指令读不到的参数位上,运行时被忽略", "不用改"))
-    out.append("## D 署名 —— 出现最多的名字")
+    out.append("## D 死引用 —— 引用了不存在的链接")
+    out.append("")
+    out.extend(var_table(deadlinks, "形如链接名,但这块处理器的链接表里没有它",
+                         "`control`/`printflush`/`sensor` 用到时静默无效"))
+    out.append("## E 署名 —— 出现最多的名字")
     out.append("")
     out.extend(var_table(signed, "只为在编辑器变量列表里留名", "不用改"))
 

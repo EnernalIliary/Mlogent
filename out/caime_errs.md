@@ -6,23 +6,23 @@
 
 | 层 | 含义 | 条数 |
 |---|---|---:|
-| **A 真错** | 名字被读的地方,值真的改变行为 | **84** |
-| B 恒真守卫 | `jump` 两侧都是常量 ⇒ 分支固定,常是署名 | 59 |
-| C 无效参数 | 名字落在指令读不到的参数位上 | 947 |
-| D 署名 | 只为出现在变量列表里 | 5536 |
+| **A 真错** | 名字被读的地方,值真的改变行为 | **81** |
+| B 恒真守卫 | `jump` 两侧都是常量 ⇒ 分支固定,常是署名 | 51 |
+| C 无效参数 | 名字落在指令读不到的参数位上 | 944 |
+| D 死引用 | 形如链接名,但这块处理器没有这个链接 | 788 |
+| E 署名 | 只为出现在变量列表里 | 5540 |
 
 只有 A 需要改。B/C/D 都是这个社区的写作习惯,不是错误。
 
 ## A 真错 —— 按变量
 
-### 共 84 条 / 23 个名字
+### 共 81 条 / 22 个名字
 
 | 次数 | 变量 | 被哪种语句读 | 为什么是错 |
 |---:|---|---|---|
 | 42 | `max` | `jump`×30, `set`×12 | 想要无穷大/极值,实际拿到 0 |
 | 7 | `unit3.distance` | `ucontrol`×7 | 控制/定位参数写成变量名 ⇒ 退化成默认值 |
 | 4 | `x` | `write`×2, `set`×2 | 未赋值就被用 |
-| 3 | `f` | `sensor`×3 | 读不到 ⇒ 结果恒 null |
 | 3 | `flase` | `ulocate`×3 | `false` 拼错 ⇒ 参数变成 0 |
 | 2 | `0:` | `set`×2 | 未赋值就被用 |
 | 2 | `a` | `op`×2 | 算术里静默当 0 |
@@ -77,14 +77,11 @@
 | 16 | `colour` | `jump`×16 | 改写成 `always`,或那是署名 |
 | 16 | `ender` | `jump`×16 | 改写成 `always`,或那是署名 |
 | 6 | `padNeedCount` | `jump`×6 | 改写成 `always`,或那是署名 |
-| 6 | `s` | `jump`×6 | 改写成 `always`,或那是署名 |
 | 3 | `resourceTB` | `jump`×3 | 改写成 `always`,或那是署名 |
 | 3 | `x` | `jump`×3 | 改写成 `always`,或那是署名 |
-| 1 | `b` | `jump`×1 | 改写成 `always`,或那是署名 |
 | 1 | `coalx` | `jump`×1 | 改写成 `always`,或那是署名 |
 | 1 | `euardamount` | `jump`×1 | 改写成 `always`,或那是署名 |
 | 1 | `forceOff` | `jump`×1 | 改写成 `always`,或那是署名 |
-| 1 | `isolid` | `jump`×1 | 改写成 `always`,或那是署名 |
 | 1 | `out` | `jump`×1 | 改写成 `always`,或那是署名 |
 | 1 | `selectedItem` | `jump`×1 | 改写成 `always`,或那是署名 |
 | 1 | `t` | `jump`×1 | 改写成 `always`,或那是署名 |
@@ -114,16 +111,60 @@
 | 2 | `矿y` | `ucontrol`×2 | 不用改 |
 | 1 | `0sensor` | `control`×1 | 不用改 |
 | 1 | `0​` | `control`×1 | 不用改 |
-| 1 | `buildsoild` | `ucontrol`×1 | 不用改 |
-| 1 | `f` | `ucontrol`×1 | 不用改 |
 | 1 | `jj` | `ucontrol`×1 | 不用改 |
 | 1 | `op atan` | `op`×1 | 不用改 |
 | 1 | `op log` | `op`×1 | 不用改 |
 | 1 | `range` | `ucontrol`×1 | 不用改 |
-| 1 | `scatter` | `ucontrol`×1 | 不用改 |
 | 1 | `wi` | `ucontrol`×1 | 不用改 |
 
-## D 署名 —— 出现最多的名字
+## D 死引用 —— 引用了不存在的链接
+
+### 形如链接名,但这块处理器的链接表里没有它
+
+| 次数 | 变量 | 被哪种语句读 | 判读 |
+|---:|---|---|---|
+| 140 | `unloader99` | `control`×140 | `control`/`printflush`/`sensor` 用到时静默无效 |
+| 43 | `message1` | `printflush`×43 | `control`/`printflush`/`sensor` 用到时静默无效 |
+| 42 | `switch1` | `sensor`×24, `control`×17, `op`×1 | `control`/`printflush`/`sensor` 用到时静默无效 |
+| 23 | `sorter1` | `control`×11, `sensor`×10, `jump`×2 | `control`/`printflush`/`sensor` 用到时静默无效 |
+| 21 | `projector1` | `control`×12, `jump`×4, `sensor`×3, `set`×1 | `control`/`printflush`/`sensor` 用到时静默无效 |
+| 20 | `unloader2` | `control`×20 | `control`/`printflush`/`sensor` 用到时静默无效 |
+| 16 | `yaddrx2` | `control`×8, `ucontrol`×8 | `control`/`printflush`/`sensor` 用到时静默无效 |
+| 12 | `unloader6` | `control`×12 | `control`/`printflush`/`sensor` 用到时静默无效 |
+| 11 | `unloader5` | `control`×11 | `control`/`printflush`/`sensor` 用到时静默无效 |
+| 10 | `malign1` | `sensor`×6, `control`×3, `radar`×1 | `control`/`printflush`/`sensor` 用到时静默无效 |
+| 9 | `message2` | `printflush`×9 | `control`/`printflush`/`sensor` 用到时静默无效 |
+| 9 | `scan3` | `set`×9 | `control`/`printflush`/`sensor` 用到时静默无效 |
+| 9 | `scan4` | `set`×9 | `control`/`printflush`/`sensor` 用到时静默无效 |
+| 9 | `scan5` | `set`×9 | `control`/`printflush`/`sensor` 用到时静默无效 |
+| 9 | `scan6` | `set`×9 | `control`/`printflush`/`sensor` 用到时静默无效 |
+| 8 | `unloader1` | `control`×8 | `control`/`printflush`/`sensor` 用到时静默无效 |
+| 7 | `arc1` | `control`×4, `sensor`×3 | `control`/`printflush`/`sensor` 用到时静默无效 |
+| 7 | `malign2` | `sensor`×4, `control`×3 | `control`/`printflush`/`sensor` 用到时静默无效 |
+| 7 | `malign3` | `sensor`×4, `control`×3 | `control`/`printflush`/`sensor` 用到时静默无效 |
+| 7 | `sorter2` | `control`×7 | `control`/`printflush`/`sensor` 用到时静默无效 |
+| 7 | `vault1` | `jump`×3, `set`×3, `control`×1 | `control`/`printflush`/`sensor` 用到时静默无效 |
+| 6 | `display2` | `drawflush`×6 | `control`/`printflush`/`sensor` 用到时静默无效 |
+| 6 | `display3` | `drawflush`×6 | `control`/`printflush`/`sensor` 用到时静默无效 |
+| 6 | `door1` | `control`×6 | `control`/`printflush`/`sensor` 用到时静默无效 |
+| 6 | `t3` | `sensor`×6 | `control`/`printflush`/`sensor` 用到时静默无效 |
+| 6 | `unloader11` | `control`×6 | `control`/`printflush`/`sensor` 用到时静默无效 |
+| 6 | `unloader3` | `control`×6 | `control`/`printflush`/`sensor` 用到时静默无效 |
+| 6 | `unloader9` | `control`×6 | `control`/`printflush`/`sensor` 用到时静默无效 |
+| 5 | `driver2` | `sensor`×4, `control`×1 | `control`/`printflush`/`sensor` 用到时静默无效 |
+| 5 | `reconstructor1` | `sensor`×4, `op`×1 | `control`/`printflush`/`sensor` 用到时静默无效 |
+| 5 | `unloader4` | `control`×5 | `control`/`printflush`/`sensor` 用到时静默无效 |
+| 4 | `block1` | `sensor`×4 | `control`/`printflush`/`sensor` 用到时静默无效 |
+| 4 | `router1` | `sensor`×2, `control`×2 | `control`/`printflush`/`sensor` 用到时静默无效 |
+| 4 | `sorter85` | `control`×4 | `control`/`printflush`/`sensor` 用到时静默无效 |
+| 4 | `unloader10` | `control`×4 | `control`/`printflush`/`sensor` 用到时静默无效 |
+| 3 | `conveyor1` | `set`×3 | `control`/`printflush`/`sensor` 用到时静默无效 |
+| 3 | `dome1` | `control`×2, `sensor`×1 | `control`/`printflush`/`sensor` 用到时静默无效 |
+| 3 | `driver1` | `sensor`×2, `control`×1 | `control`/`printflush`/`sensor` 用到时静默无效 |
+| 3 | `generator3` | `sensor`×2, `control`×1 | `control`/`printflush`/`sensor` 用到时静默无效 |
+| 3 | `hail1` | `sensor`×2, `control`×1 | `control`/`printflush`/`sensor` 用到时静默无效 |
+
+## E 署名 —— 出现最多的名字
 
 ### 只为在编辑器变量列表里留名
 
@@ -287,14 +328,6 @@
 | 行 | 块 | 语句 | 说明 |
 |---:|---|---|---|
 | 1 | micro-processor @(11,1) | `op add result a b` | `a` 未赋值 |
-
-### 星辉自动搬运分裂.msch
-
-| 行 | 块 | 语句 | 说明 |
-|---:|---|---|---|
-| 37 | micro-processor @(1,1) | `sensor tp f @type` | `f` 未赋值 |
-| 45 | micro-processor @(1,1) | `sensor r f @ammo` | `f` 未赋值 |
-| 46 | micro-processor @(1,1) | `sensor max f @ammoCapacity` | `f` 未赋值 |
 
 ### 核心11大硅.msch
 

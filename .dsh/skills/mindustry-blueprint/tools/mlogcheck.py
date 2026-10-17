@@ -172,8 +172,12 @@ def defs_of(c: str) -> list[str]:
         # ucontrol within x y r result -> 4th slot is an output
         if p[1] == "within" and len(p) >= 6:
             return [p[5]]
-        if p[1] == "getBlock" and len(p) >= 8:
-            return [x for x in p[5:8] if x != "0"]
+        # `ucontrol getBlock x y block building floor` writes THREE outputs
+        # (LExecutor.java:491-509: p3/p4/p5 get the tile's block, its building,
+        # and its floor-or-ore). The statement has no `type` input at all, so
+        # `ucontrol getBlock x y scatter f 0` assigns both `scatter` and `f`.
+        if p[1] == "getBlock" and len(p) >= 7:
+            return [x for x in p[4:7] if x != "0"]
     return []
 
 
@@ -565,9 +569,18 @@ def analyse(lines: list[str], links: list[str] | None = None) -> list[Finding]:
             # as an undeclared variable is noise.
             if _PUNCT_NAME.match(v):
                 continue
-            # auto-detect link names by the game's `name + index` convention so
-            # plain .mlog files (which carry no link table) don't false-positive
+            # Auto-detect link names by the game's `name + index` convention so
+            # plain .mlog files (which carry no link table) don't false-positive.
+            # With a blueprint we DO have the table, and a link-shaped name that
+            # is not in it is a real dead reference: `control shootp scatter1`
+            # in a processor whose only link is `conveyor1` silently does
+            # nothing (`LExecutor` requires `exec.build.validLink(b)`).
             if LINK_RE.match(v):
+                if links is not None and v not in link_vars:
+                    out.append(Finding(
+                        "WARN", orig + 1, c,
+                        f"`{v}` is shaped like a block link but this processor "
+                        f"has no such link (it has: {', '.join(sorted(link_vars)) or 'none'})"))
                 continue
             kinds = use_kinds.get(v, set())
             if v in surplus:
