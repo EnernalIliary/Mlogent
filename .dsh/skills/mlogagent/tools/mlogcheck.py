@@ -680,10 +680,12 @@ def analyse(lines: list[str], links: list[str] | None = None) -> list[Finding]:
             if kinds and kinds <= {"print", "printflush"}:
                 out.append(Finding(
                     "INFO", orig + 1, c,
-                    f"`{v}` is never assigned and is not a linked message block, "
-                    f"so this `printflush` does nothing -- a common way to park a "
-                    f"name in the variable list (the old string form was added "
-                    f"later, so back then this was the only way to write a note)"))
+                    f"`{v}` is never assigned, so this `printflush` has no valid "
+                    f"message block -- and that is NOT a no-op: PrintFlushI clears "
+                    f"the print buffer unconditionally (LExecutor.java:1178), so "
+                    f"everything queued by `print` is DISCARDED here. A deliberate "
+                    f"way to empty the buffer; it also parks the name in the "
+                    f"editor's variable list"))
                 continue
             if _null_guard_only(v) or _constant_guard(c):
                 out.append(Finding(
