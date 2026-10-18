@@ -559,26 +559,11 @@ def uses_of(c: str) -> list[str]:
 
 
 def analyse(lines: list[str], links: list[str] | None = None) -> list[Finding]:
-    code = [strip_comment(l) for l in lines]
-    # `jump <label>` has to become `jump <index>` before any rule can follow it.
-    # A label line stays in the list (it costs nothing at runtime), so jumping to
-    # it and falling through is the same thing as jumping to the next statement.
-    labels: dict[str, int] = {}
-    for i, c in enumerate(code):
-        t = c.split()
-        if len(t) == 1 and len(t[0]) > 1 and t[0].endswith(":"):
-            labels[t[0][:-1]] = i
-    if labels:
-        for i, c in enumerate(code):
-            t = c.split()
-            if len(t) < 2 or t[0].lower() != "jump":
-                continue
-            try:
-                int(t[1])
-            except ValueError:
-                if t[1] in labels:
-                    code[i] = " ".join([t[0], str(labels[t[1]])] + t[2:])
-    stmts = [(i, c) for i, c in enumerate(code) if c]
+    # Labels are resolved by prepare(), the only place that knows a label is not
+    # a statement. Resolving them again here used to map a label to its LINE
+    # index while prepare() used the STATEMENT index, so every `jump idle` on a
+    # program with blank lines turned into an out-of-range jump to a line number.
+    stmts = prepare(lines)
     out: list[Finding] = []
     n = len(stmts)
 

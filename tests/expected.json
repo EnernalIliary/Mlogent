@@ -108,6 +108,11 @@
       "writes_counter": false
     }
   },
+  "check/labels-blank": {
+    "kind": "check",
+    "case": "labels-check.mlog",
+    "digest": []
+  },
   "check/spin-deadlock": {
     "kind": "check",
     "case": "spin.mlog",
