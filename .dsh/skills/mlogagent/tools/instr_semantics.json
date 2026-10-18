@@ -72,7 +72,8 @@
     1,
     2
    ],
-   "note": "LStatements.java:62-92: fields 'output','target','address' -> ReadI(target,address,output) (LExecutor.java:612-644) writes output only (:629-640)."
+   "note": "LStatements.java:62-92: fields 'output','target','address' -> ReadI(target,address,output) (LExecutor.java:612-644) writes output only (:629-640).",
+   "min_build_note": "names address another processor / message block from v7 (build 146) onwards; v159 added reading processor *links*, and v160 made memory cells store arbitrary objects"
   },
   "write": {
    "params": [
@@ -87,7 +88,8 @@
     1,
     2
    ],
-   "note": "LStatements.java:94-124: fields 'input','target','address' -> WriteI (LExecutor.java:646-666) writes memory, never a var. The doc-suggested name 'result' is the field default only."
+   "note": "LStatements.java:94-124: fields 'input','target','address' -> WriteI (LExecutor.java:646-666) writes memory, never a var. The doc-suggested name 'result' is the field default only.",
+   "min_build_note": "names address another processor / message block from v7 (build 146) onwards; v159 added reading processor *links*, and v160 made memory cells store arbitrary objects"
   },
   "getlink": {
    "params": [
@@ -112,7 +114,8 @@
    "uses": [
     0
    ],
-   "note": "LStatements.java:283-303 -> PrintI (LExecutor.java:1045-1086) appends to text buffer."
+   "note": "LStatements.java:283-303 -> PrintI (LExecutor.java:1045-1086) appends to text buffer.",
+   "min_build_note": "escape sequences (\\uXXXX \\n \\\" \\\\) inside logic string literals only parse from v160; before that they print literally"
   },
   "printchar": {
    "params": [
