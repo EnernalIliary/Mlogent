@@ -28,6 +28,10 @@ PATTERNS = [
     re.compile(r"(?<![A-Za-z])[Ii]liary(?![A-Za-z])", re.I),
     re.compile(r"艾铭"),
     re.compile(r"iliaryl?", re.I),
+    # alt account -- 鱼破了冰 (full), 鱼冰 (short), 鱼梦醒时 (used as a variable name)
+    re.compile(r"鱼破了冰"),
+    re.compile(r"鱼冰"),
+    re.compile(r"鱼梦醒时"),
 ]
 
 

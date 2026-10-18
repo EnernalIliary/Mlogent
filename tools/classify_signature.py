@@ -10,7 +10,9 @@ import msch  # noqa: E402
 import mlogir  # noqa: E402
 
 C = pathlib.Path.home() / "AppData" / "Roaming" / "Mindustry" / "schematics"
-NAME = re.compile(r"(?<![A-Za-z])[Ii]li(ary)?(?![A-Za-z])|艾铭")
+NAME = re.compile(r"(?<![A-Za-z])[Ii]li(ary)?(?![A-Za-z])|艾铭|鱼破了冰|鱼冰|鱼梦醒时")
+# the alt account: `鱼破了冰` (full), `鱼冰` (short, also used in blueprint names),
+# `鱼梦醒时` (used as a variable name in the 集火 logic)
 BYLINE = re.compile(r"(?i)\b(by|author|made\s*by|制作|作者|署名)\b|by\s*[:：]?|\bby\b")
 
 
