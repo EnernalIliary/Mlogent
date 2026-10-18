@@ -45,6 +45,7 @@ import mlog as M            # noqa: E402  (loads cmd_index/item_ids/... from HER
 import msch                 # noqa: E402
 
 _check, _ir, _val, _pk = M._check, M._ir, M._val, M._pk
+_cx = M._cx
 
 SECTION_HELP = {
     "check": "static findings (the only section that can fail the exit code)",
@@ -52,6 +53,7 @@ SECTION_HELP = {
     "ir": "CFG + liveness: unreachable code, dead stores (four tiers)",
     "values": "abstract values: branches decided at compile time, provable nulls",
     "pack": "packed configs: field layout and how many ids fit the low field",
+    "cross": "cross-processor read/write: what the reader really gets",
 }
 ALL_SECTIONS = list(SECTION_HELP)
 
@@ -213,6 +215,22 @@ def cmd_report(args) -> int:
         print("every target was empty", file=sys.stderr)
         return 2
 
+    if "cross" in wanted and not args.brief:
+        # Schematic-level, not per block: the value a `read` sees comes from
+        # another program, so it can only be resolved for the whole blueprint.
+        for p in list(getattr(args, "files", None) or []) + \
+                list(getattr(args, "msch", None) or []):
+            if not str(p).lower().endswith(".msch"):
+                continue
+            try:
+                sch = msch.parse_file(p)
+            except Exception as exc:  # noqa: BLE001
+                print(f"!! {p}: {exc}", file=sys.stderr)
+                continue
+            print("--- cross " + "-" * 65)
+            print(_cx.format_report(
+                _cx.analyze_units(_cx.units_from_schematic(sch)), str(p)))
+
     print(f"\n{'=' * 74}\nVERDICT\n{'=' * 74}")
     width = max(len(l) for l, _ in verdicts)
     for label, m in verdicts:
@@ -230,7 +248,7 @@ def cmd_report(args) -> int:
 _DATA = ["wiki_block_ids.json", "block_sizes.json", "cmd_index.json",
          "item_ids.json", "instr_semantics.json"]
 _MODULES = ["mlog.py", "mlogcheck.py", "mlogir.py", "mlogval.py", "mlogpack.py",
-            "msch.py", "mschgen.py", "mlogagent.py"]
+            "mlogcross.py", "msch.py", "mschgen.py", "mlogagent.py"]
 
 
 def _sha(path: Path) -> str:

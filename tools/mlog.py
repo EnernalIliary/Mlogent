@@ -65,6 +65,7 @@ if HERE not in sys.path:
 import mlogcheck as _check          # noqa: E402
 import mlogir as _ir                # noqa: E402
 import mlogpack as _pk              # noqa: E402
+import mlogcross as _cx
 import mlogval as _val              # noqa: E402
 import msch                          # noqa: E402
 import mschgen as _gen              # noqa: E402
@@ -503,6 +504,24 @@ def cmd_values(args) -> int:
     return rc
 
 
+def cmd_cross(args) -> int:
+    """Cross-processor `read`/`write`: resolve each read against its writers.
+
+    Needs the whole schematic (the value comes from another program), so this
+    only accepts blueprints -- a lone .mlog has no peers to read from.
+    """
+    paths = [p for p in (args.files or []) if str(p).lower().endswith(".msch")]
+    skipped = [p for p in (args.files or []) if not str(p).lower().endswith(".msch")]
+    paths += [p for p in (args.msch or []) if p not in paths]
+    for p in skipped:
+        print(f"!! {p}: not a .msch -- cross-processor needs the whole schematic")
+    for p in paths:
+        sch = msch.parse_file(p)
+        rep = _cx.analyze_units(_cx.units_from_schematic(sch))
+        print(_cx.format_report(rep, p))
+    return 0
+
+
 def cmd_pack(args) -> int:
     """Recognise packed-config encode/decode and report field capacity."""
     rc = 0
@@ -903,6 +922,13 @@ def main() -> int:
     p.add_argument("--trace", action="append", metavar="VAR",
                    help="trace one variable (repeatable)")
     p.set_defaults(fn=cmd_values)
+
+    p = sub.add_parser("cross",
+                       help="cross-processor read/write: what the reader really gets")
+    p.add_argument("files", nargs="*", metavar="blueprint.msch")
+    p.add_argument("--msch", action="append", default=[],
+                   help="same, spelled explicitly")
+    p.set_defaults(fn=cmd_cross)
 
     p = sub.add_parser("pack",
                        help="packed configs: field layout + how many ids fit")

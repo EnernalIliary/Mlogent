@@ -24,6 +24,7 @@ whenToUse: 涉及 Mindustry 蓝图（.msch / 蓝图码）、mlog 逻辑编写或
 | **查一条指令的读写位** —— 哪个参数是输出 | `mlog.py explain <指令> [子命令]` |
 | **查这条语句要哪个版本** `format` 147 / `select` 150 | `BUILDS.md`（GitHub 发布说明摘要），`mlog.py explain <指令>` 会直接打印 |
 | **查这份逻辑要哪个 build** —— 蓝图不存版本号 | `mlog.py check` 的 `version gate` 行 / `mlogagent report` 的 `build >=N` |
+| **跨处理器读写** —— 读到的到底是 null 还是常量 | `mlog.py cross <blueprint.msch>` |
 | **回归自测** —— 429 个真实蓝图往返校验 | `mlog.py selftest` |
 
 工具在 `tools/` 下,零第三方依赖(纯标准库)。`python tools/mlog.py --help`。
@@ -287,6 +288,20 @@ provably null: L3 r is null
 ## 独立副本
 
 同一套工具已经打包成独立的 mlogagent 技能（.dsh/skills/mlogagent/），目录自带全部模块与数据，可整体拷走。一审一整套分析用 mlogagent.py report <file>；改完模块后用 python tools/sync_mlogagent.py 刷新那份副本（--check 只比对）。
+
+### `cross` 只看跨处理器,不看记忆格
+
+`read`/`write` 有两种完全不同的用法,别混:
+
+- `read x cell1 "slot"` —— **记忆格**,引号里是**地址变量名**。极常见(我的库 82 份里有它)。
+- `read x processor1 "name"` —— **另一个处理器的变量**,引号里是那个处理器里的**变量名**。
+  少见:我的库 625 份只有 **9 份**真的指向处理器,彩末包 926 份只有 13 份。
+
+可读的那个槽就是**目标自己的变量**(所以 `set` 就够,`write` 不是必须的),这也是
+「必须先在那边声明」的原因。`cross` 把 join(目标自己的所有赋值, 所有外部 `write`)
+算出来,分四类报:`never assigned` / `always null` / `constant` / `written, never read`。
+
+自链接(`processor1` 偏移 0,0)是合法写法,读的是自己的变量。
 
 ## 参考数据
 
