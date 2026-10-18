@@ -552,6 +552,32 @@ python tools/sync_mlogagent.py --check --global  # 只核对,不同步就 exit 1
 - 表里**没有**的字段 = 源码没写 = 引擎默认值（见 JSON 的 `defaults`），不是「零」。
 - `itemCapacity (default -1)` 表示这个单位不能拿东西，不是容量为 1。
 
+## 方块表里有什么、没有什么
+
+`block_attrs.json` 由 `tools/blocks_from_source.py` 从 `Blocks.java` 抽，253 个方块有行为记录。
+
+```bash
+python mlog.py block cryofluid-mixer     # 一个方块的完整画像
+python mlog.py block --accepts coal      # 谁吃煤（按 recipe / ammo / any / custom 分组）
+```
+
+一个方块能查到：
+
+| 字段 | 例子 | 说明 |
+|---|---|---|
+| `build` | `lead:65 + silicon:40 + titanium:60  (crafting)` | 建造配方 + 分类；多次 `requirements()` 会合并成廉价层/升级层 |
+| `liquids` | `water:12/s -> cryofluid:12/s` | 输入液体 → 输出液体，**已折成每秒** |
+| `inputs` | `coal:1 + sand:2 -> silicon:1  craftTime 40` | 配方输入（每 craftTime 一次） |
+| `booster` | `silicon:1  (optional; speeds the block up)` | 可选加速物，**不给也能跑** |
+| `coolant` | `water` | 冷却液（不进配方，影响效率） |
+| `accepts` | `any` / `only ...` / `ammo ...` / `nothing` | 物流能不能塞进去 |
+
+三个读法坑：
+
+1. **`build` 不是配方。** `build` 那行是「造这个方块要什么」，`inputs` 才是「它生产时吃什么」。写产线时两个都要看。
+2. **液体量是每秒**（源码写的是每 tick，`_rate()` 折过）。折不了的带布尔重载原样显示源码算式。
+3. **「烧整类物品」没有清单。** `rtg-generator` 显示 `burns radioactive items (no fixed item list)` —— 引擎按类别判，别去查它到底吃哪几种。
+
 ## 参考数据
 
 | 文件 | 内容 |

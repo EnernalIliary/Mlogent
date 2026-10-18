@@ -2271,6 +2271,35 @@ emod("emod", (a, b) -> ((a % b) + b) % b); // 结果非负
 顺带修了 `mlog.py unit` 的两个读法毛病：精确名优先（`unit oct` 原来同时命中 `spiroct`，
 细节就不打了），以及 `bullet_speed` 缺失时摘要行打出 `Nonesp/23dmg` 的丑格式。
 
+## 15.34 补方块表：建造配方、液体、可选加速物
+
+上一版的方块表只回答「这个方块**收**什么」，写产线时真正要查的是三件别的事：造它花什么、它喝什么液体、它吃的哪样东西只是加速。
+
+### 三处解析修复
+
+| 源代码写法 | 出现次数 | 旧解析 | 现在 |
+|---|---|---|---|
+| `consumeLiquid(Liquids.water, 12f/60f)` | 55 | **完全没解析** | `liquids water:12/s` |
+| `consumeCoolant(Liquids.x)` | 14 | 没解析 | `coolant x` |
+| `consumeLiquids(with(...))` / `consumeLiquids(LiquidStack.with(...))` | 3 | 只认第一种 | 两种都认 |
+| `requirements(Category.crafting, with(...))` | — | 从没采集 | `build lead:65 + silicon:40 + ... (crafting)` |
+
+`consumeItem/consumeItems` 统一走一个 `_put(pair, suffix)`：后缀含 `boost`/`damp`/`optional` ⇒ 记 `booster`（**可选**加速物），否则记 `inputs`。`mender` 以前被记成「只收硅」，其实是「硅可选，给了修得快」。
+
+### 单位换算：源码是每 tick，人是每秒
+
+`consumeLiquid(Liquids.water, 12f / 60f)` 里的 `12f/60f` 是**每 tick**的量。`_rate()` 把它折成每秒（`12/s`），因为 wiki、游戏内 UI、玩家说话都用每秒。折不了的（带布尔的重载之类）**原样保留**，不猜。
+
+### 汇总结论（为什么值得做）
+
+- 有 facts 的方块 219 → **253**；75 个「有 consume 调用」的方块里，缺配方的从 **47 → 1**。
+- 剩下那 1 个是 `landing-pad`：它命中的是字段 `consumeLiquidAmount = 1500f`，不是 consume 调用 —— 假阳性，不必修。
+- `body_facts` 现在还认 `consume(new ConsumeItemRadioactive())` 这类「烧整类物品」的消耗器（`rtg-generator`、`steam-generator`），标注成「没有固定物品清单」，而不是编一个清单。
+
+### 教训
+
+**「没解析到」和「不存在」看起来一模一样。** 上一版把这 47 个方块显示成「收任何物品」（`accepts any` 的兜底），而真相是「我的正则只认一种写法」。凡是解析器有兜底分支的地方，都要能回答一句「这个兜底是真的，还是我没认出来」 —— 这里靠的是把源码里 `consume*` 的**调用形式逐个计数**（55 处单数 `consumeLiquid` 摆在面前，就没法再自欺）。
+
 ## 16. ⚠️ 我写错的逻辑清单(生成前对照)
 
 这一节记录**实际被抓到的逻辑错误**,不是猜测。
@@ -2514,3 +2543,4 @@ F:\OneDrive\桌面\AtomicStates\mindustry-blueprint\                ← 开发�
 | 第 38 次整理 | **一个算子不等于一条语句**：`op` 是 45 个算子共用的语法外壳，版本属性挂在算子上（`emod`/`ushr` = v150，其余回 v6），所以版本闸门必须按算子名查。同一段源码里 `idiv`=floor、`mod`=截断、`emod`=floor-mod，三者不能互换，判据是 `a == (a idiv b)*b + (a emod b)` 恒成立。书还纠正了我一条：`ucontrol` 也会把单位认领给本处理器（`UnitControlI.checkLogicAI` 里设 controller=@this），所以死循环规则要按「认领 vs 读取」的**顺序**判定，不是按指令种类。**语法是一层壳，语义挂在壳里的那个词上。** |
 | 第 39 次整理 | **`style`：把「像人写的」拆成六个可量维度**(命名/风格/形状/成本/链接/收尾)。坑:枚举槽不是变量(否则 `naming` 头几名是 `op` 名);语料文件名必须进检索(中文文件名);同文件多处理器要去重 |
 - 第 40 次整理：补数据（sensor 75 条 / 武器明细 / min_build 46 条 + 基线 146）。方法论：**「没找到出处」也是数据 —— 留空比编一个数字更省后面的人的时间。**
+- 第 41 次整理：补方块表 —— 建造配方(`requirements`)、液体(单数 `consumeLiquid` 55 处)、可选加速物(`boost`/`damp` 后缀)。75 个消耗器里缺配方 47→1，只剩 `landing-pad`（命中字段名 `consumeLiquidAmount`，假阳性）。方法论：**解析器的兜底分支要能自证「是真的，还是我没认出来」—— 把源码里的调用形式逐个计数，数量摆出来就没法自欺。**

@@ -807,6 +807,10 @@ def cmd_block(args) -> int:
             head += f" id={ids[0]:>4}"
         head += f"  size={rec.get('size', '?')}  ({classes.get(n, '?')})"
         print(head)
+        build = rec.get("build") or {}
+        if build.get("cost"):
+            print(f"      build   {' + '.join(build['cost'])}"
+                  f"  ({build.get('category', '?')})")
         acc = rec.get("accepts", "?")
         if acc == "any":
             print("      accepts any item (capacity-bound)")
@@ -824,8 +828,18 @@ def cmd_block(args) -> int:
                   f"{rec['outputItem']}{t}")
         elif rec.get("outputItems"):
             print(f"      outputs {' + '.join(rec['outputItems'])}")
-        elif rec.get("inputs"):
+        elif rec.get("inputs") and acc != "recipe":
             print(f"      consumes {' + '.join(rec['inputs'])}")
+        liq = rec.get("liquids") or []
+        out_liq = rec.get("outputLiquids") or []
+        if liq or out_liq:
+            arrow = f" -> {' + '.join(out_liq)}" if out_liq else ""
+            print(f"      liquids {(' + '.join(liq)) or '--'}{arrow}")
+        if rec.get("booster"):
+            print(f"      booster {' + '.join(rec['booster'])}"
+                  "  (optional; speeds the block up)")
+        if rec.get("coolant"):
+            print(f"      coolant {rec['coolant']}")
         extra = []
         if rec.get("itemCapacity"):
             extra.append(f"itemCapacity {rec['itemCapacity']}")
@@ -835,6 +849,14 @@ def cmd_block(args) -> int:
             extra.append(f"power {rec['power']}")
         if rec.get("hasItems"):
             extra.append("hasItems")
+        if rec.get("flammable"):
+            extra.append("burns flammables")
+        if rec.get("explosive"):
+            extra.append("burns explosives")
+        if rec.get("radioactive"):
+            extra.append("burns radioactive items (no fixed item list)")
+        if rec.get("explodes"):
+            extra.append("explodes on explosive inputs")
         if extra:
             print("      " + "; ".join(extra))
     return 0

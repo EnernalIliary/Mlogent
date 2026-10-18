@@ -71,6 +71,41 @@ def _items(arg: str) -> list[str]:
     return pairs
 
 
+def _rate(expr: str | None) -> str:
+    """`12f / 60f` -> `12/s`.
+
+    Liquid amounts in the source are per tick (`LiquidStack(Liquids.water, 12f/60f)`)
+    and the only number anyone quotes is the per-second one -- the wiki, the
+    in-game block UI and every player say "12 water per second". Keeping the raw
+    expression would be accurate and useless, so evaluate it; anything that does
+    not reduce to a simple `A` or `A / B` is kept verbatim rather than guessed.
+    """
+    if not expr:
+        return "?"
+    s = expr.replace("f", "").replace(" ", "").strip()
+    m = re.fullmatch(r"(-?[\d.]+)(?:/([\d.]+))?", s)
+    if not m:
+        return s
+    try:
+        per_tick = float(m.group(1)) / float(m.group(2) or 1)
+    except ZeroDivisionError:
+        return s
+    return f"{per_tick * 60:g}/s"
+
+
+def _liquid_pairs(arg: str) -> list[str]:
+    """`Liquids.ozone, 4f / 60, Liquids.hydrogen, 6f / 60` -> ['ozone:4/s', ...].
+
+    Split on `Liquids.` instead of on commas: the amount is itself an expression
+    that may contain a comma-free division but also a `LiquidStack.with(...)`
+    nested inside a ternary in a few blocks, and comma-splitting would shear it.
+    """
+    out: list[str] = []
+    for m in re.finditer(r"Liquids\.(\w+)\s*,\s*([^,]+)", arg):
+        out.append(f"{_kebab(m.group(1))}:{_rate(m.group(2))}")
+    return out
+
+
 def body_facts(body: list[str]) -> dict:
     text = "\n".join(body)
     rec: dict = {}
@@ -93,24 +128,65 @@ def body_facts(body: list[str]) -> dict:
         outs = re.findall(r"new ItemStack\(Items\.(\w+),\s*(\d+)\)", m.group(1))
         rec["outputItems"] = [f"{_kebab(a)}:{b}" for a, b in outs]
 
-    m = re.search(r"consumeItems\(with\((.*?)\)\)", text, re.S)
-    if m:
-        rec["inputs"] = _items(m.group(1))
-    else:
-        # single-item crafters (graphite-press, silicon-arc-furnace, ...) use
-        # `consumeItem`, which the first version missed -- 10 recipes instead of
-        # the real number.
-        one = re.search(r"consumeItem\(Items\.(\w+),\s*(\d+)\)", text)
-        if one:
-            rec["inputs"] = [f"{_kebab(one.group(1))}:{one.group(2)}"]
+    # Required inputs, and the ones the block merely *likes*. `consumeItem(x).boost()`
+    # is an optional speed-up item: mender runs fine with no silicon, so calling
+    # it an input would say a mender line has to feed silicon forever.
+    _OPT = ("boost", "damp", "optional")
+
+    def _put(pair_or_pairs, suffix: str) -> None:
+        key = "booster" if any(w in (suffix or "") for w in _OPT) else "inputs"
+        if isinstance(pair_or_pairs, str):
+            rec.setdefault(key, []).append(pair_or_pairs)
+        else:
+            rec.setdefault(key, []).extend(pair_or_pairs)
+
+    for m in re.finditer(r"consumeItems\(with\((.*?)\)\)(\.\w+\(\))?", text, re.S):
+        _put(_items(m.group(1)), m.group(2) or "")
+    for m in re.finditer(r"consumeItem\(Items\.(\w+)(?:,\s*(\d+))?\)(\.\w+\(\))?", text):
+        _put(f"{_kebab(m.group(1))}:{m.group(2) or 1}", m.group(3) or "")
+
+    # `consume(new ConsumeItemFlammable())` -- a whole class of "burns anything
+    # burnable" consumers with no fixed item list.
+    for m in re.finditer(r"consume\(new ConsumeItem(\w+)\(\)\)", text):
+        kind = m.group(1).lower()
+        if kind in ("flammable", "explosive", "radioactive"):
+            rec[kind] = True
+        elif kind == "explode":
+            rec["explodes"] = True
+        elif kind == "ammo":
+            rec["usesAmmo"] = True
 
     m = re.search(r"^\s*consumePower\(" + _NUM + r"\)", text, re.M)
     if m:
         rec["power"] = m.group(1)
 
-    m = re.search(r"consumeLiquids?\(with\((.*?)\)\)", text, re.S)
+    # 55 uses of the singular `consumeLiquid(Liquids.x, rate)` were invisible to
+    # the first version, which only matched `consumeLiquids(with(...))` (3 uses).
+    # That single omission is why 47 of the 75 blocks that consume something had
+    # no recipe at all.
+    for m in re.finditer(r"consumeLiquid\(Liquids\.(\w+)(?:,\s*([^)]*))?\)", text):
+        rec.setdefault("liquids", []).append(f"{_kebab(m.group(1))}:{_rate(m.group(2))}")
+    # Two spellings: `consumeLiquids(with(...))` and
+    # `consumeLiquids(LiquidStack.with(...))`. Both are the same list.
+    m = re.search(r"consumeLiquids\((?:LiquidStack\.)?with\((.*?)\)\)", text, re.S)
     if m:
-        rec["liquids"] = _items(m.group(1))
+        rec["liquids"] = _liquid_pairs(m.group(1)) + rec.get("liquids", [])
+    m = re.search(r"consumeCoolant\(Liquids\.(\w+)", text)
+    if m:
+        rec["coolant"] = _kebab(m.group(1))
+
+    m = re.search(r"outputLiquid\s*=\s*new LiquidStack\(Liquids\.(\w+),\s*([^)]*)\)", text)
+    if m:
+        rec["outputLiquids"] = [f"{_kebab(m.group(1))}:{_rate(m.group(2))}"]
+    m = re.search(r"outputLiquids\s*=\s*LiquidStack\.with\((.*?)\);", text, re.S)
+    if m:
+        rec["outputLiquids"] = _liquid_pairs(m.group(1))
+
+    # Build cost. Every block declares it with `requirements(Category.x, with(...))`
+    # and a handful declare it twice (cheap tier + upgrade), so the costs merge.
+    for m in re.finditer(r"requirements\(Category\.(\w+),\s*with\((.*?)\)\)", text, re.S):
+        build = rec.setdefault("build", {"category": m.group(1), "cost": []})
+        build["cost"] += _items(m.group(2))
 
     return rec
 
@@ -255,8 +331,11 @@ def main() -> int:
         print(("ok      " if same else "STALE   ") + f"{OUT.name}: {data['count']} blocks")
         return 0 if same else 1
     OUT.write_text(text, "utf-8")
-    recipes = sum(1 for b in data["blocks"].values() if "inputs" in b and "outputItem" in b)
-    print(f"wrote {OUT.name}: {data['count']} blocks, {recipes} with a full recipe")
+    recipes = sum(1 for b in data["blocks"].values()
+                  if "inputs" in b and ("outputItem" in b or "outputItems" in b))
+    builds = sum(1 for b in data["blocks"].values() if b.get("build"))
+    print(f"wrote {OUT.name}: {data['count']} blocks, "
+          f"{builds} with a build cost, {recipes} with a craft recipe")
     return 0
 
 

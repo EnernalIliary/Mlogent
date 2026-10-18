@@ -187,3 +187,30 @@ python mindustry-blueprint/tools/sync_mlogagent.py --check  # 只比对，过期
 - 真实语料 900 块里该形状 0 处;等外部状态的自旋 0.33 条/块,不报。
 
 `sensor` 的属性表（75 条，一条一句人话）来自 `LAccess.java`：`mlog.py sensor heat`。三条陷阱：`@heat` 在力墙上是被打掉的盾量、`@size` 对字符串返回 UTF-16 长度、`@dead` 在单位是 null 时也返回 1。
+
+## 方块表里有什么、没有什么
+
+`block_attrs.json` 由 `tools/blocks_from_source.py` 从 `Blocks.java` 抽，253 个方块有行为记录。
+
+```bash
+python mlog.py block cryofluid-mixer     # 一个方块的完整画像
+python mlog.py block --accepts coal      # 谁吃煤（按 recipe / ammo / any / custom 分组）
+```
+
+一个方块能查到：
+
+| 字段 | 例子 | 说明 |
+|---|---|---|
+| `build` | `lead:65 + silicon:40 + titanium:60  (crafting)` | 建造配方 + 分类；多次 `requirements()` 会合并成廉价层/升级层 |
+| `liquids` | `water:12/s -> cryofluid:12/s` | 输入液体 → 输出液体，**已折成每秒** |
+| `inputs` | `coal:1 + sand:2 -> silicon:1  craftTime 40` | 配方输入（每 craftTime 一次） |
+| `booster` | `silicon:1  (optional; speeds the block up)` | 可选加速物，**不给也能跑** |
+| `coolant` | `water` | 冷却液（不进配方，影响效率） |
+| `accepts` | `any` / `only ...` / `ammo ...` / `nothing` | 物流能不能塞进去 |
+
+三个读法坑：
+
+1. **`build` 不是配方。** `build` 那行是「造这个方块要什么」，`inputs` 才是「它生产时吃什么」。写产线时两个都要看。
+2. **液体量是每秒**（源码写的是每 tick，`_rate()` 折过）。折不了的带布尔重载原样显示源码算式。
+3. **「烧整类物品」没有清单。** `rtg-generator` 显示 `burns radioactive items (no fixed item list)` —— 引擎按类别判，别去查它到底吃哪几种。
+
