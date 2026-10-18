@@ -2154,6 +2154,62 @@ jump to -1, which does nothing; execution just falls through
 
 方法论：**一个第三方实现不需要比你强，只要它独立 —— 它证实的部分给你底气，它多抓的部分给你缺口。**
 
+### 15.30 逻辑书校正了什么(A4-Tacks《learn-mindustry-logic》)
+
+书在 `C:\Users\lliary\src\learn-mlog`(`pages/` 32 篇)。吸收方式:**只取事实和判据,不搬原文**(书是 CC 系协议,我的仓库是 MIT)。
+
+#### a. 三个算子各不相同 —— 我原来只写对了一个
+
+`Mindustry-Source/core/src/mindustry/logic/LogicOp.java:12-14` 逐字:
+
+```java
+idiv("//", (a, b) -> Math.floor(a / b));
+mod ("%",  (a, b) -> a % b);              // Java 截断取余
+emod("emod", (a, b) -> ((a % b) + b) % b); // 结果非负
+```
+
+我的 `mlogval._BIN_EXACT` 原来把 `idiv` 写成 `trunc`(对负数错)、`emod` 写成 `fmod`(对负数错)。修后:
+
+| 表达式 | 之前 | 现在 | 判据 |
+|---|---|---|---|
+| `idiv -7 3` | -2 | **-3** | floor |
+| `mod -7 3` | -1 | -1 | 截断(不变) |
+| `emod -7 3` | -1 | **2** | floor-mod |
+
+恒等式 `a == (a idiv b) * b + (a emod b)` 现在成立(`-3*3+2 == -7`),用 `mod` 则不成立 —— **这条恒等式就是选对算子的判据**。
+
+#### b. `emod` / `ushr` 是 v150 新增 ⇒ 版本闸门要看算子名
+
+书脚注 2、4。`instr_semantics.json` 的 `ops.emod/ushr.min_build = 150`,而 `build_floor()` 原来只看助记符 ⇒ `op emod` 被算成基线 146。修法:新增 `_load_op_builds()` 读 `ops[*].min_build`,在 `build_floor()` 里 `if mnem == "op"` 时按第二个 token 查。
+
+教训:**"`op` 是一条语句"是过期的抽象** —— 它是 45 个算子共享的语法外壳,版本属性挂在算子上。
+
+#### c. `ucontrol` 也会认领单位 —— 我的死循环规则改了一半
+
+书 `17-unit-control.md` 说"任何控制命令都会把单位标记为被当前逻辑控制"。查 `LExecutor.java:304-340` 的 `UnitControlI.checkLogicAI()`:`la.controller = exec.thisv.building()`(`:325`/`:329`),而 **`ubind`(`:186-199`)与每条 `ucontrol`(`:347`)都会调它**。所以旧注释"`ucontrol` never claims a unit"是错的。
+
+规则改成三条同时成立才报 `ERR`:
+
+1. 守卫比较里有 `@this`,极性是 `equal`/`strictEqual`(否则一认领就为假,循环一遍就退出 —— 那正是手写"防抢单位"的样子);
+2. 环内出现 claimer:`ubind <非null>`,或 `ucontrol <除 unbind/within 外>`;
+3. **顺序**:认领发生在守卫读取之后(`j < last_sense`)—— 先读后认领 ⇒ 守卫为假 ⇒ 正常退出;先认领后读 ⇒ 恒真 ⇒ 永不退出。
+
+全语料(627 文件 / 900 块)仍是 **0 处**,唯一命中是那份 AI 生成的无线超逻辑。
+
+#### d. 编辑器显示名与文本名错位
+
+`LogicOp.java:32` `not("flip", a -> ~(long)(a))` ⇒ **文本写 `not`,编辑器显示 `flip`**;而 `notEqual` 在编辑器里显示为 `not`。工具解析的是文本,内部不受影响;但**用户照着编辑器念名字**、或**把编辑器里看到的 `not` 写回去**,就会变成另一个算子(浮点比大小 vs 按位取反)。
+
+#### e. 还没落盘、但值得记的
+
+- `@counter` = "当前行之后将要执行的行号";`@thisx/@thisy` ≡ `sensor @this @x/@y`;`π` ≡ `@pi`;`@degToRad`/`@radToDeg`。
+- **控制命令间隔 > 10 秒会丢控制状态**。
+- `ucontrol within` 也算控制命令;纯测距用 `op len`。
+- `@ctrlFormation` 已删,值被 `@ctrlCommand` 复用。
+- `ucontrol build` 的第 5 参可传一个建筑,把它的配置复制过去(自我复制逻辑的写法)。
+- `pingX/pingY/pingText` 约 >157.4 才有。
+- 多控互换 `@unit` 的惯用法:`set tmp @unit; ubind unit2; set unit2 tmp`。
+
 ## 16. ⚠️ 我写错的逻辑清单(生成前对照)
 
 这一节记录**实际被抓到的逻辑错误**,不是猜测。
@@ -2394,3 +2450,4 @@ F:\OneDrive\桌面\AtomicStates\mindustry-blueprint\                ← 开发�
 | 第 35 次整理 | 生成蓝图一律用 `mlog.py gen`(它自己打印 base64),不要手拼前缀;`--with-block` 的 dx,dy 是相对处理器的中心坐标。**工具已经会做的事,再手写一遍只会多出一个 bug 的位置。** |
 | 第 36 次整理 | **写逻辑的取舍:枚举 vs 跳表 vs 内存格**。`sensor` 第三参是运行时对象(`LExecutor.java:668-719` `Object sense = type.obj()`),所以枚举不是语法强制;但 mlog 没有「按下标取内容物」的原语,造表的价格≈摊开写(枚举 26 / 跳表 30+ / 格子 14+10),差的是状态数量与可复查性。方法论:**「为什么不用更聪明的写法」的答案经常是「这里没有更便宜的写法」—— 说清价格,比说清偏好有用。** |
 | 第 37 次整理 | **死循环规则按守卫极性判定**。`@this` 只能被 `ubind` 认领(`LExecutor.java:325`/`:329`),所以 `equal … @this` + `ubind` 是永不退出,而 `notEqual … @this` + `ubind` 是标准「防抢单位」写法。**同一条语句,极性反了就从不报变成全报;规则的价值不在「能发现」,在「敢不报」。** |
+| 第 38 次整理 | **一个算子不等于一条语句**：`op` 是 45 个算子共用的语法外壳，版本属性挂在算子上（`emod`/`ushr` = v150，其余回 v6），所以版本闸门必须按算子名查。同一段源码里 `idiv`=floor、`mod`=截断、`emod`=floor-mod，三者不能互换，判据是 `a == (a idiv b)*b + (a emod b)` 恒成立。书还纠正了我一条：`ucontrol` 也会把单位认领给本处理器（`UnitControlI.checkLogicAI` 里设 controller=@this），所以死循环规则要按「认领 vs 读取」的**顺序**判定，不是按指令种类。**语法是一层壳，语义挂在壳里的那个词上。** |

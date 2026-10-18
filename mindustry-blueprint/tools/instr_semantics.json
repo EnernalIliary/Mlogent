@@ -1655,7 +1655,9 @@
    "operands": 2,
    "returns": "number",
    "symbol": "%%",
-   "source": "Mindustry-Source/core/src/mindustry/logic/LogicOp.java:14"
+   "source": "Mindustry-Source/core/src/mindustry/logic/LogicOp.java:14",
+   "min_build": 150,
+   "min_build_source": "v150 release notes / learn-mindustry-logic appendix-01 footnote"
   },
   "pow": {
    "operands": 2,
@@ -1732,7 +1734,9 @@
    "operands": 2,
    "returns": "number",
    "symbol": ">>>",
-   "source": "Mindustry-Source/core/src/mindustry/logic/LogicOp.java:26"
+   "source": "Mindustry-Source/core/src/mindustry/logic/LogicOp.java:26",
+   "min_build": 150,
+   "min_build_source": "v150 release notes / learn-mindustry-logic appendix-01 footnote"
   },
   "or": {
    "operands": 2,

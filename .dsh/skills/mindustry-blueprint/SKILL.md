@@ -492,3 +492,9 @@ python tools/sync_mlogagent.py --check --global  # 只核对,不同步就 exit 1
 - **解析失败的语句整行变 `noop`**(编辑器显示 Invalid),不是"忽略某个参数" ⇒ 是整行失效,不是局部失效
 - **`jump` 到不存在的标签 = 跳转 -1 = 什么也不做**(`LParser` 的 `get(location, -1)` + `JumpI` 的 `if(address != -1)`) ⇒ `check` 报 `no-target-jump`,别把它当"死代码"
 - **逻辑上限 1000 行;`1e4` 合法、`1.2e3` 不合法;变量名除空白与 `"` `#` `;` 外几乎任意** ⇒ 生成器按 C 标识符规则写会切错名字、写出游戏解析不了的数字
+- **`idiv` 是向下取整、`mod` 是截断取余、`emod` 是 floor-mod** ⇒ 三者不能互换;恒等式 `a == (a idiv b) * b + (a emod b)` 只在 emod 下成立(`LogicOp.java:12-14`)
+- **`emod` 与 `ushr` 是 v150 新增** ⇒ 版本闸门必须看**算子名**,`op emod` 报 `>=150` 而不是基线 146
+- **任何 `ucontrol` 命令(除 `unbind`/`within`)都会把单位认领给本处理器** ⇒ `sensor c @unit @controller` 之后紧跟 `ucontrol move …`,`c` 立刻等于 `@this`;想只测距不认领,用 `op len` 手算
+- **编辑器显示名与文本名错位**:`not` 显示成 `flip`、`notEqual` 显示成 `not`(`LogicOp.java:32`)⇒ 照编辑器念出来的名字写进 mlog 会变成另一个算子
+- **`@counter` 的语义是「当前行之后将要执行的行号」** ⇒ 函数返回地址用 `op add ret @counter 1`,而派发表写 `op add @counter @counter n` 之后入口在 n+1 行
+- **控制命令间隔超过 10 秒就丢控制状态** ⇒ 长循环里每 10 秒至少发一条 `ucontrol`

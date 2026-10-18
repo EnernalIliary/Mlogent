@@ -144,9 +144,14 @@ _BIN_EXACT = {
     "sub": lambda a, b: a - b,
     "mul": lambda a, b: a * b,
     "div": lambda a, b: a / b if b else math.copysign(math.inf, a) if a else math.nan,
-    "idiv": lambda a, b: float(math.trunc(a / b)) if b else math.nan,
+    # Java: idiv = Math.floor(a / b) -- FLOOR, so -7 // 3 is -3 (not -2).
+    "idiv": lambda a, b: float(math.floor(a / b)) if b else math.nan,
+    # Java: mod = a % b -- C-style remainder (truncates toward zero), so -7 % 3 is -1.
     "mod": lambda a, b: math.fmod(a, b) if b else math.nan,
-    "emod": lambda a, b: math.fmod(a, b) if b else math.nan,
+    # Java: emod = ((a % b) + b) % b -- floors as well, so -7 emod 3 is 2.
+    # `idiv` and `mod` therefore disagree for mixed signs; `emod` is the one that
+    # satisfies a == (a idiv b) * b + (a emod b). Do not "simplify" the two.
+    "emod": lambda a, b: (math.fmod(a, b) + b) % b if b else math.nan,
     "pow": lambda a, b: _pow(a, b),
     "max": max,
     "min": min,
@@ -156,7 +161,7 @@ _BIN_EXACT = {
     "and": lambda a, b: float(_i(a) & _i(b)),
     "or": lambda a, b: float(_i(a) | _i(b)),
     "xor": lambda a, b: float(_i(a) ^ _i(b)),
-    "shl": lambda a, b: float(_i(a) << (_i(b) & 63)),
+    "shl": lambda a, b: float(_i(_i(a) << (_i(b) & 63))),
     "shr": lambda a, b: float(_i(a) >> (_i(b) & 63)),
     "ushr": lambda a, b: float((_i(a) & 0xFFFFFFFFFFFFFFFF) >> (_i(b) & 63)),
 }

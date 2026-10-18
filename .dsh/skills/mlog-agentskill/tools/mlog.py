@@ -1004,12 +1004,16 @@ def _explain_ops(args) -> int:
         else:
             _kv(k, v)
     print()
-    print(f"  {'op':<15}{'n':>2}  {'symbol':<9} what it does")
+    print(f"  {'op':<15}{'n':>2}  {'symbol':<9}build")
     for name, spec in ops.items():
         if want and want not in name.lower():
             continue
+        since = spec.get("min_build")
+        # Most operators go back to v6; `emod` and `ushr` are v150 additions, so
+        # the version gate has to look at the operator and not just at `op`.
+        mark = f">= {since}" if since else ""
         print(f"  {name:<15}{spec.get('operands', '?'):>2}  "
-              f"{spec.get('symbol', ''):<9}")
+              f"{spec.get('symbol', ''):<9}{mark}")
     if want and not any(want in n.lower() for n in ops):
         print(f"  (no operator matching {args.sub!r})")
         return 1

@@ -331,6 +331,19 @@ SPECS = _load_specs()
 #: magic 147.
 BASELINE_BUILD = 146
 
+def _load_op_builds() -> dict[str, int]:
+    """Operators that arrived after the v7 baseline (`emod`, `ushr` = v150)."""
+    try:
+        data = json.loads((Path(__file__).with_name("instr_semantics.json"))
+                          .read_text(encoding="utf-8"))
+        return {k: v["min_build"] for k, v in (data.get("ops") or {}).items()
+                if isinstance(v.get("min_build"), int)}
+    except Exception:
+        return {}
+
+
+OP_MIN_BUILD: dict[str, int] = _load_op_builds()
+
 MIN_BUILD: dict[str, int] = {
     k: v["min_build"] for k, v in SPECS.items() if isinstance(v.get("min_build"), int)
 }
@@ -345,8 +358,21 @@ def build_floor(stmts: list[tuple[int, str]]) -> tuple[int, list[str]]:
     """
     floor, users = 0, []
     for _, c in stmts:
-        mnem = c.split()[0].lower() if c.strip() else ""
+        words = c.split()
+        if not words:
+            continue
+        mnem = words[0].lower()
         b = MIN_BUILD.get(mnem)
+        # `op` is one statement but 45 operators, and two of them (`emod`,
+        # `ushr`) are v150 additions while the rest go back to v6. The gate has
+        # to look at the operator, not just the mnemonic.
+        if mnem == "op" and len(words) > 1:
+            ob = OP_MIN_BUILD.get(words[1])
+            if ob and (not b or ob > b):
+                b = ob
+                users.append(f"op {words[1]}")
+                floor = max(floor, b)
+                continue
         if not b:
             continue
         users.append(mnem)
@@ -857,22 +883,38 @@ def analyse(lines: list[str], links: list[str] | None = None) -> list[Finding]:
                 break
 
     # ---- a back-edge that can never come out --------------------------------
-    # `@this` inside a jump guard asks "is the bound unit mine". Exactly two
-    # lines in the whole executor ever write `controller` -- LExecutor.java:325
-    # and :329, both inside `ubind` -- so `ucontrol` never claims a unit. That
-    # makes the polarity of the guard decide the verdict:
-    #   * `ubind <type>` in the body claims the unit, so `@controller` becomes
-    #     `@this` and stays there. Under `equal`/`strictEqual ... @this` the guard
-    #     is then true forever: the loop never leaves and nothing after it runs.
-    #     ERR.
-    #   * the same body under `notEqual` is the ordinary "do not steal a unit
-    #     somebody already drives" idiom -- the guard goes false on the first
-    #     pass and the loop simply ends. 9 corpus files are exactly that shape
-    #     and all of them are correct, so this case stays silent.
-    #   * no `ubind` at all: nothing can claim the unit, so whether the jump is
-    #     ever taken depends on state we do not have. Silent.
-    # A nest of these is one statement, not three: only the outermost is reported.
+    # `@this` in a jump guard asks "is the bound unit mine". `la.controller` is
+    # written in exactly one place -- `UnitControlI.checkLogicAI`
+    # (LExecutor.java:322-340, `la.controller = exec.thisv.building()`) -- which
+    # is called by `ubind` *and* by every `ucontrol` command. So either one can
+    # hand the unit to this processor.
+    #
+    # Two things decide whether that locks the loop shut:
+    #   * polarity. Under `equal`/`strictEqual ... @this` a claimed unit makes
+    #     the guard permanently true. Under `notEqual` the same body is the
+    #     ordinary "do not steal a unit somebody else drives" idiom: the guard
+    #     goes false on the first pass and the loop ends. 9 corpus files are
+    #     exactly that shape and all are correct, so `notEqual` stays silent.
+    #   * order. The claim only matters if the compared variable is re-read
+    #     *after* it. `sensor c @unit @controller` placed before the claim keeps
+    #     the pre-claim value, the guard is false and the loop leaves -- safe.
+    # So: deadlock iff a claimer sits at j and the compared variable is assigned
+    # again at k with j < k <= jump. A nest reports only its outermost loop.
     _POS = {"equal", "strictequal"}
+    _READS_CONTROLLER = {"sensor", "read", "set", "op", "select", "lookup",
+                         "getlink", "getblock", "radar", "uradar", "ulocate"}
+    _NOT_CLAIMING = {"unbind", "within"}     # no longer touch control state >=159.8
+
+    def _claims(words: list[str]) -> bool:
+        if not words:
+            return False
+        m = words[0].lower()
+        if m == "ubind":
+            return len(words) > 1 and words[1].lower() != "null"
+        if m == "ucontrol":
+            return not (len(words) > 1 and words[1].lower() in _NOT_CLAIMING)
+        return False
+
     _spin = []
     for i, (orig, c) in enumerate(stmts):
         mj = JMP_RE.match(c)
@@ -889,14 +931,20 @@ def analyse(lines: list[str], links: list[str] | None = None) -> list[Finding]:
             continue                       # only a positive guard can lock in
         if "@this" not in c:
             continue
-        ubind_real = False
-        for k in range(tgt, i + 1):
-            q = stmts[k][1].split()
-            if len(q) > 1 and q[0].lower() == "ubind" and q[1].lower() != "null":
-                ubind_real = True
-                break
-        if not ubind_real:
-            continue                       # nothing in the body can claim a unit
+        watched = [w for w in head[3:5] if w != "@this"]
+        claims_at = [k for k in range(tgt, i) if _claims(stmts[k][1].split())]
+        if not claims_at:
+            continue                       # nothing in the body takes the unit
+        if watched:
+            senses = [k for k in range(tgt, i)
+                      if (w := stmts[k][1].split())
+                      and w[0].lower() in _READS_CONTROLLER
+                      and watched[0] in w[1:4]]
+            if not senses:
+                continue                   # value comes from outside: never updates
+            last_sense = max(senses)
+            if not any(j < last_sense for j in claims_at):
+                continue                   # unit is claimed only after the read
         _spin.append((tgt, i, orig, c))
     for tgt, i, orig, c in _spin:
         if any(o[0] <= tgt and i <= o[1] and (o[0], o[1]) != (tgt, i)
@@ -904,9 +952,10 @@ def analyse(lines: list[str], links: list[str] | None = None) -> list[Finding]:
             continue                       # inside a wider loop of the same shape
         out.append(Finding(
             "ERR", orig + 1, c,
-            f"this loop can never leave: `ubind` hands the bound unit to this "
-            f"processor, so `@controller` equals `@this` from the first pass on "
-            f"and the guard is true forever -- it jumps back to "
+            f"this loop can never leave: `ubind` or a `ucontrol` command hands "
+            f"the bound unit to this processor (UnitControlI.checkLogicAI sets "
+            f"the controller), so `@controller` equals `@this` from the first "
+            f"pass on and the guard is true forever -- it jumps back to "
             f"L{stmts[tgt][0] + 1} instead of falling through, so nothing after "
             f"this line ever runs"))
 
