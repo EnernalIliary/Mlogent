@@ -424,6 +424,24 @@ python tools/label_auto.py --apply F.msch --out DIR   # 写回副本,不动原�
 - **控制台要 UTF-8**：`chcp 65001`（或设 `PYTHONIOENCODING=utf-8`）。否则中文变量名和图标字形会显示成乱码 —— 那是终端在按 GBK 解码，**文件本身没问题**。
 - **不需要**：Java、Mindustry 本体、网络。唯一联网的脚本是 `fetch_wiki_ids.py`（一次性抓 wiki 的方块 ID 表，结果已在仓库里）。
 
+### 让技能在「所有项目」里生效
+
+DSH 没有"单个技能的作用范围"开关,作用域**就是它所在的目录**:
+
+| 位置 | 谁看得见 |
+|---|---|
+| `<仓库>/.dsh/skills/mlog-agentskill/` | 只有这个仓库(本仓库既是源码,也是这种用法) |
+| `$DSH_HOME/skills/mlog-agentskill/` | **所有项目**。本机 `C:/Users/lliary/.dsh/skills` 是指向 `.dsh-pack/skills/default` 的 junction,所以写进去等于装成内置技能 |
+
+一条命令装到用户级,装完逐文件校验:
+
+```bash
+python tools/sync_mlogagent.py --global          # 装 / 刷新
+python tools/sync_mlogagent.py --check --global  # 只核对,不同步就 exit 1
+```
+
+它写的是仓库外目录,需要文件系统权限;全局副本与仓库副本的一致性由这个脚本负责,别手工复制。
+
 ## 参考数据
 
 | 文件 | 内容 |
