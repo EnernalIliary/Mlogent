@@ -1985,6 +1985,26 @@ mschgen.Blueprint(name=..., description="...逻辑 by [#8abcd1]DeepSeek[]",
 和 ILI 的区别:ILI 是**作者身份**(谁的库),这个类是**作品来源**(谁写的逻辑);
 一份蓝图可以两条都有,不冲突。
 
+### 15.25 生成蓝图一律走 `mlog.py gen`,不要自己拼 base64
+
+`mlog.py gen` **默认就把 paste-ready 的 base64 打到 stdout**,`--out` 还能存成文件;
+`mschgen.py:582` 同样是 `print(base64.b64encode(data).decode())`。
+所以在聊天里贴蓝图码的正确做法是:跑 gen,把它打印的那一行原样贴出去。
+
+我犯过的错:自己写 `"bXNjaAF4n" + b64[8:]` —— 前缀 9 个字符却只砍 8 个,长度变成
+`4k+1`,游戏报 *Length of Base64 encoded input string is not a multiple of 4*。
+**文件本身没问题,坏的是拼字符串那一步。**
+
+顺带弄清的两件事:
+
+* 蓝图码前缀**不一定是 `bXNjaAF4n`**。它取决于 zlib 压缩等级:游戏自己写出来是
+  `78 9c`(默认),本仓库的 `mschgen` 用最高压缩 `78 da`,于是第 11 个字符不同
+  (`bXNjaAF42mPg...`)。**两种都合法**,游戏只认解码后的 `msch` 魔数。
+* `--with-block block@dx,dy` 的 `dx,dy` 是**相对处理器**的**方块中心**,和 `--link`
+  同一套约定。帮助文本原来写成 "CENTER coords",容易读成绝对坐标 —— 已经改掉。
+  传绝对坐标会让方块整体偏移,`link_report()` 于是警告
+  `link target ... is not covered by any placed block`(那个警告本身是对的)。
+
 ## 16. ⚠️ 我写错的逻辑清单(生成前对照)
 
 这一节记录**实际被抓到的逻辑错误**,不是猜测。
@@ -2222,3 +2242,4 @@ F:\OneDrive\桌面\AtomicStates\mindustry-blueprint\                ← 开发�
 | 第 31 次整理 | **物品接受规则:五档(any / recipe / ammo / custom / none),不是「收不收」**。判据是 `BuildingComp.acceptItem` = `consumesItem && 容量`,而 `consumesItem` 是消费者填的布尔数组 ⇒ 没有消费者的方块默认拒收一切;别用 `itemCapacity` 推(工厂大多不写它)。方法论:**「能不能收」和「现在收不收」是两个问题,静态分析只能回答前者 —— 分不清这一点,工具就会开始撒谎。** |
 | 第 33 次整理 | 署名识别扩展:小号「鱼破了冰 / 鱼冰 / 鱼梦醒时」并入 ILI;全库 240/626 份带 ILI 标签(逐份备份+校验,只重写 tags 段)。**署名是谁做的,用途是干什么的——前者能扫出来,后者只能问人。** |
 | 第 34 次整理 | 作者标签约定:我产出的蓝图默认打 `[blue]DeepSeek`(生成器写入);钍反防爆 v1 已导入游戏目录。**作者身份和作品来源是两个维度,可以同时挂。** |
+| 第 35 次整理 | 生成蓝图一律用 `mlog.py gen`(它自己打印 base64),不要手拼前缀;`--with-block` 的 dx,dy 是相对处理器的中心坐标。**工具已经会做的事,再手写一遍只会多出一个 bug 的位置。** |

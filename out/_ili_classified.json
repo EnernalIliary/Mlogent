@@ -1,0 +1,1451 @@
+[
+ {
+  "file": " 4着陆板布超t4 V2II型.msch",
+  "strong": false,
+  "src": "board",
+  "text": "-*- 4着陆板布超t4 V2II型 -*-\n\n基本跑满四接收台（98%）,基本跑满工厂（99%）,支持大小超速、兼容所有兵种。\n\n开关可立即关闭工厂、接收台，用于物流和电力调度。大超可换大盾。\n\n总",
+  "has_ili": true
+ },
+ {
+  "file": "-_-自产电熔毁II-_-.msch",
+  "strong": true,
+  "src": "board",
+  "text": "-*-自产电熔毁II-*-\n70硫化物可以完全射击至多11次,需要找钛、气动挖钛差不多够了。\n逻辑用于电力调度(待机不耗电、不产电)、省布。\n娱乐性质更大。\nby [sky]Il[#7d9396]ia",
+  "has_ili": true
+ },
+ {
+  "file": "01大核'冲03RGT05蜂群02裂解01抽水.msch",
+  "strong": true,
+  "src": "logic",
+  "text": "print \"下方是Iliary艾铭的无序亏电轮冲逻辑，经过修改调教，原逻辑在Iliary.life/mdt发布\"",
+  "has_ili": true
+ },
+ {
+  "file": "10冷冻厄兆.msch",
+  "strong": true,
+  "src": "board",
+  "text": "[cyan]10冷冻厄兆\n[red]dps13.4k\n[yellow]造价45布\n[green]适用于给防线补伤害\n[purple]已配置厄兆群控逻辑：[sky]自动分弹、可配置的强制射击距离、进攻图",
+  "has_ili": true
+ },
+ {
+  "file": "11-12双液体大超着陆合金气旋.msch",
+  "strong": true,
+  "src": "board",
+  "text": "11-12双液体大超着陆合金气旋\n\n力墙可换气旋\n请保证有发射硅、钛、布和大量合金(40/s)\n\n逻辑用于着陆调度，节省冷冻，集火、开盾,控制超速。\n\n大泵换液罐可离水串联\nby Iliary艾铭",
+  "has_ili": true
+ },
+ {
+  "file": "11-12双液体大超着陆合金气旋2.msch",
+  "strong": true,
+  "src": "board",
+  "text": "11-12双液体大超着陆合金气旋\n\n力墙可换气旋\n请保证有发射硅、钛、布和大量合金(40/s)\n\n逻辑用于着陆调度，节省冷冻，集火、开盾,控制超速。\n\n大泵换液罐可离水串联\nby Iliary艾铭",
+  "has_ili": true
+ },
+ {
+  "file": "12双液体大超着陆合金气旋.msch",
+  "strong": true,
+  "src": "board",
+  "text": "12双液体大超着陆合金气旋\n\n力墙可换气旋\n请保证有发射硅、钛、布和大量合金(40/s)\n\n大泵换液罐可离水串联\nby Iliary艾铭",
+  "has_ili": true
+ },
+ {
+  "file": "149快反核心.msch",
+  "strong": true,
+  "src": "board",
+  "text": "-149快反核心-\n适用于后勤富裕时攻打毁灭进攻图的快速防守与反击。\n\n最低余电18.8k\n\n结构设计：\n[#4EAFFA]Fish-_-\n[white]&\n[blue]Il[#7d9396]ia[#",
+  "has_ili": true
+ },
+ {
+  "file": "149快反核心2.msch",
+  "strong": true,
+  "src": "board",
+  "text": "-149快反核心-\n均衡地防御149除赤石外极难、毁灭进攻图的前期生产出怪，但要注意朝向\n\n不会因为着火焚毁。\n\n高压时平均电力输出约1k\n\n结构设计：\n[#4EAFFA]Fish-_-\n[white",
+  "has_ili": true
+ },
+ {
+  "file": "155厄兆火控v1.0.msch",
+  "strong": true,
+  "src": "desc",
+  "text": "155厄兆火控v1.2\n\n/////////////////////[yellow]注意：因为只有开火过一次的厄兆才会自动装填、所以此逻辑链接到未开火过的厄兆时会自动预热、预热期间其余厄兆火控逻辑仍然",
+  "has_ili": true
+ },
+ {
+  "file": "17十七硫幽灵四熔毁四油海啸组.msch",
+  "strong": true,
+  "src": "logic",
+  "text": "print \"双向运输by-Iliary艾铭\"",
+  "has_ili": true
+ },
+ {
+  "file": "3_3_5四向串联着陆板辅助单元.msch",
+  "strong": true,
+  "src": "logic",
+  "text": "print \"by Iliary艾铭\"",
+  "has_ili": true
+ },
+ {
+  "file": "4着陆板布超t4 V2.msch",
+  "strong": false,
+  "src": "board",
+  "text": "-*- 4着陆板布超t4 V2 -*-\n\n基本跑满四接收台（98%）,基本跑满工厂（99%）,支持大小超速、兼容所有兵种。\n\n开关可立即关闭工厂、接收台，用于物流和电力调度。布超可换维修。\n\n总需水量",
+  "has_ili": true
+ },
+ {
+  "file": "69绿带黑沙石墨.msch",
+  "strong": false,
+  "src": "board",
+  "text": "[red]//密铺时注意[yellow]对称放置[red]防止意外混液!!!//[white]\n\n69绿带黑沙石墨\n\n2026/3/4\n\nby-[blue]Il[#7d9396]ia[#716b5b]",
+  "has_ili": true
+ },
+ {
+  "file": "69黑沙石墨.msch",
+  "strong": true,
+  "src": "board",
+  "text": "69黑沙石墨,对称放置可在空隙处塞下小超。\nBy-[blue]Il[#7d9396]ia[#716b5b]ry[#654321]艾铭",
+  "has_ili": true
+ },
+ {
+  "file": "6着陆板.msch",
+  "strong": true,
+  "src": "board",
+  "text": "-*-着陆板控制逻辑v2.0-*-\n连接到第二个信息板打印介绍\n\n-统计名单-\n[white]:copper: [white]:lead: [white]:metaglass: [white]:gra",
+  "has_ili": true
+ },
+ {
+  "file": "76联小超抽水机_1.msch",
+  "strong": true,
+  "src": "board",
+  "text": "76联小超抽水机\n\n仔细整理过电力节点希望不要破坏不然我强迫症就犯了。>:(\n\n-我玩M的所以喜欢抽出水\n\n标称抽水速度920单位/s\n最大需电11k。\n\nby - Il[#7d9396]ia[#71",
+  "has_ili": true
+ },
+ {
+  "file": "[blue]I[#8abcd1]L[#654321]I[highlight][highlight]加速器填充.msch",
+  "strong": true,
+  "src": "desc",
+  "text": "-*-[blue]I[#8abcd1]L[#654321]I[highlight][highlight]加速器填充-*-\n[white]\n桥带供超速和冷厂。\n\n请注意：直接复制蓝图使用会阻塞带桥，\n去",
+  "has_ili": true
+ },
+ {
+  "file": "[yellow]智卸[red]最终版[white]by [cyan]Nihil[white] + 无线.msch",
+  "strong": true,
+  "src": "board",
+  "text": "[yellow]智卸[red]最终版[white]by [cyan]Nihil[white] 2024/2/18\n[blue]无线升级 by Iliary艾铭[white]支持所有的工厂和兵厂及造兵相",
+  "has_ili": true
+ },
+ {
+  "file": "[yellow]智卸[red]最终版[white]by [cyan]Nihil[white].msch",
+  "strong": true,
+  "src": "logic",
+  "text": "print \"Iliary艾铭扩展了对物品源的支持\\n\"",
+  "has_ili": true
+ },
+ {
+  "file": "Clean Energy Malign.msch",
+  "strong": true,
+  "src": "desc",
+  "text": "Clean Energy Malign\n\nUnder 100% solar efficiency:\n\nCharge for 2 hours.\nFire for 5 minutes.\n\nLiteral ",
+  "has_ili": true
+ },
+ {
+  "file": "GetBlock点阵钍反替换防炸房逻辑1.2.msch",
+  "strong": true,
+  "src": "logic",
+  "text": "print \"by - Ili[#8abcd1]ary[#654321]艾铭[#6335F8]\"",
+  "has_ili": true
+ },
+ {
+  "file": "GetBlock钍反防炸房逻辑.msch",
+  "strong": true,
+  "src": "logic",
+  "text": "print \"by - Ili[#8abcd1]ary[#654321]艾铭[#6335F8]\"",
+  "has_ili": true
+ },
+ {
+  "file": "Iliary大型雷光组.msch",
+  "strong": true,
+  "src": "logic",
+  "text": "print \"你可以在 Iliary.life/mdt 网站上获取此逻辑最新版本、当前逻辑版本v3.6\"",
+  "has_ili": true
+ },
+ {
+  "file": "Iliary盾控v3.5.msch",
+  "strong": true,
+  "src": "logic",
+  "text": "print \"你可以在 Iliary.life/mdt 网站上获取此逻辑最新版本、当前逻辑版本v3.6\"",
+  "has_ili": true
+ },
+ {
+  "file": "Iliary盾控逻辑v3.0.msch",
+  "strong": true,
+  "src": "logic",
+  "text": "set Idy \"Iliary艾铭.开盾逻辑\"",
+  "has_ili": true
+ },
+ {
+  "file": "Iliary蓝瑟火控149b V2.5d.msch",
+  "strong": true,
+  "src": "logic",
+  "text": "print \"Iliary蓝瑟火控149b V2.5d\"",
+  "has_ili": true
+ },
+ {
+  "file": "ILI双poly搬运硫温差.msch",
+  "strong": true,
+  "src": "desc",
+  "text": "ILI双poly搬运八硫温差\n无flag双控搬运逻辑，最远离核90格\n搬运逻辑算法消灭了单位的停顿时间，并且优先供给物品最少的建筑，基本上完全利用了单位的运力。\n尚不支持超速。\n\nILI Dual-P",
+  "has_ili": true
+ },
+ {
+  "file": "ILI反病毒.msch",
+  "strong": true,
+  "src": "logic",
+  "text": "print \"[red]此逻辑疑似为病毒逻辑，已被替换。[lightgray]\\n若有误判，反馈到Iliary.life/MDT。\\n\\n[red]This logic has been identi",
+  "has_ili": true
+ },
+ {
+  "file": "ILI序切着陆控制逻辑2.0.msch",
+  "strong": true,
+  "src": "logic",
+  "text": "draw triangle oxide carbide \"null\" \"null\" \"null''                                  Schematci-By-Ilia",
+  "has_ili": true
+ },
+ {
+  "file": "ILI无线超.msch",
+  "strong": true,
+  "src": "logic",
+  "text": "print \"鱼冰无线超\"",
+  "has_ili": true
+ },
+ {
+  "file": "ILI海啸横扫逻辑群.msch",
+  "strong": true,
+  "src": "logic",
+  "text": "print \"Iliary艾铭\"",
+  "has_ili": true
+ },
+ {
+  "file": "ILI爆贴核八冲_1.msch",
+  "strong": true,
+  "src": "desc",
+  "text": "ILI爆贴核八冲\n\n富一冷，抗低帧。此结构可以到十冲，但是无法富一冷。\n\n所有逻辑均可去除：\n系起冲和减少桥带缓存与分类器资源预警与停冲分析逻辑。\n\n分类器指示对照：\n - 停冲原因\n - 预警\n",
+  "has_ili": true
+ },
+ {
+  "file": "ILI贴核兵电布超混合厂实用版.msch",
+  "strong": true,
+  "src": "desc",
+  "text": "ILI贴核兵电布超混合厂实用版\n\n贴核路辅、空辅t2双温差\n\n重构厂旁为自动重构逻辑，解除绑定停止重构，修改ubind修改重构单位。\n\n没别的，这命题好玩。\n\nBy-[#FFB6C1]鱼破了冰[gra",
+  "has_ili": true
+ },
+ {
+  "file": "ILI贴核兵电布超混合厂实用版f.msch",
+  "strong": true,
+  "src": "board",
+  "text": "ILI贴核兵电布超混合厂实用版f\n\n贴核路辅、空辅t2+flare双温差\n\n逻辑旁边空反分控制重构单位，解除绑定停止重构，修改ubind修改重构单位。\n\n没别的，这命题好玩。\n\nBy-[#FFB6C1",
+  "has_ili": true
+ },
+ {
+  "file": "ILI通用资源保护逻辑.msch",
+  "strong": true,
+  "src": "desc",
+  "text": "[blue]I[#8abcd1]L[#654321]I[highlight]通用资源保护逻辑[white]\nv1.3\n仅可在V8及以上版本使用\n\n[#8abcd1]链接建筑，激活保护![]\n\n逻辑内署",
+  "has_ili": true
+ },
+ {
+  "file": "ILI闪红贴核七小硅.msch",
+  "strong": true,
+  "src": "desc",
+  "text": "-*-ILI闪红贴核七小硅-*-\n\n无核心焚毁将卡料\n\n稚嫩的交叉用这个姿势才能勉强满足\n又粗又长的七小硅\n\nBy - [blue]Ili[#8abcd1]ary[#654321]艾铭[#6335F8",
+  "has_ili": true
+ },
+ {
+  "file": "ILI集火逻辑(小).msch",
+  "strong": true,
+  "src": "board",
+  "text": "[blue]I[#8abcd1]L[#654321]I[highlight]集火逻辑\nv1.8\n[lightgray]\n快速响应集火+标点集火逻辑\n\n-快速响应集火\n1.附身被逻辑锁定的任意炮台即可控",
+  "has_ili": true
+ },
+ {
+  "file": "ILI集火逻辑.msch",
+  "strong": true,
+  "src": "desc",
+  "text": "[blue]I[#8abcd1]L[#654321]I[highlight]集火逻辑\nv1.8\n[lightgray]\n快速响应集火+标点集火逻辑\n\n-快速响应集火\n1.附身被逻辑锁定的任意炮台即可控",
+  "has_ili": true
+ },
+ {
+  "file": "ILOS.test.msch",
+  "strong": true,
+  "src": "logic",
+  "text": "print \"By - Iliary\"",
+  "has_ili": true
+ },
+ {
+  "file": "ILOS_1.msch",
+  "strong": true,
+  "src": "logic",
+  "text": "print \"By - Iliary\"",
+  "has_ili": true
+ },
+ {
+  "file": "ILOS软编码对比.msch",
+  "strong": true,
+  "src": "logic",
+  "text": "print \"By - Iliary\"",
+  "has_ili": true
+ },
+ {
+  "file": "Landing Sept-Imptreactor.msch",
+  "strong": true,
+  "src": "desc",
+  "text": "-- Landing Pad Sept S --\n\nSpecial thanks to 忌鲨 for providing the basic structure.\n\nStarts accepting ",
+  "has_ili": true
+ },
+ {
+  "file": "Let me tell u how to rapidly F__K out T2–T3 units and naval units with minimal core-adjacent space usage.msch",
+  "strong": false,
+  "src": "board",
+  "text": "Let me tell u how to rapidly F**K out T2–T3 units and naval units with minimal core-adjacent space u",
+  "has_ili": true
+ },
+ {
+  "file": "MCV(移动核心,Mobile Core Vericle)世界处理器开发版v1.8ping.msch",
+  "strong": true,
+  "src": "logic",
+  "text": "set author \"[blue]Ili[#8abcd1]ary[#654321]艾铭[#6335F8]\"",
+  "has_ili": true
+ },
+ {
+  "file": "MCV.msch",
+  "strong": true,
+  "src": "logic",
+  "text": "set author \"[blue]Ili[#8abcd1]ary[#654321]艾铭[#6335F8]\"",
+  "has_ili": true
+ },
+ {
+  "file": "MCVE.msch",
+  "strong": true,
+  "src": "logic",
+  "text": "set author \"[blue]Ili[#8abcd1]ary[#654321]艾铭[#6335F8]\"",
+  "has_ili": true
+ },
+ {
+  "file": "Phase-Bridge 15 Landing Pads.msch",
+  "strong": true,
+  "src": "desc",
+  "text": "[highlight]Phase-Bridge 15 Landing Pads[gold]\n3.0\n\n[lightgray]300 throughput. Perfectly balanced  t",
+  "has_ili": true
+ },
+ {
+  "file": "Sacrifice神风逻辑.msch",
+  "strong": true,
+  "src": "desc",
+  "text": "Sacrifice神风逻辑\n\n继承简化了距离-平移神风逻辑的内容、单位残血时会冲向炮台。\n\n你当前选择的是::null::flare:SuicideH:0.5\n[gray]更改反分选择单位、更改正分选",
+  "has_ili": true
+ },
+ {
+  "file": "Stackable Narrow Six-Malign heater.msch",
+  "strong": true,
+  "src": "board",
+  "text": "可串窄六魔灵\n——窄意味着串联火力密度大\n\n去除创伤区域和逻辑之后可单科使用\n\n待机耗布为零\n\n打开开关强制启用布热\n\n-附身魔灵控制集火。\n射击时解除附身持续集火,再次附身魔灵停火。\n\n无线供超，无",
+  "has_ili": true
+ },
+ {
+  "file": "Stackable Narrow Six-Malign.msch",
+  "strong": true,
+  "src": "desc",
+  "text": "串联窄六魔灵\n——窄意味着串联火力密度大\n\n去除创伤区域和逻辑之后可单科使用\n\n待机耗布为零\n\n打开开关强制启用布热\n\n-附身魔灵控制集火。\n射击时解除附身持续集火,再次附身魔灵停火。\n\n无线供超，无",
+  "has_ili": true
+ },
+ {
+  "file": "T5-02-Core-ExtCryo-1x.msch",
+  "strong": true,
+  "src": "desc",
+  "text": "v.release1.3 ENG verson\n\n* Prioritizes T5 production.\n\n* Auto Payenter&Paydrop.\n\n* RSS enabled\n\nIlia",
+  "has_ili": true
+ },
+ {
+  "file": "v1.1_落地双t2单t3温冲.msch",
+  "strong": true,
+  "src": "logic",
+  "text": "print \"现在可以在Iliary.life/MDT中获取最新逻辑!\"",
+  "has_ili": true
+ },
+ {
+  "file": "V3.1_蓝瑟火控149b.msch",
+  "strong": true,
+  "src": "logic",
+  "text": "print \"你可以在 Iliary.life/mdt 网站上获取此逻辑最新版本、当前逻辑版本 V3.1\"",
+  "has_ili": true
+ },
+ {
+  "file": "V3.2_蓝瑟火控149b.msch",
+  "strong": true,
+  "src": "logic",
+  "text": "print \"你可以在 Iliary.life/mdt 网站上获取此逻辑最新版本、当前逻辑版本 V3.1\"",
+  "has_ili": true
+ },
+ {
+  "file": "v3.7_Iliary辅助建筑控制逻辑.msch",
+  "strong": true,
+  "src": "logic",
+  "text": "print \"你可以在 Iliary.life/mdt 网站上获取此逻辑最新版本、当前逻辑版本v3.7\"",
+  "has_ili": true
+ },
+ {
+  "file": "’理论完备‘组.msch",
+  "strong": true,
+  "src": "logic",
+  "text": "print \"[white]-Iliary艾铭的整合逻辑v1.3a-\"",
+  "has_ili": true
+ },
+ {
+  "file": "一供多.msch",
+  "strong": true,
+  "src": "logic",
+  "text": "print \"By - [#FFB6C1]鱼破了冰\"",
+  "has_ili": true
+ },
+ {
+  "file": "串联窄六魔灵.msch",
+  "strong": true,
+  "src": "desc",
+  "text": "串联窄六魔灵\n——窄意味着串联火力密度大\n\n去除创伤区域和逻辑之后可单科使用\n\n待机耗布为零\n\n打开开关强制启用布热\n\n-附身魔灵控制集火。\n射击时解除附身持续集火,再次附身魔灵停火。\n\n无线供超，无",
+  "has_ili": true
+ },
+ {
+  "file": "五更核电.msch",
+  "strong": true,
+  "src": "logic",
+  "text": "print \"Presented by Iliary\"",
+  "has_ili": true
+ },
+ {
+  "file": "伪装仓库.msch",
+  "strong": true,
+  "src": "board",
+  "text": "伪装仓库\n注意事项：1.入料前请先通电\n2.不得更改质驱发射位置\n3.不要丢失逻辑锁定。\n此逻辑主动禁用质驱，即代表结构稳定。此时质驱会以稳定60/s的速度出料\n若物品装满后质驱不导出，尝试拿出物品并",
+  "has_ili": true
+ },
+ {
+  "file": "先发制人核弹井及其模版.msch",
+  "strong": true,
+  "src": "logic",
+  "text": "print \"核弹井交互逻辑byIliary艾铭\"",
+  "has_ili": true
+ },
+ {
+  "file": "公式：最小化贴核空间占用出t2~t3.msch",
+  "strong": false,
+  "src": "board",
+  "text": "让我告诉你如何在最小化核心相邻空间使用的情况下快速生成T2–T3单位和海军单位\n\n[blue]Ili[#8abcd1]ary[#654321]艾铭[#6335F8]",
+  "has_ili": true
+ },
+ {
+  "file": "内绿带贴核6大硅.msch",
+  "strong": true,
+  "src": "desc",
+  "text": "装卸器利用比较极限，因此刚启动闪红时间长（约一分钟）。\n\n最低绝对稳定帧:34帧\n\nBy - Iliary艾铭",
+  "has_ili": true
+ },
+ {
+  "file": "动态高算力多控.msch",
+  "strong": false,
+  "src": "logic",
+  "text": "print \"Iliary动态高算力要求多控，自动flag 0,自动补位，玩家控制自动跳过并补充，玩家脱控后重新控制。\"",
+  "has_ili": true
+ },
+ {
+  "file": "十联厄兆改.msch",
+  "strong": true,
+  "src": "board",
+  "text": "[cyan]10冷冻厄兆\n[red]dps13.4k\n[yellow]造价45布\n[green]适用于给防线补伤害\n[purple]已配置厄兆群控逻辑：[sky]自动分弹、可配置的强制射击距离、进攻图",
+  "has_ili": true
+ },
+ {
+  "file": "单驱出入沙地布超16布.msch",
+  "strong": true,
+  "src": "desc",
+  "text": "单驱出入沙地布超16布\n\n小超传递布，若有大超覆盖质驱则自动关闭，不建议拆除。\n\n建议整合到单质驱入。\n\nSingle Mass Driver In/Out ODD 16-Phase Sand\n\nSm",
+  "has_ili": true
+ },
+ {
+  "file": "厄兆群控逻辑v2.0.msch",
+  "strong": true,
+  "src": "logic",
+  "text": "print \"现在可以在Iliary.life/MDT网站更新逻辑\"",
+  "has_ili": true
+ },
+ {
+  "file": "双位置指示爬爬神风逻辑.msch",
+  "strong": false,
+  "src": "board",
+  "text": "双位置指示爬爬神风逻辑v1.0\n\n正分选择单位，反分选择单位携带物品。\n\n\n\nIliary艾铭",
+  "has_ili": true
+ },
+ {
+  "file": "双科抽水转油发射抽水解离石墨废料布热三碳化.msch",
+  "strong": true,
+  "src": "desc",
+  "text": "可串逻辑双科抽水转油发射抽水解离石墨废料布热三碳化\n\n或称:\n\n可串逻辑抽水发射抽水解离石墨废料布热三碳\n\n我的第一个双科蓝图\n\n逻辑用于显示有趣的画板算法动画\n\nLogic-Chainable Du",
+  "has_ili": true
+ },
+ {
+  "file": "反病毒逻辑逻辑.msch",
+  "strong": true,
+  "src": "logic",
+  "text": "print \"[red]此逻辑疑似为病毒逻辑，已被替换。[lightgray]\\n若有误判，反馈到Iliary.life/MDT。\\n\\n[red]This_logic_has_been_identi",
+  "has_ili": true
+ },
+ {
+  "file": "反钍反炸房、反病毒逻辑超核逻辑.msch",
+  "strong": true,
+  "src": "logic",
+  "text": "print \"[red]此逻辑疑似为病毒逻辑，已被替换。[lightgray]\\n若有误判，反馈到Iliary.life/MDT。\\n\\n[red]This logic has been identi",
+  "has_ili": true
+ },
+ {
+  "file": "可串19双液合金气旋组.msch",
+  "strong": true,
+  "src": "desc",
+  "text": "可串19双液合金气旋组\n\n海啸横扫逻辑启用。\n\n双炮入合金，满配持续开火151.45/s\nDPS9w\n\n有装卸、可以跑满所有炮台\n\n发金水了发金水了。\n\nChainable 19-Cyclone D",
+  "has_ili": true
+ },
+ {
+  "file": "可串297连大超抽水机.msch",
+  "strong": true,
+  "src": "desc",
+  "text": "可串297连大超抽水机\n\n抽水效率100%时：\n[red] -68325/s[white]\n+4900.5/s\n\n60帧最高满效水位\n=87.14%\n\n所有容器均可换为液体储罐以提高满效水位\n\n6",
+  "has_ili": true
+ },
+ {
+  "file": "可串81连布超抽水机.msch",
+  "strong": true,
+  "src": "desc",
+  "text": "可串81连布超抽水机\n\n抽水效率100%时：\n[red] -18435/s\n[white]+1336.5/s\n\n60帧最高满效水位\n=91.71%\n\n所有容器均可换为液体储罐以提高满效水位\n\n60",
+  "has_ili": true
+ },
+ {
+  "file": "后勤抽水着陆.msch",
+  "strong": true,
+  "src": "board",
+  "text": "-*-着陆板控制逻辑v2.1-*-\n连接到第二个信息板打印介绍\n\n-统计名单-\n[white]:pyratite: \n[white]:blast-compound: [white]:surge-all",
+  "has_ili": true
+ },
+ {
+  "file": "呼吸十联核电站.msch",
+  "strong": true,
+  "src": "logic",
+  "text": "print \"PRESENTED BY Iliary\"",
+  "has_ili": true
+ },
+ {
+  "file": "四向串联着陆气旋防御单元.msch",
+  "strong": false,
+  "src": "board",
+  "text": "-*- 四向串联着陆气旋防御单元 -*-\n\n设置的板子即为气旋弹药，任意气旋都可换为海啸，重叠底部容器可横向串联，右侧容器对齐可纵向串联。\n\n无需电力，入水即用。\n\n设计运力盈余略低于大超下四合金气旋",
+  "has_ili": true
+ },
+ {
+  "file": "四着陆t5.msch",
+  "strong": true,
+  "src": "board",
+  "text": "-Four landing-pads t5-\n\nFull effencity,all type,no possible of Mixing lquid.\n\n[red]-1404/s[white]\n(",
+  "has_ili": true
+ },
+ {
+  "file": "四联爬爬厂.msch",
+  "strong": true,
+  "src": "board",
+  "text": "-*-四联爬爬厂-*-\n\n附赠手动控制爬爬逻辑。\n \nby Iliary艾铭",
+  "has_ili": true
+ },
+ {
+  "file": "坐牢统计.msch",
+  "strong": false,
+  "src": "board",
+  "text": "[cyan]你[]Il[#7d9396]ia[#716b5b]ry[#654321]艾铭[cyan]已经在此图坐牢:[orange]\n4[]小时[orange]59[]分[orange]20[]秒了[",
+  "has_ili": true
+ },
+ {
+  "file": "堆叠外水温冲.msch",
+  "strong": true,
+  "src": "board",
+  "text": "堆叠外水温冲\nby 5wa\n感谢Iliary艾铭的无序亏电轮冲逻辑\n爽爽？！\n非常非常非常抗低帧，10帧都要很长很长时间熄，冲里面冷冻一低停温差，根本不熄\n爽爽？！爽爽？！爽爽？！爽爽？！爽爽？！爽爽",
+  "has_ili": true
+ },
+ {
+  "file": "外冷一倍速布超贴核双t5.msch",
+  "strong": true,
+  "src": "desc",
+  "text": "v.release1.3\n\n注意利用布桥可从t4厂方向走冷\n\n-优先供t5，无t5则供给t4(效率99.8%)\n\n-支持需搬运兵种\n\n-有资源保护\n\nby - Iliary 艾铭",
+  "has_ili": true
+ },
+ {
+  "file": "外冷着陆双t5.msch",
+  "strong": false,
+  "src": "board",
+  "text": "试做型外冷着陆双t5\n\n杂交产物\n\n正在实验\n\n对\n\n未满效t4\n\n[blue]Ili[#8abcd1]ary[#654321]艾铭[#6335F8]",
+  "has_ili": true
+ },
+ {
+  "file": "多功能四联核电站.msch",
+  "strong": true,
+  "src": "logic",
+  "text": "print \"Presented by Iliary\"",
+  "has_ili": true
+ },
+ {
+  "file": "多控v2.msch",
+  "strong": true,
+  "src": "logic",
+  "text": "print \"Iliary多控正文，控兵数目多会重置全部flag，数目少会直接新增。N即是控制数目\"",
+  "has_ili": true
+ },
+ {
+  "file": "小小核满效双poly厂.msch",
+  "strong": true,
+  "src": "logic",
+  "text": "print \"Iliary多控正文，控兵数目多会重置全部flag，数目少会直接新增。N即是控制数目\"",
+  "has_ili": true
+ },
+ {
+  "file": "小小逻辑温双冲.msch",
+  "strong": true,
+  "src": "board",
+  "text": "-*-小小逻辑温双冲v1.1-*-\ndif-2-impact\n\n可串，最大三串，水和物流相向\n\n显示块显示起冲进度和用电情况.可拼接查看。\n\n混液时利用温差清理冷冻液\n\n强制启冲请直接取消连链\n\n:c",
+  "has_ili": true
+ },
+ {
+  "file": "小小逻辑温双冲_1.msch",
+  "strong": true,
+  "src": "desc",
+  "text": "最低稳定帧:3(电竞帧）\n最大产电：13.32K\n\n特色：\n1.双向可串\n工厂对应入料、单入料最大左右延伸三串。水和物流反向\n\n2.温差利用\n利用温差处理混液。路由器中的:cryofluid:低于11",
+  "has_ili": true
+ },
+ {
+  "file": "小小逻辑温双冲dev.msch",
+  "strong": true,
+  "src": "board",
+  "text": "-*-小小逻辑温双冲v2.1-*-\ndif-2-impact\n\n最低稳定帧:3(电竞帧）\n最大产电：13.32K\n\n特色：\n1.双向可串\n工厂对应入料、单入料最大左右延伸三串。水和物流反向\n\n2.温差",
+  "has_ili": true
+ },
+ {
+  "file": "小小逻辑温双冲（单向）.msch",
+  "strong": true,
+  "src": "desc",
+  "text": "最低稳定帧:3(电竞帧）\n最大产电：13.32K\n\n特色：\n1.更长串联\n改为单向串联后，可以增加串联长度\n\n\n2.温差利用\n利用温差处理混液。路由器中的:cryofluid:低于118时停用温差以抗",
+  "has_ili": true
+ },
+ {
+  "file": "布桥15着3.0.msch",
+  "strong": true,
+  "src": "desc",
+  "text": "[highlight]布桥15着\n[gold]3.0\n[white]\n或称贴核15接收台\n[lightgray]\n总运力300，布桥完美均压。 \n四布桥运输，叠二布桥回核。\n调整叠二布桥可直接贴核。\n",
+  "has_ili": true
+ },
+ {
+  "file": "布桥15着陆.msch",
+  "strong": true,
+  "src": "board",
+  "text": "-*-布桥15着陆-*-\n\n超速下着陆理论满效:\n反溢流处输出、可以直接贴核，也可以继续以四布桥运输回核。\n不要将空隙替换为电池或电厂，会吸引仇恨!\n\n数据:\n最大运力:300(逻辑自动控制运力分配)",
+  "has_ili": true
+ },
+ {
+  "file": "布桥15着陆2.0.msch",
+  "strong": true,
+  "src": "board",
+  "text": "-*-[gray]调和着陆控制逻辑v4.5[white]-*-\n——按核心资源缺口智能加权分配着陆数量\n*15总运力~=300/s\n\n\n[orange]资源基本平衡、着陆板待机中\n\n[#fdcbe6",
+  "has_ili": true
+ },
+ {
+  "file": "布桥质驱6接收_1.msch",
+  "strong": true,
+  "src": "board",
+  "text": "-*-着陆板控制逻辑v2.1-*-\n连接到第二个信息板打印介绍\n\n-统计名单-\n[white]:pyratite: \n[white]:blast-compound: [white]:surge-all",
+  "has_ili": true
+ },
+ {
+  "file": "平贴5窑炉.msch",
+  "strong": true,
+  "src": "desc",
+  "text": "平贴5窑炉\n短款\n\n美美丽丽5窑炉，电力节点一线天。\n超级回流流出水，闲铅美美回核中。\n\nFlat-Fit 5 Kilns\nShort Edition\n\nFive beautiful kilns, l",
+  "has_ili": true
+ },
+ {
+  "file": "平贴三空辅t2.msch",
+  "strong": true,
+  "src": "desc",
+  "text": "-平贴三空辅t2-\n\n跑满装卸。\n\n密铺时不用担心混带卡料，逻辑会算入。\n\n对的对的，逻辑只支持空辅t2，难受吗？\n\n对的对的，你的超速超不完，难受吗？\n\n对的对的，没有自动重构，自己用命令拉、难受吗",
+  "has_ili": true
+ },
+ {
+  "file": "平贴双空辅t2.msch",
+  "strong": true,
+  "src": "desc",
+  "text": "-平贴双空辅t2-\n\n密铺时不用担心混带卡料，逻辑会算入。\n\n对的对的，逻辑只支持空辅t2，难受吗？\n\n对的对的，你的超速超不完，难受吗？\n\n对的对的，没有自动重构，自己用命令拉、难受吗？\n\n对的对的",
+  "has_ili": true
+ },
+ {
+  "file": "序切布桥15着陆2.0.msch",
+  "strong": true,
+  "src": "board",
+  "text": "-*-序切着陆控制v1.2-*-\n当前序切顺序如下,灰色物品不会被选择：\n\n[white][:pyratite:][:phase-fabric:][:blast-compound:][:silicon",
+  "has_ili": true
+ },
+ {
+  "file": "延迟关盾2.0.msch",
+  "strong": true,
+  "src": "logic",
+  "text": "print \"by Iliary艾铭\"",
+  "has_ili": true
+ },
+ {
+  "file": "抽水后勤质驱.msch",
+  "strong": true,
+  "src": "board",
+  "text": "-*-着陆板控制逻辑v2.1-*-\n连接到第二个信息板打印介绍\n\n-统计名单-\n[white]:pyratite: \n[white]:blast-compound: [white]:surge-all",
+  "has_ili": true
+ },
+ {
+  "file": "抽水着陆.msch",
+  "strong": true,
+  "src": "board",
+  "text": "-*-着陆板控制逻辑v2.1-*-\n连接到第二个信息板打印介绍\n\n-统计名单-\n[white]:silicon: [white]:metaglass: \n[sky]正在自动控制着陆板\n[white]i",
+  "has_ili": true
+ },
+ {
+  "file": "拎包入住t2重构逻辑.msch",
+  "strong": true,
+  "src": "logic",
+  "text": "print \"By - Iliary艾铭\"",
+  "has_ili": true
+ },
+ {
+  "file": "搬运5钍反.msch",
+  "strong": true,
+  "src": "logic",
+  "text": "print \"By - [#FFB6C1]鱼破了冰 [blue]Ili[#8abcd1]ary[#654321]艾铭[#6335F8]\"",
+  "has_ili": true
+ },
+ {
+  "file": "搬运5钍反sa.msch",
+  "strong": false,
+  "src": "logic",
+  "text": "print \"Iliary动态高算力要求多控，自动flag 0,自动补位，玩家控制自动跳过并补充，玩家脱控后重新控制。\"",
+  "has_ili": true
+ },
+ {
+  "file": "整合逻辑.msch",
+  "strong": true,
+  "src": "logic",
+  "text": "print \"[white]-Iliary艾铭的整合逻辑v1.3a-\"",
+  "has_ili": true
+ },
+ {
+  "file": "无序亏电起冲重置版.msch",
+  "strong": true,
+  "src": "logic",
+  "text": "set Author \"[blue]Ili[#8abcd1]ary[#654321]艾铭[#6335F8]\"",
+  "has_ili": true
+ },
+ {
+  "file": "无序亏电轮冲逻辑.msch",
+  "strong": true,
+  "src": "logic",
+  "text": "print \"下方是Iliary艾铭的无序亏电轮冲逻辑，经过修改调校，原逻辑在Iliary.life/mdt发布\"",
+  "has_ili": true
+ },
+ {
+  "file": "无序亏电轮冲逻辑v2.6.msch",
+  "strong": true,
+  "src": "logic",
+  "text": "print \"下方是Iliary艾铭的无序亏电轮冲逻辑，经过修改调教，原逻辑在Iliary.life/mdt发布\"",
+  "has_ili": true
+ },
+ {
+  "file": "无序，亏电轮冲逻辑v2.5.msch",
+  "strong": true,
+  "src": "logic",
+  "text": "print \"下方是Iliary艾铭的无序亏电轮冲逻辑，经过修改调教，原逻辑在Iliary.life/mdt发布\"",
+  "has_ili": true
+ },
+ {
+  "file": "无序，亏电轮冲逻辑v3.0.msch",
+  "strong": true,
+  "src": "logic",
+  "text": "print \"下方是Iliary艾铭的无序亏电轮冲逻辑，经过修改调校，原逻辑在Iliary.life/mdt发布\"",
+  "has_ili": true
+ },
+ {
+  "file": "无线24玻璃分裂.msch",
+  "strong": true,
+  "src": "logic",
+  "text": "print \"By - [#FFB6C1]鱼破了冰\"",
+  "has_ili": false
+ },
+ {
+  "file": "无线5钍反.msch",
+  "strong": false,
+  "src": "logic",
+  "text": "print \"Iliary动态高算力要求多控，自动flag 0,自动补位，玩家控制自动跳过并补充，玩家脱控后重新控制。\"",
+  "has_ili": true
+ },
+ {
+  "file": "无线可串水塑钢.msch",
+  "strong": true,
+  "src": "logic",
+  "text": "print \"\\n byIliary艾铭\"",
+  "has_ili": true
+ },
+ {
+  "file": "无线钍热魔灵.msch",
+  "strong": true,
+  "src": "board",
+  "text": "-*-无线钍热魔灵-*-\n\n比较懒，直接修改使用了咕咕的多供逻辑\n\n魔灵效率较高，同时热量也较为稳定\n\n\n满效最低建议帧：30帧\n低于此帧率后帧率越低，热量越低，魔灵效率越低\n\nBy - [blue]",
+  "has_ili": true
+ },
+ {
+  "file": "更加安全的核电站.msch",
+  "strong": true,
+  "src": "logic",
+  "text": "print \"Presented by Iliary\"",
+  "has_ili": true
+ },
+ {
+  "file": "最可爱.msch",
+  "strong": false,
+  "src": "board",
+  "text": "鱼破了冰全世界最可爱",
+  "has_ili": true
+ },
+ {
+  "file": "最简鱼冰无线超.msch",
+  "strong": true,
+  "src": "logic",
+  "text": "print \"最简鱼冰无线超\"",
+  "has_ili": false
+ },
+ {
+  "file": "极限小逻辑废超.msch",
+  "strong": true,
+  "src": "logic",
+  "text": "print \"Presented by Iliary艾铭\"",
+  "has_ili": true
+ },
+ {
+  "file": "标高节八解离.msch",
+  "strong": true,
+  "src": "desc",
+  "text": "-*-标高节布八解离-*-\n入料:60.8:scrap:/s (byd就那个0.8导致多了一个装卸器）\n\n[red]满效帧率要求：27帧以上[white]\n\n（外形）标致、(配比最合理，所有工厂效率在",
+  "has_ili": true
+ },
+ {
+  "file": "标高节布八解离.msch",
+  "strong": true,
+  "src": "desc",
+  "text": "入料:60.8:scrap:/s (byd就那个0.8导致多了一个装卸器）\n\n+1.28 +6.4 +0.4 +6.4\n\n[red]满效帧率要求：27帧以上[white]\n\n（外形）标致、(配",
+  "has_ili": true
+ },
+ {
+  "file": "核心六粉碎机.msch",
+  "strong": true,
+  "src": "board",
+  "text": "核心6粉碎\n如有雷同、权当交个朋友\nPresented by Iliary艾铭\n - 2025.3.27",
+  "has_ili": true
+ },
+ {
+  "file": "核心四温差.msch",
+  "strong": false,
+  "src": "board",
+  "text": "[#8da1e3].ran [sky]x [scarlet]饕餮尤魔2\n[white]20220208\n\n[#FFB6C1]鱼破了冰[]微调",
+  "has_ili": false
+ },
+ {
+  "file": "比我短的平贴5窑炉.msch",
+  "strong": false,
+  "src": "board",
+  "text": "比 \n[blue]Ili[#8abcd1]ary[#654321]艾铭[#6335F8][white]\n短\n\n\n\n看到请说：介绍有格调",
+  "has_ili": true
+ },
+ {
+  "file": "沙地单驱出入14窑炉.msch",
+  "strong": true,
+  "src": "desc",
+  "text": "-*-ILI沙地单驱出入14窑炉-*-\n\n+28 -28\n\n要达到满效，尽量满足以下要求：\n1.入料质驱尽量近(减少红灯)\n2.出料质驱和入料质驱角度尽量小(减少黄灯)\n\n即使是14窑炉，单驱出入",
+  "has_ili": true
+ },
+ {
+  "file": "波浪海啸智能挂buff逻辑.msch",
+  "strong": true,
+  "src": "logic",
+  "text": "set author \"[blue]Il[#7d9396]ia[#716b5b]ry[#654321]艾铭\"",
+  "has_ili": true
+ },
+ {
+  "file": "海啸横扫逻辑.msch",
+  "strong": true,
+  "src": "logic",
+  "text": "print \"by - Iliary艾铭\"",
+  "has_ili": true
+ },
+ {
+  "file": "混带贴钻窑炉.msch",
+  "strong": false,
+  "src": "board",
+  "text": "-*-好看的的混带贴钻窑炉-*-\n<del>除了好看一无是处</del>\n混带仙人最新力作√\n\n不稳定、不建议在服务器使用\n\n旁侧爆钻挖铅，对侧爆钻挖沙，反溢门出料，可能出杂物。\n\nby-[blue]",
+  "has_ili": true
+ },
+ {
+  "file": "温冲三厂t3.msch",
+  "strong": true,
+  "src": "board",
+  "text": "-*-温冲三厂t3-*-\n起冲逻辑为通用逻辑——可以在任意地方绑定任意建筑使用，若未绑定冲反，则是电控逻辑，只绑定超速，则为智能超速。显示块显示启冲进度和耗电情况\n\n重构逻辑在t2厂18s不工作时自动",
+  "has_ili": true
+ },
+ {
+  "file": "炮入炮出16布.msch",
+  "strong": true,
+  "src": "desc",
+  "text": "非对称的美\n\nILI艾铭",
+  "has_ili": true
+ },
+ {
+  "file": "熔与雷.msch",
+  "strong": true,
+  "src": "board",
+  "text": "熔与雷\n\n熔毁优先对地\n\n海啸和雷光共用雷光增程索敌\n\n力墙仅防坠\n\nby - [blue]Ili[#8abcd1]ary[#654321]艾铭[#6335F8]",
+  "has_ili": true
+ },
+ {
+  "file": "电动前线.msch",
+  "strong": true,
+  "src": "logic",
+  "text": "print \"你可以在 Iliary.life/mdt 网站上获取此逻辑最新版本、当前逻辑版本 V3.1\"",
+  "has_ili": true
+ },
+ {
+  "file": "电动前线v1.0.msch",
+  "strong": true,
+  "src": "logic",
+  "text": "set Idy \"Iliary艾铭.开盾逻辑\"",
+  "has_ili": true
+ },
+ {
+  "file": "电动前线v1.2.msch",
+  "strong": true,
+  "src": "logic",
+  "text": "set Idy \"Iliary艾铭.开盾逻辑\"",
+  "has_ili": true
+ },
+ {
+  "file": "电动前线v1.3.msch",
+  "strong": true,
+  "src": "logic",
+  "text": "set Idy \"Iliary艾铭.开盾逻辑\"",
+  "has_ili": true
+ },
+ {
+  "file": "着陆16冷.msch",
+  "strong": true,
+  "src": "board",
+  "text": "-可串着陆16冷-\n\n桥带缓存后大超下着陆满效，附赠绝对严格的防混。\n\nPresented by-[blue]Il[#7d9396]ia[#716b5b]ry[#654321]艾铭",
+  "has_ili": true
+ },
+ {
+  "file": "着陆30钍反.msch",
+  "strong": true,
+  "src": "board",
+  "text": "-*-着陆30钍反-*-\n\n感谢[red]橘子[white]帮忙走桥\n\n注意到有一个冷却未连接电线，但是在串联的时候这个问题得以修复。\n\nby - [blue]Ili[#8abcd1]ary[#654",
+  "has_ili": true
+ },
+ {
+  "file": "着陆7冷10雷光.msch",
+  "strong": true,
+  "src": "desc",
+  "text": "着陆7冷10雷光\n\n雷光按t4计算最大射程，自动开盾，自带诱饵，着陆自动控制。\n\n最大DPS:14k+\n供料平衡DPS:8K+\n\nBy - Iliary艾铭",
+  "has_ili": true
+ },
+ {
+  "file": "着陆8fw.msch",
+  "strong": true,
+  "src": "desc",
+  "text": "着陆8fw\n\n使用Iliary厄兆火控改。开关用于[red]强制厄兆开火[white]顺便瞄准[red]最近的[white]敌方单位。\n\n\nforeshdow简称fw当前版本实力同其中文谐音相同\n\n大",
+  "has_ili": true
+ },
+ {
+  "file": "着陆8厄兆（155逻辑重整版）.msch",
+  "strong": true,
+  "src": "desc",
+  "text": "着陆8厄兆（155逻辑重整版）\n\n关闭开关，自动射击，两种模式。\n低血量单位贯穿点射，高血量单位按血量计算齐射次数。\n\n打开开关，你便可以直接指挥厄兆射击你所瞄准的区域。\n\n以前你叫我FW我不挑理，但",
+  "has_ili": true
+ },
+ {
+  "file": "着陆t5.msch",
+  "strong": true,
+  "src": "board",
+  "text": "-Four landing-pads t5-\n\nFull effencity,all type,no possible of Mixing lquid.\n\n[red]-1404/s[white]\n(",
+  "has_ili": true
+ },
+ {
+  "file": "着陆七冲S.msch",
+  "strong": true,
+  "src": "desc",
+  "text": "-*-着陆板七冲S-*-\n\n鸣谢忌鲨提供的基本结构\n\n·钛与爆混最小量低于100开始接收\n·算上预测产电存电达30000则亏电起冲\n·最低绝对稳定帧：20——没有桥带串联版抗低帧\n·逻辑防混、控板、分",
+  "has_ili": true
+ },
+ {
+  "file": "着陆板七冲.msch",
+  "strong": true,
+  "src": "desc",
+  "text": "-*-着陆板七冲-*-\n\n[yellow]警告：\n仅仅依靠着陆板的冲反对资源和水的需求极为敏感[red]拍此冲时确认满足以下要求：\n1.发射地区为此处\n2.资源发射足够\n3.大超后总入水458[whi",
+  "has_ili": true
+ },
+ {
+  "file": "着陆板七冲懒得串联抗低帧板.msch",
+  "strong": true,
+  "src": "desc",
+  "text": "-*-着陆板七冲-*-\n\n[yellow]警告：\n仅仅依靠着陆板的冲反对资源和水的需求极为敏感[red]拍此冲时确认满足以下要求：\n1.发射地区为此处\n2.资源发射足够\n3.大超后总入水458[whi",
+  "has_ili": true
+ },
+ {
+  "file": "着陆板控制逻辑.msch",
+  "strong": true,
+  "src": "board",
+  "text": "-*-着陆板控制逻辑v2.1-*-\n连接到第二个信息板打印介绍\n\n-统计名单-\n\n[sky]正在自动控制着陆板\n[white]inf:null:\nby Iliary艾铭",
+  "has_ili": true
+ },
+ {
+  "file": "着陆板控制逻辑v2.0.msch",
+  "strong": true,
+  "src": "board",
+  "text": "-*-着陆板控制逻辑v2.0-*-\n连接到第二个信息板打印介绍\n\n-统计名单-\n\n[sky]正在自动控制着陆板\n[white]inf:null:\nby Iliary艾铭",
+  "has_ili": true
+ },
+ {
+  "file": "着陆混液5爆冷气旋组.msch",
+  "strong": true,
+  "src": "board",
+  "text": "-着陆混液5爆冷气旋组-\n\n会清理水，使海啸装冷并且有挂buff逻辑。\n对，打爆冷真伤。\n\nby - [blue]Il[#7d9396]ia[#716b5b]ry[#654321]艾铭",
+  "has_ili": true
+ },
+ {
+  "file": "着陆爆冷蜂群.msch",
+  "strong": true,
+  "src": "board",
+  "text": "-*-着陆爆冷5蜂群-*-\n\n智能节约冷冻挂buff\n修复启停投影在保证完全修复后关闭\n超速在制冷时开启\n开关没想好怎么用\n\nby-[blue]Il[#7d9396]ia[#716b5b]ry[#65",
+  "has_ili": true
+ },
+ {
+  "file": "着陆重构t3.msch",
+  "strong": true,
+  "src": "logic",
+  "text": "set author Iliary艾铭",
+  "has_ili": true
+ },
+ {
+  "file": "石墨11.msch",
+  "strong": false,
+  "src": "board",
+  "text": "翻折横向堆叠\n[blue]Il[#7d9396]ia[#716b5b]ry[#654321]艾铭 [white]2025/09/02",
+  "has_ili": true
+ },
+ {
+  "file": "第二代四着陆t5.msch",
+  "strong": true,
+  "src": "board",
+  "text": "-第二代四着陆t5-\n\n全兼容，已满效，可串联。\n\n不抗低帧:60帧满效\n\nt1厂平行此信息板对侧着陆板旁开关控制启用和停用着陆以及兵厂\n\n[red]-1404/s[white]\n(4*++6*",
+  "has_ili": true
+ },
+ {
+  "file": "简化无序亏电启冲.msch",
+  "strong": true,
+  "src": "board",
+  "text": "简化无序亏电启冲\n[blue]Il[#7d9396]ia[#716b5b]ry[#654321]艾铭",
+  "has_ili": true
+ },
+ {
+  "file": "绿带可串双原子嬗变室.msch",
+  "strong": false,
+  "src": "board",
+  "text": "绿带可串双原子嬗变室\nby-XIAOLAN\n\nS钍科技拓展CP\n——《先发制人》\n蓝图\n\n\"做锿高手\"\n-Iliary艾铭",
+  "has_ili": true
+ },
+ {
+  "file": "自产电熔毁I型.msch",
+  "strong": true,
+  "src": "board",
+  "text": "-*-自产电熔毁I型-*-\n70硫化物可以射击至多11次\n逻辑用于电力调度。\n娱乐性质更大\nby [sky]Il[#7d9396]ia[#716b5b]ry[#654321]艾铭",
+  "has_ili": true
+ },
+ {
+  "file": "自冷14合金气旋.msch",
+  "strong": true,
+  "src": "board",
+  "text": "-*- 自冷14合金气旋 -*-\n冷却同时借鉴了文辞十冷和Mancer t4-5 17冷。中置冷冻海啸用于推空军省冷冻、大盾用于防神风。两质驱入合金。其余只需入水。\n\n着陆板不能跑满冷冻，但速率已经足",
+  "has_ili": true
+ },
+ {
+  "file": "自冷14气旋v2.0.msch",
+  "strong": true,
+  "src": "board",
+  "text": "-*- 自冷14气旋v2.0 -*-\n冷却同时借鉴了文辞十冷和Mancer t4-5 17冷。中置冷冻海啸用于推空军省冷冻、大盾用于防神风。两质驱入弹药。其余只需入水。\n\n着陆板不能跑满冷冻，但速率已",
+  "has_ili": true
+ },
+ {
+  "file": "自动重构逻辑.msch",
+  "strong": true,
+  "src": "logic",
+  "text": "set author Iliary艾铭",
+  "has_ili": true
+ },
+ {
+  "file": "自用12硅.msch",
+  "strong": false,
+  "src": "board",
+  "text": "-*-Iliary艾铭自用12硅-*-\n不正确操作可能导致卡料黄灯，故不建议不清楚原理的人使用\n\n此侧两分别入9/s、对侧三三蓝带分别入11/s（最好贴）\n\n叠桥出口处使用//分两蓝",
+  "has_ili": true
+ },
+ {
+  "file": "自用12硅及其沙接驳.msch",
+  "strong": false,
+  "src": "board",
+  "text": "-*-Iliary艾铭自用12硅-*-\n不正确操作可能导致卡料黄灯，故不建议不清楚原理的人使用\n\n此侧两分别入9/s、对侧三三蓝带分别入11/s（最好贴）\n\n叠桥出口处使用//分两蓝",
+  "has_ili": true
+ },
+ {
+  "file": "自用油12硅.msch",
+  "strong": false,
+  "src": "board",
+  "text": "-*-Iliary艾铭自用12硅-*-\n不正确操作可能导致卡料黄灯，故不建议不清楚原理的人使用\n\n此侧两分别入9/s、对侧三三蓝带分别入11/s（最好贴）\n\n叠桥出口处使用//分两蓝",
+  "has_ili": true
+ },
+ {
+  "file": "自锁质驱稳定逻辑.msch",
+  "strong": true,
+  "src": "logic",
+  "text": "print \"\\n\\n逻辑By_Iliary艾铭\"",
+  "has_ili": true
+ },
+ {
+  "file": "落地Poly神风V2.0_1.msch",
+  "strong": true,
+  "src": "board",
+  "text": "-*-落地poly神风V2.0-*-\n[blue]落地后以相当快的速度形成Poly神风军团、适当操作可速通毁灭以下难度的基地\n\n[yellow]搭载咕咕的变半径圆形神风逻辑，矿机逻辑，以及自动重构逻辑",
+  "has_ili": true
+ },
+ {
+  "file": "落地t3温冲 -_-.msch",
+  "strong": true,
+  "src": "board",
+  "text": "-*- 落地t3温冲 -*-\n\n[red]交叉器旁边的装卸器为爆混时才可复制后正常运行!!![white]\n\n需要硫10/s、玻璃\n\n冲反启动很极限、完全启动后可以拆掉贴核电池和太阳能板，替换为容器\n",
+  "has_ili": true
+ },
+ {
+  "file": "落地三冲.msch",
+  "strong": true,
+  "src": "logic",
+  "text": "print \"下方是Iliary艾铭的无序亏电轮冲逻辑，经过修改调教，原逻辑在Iliary.life/mdt发布\"",
+  "has_ili": true
+ },
+ {
+  "file": "落地双t2单t3温冲.msch",
+  "strong": true,
+  "src": "logic",
+  "text": "print \"by - Iliary艾铭\"",
+  "has_ili": true
+ },
+ {
+  "file": "落地双温差t3硫幽灵.msch",
+  "strong": true,
+  "src": "board",
+  "text": "-*- 落地双温差t3硫幽灵 -*-\n\n火控蜂群打蚊子，幽灵打大单位。\n\n着火不会对核心蓝图造成显著伤害、布维修可以令其硬抗着火伤害。\n\n石墨需自己入水。\n\nby - [blue]Il[#7d9396",
+  "has_ili": true
+ },
+ {
+  "file": "落地合金蜂群3T1T3（镜像）.msch",
+  "strong": true,
+  "src": "board",
+  "text": "落地合金蜂群3T1T3\nT3厂紧挨着的t1厂可改t2厂,改厂后自动重构逻辑会介入,重构单位为信息板对侧t1厂生产单位\n\nby - [blue]Il[#7d9396]ia[#716b5b]ry[#654",
+  "has_ili": true
+ },
+ {
+  "file": "落地合金蜂群T3.msch",
+  "strong": true,
+  "src": "desc",
+  "text": "落地合金蜂群3T1T3\nT3厂紧挨着的t1厂可改t2厂,改厂后自动重构逻辑会介入,重构单位为信息板对侧t1厂生产单位\n\nby - [blue]Il[#7d9396]ia[#716b5b]ry[#654",
+  "has_ili": true
+ },
+ {
+  "file": "落地核心温冲满效双poly厂.msch",
+  "strong": true,
+  "src": "board",
+  "text": "-*- 落地核心温冲满效双poly厂v2.0 -*-\n——重写了进厂和起冲逻辑，更加稳定。\n\n[#8abcd1]现在可以在Iliary.life/MDT中获取最新逻辑![white]\n什么，你说你有很",
+  "has_ili": true
+ },
+ {
+  "file": "落地神风单元.msch",
+  "strong": true,
+  "src": "board",
+  "text": "-*-落地poly神风单元-*-\n\n差不多神风逻辑做好，简单防线做好后poly就够了开关暂时没什么用。\n\n_*_T2厂介绍_*_\n[sky]通过自动重构逻辑压缩空间。\n[red]自动重构为鹰派抓取，并",
+  "has_ili": true
+ },
+ {
+  "file": "落地神风（路辅）.msch",
+  "strong": true,
+  "src": "board",
+  "text": "-*-落地poly神风V2.0-*-\n[blue]落地后以相当快的速度形成Poly神风军团、适当操作可速通毁灭以下难度的基地\n\n[yellow]搭载咕咕的变半径圆形神风逻辑，矿机逻辑，以及自动重构逻辑",
+  "has_ili": true
+ },
+ {
+  "file": "蓝瑟火控v1.5.msch",
+  "strong": true,
+  "src": "logic",
+  "text": "print \"\\npresented by [yellow]Iliary\"",
+  "has_ili": true
+ },
+ {
+  "file": "蓝瑟矢量火控.msch",
+  "strong": true,
+  "src": "logic",
+  "text": "print \"presented by Iliary\"",
+  "has_ili": true
+ },
+ {
+  "file": "融合多并行矿机主机.msch",
+  "strong": true,
+  "src": "board",
+  "text": "融合多并行算力矿机V.alpha.1\n\n挨着这个信息版的逻辑块是主机、复制算元、将主机连接到算元就可以通过并行运算提高矿机算力、每个算元可控制所有单位。\n\n\nby -Il[#7d9396]ia[#71",
+  "has_ili": true
+ },
+ {
+  "file": "融合多并行矿机算元.msch",
+  "strong": true,
+  "src": "logic",
+  "text": "print \"By Iliary艾铭\"",
+  "has_ili": true
+ },
+ {
+  "file": "补沙废料分解模块.msch",
+  "strong": true,
+  "src": "board",
+  "text": "[blue]不可名状废料解离模块补沙版[white]\n(请忽视不可名状的桥带)\n\n吃完一条绿带时\n出料速度(理论,个每秒):\n-沙:20/3(8、最大值)\n-墨、钛、钍:10/3(4、最大值)\n-共5",
+  "has_ili": true
+ },
+ {
+  "file": "角9驱回核.msch",
+  "strong": true,
+  "src": "board",
+  "text": "角9驱回核\n\n布桥均压，理论上所有驱入速60.\n\nBy - [blue]Ili[#8abcd1]ary[#654321]艾铭[#6335F8][white]\n\n2026/6/13",
+  "has_ili": true
+ },
+ {
+  "file": "角贴18合金.msch",
+  "strong": true,
+  "src": "board",
+  "text": "角贴18合金\n\n此蓝图不实用所以不做满效率、凹帧率和凹装卸处理。\n60帧不满效\n\nby - [blue]Ili[#8abcd1]ary[#654321]艾铭[red][white]&[#FFB6C1",
+  "has_ili": true
+ },
+ {
+  "file": "调和着陆控制逻辑.msch",
+  "strong": true,
+  "src": "board",
+  "text": "-*-[gray]调和着陆控制逻辑v4.5[white]-*-\n——按核心资源缺口智能加权分配着陆数量\n\n\n[red]绑定到任意数量着陆板开始控制[white]\n\n\nby-[blue]Il[#7d93",
+  "has_ili": true
+ },
+ {
+  "file": "调和着陆控制逻辑列表.msch",
+  "strong": true,
+  "src": "board",
+  "text": "-*-[gray]调和着陆控制逻辑v4.1(列表展示版)[white]-*-\n——按核心资源缺口智能加权分配着陆数量\n\n\n[red]绑定到任意数量着陆板开始控制[white]\n\n\nby-[blue]I",
+  "has_ili": true
+ },
+ {
+  "file": "质驱12布.msch",
+  "strong": false,
+  "src": "logic",
+  "text": "sensor Iliary driver1 @thorium",
+  "has_ili": true
+ },
+ {
+  "file": "质驱14爆冷.msch",
+  "strong": true,
+  "src": "board",
+  "text": "质驱14爆冷气旋\n\n双质驱入料约\n65/s即可持续开火\n\n自动修复延伸到正前方三层墙\n信息板周围放置任意诱饵\n\nby-[blue]Il[#7d9396]ia[#716b5b]ry[#654321]艾",
+  "has_ili": true
+ },
+ {
+  "file": "质驱40碎.msch",
+  "strong": true,
+  "src": "desc",
+  "text": "——[sky]好看的废物蓝图[white]\n\n圆角矩形\n中间质驱两质驱入60/s\n两侧两质驱出60/s\n\n因为要四个对称轴+中心对称\n\n-[blue]Il[#7d9396]ia[#716b5b]r",
+  "has_ili": true
+ },
+ {
+  "file": "质驱40碎反溢流.msch",
+  "strong": true,
+  "src": "board",
+  "text": "-*-质驱40碎-*-\n——[sky]好看的废物蓝图[white]\n\n圆角矩形\n中间质驱两质驱入60/s\n两侧两质驱出60/s\n\n因为要两个对称轴+中心对称\n\n-[blue]Il[#7d9396]",
+  "has_ili": true
+ },
+ {
+  "file": "贴核273超速.msch",
+  "strong": false,
+  "src": "board",
+  "text": "贴核273超速\n\n最欠超的一集\n\n比配比少两超速\n\nIliary艾铭",
+  "has_ili": true
+ },
+ {
+  "file": "贴核273超速_1.msch",
+  "strong": true,
+  "src": "desc",
+  "text": "贴核273超速\n\n最欠超的一集\n\n比配比少两超速\n\nIliary艾铭",
+  "has_ili": true
+ },
+ {
+  "file": "贴核4-大硅2-大墨1-窑炉混合厂.msch",
+  "strong": true,
+  "src": "desc",
+  "text": "贴核4-大硅2-大墨1-窑炉混合厂\n\n差0.67/s运力满效，将闪红集中在石墨厂上。\n\nBy-[#FFB6C1]鱼破了冰[white]&[blue]Il[#7d9396]ia[#716b5b]ry[#",
+  "has_ili": true
+ },
+ {
+  "file": "贴核七小硅（未满效.msch",
+  "strong": false,
+  "src": "board",
+  "text": "嫩嫩的神秘交叉满足不了又粗又长的七小硅\n\n[blue]Ili[#8abcd1]ary[#654321]艾铭[#6335F8]",
+  "has_ili": true
+ },
+ {
+  "file": "贴核双t3.msch",
+  "strong": true,
+  "src": "desc",
+  "text": "[blue]Ili[#8abcd1]ary[#654321]艾铭[#6335F8]\n\nt1厂有延展位\n\n[white]旁边控料逻辑不拆，贴t3厂资源保护逻辑可拆",
+  "has_ili": true
+ },
+ {
+  "file": "贴核抽水爆混涡轮.msch",
+  "strong": true,
+  "src": "desc",
+  "text": "贴核抽水爆混涡轮\n别名贴核水冲反\n\n[lightgray]\n不要再使用传统冲反了\n[red]-启动亏电多\n-原料加工复杂\n-建造又贵又慢\n\n[]赶快使用新水冲反\n[green]-稳定亏电1.4k\n-只",
+  "has_ili": true
+ },
+ {
+  "file": "贴核路辅、空辅t2双温差.msch",
+  "strong": true,
+  "src": "board",
+  "text": "ILI贴核兵电布超混合厂优美版\n\n贴核路辅、空辅t2双温差\n\n逻辑旁边空反分控制重构单位，解除绑定停止重构，修改ubind修改重构单位。\n\n没别的，这命题好玩。\n\nBy-[#FFB6C1]鱼破了冰[g",
+  "has_ili": true
+ },
+ {
+  "file": "距离-漂移神风逻辑.msch",
+  "strong": true,
+  "src": "logic",
+  "text": "print \"-*-Iliary距离-漂移神风逻辑-*-\\nv1.0 alpha\\n\"",
+  "has_ili": true
+ },
+ {
+  "file": "转圈圈替换钍反防爆逻辑.msch",
+  "strong": true,
+  "src": "logic",
+  "text": "print \"Iliary艾铭\"",
+  "has_ili": true
+ },
+ {
+  "file": "较大三装七硫带自卫冰雹.msch",
+  "strong": true,
+  "src": "board",
+  "text": "较大三装七硫带自卫冰雹\n对侧反溢任意入料煤沙铅。正溢出料。\n\n信息板上方空缺，随便放点东西吧。\n\n[blue]Il[#7d9396]ia[#716b5b]ry[#654321]艾铭",
+  "has_ili": true
+ },
+ {
+  "file": "通用2_2_7+水海啸四向串联着陆板防御单元.msch",
+  "strong": false,
+  "src": "board",
+  "text": "通用2*2*7+水海啸四向串联着陆板防御单元\n\n设置的板子即为防御塔弹药，重叠底部容器可横向串联，右侧容器对齐可纵向串联。\n\n无需电力，入水即用。\n\n设计运力盈余允许无超速5合金蜂群持续射击。\n\nby",
+  "has_ili": true
+ },
+ {
+  "file": "通用2_2_7仓库四向串联着陆板防御单元.msch",
+  "strong": false,
+  "src": "board",
+  "text": "通用2*2*7仓库四向串联着陆板防御单元\n\n设置的板子即为防御塔弹药，重叠底部容器可横向串联，右侧容器对齐可纵向串联。\n\n无需电力，入水即用。\n\n设计运力盈余允许无超速5合金蜂群持续射击。\n\n仓库存弹",
+  "has_ili": true
+ },
+ {
+  "file": "通用3_3_5四向串联着陆板防御单元.msch",
+  "strong": false,
+  "src": "board",
+  "text": "通用3*3*5四向串联着陆板防御单元\n\n设置的板子即为防御塔弹药，任意防御塔都可为水海啸，重叠底部容器可横向串联，右侧容器对齐可纵向串联。\n\n无需电力，入水即用。\n\n设计运力盈余略低于大超下四合金气旋",
+  "has_ili": true
+ },
+ {
+  "file": "速切着陆控制.msch",
+  "strong": true,
+  "src": "logic",
+  "text": "draw triangle oxide carbide \"null\" \"null\" \"null''                                  Schematci-By-Ilia",
+  "has_ili": true
+ },
+ {
+  "file": "逻辑5合金.msch",
+  "strong": true,
+  "src": "desc",
+  "text": "5 surge (70)\n4/s surge-alloy \nDesigned by krangpq\n\nlogic\nlogic by krangpq\n\nRSS logic uograde by Ilia",
+  "has_ili": true
+ },
+ {
+  "file": "钍带沙超.msch",
+  "strong": false,
+  "src": "board",
+  "text": "钍带沙超\n速启动\nIliary艾铭",
+  "has_ili": true
+ },
+ {
+  "file": "钍绿带沙八布.msch",
+  "strong": true,
+  "src": "board",
+  "text": "-*-钍绿带沙八布-*-\n\n\n\n沙吃满一条绿带时有无法解决的红绿灯现象（这是由绿带的特性决定的，除非额外补沙、或将布厂换小超外无法解决）。在沙地的话可直接挨着桥带贴四个爆钻。并叠两桥输沙。\n\n-pre",
+  "has_ili": true
+ },
+ {
+  "file": "闪红三装7硫.msch",
+  "strong": true,
+  "src": "board",
+  "text": "-*-闪红三装七硫-*-\n\n信息板改四装可避免闪红\n\nBY - [blue]Il[#7d9396]ia[#716b5b]ry[#654321]艾铭",
+  "has_ili": true
+ },
+ {
+  "file": "防点火、土豆逻辑.msch",
+  "strong": true,
+  "src": "logic",
+  "text": "print \"你可以在 Iliary.life/mdt 网站上获取此逻辑最新版本、当前逻辑版本v1.1\"",
+  "has_ili": true
+ },
+ {
+  "file": "鱼冰小超核7布.msch",
+  "strong": false,
+  "src": "board",
+  "text": "[#FFB6C1]鱼破了冰 \n[]\n2026/6/25\n[lightgray]光与影本不应流转，\n岁月期待着它的变迁。",
+  "has_ili": false
+ },
+ {
+  "file": "鱼冰无线超(单位避让版).msch",
+  "strong": false,
+  "src": "board",
+  "text": "-鱼冰无线超(单位避让版)-\n\n:flare:8:phase-fabric:\n\n[gray]通过矢量计算避让其它单位、无线单位可从贴核仓库拿取物品。\n\n[white]By - [#FFB6C1]鱼破",
+  "has_ili": false
+ },
+ {
+  "file": "鱼冰贴核四温'.msch",
+  "strong": false,
+  "src": "board",
+  "text": "[#FFB6C1]鱼破了冰 \n[]\n2026/6/20\n[lightgray]光与影本不应流转，\n是岁月期待着他的变迁。",
+  "has_ili": true
+ },
+ {
+  "file": "鱼冰贴核四温差.msch",
+  "strong": true,
+  "src": "desc",
+  "text": "[#FFB6C1]鱼破了冰 \n2026/6/20\n[lightgray]光与影本不应流转，\n是岁月期待着他的变迁。",
+  "has_ili": true
+ }
+]
