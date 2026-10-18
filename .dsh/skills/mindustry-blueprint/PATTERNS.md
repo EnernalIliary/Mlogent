@@ -28,7 +28,7 @@
 
 ## 0.1 `.msch` 外层格式
 
-从 [Schematics.java:543](../Mindustry-Source/core/src/mindustry/game/Schematics.java#L543)（读）和 [:623](../Mindustry-Source/core/src/mindustry/game/Schematics.java#L623)（写）还原：
+从 [Schematics.java:543](../../../Mindustry-Source/core/src/mindustry/game/Schematics.java#L543)（读）和 [:623](../../../Mindustry-Source/core/src/mindustry/game/Schematics.java#L623)（写）还原：
 
 ```
 偏移  类型        含义
@@ -57,13 +57,13 @@
 
 ## 0.2 逻辑代码藏在哪
 
-逻辑类方块（`micro-processor` / `logic-processor` / `hyper-processor` / `world-processor`）在 [LogicBlock.java:65](../Mindustry-Source/core/src/mindustry/world/blocks/logic/LogicBlock.java#L65) 声明了：
+逻辑类方块（`micro-processor` / `logic-processor` / `hyper-processor` / `world-processor`）在 [LogicBlock.java:65](../../../Mindustry-Source/core/src/mindustry/world/blocks/logic/LogicBlock.java#L65) 声明了：
 
 ```java
 config(byte[].class, (LogicBuild build, byte[] data) -> build.readCompressed(data, true));
 ```
 
-所以那个 `TypeIO type-14 byte[]` 就是逻辑数据。它本身又是**第二层 zlib**，格式见 [LogicBlock.java:141](../Mindustry-Source/core/src/mindustry/world/blocks/logic/LogicBlock.java#L141)：
+所以那个 `TypeIO type-14 byte[]` 就是逻辑数据。它本身又是**第二层 zlib**，格式见 [LogicBlock.java:141](../../../Mindustry-Source/core/src/mindustry/world/blocks/logic/LogicBlock.java#L141)：
 
 ```
 uint8   logicVersion        (0 = 旧版只有链接；1 = 当前)
@@ -76,7 +76,7 @@ linkCount × { UTF linkName, int16 x, int16 y }   ← x/y 是相对处理器原�
 **这是最关键的一条结论**：
 
 > **蓝图里存的是 mlog 明文源码，不是编译后的字节码。**
-> 因为游戏内部 `LAssembler.write()`（[LAssembler.java:42](../Mindustry-Source/core/src/mindustry/logic/LAssembler.java#L42)）产出的就是"一行一条语句"的文本，而 `LogicBuild.config()` 直接把这个字符串 `getBytes(charset)` 写进去。
+> 因为游戏内部 `LAssembler.write()`（[LAssembler.java:42](../../../Mindustry-Source/core/src/mindustry/logic/LAssembler.java#L42)）产出的就是"一行一条语句"的文本，而 `LogicBuild.config()` 直接把这个字符串 `getBytes(charset)` 写进去。
 
 所以**解析 = 零损失还原，完全不需要反编译**。任何声称"要反编译蓝图逻辑"的说法都是误解。
 
@@ -113,7 +113,7 @@ linkCount × { UTF linkName, int16 x, int16 y }   ← x/y 是相对处理器原�
 
 ## 1.1 一帧到底执行几条指令
 
-源码 [LogicBlock.java:560-580](../Mindustry-Source/core/src/mindustry/world/blocks/logic/LogicBlock.java#L560)：
+源码 [LogicBlock.java:560-580](../../../Mindustry-Source/core/src/mindustry/world/blocks/logic/LogicBlock.java#L560)：
 
 ```java
 accumulator += edelta() * ipt;                      // 先累积
@@ -151,7 +151,7 @@ while(accumulator >= 1f){                            // 再消费
 setrate <值>      # 世界处理器专属
 ```
 
-源码 [LExecutor.java:2028](../Mindustry-Source/core/src/mindustry/logic/LExecutor.java#L2028)：
+源码 [LExecutor.java:2028](../../../Mindustry-Source/core/src/mindustry/logic/LExecutor.java#L2028)：
 
 ```java
 public void run(LExecutor exec){
@@ -161,13 +161,13 @@ public void run(LExecutor exec){
 }
 ```
 
-即 **`ipt = clamp(值, 1, maxInstructionsPerTick)`**，而 [Blocks.java:6958](../Mindustry-Source/core/src/mindustry/content/Blocks.java#L6958) 给世界处理器设了 `maxInstructionsPerTick = 1000`：
+即 **`ipt = clamp(值, 1, maxInstructionsPerTick)`**，而 [Blocks.java:6958](../../../Mindustry-Source/core/src/mindustry/content/Blocks.java#L6958) 给世界处理器设了 `maxInstructionsPerTick = 1000`：
 
 ```java
 worldProcessor.maxInstructionsPerTick = 1000;    // Blocks.java:6958
 ```
 
-> **同时注意**：[LogicBlock.java:48](../Mindustry-Source/core/src/mindustry/world/blocks/logic/LogicBlock.java#L48) 的默认值是 `maxInstructionsPerTick = 40`，只有世界处理器被显式抬到 1000。
+> **同时注意**：[LogicBlock.java:48](../../../Mindustry-Source/core/src/mindustry/world/blocks/logic/LogicBlock.java#L48) 的默认值是 `maxInstructionsPerTick = 40`，只有世界处理器被显式抬到 1000。
 > micro/logic/hyper 三种处理器**根本不能执行 `setrate`**（`SetRateI.run` 开头就 `if(exec.build == null) return;`，而且 `setrate` 被注册为 privileged 指令）。
 
 **你的语料里 `setrate` 的实际取值分布**（30 处）：
@@ -276,13 +276,13 @@ set 艾铭真的变了 艾铭变了                 # 指纹变了 → 记录并
 
 ### 限制一：指令总数上限 1000 条
 
-[LExecutor.java:41](../Mindustry-Source/core/src/mindustry/logic/LExecutor.java#L41)：
+[LExecutor.java:41](../../../Mindustry-Source/core/src/mindustry/logic/LExecutor.java#L41)：
 
 ```java
 public static int maxInstructions = 1000;
 ```
 
-[LParser.java:185](../Mindustry-Source/core/src/mindustry/logic/LParser.java#L185)：
+[LParser.java:185](../../../Mindustry-Source/core/src/mindustry/logic/LParser.java#L185)：
 
 ```java
 while(pos < chars.length && line < LExecutor.maxInstructions){
@@ -295,7 +295,7 @@ while(pos < chars.length && line < LExecutor.maxInstructions){
 
 ### 限制二：未知指令静默变成 `noop`
 
-[LStatements.java](../Mindustry-Source/core/src/mindustry/logic/LStatements.java) 用 `InvalidStatement` 兜底，凡是无法识别的指令名都会被注册成 `noop`，[LExecutor.java:905](../Mindustry-Source/core/src/mindustry/logic/LExecutor.java#L905) 的 `NoopI.run()` 是空实现。
+[LStatements.java](../../../Mindustry-Source/core/src/mindustry/logic/LStatements.java) 用 `InvalidStatement` 兜底，凡是无法识别的指令名都会被注册成 `noop`，[LExecutor.java:905](../../../Mindustry-Source/core/src/mindustry/logic/LExecutor.java#L905) 的 `NoopI.run()` 是空实现。
 
 **后果**：
 - **拼错的指令不会报错**，只会静默什么都不做
@@ -314,7 +314,7 @@ while(pos < chars.length && line < LExecutor.maxInstructions){
 
 ## 2.1 标签在导入时就被编译成行号了
 
-[LParser.java:112-176](../Mindustry-Source/core/src/mindustry/logic/LParser.java#L112) 是两趟解析：
+[LParser.java:112-176](../../../Mindustry-Source/core/src/mindustry/logic/LParser.java#L112) 是两趟解析：
 
 - **第一趟**：扫描到 `标签名:` 形式的 token，把 `jumpLocations.put(label, line)` 记下来。**注意：这一步不产生任何 Statement 对象，`line` 不递增。**
 - **第二趟**：把 `jump` 的标签名替换成记录的 `line` 数值。
@@ -458,9 +458,9 @@ op add @counter @counter 鱼梦醒时
 
 ## 3.1 链接是怎么工作的
 
-处理器和建筑之间靠"链接"通信。蓝图里链接以 **(name, 相对 x, 相对 y)** 存储（[LogicBlock.java:300-322](../Mindustry-Source/core/src/mindustry/world/blocks/logic/LogicBlock.java#L300)），读入时 `x += tileX(); y += tileY()` 转成绝对坐标。
+处理器和建筑之间靠"链接"通信。蓝图里链接以 **(name, 相对 x, 相对 y)** 存储（[LogicBlock.java:300-322](../../../Mindustry-Source/core/src/mindustry/world/blocks/logic/LogicBlock.java#L300)），读入时 `x += tileX(); y += tileY()` 转成绝对坐标。
 
-链接名生成规则见 [LogicBlock.java:123](../Mindustry-Source/core/src/mindustry/world/blocks/logic/LogicBlock.java#L123) `getLinkName()`：取方块名，去掉 `-` 后缀（如 `-large`、数字后缀），得到 `conveyor`、`reactor`、`foreshadow` 这类基名，重名则加数字尾巴 `conveyor1`、`conveyor2`。
+链接名生成规则见 [LogicBlock.java:123](../../../Mindustry-Source/core/src/mindustry/world/blocks/logic/LogicBlock.java#L123) `getLinkName()`：取方块名，去掉 `-` 后缀（如 `-large`、数字后缀），得到 `conveyor`、`reactor`、`foreshadow` 这类基名，重名则加数字尾巴 `conveyor1`、`conveyor2`。
 
 **注意**：名字是**存进蓝图**的。如果你改了某个链接名，旧名字不会自动更新——`readCompressed` 里有个兜底：
 
@@ -540,7 +540,7 @@ jump loop always
 
 ### `@controlled` 的真相（源码级）
 
-[UnitComp.java:296](../Mindustry-Source/core/src/mindustry/entities/comp/UnitComp.java#L296)：
+[UnitComp.java:296](../../../Mindustry-Source/core/src/mindustry/entities/comp/UnitComp.java#L296)：
 
 ```java
 case controlled -> !isValid() ? 0 :
@@ -550,7 +550,7 @@ case controlled -> !isValid() ? 0 :
         0;
 ```
 
-常量定义在 [GlobalVars.java:24](../Mindustry-Source/core/src/mindustry/logic/GlobalVars.java#L24)：`ctrlProcessor = 1, ctrlPlayer = 2, ctrlCommand = 3`。
+常量定义在 [GlobalVars.java:24](../../../Mindustry-Source/core/src/mindustry/logic/GlobalVars.java#L24)：`ctrlProcessor = 1, ctrlPlayer = 2, ctrlCommand = 3`。
 
 **这意味着**：
 - `jump 41 notEqual controlled 0` → "只要有任何控制者（含玩家、指令 AI）就跳过"。**这常被误当作"这个单位被逻辑占用了"，其实玩家控制的单位也会命中。**
@@ -586,7 +586,7 @@ jump 自由单位 equal co 0
 
 ## 4.1 `ubind` 的真实语义（源码级）
 
-[LExecutor.java:178-206](../Mindustry-Source/core/src/mindustry/logic/LExecutor.java#L178)：
+[LExecutor.java:178-206](../../../Mindustry-Source/core/src/mindustry/logic/LExecutor.java#L178)：
 
 ```java
 if(type.obj() instanceof UnitType type && type.logicControllable){
@@ -753,7 +753,7 @@ ucontrol flag 11011 0 0 0 0
 
 ## 4.4 `ucontrol` 指令的精确语义
 
-以下全部来自 [LExecutor.java:342-510](../Mindustry-Source/core/src/mindustry/logic/LExecutor.java#L342)。
+以下全部来自 [LExecutor.java:342-510](../../../Mindustry-Source/core/src/mindustry/logic/LExecutor.java#L342)。
 
 ### 前置检查：什么单位能被控
 
@@ -775,13 +775,13 @@ ucontrol move x y 0 0 0    # 必须紧跟，中间不能 ubind 别的
 
 ### 控制超时机制（非常重要）
 
-[LogicAI.java:18](../Mindustry-Source/core/src/mindustry/ai/types/LogicAI.java#L18)：
+[LogicAI.java:18](../../../Mindustry-Source/core/src/mindustry/ai/types/LogicAI.java#L18)：
 
 ```java
 public static final float logicControlTimeout = 60f * 10f;   // 600 帧 = 10 秒
 ```
 
-`LogicAI.updateMovement()`（[LogicAI.java:59](../Mindustry-Source/core/src/mindustry/ai/types/LogicAI.java#L59)）：
+`LogicAI.updateMovement()`（[LogicAI.java:59](../../../Mindustry-Source/core/src/mindustry/ai/types/LogicAI.java#L59)）：
 
 ```java
 if(controlTimer > 0 && controller != null && controller.isValid()){
@@ -1352,7 +1352,7 @@ set 艾铭在射 0
 **这是一个非常巧妙的设计**：**用玩家的地图 ping 当作"集火目标指定"的 UI**。
 玩家在地图上 ping 一下，逻辑就读取 `@pingX/@pingY`，然后所有炮塔转向那个点。
 
-**`@pingX` 的坑**（[UnitComp.java:307](../Mindustry-Source/core/src/mindustry/entities/comp/UnitComp.java#L307)）：
+**`@pingX` 的坑**（[UnitComp.java:307](../../../Mindustry-Source/core/src/mindustry/entities/comp/UnitComp.java#L307)）：
 
 ```java
 case pingX -> controller instanceof Player p && p.isPinging() ? World.conv(p.pingX) : Float.NaN;
@@ -1475,11 +1475,11 @@ jump t1 equal batch 1
 
 | 能力 | 规则开关 | 默认值 | 出处 |
 |---|---|---|---|
-| 单位控制 | `logicUnitControl` | **true** | [Rules.java:99](../Mindustry-Source/core/src/mindustry/game/Rules.java#L99) |
-| 单位建造 | `logicUnitBuild` | **true** | [Rules.java:101](../Mindustry-Source/core/src/mindustry/game/Rules.java#L101) |
-| 单位拆除 | `logicUnitDeconstruct` | **false** ← | [Rules.java:103](../Mindustry-Source/core/src/mindustry/game/Rules.java#L103) |
+| 单位控制 | `logicUnitControl` | **true** | [Rules.java:99](../../../Mindustry-Source/core/src/mindustry/game/Rules.java#L99) |
+| 单位建造 | `logicUnitBuild` | **true** | [Rules.java:101](../../../Mindustry-Source/core/src/mindustry/game/Rules.java#L101) |
+| 单位拆除 | `logicUnitDeconstruct` | **false** ← | [Rules.java:103](../../../Mindustry-Source/core/src/mindustry/game/Rules.java#L103) |
 
-**`ucontrol deconstruct` 默认是关的**。源码 [LExecutor.java:470](../Mindustry-Source/core/src/mindustry/logic/LExecutor.java#L470)：
+**`ucontrol deconstruct` 默认是关的**。源码 [LExecutor.java:470](../../../Mindustry-Source/core/src/mindustry/logic/LExecutor.java#L470)：
 
 ```java
 case deconstruct -> {
@@ -1510,7 +1510,7 @@ ucontrol stop 0 0 0 0 0                   # 停手
 jump 25 always yi ym
 ```
 
-**注意第一行**：`ucontrol move bx by @copper-wall 0 0` 把 `@copper-wall` 当第 3 个参数传给 `move`。源码 [LExecutor.java:358](../Mindustry-Source/core/src/mindustry/logic/LExecutor.java#L358) 显示 `move` 只用 p1/p2：
+**注意第一行**：`ucontrol move bx by @copper-wall 0 0` 把 `@copper-wall` 当第 3 个参数传给 `move`。源码 [LExecutor.java:358](../../../Mindustry-Source/core/src/mindustry/logic/LExecutor.java#L358) 显示 `move` 只用 p1/p2：
 
 ```java
 case move, stop, approach, pathfind -> {
@@ -1904,7 +1904,7 @@ op abs 距离 距离 dy                    # ← §6.3 里那个
 op abs internal internal 0            # ← 多给一个 0
 ```
 
-**这些运算在 mlog 里全是一元的**（[LogicOp.java:40-57](../Mindustry-Source/core/src/mindustry/logic/LogicOp.java#L40) 用的是 `OpLambda1` 构造器，`unary = true`），只接受 `op <运算> <输出> <输入>` 两个操作数。
+**这些运算在 mlog 里全是一元的**（[LogicOp.java:40-57](../../../Mindustry-Source/core/src/mindustry/logic/LogicOp.java#L40) 用的是 `OpLambda1` 构造器，`unary = true`），只接受 `op <运算> <输出> <输入>` 两个操作数。
 
 `round x 0.5` 这种"按精度取整"在 mlog 里**根本不存在**——`round` 就是 `Math.round(a)`，只能取到整数。
 
@@ -1913,7 +1913,7 @@ op abs internal internal 0            # ← 多给一个 0
 
 ### 后果
 
-`LStatements.OpI.build()`（[LStatements.java:773](../Mindustry-Source/core/src/mindustry/logic/LStatements.java#L773)）是：
+`LStatements.OpI.build()`（[LStatements.java:773](../../../Mindustry-Source/core/src/mindustry/logic/LStatements.java#L773)）是：
 
 ```java
 public LInstruction build(LAssembler builder){
@@ -1921,7 +1921,7 @@ public LInstruction build(LAssembler builder){
 }
 ```
 
-一元运算在 UI 路径上只读一个操作数（[:725](../Mindustry-Source/core/src/mindustry/logic/LStatements.java#L725)）：
+一元运算在 UI 路径上只读一个操作数（[:725](../../../Mindustry-Source/core/src/mindustry/logic/LStatements.java#L725)）：
 
 ```java
 if(op.unary){
@@ -2032,7 +2032,7 @@ jump 需要补员 equal d 1            # null 或已死都会命中
 
 ## 11.5 `@pingX` 的 NaN 陷阱
 
-[UnitComp.java:307](../Mindustry-Source/core/src/mindustry/entities/comp/UnitComp.java#L307)：
+[UnitComp.java:307](../../../Mindustry-Source/core/src/mindustry/entities/comp/UnitComp.java#L307)：
 
 ```java
 case pingX -> controller instanceof Player p && p.isPinging() ? World.conv(p.pingX) : Float.NaN;
@@ -2335,12 +2335,12 @@ python tools/mlogsearch.py top 30
 
 | 路径 | 内容 |
 |---|---|
-| [logic-corpus/by-blueprint/](../logic-corpus/by-blueprint/) | 430 个蓝图，每个一份 Markdown（按坐标排序 + 链接名 + 语句数） |
-| [logic-corpus/index.json](../logic-corpus/index.json) | 全量索引 |
-| [logic-corpus/ranking.json](../logic-corpus/ranking.json) | 按游戏逻辑含量排名 |
-| [logic-corpus/templates.md](../logic-corpus/templates.md) | 404 个 ≤30 行的单处理器模板 |
-| [logic-corpus/idioms.json](../logic-corpus/idioms.json) | 归一化后的高频指令组合统计 |
-| [logic-corpus/blocks.json](../logic-corpus/blocks.json) | 检索工具的缓存 |
+| [logic-corpus/by-blueprint/](../../../logic-corpus/by-blueprint/) | 430 个蓝图，每个一份 Markdown（按坐标排序 + 链接名 + 语句数） |
+| [logic-corpus/index.json](../../../logic-corpus/index.json) | 全量索引 |
+| [logic-corpus/ranking.json](../../../logic-corpus/ranking.json) | 按游戏逻辑含量排名 |
+| [logic-corpus/templates.md](../../../logic-corpus/templates.md) | 404 个 ≤30 行的单处理器模板 |
+| [logic-corpus/idioms.json](../../../logic-corpus/idioms.json) | 归一化后的高频指令组合统计 |
+| [logic-corpus/blocks.json](../../../logic-corpus/blocks.json) | 检索工具的缓存 |
 
 ## B.4 重新生成语料
 

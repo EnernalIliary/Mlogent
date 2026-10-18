@@ -341,6 +341,20 @@ python mlog.py block silicon-smelter         # 3. 这个方块吃什么、产什
 - `find` 扫描游戏存档目录里的全部蓝图（`MLOG_CORPUS` 可覆盖），按 `名字/描述/信息板/变量名/指令` 打分，打印 **分数拆解**——匹配得不对时能看出为什么不对。默认跳过 >5000 条语句的块与 >2MB 的文件（`BADAPPLE!!` 是 56 万条语句的动画，`Linux on mlogv32` 是 16MB），这些不是参考逻辑。首次 9 秒，之后读缓存 0.7 秒；`--rebuild` 强制重建。
 - `unit` / `block` 的数据由 `tools/units_from_source.py` 与 `tools/blocks_from_source.py` 从源码抽出，`--check` 可校验是否与当前源码一致。**它们只列源码里写了的字段**，缺的字段是引擎默认值（`unit` 会标成 `(default X)`）——不要凭记忆补。
 
+**“这个方块收不收 X”** 是最容易写错、错了还静默的一条——搬错了屏幕上什么都不会发生。规则来自源码
+（`BuildingComp.acceptItem` = `block.consumesItem(item) && 容量`，而 `consumesItem` 是消费者填出来的布尔数组），所以：
+
+| `accepts` | 含义 | 例子 |
+|---|---|---|
+| `any` | 只看容量，什么都收 | `core-shard`、`container` |
+| `recipe` | **只收配方里的物品** | `silicon-smelter` 只收煤和沙 |
+| `custom` | 收，但收不收/往哪走取决于配置 | `sorter`、`unloader`、`conveyor` |
+| `none` | 一律不收 | `landing-pad`、`PayloadUnloader` |
+
+反查：`mlog.py block --accepts coal` 列出所有收煤的方块（配方输入 + `any` + `custom`）。
+注意 `custom` 只回答“可能收”，**“现在收不收”要看运行时状态**（sorter 的配置、router 是否空、焚化炉是否通电）。
+
+
 ## 参考数据
 
 | 文件 | 内容 |

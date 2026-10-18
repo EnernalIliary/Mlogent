@@ -1042,16 +1042,16 @@ printflush message1
 
 #### 完整链条(源码级)
 
-1. **ID 是构造顺序号** —— [Content.java:21](../../Mindustry-Source/core/src/mindustry/ctype/Content.java#L21)
+1. **ID 是构造顺序号** —— [Content.java:21](Mindustry-Source/core/src/mindustry/ctype/Content.java#L21)
    ```java
    this.id = (short)Vars.content.getBy(getContentType()).size;
    ```
-2. **原版先构造,mod 后追加** —— [ContentLoader.java:57-81](../../Mindustry-Source/core/src/mindustry/core/ContentLoader.java#L57)
+2. **原版先构造,mod 后追加** —— [ContentLoader.java:57-81](Mindustry-Source/core/src/mindustry/core/ContentLoader.java#L57)
    ```java
    public void createBaseContent(){ ... Blocks.load(); }   // ← 原版方块 ID 在此固定
    public void createModContent(){ mods.loadContent(); }   // ← mod 只能往后追加
    ```
-3. **游戏自检 ID 必须连续递增** —— [ContentLoader.java:86-93](../../Mindustry-Source/core/src/mindustry/core/ContentLoader.java#L86)
+3. **游戏自检 ID 必须连续递增** —— [ContentLoader.java:86-93](Mindustry-Source/core/src/mindustry/core/ContentLoader.java#L86)
    ```java
    if(id != i) throw new IllegalArgumentException("Out-of-order IDs for content ...");
    ```
@@ -1102,7 +1102,7 @@ printflush message1
 
 **双重验证结论:Stile 里存的是方块的「中心格」。**
 
-**① 源码** —— [Tile.java:255](../../Mindustry-Source/core/src/mindustry/world/Tile.java#L255)
+**① 源码** —— [Tile.java:255](Mindustry-Source/core/src/mindustry/world/Tile.java#L255)
 
 ```java
 //set up multiblock
@@ -1112,7 +1112,7 @@ if(block.isMultiblock()){
     int worldx = dx + offset + x;            // 以 (x,y) 为中心铺开
 ```
 
-[Block.java:761](../../Mindustry-Source/core/src/mindustry/world/Block.java#L761) 同样:`sizeOffset = -((size - 1) / 2)`
+[Block.java:761](Mindustry-Source/core/src/mindustry/world/Block.java#L761) 同样:`sizeOffset = -((size - 1) / 2)`
 
 **② 实证(决定性)** —— 拿 624 个真实蓝图,两种解释各算一遍方块重叠数:
 
@@ -1155,7 +1155,7 @@ if(block.isMultiblock()){
 | **官方 wiki** | `mindustrygame.github.io/wiki/` 内容页 slug 带 ID | `overdrive-dome` = 248 |
 
 **而且原版方块 ID 是"版本函数",与 mod 无关** —— 因为
-[ContentLoader](../../Mindustry-Source/core/src/mindustry/core/ContentLoader.java#L57) 先 `createBaseContent()`、
+[ContentLoader](Mindustry-Source/core/src/mindustry/core/ContentLoader.java#L57) 先 `createBaseContent()`、
 后 `createModContent()`,且游戏自检 ID 必须连续递增,**mod 内容只能追加在原版之后**。
 
 ⚠️ **唯一残余风险是版本差异**:wiki 记的是 160.5,我的源码快照更新,你的游戏是 159.1。
@@ -1897,6 +1897,35 @@ if(ret == null){
 
 顺带把 `mlogir.parse` 换成 `_cheap_profile()`(逐行取助记符/标识符/引号串,不建 IR):搜索只需要"这些词在不在",不需要语法树。
 
+### 物品接受规则:五档,不是「收 / 不收」
+
+写物流逻辑最容易静默失败的一条是「搬错地方」——屏幕上什么都不发生。规则全部落在
+`BuildingComp.acceptItem` 与 `Block.consumesItem` 两行:
+
+```java
+// BuildingComp.java
+public boolean acceptItem(Building source, Item item){
+    return block.consumesItem(item) && items.get(item) < getMaximumAccepted(item);
+}
+// Block.java -- itemFilter 是 afterPatch() 里按消费者填出来的布尔数组
+public boolean consumesItem(Item item){ return itemFilter[item.id]; }
+```
+
+推论:**没有物品消费者的方块,默认谁都拒收**。于是 `block_attrs.json` 的 `accepts` 分五档:
+
+| 值 | 判据 | 含义 | 例 |
+|---|---|---|---|
+| `any` | 覆写 `acceptItem` 只比容量 | 什么都收 | `core-shard`、`container` |
+| `recipe` | 继承默认 + 有 `inputs` | **只收配方里的** | `silicon-smelter` 只收煤和沙 |
+| `ammo` | `ItemTurret` 的 `ammo(...)` 列表 | 只收弹药 | `duo` 收铜/石墨/硅 |
+| `custom` | 覆写里有路由/状态条件 | 收,但要看配置/热量/是否空 | `sorter`、`incinerator`、`launch-pad` |
+| `none` | `acceptItem` 就是 `return false;` | 一律不收 | `landing-pad`、`item-source` |
+
+- **别用 `itemCapacity` 推**:多数工厂根本不写 `itemCapacity`(默认 10),我第一版拿它判「容量 0 ⇒ 不收」,把 `silicon-smelter` 判成 `none`。
+- **`custom` 只回答「可能收」**,「现在收不收」取决于运行时状态(sorter 配置、router 是否空、焚化炉是否通电),静态查不出来 —— 这与「不判值对错」是同一条边界。
+- **`unclassified()` 守卫**:手写的三张集合(any/custom/none)靠扫描 `core/src/mindustry` 里所有 `acceptItem` 覆写来兜底,游戏加了新方块类时会警告「这个类没分类」,防止表悄悄过期。
+- 反查:`mlog.py block --accepts coal` 分组列出「配方输入 / 弹药 / 什么都收 / 有条件」。
+
 ### 边界(写在 SKILL 里)
 
 - `unit`/`block` **只列源码写了的字段**,缺的是引擎默认值(`unit` 会标 `(default X)`)。不要凭记忆补。
@@ -2098,7 +2127,7 @@ F:\OneDrive\桌面\AtomicStates\mindustry-blueprint\                ← 开发�
 | `<root>/.dsh/skills/mindustry-blueprint/` | `../../../` |
 
 **踩过的坑**:我按固定层数改了三轮才全对(先多一层、又少一层、再发现新位置又变了)。
-**做法修正**:[tools/fix_skill_links.py](../tools/fix_skill_links.py)
+**做法修正**:[tools/fix_skill_links.py](tools/fix_skill_links.py)
 **向上找 `Mindustry-Source` 定位工作目录根**,再按实际相对深度重写所有链接。
 **以后再搬位置,重跑一次这个脚本即可。**
 
@@ -2136,3 +2165,4 @@ F:\OneDrive\桌面\AtomicStates\mindustry-blueprint\                ← 开发�
 | 第 26 次整理 | **版本闸门:蓝图不存版本号,只能从语句倒推**。锚定六条 (`effect`/`sync` 146、`format` 147、`select` 150、`bullet`/`getblock` 157),146 当基线因此低于 147 不报;`noop` 与新语句同时出现时不再分两条,直接替换成「版本漂移」的结论。方法论:**没有元数据时,元数据要从内容的最稀有的那个特征反推** —— 挑特征的标准是「出现晚、出现少、一眼能认」,不是「重要」。 |
 | 第 27 次整理 | **跨處理器讀寫:可讀的槽就是目標自己的變量,`write` 不是必須的**。先前把「按名讀寫」與「記憶格按變量尋址」混為一談,寫出「586 份用跨處理器」這種虛高數字;重測後我的庫只有 **9/625** 份、彩末包 13/926。新增 `mlog.py cross` 把四類結果(never assigned / always null / constant / dead write)分開報。方法論:**當一個特性的命中率從 94% 掉到 1.4%,先懷疑統計口徑,再懷疑世界**。 |
 | 第 30 次整理 | **`unit` / `block` / `find` 三条命令:单位属性、方块配方、找参考实现**。`find` 从 152 秒压到 0.7 秒(跳过生成式艺术与 16MB 像素画 + mtime 缓存),抽数据时踩了四个坑:成组声明的默认值、`}};` 结尾与缩进、`consumeItem` 单物品配方、Java 字段名要转 kebab。方法论:**写逻辑缺的不是语法,是目标和游戏事实 —— 目标问人,游戏事实进数据表。** |
+| 第 31 次整理 | **物品接受规则:五档(any / recipe / ammo / custom / none),不是「收不收」**。判据是 `BuildingComp.acceptItem` = `consumesItem && 容量`,而 `consumesItem` 是消费者填的布尔数组 ⇒ 没有消费者的方块默认拒收一切;别用 `itemCapacity` 推(工厂大多不写它)。方法论:**「能不能收」和「现在收不收」是两个问题,静态分析只能回答前者 —— 分不清这一点,工具就会开始撒谎。** |

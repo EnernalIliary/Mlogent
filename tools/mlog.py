@@ -694,6 +694,40 @@ def cmd_block(args) -> int:
               file=sys.stderr)
         return 1
     q = (args.name or "").strip().lower()
+    want = (getattr(args, "accepts", None) or "").strip().lower()
+    if want:
+        hits = sorted(n for n, r in blocks.items()
+                      if r.get("accepts") in ("any", "custom")
+                      or want in (r.get("ammo") or [])
+                      or want in [i.split(":")[0] for i in
+                                  r.get("inputs") or []])
+        if not hits:
+            print(f"no block accepts {want!r}")
+            return 1
+        buckets: dict[str, list[str]] = {"recipe": [], "ammo": [], "any": [],
+                                         "custom": []}
+        for n in hits:
+            acc = blocks[n].get("accepts", "")
+            if acc in buckets:
+                buckets[acc].append(n)
+        print(f"  blocks that accept {want}: {len(hits)}")
+        heads = (("recipe", "uses it as a recipe input (always accepted)"),
+                 ("ammo", "uses it as turret ammo"),
+                 ("any", "accepts any item (capacity-bound)"),
+                 ("custom", "accepts it only under some runtime condition"))
+        for key, label in heads:
+            names = buckets[key]
+            if not names:
+                continue
+            print(f"    {label} -- {len(names)}:")
+            line = "      "
+            for n in names:
+                if len(line) + len(n) + 2 > 96:
+                    print(line.rstrip())
+                    line = "      "
+                line += n + ", "
+            print(line.rstrip().rstrip(","))
+        return 0
     hits = sorted(n for n in blocks if not q or q in n)
     if not hits:
         print(f"no block with captured behaviour matching {args.name!r}")
@@ -706,6 +740,17 @@ def cmd_block(args) -> int:
             head += f" id={ids[0]:>4}"
         head += f"  size={rec.get('size', '?')}  ({classes.get(n, '?')})"
         print(head)
+        acc = rec.get("accepts", "?")
+        if acc == "any":
+            print("      accepts any item (capacity-bound)")
+        elif acc == "custom":
+            print("      accepts any item, but routes it per config")
+        elif acc == "ammo":
+            print(f"      accepts only as ammo: {', '.join(rec.get('ammo') or [])}")
+        elif acc == "none":
+            print("      accepts nothing")
+        elif rec.get("inputs"):
+            print(f"      accepts only {' + '.join(rec['inputs'])}")
         if rec.get("inputs") and rec.get("outputItem"):
             t = f" craftTime={rec['craftTime']}t" if rec.get("craftTime") else ""
             print(f"      recipe  {' + '.join(rec['inputs'])} -> "
@@ -1227,6 +1272,8 @@ def main() -> int:
 
     p = sub.add_parser("block", help="block behaviour: recipe, capacity, power")
     p.add_argument("name", nargs="?", help="substring; omit to list all")
+    p.add_argument("--accepts", metavar="ITEM",
+                   help="list blocks that accept this item (any / routed / recipe)")
     p.set_defaults(fn=cmd_block)
 
     p = sub.add_parser("find", help="find corpus blueprints that solve a job")
