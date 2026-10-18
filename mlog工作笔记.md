@@ -599,6 +599,7 @@ ulocate building core 0 @copper cx cy found core
 | 25 | `@shield` | 53 | `@mining` |
 | 26 | `@armor` | 54 | `@buildX` |
 | 27 | `@efficiency` | 55 | `@buildY` |
+| 28 | 2026-10-18 | **回歸測試落地** `tests/run_tests.py`（12 條 golden digest，覆蓋 check / ir / values / pack / cost / gate / cross），合成用例從 `out/` 移到 `tests/cases/`；`mlog.odd_names()` 從打印塊抽成函數以便斷言。方法論：「用眼睛比對輸出」不是驗證，只是延後發現錯誤。 |
 | 28 | `@progress` | 56 | `@pingX` |
 | 29 | `@timescale` | 57 | `@pingY` |
 | 30 | `@rotation` | 58 | `@pingText` |

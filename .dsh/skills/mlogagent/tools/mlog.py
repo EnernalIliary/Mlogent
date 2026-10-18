@@ -347,6 +347,21 @@ def _text(t) -> str:
     return getattr(t, "text", t)
 
 
+def odd_names(prog) -> dict[str, list[int]]:
+    """Variables whose name contains fullwidth punctuation, with their lines.
+
+    Exposed as a function (not just a print block) so `tests/run_tests.py` can
+    assert on it: the *finding* is what matters, not the wording around it.
+    """
+    weird: dict[str, list[int]] = {}
+    for s in prog.stmts:
+        for v in sorted(s.defs | s.uses):
+            if v.startswith("@") or not _FULLWIDTH.search(v):
+                continue
+            weird.setdefault(v, []).append(s.line)
+    return weird
+
+
 def _ir_tier(prog, i: int, v: str, kind: str) -> str:
     """`reported`, `slot` (forced by syntax), `declaration` or `annotation`."""
     # A name made only of punctuation (`//`, `--`, `===`) is a note the author
@@ -427,12 +442,7 @@ def _ir_report(label: str, lines: list[str], show_all: bool = False) -> int:
             bits.append(f"{hidden['declaration']} literal declaration(s)")
         print("  (hidden)        : " + ", ".join(bits)
               + "   -- rerun with --all to list them")
-    weird: dict[str, list[int]] = {}
-    for s in prog.stmts:
-        for v in sorted(s.defs | s.uses):
-            if v.startswith("@") or not _FULLWIDTH.search(v):
-                continue
-            weird.setdefault(v, []).append(s.line)
+    weird = odd_names(_ir.parse(lines))
     if weird:
         print("  ODD NAMES       : fullwidth punctuation in a variable name "
               "(usually an IME typo, which silently "

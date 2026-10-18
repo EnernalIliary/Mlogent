@@ -309,6 +309,18 @@ provably null: L3 r is null
 
 **报告基线是 build 146**（v7.0 首个正式版）：基线里就有的语句不报，只有更新的才报。判据是 `floor > 146`，不是 `>= 147`。
 
+### 改完分析器先跑測試
+
+```bash
+python tests/run_tests.py          # 12 條 golden digest，任何結論變化都會失敗
+python tests/run_tests.py -v       # 逐條列出
+python tests/run_tests.py --write  # 改了就有意識地改期望值——然後讀 diff
+```
+
+digest 是**去措辭的結論**（`(severity, line)` 對、語句數、分支判定、容量位數…），
+所以文案可以隨便改，結論一變就紅。`mlog.py selftest` 只證明解析器不丟東西
+（429/429 round-trip），這五個分析器的正確性靠這套兜住。
+
 ## 参考数据
 
 | 文件 | 内容 |
