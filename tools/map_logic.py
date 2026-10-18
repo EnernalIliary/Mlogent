@@ -356,8 +356,26 @@ def _parse_shortchunk_map(reg: bytes, blocks: list[str]):
     return w, h, found
 
 
+def _unwrap_save(raw: bytes) -> bytes:
+    """A .msav is either a zlib stream that contains `MSAV`, or a plain `MSAV` blob.
+
+    Both exist in the wild: files written by `SaveIO` go through
+    `new InflaterInputStream(...)` (so the whole file is one zlib stream), while
+    some third-party uploads hand back the already-inflated bytes.
+    """
+    if raw[:4] == b"MSAV":
+        return raw
+    try:
+        out = zlib.decompress(raw)
+    except zlib.error as e:
+        raise ValueError(f"not a save file: neither zlib nor MSAV ({e})") from e
+    if out[:4] != b"MSAV":
+        raise ValueError(f"not a save file: zlib payload starts {out[:8]!r}")
+    return out
+
+
 def read_save(path) -> dict:
-    data = zlib.decompress(Path(path).read_bytes())
+    data = _unwrap_save(Path(path).read_bytes())
     r = Reader(data)
     header = r.raw(4)
     if header != b"MSAV":
