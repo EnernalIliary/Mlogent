@@ -18,6 +18,40 @@ python tools/mlogagent.py info --verify                # 校验 MANIFEST.sha256
 
 位置参数按**后缀**分派：`.msch` 走蓝图解析（一个逻辑块一节），其余按 UTF-8 文本读。
 
+## 工具索引（一条命令一行）
+
+`mlog.py` 是唯一入口，`python mlog.py <子命令> --help` 看全部参数。
+
+| 子命令 | 一句话 | 什么时候用 |
+|---|---|---|
+| `parse <file.msch>` | 蓝图里有什么方块、每块处理器的源码和链接 | 拿到别人给的蓝图，先看结构 |
+| `text <file.msch>` | 信息板（message 块）上写了什么 | 想知道作者说了什么、署名是谁 |
+| `gen` | 按逻辑生成可粘贴的蓝图码 | 交付成品；**别手拼 base64** |
+| `check [--msch]` | 静态检查：`0 error / 0 warn` 才算过 | 每次改完逻辑 |
+| `check --cost` | 最坏一圈多少指令、折合多少 tick、`wait` 阻塞多久 | 判断能不能跟上周期 |
+| `ir` | 死存储（四层）、不可达代码、指令直方图 | 找"写了没人读"和死代码 |
+| `values` | 常量分支、可证 null（跨处理器要用 `--msch`） | 分支看着可疑时 |
+| `pack` | 一个数打包了几层字段、低位够装几个 id | 看到 `*1e6`/`/1e6` 时 |
+| `cross <file.msch>` | 跨处理器 `read` 到底读到什么 | 多处理器协作时 |
+| `map <save.msav>` | 整个存档里所有处理器 + 逐块检查 | 看别人地图的逻辑 |
+| `style <关键词>` | 语料里同类逻辑的命名/形状/成本 | **动手写之前**先看同行怎么写 |
+| `explain <指令> [子命令]` | 一条指令的语法、读哪些位、文档勘误 | 拿不准参数顺序时 |
+| `sensor [关键词]` | 75 个 `@属性` 能不能 `sensor`、能不能 `control` 写 | 查能读到什么 |
+| `unit <名字>` | 单位的速度/血量/护甲/武器/技能 | 算拦截、算 DPS |
+| `block <名字>` | 方块的建造配方/液体/输入/收不收物流 | 写产线和物流时 |
+| `find <关键词>` | 在语料或蓝图里搜代码 | 找现成写法 |
+| `item` / `id` | 物品 ID、方块 content ID 与尺寸 | 需要数字而不是名字时 |
+| `cmd [关键词]` | 86 条指令格式速查 | `explain` 之前先扫一眼 |
+| `selftest` | 蓝图编解码往返自检（430/430） | 怀疑解析器坏了 |
+
+批量与并行：
+
+```powershell
+python tools\_sweep_saves.py        # 1,421 个存档：34 秒
+python tools\_sweep_analyse.py      # 加六种分析：127 秒
+python mindustry-blueprint\tools\parallel.py --items 1421   # 它会开几个 worker、为什么
+```
+
 ## 语义从哪来：双实现确认
 
 关键的语言事实除了读 `LExecutor.java`，还用 mindcode 的模拟器复核过（八条探针）。

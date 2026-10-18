@@ -6,6 +6,43 @@ whenToUse: 涉及 Mindustry 蓝图（.msch / 蓝图码）、mlog 逻辑编写或
 
 # Mindustry 蓝图与 mlog 工具链
 
+
+## 目录
+
+- 这个技能能做什么
+- 标准流程
+- 铁律(生成前逐条自查)
+- 交付逻辑前的自检清单（一条都别跳）
+- 写逻辑之前：先查这四样
+- 单位表里有什么、没有什么
+- 方块表里有什么、没有什么
+- 写逻辑之前：先看语料里的同类是怎么写的
+- 写逻辑:枚举、跳表还是内存格
+- 指令预算:别猜,这是确定的
+- ⚠️ 最容易搞错的一件事:方块坐标是「中心格」
+- 生成蓝图时的作者标签
+- 自动打标签
+- 常用调用
+- 成本分析(`--cost`)看什么
+- `ir` 看什么、不看什么
+- `values` 看什么、不看什么
+- `values` 的跨处理器模式
+- `cross` 只看跨处理器,不看记忆格
+- `pack` 看什么、不看什么
+- 「未定义变量」要先分五层,再决定改不改
+- 死循环怎么查
+- 病毒逻辑（自我复制）
+- 读整个存档里的逻辑：`mlog.py map`
+- 批量跑语料(并行)
+- 钍反保护:三条事实
+- 语义是谁说的：第二实现交叉验证
+- 独立副本
+- 改完分析器先跑測試
+- 环境要求（分享给别人之前先看这段）
+- 参考数据
+- 关键事实速查
+
+
 ## 这个技能能做什么
 
 | 能力 | 命令 |
@@ -33,6 +70,20 @@ whenToUse: 涉及 Mindustry 蓝图（.msch / 蓝图码）、mlog 逻辑编写或
 
 工具在 `tools/` 下,零第三方依赖(纯标准库)。`python tools/mlog.py --help`。
 
+## 标准流程
+
+```
+写 mlog  →  mlog.py check --cost  →  mlog.py gen  →  游戏内实测  →  结论写回本文件
+              ↑                                                        │
+              └────────────────────────────────────────────────────────┘
+```
+
+**生成蓝图时必须遵守"确定性 + 自验证"**:
+
+- 同一份源码 + 同一组参数 → **完全相同的字节**(不要引入时间戳/随机量)
+- 生成前先跑 `check`
+- 生成后**必须**重新解析验证(工具已内置,失败会拒绝输出)
+
 ## 铁律(生成前逐条自查)
 
 1. **`@dead` 死亡返回 1** —— "死了就重绑"必须写 `equal`,不是 `notEqual`。**这条抓出过真实 bug。**
@@ -53,290 +104,19 @@ whenToUse: 涉及 Mindustry 蓝图（.msch / 蓝图码）、mlog 逻辑编写或
 12. **`end` 之后不要再写语句** —— 它是"跳回程序开头",不是"结束"。写在它后面的都是死代码。
     用 `--cost` 一跑就能看到(会直接列出来)。
 
-## 标准流程
-
-```
-写 mlog  →  mlog.py check --cost  →  mlog.py gen  →  游戏内实测  →  结论写回本文件
-              ↑                                                        │
-              └────────────────────────────────────────────────────────┘
-```
-
-**生成蓝图时必须遵守"确定性 + 自验证"**:
-
-- 同一份源码 + 同一组参数 → **完全相同的字节**(不要引入时间戳/随机量)
-- 生成前先跑 `check`
-- 生成后**必须**重新解析验证(工具已内置,失败会拒绝输出)
-
-## 成本分析(`--cost`)看什么
-
-```
-statements      : 159                     ← 语句数,>1000 会被静默截断
-reachability    : all statements reachable ← 或列出永远跑不到的语句
-opcodes         : op×62, jump×40, ...      ← 指令构成
-loop heads      : L28(×80), L52(×80)       ← 循环起始行 + 推定圈数
-worst-case path : ~2001 instructions       ← 一次完整决策最坏多少条
-    ⚠ over LExecutor.maxInstructions (1000/tick): one cycle needs 2.0 ticks
-    micro-processor  @ipt=2    1000 ticks (  16.7 s) per cycle
-  ⏸ blocking      : 2 wait statement(s), ~240 ticks (4.0 s) blocked per cycle
-      L3: wait -> ~120 ticks
-```
-
-**怎么用这三个数**:
-
-| 看什么 | 说明什么 |
-|---|---|
-| **UNREACHABLE 非空** | 有死代码。多半是 `end` 之后写了东西,或跳转目标写错 |
-| **worst-case > 1000** | 一个决策周期跑不完一 tick,单位响应会有对应延迟 |
-| **@ipt 换算的秒数** | 直接回答"这套逻辑跟得上战况吗" |
-| **⏸ blocking 那行** | `wait` 一条 ipt 都不烧,但周期时间几乎全在这里 |
-
-**注意**:
-
-- 循环圈数靠**守卫里的常量**推定(`jump 37 greaterThanEq index 80`)。看不到常量的循环按一圈算并给出警告
-- 结果是**上界**(互斥分支不剪枝),意思是"最坏能到多少",不是"平时多少"
-- 回到第 0 行的回边 = 主循环,只算**一圈**(mlog 本来就每 tick 重跑一遍)
-- **`wait` 单独算**:参数是**秒**(60 tick = 1 秒),`wait 0` 不阻塞、只是"每 tick 跑一遍";
-  `blocked` 已乘上包含它的循环圈数并加进三种处理器的 tick 数里。参数不是字面量时报 `UNBOUNDED`,不编数字
-- 看到 `>=1001` 这种写法,意思是**循环体自己就把 1000 的预算填满了**,真实总量更大、算不出来;
-  平静的 `~N` 才是量出来的
-
-## 指令预算:别猜,这是确定的
-
-**一条语句 = 一条指令,`jump` 也是 1 条,和 `op` / `print` 没有区别。**
-
-`runOnce()` 里 **`counter` 先自增再执行,不看指令类型**(`LExecutor.java:111-121`):
-
-```java
-instructions[(int)(counter.numval++)].run(this);   // ← 无条件 +1
-```
-
-⇒ **钱花在"循环圈数 × 循环体语句数"上,不花在 `jump` 这个字上。**
-⇒ 用 `jump` 跳过一段确实省下被跳过那些行,但**跳转自己仍然收 1 条**。
-
-**每 tick 的额度**(`LogicBlock.java:564-578`,`ipt = instructionsPerTick`):
-
-| 处理器 | ipt | 每秒 |
-|---|---|---|
-| 微型 micro-processor | **2** | 120 |
-| 逻辑 logic-processor | **8** | 480 |
-| 超级 hyper-processor | **25** | 1500 |
-| 世界 world-processor | **8**(`maxInstructionsPerTick = 1000`) | 480 |
-
-**两条容易漏的**:
-
-- **只有 `wait` / `stop` / `printflush @wait` 会 `yield`**,提前结束这一 tick 的额度;**`jump 0 always` 没有这个机制**,会在一个 tick 内把额度烧光
-- `setrate` 是唯一能改 ipt 的指令,上限是 `maxInstructionsPerTick`(逻辑卡 **40**,比默认 8 大 5 倍);`@ipt` 立即变新值,但**本 tick 的循环边界已经固定**,下个 tick 才生效
-
-**所以改循环之前先跑 `check --cost`。** 算完的秒数就是单位从"看到"到"反应"的延迟。
-
-## 常用调用
-
-```bash
-# 解析:看逻辑源码和结构
-python tools/mlog.py parse "schematics/无线超.msch"
-
-# 检查:生成前必做
-python tools/mlog.py check logic.mlog
-python tools/mlog.py check --msch out.msch
-
-# 成本分析:死代码 + 最坏多少条指令 + 折合几秒
-python tools/mlog.py check logic.mlog --cost
-python tools/mlog.py check --msch out.msch --cost
-
-# 死存储:赋值了但整个程序(含跨周期)从未读取
-python tools/mlog.py ir logic.mlog
-python tools/mlog.py ir --msch out.msch
-python tools/mlog.py ir --all logic.mlog    # 连语法强制的输出槽一起列
-
-# 值域分析:常量分支 + 可证 null
-python tools/mlog.py values logic.mlog
-python tools/mlog.py values --msch blueprints/*.msch
-python tools/mlog.py values logic.mlog --trace r   # 逐次打印 r 的抽象值
-
-# 打包配置:字段布局 + 低位字段能装几个 id(能直接指认容量 bug)
-python tools/mlog.py pack logic.mlog
-python tools/mlog.py pack --msch out.msch
-
-# 生成:只放处理器(链接目标需自己摆)
-python tools/mlog.py gen logic.mlog --name "我的逻辑" --link dome1@3,1
-
-# 生成:连目标方块一起放(--with-block 坐标是【中心格】)
-python tools/mlog.py gen logic.mlog --name "无线超" \
-    --link dome1@3,1 --with-block overdrive-dome@4,2=248 \
-    --out paste.txt --binary out.msch
-
-# 查方块 ID 和尺寸
-python tools/mlog.py id overdrive
-
-# 查指令格式
-python tools/mlog.py cmd ulocate
-
-# 查一条指令到底哪个参数是输出(哪个是枚举、哪个会被读)
-python tools/mlog.py explain ulocate
-python tools/mlog.py explain ulocate ore     # 只看 ore 分支
-python tools/mlog.py explain select
-python tools/mlog.py explain op add
-```
-
-**蓝图码永远由 `mlog.py gen` 产出,不要自己拼 base64。** 手拼过一次,前缀写成 `"bXNjaAF4n" + b64[8:]`(9 字符前缀却只砍 8 个),长度变成 `4k+1`,游戏直接报 `Length of Base64 encoded input string is not a multiple of 4.` —— 文件是好的,坏的是拼字符串那一步。
-
-两条容易误会的细节:
-
-- 前缀**不固定**:游戏自己写 `78 9c`(默认 zlib),`mschgen` 用 `78 da`(最高压缩)⇒ 第 11 个字符会不同(`bXNjaAF4**2**mPg` vs `bXNjaAF4**n**mPg`)。**两种都合法**,只认解码后的 `msch` 魔数。
-- `--with-block` / `--link` 的坐标都是**相对处理器的中心格**,和方块的绝对坐标不是一回事。
-
-## ⚠️ 最容易搞错的一件事:方块坐标是「中心格」
-
-schematic 里 Stile 存的是方块的**中心格**,不是左上角。**已双重验证**:
-
-- 源码:`Tile.setBlock()` 用 `int offset = -(block.size - 1) / 2` 铺开多格方块 → `(x,y)` 是中间那格
-- 实证:624 个真实蓝图里,按"角"解释会产生 **11 处方块重叠**,按"中心"解释 **0 处**
-
-所以一个 3×3 方块,要让它的成品占据 `(3,1)–(5,3)`,**中心要写 `(4,2)`**。
-
-链接的 `name@dx,dy` 也要对到**方块覆盖范围内的任意格**(工具会按 footprint 校验并提示)。
-
-## `ir` 看什么、不看什么
-
-四层分级,默认只打第一层:
-
-| 层 | 含义 | 该不该管 |
-|---|---|---|
-| `reported` | 值被覆盖前没人读(`overwritten`)/ 从没人读但写了不止一次(`stale-write`) | **是 bug,去看** |
-| `slot` | `ulocate`/`ucontrol`/`radar`/`sensor` 的多输出槽没读,且**只写一次** | 语法强制,不是错 |
-| `declaration` | `set x 字面量` 且没人读 | 作者的"声明",忽略 |
-| `annotation` | 变量名是纯标点(`//`) | mlog 没有行尾注释(只有 `#`),作者拿它当注释 |
-
-`stale-write` 是为「强制输出槽写两次」加的一层:写**一次**且没人读,可能只是语法逼你起个名字(`slot`,降级隐藏);但同一个槽**写两次**且从没人读,第一次写可证被丢弃 —— 那是真 bug。实例:`17十七硫幽灵四熔毁四油海啸组.msch` 的 micro-processor @(16,8) 里 `found` 在 `L6` 与 `L61` 各被 `ulocate` 写一次、全程序无读,改动前它被 `slot` 层藏住(`dead-store 0(+3 hidden)`),改动后才报出来。
-
-**校准(全语料 617 文件 / 2409 块,已排除模拟器蓝图)**:80.9% 的处理器**一条都不报**,p50=0、p90=1;均值 0.829/块是被约 20 个代码生成式蓝图拉高的。抽样 28 个站点人工核对,**全部为真**。
-
-**它不能证明你的逻辑是对的**:
-- 不跨处理器(说明:`read`/`write` 可以按**名字**访问另一个处理器的变量(必須提前聲明、寫給未聲明的槽是靜默空操作)。老蓝图库里看不到这种写法,所以对老库「这个变量从未赋值」的判断是可靠的;新库里它是一条合法的"别处赋值"路径 —— 报 A 层之前先确认两份逻辑是不是同一代产物。) —— 别的处理器用 `read x cell1 "名字"` 读它,这里看不见(实测全语料 0 例,但报了 `never-read` 仍要自己确认)
-- 只判"值有没有人用",不判"值算得对不对"(`op add dx dy dx` 想算距离却写加法,`ir` 不报)
-
-## 「未定义变量」要先分五层,再决定改不改
-
-静态检查报「`X` is read here but is never assigned anywhere」时,**先别改**。mlog 圈有一整套只用变量列表承载的写法,靠规范测不出来。926 份蓝图包的实测分布(分层把 A 从 883 条降到 77 条):
-
-| 层 | 含义 | 条数 | 改不改 |
-|---|---|---:|---|
-| **A 真错** | 名字被读的地方,值真的改变行为 | 77 | **要改** |
-| B 恒真守卫 | `jump` 两侧都是常量 ⇒ 分支固定 | 55 | 一般不用 |
-| C 无效参数 | 名字落在指令**读不到**的参数位上 | 944 | 不用 |
-| D 死引用 | 形如链接名,但这块处理器没有这个链接 | 788 | **要改**(静默失效) |
-| E 署名 | 只为出现在编辑器变量列表里 | 5540 | 不用 |
-
-- **E 署名**:编辑器变量列表会显示程序用到的所有变量,写个自己的名字当变量就是署名 —— `print by:NOSB(hghg`、`set Madeby mineqwwe`、`jump 21 equal colour ender`、`control config Carrot 0914 0 0 0`。判 **INFO**。
-- **C 无效参数**:语句长度 > 指令真正读的位数时,多出来的 token 是惰性的。`control` 只有三个有效位(类型/目标/p1,p2–p4 被各方块忽略);`ucontrol` 按 `semantic_uses` 算,`flag`/`payTake` 只有一个语义参数;一元 `op` 的第三位永远丢掉(`op rand g 255 b` 的 `b`)。
-- **D 死引用**:`scatter1` 看着是有效链接,但处理器的链接表里没有它 —— `LExecutor` 的 `validLink(b)` 直接挡掉,`control shootp scatter1` 一发不发,**不报错也不崩溃**。只有 `.msch` 能查(`.mlog` 没有链接表)。
-- **`true`/`false` 是常量,不是普通变量**:`GlobalVars.java:54-55` 用 `putEntry` 注册成 1 / 0,`LAssembler.var()` 先查 `logicVars` 才轮到 `putVar` ⇒ `jump T equal X true` 就是 `X == 1`。**我曾只看 `var()` 就断定它俩是未赋值变量,凭空造出 653 条假警告** —— 判内建要查"注册了什么",不是查"解析函数怎么处理"。
-
-`set // 装载电池组`(变量名纯标点)也在这套习惯里:mlog 只有 `#` 起注释(`LParser.java:98-99`),想让注释在变量列表可见就这么写 —— 归 `annotation` 层或整行跳过。
-
-`noop` 单列一条:**判 ERR**。它是 `LStatements.InvalidStatement`(`LStatements.java:48-59`),`build()` 返回空跑的 `NoopI` —— 游戏把**解析不了的语句**替换成它。所以看到 `noop` 等于「这里原本有一条语句,没了」:最常见的原因是**高版本写的逻辑在低版本打开**,旧解析器不认识的语句被丢掉。这种程序**基本就死了** —— 丢的正是干活的那条,后面的 `jump` 还会照旧指向错位置。(极少数只是空行占位,那是特例;按错误报,让人去看一眼。)
-
-真正要改的 A 层:`op mod n n padNeedCount`(模数 0 ⇒ null)、`ubind u` 而 `u` 从未赋值、`control config unloader1 mmm 0 0 0`、`flase` 拼错落在 `ulocate` 的 enemy 位。
-
-**注意惰性位与内部位的区别**:参数槽**之外**的 token 不读(`op rand g 255 b` 的 `b`、`jump T always x false` 的 `x`);但署名写进参数槽**内部**(`control enabled reactor enable 0 by bicker` 的 `by`/`bicker`)游戏确实会读它们 —— 只是因为 `control` 的 p2–p4 对方块无意义，所以仍然判 C。
-
-## `values` 看什么、不看什么
-
-`mlog.py values` 跑的是**抽象值不动点**:给每个变量在每个位置算一个区间/常量,然后回答两个 token 流回答不了的问题。
-
-```
-resolved branches: 1
-  L3   always taken  jump 5 strictEqual r null    (cond = 1)
-provably null: L3 r is null
-```
-
-| 输出 | 含义 | 该怎么用 |
-|---|---|---|
-| `always taken` / `never taken` | 条件两边都是常量,分支恒定 | 要么写错了,要么是刻意的死分支 —— 去看 |
-| `... is null` | 这条语句执行时该变量必定是 null | `===` 能区分,`==` 不能(见下) |
-| `?` | 不知道(外部输入、`rand`/`noise`) | 正常,别当 bug |
-
-**必须先知道的两条语言事实**:
-
-- **未赋值的变量是数字 `0`,不是 null**(`new LVar` 的 `numval = 0`)。所以 **`equal x null` ⇔ `x.num() == 0`**,对没赋过值的 `x` 恒真;**只有 `strictEqual`(`===`)区分 null 和 0**(`ConditionOp.java:31-40`:两边都是对象才比对象,否则比数字)。看到 `jump ... equal var null`,先怀疑它想写的是 `===`。
-- **NaN / ±Infinity 会被静默转成 null**(`LVar.setnum` 的 `invalid()` 检查)。这正是按位剥离循环能退出的原因:`op logn x 2` 在 `x=0` 时得 `-Infinity` → null → `=== null` 成立。
-
-**校准(全语料 2396 块,排除模拟器,39 ms/块)**:4.1% 的块有信号,平均 0.120 条分支 / 0.060 条可证 null;未收敛 0。抽样人工核对,结论都为真。
-
-**它不能证明什么**:
-- 外部输入一律 `⊤` —— `sensor`/`getlink`/`ulocate` 拿到的值都算"不知道",所以**只对纯计算链有效**
-- 同一变量连改 3 轮就丢精度到 `⊤`(widen),深循环里会变回 `?`
-- 不跨处理器,也不判"值算得对不对"(那是人的事)
-
-## `pack` 看什么、不看什么
-
-`mlog.py pack` 认的是**把多个字段塞进一个数字**的惯用法(`data = status*1e8 + outputID*1e6 + inputMask`),然后算**低位字段能装多少个 id**。
-
-```
-    `data`  (first seen L2)
-      1e8  ->  status   (= data / 1e8)   at L2
-      1e6  ->  outputID (= data / 1e6)   at L3
-      1e6  ->  mask     (= data % 1e6)   at L4
-      low field `1e6` holds 0..999999  =>  20 usable bit positions (ids 0..19)
-      !! 22 items exist but only 20 fit: ids 20..21 overflow into the next field
-         (raise the separator, e.g. 1e6 -> 1e7)
-      note: `outputID` also contains 100x `status`; a correct decode must first
-            assert `status == 0`
-```
-
-| 输出 | 含义 |
-|---|---|
-| `1e8 -> status` | 这一层剥出来的是 `status` |
-| `N usable bit positions` | 低位字段能表示 `0..10^N-1`,`(10**N-1).bit_length()` 就是能装几个 id |
-| `!! ... only 20 fit` | **真 bug**:原版有 22 个物品,`fissile-matter`(20)与 `dormant-cyst`(21)放不下 |
-| `note: ... must first assert X == 0` | `op idiv` 不掩高位,`idiv` 出来的值里还含着更高位 ⇒ 必须先断言高位为 0 |
-| `ok: ... subtract-mask` | 先 `op mul hi 1eN` 再 `op sub` 减掉高位 —— **解码正确,不报警** |
-
-**它是全套工具里唯一能直接给出"这段代码有 bug"结论的地方**,代价是出现率极低:**全语料 2420 块里只有 3 块(0.1%)** 用这个惯用法。所以它**不是 linter**:拿它扫整个语料几乎什么都看不到,但一旦命中,给出的是具体容量数字,不是"这里可能有问题"。
-
-**边界**:只认 `op idiv|mod <dst> <src> 10**exp`,且同一个 `src` 上要**至少两个不同指数**才算一个 pack site;不重建表达式;`10^3` 以下不算分隔;掩码检测是全程序文本匹配(不做数据流),别处同形的 `mul`+`sub` 可能让真漏判静默通过。
-
-## 独立副本
-
-同一套工具已经打包成独立的 mlog-agentskill 技能（.dsh/skills/mlog-agentskill/），目录自带全部模块与数据，可整体拷走。一审一整套分析用 mlogagent.py report <file>；改完模块后用 python tools/sync_mlogagent.py 刷新那份副本（--check 只比对）。
-
-### `cross` 只看跨处理器,不看记忆格
-
-`read`/`write` 有两种完全不同的用法,别混:
-
-- `read x cell1 "slot"` —— **记忆格**,引号里是**地址变量名**。极常见(我的库 82 份里有它)。
-- `read x processor1 "name"` —— **另一个处理器的变量**,引号里是那个处理器里的**变量名**。
-  少见:我的库 625 份只有 **9 份**真的指向处理器,彩末包 926 份只有 13 份。
-
-可读的那个槽就是**目标自己的变量**(所以 `set` 就够,`write` 不是必须的),这也是
-「必须先在那边声明」的原因。`cross` 把 join(目标自己的所有赋值, 所有外部 `write`)
-算出来,分四类报:`never assigned` / `always null` / `constant` / `written, never read`。
-
-自链接(`processor1` 偏移 0,0)是合法写法,读的是自己的变量。
-
-**版本**:按名字读写另一个处理器 / message 方块是 **v7(build 146)** 才有的;v6 的 `read`
-只能拿数字下标访问记忆格 ⇒ 一份用它读写处理器的蓝图跑不到 v6 上(`cross` 会带一行
-`note : ... v7 (build 146) feature` 提示)。
-
-**报告基线是 build 146**（v7.0 首个正式版）：基线里就有的语句不报，只有更新的才报。判据是 `floor > 146`，不是 `>= 147`。
-
-### 改完分析器先跑測試
-
-```bash
-python tests/run_tests.py          # 12 條 golden digest，任何結論變化都會失敗
-python tests/run_tests.py -v       # 逐條列出
-python tests/run_tests.py --write  # 改了就有意識地改期望值——然後讀 diff
-```
-
-digest 是**去措辭的結論**（`(severity, line)` 對、語句數、分支判定、容量位數…），
-所以文案可以隨便改，結論一變就紅。`mlog.py selftest` 只證明解析器不丟東西
-（429/429 round-trip），這五個分析器的正確性靠這套兜住。
-
-### `values` 的跨处理器模式
-
-只有 `--msch` 会给它跨处理器的知识：先跑一遍 `cross` 拿到每个槽的值，再带着这张表重跑（**只迭代一次**，不做不动点）。单个 `.mlog` 没有同伴，`read` 仍是 ⊤。蓝图不完整时（对方处理器没一起存）报 null 可能只是没存下来。
-
-| **语料里的写法** —— 命名/形状/周期成本 | `mlog.py style <关键词...>` |
+## 交付逻辑前的自检清单（一条都别跳）
+
+写完之后按顺序过一遍，全部有答案才能交：
+
+1. **先问过提问者**——数量、阈值、失败策略（超限怎么办：停机/降级/报警）、依赖哪些方块、要求的周期。没问就问，别自己定。阈值是最容易"我以为是"的地方：钍反防爆要的 0.5 我只知道是爆炸线，工作点 0.30 是我的判断，必须说明。
+2. **`check`**：`0 error / 0 warn`。有 `no-target-jump`、`version drift`、`noop` 之类必须先解释。
+3. **`ir`**：无 `reported` 死存储；不可达代码要能说出"为什么留着"。
+4. **`cost`**：`worst-case path` 与每圈 tick 对上需求里的周期；把 `wait` 的 `⏸ blocking` 一起看（它一条 ipt 都不烧，但周期时间常常全在这里）。
+5. **`values`**：没有意外的恒真/恒假分支和可证 null（尤其是 `equal X null`——未赋值变量是 0，只有 `===` 区分 null 与 0）。
+6. **跨处理器**（用了 `read`/`write` 别的处理器时）：`cross` 报 `0 never-assigned`；槽名必须在对方先声明，且拼写一致。
+7. **点名与署名**：变量命名跟 `style` 里看到的语料风格一致；署名用 `print`/`set` 的未赋值名字（会在编辑器变量列表里显示），不要写成参数槽里没人读的垃圾位。
+8. **假设写清**：模拟器不支持 `ubind`/`ucontrol`/世界处理器/`draw`/`control`，所以超出静态分析的部分（时序、竞态、真实单位行为）是推理不是验证。交付时明说哪些是"读起来没错"。
+9. **蓝图用 `mlog.py gen` 产出**，不要手拼 base64；生成后 `ir`/`check` 再跑一遍确认逻辑没被截断。
 
 ## 写逻辑之前：先查这四样
 
@@ -393,6 +173,47 @@ python mlog.py sensor --on unit      # 只有能从单位读的（37 条）
 查不到确切入场版本，**留空而不猜** —— 没有出处就不写数字，是这个文件唯一的规矩。
 注意 `custom` 只回答“可能收”，**“现在收不收”要看运行时状态**（sorter 的配置、router 是否空、焚化炉是否通电）。
 
+## 单位表里有什么、没有什么
+
+`mlog.py unit <名字>` 名称精确匹配优先（`unit oct` 不会再被 `spiroct` 挤掉），单条命中时多打三行：
+
+| 字段 | 从哪来 | 写逻辑时怎么用 |
+|---|---|---|
+| `speed` / `health` / `armor` / `hitSize` | `UnitTypes.java` 里显式赋的值 | 算拦截时间、算能不能扛一轮 |
+| `weapons[].damage/speed/lifetime/pierce/shots` | `new Weapon(...)` 块里的 `bullet = new XBulletType(...)` 及其 `{{ }}` | 估 DPS；`lifetime × speed` 决定射程上限 |
+| `abilities[]` | `abilities.add(new XxxAbility(args))` | 这个单位会不会自己修、自己开盾、刷小怪 |
+| `immune_to` | `immunities(StatusEffects...)` | **原版 39 个单位一条都没声明** —— 表里没写就是没声明，别猜 |
+
+**三个读法上的坑**：
+- `abilities.args` 是**源码原文**，会有 `60f * 8` 这种算式。别当数字读，它表达的是「8 秒」。
+- 表里**没有**的字段 = 源码没写 = 引擎默认值（见 JSON 的 `defaults`），不是「零」。
+- `itemCapacity (default -1)` 表示这个单位不能拿东西，不是容量为 1。
+
+## 方块表里有什么、没有什么
+
+`block_attrs.json` 由 `tools/blocks_from_source.py` 从 `Blocks.java` 抽，253 个方块有行为记录。
+
+```bash
+python mlog.py block cryofluid-mixer     # 一个方块的完整画像
+python mlog.py block --accepts coal      # 谁吃煤（按 recipe / ammo / any / custom 分组）
+```
+
+一个方块能查到：
+
+| 字段 | 例子 | 说明 |
+|---|---|---|
+| `build` | `lead:65 + silicon:40 + titanium:60  (crafting)` | 建造配方 + 分类；多次 `requirements()` 会合并成廉价层/升级层 |
+| `liquids` | `water:12/s -> cryofluid:12/s` | 输入液体 → 输出液体，**已折成每秒** |
+| `inputs` | `coal:1 + sand:2 -> silicon:1  craftTime 40` | 配方输入（每 craftTime 一次） |
+| `booster` | `silicon:1  (optional; speeds the block up)` | 可选加速物，**不给也能跑** |
+| `coolant` | `water` | 冷却液（不进配方，影响效率） |
+| `accepts` | `any` / `only ...` / `ammo ...` / `nothing` | 物流能不能塞进去 |
+
+三个读法坑：
+
+1. **`build` 不是配方。** `build` 那行是「造这个方块要什么」，`inputs` 才是「它生产时吃什么」。写产线时两个都要看。
+2. **液体量是每秒**（源码写的是每 tick，`_rate()` 折过）。折不了的带布尔重载原样显示源码算式。
+3. **「烧整类物品」没有清单。** `rtg-generator` 显示 `burns radioactive items (no fixed item list)` —— 引擎按类别判，别去查它到底吃哪几种。
 
 ## 写逻辑之前：先看语料里的同类是怎么写的
 
@@ -436,6 +257,51 @@ mlog 里没有"按下标取内容物"的原语 —— `@copper` 是常量对象,
 
 反面条件(这时别枚举):物品超过 20 种、列表要让别人在游戏里自己配、每项还要顺带做别的事。
 
+## 指令预算:别猜,这是确定的
+
+**一条语句 = 一条指令,`jump` 也是 1 条,和 `op` / `print` 没有区别。**
+
+`runOnce()` 里 **`counter` 先自增再执行,不看指令类型**(`LExecutor.java:111-121`):
+
+```java
+instructions[(int)(counter.numval++)].run(this);   // ← 无条件 +1
+```
+
+⇒ **钱花在"循环圈数 × 循环体语句数"上,不花在 `jump` 这个字上。**
+⇒ 用 `jump` 跳过一段确实省下被跳过那些行,但**跳转自己仍然收 1 条**。
+
+**每 tick 的额度**(`LogicBlock.java:564-578`,`ipt = instructionsPerTick`):
+
+| 处理器 | ipt | 每秒 |
+|---|---|---|
+| 微型 micro-processor | **2** | 120 |
+| 逻辑 logic-processor | **8** | 480 |
+| 超级 hyper-processor | **25** | 1500 |
+| 世界 world-processor | **8**(`maxInstructionsPerTick = 1000`) | 480 |
+
+**两条容易漏的**:
+
+- **只有 `wait` / `stop` / `printflush @wait` 会 `yield`**,提前结束这一 tick 的额度;**`jump 0 always` 没有这个机制**,会在一个 tick 内把额度烧光
+- `setrate` 是唯一能改 ipt 的指令,上限是 `maxInstructionsPerTick`(逻辑卡 **40**,比默认 8 大 5 倍);`@ipt` 立即变新值,但**本 tick 的循环边界已经固定**,下个 tick 才生效
+
+**所以改循环之前先跑 `check --cost`。** 算完的秒数就是单位从"看到"到"反应"的延迟。
+
+## ⚠️ 最容易搞错的一件事:方块坐标是「中心格」
+
+schematic 里 Stile 存的是方块的**中心格**,不是左上角。**已双重验证**:
+
+- 源码:`Tile.setBlock()` 用 `int offset = -(block.size - 1) / 2` 铺开多格方块 → `(x,y)` 是中间那格
+- 实证:624 个真实蓝图里,按"角"解释会产生 **11 处方块重叠**,按"中心"解释 **0 处**
+
+所以一个 3×3 方块,要让它的成品占据 `(3,1)–(5,3)`,**中心要写 `(4,2)`**。
+
+链接的 `name@dx,dy` 也要对到**方块覆盖范围内的任意格**(工具会按 footprint 校验并提示)。
+
+## 生成蓝图时的作者标签
+
+本仓库用 `mschgen` 生成的蓝图,`labels` 一律写 `["[blue]DeepSeek"]`
+(用户标签体系里的"作品来源"类),描述末尾带 `逻辑 by [#8abcd1]DeepSeek[]`。
+
 ## 自动打标签
 
 蓝图标签(颜色=维度、私有区图标=值身份)是手打的,但**其中 24 个值可以从内容推出来**,
@@ -450,10 +316,328 @@ python tools/label_auto.py --apply F.msch --out DIR   # 写回副本,不动原�
 `数量` / `品质` / `系列` / `无线` / `火控` 这类量不出精确率的值不会出现在建议里 ——
 它们要么是主观判断,要么同一份蓝图三种都沾。写回只重写 tags 段,其余字节原样搬运。
 
-## 生成蓝图时的作者标签
+## 常用调用
 
-本仓库用 `mschgen` 生成的蓝图,`labels` 一律写 `["[blue]DeepSeek"]`
-(用户标签体系里的"作品来源"类),描述末尾带 `逻辑 by [#8abcd1]DeepSeek[]`。
+> 全部子命令的一行说明见 `.dsh/skills/mlog-agentskill/SKILL.md` 的「工具索引」。
+
+```bash
+### 解析:看逻辑源码和结构
+python tools/mlog.py parse "schematics/无线超.msch"
+
+### 检查:生成前必做
+python tools/mlog.py check logic.mlog
+python tools/mlog.py check --msch out.msch
+
+### 成本分析:死代码 + 最坏多少条指令 + 折合几秒
+python tools/mlog.py check logic.mlog --cost
+python tools/mlog.py check --msch out.msch --cost
+
+### 死存储:赋值了但整个程序(含跨周期)从未读取
+python tools/mlog.py ir logic.mlog
+python tools/mlog.py ir --msch out.msch
+python tools/mlog.py ir --all logic.mlog    # 连语法强制的输出槽一起列
+
+### 值域分析:常量分支 + 可证 null
+python tools/mlog.py values logic.mlog
+python tools/mlog.py values --msch blueprints/*.msch
+python tools/mlog.py values logic.mlog --trace r   # 逐次打印 r 的抽象值
+
+### 打包配置:字段布局 + 低位字段能装几个 id(能直接指认容量 bug)
+python tools/mlog.py pack logic.mlog
+python tools/mlog.py pack --msch out.msch
+
+### 生成:只放处理器(链接目标需自己摆)
+python tools/mlog.py gen logic.mlog --name "我的逻辑" --link dome1@3,1
+
+### 生成:连目标方块一起放(--with-block 坐标是【中心格】)
+python tools/mlog.py gen logic.mlog --name "无线超" \
+    --link dome1@3,1 --with-block overdrive-dome@4,2=248 \
+    --out paste.txt --binary out.msch
+
+### 查方块 ID 和尺寸
+python tools/mlog.py id overdrive
+
+### 查指令格式
+python tools/mlog.py cmd ulocate
+
+### 查一条指令到底哪个参数是输出(哪个是枚举、哪个会被读)
+python tools/mlog.py explain ulocate
+python tools/mlog.py explain ulocate ore     # 只看 ore 分支
+python tools/mlog.py explain select
+python tools/mlog.py explain op add
+```
+
+**蓝图码永远由 `mlog.py gen` 产出,不要自己拼 base64。** 手拼过一次,前缀写成 `"bXNjaAF4n" + b64[8:]`(9 字符前缀却只砍 8 个),长度变成 `4k+1`,游戏直接报 `Length of Base64 encoded input string is not a multiple of 4.` —— 文件是好的,坏的是拼字符串那一步。
+
+两条容易误会的细节:
+
+- 前缀**不固定**:游戏自己写 `78 9c`(默认 zlib),`mschgen` 用 `78 da`(最高压缩)⇒ 第 11 个字符会不同(`bXNjaAF4**2**mPg` vs `bXNjaAF4**n**mPg`)。**两种都合法**,只认解码后的 `msch` 魔数。
+- `--with-block` / `--link` 的坐标都是**相对处理器的中心格**,和方块的绝对坐标不是一回事。
+
+## 成本分析(`--cost`)看什么
+
+```
+statements      : 159                     ← 语句数,>1000 会被静默截断
+reachability    : all statements reachable ← 或列出永远跑不到的语句
+opcodes         : op×62, jump×40, ...      ← 指令构成
+loop heads      : L28(×80), L52(×80)       ← 循环起始行 + 推定圈数
+worst-case path : ~2001 instructions       ← 一次完整决策最坏多少条
+    ⚠ over LExecutor.maxInstructions (1000/tick): one cycle needs 2.0 ticks
+    micro-processor  @ipt=2    1000 ticks (  16.7 s) per cycle
+  ⏸ blocking      : 2 wait statement(s), ~240 ticks (4.0 s) blocked per cycle
+      L3: wait -> ~120 ticks
+```
+
+**怎么用这三个数**:
+
+| 看什么 | 说明什么 |
+|---|---|
+| **UNREACHABLE 非空** | 有死代码。多半是 `end` 之后写了东西,或跳转目标写错 |
+| **worst-case > 1000** | 一个决策周期跑不完一 tick,单位响应会有对应延迟 |
+| **@ipt 换算的秒数** | 直接回答"这套逻辑跟得上战况吗" |
+| **⏸ blocking 那行** | `wait` 一条 ipt 都不烧,但周期时间几乎全在这里 |
+
+**注意**:
+
+- 循环圈数靠**守卫里的常量**推定(`jump 37 greaterThanEq index 80`)。看不到常量的循环按一圈算并给出警告
+- 结果是**上界**(互斥分支不剪枝),意思是"最坏能到多少",不是"平时多少"
+- 回到第 0 行的回边 = 主循环,只算**一圈**(mlog 本来就每 tick 重跑一遍)
+- **`wait` 单独算**:参数是**秒**(60 tick = 1 秒),`wait 0` 不阻塞、只是"每 tick 跑一遍";
+  `blocked` 已乘上包含它的循环圈数并加进三种处理器的 tick 数里。参数不是字面量时报 `UNBOUNDED`,不编数字
+- 看到 `>=1001` 这种写法,意思是**循环体自己就把 1000 的预算填满了**,真实总量更大、算不出来;
+  平静的 `~N` 才是量出来的
+
+## `ir` 看什么、不看什么
+
+四层分级,默认只打第一层:
+
+| 层 | 含义 | 该不该管 |
+|---|---|---|
+| `reported` | 值被覆盖前没人读(`overwritten`)/ 从没人读但写了不止一次(`stale-write`) | **是 bug,去看** |
+| `slot` | `ulocate`/`ucontrol`/`radar`/`sensor` 的多输出槽没读,且**只写一次** | 语法强制,不是错 |
+| `declaration` | `set x 字面量` 且没人读 | 作者的"声明",忽略 |
+| `annotation` | 变量名是纯标点(`//`) | mlog 没有行尾注释(只有 `#`),作者拿它当注释 |
+
+`stale-write` 是为「强制输出槽写两次」加的一层:写**一次**且没人读,可能只是语法逼你起个名字(`slot`,降级隐藏);但同一个槽**写两次**且从没人读,第一次写可证被丢弃 —— 那是真 bug。实例:`17十七硫幽灵四熔毁四油海啸组.msch` 的 micro-processor @(16,8) 里 `found` 在 `L6` 与 `L61` 各被 `ulocate` 写一次、全程序无读,改动前它被 `slot` 层藏住(`dead-store 0(+3 hidden)`),改动后才报出来。
+
+**校准(全语料 617 文件 / 2409 块,已排除模拟器蓝图)**:80.9% 的处理器**一条都不报**,p50=0、p90=1;均值 0.829/块是被约 20 个代码生成式蓝图拉高的。抽样 28 个站点人工核对,**全部为真**。
+
+**它不能证明你的逻辑是对的**:
+- 不跨处理器(说明:`read`/`write` 可以按**名字**访问另一个处理器的变量(必須提前聲明、寫給未聲明的槽是靜默空操作)。老蓝图库里看不到这种写法,所以对老库「这个变量从未赋值」的判断是可靠的;新库里它是一条合法的"别处赋值"路径 —— 报 A 层之前先确认两份逻辑是不是同一代产物。) —— 别的处理器用 `read x cell1 "名字"` 读它,这里看不见(实测全语料 0 例,但报了 `never-read` 仍要自己确认)
+- 只判"值有没有人用",不判"值算得对不对"(`op add dx dy dx` 想算距离却写加法,`ir` 不报)
+
+## `values` 看什么、不看什么
+
+`mlog.py values` 跑的是**抽象值不动点**:给每个变量在每个位置算一个区间/常量,然后回答两个 token 流回答不了的问题。
+
+```
+resolved branches: 1
+  L3   always taken  jump 5 strictEqual r null    (cond = 1)
+provably null: L3 r is null
+```
+
+| 输出 | 含义 | 该怎么用 |
+|---|---|---|
+| `always taken` / `never taken` | 条件两边都是常量,分支恒定 | 要么写错了,要么是刻意的死分支 —— 去看 |
+| `... is null` | 这条语句执行时该变量必定是 null | `===` 能区分,`==` 不能(见下) |
+| `?` | 不知道(外部输入、`rand`/`noise`) | 正常,别当 bug |
+
+**必须先知道的两条语言事实**:
+
+- **未赋值的变量是数字 `0`,不是 null**(`new LVar` 的 `numval = 0`)。所以 **`equal x null` ⇔ `x.num() == 0`**,对没赋过值的 `x` 恒真;**只有 `strictEqual`(`===`)区分 null 和 0**(`ConditionOp.java:31-40`:两边都是对象才比对象,否则比数字)。看到 `jump ... equal var null`,先怀疑它想写的是 `===`。
+- **NaN / ±Infinity 会被静默转成 null**(`LVar.setnum` 的 `invalid()` 检查)。这正是按位剥离循环能退出的原因:`op logn x 2` 在 `x=0` 时得 `-Infinity` → null → `=== null` 成立。
+
+**校准(全语料 2396 块,排除模拟器,39 ms/块)**:4.1% 的块有信号,平均 0.120 条分支 / 0.060 条可证 null;未收敛 0。抽样人工核对,结论都为真。
+
+**它不能证明什么**:
+- 外部输入一律 `⊤` —— `sensor`/`getlink`/`ulocate` 拿到的值都算"不知道",所以**只对纯计算链有效**
+- 同一变量连改 3 轮就丢精度到 `⊤`(widen),深循环里会变回 `?`
+- 不跨处理器,也不判"值算得对不对"(那是人的事)
+
+## `values` 的跨处理器模式
+
+只有 `--msch` 会给它跨处理器的知识：先跑一遍 `cross` 拿到每个槽的值，再带着这张表重跑（**只迭代一次**，不做不动点）。单个 `.mlog` 没有同伴，`read` 仍是 ⊤。蓝图不完整时（对方处理器没一起存）报 null 可能只是没存下来。
+
+| **语料里的写法** —— 命名/形状/周期成本 | `mlog.py style <关键词...>` |
+
+## `cross` 只看跨处理器,不看记忆格
+
+`read`/`write` 有两种完全不同的用法,别混:
+
+- `read x cell1 "slot"` —— **记忆格**,引号里是**地址变量名**。极常见(我的库 82 份里有它)。
+- `read x processor1 "name"` —— **另一个处理器的变量**,引号里是那个处理器里的**变量名**。
+  少见:我的库 625 份只有 **9 份**真的指向处理器,彩末包 926 份只有 13 份。
+
+可读的那个槽就是**目标自己的变量**(所以 `set` 就够,`write` 不是必须的),这也是
+「必须先在那边声明」的原因。`cross` 把 join(目标自己的所有赋值, 所有外部 `write`)
+算出来,分四类报:`never assigned` / `always null` / `constant` / `written, never read`。
+
+自链接(`processor1` 偏移 0,0)是合法写法,读的是自己的变量。
+
+**版本**:按名字读写另一个处理器 / message 方块是 **v7(build 146)** 才有的;v6 的 `read`
+只能拿数字下标访问记忆格 ⇒ 一份用它读写处理器的蓝图跑不到 v6 上(`cross` 会带一行
+`note : ... v7 (build 146) feature` 提示)。
+
+**报告基线是 build 146**（v7.0 首个正式版）：基线里就有的语句不报，只有更新的才报。判据是 `floor > 146`，不是 `>= 147`。
+
+## `pack` 看什么、不看什么
+
+`mlog.py pack` 认的是**把多个字段塞进一个数字**的惯用法(`data = status*1e8 + outputID*1e6 + inputMask`),然后算**低位字段能装多少个 id**。
+
+```
+    `data`  (first seen L2)
+      1e8  ->  status   (= data / 1e8)   at L2
+      1e6  ->  outputID (= data / 1e6)   at L3
+      1e6  ->  mask     (= data % 1e6)   at L4
+      low field `1e6` holds 0..999999  =>  20 usable bit positions (ids 0..19)
+      !! 22 items exist but only 20 fit: ids 20..21 overflow into the next field
+         (raise the separator, e.g. 1e6 -> 1e7)
+      note: `outputID` also contains 100x `status`; a correct decode must first
+            assert `status == 0`
+```
+
+| 输出 | 含义 |
+|---|---|
+| `1e8 -> status` | 这一层剥出来的是 `status` |
+| `N usable bit positions` | 低位字段能表示 `0..10^N-1`,`(10**N-1).bit_length()` 就是能装几个 id |
+| `!! ... only 20 fit` | **真 bug**:原版有 22 个物品,`fissile-matter`(20)与 `dormant-cyst`(21)放不下 |
+| `note: ... must first assert X == 0` | `op idiv` 不掩高位,`idiv` 出来的值里还含着更高位 ⇒ 必须先断言高位为 0 |
+| `ok: ... subtract-mask` | 先 `op mul hi 1eN` 再 `op sub` 减掉高位 —— **解码正确,不报警** |
+
+**它是全套工具里唯一能直接给出"这段代码有 bug"结论的地方**,代价是出现率极低:**全语料 2420 块里只有 3 块(0.1%)** 用这个惯用法。所以它**不是 linter**:拿它扫整个语料几乎什么都看不到,但一旦命中,给出的是具体容量数字,不是"这里可能有问题"。
+
+**边界**:只认 `op idiv|mod <dst> <src> 10**exp`,且同一个 `src` 上要**至少两个不同指数**才算一个 pack site;不重建表达式;`10^3` 以下不算分隔;掩码检测是全程序文本匹配(不做数据流),别处同形的 `mul`+`sub` 可能让真漏判静默通过。
+
+## 「未定义变量」要先分五层,再决定改不改
+
+静态检查报「`X` is read here but is never assigned anywhere」时,**先别改**。mlog 圈有一整套只用变量列表承载的写法,靠规范测不出来。926 份蓝图包的实测分布(分层把 A 从 883 条降到 77 条):
+
+| 层 | 含义 | 条数 | 改不改 |
+|---|---|---:|---|
+| **A 真错** | 名字被读的地方,值真的改变行为 | 77 | **要改** |
+| B 恒真守卫 | `jump` 两侧都是常量 ⇒ 分支固定 | 55 | 一般不用 |
+| C 无效参数 | 名字落在指令**读不到**的参数位上 | 944 | 不用 |
+| D 死引用 | 形如链接名,但这块处理器没有这个链接 | 788 | **要改**(静默失效) |
+| E 署名 | 只为出现在编辑器变量列表里 | 5540 | 不用 |
+
+- **E 署名**:编辑器变量列表会显示程序用到的所有变量,写个自己的名字当变量就是署名 —— `print by:NOSB(hghg`、`set Madeby mineqwwe`、`jump 21 equal colour ender`、`control config Carrot 0914 0 0 0`。判 **INFO**。
+- **C 无效参数**:语句长度 > 指令真正读的位数时,多出来的 token 是惰性的。`control` 只有三个有效位(类型/目标/p1,p2–p4 被各方块忽略);`ucontrol` 按 `semantic_uses` 算,`flag`/`payTake` 只有一个语义参数;一元 `op` 的第三位永远丢掉(`op rand g 255 b` 的 `b`)。
+- **D 死引用**:`scatter1` 看着是有效链接,但处理器的链接表里没有它 —— `LExecutor` 的 `validLink(b)` 直接挡掉,`control shootp scatter1` 一发不发,**不报错也不崩溃**。只有 `.msch` 能查(`.mlog` 没有链接表)。
+- **`true`/`false` 是常量,不是普通变量**:`GlobalVars.java:54-55` 用 `putEntry` 注册成 1 / 0,`LAssembler.var()` 先查 `logicVars` 才轮到 `putVar` ⇒ `jump T equal X true` 就是 `X == 1`。**我曾只看 `var()` 就断定它俩是未赋值变量,凭空造出 653 条假警告** —— 判内建要查"注册了什么",不是查"解析函数怎么处理"。
+
+`set // 装载电池组`(变量名纯标点)也在这套习惯里:mlog 只有 `#` 起注释(`LParser.java:98-99`),想让注释在变量列表可见就这么写 —— 归 `annotation` 层或整行跳过。
+
+`noop` 单列一条:**判 ERR**。它是 `LStatements.InvalidStatement`(`LStatements.java:48-59`),`build()` 返回空跑的 `NoopI` —— 游戏把**解析不了的语句**替换成它。所以看到 `noop` 等于「这里原本有一条语句,没了」:最常见的原因是**高版本写的逻辑在低版本打开**,旧解析器不认识的语句被丢掉。这种程序**基本就死了** —— 丢的正是干活的那条,后面的 `jump` 还会照旧指向错位置。(极少数只是空行占位,那是特例;按错误报,让人去看一眼。)
+
+真正要改的 A 层:`op mod n n padNeedCount`(模数 0 ⇒ null)、`ubind u` 而 `u` 从未赋值、`control config unloader1 mmm 0 0 0`、`flase` 拼错落在 `ulocate` 的 enemy 位。
+
+**注意惰性位与内部位的区别**:参数槽**之外**的 token 不读(`op rand g 255 b` 的 `b`、`jump T always x false` 的 `x`);但署名写进参数槽**内部**(`control enabled reactor enable 0 by bicker` 的 `by`/`bicker`)游戏确实会读它们 —— 只是因为 `control` 的 p2–p4 对方块无意义，所以仍然判 C。
+
+## 死循环怎么查
+
+`check` 只报能证明的那种:回边永远成立、而且环内没有任何语句能让它变假。
+
+- **`@this` 守卫**:`@this` 只能被 `ubind` 认领(`LExecutor.java:325`/`:329`,全树仅此两处写 `controller`)。于是
+  `jump loop strictEqual ctrl @this` + 体内 `ubind @flare` ⇒ 第一遍就恒真 ⇒ **ERR,其后全是死代码**;
+  `jump loop notEqual ctrl @this` + 同一句 `ubind` ⇒ 第一遍就恒假 ⇒ 循环一遍就结束,这是标准写法,**不报**。
+- **等外部状态的自旋**(`jump loop equal on 0`,`on` 来自 `read cell1`)不报:真实语料每块 0.33 条,报了只会淹没结论。
+- 模拟也替代不了:复现上一条要先构造"单位已被本处理器认领"的场面,喂不到场景时模拟器会说一切正常。
+
+## 病毒逻辑（自我复制）
+
+```powershell
+python mlog.py check someone.msch --msch      # 命中会打 [INFO] virus-logic
+```
+
+判据只有一行：`ucontrol build <x> <y> <块> <朝向> @this` —— 最后一个参数是新方块的 config，
+传 `@this` 就是「造一个跑我这份程序的方块」，于是它复制自己、复制出的再复制。圈内叫
+**病毒逻辑**。`@this` 经变量中转（`set cfg @this`）也算。
+
+实测：1,421 个存档里 9,151 个处理器是病毒，但**只来自 2 份不同的程序**（`556.msav` 6,616 份
+副本、`538.msav` 1,432 份）。看到一张图里几千个处理器，先怀疑这个，别急着叫它"逻辑计算机"。
+
+## 读整个存档里的逻辑：`mlog.py map`
+
+```bash
+python tools/mlog.py map "C:/Users/<you>/AppData/Roaming/Mindustry/saves/430.msav"
+python tools/mlog.py map <save.msav> --verbose --show 0   # 连干净的一起列，只报汇总
+python tools/mlog.py map <save.msav> --code 3            # 每块再打前 3 行源码
+```
+
+支持 build 146 之后的三种瓦片布局（存档版本 7–9 shortchunk、10–13 现代）；
+版本 6 及更早的老存档不支持，会明确说 `legacy layout`。
+
+- 每个处理器一行：坐标、方块类型、语句数、链接数，以及 `check` 的结论。
+- 链接名来自存档里的链路表，所以「这个链接不存在」这类警告在整图上下文里同样可靠。
+- 大存档会很慢（`235.msav` 613 个处理器、56 万条语句）：先 `--show 0` 看汇总。
+
+### 全量体检（1421 个存档）
+
+`mlog.py map` 一次读一个文件。要看**所有**存档，先按源码哈希去重再跑静态检查
+（`tools/_sweep_analyse.py`）：1421 个存档、103,787 个处理器，去重后只有
+**4,366 份不同的程序**（95.8% 是同一段代码的副本）——所以报告里所有比率的分母
+都是「不同的程序」，不是「处理器」。
+
+### 存档里的程序没有名字
+
+`mlog` 没有名字字段（只有蓝图有 `name`/`description`）；存档里唯一的名字是地图名。判用途靠三个信号：
+**链接名**（默认是方块名+序号）、**指令直方图**（`draw`=显示 / `ubind`=单位 / `control config`=物流 / `setrule`=世界规则）、
+**代码里的字符串**（`print` 出去给人看的那一两段字）。按这三样分桶的现成结果在 `out/saves_programs.md`。
+
+## 批量跑语料(并行)
+
+```powershell
+python tools\_sweep_saves.py              # 1,421 个存档：34 秒
+python tools\_sweep_analyse.py            # 加六种分析：127 秒
+python mindustry-blueprint\tools\parallel.py --items 1421   # 先看它会开几个 worker、为什么
+```
+
+`parallel.py` 自己算 worker 数：核数、可用内存、**最大文件**三个上限取最小。重文件
+（≥1 MB）单独一段、用更少的 worker —— 一个 4.5 MB 的存档里有 6,600 个处理器，按平均值
+分 worker 会让几个这样的文件同时把内存吃干。想调就 `--workers N` 或 `--serial`。
+
+## 钍反保护:三条事实
+
+| 事实 | 数字 | 出处 |
+|---|---|---|
+| 有冷却液时 `@heat` 恒为 0 | 一 tick 清零,稳态 1.2 液/秒 | `NuclearReactor.java:95-125` |
+| `control enabled 0` 不是灭火 | 停了还要 1200 tick(20 s)才从 0.999 降到 0 | 同上,ambient 冷却 |
+| 满料 100 tick 爆炸 | 发热 0.01/tick,`@heat >= 0.999` 即 `kill()` | 同上 |
+| 链接名不能证明类型 | `reactor1` 可能是钍反或冲反,而 `@heat` 在两台上是相反的意思;要 `sensor x reactor1 @type` 证明类型才敢报 WARN,否则只报 INFO 提问 | 2026-10-18 用户实测纠正 |
+| 冲反的 `@heat` 是 warmup | 出力 = `warmup^5`:卡在 0.5 只有 3.1%、0.9 有 59%、0.99 有 95%;满载要 ~6908 tick(115 s),**永远不会因为热而爆炸** | `ImpactReactor.java:117-120` |
+
+保护逻辑的正确性不看阈值看**检查间隔**:满料 `(0.999 - 阈值)/0.01` tick 内必须再看一眼,
+间隔 = 循环体语句数 ÷ 处理器 ipt。`mlog.py check` 会报 `reactor guard is too slow`。
+
+## 语义是谁说的：第二实现交叉验证
+
+本仓库的每条"语言事实"都来自读 `LExecutor.java`。读源码会读错，所以关键几条
+另外用 [`cardillan/mindcode`](https://github.com/cardillan/mindcode) 的处理器模拟器
+复核过一遍（八条探针，六条一致、一条不支持、一条蓝图级新增）。
+
+| 结论 | 状态 |
+|---|---|
+| `equal <未赋值> null` 恒真 · `logn(0,2)`→null · `1/0`→null · `sensor @unit @dead`→1 · `print <未声明>`→`null` · 记忆格未写→0 | **双实现确认** |
+| `read`/`write` 只认对方**已声明**的变量，`write` 到未声明名字不建槽 | **双实现确认**（蓝图级探针 `A=7 B=null C=null`） |
+| `ubind` 后 `@controller == @this` | 只有源码依据（模拟器不支持 `ubind`） |
+
+复跑方法与探针文件见 `EMULATOR-CROSSCHECK.md`（需要 JDK 22 与 `mindcode.jar`）。
+
+## 独立副本
+
+同一套工具已经打包成独立的 mlog-agentskill 技能（.dsh/skills/mlog-agentskill/），目录自带全部模块与数据，可整体拷走。一审一整套分析用 mlogagent.py report <file>；改完模块后用 python tools/sync_mlogagent.py 刷新那份副本（--check 只比对）。
+
+## 改完分析器先跑測試
+
+```bash
+python tests/run_tests.py          # 12 條 golden digest，任何結論變化都會失敗
+python tests/run_tests.py -v       # 逐條列出
+python tests/run_tests.py --write  # 改了就有意識地改期望值——然後讀 diff
+```
+
+digest 是**去措辭的結論**（`(severity, line)` 對、語句數、分支判定、容量位數…），
+所以文案可以隨便改，結論一變就紅。`mlog.py selftest` 只證明解析器不丟東西
+（429/429 round-trip），這五個分析器的正確性靠這套兜住。
 
 ## 环境要求（分享给别人之前先看这段）
 
@@ -497,153 +681,6 @@ python tools/sync_mlogagent.py --check --global  # 只核对,不同步就 exit 1
 ```
 
 它写的是仓库外目录,需要文件系统权限;全局副本与仓库副本的一致性由这个脚本负责,别手工复制。
-
-## 死循环怎么查
-
-`check` 只报能证明的那种:回边永远成立、而且环内没有任何语句能让它变假。
-
-- **`@this` 守卫**:`@this` 只能被 `ubind` 认领(`LExecutor.java:325`/`:329`,全树仅此两处写 `controller`)。于是
-  `jump loop strictEqual ctrl @this` + 体内 `ubind @flare` ⇒ 第一遍就恒真 ⇒ **ERR,其后全是死代码**;
-  `jump loop notEqual ctrl @this` + 同一句 `ubind` ⇒ 第一遍就恒假 ⇒ 循环一遍就结束,这是标准写法,**不报**。
-- **等外部状态的自旋**(`jump loop equal on 0`,`on` 来自 `read cell1`)不报:真实语料每块 0.33 条,报了只会淹没结论。
-- 模拟也替代不了:复现上一条要先构造"单位已被本处理器认领"的场面,喂不到场景时模拟器会说一切正常。
-
-## 语义是谁说的：第二实现交叉验证
-
-本仓库的每条"语言事实"都来自读 `LExecutor.java`。读源码会读错，所以关键几条
-另外用 [`cardillan/mindcode`](https://github.com/cardillan/mindcode) 的处理器模拟器
-复核过一遍（八条探针，六条一致、一条不支持、一条蓝图级新增）。
-
-| 结论 | 状态 |
-|---|---|
-| `equal <未赋值> null` 恒真 · `logn(0,2)`→null · `1/0`→null · `sensor @unit @dead`→1 · `print <未声明>`→`null` · 记忆格未写→0 | **双实现确认** |
-| `read`/`write` 只认对方**已声明**的变量，`write` 到未声明名字不建槽 | **双实现确认**（蓝图级探针 `A=7 B=null C=null`） |
-| `ubind` 后 `@controller == @this` | 只有源码依据（模拟器不支持 `ubind`） |
-
-复跑方法与探针文件见 `EMULATOR-CROSSCHECK.md`（需要 JDK 22 与 `mindcode.jar`）。
-
-## 交付逻辑前的自检清单（一条都别跳）
-
-写完之后按顺序过一遍，全部有答案才能交：
-
-1. **先问过提问者**——数量、阈值、失败策略（超限怎么办：停机/降级/报警）、依赖哪些方块、要求的周期。没问就问，别自己定。阈值是最容易"我以为是"的地方：钍反防爆要的 0.5 我只知道是爆炸线，工作点 0.30 是我的判断，必须说明。
-2. **`check`**：`0 error / 0 warn`。有 `no-target-jump`、`version drift`、`noop` 之类必须先解释。
-3. **`ir`**：无 `reported` 死存储；不可达代码要能说出"为什么留着"。
-4. **`cost`**：`worst-case path` 与每圈 tick 对上需求里的周期；把 `wait` 的 `⏸ blocking` 一起看（它一条 ipt 都不烧，但周期时间常常全在这里）。
-5. **`values`**：没有意外的恒真/恒假分支和可证 null（尤其是 `equal X null`——未赋值变量是 0，只有 `===` 区分 null 与 0）。
-6. **跨处理器**（用了 `read`/`write` 别的处理器时）：`cross` 报 `0 never-assigned`；槽名必须在对方先声明，且拼写一致。
-7. **点名与署名**：变量命名跟 `style` 里看到的语料风格一致；署名用 `print`/`set` 的未赋值名字（会在编辑器变量列表里显示），不要写成参数槽里没人读的垃圾位。
-8. **假设写清**：模拟器不支持 `ubind`/`ucontrol`/世界处理器/`draw`/`control`，所以超出静态分析的部分（时序、竞态、真实单位行为）是推理不是验证。交付时明说哪些是"读起来没错"。
-9. **蓝图用 `mlog.py gen` 产出**，不要手拼 base64；生成后 `ir`/`check` 再跑一遍确认逻辑没被截断。
-
-## 单位表里有什么、没有什么
-
-`mlog.py unit <名字>` 名称精确匹配优先（`unit oct` 不会再被 `spiroct` 挤掉），单条命中时多打三行：
-
-| 字段 | 从哪来 | 写逻辑时怎么用 |
-|---|---|---|
-| `speed` / `health` / `armor` / `hitSize` | `UnitTypes.java` 里显式赋的值 | 算拦截时间、算能不能扛一轮 |
-| `weapons[].damage/speed/lifetime/pierce/shots` | `new Weapon(...)` 块里的 `bullet = new XBulletType(...)` 及其 `{{ }}` | 估 DPS；`lifetime × speed` 决定射程上限 |
-| `abilities[]` | `abilities.add(new XxxAbility(args))` | 这个单位会不会自己修、自己开盾、刷小怪 |
-| `immune_to` | `immunities(StatusEffects...)` | **原版 39 个单位一条都没声明** —— 表里没写就是没声明，别猜 |
-
-**三个读法上的坑**：
-- `abilities.args` 是**源码原文**，会有 `60f * 8` 这种算式。别当数字读，它表达的是「8 秒」。
-- 表里**没有**的字段 = 源码没写 = 引擎默认值（见 JSON 的 `defaults`），不是「零」。
-- `itemCapacity (default -1)` 表示这个单位不能拿东西，不是容量为 1。
-
-## 方块表里有什么、没有什么
-
-`block_attrs.json` 由 `tools/blocks_from_source.py` 从 `Blocks.java` 抽，253 个方块有行为记录。
-
-```bash
-python mlog.py block cryofluid-mixer     # 一个方块的完整画像
-python mlog.py block --accepts coal      # 谁吃煤（按 recipe / ammo / any / custom 分组）
-```
-
-一个方块能查到：
-
-| 字段 | 例子 | 说明 |
-|---|---|---|
-| `build` | `lead:65 + silicon:40 + titanium:60  (crafting)` | 建造配方 + 分类；多次 `requirements()` 会合并成廉价层/升级层 |
-| `liquids` | `water:12/s -> cryofluid:12/s` | 输入液体 → 输出液体，**已折成每秒** |
-| `inputs` | `coal:1 + sand:2 -> silicon:1  craftTime 40` | 配方输入（每 craftTime 一次） |
-| `booster` | `silicon:1  (optional; speeds the block up)` | 可选加速物，**不给也能跑** |
-| `coolant` | `water` | 冷却液（不进配方，影响效率） |
-| `accepts` | `any` / `only ...` / `ammo ...` / `nothing` | 物流能不能塞进去 |
-
-三个读法坑：
-
-1. **`build` 不是配方。** `build` 那行是「造这个方块要什么」，`inputs` 才是「它生产时吃什么」。写产线时两个都要看。
-2. **液体量是每秒**（源码写的是每 tick，`_rate()` 折过）。折不了的带布尔重载原样显示源码算式。
-3. **「烧整类物品」没有清单。** `rtg-generator` 显示 `burns radioactive items (no fixed item list)` —— 引擎按类别判，别去查它到底吃哪几种。
-
-## 读整个存档里的逻辑：`mlog.py map`
-
-```bash
-python tools/mlog.py map "C:/Users/<you>/AppData/Roaming/Mindustry/saves/430.msav"
-python tools/mlog.py map <save.msav> --verbose --show 0   # 连干净的一起列，只报汇总
-python tools/mlog.py map <save.msav> --code 3            # 每块再打前 3 行源码
-```
-
-支持 build 146 之后的三种瓦片布局（存档版本 7–9 shortchunk、10–13 现代）；
-版本 6 及更早的老存档不支持，会明确说 `legacy layout`。
-
-- 每个处理器一行：坐标、方块类型、语句数、链接数，以及 `check` 的结论。
-- 链接名来自存档里的链路表，所以「这个链接不存在」这类警告在整图上下文里同样可靠。
-- 大存档会很慢（`235.msav` 613 个处理器、56 万条语句）：先 `--show 0` 看汇总。
-
-### 全量体检（1421 个存档）
-
-`mlog.py map` 一次读一个文件。要看**所有**存档，先按源码哈希去重再跑静态检查
-（`tools/_sweep_analyse.py`）：1421 个存档、103,787 个处理器，去重后只有
-**4,366 份不同的程序**（95.8% 是同一段代码的副本）——所以报告里所有比率的分母
-都是「不同的程序」，不是「处理器」。
-
-### 存档里的程序没有名字
-
-`mlog` 没有名字字段（只有蓝图有 `name`/`description`）；存档里唯一的名字是地图名。判用途靠三个信号：
-**链接名**（默认是方块名+序号）、**指令直方图**（`draw`=显示 / `ubind`=单位 / `control config`=物流 / `setrule`=世界规则）、
-**代码里的字符串**（`print` 出去给人看的那一两段字）。按这三样分桶的现成结果在 `out/saves_programs.md`。
-
-### 钍反保护:三条事实
-
-| 事实 | 数字 | 出处 |
-|---|---|---|
-| 有冷却液时 `@heat` 恒为 0 | 一 tick 清零,稳态 1.2 液/秒 | `NuclearReactor.java:95-125` |
-| `control enabled 0` 不是灭火 | 停了还要 1200 tick(20 s)才从 0.999 降到 0 | 同上,ambient 冷却 |
-| 满料 100 tick 爆炸 | 发热 0.01/tick,`@heat >= 0.999` 即 `kill()` | 同上 |
-| 链接名不能证明类型 | `reactor1` 可能是钍反或冲反,而 `@heat` 在两台上是相反的意思;要 `sensor x reactor1 @type` 证明类型才敢报 WARN,否则只报 INFO 提问 | 2026-10-18 用户实测纠正 |
-| 冲反的 `@heat` 是 warmup | 出力 = `warmup^5`:卡在 0.5 只有 3.1%、0.9 有 59%、0.99 有 95%;满载要 ~6908 tick(115 s),**永远不会因为热而爆炸** | `ImpactReactor.java:117-120` |
-
-保护逻辑的正确性不看阈值看**检查间隔**:满料 `(0.999 - 阈值)/0.01` tick 内必须再看一眼,
-间隔 = 循环体语句数 ÷ 处理器 ipt。`mlog.py check` 会报 `reactor guard is too slow`。
-
-
-### 批量跑语料
-
-```powershell
-python tools\_sweep_saves.py              # 1,421 个存档：34 秒
-python tools\_sweep_analyse.py            # 加六种分析：127 秒
-python mindustry-blueprint\tools\parallel.py --items 1421   # 先看它会开几个 worker、为什么
-```
-
-`parallel.py` 自己算 worker 数：核数、可用内存、**最大文件**三个上限取最小。重文件
-（≥1 MB）单独一段、用更少的 worker —— 一个 4.5 MB 的存档里有 6,600 个处理器，按平均值
-分 worker 会让几个这样的文件同时把内存吃干。想调就 `--workers N` 或 `--serial`。
-
-### 病毒逻辑（自我复制）
-
-```powershell
-python mlog.py check someone.msch --msch      # 命中会打 [INFO] virus-logic
-```
-
-判据只有一行：`ucontrol build <x> <y> <块> <朝向> @this` —— 最后一个参数是新方块的 config，
-传 `@this` 就是「造一个跑我这份程序的方块」，于是它复制自己、复制出的再复制。圈内叫
-**病毒逻辑**。`@this` 经变量中转（`set cfg @this`）也算。
-
-实测：1,421 个存档里 9,151 个处理器是病毒，但**只来自 2 份不同的程序**（`556.msav` 6,616 份
-副本、`538.msav` 1,432 份）。看到一张图里几千个处理器，先怀疑这个，别急着叫它"逻辑计算机"。
 
 ## 参考数据
 
