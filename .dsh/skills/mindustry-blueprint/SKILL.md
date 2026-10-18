@@ -620,6 +620,18 @@ python tools/mlog.py map <save.msav> --code 3            # 每块再打前 3 行
 间隔 = 循环体语句数 ÷ 处理器 ipt。`mlog.py check` 会报 `reactor guard is too slow`。
 
 
+### 批量跑语料
+
+```powershell
+python tools\_sweep_saves.py              # 1,421 个存档：51 秒
+python tools\_sweep_analyse.py            # 加六种分析：155 秒
+python mindustry-blueprint\tools\parallel.py --items 1421   # 先看它会开几个 worker、为什么
+```
+
+`parallel.py` 自己算 worker 数：核数、可用内存、**最大文件**三个上限取最小。重文件
+（≥1 MB）单独一段、用更少的 worker —— 一个 4.5 MB 的存档里有 6,600 个处理器，按平均值
+分 worker 会让几个这样的文件同时把内存吃干。想调就 `--workers N` 或 `--serial`。
+
 ## 参考数据
 
 | 文件 | 内容 |

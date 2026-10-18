@@ -1,18 +1,26 @@
 """Run the static checks over every processor in every save.
 
 `map` tells you what is in a save; this tells you what is *wrong* in all of
-them.  Aggregates by finding code so one code-level bug in my own checker
-shows up as a spike instead of hiding in 105k individual reports.
+them.  Aggregates by rule so one code-level bug in my own checker shows up as a
+spike instead of hiding in 105k individual reports.
 
 Identical programs are analysed once.  The hash covers the source text only --
 **not** the link list -- because the same 60-line program pasted onto forty
 processors (or kept in a save plus its ``-backup`` twin) is one bug, not forty.
 The first copy is the one that gets reported; every later copy only bumps a
 count, so per-save rankings are not inflated by backups.
+
+Parsing and checking one save share nothing with the next, so each file is a
+worker task (see ``parallel.py`` for how the worker count is picked -- the
+answer is bounded by free memory, because one save here holds 6600 processors).
+Workers dedupe inside their own save; the parent dedupes across saves, which is
+why the parent, not the worker, decides what a "first sighting" is.
 """
+from __future__ import annotations
+
 import hashlib
-import re
 import json
+import re
 import sys
 import time
 from collections import Counter, defaultdict
@@ -20,8 +28,6 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "mindustry-blueprint" / "tools"))
-import mlogcheck as C  # noqa: E402
-import map_logic as M  # noqa: E402
 
 SAVES = Path(r"C:\Users\lliary\AppData\Roaming\Mindustry\saves")
 OUT = ROOT / "out"
@@ -51,74 +57,112 @@ def finding_class(msg: str) -> str:
     return head.strip()
 
 
-def main() -> int:
-    files = sorted(SAVES.glob("*.msav"))
-    codes = Counter()
-    severity = Counter()
-    per_save = defaultdict(lambda: [0, 0, 0])  # procs, errs, warns
-    worst = []
+def analyse_one(path_str: str) -> dict:
+    """Worker: one save -> its distinct programs plus every finding they raise."""
+    import map_logic as ML
+    import mlogcheck as C
+
+    path = Path(path_str)
+    try:
+        info = ML.read_save(path)
+    except Exception as exc:  # noqa: BLE001 - report, don't die
+        return {"file": path.name, "error": f"{type(exc).__name__}: {exc}",
+                "processors": 0, "programs": []}
+
+    procs = 0
+    local: dict[str, dict] = {}
+    order: list[str] = []
+    for tile in info["logic"]:
+        code = tile["code"]
+        if not code.strip():
+            continue
+        procs += 1
+        h = code_hash(code)
+        if h in local:
+            local[h]["copies"] += 1
+            continue
+        labels = [l["name"] for l in tile["links"]]
+        try:
+            found = C.analyse(code.splitlines(), labels)
+        except Exception as exc:  # noqa: BLE001
+            return {"file": path.name,
+                    "error": f"{path.name}:{tile['x']},{tile['y']}: {type(exc).__name__}: {exc}",
+                    "processors": procs, "programs": []}
+        local[h] = {
+            "hash": h,
+            "x": tile["x"], "y": tile["y"], "block": tile["block"],
+            "stmts": len(code.splitlines()),
+            "copies": 1,
+            "findings": [[f.sev, finding_class(f.msg), f.line, f.code, f.msg] for f in found],
+        }
+        order.append(h)
+    return {"file": path.name, "error": None, "processors": procs,
+            "programs": [local[h] for h in order]}
+
+
+def main(argv: list[str]) -> int:
+    import argparse
+
+    import parallel
+
+    ap = argparse.ArgumentParser(description="check every processor in every save")
+    ap.add_argument("--save-dir", default=str(SAVES))
+    ap.add_argument("--workers", type=int, default=None)
+    ap.add_argument("--serial", action="store_true")
+    ap.add_argument("--json", default=str(OUT / "saves_analyse.json"))
+    a = ap.parse_args(argv)
+
+    files = sorted(Path(a.save_dir).glob("*.msav"))
     started = time.time()
-    bad_files = []
+    results = parallel.run(
+        analyse_one, [str(p) for p in files],
+        workers=1 if a.serial else a.workers,
+        label="analyse saves",
+    )
+
+    codes: Counter = Counter()
+    severity: Counter = Counter()
+    per_save: dict[str, list[int]] = defaultdict(lambda: [0, 0, 0])
+    worst: list[dict] = []
+    bad_files: list[tuple[str, str]] = []
+    seen: dict[str, dict] = {}
+    dup_counter: Counter = Counter()
     total_procs = 0
 
-    seen: dict[str, dict] = {}          # hash -> first sighting
-    dup_counter: Counter = Counter()     # hash -> extra copies
-
-    for n, path in enumerate(files, 1):
-        try:
-            info = M.read_save(path)
-        except Exception as exc:  # noqa: BLE001 - report, don't die
-            bad_files.append((path.name, f"{type(exc).__name__}: {exc}"))
-            continue
-        bucket = per_save[path.name]
-        for tile in info["logic"]:
-            code = tile["code"]
-            if not code.strip():
-                continue
-            total_procs += 1
-            bucket[0] += 1
-            h = code_hash(code)
+    for res in results:
+        if res["error"]:
+            bad_files.append((res["file"], res["error"]))
+        total_procs += res["processors"]
+        bucket = per_save[res["file"]]
+        bucket[0] += res["processors"]
+        for prog in res["programs"]:
+            h = prog["hash"]
             if h in seen:
-                dup_counter[h] += 1
+                dup_counter[h] += prog["copies"]      # every copy here is a duplicate
                 continue
-            seen[h] = {
-                "save": path.name, "x": tile["x"], "y": tile["y"],
-                "block": tile["block"], "stmts": len(code.splitlines()),
-            }
-            labels = [l["name"] for l in tile["links"]]
-            try:
-                found = C.analyse(code.splitlines(), labels)
-            except Exception as exc:  # noqa: BLE001
-                bad_files.append((f"{path.name}:{tile['x']},{tile['y']}",
-                                  f"{type(exc).__name__}: {exc}"))
-                continue
-            for f in found:
-                codes[(f.sev, finding_class(f.msg))] += 1
-                severity[f.sev] += 1
-                if f.sev in ("ERR", "SUSPECT"):
+            dup_counter[h] += prog["copies"] - 1      # the first copy is the one analysed
+            seen[h] = {k: prog[k] for k in ("x", "y", "block", "stmts")} | {"save": res["file"]}
+            for sev, cls, line, code, msg in prog["findings"]:
+                codes[(sev, cls)] += 1
+                severity[sev] += 1
+                if sev in ("ERR", "SUSPECT"):
                     bucket[1] += 1
                     if bucket[1] <= 3:
-                        worst.append({
-                            "save": path.name, "x": tile["x"], "y": tile["y"],
-                            "block": tile["block"],
-                            "line": f.line, "code": f.code, "msg": f.msg,
-                            "stmts": len(code.splitlines()),
-                        })
+                        worst.append({"save": res["file"], "x": prog["x"], "y": prog["y"],
+                                      "block": prog["block"], "line": line,
+                                      "code": code, "msg": msg, "stmts": prog["stmts"]})
                 else:
                     bucket[2] += 1
-        if n % 100 == 0:
-            print(f"  {n}/{len(files)}  {time.time()-started:.0f}s  "
-                  f"procs={total_procs} distinct={len(seen)} codes={len(codes)}",
-                  flush=True)
 
     dups = sum(dup_counter.values())
-    print(f"\ndone in {time.time()-started:.0f}s")
+    print(f"\ndone in {time.time() - started:.0f}s")
     print(f"saves read      : {len(files) - len([b for b in bad_files if b[0].endswith('.msav')])}")
     print(f"processors      : {total_procs}")
     print(f"distinct programs: {len(seen)}")
-    print(f"duplicate copies : {dups} (skipped, {total_procs and 100.0*dups/total_procs:.1f}% of all)")
+    print(f"duplicate copies : {dups} (skipped, {total_procs and 100.0 * dups / total_procs:.1f}% of all)")
     print(f"findings        : {sum(severity.values())}  {dict(severity)}")
-    print(f"hard (ERR+SUSP) : {sum(v for k, v in codes.items() if k[0] in ('ERR','SUSPECT'))}")
+    print(f"hard (ERR+SUSP) : {sum(v for k, v in codes.items() if k[0] in ('ERR', 'SUSPECT'))}")
+
     print("\nby rule (per distinct program):")
     for (sev, code), count in codes.most_common(40):
         print(f"  {count:>7}  {sev:<7} {code}")
@@ -134,9 +178,8 @@ def main() -> int:
         for name, why in bad_files[:10]:
             print(f"  {name}: {why}")
 
-    ranked = sorted(per_save.items(), key=lambda kv: -kv[1][1])[:15]
     print("\nworst saves by hard findings:")
-    for name, (procs, errs, warns) in ranked:
+    for name, (procs, errs, warns) in sorted(per_save.items(), key=lambda kv: -kv[1][1])[:15]:
         if errs:
             print(f"  {errs:>5} err  {procs:>5} proc  {warns:>5} warn  {name}")
 
@@ -150,15 +193,14 @@ def main() -> int:
         "per_save": {k: v for k, v in per_save.items()},
         "examples": worst,
         "unreadable": bad_files,
-        "most_copied": [
-            dict(seen[h], copies=extra + 1) for h, extra in dup_counter.most_common(50)
-        ],
+        "most_copied": [dict(seen[h], copies=extra + 1) for h, extra in dup_counter.most_common(50)],
     }
-    (OUT / "saves_analyse.json").write_text(
-        json.dumps(payload, ensure_ascii=False, indent=1), encoding="utf-8")
-    print(f"\nwrote {OUT / 'saves_analyse.json'}")
+    out = Path(a.json)
+    out.parent.mkdir(exist_ok=True)
+    out.write_text(json.dumps(payload, ensure_ascii=False, indent=1), encoding="utf-8")
+    print(f"\nwrote {out}")
     return 0
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    raise SystemExit(main(sys.argv[1:]))
