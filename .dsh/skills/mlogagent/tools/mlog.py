@@ -1207,7 +1207,9 @@ def main() -> int:
     p.add_argument("--link", action="append", default=[],
                    help="name@dx,dy (relative to the processor)")
     p.add_argument("--with-block", action="append", default=[],
-                   help="block@dx,dy[=contentId] -- CENTER coords; also places the link target")
+                   help="block@dx,dy[=contentId] -- dx,dy is the block CENTER, "
+                        "relative to the processor (same convention as --link); "
+                        "also places the link target")
     p.add_argument("--auto-link", action="store_true",
                    help="report the game link-name for each --with-block")
     p.add_argument("--out", help="write the paste code (base64) to this file")

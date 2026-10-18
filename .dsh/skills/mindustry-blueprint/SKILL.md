@@ -177,6 +177,13 @@ python tools/mlog.py explain select
 python tools/mlog.py explain op add
 ```
 
+**蓝图码永远由 `mlog.py gen` 产出,不要自己拼 base64。** 手拼过一次,前缀写成 `"bXNjaAF4n" + b64[8:]`(9 字符前缀却只砍 8 个),长度变成 `4k+1`,游戏直接报 `Length of Base64 encoded input string is not a multiple of 4.` —— 文件是好的,坏的是拼字符串那一步。
+
+两条容易误会的细节:
+
+- 前缀**不固定**:游戏自己写 `78 9c`(默认 zlib),`mschgen` 用 `78 da`(最高压缩)⇒ 第 11 个字符会不同(`bXNjaAF4**2**mPg` vs `bXNjaAF4**n**mPg`)。**两种都合法**,只认解码后的 `msch` 魔数。
+- `--with-block` / `--link` 的坐标都是**相对处理器的中心格**,和方块的绝对坐标不是一回事。
+
 ## ⚠️ 最容易搞错的一件事:方块坐标是「中心格」
 
 schematic 里 Stile 存的是方块的**中心格**,不是左上角。**已双重验证**:
@@ -355,6 +362,43 @@ python mlog.py block silicon-smelter         # 3. 这个方块吃什么、产什
 注意 `custom` 只回答“可能收”，**“现在收不收”要看运行时状态**（sorter 的配置、router 是否空、焚化炉是否通电）。
 
 
+## 写逻辑:枚举、跳表还是内存格
+
+mlog 里没有"按下标取内容物"的原语 —— `@copper` 是常量对象,不能写 `@[i]`。所以"遍历一个物品表"必须自己造表,而**造表的价格差不多就是摊开写**:
+
+| 写法 | 每项成本 | 什么时候选它 |
+|---|---|---|
+| 枚举(摊开) | 2 行(`sensor` + 比较) | 列表固定、每项只比一个值、结果要一眼可复查 |
+| 跳转表 `op add @counter @counter i` | 也是 2 行(`set it @x` + `jump`)+ 循环状态 | 列表长(>20),或每项还要顺带做好几件事 |
+| 内存格存对象 | 1 块 + N 次 init `write` + 每圈 1 次 `read` | 列表要运行时可改 —— **但对象入格子只有 build 160+** |
+
+三条必须先知道的事实:
+
+- **`sensor` 的第三个参数是运行时对象,不是字面量**:`LExecutor.java:668-719` `Object sense = type.obj(); if(sense instanceof Content co){ to.setnum(se.sense(co)); }` ⇒ `sensor n core it`(it 里装 `@copper`)合法。**枚举不是语法逼出来的**,只是更少状态、更便宜。
+- **平局要有确定的解**:枚举用严格比较保序(`jump s greaterThanEq n best_val`);循环版也得把这条规则显式写出来,省不掉。
+- **列表交给生成器持有**:物品数组写在 `tools/gen_*.py` 里的一个 Python list,加一项 = 改一行 + `mlog.py gen` 重新生成。手改 mlog 里的清单一定会漂。
+
+反面条件(这时别枚举):物品超过 20 种、列表要让别人在游戏里自己配、每项还要顺带做别的事。
+
+## 自动打标签
+
+蓝图标签(颜色=维度、私有区图标=值身份)是手打的,但**其中 24 个值可以从内容推出来**,
+留出集精确率 ≥70%:
+
+```bash
+python tools/label_auto.py                      # 学习规则 + 留出集报表
+python tools/label_auto.py --suggest F.msch      # 只输出可信建议(附依据与精确率)
+python tools/label_auto.py --apply F.msch --out DIR   # 写回副本,不动原件
+```
+
+`数量` / `品质` / `系列` / `无线` / `火控` 这类量不出精确率的值不会出现在建议里 ——
+它们要么是主观判断,要么同一份蓝图三种都沾。写回只重写 tags 段,其余字节原样搬运。
+
+## 生成蓝图时的作者标签
+
+本仓库用 `mschgen` 生成的蓝图,`labels` 一律写 `["[blue]DeepSeek"]`
+(用户标签体系里的"作品来源"类),描述末尾带 `逻辑 by [#8abcd1]DeepSeek[]`。
+
 ## 参考数据
 
 | 文件 | 内容 |
@@ -372,4 +416,6 @@ python mlog.py block silicon-smelter         # 3. 这个方块吃什么、产什
 - **蓝图不存 content ID**,游戏加载时**按方块名解析** ⇒ 放原版方块只要名字对
 - **`@dead` 对 `null` 目标也返回 1** ⇒ 兼作"单位不存在"判断
 - **`sensor` 的 null 会传染** ⇒ 目标为 null 时所有属性都返回 null
+- **`sensor` 的第三参可以是变量**(装 content 对象即可) ⇒ `sensor n core it` 合法,但 mlog **没有按序号取内容物的原语**
+- **对象存进内存格只有 build 160+ 支持** ⇒ 老版本上 `write @copper cell1 0` 实际写的是 1
 - **链接名 = 内部名按 `-` 切分取最后一段 + 序号** ⇒ `overdrive-dome` → `dome1`
