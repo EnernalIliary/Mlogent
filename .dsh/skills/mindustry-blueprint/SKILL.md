@@ -22,6 +22,7 @@ whenToUse: 涉及 Mindustry 蓝图（.msch / 蓝图码）、mlog 逻辑编写或
 | **查单位属性**（写逻辑第一步选单位） | `mlog.py unit [名称]` |
 | **查方块配方 / 容量 / 功耗** | `mlog.py block [名称]` |
 | **找参考实现** | `mlog.py find "几个词"` |
+| **查 sensor 能读什么** | `mlog.py sensor [关键词]` |
 | **查指令格式** | `mlog.py cmd [关键字]` |
 | **读信息板内容** —— 蓝图里 message 方块写的字 | mlog.py text <file.msch> [--plain] |
 | **查一条指令的读写位** —— 哪个参数是输出 | `mlog.py explain <指令> [子命令]` |
@@ -337,7 +338,7 @@ digest 是**去措辭的結論**（`(severity, line)` 對、語句數、分支�
 
 | **语料里的写法** —— 命名/形状/周期成本 | `mlog.py style <关键词...>` |
 
-## 写逻辑之前：先查这三样
+## 写逻辑之前：先查这四样
 
 写逻辑缺的从来不是语法，是**目标**和**游戏事实**。这三条命令对应后者的三个大头：
 
@@ -345,6 +346,7 @@ digest 是**去措辭的結論**（`(severity, line)` 對、語句數、分支�
 python mlog.py find "wireless overdrive"     # 1. 别人怎么做的（先找参考，别自己发明）
 python mlog.py unit flare                    # 2. 这个单位的速度/血量/能带多少货/会不会飞
 python mlog.py block silicon-smelter         # 3. 这个方块吃什么、产什么、装多少、多少电
+python mlog.py sensor heat                   # 4. 这个属性到底读的是什么（75 条，见下）
 ```
 
 - `find` 扫描游戏存档目录里的全部蓝图（`MLOG_CORPUS` 可覆盖），按 `名字/描述/信息板/变量名/指令` 打分，打印 **分数拆解**——匹配得不对时能看出为什么不对。默认跳过 >5000 条语句的块与 >2MB 的文件（`BADAPPLE!!` 是 56 万条语句的动画，`Linux on mlogv32` 是 16MB），这些不是参考逻辑。首次 9 秒，之后读缓存 0.7 秒；`--rebuild` 强制重建。
@@ -361,6 +363,34 @@ python mlog.py block silicon-smelter         # 3. 这个方块吃什么、产什
 | `none` | 一律不收 | `landing-pad`、`PayloadUnloader` |
 
 反查：`mlog.py block --accepts coal` 列出所有收煤的方块（配方输入 + `any` + `custom`）。
+
+### `sensor` 的 75 个属性
+
+`sensor <结果> <目标> <属性>` 的第三个参数是**运行时对象**，也可以是变量。属性本身只有 75 个，
+全部来自 `LAccess.java`，`mlog.py sensor` 一行一条、带一句人话说明：
+
+```
+python mlog.py sensor                # 全部 75 条
+python mlog.py sensor heat           # 按名字或说明搜
+python mlog.py sensor --settable     # 只有 control 也能写的（只有 3 条）
+python mlog.py sensor --on unit      # 只有能从单位读的（37 条）
+```
+
+三条最容易踩的：
+
+| 属性 | 陷阱 |
+|---|---|
+| `@heat` | 反应堆上是 0..1 的热量；**力墙投影上是"已损失的盾量"**，不是热 |
+| `@size` | 方块是边长；**目标是字符串时返回 UTF-16 长度** |
+| `@dead` | 单位死了返回 1，**单位是 null 时也返回 1** —— 不能当存在性判断 |
+
+### 版本闸门：基线是 build 146
+
+`instr_semantics.json` 里 46 条指令带 `min_build`：有明确出处的是 `format` 147、`select` 150、
+`emod`/`ushr` 150、`bullet` 157、`getblock` 157、`effect`/`sync` 146；其余按 **v7 基线 146** 标，
+理由写在 `BUILDS.md`。闸门判据是 `floor > 146`：**等于基线不报**（那个版本大家停了一年）。
+七条（`printchar`/`unpackcolor`/`localeprint`/`query`/`makemarker`/`setmarker`/`clientdata`）
+查不到确切入场版本，**留空而不猜** —— 没有出处就不写数字，是这个文件唯一的规矩。
 注意 `custom` 只回答“可能收”，**“现在收不收”要看运行时状态**（sorter 的配置、router 是否空、焚化炉是否通电）。
 
 

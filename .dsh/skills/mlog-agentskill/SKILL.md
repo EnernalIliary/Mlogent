@@ -185,3 +185,5 @@ python mindustry-blueprint/tools/sync_mlogagent.py --check  # 只比对，过期
 - `jump <head> strictEqual ctrl @this` + 环内 `ubind <类型>` ⇒ `ubind` 立刻把单位认领给本处理器,守卫从此恒真,**永不退出**(ERR)。
 - `notEqual … @this` + 同一句 `ubind` ⇒ 守卫立刻恒假,循环一遍就结束 —— 这是标准写法,不报。
 - 真实语料 900 块里该形状 0 处;等外部状态的自旋 0.33 条/块,不报。
+
+`sensor` 的属性表（75 条，一条一句人话）来自 `LAccess.java`：`mlog.py sensor heat`。三条陷阱：`@heat` 在力墙上是被打掉的盾量、`@size` 对字符串返回 UTF-16 长度、`@dead` 在单位是 null 时也返回 1。

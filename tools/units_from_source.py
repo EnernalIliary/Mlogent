@@ -93,17 +93,57 @@ def scalar(body: list[str], field: str) -> str | None:
     return None
 
 
+def _clean(v: str) -> str:
+    """`55f` / `55.0f` -> `55` -- the trailing f is Java, not a number the reader wants."""
+    v = v.rstrip("f")
+    if v.endswith(".0"):
+        v = v[:-2]
+    return v
+
+
 def weapons(body: list[str]) -> dict:
+    """One entry per ``new Weapon()`` in the unit body.
+
+    A unit can carry several weapons, and the numbers that matter are often *not*
+    constructor arguments: `quad` writes `bullet = new BasicBulletType()` and then
+    sets `damage` / `speed` inside the bullet's own `{{ }}` block.  Reading only
+    the constructor arguments is why this table said "1 weapon, reload 55t" and
+    nothing else for a long time.
+    """
     text = "\n".join(body)
-    out: dict = {"count": text.count("new Weapon()")}
-    reload = re.search(r"^\s*reload\s*=\s*" + _NUM + r"\s*;", text, re.M)
-    if reload:
-        out["reload"] = reload.group(1)          # ticks between shots
-    bullet = re.search(r"bullet\s*=\s*new (\w+)\(" + _NUM + r"\s*,\s*" + _NUM, text)
-    if bullet:
-        out["bullet"] = bullet.group(1)
-        out["bullet_speed"] = bullet.group(2)
-        out["bullet_damage"] = bullet.group(3)
+    chunks = text.split("new Weapon()")[1:]
+    out: dict = {"count": len(chunks), "list": []}
+    for ch in chunks:
+        w: dict = {}
+        m = re.search(r"^\s*reload\s*=\s*" + _NUM, ch, re.M)
+        if m:
+            w["reload"] = _clean(m.group(1))
+        m = re.search(r"bullet\s*=\s*new\s+(\w+)\s*\(([^)]*)\)", ch)
+        tail = ch
+        if m:
+            w["bullet"] = m.group(1)
+            args = [_clean(a.strip()) for a in m.group(2).split(",") if a.strip()]
+            pos = [a for a in args if re.fullmatch(r"-?\d+(\.\d+)?", a)]
+            if len(pos) >= 2:
+                w["speed"], w["damage"] = pos[0], pos[1]
+            tail = ch[m.end():]
+        for key in ("damage", "speed", "lifetime", "pierce", "shots"):
+            if key in w:
+                continue
+            mm = re.search(r"\b" + key + r"\s*=\s*" + _NUM, tail)
+            if mm:
+                w[key] = _clean(mm.group(1))
+        m = re.search(r"\bshots\s*=\s*(\d+)", ch)
+        if m:
+            w["shots"] = m.group(1)
+        if w:
+            out["list"].append(w)
+    if out["list"]:
+        first = out["list"][0]
+        out["reload"] = first.get("reload")
+        out["bullet"] = first.get("bullet")
+        out["bullet_speed"] = first.get("speed")
+        out["bullet_damage"] = first.get("damage")
     return out
 
 

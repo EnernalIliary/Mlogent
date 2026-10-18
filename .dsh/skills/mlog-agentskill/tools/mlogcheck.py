@@ -356,13 +356,14 @@ def build_floor(stmts: list[tuple[int, str]]) -> tuple[int, list[str]]:
     uses. Anything at or below BASELINE_BUILD is "always there" and returns
     `(0, [])`, i.e. nothing to say.
     """
-    floor, users = 0, []
+    hits: list[tuple[str, int]] = []
     for _, c in stmts:
         words = c.split()
         if not words:
             continue
         mnem = words[0].lower()
         b = MIN_BUILD.get(mnem)
+        name = mnem
         # `op` is one statement but 45 operators, and two of them (`emod`,
         # `ushr`) are v150 additions while the rest go back to v6. The gate has
         # to look at the operator, not just the mnemonic.
@@ -370,13 +371,19 @@ def build_floor(stmts: list[tuple[int, str]]) -> tuple[int, list[str]]:
             ob = OP_MIN_BUILD.get(words[1])
             if ob and (not b or ob > b):
                 b = ob
-                users.append(f"op {words[1]}")
-                floor = max(floor, b)
-                continue
-        if not b:
-            continue
-        users.append(mnem)
-        floor = max(floor, b)
+                name = f"op {words[1]}"
+        if b:
+            hits.append((name, b))
+    if not hits:
+        return 0, []
+    floor = max(b for _, b in hits)
+    if floor <= BASELINE_BUILD:
+        return floor, []
+    # Only the statements that *decide* the floor and are newer than the
+    # baseline. Every instruction now carries a min_build (the v7 baseline is
+    # 146), so listing all of them would report `set`/`print`/`end` as the
+    # reasons a program "needs build 146".
+    users = sorted({n for n, b in hits if b == floor and b > BASELINE_BUILD})
     return floor, sorted(set(users))
 
 

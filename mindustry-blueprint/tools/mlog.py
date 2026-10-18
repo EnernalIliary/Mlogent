@@ -19,6 +19,8 @@ Usage
 python mlog.py cross  <blueprint.msch>        # cross-processor read/write: what the reader gets
                                                #   many ids still fit the low field
   python mlog.py id     [name]                 # block content ids / sizes
+python mlog.py sensor [pattern]         # what @property names sensor can read
+                                         #   e.g. `sensor heat`, `sensor --settable`
   python mlog.py item   [name] [--unpack N]    # item content ids / packed configs
   python mlog.py unit   [name]                 # unit stats: speed, hp, payload
   python mlog.py block  [name]                 # recipe, capacity, power
@@ -90,6 +92,7 @@ BLOCK_IDS = _load_json("wiki_block_ids.json").get("blocks", {})
 BLOCK_SIZES = _load_json("block_sizes.json")
 CMD_INDEX = _load_json("cmd_index.json")
 ITEM_IDS = _load_json("item_ids.json").get("items", {})
+SENSOR_ATTRS = _load_json("sensor_attrs.json").get("access", {})
 ITEM_NAME_TO_ID = {v: int(k) for k, v in ITEM_IDS.items()}
 UNIT_ATTRS = _load_json("unit_attrs.json")
 BLOCK_ATTRS = _load_json("block_attrs.json")
@@ -598,6 +601,44 @@ def cmd_id(args) -> int:
     return 0
 
 
+def cmd_sensor(args) -> int:
+    """List what `sensor` can read: one property per line, with what it means."""
+    if not SENSOR_ATTRS:
+        print("!! sensor_attrs.json is missing; run tools/sensor_from_source.py",
+              file=sys.stderr)
+        return 1
+    pat = (args.pattern or "").lower()
+    rows = []
+    for name, e in SENSOR_ATTRS.items():
+        hay = f"{name} {e.get('desc', '')} {e.get('target', '')}".lower()
+        if pat and pat not in hay:
+            continue
+        if args.settable and not e.get("params"):
+            continue
+        if args.on and args.on not in e.get("target", ""):
+            continue
+        rows.append((name, e))
+    if not rows:
+        print(f"no property matches {pat!r}"
+              + (" (with --settable)" if args.settable else ""))
+        print("  75 properties in sensor_attrs.json; try `mlog.py sensor` with no filter")
+        return 1
+    print(f"{len(rows)} propert{'y' if len(rows) == 1 else 'ies'}"
+          f"  (source: sensor_attrs.json / LAccess.java)")
+    for name, e in rows:
+        tag = "  [object]" if e.get("obj") else ""
+        tgt = f"  ({e.get('target')})" if e.get("target") else ""
+        print(f"  @{name:<18}{tag}{tgt}")
+        print(f"  {'':<2}{e.get('desc', '')}")
+        if e.get("params"):
+            print(f"  {'':<2}settable: control <block> {name} "
+                  + " ".join(f"<{p}>" for p in e["params"]))
+    if not args.pattern and not args.settable and not args.on:
+        print("\n  filter by name or meaning: `mlog.py sensor heat`")
+        print("  only the writable ones:       `mlog.py sensor --settable`")
+    return 0
+
+
 def cmd_item(args) -> int:
     """Item content ids, plus decoding of the common packed-config idiom."""
     if args.unpack:
@@ -683,6 +724,18 @@ def cmd_unit(args) -> int:
                 wtxt += f", {w['bullet']} {w['bullet_speed']}sp/{w['bullet_damage']}dmg"
             bits.append(wtxt)
         print(f"  {n:<14} " + "; ".join(bits))
+        if len(hits) == 1:
+            for i, wp in enumerate(w.get("list") or [], 1):
+                line = f"{wp.get('bullet', '?')}"
+                if wp.get("damage"):
+                    line += f"  {wp['speed']} speed / {wp['damage']} damage"
+                if wp.get("reload"):
+                    line += f"  reload {wp['reload']}t"
+                if wp.get("shots"):
+                    line += f"  {wp['shots']} shot(s)"
+                if wp.get("x"):
+                    line += f"  offset x {wp['x']}"
+                print(f"               weapon {i}: {line}")
     return 0
 
 
@@ -1526,6 +1579,13 @@ def main() -> int:
     p.add_argument("name", nargs="?", help="substring; omit to list all")
     p.set_defaults(fn=cmd_id)
 
+    p = sub.add_parser("sensor", help="what @property names sensor can read")
+    p.add_argument("pattern", nargs="?", help="substring of a name or meaning")
+    p.add_argument("--settable", action="store_true",
+                   help="only the ones `control` can also write")
+    p.add_argument("--on", choices=["building", "unit", "content", "any"],
+                   help="only properties that read from this kind of target")
+    p.set_defaults(fn=cmd_sensor)
     p = sub.add_parser("item", help="item content ids; decode packed configs")
     p.add_argument("name", nargs="?", help="name or id; omit to list all")
     p.add_argument("--unpack", metavar="N",

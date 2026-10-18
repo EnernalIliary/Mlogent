@@ -198,6 +198,7 @@ def digest_selftest() -> dict:
 SUITE: list[tuple[str, str, str | None]] = [
     ("gate/noop-drift",        "gate",    "gate1.mlog"),
     ("gate/baseline-silent",   "gate",    "baseline.mlog"),
+    ("gate/op-emod",           "gate",    "gate-emod.mlog"),
     ("ir/labels-resolved",     "ir",      "label.mlog"),
     ("ir/odd-name",            "odd",     None),
     ("ir/stale-write",        "ir",      "stale.mlog"),

@@ -16,12 +16,21 @@
     "case": "baseline.mlog",
     "digest": {
       "floor": 146,
-      "users": [
-        "effect",
-        "sync"
-      ],
+      "users": [],
       "baseline": 146,
       "reports": false
+    }
+  },
+  "gate/op-emod": {
+    "kind": "gate",
+    "case": "gate-emod.mlog",
+    "digest": {
+      "floor": 150,
+      "users": [
+        "op emod"
+      ],
+      "baseline": 146,
+      "reports": true
     }
   },
   "ir/labels-resolved": {

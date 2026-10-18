@@ -91,7 +91,17 @@
    "range": "40",
    "speed": "1",
    "weapons": {
+    "bullet": "BulletType",
+    "bullet_damage": null,
+    "bullet_speed": "0",
     "count": 1,
+    "list": [
+     {
+      "bullet": "BulletType",
+      "reload": "24",
+      "speed": "0"
+     }
+    ],
     "reload": "24"
    }
   },
@@ -131,6 +141,16 @@
     "bullet_damage": "9",
     "bullet_speed": "2.5",
     "count": 1,
+    "list": [
+     {
+      "bullet": "BasicBulletType",
+      "damage": "9",
+      "lifetime": "32",
+      "reload": "80",
+      "shots": "3",
+      "speed": "2.5"
+     }
+    ],
     "reload": "80"
    }
   },
@@ -167,6 +187,14 @@
     "bullet_damage": "25",
     "bullet_speed": "27",
     "count": 1,
+    "list": [
+     {
+      "bullet": "BombBulletType",
+      "damage": "25",
+      "reload": "12",
+      "speed": "27"
+     }
+    ],
     "reload": "12"
    }
   },
@@ -283,7 +311,18 @@
    "range": "140",
    "speed": "1.2",
    "weapons": {
+    "bullet": "BasicBulletType",
+    "bullet_damage": null,
+    "bullet_speed": "0",
     "count": 1,
+    "list": [
+     {
+      "bullet": "BasicBulletType",
+      "lifetime": "70",
+      "reload": "55",
+      "speed": "0"
+     }
+    ],
     "reload": "55"
    }
   },
@@ -313,11 +352,20 @@
    "range": "100",
    "speed": "0.9",
    "weapons": {
-    "bullet": "LaserBoltBulletType",
-    "bullet_damage": "12",
-    "bullet_speed": "5.2",
+    "bullet": "BasicBulletType",
+    "bullet_damage": null,
+    "bullet_speed": "0.7",
     "count": 1,
-    "reload": "22"
+    "list": [
+     {
+      "bullet": "BasicBulletType",
+      "lifetime": "87",
+      "reload": "90",
+      "shots": "3",
+      "speed": "0.7"
+     }
+    ],
+    "reload": "90"
    }
   },
   "risso": {
