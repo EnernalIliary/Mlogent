@@ -88,3 +88,20 @@ python tools/rule_audit.py --apply        # 把实测数字写回 rules/*.json
    精确率 100%，29 条全是「我知道，懒得删」——那叫噪声，不叫发现。
 2. 用户判的不是「这行代码对不对」，是「这条规则该不该存在」。规则表里每次改动都要带 `ref`（哪一句
    话让我改的），否则半年后没人知道为什么。
+
+## 作者复核（2026-10-19，ref m15486）
+
+作者通读了 `out/audit_review.md` 的全部 86 行，逐条判 `ok`（"剩下的都是OK，我看过了没问题"）。
+此前唯一被判 `bad` 的一类（`@dead` 极性）已经整条删除，见 `dead-polarity.json` 的 `state`。
+
+| 规则（发现类别） | 行数 | 判 ok |
+| --- | ---: | ---: |
+| `version-gate` | 24 | 24 |
+| `undefined-var-is-not-automatically-an-error` | 23 | 23 |
+| `link-name-not-bound` | 13 | 13 |
+| `status-name-needs-at` | 11 | 11 |
+| `jump-to-jump-chain` | 10 | 10 |
+| `constant-null-guard` | 4 | 4 |
+| `printflush-clears-buffer` | 1 | 1 |
+
+含义：这 7 类在 20 张社区地图的样本上**没有假阳性**。它不等于"这些规则的证明是对的"——样本只覆盖这 20 张图，换语料仍要重跑 `review.py run`。
