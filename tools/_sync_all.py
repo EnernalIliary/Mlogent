@@ -1,21 +1,24 @@
-"""Sync the authoritative blueprint copies out to tools/ and the two skill dirs."""
+"""Sync the authoritative blueprint copies out to tools/ and the two skill dirs.
+
+Authoritative copy = `mindustry-blueprint/tools/`. Everything else is a mirror.
+The file list is **globbed** rather than hand-listed: a hand-written list silently
+skips new modules (that is how `mlogcross.py` and `mlogsearch.py` fell out of sync
+once already).
+"""
 from __future__ import annotations
 
 import hashlib
 import shutil
 from pathlib import Path
 
-ROOT = Path("F:/OneDrive/桌面/AtomicStates")
+ROOT = Path(__file__).resolve().parents[1]
 BP = ROOT / "mindustry-blueprint"
 TOOLS = ROOT / "tools"
-SKILL_BP = ROOT / ".dsh/skills/mindustry-blueprint"
-SKILL_AG = ROOT / ".dsh/skills/mlogagent"
+SKILL_BP = ROOT / ".dsh" / "skills" / "mindustry-blueprint"
 
-PY = ["mlog.py", "mlogir.py", "mlogcheck.py", "mlogval.py", "mlogpack.py",
-      "msch.py", "mschgen.py", "mlogagent.py"]
-DATA = ["instr_semantics.json", "item_ids.json", "block_ids.json",
-        "block_sizes.json", "cmd_index.json", "unit_attrs.json",
-        "block_attrs.json"]
+# private helpers (`_patch_*.py`, `_sweep_*.py`) stay in the repo; caches never ship
+PY = sorted(p.name for p in (BP / "tools").glob("*.py") if not p.name.startswith("_"))
+DATA = sorted(p.name for p in (BP / "tools").glob("*.json") if not p.name.startswith("."))
 DOCS = ["SKILL.md", "BUILDS.md", "REFERENCE.md", "PATTERNS.md",
         "BLUEPRINT-ANALYSIS.md", "README.md"]
 
@@ -29,26 +32,24 @@ def put(src: Path, dst: Path) -> None:
     shutil.copy2(src, dst)
 
 
+print(f"py   : {len(PY)} file(s) -> {', '.join(PY)}")
+print(f"data : {len(DATA)} file(s)")
 for name in PY + DATA:
-    src = BP / "tools" / name
-    if not src.exists():
-        print("skip (missing)", name)
-        continue
-    put(src, TOOLS / name)
-    put(src, SKILL_BP / "tools" / name)
+    put(BP / "tools" / name, TOOLS / name)
+    put(BP / "tools" / name, SKILL_BP / "tools" / name)
 
 for name in DOCS:
     src = BP / name
     if not src.exists():
+        print("skip (missing)", name)
         continue
     put(src, SKILL_BP / name)
 
 print("=== hashes (blueprint / root / skill)")
-for name in PY[:5]:
-    a = BP / "tools" / name
-    b = TOOLS / name
-    c = SKILL_BP / "tools" / name
-    print(f"  {name:<14} {sha(a)} {sha(b)} {sha(c)} {'OK' if sha(a)==sha(b)==sha(c) else 'MISMATCH'}")
-print("  instr_semantics", sha(BP / "tools/instr_semantics.json"),
-      sha(TOOLS / "instr_semantics.json"),
-      sha(SKILL_BP / "tools/instr_semantics.json"))
+bad = 0
+for name in PY + DATA:
+    a, b, c = BP / "tools" / name, TOOLS / name, SKILL_BP / "tools" / name
+    ok = sha(a) == sha(b) == sha(c)
+    bad += 0 if ok else 1
+    print(f"  {name:<24} {sha(a)} {'OK' if ok else 'MISMATCH'}")
+print("all in sync" if not bad else f"!! {bad} mismatch(es)")

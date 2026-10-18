@@ -42,7 +42,8 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import msch
 
-SCHEM = r"C:\Users\lliary\AppData\Roaming\Mindustry\schematics"
+SCHEM = os.environ.get("MLOG_CORPUS") or os.path.join(
+    os.path.expanduser("~"), "AppData", "Roaming", "Mindustry", "schematics")
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 CACHE = os.path.join(ROOT, "logic-corpus", "blocks.json")
 

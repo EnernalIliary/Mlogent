@@ -149,6 +149,13 @@ mlog **只有 `#` 起注释**（`LParser.java:98-99`），没有行尾注释 —
 
 单项工具仍然可用（同一份 `tools/` 里）：`mlog.py check|ir|values|pack|explain|cmd|id|item|parse|gen`。`explain` 是查**某条指令哪个参数是输出**的唯一权威来源 —— 官方文档有 8 条指令的参数顺序是错的，`explain` 会直接打 `!! DOCS WRONG`。
 
+## 环境（这份副本可以单独拿走）
+
+- **Python 3.10+，只用标准库**，没有第三方依赖。
+- `tools/` 里 16 个文件自带齐全，`SKILL.md` 与 `MANIFEST.sha256` 一起拷走即可；`python tools/mlogagent.py info --verify` 会核对每个文件的 SHA256。
+- 要分析的蓝图可以是 `.msch` 二进制、base64 文本或整个目录；**不读游戏安装目录**，只读你给的文件。
+- 控制台需要 UTF-8（`chcp 65001`），否则中文变量名显示为乱码（文件本身没问题）。
+
 ## 维护
 
 这个技能的 `tools/` 是从 `mindustry-blueprint/tools/` **整份拷过来的副本**，不是链接 —— 目的就是让目录能被单独拷走。改了任何模块之后在仓库里跑：
