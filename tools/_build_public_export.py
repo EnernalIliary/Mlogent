@@ -1,4 +1,4 @@
-"""Build a clean, publishable export of the mlog toolkit under dist/mlog-toolkit.
+"""Build a clean, publishable export of the mlog toolkit under dist/mlog-agentskill.
 
 The working repo cannot be pushed as-is: it tracks 334.8 MB, and two files exceed
 GitHub's hard 100 MB per-file limit (`logic-corpus/blocks.json` = 144 MB,
@@ -19,12 +19,12 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-DIST = ROOT / "dist" / "mlog-toolkit"
+DIST = ROOT / "dist" / "mlog-agentskill"
 BP = ROOT / "mindustry-blueprint"
 AGENT = ROOT / ".dsh" / "skills" / "mlogagent"
 TESTS = ROOT / "tests"
 
-README = """# mlog-toolkit
+README = """# mlog-agentskill
 
 Static analysis, decoding and generation for **Mindustry** blueprint logic (`.msch` / `mlog`) —
 plus the data tables you need to write mlog without guessing.
@@ -73,7 +73,7 @@ Plus the writing side:
 ## Install
 
 ```bash
-git clone <this repo> && cd mlog-toolkit
+git clone <this repo> && cd mlog-agentskill
 python mlogagent/tools/mlogagent.py info    # sanity check; no config needed
 ```
 
@@ -138,7 +138,7 @@ Mindustry is licensed GPLv3. This project contains no game code: it ships derive
 implementation. See `NOTICE`.
 """
 
-NOTICE = """mlog-toolkit
+NOTICE = """mlog-agentskill
 ============
 
 This project analyses and generates blueprints for Mindustry.
