@@ -485,10 +485,17 @@ def cmd_ir(args) -> int:
 
 
 def _val_report(label: str, lines: list[str],
-                traces: list[str] | None = None) -> int:
+                traces: list[str] | None = None,
+                slots: dict | None = None) -> int:
     prog = _ir.parse(lines)
-    st = _val.analyze(prog)
+    st = _val.analyze(prog, slots=slots)
     print(_val.format_report(label, prog, st))
+    if slots:
+        print(f"  cross knowledge : {st.cross_folded} read statement(s) resolved "
+              f"against {len(slots)} readable slot(s) on other processors")
+        print("                    (a null here means no processor in THIS "
+              "schematic ever assigns that slot -- a processor outside the "
+              "blueprint cannot be seen)")
     for v in traces or []:
         rows = _val.trace(prog, st, v)
         print(f"  -- trace {v} --")
@@ -508,10 +515,17 @@ def cmd_values(args) -> int:
             rc |= _val_report(p, fh.read().split("\n"), traces)
     for p in _msch_targets:
         sch = msch.parse_file(p)
+        # Two passes: pass 1 learns what each processor holds, pass 2 re-runs
+        # every program with that knowledge. Deliberately *one* iteration --
+        # pass 1 itself assumed TOP for its own cross reads, so iterating to a
+        # fixpoint would report confidence the model does not have.
+        units = _cx.units_from_schematic(sch)
+        known = _cx.slot_values(_cx.analyze_units(units), units) if units else {}
         for t in sch.logic_tiles():
             assert t.logic is not None
-            rc |= _val_report(f"{p} [{t.block} @({t.x},{t.y})]",
-                              t.logic.code.split("\n"), traces)
+            label = f"{p} [{t.block} @({t.x},{t.y})]"
+            rc |= _val_report(label, t.logic.code.split("\n"), traces,
+                              known.get((t.x, t.y)))
     return rc
 
 

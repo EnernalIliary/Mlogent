@@ -190,6 +190,40 @@ def units_from_schematic(sch) -> list[Unit]:
     return units
 
 
+def slot_values(rep: "Report",
+                units: "list[Unit]") -> dict[tuple[int, int], dict[tuple[str, str], "_val.V"]]:
+    """Per-reader map `(link name, slot name) -> value`, for `mlogval`.
+
+    This is the bridge that makes `values` useful on a multi-processor map: a
+    `read` of a slot the other processor assigns a constant to is no longer an
+    unknown writer.
+
+    A slot nobody ever assigns resolves to **null**, not 0, because
+    `LogicBlock.read()` falls back to `output.setobj(optionalLink(varName))`
+    when `optionalVar()` returns null -- an undeclared name is a *link* lookup,
+    and there is no such link. That is also why `write` to an undeclared name
+    silently does nothing (`at == null -> return`).
+
+    Keyed by the reader's **tile position**, not its label: labels are display
+    strings, and coupling analysis to their format is how the first wiring of
+    this silently returned nothing.
+    """
+    by_label = {u.label: u for u in units}
+    out: dict[tuple[int, int], dict[tuple[str, str], "_val.V"]] = {}
+    for (pos, name), slot in rep.slots.items():
+        value = slot.incoming()
+        known = value if value is not None else _val.NA
+        for r in slot.readers:
+            u = by_label.get(r.unit)
+            if u is None:
+                continue
+            link = next((t for t, p in u.links.items() if p == pos), None)
+            if link is None:
+                continue
+            out.setdefault(u.pos, {})[(link, name)] = known
+    return out
+
+
 def format_report(rep: Report, label: str = "") -> str:
     out = [f"=== {label}" if label else "==="]
     out.append(f"  cross reads     : {rep.cross_reads}   "

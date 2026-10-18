@@ -343,6 +343,7 @@ class Analysis:
     nulls: list[tuple[int, str]] = field(default_factory=list)         # (index, var)
     rounds: int = 0
     stable: bool = True
+    cross_folded: int = 0      # `read` results replaced by knowledge of the target
 
 
 def _const_token(tok: mlogir.Tok) -> V | None:
@@ -387,7 +388,17 @@ def _cond(name: str, a: V, b: V) -> V:
     return op_value(name.strip().lower(), True, a, b)
 
 
-def analyze(prog: mlogir.Program, max_rounds: int = 40) -> Analysis:
+def analyze(prog: mlogir.Program, max_rounds: int = 40,
+            slots: dict[tuple[str, str], V] | None = None) -> Analysis:
+    """Abstract interpretation over the CFG.
+
+    `slots` is the cross-processor knowledge map from
+    `mlogcross.slot_values()`: `(link name, slot name) -> value`. When given,
+    `read x someProcessor "name"` stops being an unknown writer and yields the
+    value the *other* processor actually holds. Without it every cross read is
+    TOP, which on a multi-processor map means half the interesting variables
+    are unknowable -- which is why this parameter exists.
+    """
     stmts = prog.stmts
     n = len(stmts)
     st = Analysis()
@@ -421,11 +432,24 @@ def analyze(prog: mlogir.Program, max_rounds: int = 40) -> Analysis:
     work = sorted(reach)
     touched = {i: 0 for i in range(n)}
     rounds = 0
+    folded: set[int] = set()      # statements whose `read` was resolved cross-processor
 
     def transfer(i: int, cur: dict[str, V]) -> dict[str, V]:
         s = stmts[i]
         nxt = dict(cur)
         mn = s.mnemonic
+        if mn == "read" and slots and len(s.args) >= 3:
+            # read <dst> <link> "<slot>" -- resolved against the other
+            # processor's state instead of falling through to TOP.
+            dst = s.args[0].text
+            name = s.args[2].text
+            if len(name) >= 2 and name[0] == '"' and name[-1] == '"':
+                name = name[1:-1]
+            v = slots.get((s.args[1].text, name))
+            if v is not None:
+                nxt[dst] = v
+                folded.add(i)
+                return nxt
         if mn == "set":
             if len(s.args) >= 2:
                 nxt[s.args[0].text] = value_of(s.args[1], cur)
@@ -506,6 +530,7 @@ def analyze(prog: mlogir.Program, max_rounds: int = 40) -> Analysis:
         for v in sorted(s.uses):
             if in_state.get(i, {}).get(v, TOP_V).kind == "na":
                 st.nulls.append((i, v))
+    st.cross_folded = len(folded)
     return st
 
 

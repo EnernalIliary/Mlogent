@@ -128,6 +128,32 @@ def digest_cost(name: str) -> dict:
     return out
 
 
+def digest_cross_values() -> dict:
+    """`values` fed by `cross`: a read of a constant slot folds to that constant.
+
+    The `jump done equal y z` case is the point: without cross knowledge `y` is
+    TOP and the branch cannot be resolved; with it `y` is null (0) and `z` is 3,
+    so the comparison is provably never taken.
+    """
+    import mlogcross
+    reader = ['read x w1 "v"', 'print x', 'read y w1 "ghost"', 'print y',
+              'set z 3', 'jump done equal y z', 'print "no"', 'done:', 'end']
+    units = [mlogcross.Unit("writer", (0, 0), ["set v 42", "end"], {}),
+             mlogcross.Unit("reader", (1, 0), reader, {"w1": (0, 0)})]
+    known = mlogcross.slot_values(mlogcross.analyze_units(units), units)
+    prog = I.parse(reader)
+    bare = V.analyze(prog)
+    fed = V.analyze(prog, slots=known.get((1, 0), {}))
+    return {"bare": {"folded": bare.cross_folded,
+                     "branches": [[ln, m] for ln, m, _ in bare.branches],
+                     "nulls": sorted(bare.nulls)},
+            "fed": {"folded": fed.cross_folded,
+                    "branches": [[ln, m] for ln, m, _ in fed.branches],
+                    "nulls": sorted(fed.nulls),
+                    "x": str(fed.after.get(0, {}).get("x")),
+                    "y": str(fed.after.get(2, {}).get("y"))}}
+
+
 def digest_odd() -> dict:
     """Fullwidth punctuation in a name (the IME-typo check, `ir`-level)."""
     import mlog
@@ -182,12 +208,14 @@ SUITE: list[tuple[str, str, str | None]] = [
     ("cost/wait-single",       "cost",    "wait1.mlog"),
     ("cost/wait-nested",       "cost",    "wait2.mlog"),
     ("cross/unit-verdicts",    "cross",   None),
+    ("values/cross-fold",     "crossvalues", None),
 ]
 
 DIGESTS = {
     "gate": digest_gate, "check": digest_check, "check_msg": digest_check_msg,
     "ir": digest_ir, "values": digest_values, "pack": digest_pack,
     "cost": digest_cost, "cross": lambda _f: digest_cross_unit(),
+    "crossvalues": lambda _f: digest_cross_values(),
     "odd": lambda _f: digest_odd(),
 }
 

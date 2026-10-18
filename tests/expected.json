@@ -220,5 +220,37 @@
         "orphan"
       ]
     }
+  },
+  "values/cross-fold": {
+    "kind": "crossvalues",
+    "case": null,
+    "digest": {
+      "bare": {
+        "folded": 0,
+        "branches": [],
+        "nulls": []
+      },
+      "fed": {
+        "folded": 2,
+        "branches": [
+          [
+            5,
+            "never"
+          ]
+        ],
+        "nulls": [
+          [
+            3,
+            "y"
+          ],
+          [
+            5,
+            "y"
+          ]
+        ],
+        "x": "42",
+        "y": "null"
+      }
+    }
   }
 }

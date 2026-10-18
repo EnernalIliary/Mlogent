@@ -600,6 +600,7 @@ ulocate building core 0 @copper cx cy found core
 | 26 | `@armor` | 54 | `@buildX` |
 | 27 | `@efficiency` | 55 | `@buildY` |
 | 28 | 2026-10-18 | **回歸測試落地** `tests/run_tests.py`（12 條 golden digest，覆蓋 check / ir / values / pack / cost / gate / cross），合成用例從 `out/` 移到 `tests/cases/`；`mlog.odd_names()` 從打印塊抽成函數以便斷言。方法論：「用眼睛比對輸出」不是驗證，只是延後發現錯誤。 |
+| 29 | 2026-10-18 | **`values` 接 `cross`**：`read` 到别的处理器不再一律 ⊤，两遍分析、刻意不做不动点；`slot_values()` 改按坐标建键（按展示标签建键时「接上了但什么都没发生」）。方法论：「接线失败最安静的样子，是它什么都没做，而不是它做错了。」 |
 | 28 | `@progress` | 56 | `@pingX` |
 | 29 | `@timescale` | 57 | `@pingY` |
 | 30 | `@rotation` | 58 | `@pingText` |
@@ -1785,6 +1786,58 @@ read n     proc1 "count" # 處理器 B 讀 A 的變量
 邊界:連結必須落在**另一個邏輯方塊**上才算跨處理器(指向記憶格/顯示器的 link 直接跳過,
 否則會憑空造出邊);`read`/`write` 的字符串若不是字面量(是變量)則不解析;不建模
 「誰先跑」——時間差一律用 join 吸收。
+
+## 15.21 `values` 吃 `cross` 的知识：跨处理器的读不再一律 ⊤
+
+`cross` 回答的是"另一个处理器里这个槽到底是多少"，`values` 之前完全不知道这件事 ——
+`read x processor1 "name"` 一律当未知写者（⊤），于是在多处理器地图上一半变量不可知。
+两者接上以后，`values --msch` 走**两遍**：
+
+1. 第一遍：对每个处理器跑 `analyze()`（此时它的跨处理器读仍是 ⊤），再用
+   `mlogcross.slot_values()` 把「某处理器 `read` 某链接的某槽」解析成具体值；
+2. 第二遍：同一程序带着这张表重跑，`read` 就落到真实值上。
+
+**只迭代一次，刻意不做不动点**：第一遍里那些读本身是 ⊤ 算出来的，再迭代会把
+"上一轮的猜测"当成"这一轮的事实"，报出模型没有的置信度。
+
+### 为什么未声明的槽是 null 而不是 0
+
+```java
+// LogicBlock.java  (Readable.read)
+LVar ret = executor.optionalVar(varName);
+if(ret == null){
+    output.setobj(optionalLink(varName));
+    return;
+}
+```
+
+`optionalVar` 只查**已存在**的变量；查不到就退化成 `optionalLink(名字)` ——
+那是个**链接查找**，没有同名方块就是 `null`。这也解释了为什么 `write` 到未声明的名字
+静默无效（`at == null -> return`），以及为什么必须先声明。
+
+### 实测（`ILOS.test.msch`，micro-processor @(0,2)）
+
+`read MX processor1 "Mxp"` / `read MY processor1 "Myp"`，而整张蓝图里没人给这两个槽赋值：
+
+| | 之前 | 之后 |
+|---|---|---|
+| folded | 0 | 9 条 `read`（对 7 个槽） |
+| resolved branches | 0 | 8（`jump 64 lessThan MY 0` → never …） |
+| provably null | 0 | 8（`MY`、`MX`） |
+
+### 接口坑
+
+`slot_values()` 一开始按 **Unit.label** 建键，而 `cmd_values` 拼的标签是
+`f"{p} [{t.block} @({x},{y})]"` —— 两边永远对不上，于是"接上了但什么都没发生"，
+输出里连 `cross knowledge` 那行都不打印。改成按**方块坐标** `(x, y)` 建键后立刻生效。
+教训：**分析结果不要用展示字符串当键**。
+
+### 边界
+
+- 只在 `--msch` 时可用：单个 `.mlog` 没有同伴可读。
+- 蓝图得是**完整**的。别人地图上的处理器不在这个蓝图里 ⇒ 它的槽看不到 ⇒ 报 null
+  可能只是"没一起存下来"，输出里那句 caveat 写的就是这个。
+- 只迭代一次（见上）；`write` 的**时序**不建模（谁先跑不确定，取 join）。
 
 ## 16. ⚠️ 我写错的逻辑清单(生成前对照)
 
