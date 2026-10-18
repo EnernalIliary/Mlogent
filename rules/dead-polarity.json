@@ -1,0 +1,26 @@
+{
+  "id": "dead-polarity",
+  "kind": "semantics",
+  "severity": "SUSPECT",
+  "claim": "`@dead` is 1 when the unit is dead AND when there is no unit at all, so a loop that continues while `notEqual dead 1` also exits when the unit vanishes.",
+  "why": "LAccess `dead` returns 1 for a null unit (`UnitComp` `!isValid() -> null` path yields 0, and `equal null 0` is true). The intent is usually 'continue while alive'; the code cannot tell 'died' from 'never had one'.",
+  "source": "user",
+  "ref": "m01190",
+  "since": "2026-10-18",
+  "counter_example": "tests/cases/labels-check.mlog",
+  "match": {
+    "sevs": [
+      "SUSPECT"
+    ],
+    "msg_any": [
+      "holds @dead"
+    ]
+  },
+  "auto_downgrade": false,
+  "observed": {
+    "hits": 608,
+    "programs": 360,
+    "share": 0.0031,
+    "dir": "C:\\Users\\lliary\\AppData\\Roaming\\Mindustry\\saves"
+  }
+}

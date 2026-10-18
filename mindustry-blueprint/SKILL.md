@@ -685,6 +685,28 @@ python tools/sync_mlogagent.py --check --global  # 只核对,不同步就 exit 1
 
 它写的是仓库外目录,需要文件系统权限;全局副本与仓库副本的一致性由这个脚本负责,别手工复制。
 
+### 规则与逐条审计（`rules/` + `review.py`）
+
+分析器说的每一句「这行有问题」，都该能追到一条**有证据、有反例**的规则；
+而每条规则都该能被一个人判成「对 / 错 / 不知道」。
+
+```bash
+python tools/rule_capture.py list            # 25 条规则，带实测命中数
+python tools/rule_capture.py lint -v         # schema + 反例必须不命中
+python tools/rule_audit.py --dir out/maps    # 按规则统计噪声 → out/rule_audit_maps.md
+python tools/review.py build --dir out/maps  # 压成可判的行 → out/audit_rows.json
+python tools/review.py list --unjudged       # 还没判的
+python tools/review.py show <id>             # 该行上下文（>>>> 标出）
+python tools/review.py bad <id> --note "为什么"
+python tools/review.py stats                 # 每条规则你判了几条、错了几条
+python tools/review.py export                # out/audit.md，分组表格
+```
+
+- **kind**：`semantics`（游戏就是这样，禁止自动降级）/ `heuristic`（统计，可降级）/ `negative`（看着像错其实对，用来挡住想写的规则）。
+- **单向棘轮**：降级（WARN→INFO）可以让机器提议，升级永远要人点头。
+- 判词只有四个：`ok` / `bad` / `unsure` / `skip`。`bad` 攒够了就说明规则该删或该收窄。
+
+
 ## 参考数据
 
 | 文件 | 内容 |

@@ -1,0 +1,27 @@
+{
+  "id": "jump-to-jump-chain",
+  "kind": "heuristic",
+  "severity": "INFO",
+  "claim": "A `jump` whose target is another `jump` is legal and common: it is how hand-written state machines and `@counter` dispatch tables skip empty arms.",
+  "why": "The game follows the chain one hop at a time; no cost beyond the extra hop. Reported only so a reader can tell a skip chain from a dispatch table.",
+  "source": "corpus",
+  "ref": "m14738",
+  "since": "2026-10-18",
+  "counter_example": "tests/cases/virus-logic-clean.mlog",
+  "match": {
+    "sevs": [
+      "INFO"
+    ],
+    "msg_any": [
+      "is itself a jump"
+    ]
+  },
+  "auto_downgrade": false,
+  "line_regex": "^jump\\b",
+  "observed": {
+    "hits": 76230,
+    "programs": 1093,
+    "share": 0.3847,
+    "dir": "C:\\Users\\lliary\\AppData\\Roaming\\Mindustry\\saves"
+  }
+}
