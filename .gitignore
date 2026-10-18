@@ -1,4 +1,4 @@
-# 上游源码树：各自带独立的 .git，本仓库不跟踪（需要时用 submodule）
+﻿# 上游源码树：各自带独立的 .git，本仓库不跟踪（需要时用 submodule）
 /Mindustry-Source/
 /Arc-Source/
 
@@ -22,3 +22,7 @@ out/_user*.msch
 out/_junk.msch
 out/caime_scan*.txt
 .find_cache.json
+/out/_label_backup_*/
+/out/_label_*.txt
+/out/_find*.txt
+/out/_sweep_*.txt
