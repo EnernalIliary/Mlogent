@@ -608,6 +608,7 @@ ulocate building core 0 @copper cx cy found core
 | 8 | `@firstItem` | 36 | `@shootY` |
 | 9 | `@totalLiquids` | 37 | `@cameraX` |
 | 38 | 2026-10-18 | 交叉验证：装上 mindcode（JDK 22 + 预编译 jar），用它的模拟器跑八条探针，六条与我的规则一致、一条 unsupported、一条（跨处理器 read/write）新增蓝图级探针；结论写进 `mindustry-blueprint/EMULATOR-CROSSCHECK.md` 与本节。方法论：**能跑的第二个实现，比多读一遍源码有用** —— 它不读你的注释，也不认同你的假设。 |
+| 39 | 2026-10-18 | 第三方实现对照：`A4-Tacks/mindustry_logic_bang_lang` 的 `tools/logic_lint` 证实了我的指令/算子表（theirs-only 为 ∅、45 个 op 双向零差集），并抓出我漏报的 `no-target-jump`（`jump <不存在标签>` 在游戏里变成 -1、静默落下）；顺带补进六条语言事实（`@ipt × @timescale`、`@counter` 隐含 +1 与越界未定义、解析失败变 `noop`、1000 行、`1.2e3` 不合法、变量名宽度）。方法论：**一个第三方实现不需要比你强，只要它独立** —— 它证实的部分给你底气，它多抓的部分给你缺口。 |
 | 10 | `@totalPower` | 38 | `@cameraY` |
 | 11 | `@itemCapacity` | 39 | `@cameraWidth` |
 | 12 | `@liquidCapacity` | 40 | `@cameraHeight` |
@@ -2114,6 +2115,44 @@ P8 是新加的蓝图级探针：一个处理器 `set declared 7`，另一个
 模拟器**不能**替我看世界：没有单位、没有战场、`ubind`/`ucontrol` 不支持、
 `sensor` 只支持少数属性 —— 凡是要"真有一台 flare 被本处理器认领"才会发生的 bug
 （比如 §15.27 那条死循环），它和我一样瞎。
+
+## 15.29 第三方实现的两件事：证实了指令表，抓出了 no-target-jump
+
+`A4-Tacks/mindustry_logic_bang_lang`（Rust，GPL-3.0，2023-07 起，`tools/logic_lint` 是一个独立的 mlog linter）里的 `lints.rs` 有一张按语句形态写的变量位表（`LINE_PAT`，下标 0 是助记符本身）。拿它和我的 `instr_semantics.json` 对了一遍：
+
+- **指令：他们有的我全有**（theirs-only = ∅）。
+- **算子：45 个名字双向零差集**；我多 6 条 —— `bullet`、`clientdata`、`noop`、`playmusic`、`printchar`、`query`。
+- 他们的 `draw print v v _` 把第三参标成常量对齐，与我的 `draw col` / `draw print` 序数碰撞处理一致。
+
+这是我的指令/算子表第一次被**独立实现**证实（mindcode 的模拟器只证实了语义，没证实表）。
+
+**他们抓到我一个真缺口**：`jump nowhere always`（跳到一个不存在的标签）在我这里报 `no issues found`。原因：`jump` 的 arg0 是跳转目标、不是变量，我把它排除在 `uses` 之外，于是**无法解析的标签对我是隐形的** —— 而这正是他们 `NoTargetJump` 那条要抓的。
+
+游戏里的行为：`LParser.java:195-198` 用 `jumpLocations.get(location, -1)`，标签不存在就是 **-1**；而 `JumpI.run()` 有 `if(address != -1)` 保护 ⇒ **这一跳什么也不做，继续往下执行**。所以它不崩、不报错，只是"少跳了一次"。
+
+已加 `WARN  no-target-jump`（`mindustry-blueprint/tools/mlogcheck.py` 的 `analyse()`，紧接 `n = len(stmts)` 之后）：
+
+```
+`nowhere` is not a label in this program, so the game turns this into a
+jump to -1, which does nothing; execution just falls through
+```
+
+### 教程里值得补进去的六条语言事实
+
+来源 `examples/learn.md` / `examples/reference.md`（取事实，不取原文 —— 对方是 GPL-3.0）。
+
+| 事实 | 不记住会怎样 |
+|---|---|
+| 每 tick 有效预算 = `@ipt × @timescale`（`sensor $ @this @timescale`） | 只看 `@ipt` 会把调速后的产能算低一倍 |
+| 写 `@counter` 生效的是**下一次**位置，所以 `op add @counter @counter n` 的入口在 **n+1 行** | 派发表整体偏移一行 |
+| `@counter` 越界（N<0 / N≥行数 / 非整数）是**未定义行为** | 派发表不自己钳制，表项少一行就跳进不可知处 |
+| 解析失败的语句**整行变 `noop`**（编辑器显示 Invalid），不是"忽略某个参数" | 会把"整行失效"误诊成"参数无效" |
+| 逻辑上限 1000 行；`1e4` 合法、`1.2e3` 不合法 | 生成器写出游戏解析不了的数字 |
+| 变量名几乎任意（除空白与 `"`、`#`、`;` 外都能入名） | 按 C 标识符规则写 parser 会切错 |
+
+另有两条工程事实：连发两次 `printflush message1` 是"清文本缓冲 + 清 message"的惯用法（与已记录的 `PrintFlushI` 无条件清缓冲一致）；多处理器指令级无原子性，读-改-写会丢更新。
+
+方法论：**一个第三方实现不需要比你强，只要它独立 —— 它证实的部分给你底气，它多抓的部分给你缺口。**
 
 ## 16. ⚠️ 我写错的逻辑清单(生成前对照)
 

@@ -452,6 +452,20 @@ python tools/sync_mlogagent.py --check --global  # 只核对,不同步就 exit 1
 - **等外部状态的自旋**(`jump loop equal on 0`,`on` 来自 `read cell1`)不报:真实语料每块 0.33 条,报了只会淹没结论。
 - 模拟也替代不了:复现上一条要先构造"单位已被本处理器认领"的场面,喂不到场景时模拟器会说一切正常。
 
+## 语义是谁说的：第二实现交叉验证
+
+本仓库的每条"语言事实"都来自读 `LExecutor.java`。读源码会读错，所以关键几条
+另外用 [`cardillan/mindcode`](https://github.com/cardillan/mindcode) 的处理器模拟器
+复核过一遍（八条探针，六条一致、一条不支持、一条蓝图级新增）。
+
+| 结论 | 状态 |
+|---|---|
+| `equal <未赋值> null` 恒真 · `logn(0,2)`→null · `1/0`→null · `sensor @unit @dead`→1 · `print <未声明>`→`null` · 记忆格未写→0 | **双实现确认** |
+| `read`/`write` 只认对方**已声明**的变量，`write` 到未声明名字不建槽 | **双实现确认**（蓝图级探针 `A=7 B=null C=null`） |
+| `ubind` 后 `@controller == @this` | 只有源码依据（模拟器不支持 `ubind`） |
+
+复跑方法与探针文件见 `EMULATOR-CROSSCHECK.md`（需要 JDK 22 与 `mindcode.jar`）。
+
 ## 参考数据
 
 | 文件 | 内容 |
@@ -472,3 +486,9 @@ python tools/sync_mlogagent.py --check --global  # 只核对,不同步就 exit 1
 - **`sensor` 的第三参可以是变量**(装 content 对象即可) ⇒ `sensor n core it` 合法,但 mlog **没有按序号取内容物的原语**
 - **对象存进内存格只有 build 160+ 支持** ⇒ 老版本上 `write @copper cell1 0` 实际写的是 1
 - **链接名 = 内部名按 `-` 切分取最后一段 + 序号** ⇒ `overdrive-dome` → `dome1`
+- **每 tick 有效预算 = `@ipt × @timescale`** ⇒ 只看 `@ipt` 会把调速后的产能算低一倍(`sensor $ @this @timescale` 取倍率)
+- **写 `@counter` 生效的是"下一次"位置** ⇒ `op add @counter @counter n` 之后的入口在 **n+1 行**
+- **`@counter` 越界是未定义行为**(N<0 / N≥行数 / 非整数) ⇒ 派发表必须自己钳制,别指望游戏兜底
+- **解析失败的语句整行变 `noop`**(编辑器显示 Invalid),不是"忽略某个参数" ⇒ 是整行失效,不是局部失效
+- **`jump` 到不存在的标签 = 跳转 -1 = 什么也不做**(`LParser` 的 `get(location, -1)` + `JumpI` 的 `if(address != -1)`) ⇒ `check` 报 `no-target-jump`,别把它当"死代码"
+- **逻辑上限 1000 行;`1e4` 合法、`1.2e3` 不合法;变量名除空白与 `"` `#` `;` 外几乎任意** ⇒ 生成器按 C 标识符规则写会切错名字、写出游戏解析不了的数字

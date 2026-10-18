@@ -1,0 +1,6 @@
+﻿set x 5
+draw print 10 10 center
+jump nowhere always
+print x
+printflush message1
+end

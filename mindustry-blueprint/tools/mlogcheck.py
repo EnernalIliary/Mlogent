@@ -549,6 +549,22 @@ def analyse(lines: list[str], links: list[str] | None = None) -> list[Finding]:
     out: list[Finding] = []
     n = len(stmts)
 
+    # `jump <label>` with no such label: LParser resolves a missing label to -1
+    # (LParser.java:195-198 `jumpLocations.get(location, -1)`) and JumpI.run()
+    # guards `if(address != -1)`, so the jump does nothing at all and execution
+    # falls through. Almost always a renamed or mistyped label.
+    for _idx, (_i, _c) in enumerate(stmts):
+        _t = _c.split()
+        if len(_t) < 2 or _t[0].lower() != "jump":
+            continue
+        try:
+            int(_t[1])
+        except ValueError:
+            out.append(Finding(
+                "WARN", _idx, "no-target-jump",
+                f"`{_t[1]}` is not a label in this program, so the game turns this "
+                f"into a jump to -1, which does nothing; execution just falls through"))
+
     # Link names are bound by the processor itself, not by an assignment, so
     # they are live from the very first statement. We also auto-detect them by
     # the game's naming rule (internal-name tail + index, e.g. message1, arc1).
