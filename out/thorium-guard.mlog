@@ -1,4 +1,5 @@
 # 钍反防爆 —— 把热量压在 0.5 以下
+# by DeepSeek
 #
 # 依据（NuclearReactor.java, v159.3）：
 #   updateTile():  heat >= 0.999 时 kill()（熔毁）
@@ -34,4 +35,5 @@ hot:
 control enabled b false
 jump scan always 0 0
 done:
+print by:DeepSeek
 end

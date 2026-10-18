@@ -21,9 +21,10 @@ code = (HERE / "out" / "thorium-guard.mlog").read_text("utf-8")
 
 bp = mschgen.Blueprint(
     name="钍反防爆 v1",
-    description="[lightgray]热量到 [#ffb6c1]0.45[] 就关，掉到 [#ffb6c1]0.20[] 再开："
+    description="[lightgray]热量到 [#ffb6c1]0.30[] 就关，掉到 [#ffb6c1]0.15[] 再开："
                 "钍反 heat>=0.999 熔毁、>=0.5 被摧毁时才炸，压到 0.5 以下就炸不了。"
-                "只认 [accent]@type[] 是 thorium-reactor 的链接。",
+                "只认 [accent]@type[] 是 thorium-reactor 的链接。"
+                "[]\n[lightgray]逻辑 by [#8abcd1]DeepSeek[]",
     labels=["reactor"],
 )
 bp.add_logic(code, 0, 0, block="micro-processor",
