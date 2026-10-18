@@ -303,6 +303,10 @@ provably null: L3 r is null
 
 自链接(`processor1` 偏移 0,0)是合法写法,读的是自己的变量。
 
+**版本**:按名字读写另一个处理器 / message 方块是 **v7(build 146)** 才有的;v6 的 `read`
+只能拿数字下标访问记忆格 ⇒ 一份用它读写处理器的蓝图跑不到 v6 上(`cross` 会带一行
+`note : ... v7 (build 146) feature` 提示)。
+
 ## 参考数据
 
 | 文件 | 内容 |

@@ -7,6 +7,7 @@
 
 | build | 日期 | 逻辑相关变更 |
 |---|---|---|
+| 146 | 2023-09-04 | **v7 起点**，逻辑改动最多：`effect`（粒子）、`sync`（同步）、单位 `autoPathfind`、内容 ID 传感器；<br>**`read`/`write` 可以按名字读写另一个处理器的变量、也能读写 message 方块**（v6 没有这条路径） |
 | 147 | 2025-04-11 | **`format`（文本显示）+ draw 变换指令**；世界处理器可显示任意贴图/形状；地图内世界处理器脚本管理 UI；另有概括句「logic blocks，尤其 world processors 的许多新功能」——**未逐条列出** |
 | 148 | 2025-04-21 | 未见逻辑条目 |
 | 149 | 2025-04-30 | 未见逻辑条目 |
@@ -28,8 +29,12 @@
 | 160.5 | — | 修 `0x` / `0b` 数值超过 `Long.MAX_VALUE` 时解析失败 |
 | 160.6 | — | 修「逻辑里的空字段导致参数错位」 |
 
-## 已经写进 `tools/instr_semantics.json` 的 `min_build`
+**为什么 146 也要记一笔**：`read`/`write` 按名字访问**另一个处理器 / message 方块**是 v7
+（146）才有的；v6 的 `read` 只能拿数字下标访问记忆格。所以一份用它的蓝图**不可能跑在
+v6 上**。但 146 低于我们 147 的报告基线，这一条**不进 version gate**，只作为
+「这份逻辑需要 v7」的事实记录 —— `mlog.py cross` 的统计行会带一句 `(v7+ feature)`。
 
+## 已经写进 `tools/instr_semantics.json` 的 `min_build`
 | 语句 | min_build | 依据 |
 |---|---|---|
 | `effect` | 146 | v146「Added logic particle effect instruction」 |

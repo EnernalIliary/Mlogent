@@ -195,6 +195,10 @@ def format_report(rep: Report, label: str = "") -> str:
     out.append(f"  cross reads     : {rep.cross_reads}   "
                f"(slots: {len(rep.slots)}, links that are not processors: "
                f"{rep.unresolved})")
+    if rep.cross_reads or any(s.writes for s in rep.slots.values()):
+        out.append("  note            : name-addressing a processor or a message "
+                   "block is a v7 (build 146) feature -- this blueprint cannot "
+                   "run on v6")
     if not rep.cross_reads:
         out.append("  (no processor-to-processor read found)")
     if rep.never_written:
