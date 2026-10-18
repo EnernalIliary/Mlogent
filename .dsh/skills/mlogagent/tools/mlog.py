@@ -16,6 +16,7 @@ Usage
   python mlog.py values <logic.mlog | --msch F> # abstract values: constant branches,
                                                #   provable nulls (--trace VAR)
   python mlog.py pack   <logic.mlog | --msch F> # packed configs: field layout + how
+python mlog.py cross  <blueprint.msch>        # cross-processor read/write: what the reader gets
                                                #   many ids still fit the low field
   python mlog.py id     [name]                 # block content ids / sizes
   python mlog.py item   [name] [--unpack N]    # item content ids / packed configs
