@@ -2,7 +2,7 @@
 """Vendor the mlog toolchain into the standalone `mlogagent` skill.
 
 The `mlogagent` skill is meant to be self-contained: copy
-`.dsh/skills/mlogagent` somewhere else and it still runs, without the rest of
+`.dsh/skills/mlog-agentskill` somewhere else and it still runs, without the rest of
 this repo.  That means the skill carries its own copy of every module and data
 file, and this script is the one place that produces that copy -- so "which
 version is in the skill" never becomes a guess.
@@ -16,7 +16,7 @@ skill from the catalog -- hence the explicit exclusion below.)
     python tools/sync_mlogagent.py --check    # compare only, exit 1 if stale
 
 Run it after touching any module listed in `mlogagent._MODULES`, then
-`python .dsh/skills/mlogagent/tools/mlogagent.py info --verify` to confirm.
+`python .dsh/skills/mlog-agentskill/tools/mlogagent.py info --verify` to confirm.
 """
 from __future__ import annotations
 
@@ -27,7 +27,25 @@ import sys
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
-SKILL = HERE.parents[1] / ".dsh" / "skills" / "mlogagent"
+
+
+def _repo_root(start: Path) -> Path:
+    """Find the checkout root by looking for `.dsh/skills`.
+
+    This script lives in two places at *different depths*
+    (`mindustry-blueprint/tools/` and, after the sync, `tools/`), so a fixed
+    `parents[N]` resolves correctly in one and silently lands one level too high
+    in the other (symptom: "skill directory not found").  Walking up until the
+    marker appears keeps both copies honest.
+    """
+    for p in [start, *start.parents]:
+        if (p / ".dsh" / "skills").is_dir():
+            return p
+    return start.parent
+
+
+ROOT = _repo_root(HERE)
+SKILL = ROOT / ".dsh" / "skills" / "mlog-agentskill"
 DEST = SKILL / "tools"
 
 sys.path.insert(0, str(HERE))
@@ -84,7 +102,7 @@ def main(argv: list[str] | None = None) -> int:
     print(f"ok     {len(names)} tool file(s) vendored into {DEST}")
     print(f"       manifest: {DEST / 'MANIFEST.sha256'}")
     if not args.check:
-        print("verify : python .dsh/skills/mlogagent/tools/mlogagent.py info --verify")
+        print("verify : python .dsh/skills/mlog-agentskill/tools/mlogagent.py info --verify")
     return 0
 
 

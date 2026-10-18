@@ -1,5 +1,5 @@
 ---
-name: mlogagent
+name: mlog-agentskill
 description: 审查 Mindustry mlog 逻辑时使用：一次跑完静态检查/成本/不可达代码/死存储/常量分支/可证 null/打包配置，按证据强弱给出先看哪里，并附每层的校准数字与"不能证明什么"。
 whenToUse: 需要审查或解释一段 mlog（.mlog 源码或 .msch 蓝图里的逻辑块）、判断某条语句是否白算、某个分支是否恒真、某个变量是否可能为 null、或某个数字打包了几层字段时。
 ---

@@ -297,7 +297,7 @@ provably null: L3 r is null
 
 ## 独立副本
 
-同一套工具已经打包成独立的 mlogagent 技能（.dsh/skills/mlogagent/），目录自带全部模块与数据，可整体拷走。一审一整套分析用 mlogagent.py report <file>；改完模块后用 python tools/sync_mlogagent.py 刷新那份副本（--check 只比对）。
+同一套工具已经打包成独立的 mlog-agentskill 技能（.dsh/skills/mlog-agentskill/），目录自带全部模块与数据，可整体拷走。一审一整套分析用 mlogagent.py report <file>；改完模块后用 python tools/sync_mlogagent.py 刷新那份副本（--check 只比对）。
 
 ### `cross` 只看跨处理器,不看记忆格
 
@@ -407,7 +407,7 @@ python tools/label_auto.py --apply F.msch --out DIR   # 写回副本,不动原�
 
 | 拿什么 | 大小 | 能不能单独用 |
 |---|---|---|
-| `.dsh/skills/mlogagent/` | 自带 16 个文件 + `MANIFEST.sha256` | **能**。拷到任何地方 `python tools/mlogagent.py report x.msch`，`info --verify` 自校验 |
+| `.dsh/skills/mlog-agentskill/` | 自带 16 个文件 + `MANIFEST.sha256` | **能**。拷到任何地方 `python tools/mlogagent.py report x.msch`，`info --verify` 自校验 |
 | `mindustry-blueprint/` | 工具 + 数据 + 文档 | 能，但下面两条路径要按自己机器改 |
 
 ### 两条路径

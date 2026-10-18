@@ -14,6 +14,7 @@ from __future__ import annotations
 import os
 import re
 import shutil
+import time
 import subprocess
 import sys
 from pathlib import Path
@@ -21,7 +22,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 DIST = ROOT / "dist" / "mlog-agentskill"
 BP = ROOT / "mindustry-blueprint"
-AGENT = ROOT / ".dsh" / "skills" / "mlogagent"
+AGENT = ROOT / ".dsh" / "skills" / "mlog-agentskill"
 TESTS = ROOT / "tests"
 
 README = """# mlog-agentskill
@@ -32,7 +33,7 @@ plus the data tables you need to write mlog without guessing.
 No game install, no simulator, no third-party packages. Pure Python 3.10+.
 
 ```
-$ python mlogagent/tools/mlogagent.py report your.msch
+$ python mlog-agentskill/tools/mlogagent.py report your.msch
 
 === your.msch [micro-processor @(0,0)]
 --- check -------------------------------------------------
@@ -74,12 +75,12 @@ Plus the writing side:
 
 ```bash
 git clone <this repo> && cd mlog-agentskill
-python mlogagent/tools/mlogagent.py info    # sanity check; no config needed
+python mlog-agentskill/tools/mlogagent.py info    # sanity check; no config needed
 ```
 
 Two entry points, same code:
 
-- **`mlogagent/tools/mlogagent.py`** — one command, all analyses, verdict first (self-contained).
+- **`mlog-agentskill/tools/mlogagent.py`** — one command, all analyses, verdict first (self-contained).
 - **`mindustry-blueprint/tools/mlog.py`** — one subcommand per analysis, scripting friendly.
 
 ## Environment
@@ -123,7 +124,7 @@ python mindustry-blueprint/tools/mlog.py selftest   # parser round-trip against 
 - [`mindustry-blueprint/REFERENCE.md`](mindustry-blueprint/REFERENCE.md) — the knowledge base: mechanics, instruction budget, refuted conclusions
 - [`mindustry-blueprint/PATTERNS.md`](mindustry-blueprint/PATTERNS.md) — logic patterns found in real blueprints
 - [`mindustry-blueprint/BUILDS.md`](mindustry-blueprint/BUILDS.md) — which build introduced which statement
-- `mlogagent/SKILL.md` — the standalone agent skill (self-contained copy with `MANIFEST.sha256`)
+- `mlog-agentskill/SKILL.md` — the standalone agent skill (self-contained copy with `MANIFEST.sha256`)
 
 Docs are written in Chinese; the code and comments are English.
 
@@ -238,18 +239,81 @@ def scrub(root: Path) -> int:
     return changed
 
 
+
+def _rmtree(path: Path) -> None:
+    """Delete a tree even when OneDrive holds handles on it.
+
+    `shutil.rmtree(..., ignore_errors=True)` reports success while leaving the
+    directory in place here, so the export silently kept a stale `mlogagent/`
+    next to the new `mlog-agentskill/`.  `cmd /c rmdir /s /q` goes through a
+    different API and does clear it; the shutil call stays as the fallback for
+    non-Windows use.
+    """
+    if sys.platform == "win32":
+        subprocess.run(["cmd", "/c", "rmdir", "/s", "/q", str(path)],
+                       check=False, capture_output=True)
+    if path.exists():
+        shutil.rmtree(path, ignore_errors=True)
+
+
+def _clean(dest: Path) -> None:
+    """Empty `dest` but keep `dest/.git` so the published repo keeps its history.
+
+    `shutil.rmtree(dest)` is the obvious call and it is the wrong one: with
+    `ignore_errors=True` a single locked file (OneDrive keeps `__pycache__`
+    handles open) makes it give up *after* deleting nothing, so the previous
+    export survives and every file that changed name is now duplicated --
+    renaming the skill produced both `mlogagent/` and `mlog-agentskill/` in the
+    same commit.  Deleting child by child, best-effort, always leaves the tree
+    in a known state.
+    """
+    git = dest / ".git"
+    for child in list(dest.iterdir()):
+        if child == git:
+            continue
+        if child.is_dir():
+            _rmtree(child)
+        else:
+            try:
+                child.unlink()
+            except OSError:
+                pass
+    leftovers = [c for c in dest.iterdir() if c != git]
+    if leftovers:
+        time.sleep(0.5)                     # let OneDrive drop its handles
+        for child in leftovers:
+            if child.is_dir():
+                _rmtree(child)
+            else:
+                child.unlink(missing_ok=True)
+        still = [c.name for c in dest.iterdir() if c != git]
+        if still:
+            raise SystemExit(f"!! export dir not empty, refusing to build a mixed tree: {still}")
+    for junk in dest.rglob("__pycache__"):
+        shutil.rmtree(junk, ignore_errors=True)
+
+
+EXPECTED_TOP = {"mindustry-blueprint", "mlog-agentskill", "tests",
+                "README.md", "NOTICE", "LICENSE", ".gitignore", ".git"}
+
+
+def _expect(dest: Path) -> None:
+    """Fail if the tree holds anything the layout does not name (stale copies)."""
+    got = {c.name for c in dest.iterdir()}
+    extra, missing = got - EXPECTED_TOP, EXPECTED_TOP - got
+    if extra or missing:
+        raise SystemExit(f"!! export layout wrong -- extra {sorted(extra)}, missing {sorted(missing)}")
+
+
 def main() -> int:
     if DIST.exists():
-        # OneDrive can hold a lock on __pycache__; it is gitignored anyway
-        shutil.rmtree(DIST, ignore_errors=True)
-        for junk in DIST.rglob("__pycache__"):
-            shutil.rmtree(junk, ignore_errors=True)
+        _clean(DIST)
     DIST.mkdir(parents=True, exist_ok=True)
 
     n_bp = copy_tree(BP, DIST / "mindustry-blueprint")
-    n_ag = copy_tree(AGENT, DIST / "mlogagent")
+    n_ag = copy_tree(AGENT, DIST / "mlog-agentskill")
     n_ts = copy_tree(TESTS, DIST / "tests")
-    print(f"copied: blueprint {n_bp}, mlogagent {n_ag}, tests {n_ts}")
+    print(f"copied: blueprint {n_bp}, mlog-agentskill {n_ag}, tests {n_ts}")
 
     changed = scrub(DIST)
     print(f"scrubbed absolute paths in {changed} file(s)")
@@ -264,9 +328,10 @@ def main() -> int:
                        capture_output=True, text=True, encoding="utf-8", errors="replace")
     print(r.stdout.strip().splitlines()[-1] if r.stdout.strip() else r.stderr[-400:])
 
-    # manifest for the standalone skill copy
-    print(f"total {sum(1 for _ in DIST.rglob('*') if _.is_file())} files, "
-          f"{sum(f.stat().st_size for f in DIST.rglob('*') if f.is_file())/1048576:.2f} MB")
+    # report the shipped tree only: `.git` is not part of the product
+    shipped = [f for f in DIST.rglob("*") if f.is_file() and ".git" not in f.parts]
+    _expect(DIST)
+    print(f"total {len(shipped)} files, {sum(f.stat().st_size for f in shipped)/1048576:.2f} MB")
     return 0 if r.returncode == 0 else 1
 
 
