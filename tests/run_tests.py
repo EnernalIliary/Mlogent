@@ -208,6 +208,7 @@ SUITE: list[tuple[str, str, str | None]] = [
     ("check/reactor-unknown",  "check",   "reactor-guard-unknown.mlog"),
     ("check/reactor-impact",   "check",   "reactor-guard-impact.mlog"),
     ("check/reactor-impact-ok", "check",  "reactor-guard-impact-ok.mlog"),
+    ("check/virus",           "check",   "virus-logic.mlog"),
     ("check/spin-deadlock",   "check",   "spin.mlog"),
     ("check/spin-handshake",  "check",   "spin-ok.mlog"),
     ("pack/three-fields",      "pack",    "pack1.mlog"),

@@ -623,14 +623,27 @@ python tools/mlog.py map <save.msav> --code 3            # 每块再打前 3 行
 ### 批量跑语料
 
 ```powershell
-python tools\_sweep_saves.py              # 1,421 个存档：51 秒
-python tools\_sweep_analyse.py            # 加六种分析：155 秒
+python tools\_sweep_saves.py              # 1,421 个存档：34 秒
+python tools\_sweep_analyse.py            # 加六种分析：127 秒
 python mindustry-blueprint\tools\parallel.py --items 1421   # 先看它会开几个 worker、为什么
 ```
 
 `parallel.py` 自己算 worker 数：核数、可用内存、**最大文件**三个上限取最小。重文件
 （≥1 MB）单独一段、用更少的 worker —— 一个 4.5 MB 的存档里有 6,600 个处理器，按平均值
 分 worker 会让几个这样的文件同时把内存吃干。想调就 `--workers N` 或 `--serial`。
+
+### 病毒逻辑（自我复制）
+
+```powershell
+python mlog.py check someone.msch --msch      # 命中会打 [INFO] virus-logic
+```
+
+判据只有一行：`ucontrol build <x> <y> <块> <朝向> @this` —— 最后一个参数是新方块的 config，
+传 `@this` 就是「造一个跑我这份程序的方块」，于是它复制自己、复制出的再复制。圈内叫
+**病毒逻辑**。`@this` 经变量中转（`set cfg @this`）也算。
+
+实测：1,421 个存档里 9,151 个处理器是病毒，但**只来自 2 份不同的程序**（`556.msav` 6,616 份
+副本、`538.msav` 1,432 份）。看到一张图里几千个处理器，先怀疑这个，别急着叫它"逻辑计算机"。
 
 ## 参考数据
 

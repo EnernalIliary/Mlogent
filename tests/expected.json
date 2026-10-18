@@ -153,6 +153,16 @@
     "case": "reactor-guard-impact-ok.mlog",
     "digest": []
   },
+  "check/virus": {
+    "kind": "check",
+    "case": "virus-logic.mlog",
+    "digest": [
+      [
+        "INFO",
+        1
+      ]
+    ]
+  },
   "check/spin-deadlock": {
     "kind": "check",
     "case": "spin.mlog",
