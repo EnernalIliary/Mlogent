@@ -1,0 +1,37 @@
+# 钍反防爆 —— 把热量压在 0.5 以下
+#
+# 依据（NuclearReactor.java, v159.3）：
+#   updateTile():  heat >= 0.999 时 kill()（熔毁）
+#   shouldExplode(): super && (钍 >= 5 || heat >= 0.5f)
+#     => 热量 < 0.5 时即使被敌人打碎也不会连锁爆炸
+#   升温: heat += fullness * 0.01 * min(delta,4)   满料约 +0.01/tick（0.6/秒）
+#   关掉后: heat -= delta/1200                     约 -0.05/秒（很慢）
+#   有液体时: heat -= min(液量, heat/0.5) * 0.5    1 单位液体抵 0.5 热量
+#
+# 为什么阈值是 0.30 不是 0.45：
+#   一整圈 14 条，微处理器 2 ipt ⇒ 7 tick 才回来复检一次，这 7 tick 里热量还在涨。
+#   满料 7 tick 多涨 0.07 ⇒ 峰值 0.37。取 0.45 会算出 0.50 的峰值，正好压在
+#   爆炸线上；换逻辑处理器（8 ipt）2 tick 复检，峰值 0.32。
+#
+# 为什么掉到 0.15 才开：关掉后降温只有 0.05/秒，落差太小会在阈值上反复开关。
+set hi 0.30
+set lo 0.15
+loop:
+set i 0
+scan:
+jump done greaterThanEq i @links
+getlink b i
+op add i i 1
+jump scan equal b null
+sensor ty b @type
+jump scan notEqual ty @thorium-reactor
+sensor h b @heat
+jump hot greaterThanEq h hi
+jump scan greaterThan h lo
+control enabled b true
+jump scan always 0 0
+hot:
+control enabled b false
+jump scan always 0 0
+done:
+end
