@@ -119,13 +119,28 @@
     "digest": [
       [
         "WARN",
-        0
+        2
       ]
     ]
   },
   "check/reactor-ok": {
     "kind": "check",
     "case": "reactor-guard-ok.mlog",
+    "digest": []
+  },
+  "check/reactor-unknown": {
+    "kind": "check",
+    "case": "reactor-guard-unknown.mlog",
+    "digest": [
+      [
+        "INFO",
+        0
+      ]
+    ]
+  },
+  "check/reactor-impact": {
+    "kind": "check",
+    "case": "reactor-guard-impact.mlog",
     "digest": []
   },
   "check/spin-deadlock": {

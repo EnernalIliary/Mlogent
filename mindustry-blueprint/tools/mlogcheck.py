@@ -1057,7 +1057,17 @@ def analyse(lines: list[str], links: list[str] | None = None, ipt: int = 2) -> l
             if 0 <= tgt <= i <= j:
                 body = min(body, j - tgt + 1)
         interval = max(1, -(-body // max(1, ipt)))
-        if interval > window:
+        if interval <= window:
+            continue
+        # `reactor1` may be a thorium reactor OR an impact reactor, and the
+        # two do not share a heat curve. Only the thorium one climbs
+        # 0.01/tick from wherever it sits, so the arithmetic below is a
+        # promise only when the program itself proves the block type.
+        proven = any("@thorium-reactor" in c for _, c in stmts)
+        impact = any("@impact-reactor" in c for _, c in stmts)
+        if impact and not proven:
+            continue
+        if proven:
             out.append(Finding(
                 "WARN", orig, "",
                 f"reactor guard is too slow: `{q[2]}` is checked once every "
@@ -1066,6 +1076,15 @@ def analyse(lines: list[str], links: list[str] | None = None, ipt: int = 2) -> l
                 f"ticks (0.01 per tick, NuclearReactor.java:95-125) -- it can "
                 f"explode between two checks. Either move the guard into its own "
                 f"short loop or lower the fuel"))
+        else:
+            out.append(Finding(
+                "INFO", orig, "",
+                f"`{q[2]}` is checked once every ~{interval} ticks ({body} "
+                f"statements per pass / ipt {ipt}); IF that link is a thorium "
+                f"reactor, heat {thresh:g} to 0.999 takes only {window} ticks, so "
+                f"it could explode between two checks. Nothing here proves the "
+                f"type -- an impact reactor can share the same link name and has "
+                f"its own heat rules -- so this is a question, not a verdict"))
 
     # dedupe, keep order
     seen, uniq = set(), []

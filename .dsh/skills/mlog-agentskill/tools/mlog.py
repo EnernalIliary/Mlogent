@@ -1528,6 +1528,11 @@ def cmd_text(args) -> int:
 # map -- every logic processor inside a .msav save
 # --------------------------------------------------------------------------- #
 
+_IPT = {"micro-processor": 2, "logic-processor": 8,
+        "hyper-processor": 25, "world-processor": 8,
+        "world-cell": 8, "world-message": 8}
+
+
 def cmd_map(args) -> int:
     """Pull each processor out of a save and run the same checks as `check`.
 
@@ -1562,7 +1567,9 @@ def cmd_map(args) -> int:
                 continue
             lines = code.split("\n")
             names = [l["name"] for l in t["links"]]
-            findings = _check.analyse(lines, names)
+            # per-block instruction budget: the guard-latency rule needs the real
+            # rate, and a micro-processor (2/tick) is the slow case
+            findings = _check.analyse(lines, names, _IPT.get(t["block"], 2))
             errs = [f for f in findings if f.sev in ("ERR", "SUSPECT")]
             warns = [f for f in findings if f.sev == "WARN"]
             stmts = _check.prepare(lines)

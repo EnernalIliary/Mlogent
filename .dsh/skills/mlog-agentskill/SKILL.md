@@ -250,6 +250,7 @@ python tools/mlog.py map <save.msav> --code 3            # 每块再打前 3 行
 | 有冷却液时 `@heat` 恒为 0 | 一 tick 清零,稳态 1.2 液/秒 | `NuclearReactor.java:95-125` |
 | `control enabled 0` 不是灭火 | 停了还要 1200 tick(20 s)才从 0.999 降到 0 | 同上,ambient 冷却 |
 | 满料 100 tick 爆炸 | 发热 0.01/tick,`@heat >= 0.999` 即 `kill()` | 同上 |
+| 链接名不能证明类型 | `reactor1` 可能是钍反或冲反,热曲线不同;要 `sensor x reactor1 @type` 比对 `@thorium-reactor` 才敢报 WARN,否则只报 INFO 提问 | 2026-10-18 用户实测纠正 |
 
 保护逻辑的正确性不看阈值看**检查间隔**:满料 `(0.999 - 阈值)/0.01` tick 内必须再看一眼,
 间隔 = 循环体语句数 ÷ 处理器 ipt。`mlog.py check` 会报 `reactor guard is too slow`。

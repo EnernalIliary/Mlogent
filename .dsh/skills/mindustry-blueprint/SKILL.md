@@ -600,6 +600,25 @@ python tools/mlog.py map <save.msav> --code 3            # 每块再打前 3 行
 **4,366 份不同的程序**（95.8% 是同一段代码的副本）——所以报告里所有比率的分母
 都是「不同的程序」，不是「处理器」。
 
+### 存档里的程序没有名字
+
+`mlog` 没有名字字段（只有蓝图有 `name`/`description`）；存档里唯一的名字是地图名。判用途靠三个信号：
+**链接名**（默认是方块名+序号）、**指令直方图**（`draw`=显示 / `ubind`=单位 / `control config`=物流 / `setrule`=世界规则）、
+**代码里的字符串**（`print` 出去给人看的那一两段字）。按这三样分桶的现成结果在 `out/saves_programs.md`。
+
+### 钍反保护:三条事实
+
+| 事实 | 数字 | 出处 |
+|---|---|---|
+| 有冷却液时 `@heat` 恒为 0 | 一 tick 清零,稳态 1.2 液/秒 | `NuclearReactor.java:95-125` |
+| `control enabled 0` 不是灭火 | 停了还要 1200 tick(20 s)才从 0.999 降到 0 | 同上,ambient 冷却 |
+| 满料 100 tick 爆炸 | 发热 0.01/tick,`@heat >= 0.999` 即 `kill()` | 同上 |
+| 链接名不能证明类型 | `reactor1` 可能是钍反或冲反,热曲线不同;要 `sensor x reactor1 @type` 比对 `@thorium-reactor` 才敢报 WARN,否则只报 INFO 提问 | 2026-10-18 用户实测纠正 |
+
+保护逻辑的正确性不看阈值看**检查间隔**:满料 `(0.999 - 阈值)/0.01` tick 内必须再看一眼,
+间隔 = 循环体语句数 ÷ 处理器 ipt。`mlog.py check` 会报 `reactor guard is too slow`。
+
+
 ## 参考数据
 
 | 文件 | 内容 |
