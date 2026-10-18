@@ -25,7 +25,7 @@ bp = mschgen.Blueprint(
                 "钍反 heat>=0.999 熔毁、>=0.5 被摧毁时才炸，压到 0.5 以下就炸不了。"
                 "只认 [accent]@type[] 是 thorium-reactor 的链接。"
                 "[]\n[lightgray]逻辑 by [#8abcd1]DeepSeek[]",
-    labels=["reactor"],
+    labels=["[blue]DeepSeek"],
 )
 bp.add_logic(code, 0, 0, block="micro-processor",
              links=[mschgen.Link("reactor1", 2, 1)])
