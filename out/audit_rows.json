@@ -39,19 +39,6 @@
   "id": "dc3412a6be"
  },
  {
-  "rule": "version-gate",
-  "sev": "INFO",
-  "file": "mindustrytop-25774.msav",
-  "x": 125,
-  "y": 137,
-  "block": "logic-processor",
-  "line": 0,
-  "code": "",
-  "msg": "version gate: uses format -- needs build >= 147; on anything older the line is replaced by noop and silently does nothing",
-  "hash": "70ebdfce443f",
-  "id": "b0566c28e7"
- },
- {
   "rule": "printflush-clears-buffer",
   "sev": "INFO",
   "file": "mindustrytop-25774.msav",
@@ -65,30 +52,17 @@
   "id": "269f513151"
  },
  {
-  "rule": "unary-op-extra-operand",
+  "rule": "version-gate",
   "sev": "INFO",
   "file": "mindustrytop-25774.msav",
   "x": 125,
   "y": 137,
   "block": "logic-processor",
-  "line": 71,
-  "code": "op sqrt endl.set n.pad 1",
-  "msg": "`op sqrt` reads 1 operand(s); the extra 1 token(s) are parsed and then ignored",
+  "line": 78,
+  "code": "format total.transportation",
+  "msg": "version gate: uses format -- needs build >= 147; on anything older the line is replaced by noop and silently does nothing",
   "hash": "70ebdfce443f",
-  "id": "a5928f1c49"
- },
- {
-  "rule": "unary-op-extra-operand",
-  "sev": "INFO",
-  "file": "mindustrytop-25774.msav",
-  "x": 125,
-  "y": 137,
-  "block": "logic-processor",
-  "line": 76,
-  "code": "op rand pad.instruct pad.volum n.pad",
-  "msg": "`op rand` reads 1 operand(s); the extra 1 token(s) are parsed and then ignored",
-  "hash": "70ebdfce443f",
-  "id": "7ded839bf8"
+  "id": "d6e13ae7a3"
  },
  {
   "rule": "constant-null-guard",
@@ -136,11 +110,11 @@
   "x": 413,
   "y": 408,
   "block": "micro-processor",
-  "line": 0,
-  "code": "",
+  "line": 3,
+  "code": "select control.conveyor greaterThan item.surge-alloy 250 true false",
   "msg": "version gate: uses select -- needs build >= 150; on anything older the line is replaced by noop and silently does nothing",
   "hash": "fc768bc39113",
-  "id": "0dc6296964"
+  "id": "0a6d62c6bc"
  },
  {
   "rule": "version-gate",
@@ -150,10 +124,10 @@
   "y": 489,
   "block": "world-processor",
   "line": 0,
-  "code": "",
+  "code": "bullet result @salvo 0 @thisx @thisy 315 @sharded @this 500 5 1 -1 -1",
   "msg": "version gate: uses bullet -- needs build >= 157; on anything older the line is replaced by noop and silently does nothing",
   "hash": "c81e67dbb658",
-  "id": "e1e5af969b"
+  "id": "93dd190600"
  },
  {
   "rule": "jump-to-jump-chain",
@@ -182,121 +156,17 @@
   "id": "dfd46fd8cd"
  },
  {
-  "rule": "unary-op-extra-operand",
-  "sev": "INFO",
-  "file": "mindustrytop-25774.msav",
-  "x": 4,
-  "y": 497,
-  "block": "world-processor",
-  "line": 4,
-  "code": "op cos cos.num temp.i b",
-  "msg": "`op cos` reads 1 operand(s); the extra 1 token(s) are parsed and then ignored",
-  "hash": "43d10d06762e",
-  "id": "049fa3e9e6"
- },
- {
-  "rule": "version-gate",
-  "sev": "INFO",
-  "file": "mindustrytop-25773.msav",
-  "x": 314,
-  "y": 228,
-  "block": "world-processor",
-  "line": 0,
-  "code": "",
-  "msg": "version gate: uses getblock -- needs build >= 157; on anything older the line is replaced by noop and silently does nothing",
-  "hash": "7a46a15402e2",
-  "id": "4ef21258f4"
- },
- {
-  "rule": "unary-op-extra-operand",
-  "sev": "INFO",
-  "file": "mindustrytop-25773.msav",
-  "x": 314,
-  "y": 228,
-  "block": "world-processor",
-  "line": 24,
-  "code": "op floor fx x b",
-  "msg": "`op floor` reads 1 operand(s); the extra 1 token(s) are parsed and then ignored",
-  "hash": "7a46a15402e2",
-  "id": "27e6407c75"
- },
- {
-  "rule": "unary-op-extra-operand",
-  "sev": "INFO",
-  "file": "mindustrytop-25773.msav",
-  "x": 314,
-  "y": 228,
-  "block": "world-processor",
-  "line": 25,
-  "code": "op floor fy y b",
-  "msg": "`op floor` reads 1 operand(s); the extra 1 token(s) are parsed and then ignored",
-  "hash": "7a46a15402e2",
-  "id": "a531463af8"
- },
- {
-  "rule": "unary-op-extra-operand",
-  "sev": "INFO",
-  "file": "mindustrytop-25773.msav",
-  "x": 314,
-  "y": 228,
-  "block": "world-processor",
-  "line": 65,
-  "code": "op cos x+ angle 90",
-  "msg": "`op cos` reads 1 operand(s); the extra 1 token(s) are parsed and then ignored",
-  "hash": "7a46a15402e2",
-  "id": "ab48903397"
- },
- {
-  "rule": "version-gate",
-  "sev": "INFO",
-  "file": "mindustrytop-25773.msav",
-  "x": 290,
-  "y": 232,
-  "block": "world-processor",
-  "line": 0,
-  "code": "",
-  "msg": "version gate: uses getblock -- needs build >= 157; on anything older the line is replaced by noop and silently does nothing",
-  "hash": "37ad159964ae",
-  "id": "1ef638fe8b"
- },
- {
-  "rule": "version-gate",
-  "sev": "INFO",
-  "file": "mindustrytop-25773.msav",
-  "x": 314,
-  "y": 232,
-  "block": "world-processor",
-  "line": 0,
-  "code": "",
-  "msg": "version gate: uses getblock -- needs build >= 157; on anything older the line is replaced by noop and silently does nothing",
-  "hash": "9aa8c47f5c82",
-  "id": "70271e088e"
- },
- {
   "rule": "version-gate",
   "sev": "INFO",
   "file": "mindustrytop-26075.msav",
   "x": 5,
   "y": 10,
   "block": "world-processor",
-  "line": 0,
-  "code": "",
+  "line": 6,
+  "code": "format 当前波次",
   "msg": "version gate: uses format -- needs build >= 147; on anything older the line is replaced by noop and silently does nothing",
   "hash": "608cb5fa26e1",
-  "id": "0f51e1fc6c"
- },
- {
-  "rule": "unary-op-extra-operand",
-  "sev": "INFO",
-  "file": "mindustrytop-26075.msav",
-  "x": 5,
-  "y": 10,
-  "block": "world-processor",
-  "line": 11,
-  "code": "op round 剩余时间 @waveTime 1",
-  "msg": "`op round` reads 1 operand(s); the extra 1 token(s) are parsed and then ignored",
-  "hash": "608cb5fa26e1",
-  "id": "750afe1843"
+  "id": "a6f857d50a"
  },
  {
   "rule": "version-gate",
@@ -305,24 +175,11 @@
   "x": 5,
   "y": 11,
   "block": "world-processor",
-  "line": 0,
-  "code": "",
+  "line": 6,
+  "code": "format 当前波次",
   "msg": "version gate: uses format -- needs build >= 147; on anything older the line is replaced by noop and silently does nothing",
   "hash": "feab6a0f34bb",
-  "id": "3173ea00bf"
- },
- {
-  "rule": "unary-op-extra-operand",
-  "sev": "INFO",
-  "file": "mindustrytop-26075.msav",
-  "x": 5,
-  "y": 11,
-  "block": "world-processor",
-  "line": 11,
-  "code": "op round 剩余时间 @waveTime 1",
-  "msg": "`op round` reads 1 operand(s); the extra 1 token(s) are parsed and then ignored",
-  "hash": "feab6a0f34bb",
-  "id": "92bb89a546"
+  "id": "9ab3d99b5d"
  },
  {
   "rule": "version-gate",
@@ -331,24 +188,11 @@
   "x": 5,
   "y": 12,
   "block": "world-processor",
-  "line": 0,
-  "code": "",
+  "line": 6,
+  "code": "format 当前波次",
   "msg": "version gate: uses format -- needs build >= 147; on anything older the line is replaced by noop and silently does nothing",
   "hash": "d9e6e8083ccd",
-  "id": "f3529d202a"
- },
- {
-  "rule": "unary-op-extra-operand",
-  "sev": "INFO",
-  "file": "mindustrytop-26075.msav",
-  "x": 5,
-  "y": 12,
-  "block": "world-processor",
-  "line": 11,
-  "code": "op round 剩余时间 @waveTime 1",
-  "msg": "`op round` reads 1 operand(s); the extra 1 token(s) are parsed and then ignored",
-  "hash": "d9e6e8083ccd",
-  "id": "e63e516348"
+  "id": "ecd5b01aec"
  },
  {
   "rule": "version-gate",
@@ -357,89 +201,50 @@
   "x": 398,
   "y": 403,
   "block": "world-processor",
-  "line": 0,
-  "code": "",
+  "line": 39,
+  "code": "select sss greaterThanEq 电力1 1000000000 2 1",
   "msg": "version gate: uses select -- needs build >= 150; on anything older the line is replaced by noop and silently does nothing",
   "hash": "796de155512e",
-  "id": "f8114a42e3"
+  "id": "55bf0112e2"
  },
  {
-  "rule": "undefined-var-is-not-automatically-an-error",
-  "sev": "ERR",
+  "rule": "status-name-needs-at",
+  "sev": "INFO",
   "file": "mindustrytop-25559.msav",
   "x": 590,
   "y": 11,
   "block": "world-processor",
   "line": 5,
   "code": "status false unmoving @unit 0.1",
-  "msg": "`unmoving` is read here but is never assigned anywhere in this program (and is not a link or built-in)",
+  "msg": "`unmoving` is the name of a status effect, not a variable: a content constant needs the @ prefix (`@unmoving`, and some builds expose it as `@status_unmoving` -- check the variable list in the editor), so as written this reads null and the instruction does nothing",
   "hash": "6ecf004f8d9d",
-  "id": "992432075a"
+  "id": "e7bd3633fc"
  },
  {
-  "rule": "undefined-var-is-not-automatically-an-error",
-  "sev": "ERR",
+  "rule": "status-name-needs-at",
+  "sev": "INFO",
   "file": "mindustrytop-25559.msav",
   "x": 591,
   "y": 11,
   "block": "world-processor",
   "line": 5,
   "code": "status false unmoving @unit 0.1",
-  "msg": "`unmoving` is read here but is never assigned anywhere in this program (and is not a link or built-in)",
+  "msg": "`unmoving` is the name of a status effect, not a variable: a content constant needs the @ prefix (`@unmoving`, and some builds expose it as `@status_unmoving` -- check the variable list in the editor), so as written this reads null and the instruction does nothing",
   "hash": "699ec0fe253b",
-  "id": "09539ae8b6"
+  "id": "57068e2780"
  },
  {
-  "rule": "undefined-var-is-not-automatically-an-error",
-  "sev": "ERR",
+  "rule": "status-name-needs-at",
+  "sev": "INFO",
   "file": "mindustrytop-25559.msav",
   "x": 592,
   "y": 11,
   "block": "world-processor",
   "line": 5,
   "code": "status false unmoving @unit 0.1",
-  "msg": "`unmoving` is read here but is never assigned anywhere in this program (and is not a link or built-in)",
+  "msg": "`unmoving` is the name of a status effect, not a variable: a content constant needs the @ prefix (`@unmoving`, and some builds expose it as `@status_unmoving` -- check the variable list in the editor), so as written this reads null and the instruction does nothing",
   "hash": "d5c9daef80d4",
-  "id": "96bc4f4170"
- },
- {
-  "rule": "unary-op-extra-operand",
-  "sev": "INFO",
-  "file": "mindustrytop-25559.msav",
-  "x": 350,
-  "y": 269,
-  "block": "world-processor",
-  "line": 47,
-  "code": "op cos cx rot3 b",
-  "msg": "`op cos` reads 1 operand(s); the extra 1 token(s) are parsed and then ignored",
-  "hash": "8e9c5dcf29c2",
-  "id": "a4e46ced25"
- },
- {
-  "rule": "unary-op-extra-operand",
-  "sev": "INFO",
-  "file": "mindustrytop-25559.msav",
-  "x": 350,
-  "y": 269,
-  "block": "world-processor",
-  "line": 48,
-  "code": "op sin sy rot3 b",
-  "msg": "`op sin` reads 1 operand(s); the extra 1 token(s) are parsed and then ignored",
-  "hash": "8e9c5dcf29c2",
-  "id": "aea0411e03"
- },
- {
-  "rule": "unary-op-extra-operand",
-  "sev": "INFO",
-  "file": "mindustrytop-25559.msav",
-  "x": 352,
-  "y": 269,
-  "block": "world-processor",
-  "line": 15,
-  "code": "op cos cx0 tr b",
-  "msg": "`op cos` reads 1 operand(s); the extra 1 token(s) are parsed and then ignored",
-  "hash": "f5acd0e5959c",
-  "id": "9a5ae795b1"
+  "id": "7721928b85"
  },
  {
   "rule": "dead-polarity",
@@ -507,6 +312,19 @@
   "id": "0c4f2ecd38"
  },
  {
+  "rule": "undefined-var-is-not-automatically-an-error",
+  "sev": "ERR",
+  "file": "mindustrytop-25559.msav",
+  "x": 391,
+  "y": 445,
+  "block": "world-processor",
+  "line": 1,
+  "code": "op add result a b",
+  "msg": "`a` is read here but is never assigned anywhere in this program (and is not a link or built-in)",
+  "hash": "1a4c67b7f2cd",
+  "id": "5da785b665"
+ },
+ {
   "rule": "dead-polarity",
   "sev": "SUSPECT",
   "file": "mindustrytop-25559.msav",
@@ -526,37 +344,24 @@
   "x": 56,
   "y": 4,
   "block": "world-processor",
-  "line": 0,
-  "code": "",
+  "line": 3,
+  "code": "select i strictEqual b null 0 i",
   "msg": "version gate: uses select -- needs build >= 150; on anything older the line is replaced by noop and silently does nothing",
   "hash": "8496ef71a540",
-  "id": "e673f5bc41"
+  "id": "078052e1e1"
  },
  {
   "rule": "version-gate",
   "sev": "INFO",
   "file": "mindustrytop-26053.msav",
-  "x": 57,
-  "y": 4,
+  "x": 65,
+  "y": 7,
   "block": "world-processor",
-  "line": 0,
-  "code": "",
-  "msg": "version gate: uses getblock -- needs build >= 157; on anything older the line is replaced by noop and silently does nothing",
-  "hash": "ff0c11580280",
-  "id": "49a416f17a"
- },
- {
-  "rule": "version-gate",
-  "sev": "INFO",
-  "file": "mindustrytop-26053.msav",
-  "x": 73,
-  "y": 4,
-  "block": "world-processor",
-  "line": 0,
-  "code": "",
-  "msg": "version gate: uses getblock -- needs build >= 157; on anything older the line is replaced by noop and silently does nothing",
-  "hash": "b04083fc5e25",
-  "id": "cad12d189c"
+  "line": 6,
+  "code": "select c notEqual a null \"[red]红\" \"[yellow]黄\"",
+  "msg": "version gate: uses select -- needs build >= 150; on anything older the line is replaced by noop and silently does nothing",
+  "hash": "0a2e7947c13a",
+  "id": "55ae9e4695"
  },
  {
   "rule": "link-name-not-bound",
@@ -572,17 +377,17 @@
   "id": "f8c972e368"
  },
  {
-  "rule": "unary-op-extra-operand",
+  "rule": "version-gate",
   "sev": "INFO",
   "file": "mindustrytop-26053.msav",
-  "x": 63,
+  "x": 62,
   "y": 17,
   "block": "world-processor",
-  "line": 32,
-  "code": "op round s1 s1 @second",
-  "msg": "`op round` reads 1 operand(s); the extra 1 token(s) are parsed and then ignored",
-  "hash": "5bb7986cfdd2",
-  "id": "1ea653b8e2"
+  "line": 6,
+  "code": "select x. greaterThan x 65 123 6",
+  "msg": "version gate: uses select -- needs build >= 150; on anything older the line is replaced by noop and silently does nothing",
+  "hash": "210b2a64de38",
+  "id": "55dc059ab1"
  },
  {
   "rule": "undefined-var-is-not-automatically-an-error",
@@ -650,56 +455,17 @@
   "id": "103586d19e"
  },
  {
-  "rule": "unary-op-extra-operand",
-  "sev": "INFO",
-  "file": "mindustrytop-24936.msav",
-  "x": 1,
-  "y": 22,
-  "block": "world-processor",
-  "line": 34,
-  "code": "op floor 整差 差 差Y",
-  "msg": "`op floor` reads 1 operand(s); the extra 1 token(s) are parsed and then ignored",
-  "hash": "a89ff4d70f19",
-  "id": "41bcfefbf9"
- },
- {
-  "rule": "unary-op-extra-operand",
-  "sev": "INFO",
-  "file": "mindustrytop-24936.msav",
-  "x": 1,
-  "y": 22,
-  "block": "world-processor",
-  "line": 38,
-  "code": "op atan 角度 除数 差Y",
-  "msg": "`op atan` reads 1 operand(s); the extra 1 token(s) are parsed and then ignored",
-  "hash": "a89ff4d70f19",
-  "id": "3a35b755c1"
- },
- {
-  "rule": "unary-op-extra-operand",
-  "sev": "INFO",
-  "file": "mindustrytop-24936.msav",
-  "x": 1,
-  "y": 22,
-  "block": "world-processor",
-  "line": 47,
-  "code": "op sin 抛物线Y 抛物线 2",
-  "msg": "`op sin` reads 1 operand(s); the extra 1 token(s) are parsed and then ignored",
-  "hash": "a89ff4d70f19",
-  "id": "cd05a52f49"
- },
- {
   "rule": "version-gate",
   "sev": "INFO",
   "file": "mindustrytop-24936.msav",
   "x": 5,
   "y": 22,
   "block": "world-processor",
-  "line": 0,
-  "code": "",
+  "line": 36,
+  "code": "bullet 子弹 @renale 16 X Y 角度 2 null 伤害 0.8 2 -1 -1",
   "msg": "version gate: uses bullet -- needs build >= 157; on anything older the line is replaced by noop and silently does nothing",
   "hash": "3579406df6c8",
-  "id": "a26d398f2e"
+  "id": "2d7af77217"
  },
  {
   "rule": "undefined-var-is-not-automatically-an-error",
@@ -721,11 +487,11 @@
   "x": 1,
   "y": 23,
   "block": "world-processor",
-  "line": 0,
-  "code": "",
+  "line": 41,
+  "code": "bullet 子弹 @renale 14 X 发Y 180 2 null 伤害 1 1.5 -1 -1",
   "msg": "version gate: uses bullet -- needs build >= 157; on anything older the line is replaced by noop and silently does nothing",
   "hash": "202a9fb42812",
-  "id": "92276c35ea"
+  "id": "2fa9c7c5ac"
  },
  {
   "rule": "undefined-var-is-not-automatically-an-error",
@@ -747,24 +513,63 @@
   "x": 5,
   "y": 23,
   "block": "world-processor",
-  "line": 0,
-  "code": "",
+  "line": 71,
+  "code": "bullet 子弹 @renale 19 BX BY 发射角度 2 null 伤害 1 1 -1 -1",
   "msg": "version gate: uses bullet -- needs build >= 157; on anything older the line is replaced by noop and silently does nothing",
   "hash": "fc9b7189e1b2",
-  "id": "11bfa747a7"
+  "id": "fbcb864b41"
  },
  {
   "rule": "undefined-var-is-not-automatically-an-error",
   "sev": "ERR",
   "file": "mindustrytop-24936.msav",
   "x": 1,
-  "y": 29,
+  "y": 56,
+  "block": "world-processor",
+  "line": 24,
+  "code": "effect trail X Y 77 ff9561cf",
+  "msg": "`ff9561cf` is read here but is never assigned anywhere in this program (and is not a link or built-in)",
+  "hash": "aaa8746956f1",
+  "id": "aa3a035e0b"
+ },
+ {
+  "rule": "status-name-needs-at",
+  "sev": "INFO",
+  "file": "mindustrytop-24936.msav",
+  "x": 7,
+  "y": 72,
   "block": "world-processor",
   "line": 23,
-  "code": "fetch unitCount 信标数量 1 A @oct",
-  "msg": "`A` is read here but is never assigned anywhere in this program (and is not a link or built-in)",
-  "hash": "7ea5db29fdb4",
-  "id": "eb97a7e0d7"
+  "code": "status false unmoving 建筑机 3",
+  "msg": "`unmoving` is the name of a status effect, not a variable: a content constant needs the @ prefix (`@unmoving`, and some builds expose it as `@status_unmoving` -- check the variable list in the editor), so as written this reads null and the instruction does nothing",
+  "hash": "7046ccd3fcb1",
+  "id": "aed45859a6"
+ },
+ {
+  "rule": "status-name-needs-at",
+  "sev": "INFO",
+  "file": "mindustrytop-24936.msav",
+  "x": 7,
+  "y": 72,
+  "block": "world-processor",
+  "line": 24,
+  "code": "status false disarmed 建筑机 3",
+  "msg": "`disarmed` is the name of a status effect, not a variable: a content constant needs the @ prefix (`@disarmed`, and some builds expose it as `@status_disarmed` -- check the variable list in the editor), so as written this reads null and the instruction does nothing",
+  "hash": "7046ccd3fcb1",
+  "id": "91ad42e765"
+ },
+ {
+  "rule": "status-name-needs-at",
+  "sev": "INFO",
+  "file": "mindustrytop-24936.msav",
+  "x": 7,
+  "y": 72,
+  "block": "world-processor",
+  "line": 38,
+  "code": "status true unmoving 建筑机 10",
+  "msg": "`unmoving` is the name of a status effect, not a variable: a content constant needs the @ prefix (`@unmoving`, and some builds expose it as `@status_unmoving` -- check the variable list in the editor), so as written this reads null and the instruction does nothing",
+  "hash": "7046ccd3fcb1",
+  "id": "5555e12354"
  },
  {
   "rule": "jump-to-jump-chain",
@@ -783,40 +588,27 @@
   "rule": "version-gate",
   "sev": "INFO",
   "file": "mindustrytop-25807.msav",
-  "x": 57,
-  "y": 4,
+  "x": 62,
+  "y": 16,
   "block": "world-processor",
-  "line": 0,
-  "code": "",
-  "msg": "version gate: uses getblock -- needs build >= 157; on anything older the line is replaced by noop and silently does nothing",
-  "hash": "b2b4bf63f1f2",
-  "id": "4b9bc97632"
- },
- {
-  "rule": "version-gate",
-  "sev": "INFO",
-  "file": "mindustrytop-25807.msav",
-  "x": 73,
-  "y": 4,
-  "block": "world-processor",
-  "line": 0,
-  "code": "",
-  "msg": "version gate: uses getblock -- needs build >= 157; on anything older the line is replaced by noop and silently does nothing",
-  "hash": "7107b1e07700",
-  "id": "4e69ef15dd"
+  "line": 8,
+  "code": "select 当前增加 equal 阶段 1 第1阶段每轮增加 当前增加",
+  "msg": "version gate: uses select -- needs build >= 150; on anything older the line is replaced by noop and silently does nothing",
+  "hash": "4142c58f139d",
+  "id": "0781e620f8"
  },
  {
   "rule": "version-gate",
   "sev": "INFO",
   "file": "mindustrytop-25807.msav",
   "x": 62,
-  "y": 16,
+  "y": 17,
   "block": "world-processor",
-  "line": 0,
-  "code": "",
+  "line": 8,
+  "code": "select 当前增加 equal 阶段 1 第1阶段每轮增加 当前增加",
   "msg": "version gate: uses select -- needs build >= 150; on anything older the line is replaced by noop and silently does nothing",
-  "hash": "4142c58f139d",
-  "id": "bf285c315b"
+  "hash": "f2634c6ebd62",
+  "id": "28d1a2dbe1"
  },
  {
   "rule": "undefined-var-is-not-automatically-an-error",
@@ -851,50 +643,11 @@
   "x": 22,
   "y": 28,
   "block": "world-processor",
-  "line": 0,
-  "code": "",
+  "line": 35,
+  "code": "bullet result @toxopid 2 x y rotfix t null 3400 2 ltefsc sx sy",
   "msg": "version gate: uses bullet -- needs build >= 157; on anything older the line is replaced by noop and silently does nothing",
   "hash": "2acd286d777b",
-  "id": "72d7dd61bf"
- },
- {
-  "rule": "unary-op-extra-operand",
-  "sev": "INFO",
-  "file": "mindustrytop-26076.msav",
-  "x": 22,
-  "y": 28,
-  "block": "world-processor",
-  "line": 9,
-  "code": "op rand xA 1 sx",
-  "msg": "`op rand` reads 1 operand(s); the extra 1 token(s) are parsed and then ignored",
-  "hash": "2acd286d777b",
-  "id": "e7df88211b"
- },
- {
-  "rule": "unary-op-extra-operand",
-  "sev": "INFO",
-  "file": "mindustrytop-26076.msav",
-  "x": 22,
-  "y": 28,
-  "block": "world-processor",
-  "line": 10,
-  "code": "op rand xR -1 sx",
-  "msg": "`op rand` reads 1 operand(s); the extra 1 token(s) are parsed and then ignored",
-  "hash": "2acd286d777b",
-  "id": "cdaae36de7"
- },
- {
-  "rule": "unary-op-extra-operand",
-  "sev": "INFO",
-  "file": "mindustrytop-26076.msav",
-  "x": 22,
-  "y": 28,
-  "block": "world-processor",
-  "line": 11,
-  "code": "op rand yA 1 sx",
-  "msg": "`op rand` reads 1 operand(s); the extra 1 token(s) are parsed and then ignored",
-  "hash": "2acd286d777b",
-  "id": "18ab61724f"
+  "id": "3cdf76cf37"
  },
  {
   "rule": "undefined-var-is-not-automatically-an-error",
@@ -916,11 +669,11 @@
   "x": 22,
   "y": 29,
   "block": "world-processor",
-  "line": 0,
-  "code": "",
+  "line": 33,
+  "code": "bullet result @fortress 0 Xrandom Yrandom rotrand t null 600 2 ltefsc sx sy",
   "msg": "version gate: uses bullet -- needs build >= 157; on anything older the line is replaced by noop and silently does nothing",
   "hash": "1f1bb69fac26",
-  "id": "e03230e4c9"
+  "id": "6ff28db87b"
  },
  {
   "rule": "version-gate",
@@ -929,76 +682,24 @@
   "x": 41,
   "y": 396,
   "block": "world-processor",
-  "line": 0,
-  "code": "",
+  "line": 38,
+  "code": "bullet result @breach @carbide Xrandom Yrandom rotrand t null 1200 0.5 ltefsc sx sy",
   "msg": "version gate: uses bullet -- needs build >= 157; on anything older the line is replaced by noop and silently does nothing",
   "hash": "0fedaa5826ab",
-  "id": "4a56fae2da"
+  "id": "3582ec9566"
  },
  {
-  "rule": "version-gate",
+  "rule": "status-name-needs-at",
   "sev": "INFO",
-  "file": "mindustrytop-25736.msav",
-  "x": 289,
-  "y": 1,
-  "block": "world-processor",
-  "line": 0,
-  "code": "",
-  "msg": "version gate: uses getblock -- needs build >= 157; on anything older the line is replaced by noop and silently does nothing",
-  "hash": "b047540f7769",
-  "id": "6f5c4ae84e"
- },
- {
-  "rule": "undefined-var-is-not-automatically-an-error",
-  "sev": "ERR",
   "file": "mindustrytop-25736.msav",
   "x": 300,
   "y": 1,
   "block": "world-processor",
   "line": 13,
   "code": "status false fast 结果 1e5",
-  "msg": "`fast` is read here but is never assigned anywhere in this program (and is not a link or built-in)",
+  "msg": "`fast` is the name of a status effect, not a variable: a content constant needs the @ prefix (`@fast`, and some builds expose it as `@status_fast` -- check the variable list in the editor), so as written this reads null and the instruction does nothing",
   "hash": "de40c6aeddd7",
-  "id": "fee7c06d71"
- },
- {
-  "rule": "unary-op-extra-operand",
-  "sev": "INFO",
-  "file": "mindustrytop-25736.msav",
-  "x": 300,
-  "y": 1,
-  "block": "world-processor",
-  "line": 50,
-  "code": "op cos sin j b",
-  "msg": "`op cos` reads 1 operand(s); the extra 1 token(s) are parsed and then ignored",
-  "hash": "de40c6aeddd7",
-  "id": "ff402cf8c6"
- },
- {
-  "rule": "unary-op-extra-operand",
-  "sev": "INFO",
-  "file": "mindustrytop-25736.msav",
-  "x": 300,
-  "y": 1,
-  "block": "world-processor",
-  "line": 51,
-  "code": "op sin cos j b",
-  "msg": "`op sin` reads 1 operand(s); the extra 1 token(s) are parsed and then ignored",
-  "hash": "de40c6aeddd7",
-  "id": "843ce37b7e"
- },
- {
-  "rule": "version-gate",
-  "sev": "INFO",
-  "file": "mindustrytop-25736.msav",
-  "x": 294,
-  "y": 3,
-  "block": "world-processor",
-  "line": 0,
-  "code": "",
-  "msg": "version gate: uses getblock -- needs build >= 157; on anything older the line is replaced by noop and silently does nothing",
-  "hash": "521078ec62ff",
-  "id": "4920c04c6f"
+  "id": "29bdf305cd"
  },
  {
   "rule": "jump-to-jump-chain",
@@ -1012,19 +713,6 @@
   "msg": "this jump is unconditional and lands on another unconditional jump (L17), so that hop is executed for nothing",
   "hash": "521078ec62ff",
   "id": "e3e61db9b9"
- },
- {
-  "rule": "version-gate",
-  "sev": "INFO",
-  "file": "mindustrytop-25736.msav",
-  "x": 295,
-  "y": 3,
-  "block": "world-processor",
-  "line": 0,
-  "code": "",
-  "msg": "version gate: uses getblock -- needs build >= 157; on anything older the line is replaced by noop and silently does nothing",
-  "hash": "b25721021f62",
-  "id": "5edacc5dba"
  },
  {
   "rule": "jump-to-jump-chain",
@@ -1051,19 +739,6 @@
   "msg": "this jump is unconditional and lands on another unconditional jump (L17), so that hop is executed for nothing",
   "hash": "0839d1a71725",
   "id": "2d6b64c1e0"
- },
- {
-  "rule": "unary-op-extra-operand",
-  "sev": "INFO",
-  "file": "mindustrytop-25736.msav",
-  "x": 223,
-  "y": 8,
-  "block": "world-processor",
-  "line": 33,
-  "code": "op sin sin j b",
-  "msg": "`op sin` reads 1 operand(s); the extra 1 token(s) are parsed and then ignored",
-  "hash": "3f51750214de",
-  "id": "2a82668df9"
  },
  {
   "rule": "undefined-var-is-not-automatically-an-error",
@@ -1111,11 +786,11 @@
   "x": 62,
   "y": 192,
   "block": "world-processor",
-  "line": 0,
-  "code": "",
+  "line": 3,
+  "code": "select E equal D 1 1 0",
   "msg": "version gate: uses select -- needs build >= 150; on anything older the line is replaced by noop and silently does nothing",
   "hash": "6df44449d88e",
-  "id": "6081aa2914"
+  "id": "55105bcf1a"
  },
  {
   "rule": "version-gate",
@@ -1124,50 +799,11 @@
   "x": 252,
   "y": 293,
   "block": "world-processor",
-  "line": 0,
-  "code": "",
+  "line": 2,
+  "code": "select E equal D 1 1 0",
   "msg": "version gate: uses select -- needs build >= 150; on anything older the line is replaced by noop and silently does nothing",
   "hash": "a4ca9fed37d0",
-  "id": "ae067afc1f"
- },
- {
-  "rule": "unary-op-extra-operand",
-  "sev": "INFO",
-  "file": "mindustrytop-14962.msav",
-  "x": 0,
-  "y": 0,
-  "block": "world-processor",
-  "line": 10,
-  "code": "op rand c 10 b",
-  "msg": "`op rand` reads 1 operand(s); the extra 1 token(s) are parsed and then ignored",
-  "hash": "72b1a4bd8dc2",
-  "id": "162960d1ee"
- },
- {
-  "rule": "unary-op-extra-operand",
-  "sev": "INFO",
-  "file": "mindustrytop-14962.msav",
-  "x": 0,
-  "y": 0,
-  "block": "world-processor",
-  "line": 11,
-  "code": "op rand b c b",
-  "msg": "`op rand` reads 1 operand(s); the extra 1 token(s) are parsed and then ignored",
-  "hash": "72b1a4bd8dc2",
-  "id": "1a48c8d592"
- },
- {
-  "rule": "unary-op-extra-operand",
-  "sev": "INFO",
-  "file": "mindustrytop-14962.msav",
-  "x": 2,
-  "y": 0,
-  "block": "world-processor",
-  "line": 11,
-  "code": "op rand b 8 b",
-  "msg": "`op rand` reads 1 operand(s); the extra 1 token(s) are parsed and then ignored",
-  "hash": "231e88fa4e3c",
-  "id": "ecee973d14"
+  "id": "ec03255560"
  },
  {
   "rule": "jump-to-jump-chain",
@@ -1222,43 +858,69 @@
   "id": "dc54ad36f3"
  },
  {
-  "rule": "undefined-var-is-not-automatically-an-error",
-  "sev": "ERR",
+  "rule": "status-name-needs-at",
+  "sev": "INFO",
   "file": "mindustrytop-14962.msav",
   "x": 201,
   "y": 2,
   "block": "world-processor",
   "line": 30,
   "code": "status false sapped unit 10",
-  "msg": "`sapped` is read here but is never assigned anywhere in this program (and is not a link or built-in)",
+  "msg": "`sapped` is the name of a status effect, not a variable: a content constant needs the @ prefix (`@sapped`, and some builds expose it as `@status_sapped` -- check the variable list in the editor), so as written this reads null and the instruction does nothing",
   "hash": "2f8db7e6ba50",
-  "id": "2a8684994a"
+  "id": "02f0e5fe28"
  },
  {
-  "rule": "undefined-var-is-not-automatically-an-error",
-  "sev": "ERR",
+  "rule": "status-name-needs-at",
+  "sev": "INFO",
   "file": "mindustrytop-14962.msav",
   "x": 201,
   "y": 2,
   "block": "world-processor",
   "line": 34,
   "code": "status true sapped unit 10",
-  "msg": "`sapped` is read here but is never assigned anywhere in this program (and is not a link or built-in)",
+  "msg": "`sapped` is the name of a status effect, not a variable: a content constant needs the @ prefix (`@sapped`, and some builds expose it as `@status_sapped` -- check the variable list in the editor), so as written this reads null and the instruction does nothing",
   "hash": "2f8db7e6ba50",
-  "id": "630158f92a"
+  "id": "77e3da07bb"
  },
  {
-  "rule": "version-gate",
+  "rule": "status-name-needs-at",
   "sev": "INFO",
   "file": "mindustrytop-14962.msav",
-  "x": 0,
-  "y": 98,
+  "x": 201,
+  "y": 3,
   "block": "world-processor",
-  "line": 0,
-  "code": "",
-  "msg": "version gate: uses getblock -- needs build >= 157; on anything older the line is replaced by noop and silently does nothing",
-  "hash": "4a3bae41aeb0",
-  "id": "87a84d543b"
+  "line": 30,
+  "code": "status false sapped unit 10",
+  "msg": "`sapped` is the name of a status effect, not a variable: a content constant needs the @ prefix (`@sapped`, and some builds expose it as `@status_sapped` -- check the variable list in the editor), so as written this reads null and the instruction does nothing",
+  "hash": "431ebda3b6e2",
+  "id": "bc7fb32ea0"
+ },
+ {
+  "rule": "undefined-var-is-not-automatically-an-error",
+  "sev": "ERR",
+  "file": "mindustrytop-14962.msav",
+  "x": 93,
+  "y": 201,
+  "block": "world-processor",
+  "line": 40,
+  "code": "jump 42 greaterThanEq 数量 sl",
+  "msg": "`sl` is read here but is never assigned anywhere in this program (and is not a link or built-in)",
+  "hash": "9b8cb7948832",
+  "id": "7ed8efd522"
+ },
+ {
+  "rule": "undefined-var-is-not-automatically-an-error",
+  "sev": "ERR",
+  "file": "mindustrytop-14962.msav",
+  "x": 113,
+  "y": 201,
+  "block": "world-processor",
+  "line": 41,
+  "code": "jump 43 greaterThanEq 数量 sl",
+  "msg": "`sl` is read here but is never assigned anywhere in this program (and is not a link or built-in)",
+  "hash": "2c774ae8a7d4",
+  "id": "ba2961e66c"
  },
  {
   "rule": "undefined-var-is-not-automatically-an-error",
@@ -1339,19 +1001,6 @@
   "id": "d49676d15e"
  },
  {
-  "rule": "unary-op-extra-operand",
-  "sev": "INFO",
-  "file": "mindustrytop-25680.msav",
-  "x": 28,
-  "y": 31,
-  "block": "micro-processor",
-  "line": 68,
-  "code": "op rand r 54 b",
-  "msg": "`op rand` reads 1 operand(s); the extra 1 token(s) are parsed and then ignored",
-  "hash": "da27440a0e49",
-  "id": "5f0881f750"
- },
- {
   "rule": "constant-null-guard",
   "sev": "WARN",
   "file": "mindustrytop-25680.msav",
@@ -1378,71 +1027,6 @@
   "id": "5161f3da21"
  },
  {
-  "rule": "version-gate",
-  "sev": "INFO",
-  "file": "mindustrytop-26079.msav",
-  "x": 242,
-  "y": 243,
-  "block": "world-processor",
-  "line": 0,
-  "code": "",
-  "msg": "version gate: uses getblock -- needs build >= 157; on anything older the line is replaced by noop and silently does nothing",
-  "hash": "d0984ce22818",
-  "id": "944f9ef55e"
- },
- {
-  "rule": "unary-op-extra-operand",
-  "sev": "INFO",
-  "file": "mindustrytop-26079.msav",
-  "x": 242,
-  "y": 243,
-  "block": "world-processor",
-  "line": 30,
-  "code": "op rand &t2 65536000 b",
-  "msg": "`op rand` reads 1 operand(s); the extra 1 token(s) are parsed and then ignored",
-  "hash": "d0984ce22818",
-  "id": "cd2e502b8f"
- },
- {
-  "rule": "unary-op-extra-operand",
-  "sev": "INFO",
-  "file": "mindustrytop-26079.msav",
-  "x": 242,
-  "y": 243,
-  "block": "world-processor",
-  "line": 31,
-  "code": "op floor &t3 &t2 b",
-  "msg": "`op floor` reads 1 operand(s); the extra 1 token(s) are parsed and then ignored",
-  "hash": "d0984ce22818",
-  "id": "17de72d0a6"
- },
- {
-  "rule": "unary-op-extra-operand",
-  "sev": "INFO",
-  "file": "mindustrytop-26079.msav",
-  "x": 242,
-  "y": 243,
-  "block": "world-processor",
-  "line": 77,
-  "code": "op rand &t0:done:150:0 100 b",
-  "msg": "`op rand` reads 1 operand(s); the extra 1 token(s) are parsed and then ignored",
-  "hash": "d0984ce22818",
-  "id": "f74d63e6e7"
- },
- {
-  "rule": "version-gate",
-  "sev": "INFO",
-  "file": "mindustrytop-26079.msav",
-  "x": 244,
-  "y": 243,
-  "block": "world-processor",
-  "line": 0,
-  "code": "",
-  "msg": "version gate: uses getblock -- needs build >= 157; on anything older the line is replaced by noop and silently does nothing",
-  "hash": "c2de2db5ac54",
-  "id": "589d4c1bd8"
- },
- {
   "rule": "jump-to-jump-chain",
   "sev": "INFO",
   "file": "mindustrytop-26079.msav",
@@ -1454,19 +1038,6 @@
   "msg": "this jump is unconditional and lands on another unconditional jump (L481), so that hop is executed for nothing",
   "hash": "09336b4b270b",
   "id": "ff6724686f"
- },
- {
-  "rule": "unary-op-extra-operand",
-  "sev": "INFO",
-  "file": "mindustrytop-25872.msav",
-  "x": 5,
-  "y": 33,
-  "block": "logic-processor",
-  "line": 7,
-  "code": "op sqrt diag _0 0",
-  "msg": "`op sqrt` reads 1 operand(s); the extra 1 token(s) are parsed and then ignored",
-  "hash": "a215adc88fcf",
-  "id": "5c88fcb686"
  },
  {
   "rule": "dead-polarity",
@@ -1514,37 +1085,11 @@
   "x": 24,
   "y": 69,
   "block": "logic-processor",
-  "line": 0,
-  "code": "",
+  "line": 87,
+  "code": "set __ls_sugar \"Yml0c2V0IGJpdHMgY2VsbDEgMCAyCmRhdGFjYWxsIGJpdHNldF9zZXQgcjEgImJpdHMsIDMiCmRhdGFjYWxsIGJpdHNldF9zZXQgcjIgImJpdHMsIDUiCmRhdGFjYWxsIGJpdHNldF9jb3VudCBuICJiaXRzIgpvcCBpZGl2IF8wIDMgNjQKb3AgbW9kIF8xIDMgNjQKb3Agc2hsIF8yIDEgXzEKb3AgZ3JlYXRlclRoYW5FcSBfMyAzIDAKb3AgbGVzc1RoYW4gXzQgMyAxMjgKb3AgbGFuZCBfNSBfMyBfNApvcCBtdWwgXzIgXzIgXzUKb3AgbXVsIF8wIF8wIF81Cm9wIGFkZCBfNiAwIF8wCnJlYWQgXzcgY2VsbDEgXzYKb3AgYW5kIF84IF83IF8yCm9wIG5vdEVxdWFsIGIzIF84IDAKb3AgaWRpdiBfMCA0IDY0Cm9wIG1vZCBfMSA0IDY0Cm9wIHNobCBfMiAxIF8xCm9wIGdyZWF0ZXJUaGFuRXEgXzMgNCAwCm9wIGxlc3NUaGFuIF80IDQgMTI4Cm9wIGxhbmQgXzUgXzMgXzQKb3AgbXVsIF8yIF8yIF81Cm9wIG11bCBfMCBfMCBfNQpvcCBhZGQgXzYgMCBfMApyZWFkIF83IGNlbGwxIF82Cm9wIGFuZCBfOCBfNyBfMgpvcCBub3RFcXVhbCBiNCBfOCAwCnByaW50ICLkvY0zPSIKcHJpbnQgYjMKcHJpbnQgIiDkvY00PSIKcHJpbnQgYjQKcHJpbnQgIiDnva7kvY3mgLvmlbA9IgpwcmludCBuCnByaW50Zmx1c2ggYm9hcmQKc2V0IEBjb3VudGVyIDAK\"",
   "msg": "version gate: uses op ushr -- needs build >= 150; on anything older the line is replaced by noop and silently does nothing",
   "hash": "606f7bb1ff91",
-  "id": "22001e9202"
- },
- {
-  "rule": "unary-op-extra-operand",
-  "sev": "INFO",
-  "file": "mindustrytop-25872.msav",
-  "x": 43,
-  "y": 69,
-  "block": "logic-processor",
-  "line": 52,
-  "code": "op abs __ls_mp_h __ls_func___ls_builtin_mapset_key 0",
-  "msg": "`op abs` reads 1 operand(s); the extra 1 token(s) are parsed and then ignored",
-  "hash": "7de4106e99af",
-  "id": "0171bbcff7"
- },
- {
-  "rule": "unary-op-extra-operand",
-  "sev": "INFO",
-  "file": "mindustrytop-25872.msav",
-  "x": 43,
-  "y": 69,
-  "block": "logic-processor",
-  "line": 92,
-  "code": "op abs __ls_mp_h __ls_func___ls_builtin_mapget_key 0",
-  "msg": "`op abs` reads 1 operand(s); the extra 1 token(s) are parsed and then ignored",
-  "hash": "7de4106e99af",
-  "id": "432741da32"
+  "id": "2e9dc54fe4"
  },
  {
   "rule": "dead-polarity",
@@ -1566,11 +1111,11 @@
   "x": 7,
   "y": 0,
   "block": "world-processor",
-  "line": 0,
-  "code": "",
+  "line": 7,
+  "code": "format c",
   "msg": "version gate: uses format -- needs build >= 147; on anything older the line is replaced by noop and silently does nothing",
   "hash": "bd4dccebd4bd",
-  "id": "62a204ddeb"
+  "id": "ff0ef072b4"
  },
  {
   "rule": "link-name-not-bound",
@@ -1618,11 +1163,11 @@
   "x": 15,
   "y": 0,
   "block": "world-processor",
-  "line": 0,
-  "code": "",
+  "line": 15,
+  "code": "format type",
   "msg": "version gate: uses format -- needs build >= 147; on anything older the line is replaced by noop and silently does nothing",
   "hash": "ea437e210719",
-  "id": "d17ae72cb8"
+  "id": "b641c91790"
  },
  {
   "rule": "version-gate",
@@ -1631,11 +1176,11 @@
   "x": 16,
   "y": 0,
   "block": "world-processor",
-  "line": 0,
-  "code": "",
+  "line": 15,
+  "code": "format type",
   "msg": "version gate: uses format -- needs build >= 147; on anything older the line is replaced by noop and silently does nothing",
   "hash": "77166402b9f3",
-  "id": "bc4749f8dd"
+  "id": "9858f68133"
  },
  {
   "rule": "undefined-var-is-not-automatically-an-error",
@@ -1677,6 +1222,19 @@
   "id": "fb00900f01"
  },
  {
+  "rule": "status-name-needs-at",
+  "sev": "INFO",
+  "file": "mindustrytop-20445.msav",
+  "x": 27,
+  "y": 2,
+  "block": "world-processor",
+  "line": 36,
+  "code": "status false invincible unite 3",
+  "msg": "`invincible` is the name of a status effect, not a variable: a content constant needs the @ prefix (`@invincible`, and some builds expose it as `@status_invincible` -- check the variable list in the editor), so as written this reads null and the instruction does nothing",
+  "hash": "1b07c250920e",
+  "id": "c1b6ecd5e0"
+ },
+ {
   "rule": "dead-polarity",
   "sev": "SUSPECT",
   "file": "mindustrytop-20445.msav",
@@ -1688,32 +1246,6 @@
   "msg": "`dead` holds @dead (1 = DEAD). Checking `notEqual` continues only while ALIVE; to rebind when dead use `equal`",
   "hash": "5217e89ea9b1",
   "id": "97ad0501f2"
- },
- {
-  "rule": "unary-op-extra-operand",
-  "sev": "INFO",
-  "file": "mindustrytop-20445.msav",
-  "x": 0,
-  "y": 25,
-  "block": "world-processor",
-  "line": 12,
-  "code": "op cos cos angle b",
-  "msg": "`op cos` reads 1 operand(s); the extra 1 token(s) are parsed and then ignored",
-  "hash": "fbe980f6be05",
-  "id": "b279e20551"
- },
- {
-  "rule": "unary-op-extra-operand",
-  "sev": "INFO",
-  "file": "mindustrytop-20445.msav",
-  "x": 0,
-  "y": 25,
-  "block": "world-processor",
-  "line": 13,
-  "code": "op sin sin angle b",
-  "msg": "`op sin` reads 1 operand(s); the extra 1 token(s) are parsed and then ignored",
-  "hash": "fbe980f6be05",
-  "id": "ce54a45ff3"
  },
  {
   "rule": "link-name-not-bound",

@@ -331,6 +331,15 @@ SPECS = _load_specs()
 #: magic 147.
 BASELINE_BUILD = 146
 
+STATUS_NAMES: set[str] = set()
+try:
+    _status_json = json.loads(
+        (Path(__file__).with_name("status_names.json")).read_text(encoding="utf-8"))
+    STATUS_NAMES = {str(n).lower() for n in _status_json.get("status", [])}
+except Exception:  # the file is optional: never break analysis over it
+    STATUS_NAMES = set()
+
+
 def _load_op_builds() -> dict[str, int]:
     """Operators that arrived after the v7 baseline (`emod`, `ushr` = v150)."""
     try:
@@ -540,6 +549,15 @@ def uses_of(c: str) -> list[str]:
         # Every other draw sub-command takes numbers/colours/content names, so
         # there is nothing meaningful to read -- skip the whole statement.
         return []
+    if op == "fetch" and len(p) >= 6:
+        # fetch <type> <result> <team> <index> <extra>.  For the counting types
+        # FetchI.run only ever touches `extra` (the UnitType/Block filter) and
+        # `result`/`team`; `index` is never read, so a name sitting there is an
+        # inert parameter, not an undeclared read.  The maintainer caught this on
+        # `fetch unitCount 信标数量 1 A @oct` ("A 是无效参数，不影响").
+        if p[1].lower().endswith("count"):
+            return _vars([p[2], p[3], p[5]])
+        return _vars([p[2], p[3], p[4], p[5]])
     if op in ("print", "printflush", "drawflush", "format", "localeprint",
               "printchar", "playsound", "playmusic", "setmarker", "makemarker",
               "effect", "explosion", "status", "spawn", "bullet", "setprop",
@@ -614,7 +632,7 @@ def analyse(lines: list[str], links: list[str] | None = None, ipt: int = 2) -> l
             int(_t[1])
         except ValueError:
             out.append(Finding(
-                "WARN", _idx, "no-target-jump",
+                "WARN", _i + 1, "no-target-jump",
                 f"`{_t[1]}` is not a label in this program, so the game turns this "
                 f"into a jump to -1, which does nothing; execution just falls through"))
 
@@ -637,7 +655,7 @@ def analyse(lines: list[str], links: list[str] | None = None, ipt: int = 2) -> l
             continue
         if _t[-1] in _this_vars:
             out.append(Finding(
-                "INFO", _idx, "virus-logic",
+                "INFO", _i + 1, "virus-logic",
                 f"`{_t[-1]}` is this processor's own program, so the `{_t[4]}` it builds "
                 f"runs the same code and builds more -- 病毒逻辑 (virus logic), "
                 f"i.e. self-replication; check the rest of the program before importing "
@@ -849,6 +867,21 @@ def analyse(lines: list[str], links: list[str] | None = None, ipt: int = 2) -> l
                     f"unset variable is 0 and `null` reads as 0, so only `===` "
                     f"tells null from 0 (a constant branch is often a signature)"))
                 continue
+            if v.lower() in STATUS_NAMES:
+                # `status false unmoving @unit 0.1`: the name is a real status
+                # effect (StatusEffects.java declares it) but a content constant
+                # needs the @ prefix, so a bare name is an ordinary unset
+                # variable -- null.  Reported as INFO because the author clearly
+                # meant the effect and the line still runs; what is wrong is the
+                # spelling, and some builds spell it `@status_<name>`.
+                out.append(Finding(
+                    "INFO", orig + 1, c,
+                    f"`{v}` is the name of a status effect, not a variable: a "
+                    f"content constant needs the @ prefix (`@{v}`, and some "
+                    f"builds expose it as `@status_{v}` -- check the variable "
+                    f"list in the editor), so as written this reads null and "
+                    f"the instruction does nothing"))
+                continue
             out.append(Finding(
                 "ERR", orig + 1, c,
                 f"`{v}` is read here but is never assigned anywhere in this "
@@ -866,9 +899,17 @@ def analyse(lines: list[str], links: list[str] | None = None, ipt: int = 2) -> l
             out.append(Finding("ERR", orig + 1, c,
                                f"jump target {tgt} out of range (0..{n-1})"))
             continue
-        if stmts[tgt][1].startswith("jump ") and m.group(2) != "always":
+        # Only UNCONDITIONAL into UNCONDITIONAL is a chain: then the second hop
+        # is guaranteed and one instruction is spent for nothing. A conditional
+        # jump landing on a jump is an ordinary dispatch triangle -- when the
+        # condition is false you fall through and never touch the target.
+        _hop = stmts[tgt][1].split()
+        if (m.group(2) == "always" and _hop[0].lower() == "jump"
+                and len(_hop) > 2 and _hop[2] == "always"):
             out.append(Finding("INFO", orig + 1, c,
-                               f"target {tgt} is itself a jump"))
+                               f"this jump is unconditional and lands on another "
+                               f"unconditional jump (L{tgt}), so that hop is "
+                               f"executed for nothing"))
 
     # ---- op arity ---------------------------------------------------------
     for i, (orig, c) in enumerate(stmts):
@@ -880,14 +921,12 @@ def analyse(lines: list[str], links: list[str] | None = None, ipt: int = 2) -> l
         given = 1 + sum(1 for x in (a, b) if x is not None)
         if want is None:
             out.append(Finding("ERR", orig + 1, c, f"unknown op `{op}`"))
-        elif given > want:
-            # An operator handed more operands than it reads: the game parses the
-            # extra tokens and never looks at them, so nothing goes wrong at run
-            # time. It is worth surfacing (people write `op sin y angle 90`
-            # believing the 90 means degrees) but it is not a defect.
-            out.append(Finding("INFO", orig + 1, c,
-                               f"`op {op}` reads {want - 1} operand(s); the extra "
-                               f"{given - want} token(s) are parsed and then ignored"))
+        # `given > want` is deliberately silent.  The maintainer audited 29 of
+        # these and judged every single one "not worth reporting": an extra
+        # operand is what you get when someone edits an operator in place and
+        # leaves the old tokens behind, and the game parses the line then hands
+        # the operator only the operands it takes.  The rule JSON keeps this as
+        # a negative record (`unary-op-extra-operand`) so nobody re-adds it.
         elif given < want:
             out.append(Finding("WARN", orig + 1, c,
                                f"`op {op}` given {given} args, expects {want}"))
@@ -1016,15 +1055,32 @@ def analyse(lines: list[str], links: list[str] | None = None, ipt: int = 2) -> l
             f"the bound unit to this processor (UnitControlI.checkLogicAI sets "
             f"the controller), so `@controller` equals `@this` from the first "
             f"pass on and the guard is true forever -- it jumps back to "
-            f"L{stmts[tgt][0] + 1} instead of falling through, so nothing after "
+            f"L{tgt} instead of falling through, so nothing after "
             f"this line ever runs"))
 
     # ---- version gate -----------------------------------------------------
     floor, users = build_floor(stmts)
     if floor > BASELINE_BUILD:
         who = ", ".join(sorted(set(users)))
+        # Point at the line that needs the build, never at line 0.  A finding the
+        # reader has to hunt for is a finding they will skip: both of the ones the
+        # maintainer audited were filed at L0 and he answered "shouldn't this
+        # point at `format`?".  `users` holds a mnemonic ("format"), an operator
+        # ("op emod") or a keyword, so match the mnemonic and, for `op`, the
+        # operator name as well.
+        want = {u.lower() for u in users}
+        at = 0
+        for orig, c in stmts:
+            t = c.split()
+            if not t:
+                continue
+            head = t[0].lower()
+            if head in want or (head == "op" and len(t) > 1
+                                and f"op {t[1].lower()}" in want):
+                at = orig
+                break
         out.append(Finding(
-            "INFO", 0, "",
+            "INFO", at + 1, stmts[at][1] if at < len(stmts) else "",
             f"version gate: uses {who} -- needs build >= {floor}; on anything "
             f"older the line is replaced by noop and silently does nothing"))
 
@@ -1140,6 +1196,17 @@ def analyse(lines: list[str], links: list[str] | None = None, ipt: int = 2) -> l
                 f"verdict"))
 
     # dedupe, keep order
+    # Every finding above was created against the RAW line index (orig + 1),
+    # because that is what someone counting in a text editor expects. But `jump
+    # N` counts STATEMENTS: labels and blank lines are not statements, so on any
+    # program with a label our number and the jump target disagree by the number
+    # of label lines before the row -- and a reader checking "is line 13 really a
+    # jump?" lands on the wrong line. Report the statement index instead: it is
+    # the only number that agrees with the code itself.
+    _raw_to_idx = {ln + 1: k for k, (ln, _c) in enumerate(stmts)}
+    out = [Finding(f.sev, _raw_to_idx.get(f.line, f.line), f.code, f.msg)
+           for f in out]
+
     seen, uniq = set(), []
     for f in out:
         k = (f.sev, f.line, f.msg)

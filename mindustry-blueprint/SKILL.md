@@ -687,6 +687,19 @@ python tools/sync_mlogagent.py --check --global  # 只核对,不同步就 exit 1
 
 ### 规则与逐条审计（`rules/` + `review.py`）
 
+一条命令跑完整个审计：
+
+```bash
+python tools/review.py run --pages 2      # 抓 30 张图 -> 分析 -> 写 out/audit_review.md
+# 在编辑器里给每条的 `判定:` 后面填 ok / bad / unsure / skip，可加 `备注:`
+python tools/review.py ingest && python tools/review.py stats
+```
+
+- `run` = `fetch` + `build` + `md`；`--pages 0` 只分析本地已有图，`--serial` 给慢机器。
+- **重写清单前会先把上一份 md 里填过的判定读回来**，所以可以反复 `run`/`md`，判定不会丢。
+- 只有 `build`（重新扫描）会换行 id；这时候先 `ingest` 再 `build`，否则旧判定对不上新 id。
+
+
 分析器说的每一句「这行有问题」，都该能追到一条**有证据、有反例**的规则；
 而每条规则都该能被一个人判成「对 / 错 / 不知道」。
 

@@ -69,3 +69,22 @@ python tools/rule_audit.py --apply        # 把实测数字写回 rules/*.json
   「我意识到用户刚才否掉了什么」这一步仍然是手动的。
 - R3（源码差分）、R4（与 mindcode 模拟器对拍）、R5（覆盖挖掘）还没实现，
   但零件都有：`tools/_sweep_saves.py`（分桶）、`C:\Users\lliary\src\mindcode-dist\mindcode.jar`（第二实现）。
+
+## 审计之后改过的
+
+用户逐条判完了 `out/audit_review.md` 的前 55 条，四类改动：
+
+| 判定 | 改动 |
+|---|---|
+| `unary-op-extra-operand` 29 条全判「不值得报」 | `analyse` 不再上报，规则记成 `state: silent` |
+| `version-gate` 「为什么是第零行，不应该指向 format 吗」 | finding 的 `line` 改成真正用到该特性的那一行 |
+| `getblock` 「146 就已经有 getblock 了」 | `instr_semantics.json` 的 `min_build` 157 → 146（157.4 加的是 `query`） |
+| 「状态效果改版，裸名变 null」 | 新 `status_names.json` + INFO `is the name of a status effect` |
+| 「A 是无效参数，不影响」（`fetch ...Count`） | `uses_of` 不再把 count 类型的 `index` 当变量读 |
+
+两条教训：
+
+1. **精确率高只证明「报出来的不是错的」，不证明「报出来的值得看」**。`unary-op-extra-operand`
+   精确率 100%，29 条全是「我知道，懒得删」——那叫噪声，不叫发现。
+2. 用户判的不是「这行代码对不对」，是「这条规则该不该存在」。规则表里每次改动都要带 `ref`（哪一句
+   话让我改的），否则半年后没人知道为什么。

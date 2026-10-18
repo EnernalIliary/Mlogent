@@ -18,6 +18,8 @@ python tools/mlogagent.py info --verify                # 校验 MANIFEST.sha256
 
 位置参数按**后缀**分派：`.msch` 走蓝图解析（一个逻辑块一节），其余按 UTF-8 文本读。
 
+审计一条命令：`python tools/review.py run --pages 2`（抓图+分析+写清单，重写前自动读回上次判定）。
+
 ## 工具索引（一条命令一行）
 
 `mlog.py` 是唯一入口，`python mlog.py <子命令> --help` 看全部参数。

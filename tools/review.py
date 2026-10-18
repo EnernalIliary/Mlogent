@@ -21,6 +21,15 @@
     python tools/review.py export                        # out/audit.md，按规则分组给人看
     python tools/review.py md --unjudged                 # out/audit_review.md，在编辑器里逐条填判定
     python tools/review.py ingest                        # 把 md 里填的判定读回来
+
+一条龙（第一次用就这三行）::
+
+    python tools/review.py run --pages 2      # 抓 30 张图 -> 分析 -> 写 out/audit_review.md
+    # 在编辑器里给每条的 `判定:` 后面填 ok / bad / unsure / skip，可加 `备注:`
+    python tools/review.py ingest && python tools/review.py stats
+
+`md` / `run` 每次重写清单前都会先把上一份 md 里填过的判定读回来，填过的不会丢。
+机器慢就加 `--serial`（不并行）或 `--pages 1`；只想分析本地已有图就 `run --pages 0`。
 """
 
 from __future__ import annotations
@@ -366,6 +375,13 @@ def _listing(code_text: str, flag: int, window: int) -> list[str]:
 
 
 def cmd_md(args) -> int:
+    if not getattr(args, "no_ingest", False) and MD_PATH.exists():
+        print("reading back the verdicts from the previous md ...")
+        try:
+            cmd_ingest(_NS(MD_PATH))
+        except SystemExit:
+            print("  (the old md could not be read; writing a fresh one)")
+        print()
     rows = load_rows()
     verd = load_verdicts()
     if args.rule:
@@ -495,6 +511,62 @@ def cmd_ingest(args) -> int:
     return 0 if not problems else 1
 
 
+class _NS:
+    """Namespace shim so cmd_md can reuse the ingest parser."""
+
+    def __init__(self, path) -> None:
+        self.path = str(path)
+
+
+def cmd_fetch(args) -> int:
+    """Download maps from api.mindustry.top into --dir (skips ones you have)."""
+    import map_site as S
+
+    dest = Path(args.dir)
+    dest.mkdir(parents=True, exist_ok=True)
+    got, had, failed = 0, 0, 0
+    for page in range(max(1, args.pages)):
+        try:
+            batch = S.list_maps(search=args.search, begin=15 * page)
+        except Exception as e:  # network, 4xx, whatever
+            print(f"page {page}: {e}")
+            break
+        if not batch:
+            print(f"page {page}: no more maps")
+            break
+        for m in batch:
+            if args.limit and got >= args.limit:
+                break
+            mid = m.get("id")
+            target = dest / f"mindustrytop-{mid}.msav"
+            if target.exists():
+                had += 1
+                continue
+            try:
+                S.download(mid, target)
+            except Exception as e:
+                failed += 1
+                print(f"  {mid:>7}  failed: {e}")
+                continue
+            got += 1
+            print(f"  {mid:>7}  {str(m.get('name', ''))[:44]}")
+    print(f"fetched {got} new, {had} already here, {failed} failed -> {dest}")
+    return 0
+
+
+def cmd_run(args) -> int:
+    """fetch (optional) -> build -> md, in that order."""
+    if args.pages:
+        rc = cmd_fetch(args)
+        if rc:
+            return rc
+    rc = cmd_build(args)
+    if rc:
+        return rc
+    args.limit = 0          # --limit was for fetching; do not truncate the list
+    return cmd_md(args)
+
+
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     sub = ap.add_subparsers(dest="cmd", required=True)
@@ -538,6 +610,8 @@ def main(argv: list[str] | None = None) -> int:
     md.add_argument("--limit", type=int, default=0)
     md.add_argument("--window", type=int, default=30, help="statements of context each side")
     md.add_argument("--out", default=str(MD_PATH))
+    md.add_argument("--no-ingest", action="store_true",
+                     help="do not read the previous md first (loses no verdicts, it just skips it)")
     md.set_defaults(fn=cmd_md)
 
     ig = sub.add_parser("ingest", help="read the verdicts you typed into the markdown back in")
@@ -550,6 +624,24 @@ def main(argv: list[str] | None = None) -> int:
         vp.add_argument("--note", default="")
         vp.set_defaults(fn=lambda a, w=word: cmd_verdict(a, w))
 
+    fe = sub.add_parser("fetch", help="download maps from api.mindustry.top into out/maps")
+    fe.add_argument("--pages", type=int, default=1, help="15 maps per page")
+    fe.add_argument("--search", default=None, help="the site searches names/descriptions only")
+    fe.add_argument("--limit", type=int, default=0, help="stop after N new maps")
+    fe.add_argument("--dir", default=str(ROOT / "out" / "maps"))
+    fe.set_defaults(fn=cmd_fetch)
+
+    rn = sub.add_parser("run", help="fetch + build + md in one go")
+    rn.add_argument("--pages", type=int, default=1, help="0 = skip fetching, analyse what is here")
+    rn.add_argument("--search", default=None)
+    rn.add_argument("--limit", type=int, default=0)
+    rn.add_argument("--dir", default=str(ROOT / "out" / "maps"))
+    rn.add_argument("--workers", type=int, default=0, help="0 = let parallel.py decide")
+    rn.add_argument("--serial", action="store_true", help="no multiprocessing (weak machine)")
+    rn.add_argument("--window", type=int, default=30)
+    rn.add_argument("--out", default=str(MD_PATH))
+    rn.set_defaults(fn=cmd_run, rule=None, unjudged=False, no_ingest=False,
+                    md=str(MD_PATH))
     st = sub.add_parser("stats", help="per-rule verdict tally")
     st.set_defaults(fn=cmd_stats)
 

@@ -1440,8 +1440,14 @@ def cmd_explain(args) -> int:
             for nm, s in subs.items():
                 if args.sub and args.sub.lower() != nm.lower():
                     continue
-                print(f"  {'':<13} {nm:<10} reads {_slots(s.get('uses') or [], params)}"
-                      f"   writes {_slots(s.get('defs') or [], params)}")
+                # `uses` is what the executor converts; `semantic_uses` is what the
+                # subcommand actually reads. `ucontrol move x y` reads two numbers
+                # and is four fields long, so report the effective size as well.
+                reads = s.get("semantic_uses") or s.get("uses") or []
+                eff = 2 + len(s["args"]) if s.get("args") else None
+                tail = f"   effective arity {eff}" if eff else ""
+                print(f"  {'':<13} {nm:<10} reads {_slots(reads, params)}"
+                      f"   writes {_slots(s.get('defs') or [], params)}{tail}")
                 if s.get("note"):
                     print(textwrap.fill(s["note"], width=94,
                                         initial_indent=" " * 16,
