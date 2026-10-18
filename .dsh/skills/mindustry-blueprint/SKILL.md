@@ -22,6 +22,7 @@ whenToUse: 涉及 Mindustry 蓝图（.msch / 蓝图码）、mlog 逻辑编写或
 | **查指令格式** | `mlog.py cmd [关键字]` |
 | **读信息板内容** —— 蓝图里 message 方块写的字 | mlog.py text <file.msch> [--plain] |
 | **查一条指令的读写位** —— 哪个参数是输出 | `mlog.py explain <指令> [子命令]` |
+| **查这条语句要哪个版本** `format` 147 / `select` 150 | `BUILDS.md`（GitHub 发布说明摘要），`mlog.py explain <指令>` 会直接打印 |
 | **回归自测** —— 429 个真实蓝图往返校验 | `mlog.py selftest` |
 
 工具在 `tools/` 下,零第三方依赖(纯标准库)。`python tools/mlog.py --help`。
@@ -198,22 +199,33 @@ schematic 里 Stile 存的是方块的**中心格**,不是左上角。**已双�
 **校准(全语料 617 文件 / 2409 块,已排除模拟器蓝图)**:80.9% 的处理器**一条都不报**,p50=0、p90=1;均值 0.829/块是被约 20 个代码生成式蓝图拉高的。抽样 28 个站点人工核对,**全部为真**。
 
 **它不能证明你的逻辑是对的**:
-- 不跨处理器 —— 别的处理器用 `read x cell1 "名字"` 读它,这里看不见(实测全语料 0 例,但报了 `never-read` 仍要自己确认)
+- 不跨处理器(说明:`read`/`write` 可以按**名字**访问另一个处理器的变量(必須提前聲明、寫給未聲明的槽是靜默空操作)。老蓝图库里看不到这种写法,所以对老库「这个变量从未赋值」的判断是可靠的;新库里它是一条合法的"别处赋值"路径 —— 报 A 层之前先确认两份逻辑是不是同一代产物。) —— 别的处理器用 `read x cell1 "名字"` 读它,这里看不见(实测全语料 0 例,但报了 `never-read` 仍要自己确认)
 - 只判"值有没有人用",不判"值算得对不对"(`op add dx dy dx` 想算距离却写加法,`ir` 不报)
 
-## 「未定义变量」不等于错误:两种社区写法
+## 「未定义变量」要先分五层,再决定改不改
 
-静态检查报「`X` is read here but is never assigned anywhere」时,**先别改**。mlog 圈有两个约定俗成的写法,靠规范测不出来:
+静态检查报「`X` is read here but is never assigned anywhere」时,**先别改**。mlog 圈有一整套只用变量列表承载的写法,靠规范测不出来。926 份蓝图包的实测分布(分层把 A 从 883 条降到 77 条):
 
-| 写法 | 为什么不是错 | 检查器怎么判 |
-|---|---|---|
-| `print 我的名字`(名字从不赋值) | 编辑器**变量列表会显示程序里用到的所有变量** ⇒ 写个自己的名字当变量就是**署名**;打印出 `null` 无所谓 | **INFO**,文案 `signature only` |
-| `set // 装载电池组`(变量名是纯标点) | mlog 只有 `#` 起注释(`LParser.java:98-99`),想让注释在变量列表里可见就这么写 | 整个变量名归 `annotation` 层 / 整行跳过 |
-| 写了不读的变量 | 同上,为了出现在变量列表里 | `declaration` / `stale-write` 分开看 |
+| 层 | 含义 | 条数 | 改不改 |
+|---|---|---:|---|
+| **A 真错** | 名字被读的地方,值真的改变行为 | 77 | **要改** |
+| B 恒真守卫 | `jump` 两侧都是常量 ⇒ 分支固定 | 55 | 一般不用 |
+| C 无效参数 | 名字落在指令**读不到**的参数位上 | 944 | 不用 |
+| D 死引用 | 形如链接名,但这块处理器没有这个链接 | 788 | **要改**(静默失效) |
+| E 署名 | 只为出现在编辑器变量列表里 | 5540 | 不用 |
 
-真正要改的是**参与运算或控制流**的未赋值变量:`op add a b c` 里 `c` 未定义 ⇒ 静默当 0;`jump T lessThan i max` 里 `max` 未定义 ⇒ 循环一次都不进;`jump T equal X null` 未定义 ⇒ **恒真**(未赋值=0,`null` 读成 0,只有 `===` 才会假)。
+- **E 署名**:编辑器变量列表会显示程序用到的所有变量,写个自己的名字当变量就是署名 —— `print by:NOSB(hghg`、`set Madeby mineqwwe`、`jump 21 equal colour ender`、`control config Carrot 0914 0 0 0`。判 **INFO**。
+- **C 无效参数**:语句长度 > 指令真正读的位数时,多出来的 token 是惰性的。`control` 只有三个有效位(类型/目标/p1,p2–p4 被各方块忽略);`ucontrol` 按 `semantic_uses` 算,`flag`/`payTake` 只有一个语义参数;一元 `op` 的第三位永远丢掉(`op rand g 255 b` 的 `b`)。
+- **D 死引用**:`scatter1` 看着是有效链接,但处理器的链接表里没有它 —— `LExecutor` 的 `validLink(b)` 直接挡掉,`control shootp scatter1` 一发不发,**不报错也不崩溃**。只有 `.msch` 能查(`.mlog` 没有链接表)。
+- **`true`/`false` 是常量,不是普通变量**:`GlobalVars.java:54-55` 用 `putEntry` 注册成 1 / 0,`LAssembler.var()` 先查 `logicVars` 才轮到 `putVar` ⇒ `jump T equal X true` 就是 `X == 1`。**我曾只看 `var()` 就断定它俩是未赋值变量,凭空造出 653 条假警告** —— 判内建要查"注册了什么",不是查"解析函数怎么处理"。
 
-参数槽之外的 token 是**惰性的**(`LParser` 按 `arity` 填字段,多的丢掉),所以 `op rand g 255 b` 不读 `b`、`jump T always x false` 的 `x`/`false` 也不读 —— 署名常写在这些位置。但若署名写进了参数槽**内部**(`control enabled reactor enable 0 by bicker` 的 `by`/`bicker` 正好占 p3/p4),游戏确实会读它们。
+`set // 装载电池组`(变量名纯标点)也在这套习惯里:mlog 只有 `#` 起注释(`LParser.java:98-99`),想让注释在变量列表可见就这么写 —— 归 `annotation` 层或整行跳过。
+
+`noop` 单列一条:**判 ERR**。它是 `LStatements.InvalidStatement`(`LStatements.java:48-59`),`build()` 返回空跑的 `NoopI` —— 游戏把**解析不了的语句**替换成它。所以看到 `noop` 等于「这里原本有一条语句,没了」:最常见的原因是**高版本写的逻辑在低版本打开**,旧解析器不认识的语句被丢掉。这种程序**基本就死了** —— 丢的正是干活的那条,后面的 `jump` 还会照旧指向错位置。(极少数只是空行占位,那是特例;按错误报,让人去看一眼。)
+
+真正要改的 A 层:`op mod n n padNeedCount`(模数 0 ⇒ null)、`ubind u` 而 `u` 从未赋值、`control config unloader1 mmm 0 0 0`、`flase` 拼错落在 `ulocate` 的 enemy 位。
+
+**注意惰性位与内部位的区别**:参数槽**之外**的 token 不读(`op rand g 255 b` 的 `b`、`jump T always x false` 的 `x`);但署名写进参数槽**内部**(`control enabled reactor enable 0 by bicker` 的 `by`/`bicker`)游戏确实会读它们 —— 只是因为 `control` 的 p2–p4 对方块无意义，所以仍然判 C。
 
 ## `values` 看什么、不看什么
 

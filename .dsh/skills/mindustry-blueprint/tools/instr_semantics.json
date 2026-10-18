@@ -55,7 +55,8 @@
    "note": "LStatements.java:2045-2060 -> SetRateI (LExecutor.java:2018-2036): writes exec.build.ipt *and* exec.ipt.numval directly (bypasses LVar.constant check), so it is the only way to change @ipt.",
    "writes_special": [
     "@ipt"
-   ]
+   ],
+   "min_build_note": "exists earlier, but privileged-only until v160: 'Made setrate instruction available for non-privileged processors'"
   },
   "read": {
    "params": [
@@ -133,7 +134,9 @@
    "uses": [
     0
    ],
-   "note": "LStatements.java:344-363 -> FormatI (LExecutor.java:1111-1141): replaces one {n} placeholder at a time."
+   "note": "LStatements.java:344-363 -> FormatI (LExecutor.java:1111-1141): replaces one {n} placeholder at a time.",
+   "min_build": 147,
+   "min_build_source": "v147 notes: Instructions for displaying text and applying drawing transformations for logic processors"
   },
   "drawflush": {
    "params": [
@@ -224,7 +227,9 @@
    "maybe_uses": [
     4,
     5
-   ]
+   ],
+   "min_build": 150,
+   "min_build_source": "v150 notes: Added 'select' (ternary) logic operation"
   },
   "jump": {
    "params": [
@@ -1090,7 +1095,9 @@
     "0": "TileLayer"
    },
    "note": "LStatements.java:1359-1398: fields are 'layer' FIRST, then result,x,y -> text order is 'getblock <layer> <result> <x> <y>' (NOT the documented result,x,y,layer). GetBlockI(x,y,result,layer) at :1391 writes result (index1) with setobj switch on layer (:1508-1537).",
-   "privileged": true
+   "privileged": true,
+   "min_build": 157,
+   "min_build_source": "v157.4 notes: Added a world logic spatial query instruction"
   },
   "setblock": {
    "params": [
@@ -1182,7 +1189,9 @@
    "defs_conditional": [
     0
    ],
-   "privileged": true
+   "privileged": true,
+   "min_build": 157,
+   "min_build_source": "v157.3 notes: Added a processor instruction for spawning bullets"
   },
   "status": {
    "params": [
@@ -1342,7 +1351,9 @@
    "maybe_uses": [
     5
    ],
-   "privileged": true
+   "privileged": true,
+   "min_build": 146,
+   "min_build_source": "v146 notes: Added logic particle effect instruction"
   },
   "explosion": {
    "params": [
@@ -1408,7 +1419,9 @@
     0
    ],
    "note": "LStatements.java:2137-2160 -> SyncI (LExecutor.java:2054-2074); ignores constant vars.",
-   "privileged": true
+   "privileged": true,
+   "min_build": 146,
+   "min_build_source": "v146 notes: Added logic sync instruction"
   },
   "clientdata": {
    "params": [
@@ -1497,7 +1510,8 @@
     6,
     7
    ],
-   "privileged": true
+   "privileged": true,
+   "min_build_note": "v154 renamed most sound effects - old names silently stop working ('while this will break mods and logic')"
   },
   "playmusic": {
    "params": [

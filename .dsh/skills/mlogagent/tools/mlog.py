@@ -717,6 +717,12 @@ def cmd_explain(args) -> int:
         _kv("arity", f"{arity}   (statement indices run 1..{arity}; "
                      f"index 0 is the mnemonic itself)")
         _kv("text", " ".join([canon] + [f"<{p}>" for p in params]))
+        if spec.get("min_build"):
+            note = spec.get("min_build_note")
+            extra = f"   ({note})" if note else ""
+            _kv("since build", f"{spec['min_build']}   (vanilla){extra}")
+        elif spec.get("min_build_note"):
+            _kv("version", f"?   ({spec['min_build_note']})")
         toks = spec.get("tokens") or {}
         for i, p in enumerate(params):
             tok = toks.get(str(i))
