@@ -26,3 +26,4 @@ out/caime_scan*.txt
 /out/_label_*.txt
 /out/_find*.txt
 /out/_sweep_*.txt
+/out/_ili_backup_*/
