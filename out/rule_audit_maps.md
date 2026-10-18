@@ -1,22 +1,22 @@
 # 规则噪声审计（maps）
 
-- 存档 20（失败 0）、发现 584 条，其中 584 条落在 27 条规则里、0 条未归类
+- 存档 20（失败 0）、发现 570 条，其中 570 条落在 27 条规则里、0 条未归类
 
 `precision` = 命中里源码行仍匹配该规则自己 `line_regex` 的比例。100% 只代表「规则和它的说法一致」，**不代表结论正确**。
 
 | 规则 | 种类 | 级别 | 命中 | 程序 | 占比 | precision | 自动? |
 |---|---|---:|---:|---:|---:|---:|---|
-| `version-gate` | semantics | INFO | 216 | 11 | 37.0% | 100% |  |
-| `jump-to-jump-chain` | heuristic | INFO | 115 | 5 | 19.7% | 100% |  |
-| `link-name-not-bound` | semantics | WARN | 106 | 7 | 18.2% | 100% |  |
-| `undefined-var-is-not-automatically-an-error` | semantics | INFO | 82 | 10 | 14.0% | 100% |  |
-| `status-name-needs-at` | semantics | INFO | 36 | 5 | 6.2% | 100% |  |
-| `constant-null-guard` | heuristic | WARN | 14 | 2 | 2.4% | 100% |  |
-| `dead-polarity` | semantics | SUSPECT | 14 | 6 | 2.4% | 100% |  |
+| `version-gate` | semantics | INFO | 216 | 11 | 37.9% | 100% |  |
+| `jump-to-jump-chain` | heuristic | INFO | 115 | 5 | 20.2% | 100% |  |
+| `link-name-not-bound` | semantics | WARN | 106 | 7 | 18.6% | 100% |  |
+| `undefined-var-is-not-automatically-an-error` | semantics | INFO | 82 | 10 | 14.4% | 100% |  |
+| `status-name-needs-at` | semantics | INFO | 36 | 5 | 6.3% | 100% |  |
+| `constant-null-guard` | heuristic | WARN | 14 | 2 | 2.5% | 100% |  |
 | `printflush-clears-buffer` | semantics | INFO | 1 | 1 | 0.2% | 100% |  |
 | `arity-is-not-effective-params` | semantics | INFO | 0 | 0 | 0.0% | — |  |
 | `bool-param-constantly-zero` | heuristic | WARN | 0 | 0 | 0.0% | — |  |
 | `cross-processor-slot-undeclared` | semantics | WARN | 0 | 0 | 0.0% | — |  |
+| `dead-polarity` | semantics | SUSPECT | 0 | 0 | 0.0% | — |  |
 | `impact-reactor-cap-is-not-protection` | semantics | WARN | 0 | 0 | 0.0% | — |  |
 | `jump-target-out-of-range` | semantics | ERR | 0 | 0 | 0.0% | — |  |
 | `noop-means-version-drift` | semantics | ERR | 0 | 0 | 0.0% | — |  |
@@ -62,11 +62,6 @@
 - `mindustrytop-25774.msav:143,138 L9  jump 18 equal colour ender`
 - `mindustrytop-25774.msav:143,138 L9  jump 18 equal colour ender`
 - `mindustrytop-25680.msav:177,140 L30  jump -1 equal colour ender`
-
-### `dead-polarity` — 14 条
-- `mindustrytop-25774.msav:139,142 L1  jump 5 notEqual 单位存亡 1`
-- `mindustrytop-25559.msav:351,272 L20  jump 18 notEqual dead 1`
-- `mindustrytop-25559.msav:427,437 L130  jump 107 notEqual d 1`
 
 ### `printflush-clears-buffer` — 1 条
 - `mindustrytop-25774.msav:125,137 L24  printflush Notification`

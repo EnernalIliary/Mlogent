@@ -91,19 +91,6 @@
   "id": "041776057b"
  },
  {
-  "rule": "dead-polarity",
-  "sev": "SUSPECT",
-  "file": "mindustrytop-25774.msav",
-  "x": 139,
-  "y": 142,
-  "block": "micro-processor",
-  "line": 1,
-  "code": "jump 5 notEqual 单位存亡 1",
-  "msg": "`单位存亡` holds @dead (1 = DEAD). Checking `notEqual` continues only while ALIVE; to rebind when dead use `equal`",
-  "hash": "eed133218216",
-  "id": "5d93101d61"
- },
- {
   "rule": "version-gate",
   "sev": "INFO",
   "file": "mindustrytop-25774.msav",
@@ -247,32 +234,6 @@
   "id": "7721928b85"
  },
  {
-  "rule": "dead-polarity",
-  "sev": "SUSPECT",
-  "file": "mindustrytop-25559.msav",
-  "x": 351,
-  "y": 272,
-  "block": "world-processor",
-  "line": 20,
-  "code": "jump 18 notEqual dead 1",
-  "msg": "`dead` holds @dead (1 = DEAD). Checking `notEqual` continues only while ALIVE; to rebind when dead use `equal`",
-  "hash": "8c69e2a86c1e",
-  "id": "138400f19e"
- },
- {
-  "rule": "dead-polarity",
-  "sev": "SUSPECT",
-  "file": "mindustrytop-25559.msav",
-  "x": 427,
-  "y": 437,
-  "block": "world-processor",
-  "line": 130,
-  "code": "jump 107 notEqual d 1",
-  "msg": "`d` holds @dead (1 = DEAD). Checking `notEqual` continues only while ALIVE; to rebind when dead use `equal`",
-  "hash": "41a90072c924",
-  "id": "04ce031d10"
- },
- {
   "rule": "link-name-not-bound",
   "sev": "WARN",
   "file": "mindustrytop-25559.msav",
@@ -323,19 +284,6 @@
   "msg": "`a` is read here but is never assigned anywhere in this program (and is not a link or built-in)",
   "hash": "1a4c67b7f2cd",
   "id": "5da785b665"
- },
- {
-  "rule": "dead-polarity",
-  "sev": "SUSPECT",
-  "file": "mindustrytop-25559.msav",
-  "x": 393,
-  "y": 445,
-  "block": "world-processor",
-  "line": 7,
-  "code": "jump 6 notEqual dead 1",
-  "msg": "`dead` holds @dead (1 = DEAD). Checking `notEqual` continues only while ALIVE; to rebind when dead use `equal`",
-  "hash": "cf5257aed642",
-  "id": "118f77e606"
  },
  {
   "rule": "version-gate",
@@ -754,32 +702,6 @@
   "id": "ea561073b4"
  },
  {
-  "rule": "dead-polarity",
-  "sev": "SUSPECT",
-  "file": "mindustrytop-25765.msav",
-  "x": 5,
-  "y": 16,
-  "block": "world-processor",
-  "line": 2,
-  "code": "jump 0 notEqual D 1",
-  "msg": "`D` holds @dead (1 = DEAD). Checking `notEqual` continues only while ALIVE; to rebind when dead use `equal`",
-  "hash": "59e88aab584c",
-  "id": "c7d89cccea"
- },
- {
-  "rule": "dead-polarity",
-  "sev": "SUSPECT",
-  "file": "mindustrytop-25765.msav",
-  "x": 5,
-  "y": 17,
-  "block": "world-processor",
-  "line": 2,
-  "code": "jump 0 notEqual D 1",
-  "msg": "`D` holds @dead (1 = DEAD). Checking `notEqual` continues only while ALIVE; to rebind when dead use `equal`",
-  "hash": "9fe025c0a237",
-  "id": "084dc84adc"
- },
- {
   "rule": "version-gate",
   "sev": "INFO",
   "file": "mindustrytop-25765.msav",
@@ -1040,45 +962,6 @@
   "id": "ff6724686f"
  },
  {
-  "rule": "dead-polarity",
-  "sev": "SUSPECT",
-  "file": "mindustrytop-25872.msav",
-  "x": 81,
-  "y": 33,
-  "block": "logic-processor",
-  "line": 18,
-  "code": "jump 9 notEqual __ls_ub_d_1 0",
-  "msg": "`__ls_ub_d_1` holds @dead (1 = DEAD). Checking `notEqual` continues only while ALIVE; to rebind when dead use `equal`",
-  "hash": "288f09a3ee0b",
-  "id": "c8b85ac89d"
- },
- {
-  "rule": "dead-polarity",
-  "sev": "SUSPECT",
-  "file": "mindustrytop-25872.msav",
-  "x": 81,
-  "y": 33,
-  "block": "logic-processor",
-  "line": 64,
-  "code": "jump 67 notEqual __ls_ub_d_4 0",
-  "msg": "`__ls_ub_d_4` holds @dead (1 = DEAD). Checking `notEqual` continues only while ALIVE; to rebind when dead use `equal`",
-  "hash": "288f09a3ee0b",
-  "id": "423960e02f"
- },
- {
-  "rule": "dead-polarity",
-  "sev": "SUSPECT",
-  "file": "mindustrytop-25872.msav",
-  "x": 81,
-  "y": 33,
-  "block": "logic-processor",
-  "line": 78,
-  "code": "jump 70 notEqual __ls_ub_d_4 0",
-  "msg": "`__ls_ub_d_4` holds @dead (1 = DEAD). Checking `notEqual` continues only while ALIVE; to rebind when dead use `equal`",
-  "hash": "288f09a3ee0b",
-  "id": "1e36fdc911"
- },
- {
   "rule": "version-gate",
   "sev": "INFO",
   "file": "mindustrytop-25872.msav",
@@ -1090,19 +973,6 @@
   "msg": "version gate: uses op ushr -- needs build >= 150; on anything older the line is replaced by noop and silently does nothing",
   "hash": "606f7bb1ff91",
   "id": "2e9dc54fe4"
- },
- {
-  "rule": "dead-polarity",
-  "sev": "SUSPECT",
-  "file": "mindustrytop-20445.msav",
-  "x": 4,
-  "y": 0,
-  "block": "world-processor",
-  "line": 38,
-  "code": "jump 53 notEqual coreDead 1",
-  "msg": "`coreDead` holds @dead (1 = DEAD). Checking `notEqual` continues only while ALIVE; to rebind when dead use `equal`",
-  "hash": "d34d986e91fd",
-  "id": "8fd023e58f"
  },
  {
   "rule": "version-gate",
@@ -1233,19 +1103,6 @@
   "msg": "`invincible` is the name of a status effect, not a variable: a content constant needs the @ prefix (`@invincible`, and some builds expose it as `@status_invincible` -- check the variable list in the editor), so as written this reads null and the instruction does nothing",
   "hash": "1b07c250920e",
   "id": "c1b6ecd5e0"
- },
- {
-  "rule": "dead-polarity",
-  "sev": "SUSPECT",
-  "file": "mindustrytop-20445.msav",
-  "x": 0,
-  "y": 24,
-  "block": "world-processor",
-  "line": 1,
-  "code": "jump 0 notEqual dead 1",
-  "msg": "`dead` holds @dead (1 = DEAD). Checking `notEqual` continues only while ALIVE; to rebind when dead use `equal`",
-  "hash": "5217e89ea9b1",
-  "id": "97ad0501f2"
  },
  {
   "rule": "link-name-not-bound",

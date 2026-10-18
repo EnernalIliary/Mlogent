@@ -931,20 +931,14 @@ def analyse(lines: list[str], links: list[str] | None = None, ipt: int = 2) -> l
             out.append(Finding("WARN", orig + 1, c,
                                f"`op {op}` given {given} args, expects {want}"))
 
-    # ---- @dead inversion --------------------------------------------------
-    for i, (orig, c) in enumerate(stmts):
-        md = re.match(r"^sensor\s+(\S+)\s+\S+\s+@dead\s*$", c)
-        if not md:
-            continue
-        var = md.group(1)
-        for j in range(i + 1, min(i + 3, n)):
-            mj = JMP_RE.match(stmts[j][1])
-            if mj and mj.group(3) == var and mj.group(2) == "notEqual":
-                out.append(Finding(
-                    "SUSPECT", stmts[j][0] + 1, stmts[j][1],
-                    f"`{var}` holds @dead (1 = DEAD). Checking `notEqual` continues "
-                    f"only while ALIVE; to rebind when dead use `equal`"))
-                break
+    # ---- @dead polarity: NOT reported ------------------------------------
+    # Every row of this rule was judged bad by the author (m15434): "这个逻辑使用
+    # notequal没问题呀，反向了而已". Both polarities are normal code -- `jump rebind
+    # notEqual d 0` jumps when the unit died, `jump act equal d 0` falls through
+    # when it did not -- and which one is meant depends on what the target *does*
+    # (rebind vs act), not on the operator. Nothing local can tell them apart, so
+    # the check is gone rather than downgraded. `rules/dead-polarity.json` keeps
+    # the reasoning so it is not re-invented.
 
     # ---- ulocate hygiene --------------------------------------------------
     for i, (orig, c) in enumerate(stmts):

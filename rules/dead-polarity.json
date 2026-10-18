@@ -2,8 +2,8 @@
   "id": "dead-polarity",
   "kind": "semantics",
   "severity": "SUSPECT",
-  "claim": "`@dead` is 1 when the unit is dead AND when there is no unit at all, so a loop that continues while `notEqual dead 1` also exits when the unit vanishes.",
-  "why": "LAccess `dead` returns 1 for a null unit (`UnitComp` `!isValid() -> null` path yields 0, and `equal null 0` is true). The intent is usually 'continue while alive'; the code cannot tell 'died' from 'never had one'.",
+  "claim": "an inverted `@dead` test is not a bug: `notEqual` and `equal` are both normal, and which one is right depends on the jump target",
+  "why": "The author judged 11/11 rows bad (m15434): \"这个逻辑使用 notequal 没问题呀，反向了而已\". A jump on `notEqual d 0` goes to the rebind branch when the unit died; a jump on `equal d 0` falls through to the work when it is alive. The operator alone cannot say which the author wanted, so nothing local is checkable. The weak related fact (a null unit also reads 1 for @dead) is kept here as background, not as a rule.",
   "source": "user",
   "ref": "m01190",
   "since": "2026-10-18",
@@ -12,15 +12,14 @@
     "sevs": [
       "SUSPECT"
     ],
-    "msg_any": [
-      "holds @dead"
-    ]
+    "msg_any": []
   },
   "auto_downgrade": false,
   "observed": {
-    "hits": 608,
-    "programs": 360,
-    "share": 0.0031,
+    "hits": 0,
+    "programs": 0,
+    "share": 0.0,
     "dir": "C:\\Users\\lliary\\AppData\\Roaming\\Mindustry\\saves"
-  }
+  },
+  "state": "silent -- no longer reported"
 }
