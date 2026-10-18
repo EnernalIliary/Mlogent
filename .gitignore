@@ -27,3 +27,6 @@ out/caime_scan*.txt
 /out/_find*.txt
 /out/_sweep_*.txt
 /out/_ili_backup_*/
+
+# publishable export (own git repo) - /dist/mlog-toolkit
+/dist/
