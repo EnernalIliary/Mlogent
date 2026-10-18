@@ -717,3 +717,5 @@ python tools/sync_mlogagent.py --check --global  # 只核对,不同步就 exit 1
 - **编辑器显示名与文本名错位**:`not` 显示成 `flip`、`notEqual` 显示成 `not`(`LogicOp.java:32`)⇒ 照编辑器念出来的名字写进 mlog 会变成另一个算子
 - **`@counter` 的语义是「当前行之后将要执行的行号」** ⇒ 函数返回地址用 `op add ret @counter 1`,而派发表写 `op add @counter @counter n` 之后入口在 n+1 行
 - **控制命令间隔超过 10 秒就丢控制状态** ⇒ 长循环里每 10 秒至少发一条 `ucontrol`
+- **`ucontrol move x y` 是 4 个字段** —— 语句对象有 6 个槽、`LExecutor` 无条件转换 `p1..p3`，但 `move` 只读 `x,y`（`approach` 才读第三个当半径），`pathfind` 同理；别照编辑器补的 `0 0 0` 数参数
+- **一元算子多写一个操作数不算错** —— `op floor a b`、`op sin y angle 90` 多出的 token 被 `LParser` 丢弃，运行时无影响，只算 INFO；但 `op sin` 吃弧度，写 `90` 往往说明作者以为是角度
