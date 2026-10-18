@@ -2210,6 +2210,20 @@ emod("emod", (a, b) -> ((a % b) + b) % b); // 结果非负
 - `pingX/pingY/pingText` 约 >157.4 才有。
 - 多控互换 `@unit` 的惯用法:`set tmp @unit; ubind unit2; set unit2 tmp`。
 
+### 15.31 「语料里的写法」：把风格变成一条命令
+
+`find` 只回答「谁做过」,不回答「写成了什么样」。要写出像人写的东西,缺的是后者:变量怎么起名、循环用哪种形状、一圈几条指令、最后怎么收尾。这些全在语料里,但以前只能靠人翻。
+
+`mlog.py style <关键词...>` 把六个可模仿的维度打出来:`naming`(作者的私有词汇)、`flavour`(dotted/underscored/中文/普通)、`shape`(派发表、`select`、`wait` 节拍、命名跨处理器槽、`ubind`+`ucontrol`、消息板)、`cost`、`links`、`opens`/`closes`。
+
+三个实现上的坑,都值得记:
+
+- **枚举槽不是变量**。第一版把 `parts[1:]` 全当名字收集,于是 `naming` 的头几名是 `strictEqual`、`always`、`greaterThan`、`add` —— 全是 op 名和跳转条件。修法是按助记符跳过关键字位(`op`/`ucontrol`/`draw`/`control`/`ulocate`/`getblock`/`lookup`/`radar`/`uradar`/`status`/`fetch` 跳第 1 位,`jump` 跳第 2 位,`jump N always x false` 再跳 3、4 的补位)。
+- **文件名必须进检索**。语料文件名是中文描述,只搜描述和信息板时 `钍反 防爆` 命中 0;把 `path.lower()` 拼进 `hay` 之后 41 条。
+- **同一文件的多个处理器会霸占前几名**。`Phase-Bridge 15 Landing Pads` 两个处理器写同一份程序,top3 里出现两次。改成按文件去重、标注 `(+N more block(s) in this file)`。
+
+`--code N` 可以连源码一起看 —— 命名和收尾习惯光看统计是学不到的。
+
 ## 16. ⚠️ 我写错的逻辑清单(生成前对照)
 
 这一节记录**实际被抓到的逻辑错误**,不是猜测。
@@ -2451,3 +2465,4 @@ F:\OneDrive\桌面\AtomicStates\mindustry-blueprint\                ← 开发�
 | 第 36 次整理 | **写逻辑的取舍:枚举 vs 跳表 vs 内存格**。`sensor` 第三参是运行时对象(`LExecutor.java:668-719` `Object sense = type.obj()`),所以枚举不是语法强制;但 mlog 没有「按下标取内容物」的原语,造表的价格≈摊开写(枚举 26 / 跳表 30+ / 格子 14+10),差的是状态数量与可复查性。方法论:**「为什么不用更聪明的写法」的答案经常是「这里没有更便宜的写法」—— 说清价格,比说清偏好有用。** |
 | 第 37 次整理 | **死循环规则按守卫极性判定**。`@this` 只能被 `ubind` 认领(`LExecutor.java:325`/`:329`),所以 `equal … @this` + `ubind` 是永不退出,而 `notEqual … @this` + `ubind` 是标准「防抢单位」写法。**同一条语句,极性反了就从不报变成全报;规则的价值不在「能发现」,在「敢不报」。** |
 | 第 38 次整理 | **一个算子不等于一条语句**：`op` 是 45 个算子共用的语法外壳，版本属性挂在算子上（`emod`/`ushr` = v150，其余回 v6），所以版本闸门必须按算子名查。同一段源码里 `idiv`=floor、`mod`=截断、`emod`=floor-mod，三者不能互换，判据是 `a == (a idiv b)*b + (a emod b)` 恒成立。书还纠正了我一条：`ucontrol` 也会把单位认领给本处理器（`UnitControlI.checkLogicAI` 里设 controller=@this），所以死循环规则要按「认领 vs 读取」的**顺序**判定，不是按指令种类。**语法是一层壳，语义挂在壳里的那个词上。** |
+| 第 39 次整理 | **`style`：把「像人写的」拆成六个可量维度**(命名/风格/形状/成本/链接/收尾)。坑:枚举槽不是变量(否则 `naming` 头几名是 `op` 名);语料文件名必须进检索(中文文件名);同文件多处理器要去重 |

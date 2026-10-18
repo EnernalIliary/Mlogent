@@ -23,6 +23,7 @@ python mlog.py cross  <blueprint.msch>        # cross-processor read/write: what
   python mlog.py unit   [name]                 # unit stats: speed, hp, payload
   python mlog.py block  [name]                 # recipe, capacity, power
   python mlog.py find   <words>                # corpus blueprints that solve this job
+python mlog.py style <words>           # how the corpus writes it: naming, shape, cost
   python mlog.py cmd    [pattern]              # mlog instruction reference
   python mlog.py explain <mnemonic> [sub]      # one instruction: syntax + which
                                                #   positions are read / written
@@ -931,6 +932,265 @@ def cmd_find(args) -> int:
     return 0
 
 
+# Mnemonics whose first argument is a keyword, never a variable.
+_STYLE_ENUM1 = {"op", "ucontrol", "draw", "control", "ulocate", "getblock",
+                "lookup", "radar", "uradar", "status", "fetch", "setblock",
+                "setprop", "cutscene", "effect", "setmarker", "setrule"}
+_STYLE_LINK = re.compile(r"^[a-z][a-z-]*\d+$")
+_STYLE_WORD = re.compile(r"[A-Za-z_\u4e00-\u9fff]")
+
+
+def _style_names(code: list[str]) -> collections.Counter:
+    """Variable names, weighted by how often they appear, minus the non-names.
+
+    Link names (`cell1`, `pad3`), literals, `@builtins` and punctuation-only
+    "names" (the `//` convention) are all excluded -- what is left is the
+    author's private vocabulary, which is the thing worth imitating.
+    """
+    counts: collections.Counter = collections.Counter()
+    for raw in code:
+        line = _check.strip_comment(raw).strip()
+        if not line:
+            continue
+        parts = line.split()
+        mn = parts[0].lower()
+        if mn.endswith(":"):
+            continue
+        # Enum slots are not variables: `op <name>`, `jump <addr> <cond>`,
+        # `ucontrol <sub>`, `draw <sub>`, `control <type>` ... Counting them made
+        # every "naming" line read "strictEqual, always, greaterThan, add".
+        skip = set()
+        if mn in _STYLE_ENUM1:
+            skip.add(1)
+        if mn == "jump" and len(parts) > 2:
+            skip.add(2)
+            if parts[2] == "always":
+                skip |= {3, 4}          # `jump N always x false` filler slots
+        for i, tok in enumerate(parts[1:], start=1):
+            if i in skip:
+                continue
+            if not tok or tok[0] in '"@':
+                continue
+            if tok in ("true", "false", "null") or _check.is_number(tok):
+                continue
+            if _STYLE_LINK.match(tok) or not _STYLE_WORD.search(tok):
+                continue
+            counts[tok] += 1
+    return counts
+
+
+def _style_shape(code: list[str]) -> list[str]:
+    """The habits that make a block recognisable, as short phrases."""
+    body = [ln for ln in (_check.strip_comment(x).strip() for x in code) if ln]
+    labels = [ln[:-1] for ln in body if ln.endswith(":") and len(ln.split()) == 1]
+    ops = collections.Counter(ln.split()[0].lower() for ln in body
+                              if not ln.endswith(":"))
+
+    def has(pat: str) -> bool:
+        return any(re.search(pat, ln) for ln in body)
+
+    notes: list[str] = []
+    if has(r"^op\s+add\s+@counter\s+@counter"):
+        notes.append("dispatch table (op add @counter @counter)")
+    if has(r"^select\b"):
+        notes.append("select instead of branches")
+    if has(r"^wait\b"):
+        notes.append("wait pacing")
+    if has(r'^(read|write)\s+\S+\s+\S+\s+"'):
+        notes.append("named cross-processor slot")
+    if has(r"^(read|write)\s+\S+\s+(cell|bank)\d"):
+        notes.append("memory cell")
+    if has(r"^ubind\b"):
+        notes.append("ubind")
+    if has(r"^ucontrol\b"):
+        notes.append("ucontrol")
+    if has(r"^(radar|uradar)\b"):
+        notes.append("radar")
+    if has(r"^draw\b"):
+        notes.append("draw")
+    if has(r"^printflush\b"):
+        notes.append("message board")
+    if has(r"^sensor\b.*@(unit|this|dead|controller)"):
+        notes.append("sensor on @unit/@this")
+    if has(r"^control\b"):
+        notes.append("control enabled/config")
+    if labels:
+        notes.append(f"{len(labels)} label(s): " + ", ".join(labels[:6]))
+    if ops.get("jump"):
+        notes.append(f"{ops['jump']} jump(s)")
+    if ops.get("set") and ops.get("jump") and ops["set"] > 2 * max(ops["jump"], 1):
+        notes.append("set-heavy (data-first, few branches)")
+    return notes
+
+
+def _style_cost(code: list[str], links: list[str]) -> str:
+    """The two lines of `--cost` worth quoting: cycle length and processor ticks."""
+    try:
+        rep = _check.cost_report(_check.prepare(code), links)
+    except Exception:
+        return "(cost unavailable)"
+    keep = []
+    for ln in rep.splitlines():
+        t = ln.strip()
+        if t.startswith("worst-case path") or t.startswith("micro-processor"):
+            keep.append(t)
+    return " ; ".join(keep) if keep else "(no cost lines)"
+
+
+def _style_block(root: str, path: str, label: str, code: list[str],
+                 links: list[str], score: int, dump: int) -> list[str]:
+    names = _style_names(code)
+    body = [ln for ln in (_check.strip_comment(x).strip() for x in code) if ln]
+    out = [f"=== {path}  [{label}]  {len(body)} statements  score {score}"]
+    if names:
+        top = ", ".join(f"{k}x{v}" for k, v in names.most_common(10))
+        out.append(f"    naming  : {top}")
+        dotted = sum(1 for k in names if "." in k)
+        cjk = sum(1 for k in names if re.search(r"[\u4e00-\u9fff]", k))
+        snake = sum(1 for k in names if "_" in k and "." not in k)
+        out.append(f"    flavour : {dotted} dotted, {snake} underscored, "
+                   f"{cjk} Chinese, {len(names) - dotted - snake - cjk} plain")
+    shape = _style_shape(code)
+    if shape:
+        out.append(f"    shape   : {', '.join(shape)}")
+    out.append(f"    cost    : {_style_cost(code, links)}")
+    if links:
+        out.append(f"    links   : {', '.join(links[:10])}"
+                   f"{' …' if len(links) > 10 else ''}")
+    if body:
+        out.append(f"    opens   : {body[0]}")
+        if len(body) > 1:
+            out.append(f"              {body[1]}")
+        if len(body) > 2:
+            out.append(f"    closes  : … {body[-2]}")
+        out.append(f"              {body[-1]}")
+    if dump:
+        out.append("    --- source ---")
+        for ln in code[:dump]:
+            out.append("      " + ln)
+        if len(code) > dump:
+            out.append(f"      … ({len(code) - dump} more lines)")
+    out.append(f'    read it : python mlog.py ir --msch "{full_path(root, path)}"')
+    return out
+
+
+def cmd_style(args) -> int:
+    """Show how the corpus writes a job, before I write it myself.
+
+    `find` answers "which blueprint does this"; `style` answers "how does the
+    author of that blueprint actually write" -- the naming vocabulary, the shape
+    of the control flow, the closing idiom, the cycle cost. Those are the things
+    that make generated logic read like a beginner's.
+    """
+    terms = [t for t in " ".join(args.query).lower().split() if t]
+    if not terms:
+        print("give at least one search term", file=sys.stderr)
+        return 2
+    root = args.corpus or _corpus_dir()
+    if not os.path.isdir(root):
+        print(f"corpus not found: {root}  (set MLOG_CORPUS or pass --corpus)",
+              file=sys.stderr)
+        return 2
+    limit = args.limit or 3
+    rows = []
+    cache = {} if args.rebuild else _load_find_cache()
+    fresh: dict = {}
+    for path in sorted(os.listdir(root)):
+        if not path.lower().endswith(".msch"):
+            continue
+        full = os.path.join(root, path)
+        try:
+            size = os.path.getsize(full)
+        except OSError:
+            continue
+        if size > args.max_bytes:
+            continue
+        stamp = f"{size}:{int(os.path.getmtime(full))}"
+        entry = cache.get(path)
+        if not (entry and entry.get("stamp") == stamp):
+            try:
+                sch = msch.parse_file(full)
+            except Exception:
+                continue
+            texts = " ".join([sch.name or "", sch.description or ""]).lower()
+            blocks = []
+            for t in sch.logic_tiles():
+                if t.logic is None:
+                    continue
+                src = t.logic.code
+                if len(src) > args.max_stmts * 32:
+                    continue
+                code = src.split("\n")
+                if len(code) > args.max_stmts:
+                    continue
+                ops, names, strings = _cheap_profile(code)
+                blocks.append([f"{t.block} @({t.x},{t.y})", sum(ops.values()),
+                               dict(ops), sorted(names), strings])
+            entry = {"stamp": stamp, "texts": texts, "blocks": blocks}
+        fresh[path] = entry
+        # File names in this corpus are Chinese descriptions ("11-12双液体大超着陆
+        # 合金气旋"), so the path itself is part of the searchable text -- without
+        # it a query like "钍反 防爆" matches nothing at all.
+        hay_name = (entry.get("texts", "") + " " + path.lower())
+        for label, n, ops, names, strings in entry.get("blocks") or []:
+            hay = hay_name + " " + strings
+            name_hit = sum(1 for t2 in terms if t2 in hay)
+            var_hit = sum(1 for t2 in terms
+                          if t2 in names or any(t2 in x for x in names))
+            op_hit = sum(1 for t2 in terms if t2 in ops)
+            score = 10 * name_hit + 4 * var_hit + 6 * op_hit
+            if score > 0:
+                rows.append((score, path, label, n))
+    _store_find_cache(fresh)
+    if not rows:
+        print(f"nothing in {root} matches {' '.join(terms)!r}")
+        return 1
+    rows.sort(key=lambda r: (-r[0], -r[3]))
+    # One file often has the same program on several processors (Phase-Bridge 15
+    # Landing Pads has two identical ones). Show the file once and say how many
+    # blocks matched, otherwise the "top 3" can be one blueprint three times.
+    per_file: dict[str, int] = {}
+    for _s, path, _l, _n in rows:
+        per_file[path] = per_file.get(path, 0) + 1
+    dedup: list[tuple[int, str, str, int]] = []
+    seen_path: set[str] = set()
+    for row in rows:
+        if row[1] in seen_path:
+            continue
+        seen_path.add(row[1])
+        dedup.append(row)
+    print(f"{len(rows)} match(es) in {len(dedup)} file(s) for {' '.join(terms)!r}; "
+          f"showing the top {min(limit, len(dedup))} as style references:")
+    shown = 0
+    shape_tally: collections.Counter = collections.Counter()
+    for score, path, label, _n in dedup[:limit]:
+        extra = per_file.get(path, 1) - 1
+        if extra > 0:
+            label = f"{label}  (+{extra} more block(s) in this file)"
+        try:
+            sch = msch.parse_file(os.path.join(root, path))
+        except Exception:
+            continue
+        tile = next((t for t in sch.logic_tiles()
+                     if f"{t.block} @({t.x},{t.y})" == label), None)
+        if tile is None or tile.logic is None:
+            continue
+        code = tile.logic.code.split("\n")
+        links = [l.name for l in tile.logic.links]
+        print()
+        for ln in _style_block(root, path, label, code, links, score, args.code):
+            print(ln)
+        shape_tally.update(_style_shape(code))
+        shown += 1
+    if shown and shown > 1:
+        print()
+        print(f"common across these {shown}:")
+        for k, v in shape_tally.most_common(8):
+            if v > 1:
+                print(f"    {v}x {k}")
+    return 0
+
+
 def full_path(root: str, name: str) -> str:
     return os.path.join(root, name)
 
@@ -1293,6 +1553,19 @@ def main() -> int:
     p.add_argument("--rebuild", action="store_true",
                    help="ignore the search cache and re-read every blueprint")
     p.set_defaults(fn=cmd_find)
+
+    p = sub.add_parser("style", help="how the corpus writes this job: naming, "
+                                    "shape, cycle cost")
+    p.add_argument("query", nargs="+",
+                   help="task words, e.g. `thorium reactor` (no quotes needed)")
+    p.add_argument("--corpus", help="schematic folder (default: the game's)")
+    p.add_argument("--limit", type=int, default=3)
+    p.add_argument("--max-stmts", type=int, default=5000)
+    p.add_argument("--max-bytes", type=int, default=2_000_000)
+    p.add_argument("--rebuild", action="store_true")
+    p.add_argument("--code", type=int, default=0,
+                   help="also print the first N source lines")
+    p.set_defaults(fn=cmd_style)
 
     p = sub.add_parser("cmd", help="mlog instruction reference")
     p.add_argument("pattern", nargs="?", help="substring filter")
