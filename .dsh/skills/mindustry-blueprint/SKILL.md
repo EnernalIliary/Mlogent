@@ -19,7 +19,7 @@ whenToUse: 涉及 Mindustry 蓝图（.msch / 蓝图码）、mlog 逻辑编写或
 | **打包配置** —— 字段布局 + 低位能装几个 id | `mlog.py pack <logic.mlog>` |
 | **查方块 ID / 尺寸** | `mlog.py id [名称]` |
 | **查物品 ID / 解打包配置** | `mlog.py item [名称] [--unpack N]` |
-| **查单位属性**（写逻辑第一步选单位） | `mlog.py unit [名称]` |
+| **查单位属性**（写逻辑第一步选单位） | `mlog.py unit [名称]`（速度/血量/护甲/武器/主动技能） |
 | **查方块配方 / 容量 / 功耗** | `mlog.py block [名称]` |
 | **找参考实现** | `mlog.py find "几个词"` |
 | **查 sensor 能读什么** | `mlog.py sensor [关键词]` |
@@ -535,6 +535,22 @@ python tools/sync_mlogagent.py --check --global  # 只核对,不同步就 exit 1
 7. **点名与署名**：变量命名跟 `style` 里看到的语料风格一致；署名用 `print`/`set` 的未赋值名字（会在编辑器变量列表里显示），不要写成参数槽里没人读的垃圾位。
 8. **假设写清**：模拟器不支持 `ubind`/`ucontrol`/世界处理器/`draw`/`control`，所以超出静态分析的部分（时序、竞态、真实单位行为）是推理不是验证。交付时明说哪些是"读起来没错"。
 9. **蓝图用 `mlog.py gen` 产出**，不要手拼 base64；生成后 `ir`/`check` 再跑一遍确认逻辑没被截断。
+
+## 单位表里有什么、没有什么
+
+`mlog.py unit <名字>` 名称精确匹配优先（`unit oct` 不会再被 `spiroct` 挤掉），单条命中时多打三行：
+
+| 字段 | 从哪来 | 写逻辑时怎么用 |
+|---|---|---|
+| `speed` / `health` / `armor` / `hitSize` | `UnitTypes.java` 里显式赋的值 | 算拦截时间、算能不能扛一轮 |
+| `weapons[].damage/speed/lifetime/pierce/shots` | `new Weapon(...)` 块里的 `bullet = new XBulletType(...)` 及其 `{{ }}` | 估 DPS；`lifetime × speed` 决定射程上限 |
+| `abilities[]` | `abilities.add(new XxxAbility(args))` | 这个单位会不会自己修、自己开盾、刷小怪 |
+| `immune_to` | `immunities(StatusEffects...)` | **原版 39 个单位一条都没声明** —— 表里没写就是没声明，别猜 |
+
+**三个读法上的坑**：
+- `abilities.args` 是**源码原文**，会有 `60f * 8` 这种算式。别当数字读，它表达的是「8 秒」。
+- 表里**没有**的字段 = 源码没写 = 引擎默认值（见 JSON 的 `defaults`），不是「零」。
+- `itemCapacity (default -1)` 表示这个单位不能拿东西，不是容量为 1。
 
 ## 参考数据
 

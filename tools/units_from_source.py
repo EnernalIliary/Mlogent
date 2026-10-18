@@ -8,6 +8,11 @@ Only fields that the source actually sets are recorded; anything absent is the
 engine default, which is printed from `UnitType.java` so "absent" is
 interpretable instead of ambiguous.
 
+Beyond the raw numbers this also records what a unit *does*: its abilities
+(repair field, unit spawn, shield...) and its status-effect immunities. Those are
+the two things logic most often needs and least often gets right -- "can I set
+@mace on fire" is an immunities lookup, not a guess.
+
 Run:  python tools/units_from_source.py [--check]
 """
 from __future__ import annotations
@@ -26,7 +31,8 @@ OUT = pathlib.Path(__file__).resolve().parent / "unit_attrs.json"
 # fields worth knowing before you write logic for a unit
 FIELDS = ("speed", "health", "armor", "hitSize", "itemCapacity", "flying",
           "mineSpeed", "mineTier", "buildSpeed", "accel", "drag",
-          "boostMultiplier", "payloadCapacity", "range")
+          "boostMultiplier", "payloadCapacity", "range",
+          "rotateSpeed", "omniMovement", "canBoost", "lowAltitude")
 
 _START = re.compile(r'^(\s*)(\w+) = new UnitType\("([a-z0-9-]+)"\)\{\{')
 _NUM = r"(-?\d+(?:\.\d+)?)f?"
@@ -111,7 +117,10 @@ def weapons(body: list[str]) -> dict:
     nothing else for a long time.
     """
     text = "\n".join(body)
-    chunks = text.split("new Weapon()")[1:]
+    # `new Weapon("name"){{` is the v7 form; splitting on the literal
+    # "new Weapon()" only caught the 5 nameless ones and made the table say
+    # "5 armed units" out of 39.
+    chunks = re.split(r"new Weapon\s*\(", text)[1:]
     out: dict = {"count": len(chunks), "list": []}
     for ch in chunks:
         w: dict = {}
@@ -127,7 +136,8 @@ def weapons(body: list[str]) -> dict:
             if len(pos) >= 2:
                 w["speed"], w["damage"] = pos[0], pos[1]
             tail = ch[m.end():]
-        for key in ("damage", "speed", "lifetime", "pierce", "shots"):
+        for key in ("damage", "speed", "lifetime", "pierce", "shots",
+                    "inaccuracy", "ammoMultiplier", "hitSize"):
             if key in w:
                 continue
             mm = re.search(r"\b" + key + r"\s*=\s*" + _NUM, tail)
@@ -147,6 +157,36 @@ def weapons(body: list[str]) -> dict:
     return out
 
 
+def abilities(body: list[str]) -> list[dict]:
+    """`new RepairFieldAbility(50f, 60f*8f, 60f)` -> {ability, args}.
+
+    Arguments stay as raw source text: they mix plain numbers, arithmetic like
+    `60f*8f` and booleans, and inventing one numeric value for `60f*8f` would be
+    a number the game never computes at runtime.
+    """
+    text = "\n".join(body)
+    out: list[dict] = []
+    for m in re.finditer(r"new\s+(\w+)Ability\s*\(([^;)]*)\)", text):
+        name = m.group(1)
+        args = [a.strip() for a in m.group(2).split(",") if a.strip()]
+        rec: dict = {"ability": name}
+        if args:
+            rec["args"] = args
+        out.append(rec)
+    return out
+
+
+def immunities(body: list[str]) -> list[str]:
+    """`immunities(StatusEffects.wet, StatusEffects.burning)` -> ['wet', 'burning']."""
+    text = "\n".join(body)
+    out: list[str] = []
+    for m in re.finditer(r"immunities\(([^)]*)\)", text):
+        for name in re.findall(r"StatusEffects\.(\w+)", m.group(1)):
+            if name not in out:
+                out.append(name)
+    return out
+
+
 def build() -> dict:
     text = UNITS.read_text("utf-8", errors="replace")
     dflt = defaults()
@@ -160,11 +200,18 @@ def build() -> dict:
         w = weapons(body)
         if w.get("count"):
             rec["weapons"] = w
+        ab = abilities(body)
+        if ab:
+            rec["abilities"] = ab
+        im = immunities(body)
+        if im:
+            rec["immune_to"] = im
         units[name] = rec
     return {
         "_source": "Mindustry-Source/core/src/mindustry/content/UnitTypes.java",
         "_note": ("only fields the source sets are listed; absent ones are the "
-                  "engine default in `defaults`"),
+                  "engine default in `defaults`. `abilities.args` is raw source "
+                  "text (they contain arithmetic like `60f*8f`)."),
         "count": len(units),
         "defaults": {k: v for k, v in dflt.items()
                      if k in FIELDS or k in ("speed", "health")},
@@ -186,7 +233,9 @@ def main() -> int:
         return 0 if same else 1
     OUT.write_text(text, "utf-8")
     print(f"wrote {OUT.name}: {data['count']} units, "
-          f"{sum(1 for u in data['units'].values() if 'weapons' in u)} armed")
+          f"{sum(1 for u in data['units'].values() if 'weapons' in u)} armed, "
+          f"{sum(1 for u in data['units'].values() if 'abilities' in u)} with abilities, "
+          f"{sum(1 for u in data['units'].values() if 'immune_to' in u)} with immunities")
     return 0
 
 

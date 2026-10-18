@@ -699,6 +699,9 @@ def cmd_unit(args) -> int:
         return 1
     q = (args.name or "").strip().lower()
     hits = sorted(n for n in units if not q or q in n)
+    if q in units:
+        # 精确名优先:`oct` 否则会同时命中 `spiroct`,`unit oct` 就没法看细节
+        hits = [q]
     if not hits:
         print(f"no unit matching {args.name!r}")
         return 1
@@ -710,7 +713,8 @@ def cmd_unit(args) -> int:
         rec = units[n]
         bits = []
         for f in ("speed", "health", "armor", "hitSize", "itemCapacity",
-                  "mineSpeed", "mineTier", "buildSpeed", "range", "flying"):
+                  "mineSpeed", "mineTier", "buildSpeed", "range", "flying",
+                  "rotateSpeed", "omniMovement", "canBoost", "accel", "drag"):
             if f in rec:
                 bits.append(f"{f} {rec[f]}")
             elif f in dflt:
@@ -721,7 +725,8 @@ def cmd_unit(args) -> int:
             if w.get("reload"):
                 wtxt += f", reload {w['reload']}t"
             if w.get("bullet_damage"):
-                wtxt += f", {w['bullet']} {w['bullet_speed']}sp/{w['bullet_damage']}dmg"
+                sp = f"{w['bullet_speed']}sp/" if w.get("bullet_speed") else ""
+                wtxt += f", {w['bullet']} {sp}{w['bullet_damage']}dmg"
             bits.append(wtxt)
         print(f"  {n:<14} " + "; ".join(bits))
         if len(hits) == 1:
@@ -733,9 +738,17 @@ def cmd_unit(args) -> int:
                     line += f"  reload {wp['reload']}t"
                 if wp.get("shots"):
                     line += f"  {wp['shots']} shot(s)"
-                if wp.get("x"):
-                    line += f"  offset x {wp['x']}"
+                if wp.get("lifetime"):
+                    line += f"  life {wp['lifetime']}t"
+                if wp.get("inaccuracy"):
+                    line += f"  inacc {wp['inaccuracy']}"
                 print(f"               weapon {i}: {line}")
+            for ab in rec.get("abilities") or []:
+                args = ", ".join(ab.get("args") or [])
+                print(f"               ability: {ab['ability']}"
+                      + (f"({args})" if args else ""))
+            if rec.get("immune_to"):
+                print(f"               immune to: {', '.join(rec['immune_to'])}")
     return 0
 
 

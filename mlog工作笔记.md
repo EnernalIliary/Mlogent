@@ -612,6 +612,7 @@ ulocate building core 0 @copper cx cy found core
 | 10 | `@totalPower` | 38 | `@cameraY` |
 | 11 | `@itemCapacity` | 39 | `@cameraWidth` |
 | 12 | `@liquidCapacity` | 40 | `@cameraHeight` |
+| 41 | 2026-10-18 | 单位表补细：武器切分修好（5→35 个带武器）、新增 abilities 与 immune_to、`unit` 精确名优先 |
 | 13 | `@powerCapacity` | 41 | `@displayWidth` |
 | 14 | `@powerNetStored` | 42 | `@displayHeight` |
 | 15 | `@powerNetCapacity` | 43 | `@bufferSize` |
@@ -2253,6 +2254,22 @@ emod("emod", (a, b) -> ((a % b) + b) % b); // 结果非负
 `min_build` 从 6 条补到 46 条，其余按 v7 基线 146 标，七条查不到出处的留空。
 闸门判据因此从 `>= 147` 变成 `> 146`：**等于基线不报**。
 这条不是洁癖 —— 146 是一年里所有人都在用的版本，把基線语句报成"版本太新"等于让工具失去可信度。
+
+### 15.33 单位表补细：武器 / 技能 / 免疫
+
+这轮补的是「选单位」这一步。原来的表 39 个单位里只有 5 个带武器，因为拆分用的是字面量
+`"new Weapon()"`，而 v7 的写法是 `new Weapon("large-weapon"){{` —— 72 处里有 67 处没被切到。
+改成 `re.split(r"new Weapon\s*\(", ...)` 之后变成 35 个带武器。
+
+新增两项：
+- `abilities`：`abilities.add(new RepairFieldAbility(10f, 60f*4, 60f))` → `{ability, args}`，
+  `args` 保留源码原文（里面有算式）。10 个单位有主动技能：scepter/bryde/pulsar/quasar 的护盾、
+  oct 的力场+修复、nova/poly 的修复场、oxynoe 的过载领域、aegires 的能量场、navanax 的压制场。
+- `immune_to`：`immunities(StatusEffects.x)` → 名字列表。**原版 39 个单位一个都没声明**，
+  所以这一项在数据里是空的 —— 而这本身就是答案：别去猜「它抗不抗燃烧」。
+
+顺带修了 `mlog.py unit` 的两个读法毛病：精确名优先（`unit oct` 原来同时命中 `spiroct`，
+细节就不打了），以及 `bullet_speed` 缺失时摘要行打出 `Nonesp/23dmg` 的丑格式。
 
 ## 16. ⚠️ 我写错的逻辑清单(生成前对照)
 
