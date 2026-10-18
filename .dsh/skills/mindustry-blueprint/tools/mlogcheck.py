@@ -806,7 +806,7 @@ def analyse(lines: list[str], links: list[str] | None = None) -> list[Finding]:
 
     # ---- version gate -----------------------------------------------------
     floor, users = build_floor(stmts)
-    if floor:
+    if floor >= 147:
         who = ", ".join(sorted(set(users)))
         out.append(Finding(
             "INFO", 0, "",

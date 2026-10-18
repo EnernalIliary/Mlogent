@@ -124,7 +124,8 @@ def _measure(lines: list[str], links: list[str] | None) -> dict:
         "packs": len(sites),
         "pack_notes": sum(len(s.overlaps) for s in sites),
         "pack_ok": sum(len(s.masked) for s in sites),
-        "build": _check.build_floor(_check.prepare(lines))[0],
+        "build": _check.build_floor(_check.prepare(lines))[0]
+        if _check.build_floor(_check.prepare(lines))[0] >= 147 else 0,
     }
 
 
