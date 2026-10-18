@@ -1969,6 +1969,22 @@ t5厂、世处、冲反、分裂、力墙、厄兆、塑钢、大硅、小超、
 命令:`python tools/label_auto.py`(学习+留出集报表)、`--suggest F.msch`(只出可信建议)、
 `--apply F.msch --out DIR`(写回副本,永不覆盖原件)。
 
+### 15.24 作者标签约定:我产出的蓝图打 `[blue]DeepSeek`
+
+用户在自己的标签体系里新开了一类 **`[blue]DeepSeek`**,用来标记"这是 DeepSeek 做的"。
+以后我用 `mschgen` 生成蓝图,`labels=` 一律写这一条:
+
+```python
+mschgen.Blueprint(name=..., description="...逻辑 by [#8abcd1]DeepSeek[]",
+                  labels=["[blue]DeepSeek"])
+```
+
+已落到 `tools/gen_thorium_guard.py`(钍反防爆 v1),并配 `tools/install_thorium_guard.py`
+(生成 → 断言标签与署名 → 复制进 `%APPDATA%/Mindustry/schematics` → 回读校验)。
+
+和 ILI 的区别:ILI 是**作者身份**(谁的库),这个类是**作品来源**(谁写的逻辑);
+一份蓝图可以两条都有,不冲突。
+
 ## 16. ⚠️ 我写错的逻辑清单(生成前对照)
 
 这一节记录**实际被抓到的逻辑错误**,不是猜测。
@@ -2205,3 +2221,4 @@ F:\OneDrive\桌面\AtomicStates\mindustry-blueprint\                ← 开发�
 | 第 30 次整理 | **`unit` / `block` / `find` 三条命令:单位属性、方块配方、找参考实现**。`find` 从 152 秒压到 0.7 秒(跳过生成式艺术与 16MB 像素画 + mtime 缓存),抽数据时踩了四个坑:成组声明的默认值、`}};` 结尾与缩进、`consumeItem` 单物品配方、Java 字段名要转 kebab。方法论:**写逻辑缺的不是语法,是目标和游戏事实 —— 目标问人,游戏事实进数据表。** |
 | 第 31 次整理 | **物品接受规则:五档(any / recipe / ammo / custom / none),不是「收不收」**。判据是 `BuildingComp.acceptItem` = `consumesItem && 容量`,而 `consumesItem` 是消费者填的布尔数组 ⇒ 没有消费者的方块默认拒收一切;别用 `itemCapacity` 推(工厂大多不写它)。方法论:**「能不能收」和「现在收不收」是两个问题,静态分析只能回答前者 —— 分不清这一点,工具就会开始撒谎。** |
 | 第 33 次整理 | 署名识别扩展:小号「鱼破了冰 / 鱼冰 / 鱼梦醒时」并入 ILI;全库 240/626 份带 ILI 标签(逐份备份+校验,只重写 tags 段)。**署名是谁做的,用途是干什么的——前者能扫出来,后者只能问人。** |
+| 第 34 次整理 | 作者标签约定:我产出的蓝图默认打 `[blue]DeepSeek`(生成器写入);钍反防爆 v1 已导入游戏目录。**作者身份和作品来源是两个维度,可以同时挂。** |
