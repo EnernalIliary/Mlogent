@@ -310,6 +310,31 @@ def _load_specs() -> dict[str, dict]:
 
 SPECS = _load_specs()
 
+#: Statement -> the first vanilla build that understands it. Only the ones with a
+#: citable release note are listed (see `mindustry-blueprint/BUILDS.md`); everything
+#: else is assumed to exist since the v7 baseline (146), which is where most of the
+#: player base sat for a year.
+MIN_BUILD: dict[str, int] = {
+    k: v["min_build"] for k, v in SPECS.items() if isinstance(v.get("min_build"), int)
+}
+
+
+def build_floor(stmts: list[tuple[int, str]]) -> tuple[int, list[str]]:
+    """Oldest vanilla build that understands every statement here, plus which ones.
+
+    A schematic has no version field, so this is inferred from the statements it
+    uses. Returns `(0, [])` when everything is pre-147, i.e. nothing to say.
+    """
+    floor, users = 0, []
+    for _, c in stmts:
+        mnem = c.split()[0].lower() if c.strip() else ""
+        b = MIN_BUILD.get(mnem)
+        if not b:
+            continue
+        users.append(mnem)
+        floor = max(floor, b)
+    return floor, sorted(set(users))
+
 
 def _effective_params(p: list[str]) -> int:
     """How many parameters this instruction actually consumes, for the form in use.
@@ -778,6 +803,39 @@ def analyse(lines: list[str], links: list[str] | None = None) -> list[Finding]:
                                    f"`{c.split()[0]}` used but there is no `ubind` -> "
                                    f"@unit is null, this silently does nothing"))
                 break
+
+    # ---- version gate -----------------------------------------------------
+    floor, users = build_floor(stmts)
+    if floor:
+        who = ", ".join(sorted(set(users)))
+        out.append(Finding(
+            "INFO", 0, "",
+            f"version gate: uses {who} -- needs build >= {floor}; on anything "
+            f"older the line is replaced by noop and silently does nothing"))
+
+    noop_lines = [orig + 1 for orig, c in stmts
+                  if c.strip() and c.split()[0].lower() == "noop"]
+    if noop_lines:
+        if floor >= 147:
+            # The generic noop ERR already fired; replace it instead of stacking a
+            # second finding on the same line -- the point is one conclusion, not
+            # two overlapping ones.
+            out = [f for f in out if not (f.code.strip().lower() == "noop")]
+            out.append(Finding(
+                "ERR", noop_lines[0], "noop",
+                f"{len(noop_lines)} noop line(s) plus statements that need build "
+                f">= {floor} -- this is version drift, not a typo: a line written "
+                f"for a newer build was replaced by InvalidStatement when opened on "
+                f"an older one, so it now runs as nothing and whatever it did is "
+                f"gone. Open the schematic on build >= {floor} to get it back"))
+        else:
+            out.append(Finding(
+                "WARN", noop_lines[0], "noop",
+                f"{len(noop_lines)} noop line(s) = InvalidStatement "
+                f"(LParser.java:143-147). Three causes: a statement from a NEWER "
+                f"build, a privileged world-processor statement sitting in a normal "
+                f"processor (LParser.java:150-152), or a mod statement whose mod is "
+                f"not loaded"))
 
     # dedupe, keep order
     seen, uniq = set(), []

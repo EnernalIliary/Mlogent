@@ -23,6 +23,7 @@ whenToUse: 涉及 Mindustry 蓝图（.msch / 蓝图码）、mlog 逻辑编写或
 | **读信息板内容** —— 蓝图里 message 方块写的字 | mlog.py text <file.msch> [--plain] |
 | **查一条指令的读写位** —— 哪个参数是输出 | `mlog.py explain <指令> [子命令]` |
 | **查这条语句要哪个版本** `format` 147 / `select` 150 | `BUILDS.md`（GitHub 发布说明摘要），`mlog.py explain <指令>` 会直接打印 |
+| **查这份逻辑要哪个 build** —— 蓝图不存版本号 | `mlog.py check` 的 `version gate` 行 / `mlogagent report` 的 `build >=N` |
 | **回归自测** —— 429 个真实蓝图往返校验 | `mlog.py selftest` |
 
 工具在 `tools/` 下,零第三方依赖(纯标准库)。`python tools/mlog.py --help`。

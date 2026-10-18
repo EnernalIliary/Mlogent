@@ -124,6 +124,7 @@ def _measure(lines: list[str], links: list[str] | None) -> dict:
         "packs": len(sites),
         "pack_notes": sum(len(s.overlaps) for s in sites),
         "pack_ok": sum(len(s.masked) for s in sites),
+        "build": _check.build_floor(_check.prepare(lines))[0],
     }
 
 
@@ -134,6 +135,8 @@ def _verdict(m: dict) -> str:
             f"branches {m['branches']}",
             f"nulls {m['nulls']}",
             f"packs {m['packs']}"]
+    if m.get("build"):
+        bits.append(f"build >={m['build']}")
     return "  | ".join(bits)
 
 

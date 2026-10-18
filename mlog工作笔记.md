@@ -1697,6 +1697,46 @@ low field `1e6` holds 0..999999  =>  20 usable bit positions (ids 0..19)
 
 **另**:分层的诱惑是"再加一层"。这次多出来的 E 层(真假字面量)是假的 —— 它不来自用户的判词,而来自我读源码时漏了一步。**用户没纠正过的层,要先假设它是我的 bug。**
 
+### 15.19 版本闸门:一份蓝图能跑在哪个 build 上
+
+蓝图**不存版本号**,所以只能从「它用了哪些语句」倒推。`check` 现在会打两行:
+
+```
+[INFO] L0   version gate: uses select -- needs build >= 150; on anything
+            older the line is replaced by noop and silently does nothing
+```
+
+`mlogagent report` 的 VERDICT 末尾也会多一截 `| build >=150`。
+
+**能锚定的只有六条**(出处都写在 `mindustry-blueprint/BUILDS.md`):
+
+| 语句 | 首次出现 | 发布说明原话 |
+|---|---|---|
+| `effect` / `sync` | 146 | "Added logic particle effect instruction" / "Added logic sync instruction" |
+| `format` | 147 | "Instructions for displaying text and applying drawing transformations for logic processors" |
+| `select` | 150 | "Added 'select' (ternary) logic operation" |
+| `bullet` | 157 | "Added a processor instruction for spawning bullets"(157.3) |
+| `getblock` | 157 | "Added a world logic spatial query instruction"(157.4) |
+
+146 是分水岭:大部分人在这版停了一年,所以「什么都不用」的下限就是 146,**低于 147
+不报告**,否则每一份老逻辑都要响一次。
+
+**`noop` + 新语句 = 版本漂移**(这是这条闸门真正的用途):同时满足「用了 ≥147 的语句」
+和「有 `noop` 行」时,不再分两条报,直接把原来那条通用 `noop` 错误替换成结论:
+
+> N noop line(s) plus statements that need build >= 150 -- this is version drift,
+> not a typo: a line written for a newer build was replaced by InvalidStatement
+> when opened on an older one, so it now runs as nothing and whatever it did is
+> gone.
+
+单看 `noop` 时仍报 **WARN** 并列出三个成因(比「版本不一致」更全):解析异常
+(`LParser.java:143-147`)、特权语句落在普通处理器里(`:150-152`)、mod 语句但 mod 没装
+(`:166-173`)。
+
+**为什么 `format`=147 值得单独记**:它是「文本显示」那一代工具链的入口,`{}` 占位符
+语法从 147 到 159 没变过(用户确认),所以看到 `format` 就能断定「这份逻辑 ≤147 的客户端
+一定跑不了」。
+
 ## 16. ⚠️ 我写错的逻辑清单(生成前对照)
 
 这一节记录**实际被抓到的逻辑错误**,不是猜测。
@@ -1926,3 +1966,4 @@ F:\OneDrive\桌面\AtomicStates\mindustry-blueprint\                ← 开发�
 | 第 23 次整理 | **用户纠正:「未定义变量」常常是署名,不是错误**。原话:「游戏内部的逻辑编辑器会对变量列表，使用自己的名字作为变量名并且不定义是很常见的署名方法，因为可以在变量列表看到。这同样也适用于不被读但是也会在变量列表显示的例子，不算很大的错误。」据 `LAssembler.java:67-69`(首尾都是 `"` 才成字符串常量)和编辑器行为,改判三档:只出现在 `print` 里 ⇒ INFO 署名;只出现在 `jump … equal/notEqual X null` 里 ⇒ WARN 恒真但无害;其余仍是 ERR。再加上两个同源发现:`set // 说明文字` 是 mlog 的注释写法(`#` 之外没有注释语法),整行跳过,`障碍躲避.msch` 一个文件就少 58 条假错;`LParser` 按 `arity` 填字段,多余 token 惰性丢弃,`mlogcheck` 据此截断。全包硬错 **883 → 416 → 367**。**方法论:一个检查器报出的「错误」里,哪些是错误取决于这个社区的写作习惯,不取决于语言规范 —— 这类知识只能从用户嘴里得到,测不出来。** |
 | 第 24 次整理 | **判级是被用户校准出来的,不是从规范里推出来的**。883 条硬错逐条核对到 77 条,中间掉的全是判级调整而非漏报:署名(`print`/`set`/`jump equal A B` 里的名字)归 E、`control` 只认三个参数归 C、布尔参数恒 false 归 warn、链接名不在链接表里归 D。同一次整理里**我自己判错一格**:只看 `LAssembler.var()` 就宣称 `true`/`false` 不是关键字,造出 653 条假警告 —— 真相是 `GlobalVars.java:54-55` 用 `putEntry` 把它们注册成常量 1/0。方法论:**一个检查器报出的「错误」,哪些是错误取决于社区写作习惯,不取决于语言规范;而判「这个名字是不是内建」要查注册表,不是查解析函数的分支。** |
 | 第 25 次整理 | **最后三处纠正,全是"我把一个东西当成了另一个东西"**。①`noop` 从 WARN 改判 **ERR**:它是 `LStatements.InvalidStatement`,低版本跑高版本逻辑时丢的正是干活那条,程序基本就死;我曾按"我抽到的唯一一例能跑"判成良性 —— 用户一句"这个是特例"纠正。②错误表 C 层把 `op rand`/`op floor`/`op abs` 当成变量名列出来 —— `op` 的第二个 token 是**运算符号**,成因是取消息里第一对反引号当名字,而 `op rand g 255 b` 那条警告的文案正好是 `` `op rand` given 3 args ``。③E 层混进了两个不相干的东西:`?` 2325 条其实是"jump 指向 jump",`i`/`n`/`x` 一千多条是"变量有 N 个到达赋值"——循环变量本来就反复赋值,这条**纯噪声,已整块删除**。方法论:**INFO 不是一种东西;分层要按"这条结论想让读者做什么"分,不能按严重程度分。** |
+| 第 26 次整理 | **版本闸门:蓝图不存版本号,只能从语句倒推**。锚定六条 (`effect`/`sync` 146、`format` 147、`select` 150、`bullet`/`getblock` 157),146 当基线因此低于 147 不报;`noop` 与新语句同时出现时不再分两条,直接替换成「版本漂移」的结论。方法论:**没有元数据时,元数据要从内容的最稀有的那个特征反推** —— 挑特征的标准是「出现晚、出现少、一眼能认」,不是「重要」。 |
