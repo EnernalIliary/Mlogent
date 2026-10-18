@@ -880,7 +880,15 @@ def analyse(lines: list[str], links: list[str] | None = None, ipt: int = 2) -> l
         given = 1 + sum(1 for x in (a, b) if x is not None)
         if want is None:
             out.append(Finding("ERR", orig + 1, c, f"unknown op `{op}`"))
-        elif given != want:
+        elif given > want:
+            # An operator handed more operands than it reads: the game parses the
+            # extra tokens and never looks at them, so nothing goes wrong at run
+            # time. It is worth surfacing (people write `op sin y angle 90`
+            # believing the 90 means degrees) but it is not a defect.
+            out.append(Finding("INFO", orig + 1, c,
+                               f"`op {op}` reads {want - 1} operand(s); the extra "
+                               f"{given - want} token(s) are parsed and then ignored"))
+        elif given < want:
             out.append(Finding("WARN", orig + 1, c,
                                f"`op {op}` given {given} args, expects {want}"))
 
