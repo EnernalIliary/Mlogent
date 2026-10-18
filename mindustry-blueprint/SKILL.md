@@ -355,6 +355,20 @@ python mlog.py block silicon-smelter         # 3. 这个方块吃什么、产什
 注意 `custom` 只回答“可能收”，**“现在收不收”要看运行时状态**（sorter 的配置、router 是否空、焚化炉是否通电）。
 
 
+## 自动打标签
+
+蓝图标签(颜色=维度、私有区图标=值身份)是手打的,但**其中 24 个值可以从内容推出来**,
+留出集精确率 ≥70%:
+
+```bash
+python tools/label_auto.py                      # 学习规则 + 留出集报表
+python tools/label_auto.py --suggest F.msch      # 只输出可信建议(附依据与精确率)
+python tools/label_auto.py --apply F.msch --out DIR   # 写回副本,不动原件
+```
+
+`数量` / `品质` / `系列` / `无线` / `火控` 这类量不出精确率的值不会出现在建议里 ——
+它们要么是主观判断,要么同一份蓝图三种都沾。写回只重写 tags 段,其余字节原样搬运。
+
 ## 参考数据
 
 | 文件 | 内容 |
