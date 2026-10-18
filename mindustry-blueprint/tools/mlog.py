@@ -273,15 +273,30 @@ def _cost(lines: list[str], links: list[str] | None = None) -> None:
     print()
 
 
+def _split_targets(args):
+    """Positional paths split by suffix: `.msch` is a blueprint, the rest is text.
+
+    Typing `mlog.py check foo.msch` used to open the schematic as UTF-8 and die
+    with a decode error; the suffix is unambiguous, so route it instead of
+    making the user remember `--msch`.
+    """
+    text, mascs = [], []
+    for q in (args.files or []):
+        (mascs if str(q).lower().endswith(".msch") else text).append(q)
+    mascs += list(getattr(args, "msch", None) or [])
+    return text, mascs
+
+
 def cmd_check(args) -> int:
     rc = 0
-    for p in args.files:
+    _text_targets, _msch_targets = _split_targets(args)
+    for p in _text_targets:
         with open(p, encoding="utf-8") as fh:
             lines = fh.read().split("\n")
         rc |= _report(p, _check.analyse(lines))
         if args.cost:
             _cost(lines)
-    for p in args.msch:
+    for p in _msch_targets:
         sch = msch.parse_file(p)
         for t in sch.logic_tiles():
             assert t.logic is not None
@@ -433,11 +448,12 @@ def _ir_report(label: str, lines: list[str], show_all: bool = False) -> int:
 
 def cmd_ir(args) -> int:
     rc = 0
+    _text_targets, _msch_targets = _split_targets(args)
     show_all = bool(getattr(args, "all", False))
-    for p in args.files:
+    for p in _text_targets:
         with open(p, encoding="utf-8") as fh:
             rc |= _ir_report(p, fh.read().split("\n"), show_all)
-    for p in args.msch:
+    for p in _msch_targets:
         sch = msch.parse_file(p)
         tiles = list(sch.logic_tiles())
         for t in tiles:
@@ -473,11 +489,12 @@ def _val_report(label: str, lines: list[str],
 
 def cmd_values(args) -> int:
     rc = 0
+    _text_targets, _msch_targets = _split_targets(args)
     traces = list(getattr(args, "trace", None) or [])
-    for p in args.files:
+    for p in _text_targets:
         with open(p, encoding="utf-8") as fh:
             rc |= _val_report(p, fh.read().split("\n"), traces)
-    for p in args.msch:
+    for p in _msch_targets:
         sch = msch.parse_file(p)
         for t in sch.logic_tiles():
             assert t.logic is not None
@@ -489,14 +506,15 @@ def cmd_values(args) -> int:
 def cmd_pack(args) -> int:
     """Recognise packed-config encode/decode and report field capacity."""
     rc = 0
+    _text_targets, _msch_targets = _split_targets(args)
     item_count = len(ITEM_IDS) or None
-    for p in args.files:
+    for p in _text_targets:
         with open(p, encoding="utf-8") as fh:
             lines = fh.read().split("\n")
         print(_pk.format_report(_ir.parse(lines), item_count=item_count,
                                 label=p))
         rc = 0
-    for p in args.msch:
+    for p in _msch_targets:
         sch = msch.parse_file(p)
         for t in sch.logic_tiles():
             assert t.logic is not None
