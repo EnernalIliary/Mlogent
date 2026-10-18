@@ -18,6 +18,13 @@ python tools/mlogagent.py info --verify                # 校验 MANIFEST.sha256
 
 位置参数按**后缀**分派：`.msch` 走蓝图解析（一个逻辑块一节），其余按 UTF-8 文本读。
 
+## 语义从哪来：双实现确认
+
+关键的语言事实除了读 `LExecutor.java`，还用 mindcode 的模拟器复核过（八条探针）。
+`equal <未赋值> null` 恒真、`logn(0,2)`/`1/0` → null、`sensor @unit @dead` → 1、
+`print <未声明>` → `null`、记忆格未写 → 0、`read`/`write` 只认对方已声明的变量 ——
+这些是**两个独立实现都这么算**。细节见仓库里的 `mindustry-blueprint/EMULATOR-CROSSCHECK.md`。
+
 ## 先读这一节：五层各自能证明什么
 
 | 层 | 回答的问题 | 证据强度 | 全语料命中 |

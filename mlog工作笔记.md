@@ -607,6 +607,7 @@ ulocate building core 0 @copper cx cy found core
 | 7 | `@totalItems` | 35 | `@shootX` |
 | 8 | `@firstItem` | 36 | `@shootY` |
 | 9 | `@totalLiquids` | 37 | `@cameraX` |
+| 38 | 2026-10-18 | 交叉验证：装上 mindcode（JDK 22 + 预编译 jar），用它的模拟器跑八条探针，六条与我的规则一致、一条 unsupported、一条（跨处理器 read/write）新增蓝图级探针；结论写进 `mindustry-blueprint/EMULATOR-CROSSCHECK.md` 与本节。方法论：**能跑的第二个实现，比多读一遍源码有用** —— 它不读你的注释，也不认同你的假设。 |
 | 10 | `@totalPower` | 38 | `@cameraY` |
 | 11 | `@itemCapacity` | 39 | `@cameraWidth` |
 | 12 | `@liquidCapacity` | 40 | `@cameraHeight` |
@@ -2069,6 +2070,50 @@ if(target instanceof Senseable se){
 ### 边界
 - 只覆盖"守卫里出现 `@this`"这一种;`jump loop notEqual on 0` 这类"等外部状态"的自旋不报(真实语料 0.33 条/块,报了只会淹没真结论)。
 - 模拟也不免检:要复现这条,得先构造"地图上有某台单位、且已被本处理器认领"的世界状态;喂不到场景时模拟器会报一切正常。
+
+## 15.28 第二实现交叉验证：mindcode 的模拟器
+
+我一直说「mlog 语义只有 `LExecutor.java` 一个权威」——这句话现在可以说得更好：
+另一份**独立实现**存在，而且能跑。
+
+`cardillan/mindcode`（Java、MIT、172★、持续维护到 2026-10-17）是 Python 那样
+"高级语言 → mlog"的编译器，自带一个**处理器模拟器**。它不读我这份源码，
+所以它对同一段 mlog 的结果是独立的第二个声音。
+
+```sh
+# 代码
+java -jar mindcode.jar pm probe.mlog --run true
+# 整张蓝图（处理器之间用 read/write 通信，要真的有两个处理器才测得到）
+java -jar mindcode.jar ps probe.msch --run true --run-steps 2000
+```
+
+需要 **JDK 22**（jar 的 class file 是 66.0，JDK 17 直接 `UnsupportedClassVersionError`），
+预编译 jar 在 GitHub Releases（31.6 MB），**不需要 Maven 构建**。
+
+八条探针的结果（`out/probes/p1..p8`，见 `mindustry-blueprint/EMULATOR-CROSSCHECK.md`）：
+
+| # | 断言 | 结果 |
+|---|---|---|
+| P1 | `equal <未赋值> null` 恒真 | ✅ 跳了 |
+| P2 | `op logn r 0 2` → null | ✅ |
+| P3 | `1/0` → null | ✅ |
+| P4 | `sensor @unit @dead`（null 单位）→ 1 | ✅ 打印 1 |
+| P5 | `print <未声明>` → `null` | ✅ |
+| P6 | 记忆格未写过 → 0（不是 null） | ✅ |
+| P7 | `ubind` 后 `@controller == @this` | ⏸ 模拟器不支持 `ubind` |
+| P8 | `read` 只读得到对方**已声明**的变量；`write` 到未声明名字不建槽 | ✅ `A=7 B=null C=null` |
+
+P8 是新加的蓝图级探针：一个处理器 `set declared 7`，另一个
+`read a processor1 "declared"` / `read b processor1 "nope"` /
+`write 99 processor1 "fresh"` / `read c processor1 "fresh"`，
+输出 `A=7|B=null|C=null|`。**`write` 到未声明的槽确实什么也不做** ——
+这条正是 `mlogcross` 与 `mlogcheck` 那句 "the slot must be declared there first" 的依据。
+
+**方法论**：一致的六条从"我读源码得出的结论"升级成"两个独立实现都这么算"，
+文档里可以标 **双实现确认**；不一致时以 `LExecutor.java` 为准，再查是谁没跟上版本。
+模拟器**不能**替我看世界：没有单位、没有战场、`ubind`/`ucontrol` 不支持、
+`sensor` 只支持少数属性 —— 凡是要"真有一台 flare 被本处理器认领"才会发生的 bug
+（比如 §15.27 那条死循环），它和我一样瞎。
 
 ## 16. ⚠️ 我写错的逻辑清单(生成前对照)
 

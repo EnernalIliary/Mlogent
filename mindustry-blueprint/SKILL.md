@@ -452,6 +452,20 @@ python tools/sync_mlogagent.py --check --global  # 只核对,不同步就 exit 1
 - **等外部状态的自旋**(`jump loop equal on 0`,`on` 来自 `read cell1`)不报:真实语料每块 0.33 条,报了只会淹没结论。
 - 模拟也替代不了:复现上一条要先构造"单位已被本处理器认领"的场面,喂不到场景时模拟器会说一切正常。
 
+## 语义是谁说的：第二实现交叉验证
+
+本仓库的每条"语言事实"都来自读 `LExecutor.java`。读源码会读错，所以关键几条
+另外用 [`cardillan/mindcode`](https://github.com/cardillan/mindcode) 的处理器模拟器
+复核过一遍（八条探针，六条一致、一条不支持、一条蓝图级新增）。
+
+| 结论 | 状态 |
+|---|---|
+| `equal <未赋值> null` 恒真 · `logn(0,2)`→null · `1/0`→null · `sensor @unit @dead`→1 · `print <未声明>`→`null` · 记忆格未写→0 | **双实现确认** |
+| `read`/`write` 只认对方**已声明**的变量，`write` 到未声明名字不建槽 | **双实现确认**（蓝图级探针 `A=7 B=null C=null`） |
+| `ubind` 后 `@controller == @this` | 只有源码依据（模拟器不支持 `ubind`） |
+
+复跑方法与探针文件见 `EMULATOR-CROSSCHECK.md`（需要 JDK 22 与 `mindcode.jar`）。
+
 ## 参考数据
 
 | 文件 | 内容 |
