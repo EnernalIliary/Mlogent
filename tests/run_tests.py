@@ -203,6 +203,8 @@ SUITE: list[tuple[str, str, str | None]] = [
     ("ir/odd-name",            "odd",     None),
     ("ir/stale-write",        "ir",      "stale.mlog"),
     ("check/labels-blank",     "check",   "labels-check.mlog"),
+    ("check/reactor-slow",     "check",   "reactor-guard-slow.mlog"),
+    ("check/reactor-ok",       "check",   "reactor-guard-ok.mlog"),
     ("check/spin-deadlock",   "check",   "spin.mlog"),
     ("check/spin-handshake",  "check",   "spin-ok.mlog"),
     ("pack/three-fields",      "pack",    "pack1.mlog"),

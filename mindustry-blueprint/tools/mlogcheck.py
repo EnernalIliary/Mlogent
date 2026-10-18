@@ -558,7 +558,42 @@ def uses_of(c: str) -> list[str]:
     return _vars(p[1:6])
 
 
-def analyse(lines: list[str], links: list[str] | None = None) -> list[Finding]:
+_CMP_OPS = {"lessthan", "lessthaneq", "greaterthan", "greaterthaneq",
+            "equal", "notequal", "strictequal"}
+_REACTOR_LINK = re.compile(r"^(?:nuclear-)?reactor\d*$", re.I)
+
+
+def _num_or_none(text: str) -> float | None:
+    try:
+        return float(text)
+    except (TypeError, ValueError):
+        return None
+
+
+def _guard_threshold(stmts: list[tuple[int, str]], var: str) -> float | None:
+    """The constant this program compares a sensed value against."""
+    for _, code in stmts:
+        q = code.split()
+        if len(q) < 5:
+            continue
+        m = q[0].lower()
+        if m == "jump":
+            op, a, b = q[2].lower(), q[3], q[4]
+        elif m == "op":
+            op, a, b = q[1].lower(), q[3], q[4]
+        else:
+            continue
+        if op not in _CMP_OPS:
+            continue
+        for x, y in ((a, b), (b, a)):
+            if x == var:
+                n = _num_or_none(y)
+                if n is not None:
+                    return n
+    return None
+
+
+def analyse(lines: list[str], links: list[str] | None = None, ipt: int = 2) -> list[Finding]:
     # Labels are resolved by prepare(), the only place that knows a label is not
     # a statement. Resolving them again here used to map a label to its LINE
     # index while prepare() used the STATEMENT index, so every `jump idle` on a
@@ -983,6 +1018,54 @@ def analyse(lines: list[str], links: list[str] | None = None) -> list[Finding]:
                 f"build, a privileged world-processor statement sitting in a normal "
                 f"processor (LParser.java:150-152), or a mod statement whose mod is "
                 f"not loaded"))
+
+    # ---- reactor guard latency: can the check keep up with the heating?
+    # NuclearReactor.updateTile() (Mindustry-Source/core/src/mindustry/world/
+    # blocks/power/NuclearReactor.java:95-125) heats at `fullness * 0.01` per
+    # tick and dies at heat >= 0.999, so a full reactor has ~100 ticks between
+    # "cool" and "boom". One `sensor ... @heat` per loop pass means the check
+    # interval is (loop body / ipt) ticks; if that exceeds the remaining window
+    # the guard is decorative.
+    for i, (orig, code) in enumerate(stmts):
+        q = code.split()
+        if len(q) < 4 or q[0].lower() != "sensor" or q[3].lower() != "@heat":
+            continue
+        if not _REACTOR_LINK.match(q[2]):
+            continue
+        acts = any(
+            r and r[0].lower() == "control" and len(r) > 2
+            and r[1].lower() == "enabled" and r[2] == q[2]
+            for r in (c.split() for _, c in stmts)
+        )
+        if not acts:
+            continue
+        thresh = _guard_threshold(stmts, q[1])
+        if thresh is None:
+            continue
+        window = int(round((0.999 - thresh) / 0.01))
+        if window <= 0:
+            continue
+        # innermost loop containing the sensor = smallest span among the
+        # back-edges that jump over it (find_loop_bounds() returns trip counts,
+        # not spans, so the span is measured here)
+        body = len(stmts)
+        for j, (_, c) in enumerate(stmts):
+            m = _BACKJUMP.match(c)
+            if not m:
+                continue
+            tgt = int(m.group(1))
+            if 0 <= tgt <= i <= j:
+                body = min(body, j - tgt + 1)
+        interval = max(1, -(-body // max(1, ipt)))
+        if interval > window:
+            out.append(Finding(
+                "WARN", orig, "",
+                f"reactor guard is too slow: `{q[2]}` is checked once every "
+                f"~{interval} ticks ({body} statements per pass / ipt {ipt}), but "
+                f"a full reactor goes from heat {thresh:g} to 0.999 in {window} "
+                f"ticks (0.01 per tick, NuclearReactor.java:95-125) -- it can "
+                f"explode between two checks. Either move the guard into its own "
+                f"short loop or lower the fuel"))
 
     # dedupe, keep order
     seen, uniq = set(), []
