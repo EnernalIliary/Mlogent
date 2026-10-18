@@ -317,6 +317,8 @@ python mlog.py check someone.msch --msch      # 命中会打 [INFO] virus-logic
 
 ### 规则与逐条审计（`rules/` + `review.py`）
 
+python tools/review.py md --unjudged         # out/audit_review.md：源码 + `判定:` 空位，在编辑器里逐条判
+python tools/review.py ingest                # 把 md 里填的 ok/bad/unsure/skip 读回 out/verdicts.csv
 分析器说的每一句「这行有问题」，都该能追到一条**有证据、有反例**的规则；
 而每条规则都该能被一个人判成「对 / 错 / 不知道」。
 

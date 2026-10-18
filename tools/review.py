@@ -19,6 +19,8 @@
     python tools/review.py bad 3f9c1a2b04 --note "mod 里的自定义方块"
     python tools/review.py stats                         # 每条规则你判了多少、错了几条
     python tools/review.py export                        # out/audit.md，按规则分组给人看
+    python tools/review.py md --unjudged                 # out/audit_review.md，在编辑器里逐条填判定
+    python tools/review.py ingest                        # 把 md 里填的判定读回来
 """
 
 from __future__ import annotations
@@ -26,6 +28,7 @@ from __future__ import annotations
 import argparse
 import csv
 import json
+import re
 import sys
 import time
 from collections import Counter, defaultdict
@@ -323,6 +326,175 @@ def cmd_export(args) -> int:
     return 0
 
 
+MD_PATH = ROOT / "out" / "audit_review.md"
+
+_HEAD = re.compile(r"^###\s+`([0-9a-f]{6,})`")
+_VERDICT_LINE = re.compile(r"^\s*判定\s*[:：]\s*(\S*)\s*$")
+_NOTE_LINE = re.compile(r"^\s*备注\s*[:：]\s*(.*)$")
+
+
+def _program(row: dict) -> tuple[str, list[str]]:
+    """The processor's full source and its own link names."""
+    path = SAVE_DIR / row["file"]
+    if not path.exists():
+        sys.exit(f"save not cached: {path}")
+    info = ML.read_save(path)
+    for t in info.get("logic") or []:
+        if t["x"] == row["x"] and t["y"] == row["y"]:
+            names = [(l or {}).get("name") or "" for l in (t.get("links") or [])]
+            return (t.get("code") or ""), [n for n in names if n]
+    sys.exit(f"no processor at ({row['x']},{row['y']}) in {row['file']}")
+
+
+def _listing(code_text: str, flag: int, window: int) -> list[str]:
+    """Numbered statement listing with the flagged line marked. Numbers are statement
+    indices (0-based) because that is what `jump N` in the code counts."""
+    lines = [ln.rstrip() for ln in code_text.splitlines()]
+    if len(lines) <= 2 * window:
+        lo, hi = 0, len(lines)
+    else:
+        lo, hi = max(0, flag - window), min(len(lines), flag + window + 1)
+    out: list[str] = []
+    if lo > 0:
+        out.append(f"      ... 上面还有 {lo} 条语句")
+    for i in range(lo, hi):
+        mark = ">>>>" if i == flag else "    "
+        out.append(f"{mark}{i:>4}  {lines[i]}")
+    if hi < len(lines):
+        out.append(f"      ... 下面还有 {len(lines) - hi} 条语句")
+    return out
+
+
+def cmd_md(args) -> int:
+    rows = load_rows()
+    verd = load_verdicts()
+    if args.rule:
+        rows = [r for r in rows if args.rule.lower() in r["rule"].lower()]
+    if args.unjudged:
+        rows = [r for r in rows if r["id"] not in verd]
+    if args.limit:
+        rows = rows[: args.limit]
+    if not rows:
+        print("nothing to write")
+        return 0
+
+    groups: dict[str, list[dict]] = defaultdict(list)
+    for r in rows:
+        groups[r["rule"]].append(r)
+    order = sorted(groups, key=lambda k: (-len(groups[k]), k))
+
+    out: list[str] = [f"# 逐条审计（{len(rows)} 条，{len(groups)} 条规则）", ""]
+    out.append("判法：每条末尾有 `判定:` 一行，在后面填一个词 ——")
+    out.append("`ok`（规则说得对）、`bad`（规则说错了）、`unsure`（看不出来）、`skip`（不想看）。")
+    out.append("`备注:` 后面可以写一句原因，会被记进那条规则的历史。")
+    out.append("")
+    out.append("填完在仓库根目录跑 `python tools/review.py ingest`，判定会写进 `out/verdicts.csv`，")
+    out.append("`python tools/review.py stats` 就按规则算准确率。")
+    out.append("")
+    out.append("**行号是语句序号（0 起）**，和代码里 `jump N` 用的是同一个数；`>>>>` 标的是被指的那一条。")
+    out.append("处理器自己的链接名单独列出，所以「名字指错了」这类判定不需要打开地图。")
+    out.append("")
+    out.append("## 目录")
+    out.append("")
+    out.append("| 规则 | 条数 | 已判 |")
+    out.append("|---|---|---|")
+    for rule in order:
+        done = sum(1 for r in groups[rule] if r["id"] in verd)
+        out.append(f"| `{rule}` | {len(groups[rule])} | {done} |")
+    out.append("")
+
+    cache: dict[tuple, tuple[str, list[str]]] = {}
+    for rule in order:
+        out.append(f"## 规则 `{rule}`")
+        out.append("")
+        for r in groups[rule]:
+            key = (r["file"], r["x"], r["y"])
+            if key not in cache:
+                cache[key] = _program(r)
+            code_text, links = cache[key]
+            lines = code_text.splitlines()
+            prev = verd.get(r["id"], {})
+            out.append(f"### `{r['id']}`")
+            out.append("")
+            out.append(
+                f"- 出处：`{Path(r['file']).stem}` · ({r['x']},{r['y']}) · "
+                f"{r.get('block')} · {len(lines)} 条语句"
+            )
+            shown = ("`" + "`, `".join(links) + "`") if links else "（无）"
+            out.append(f"- 处理器自己的链接：{shown}")
+            out.append(f"- 被指行：语句序号 **{r['line']}**")
+            out.append(f"- 规则说：{r['msg']}")
+            out.append("")
+            out.append("```")
+            out.extend(_listing(code_text, int(r["line"]), args.window))
+            out.append("```")
+            out.append("")
+            out.append(f"判定: {prev.get('verdict', '')}".rstrip())
+            out.append(f"备注: {prev.get('note', '')}".rstrip())
+            out.append("")
+
+    path = Path(args.out)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text("\n".join(out) + "\n", encoding="utf-8")
+    print(f"wrote {path}  ({len(rows)} row(s), {len(groups)} rule(s))")
+    return 0
+
+
+def cmd_ingest(args) -> int:
+    """Read the `判定:` / `备注:` lines back out of an edited markdown file."""
+    path = Path(args.path)
+    if not path.exists():
+        sys.exit(f"no {path}; run: python tools/review.py md")
+    known = {r["id"] for r in load_rows()}
+    cur: str | None = None
+    found: dict[str, dict] = {}
+    for line in path.read_text(encoding="utf-8").splitlines():
+        m = _HEAD.match(line)
+        if m:
+            cur = m.group(1)
+            found.setdefault(cur, {"verdict": "", "note": "", "bad": ""})
+            continue
+        if cur is None:
+            continue
+        mv = _VERDICT_LINE.match(line)
+        if mv:
+            word = mv.group(1).strip().strip("`*").lower()
+            if word in VERDICT_WORDS:
+                found[cur]["verdict"] = word
+            elif word:
+                found[cur]["bad"] = word
+            continue
+        mn = _NOTE_LINE.match(line)
+        if mn:
+            found[cur]["note"] = mn.group(1).strip()
+
+    written, problems, unknown = 0, [], []
+    for fid, rec in found.items():
+        if fid not in known:
+            unknown.append(fid)
+            continue
+        if rec["bad"]:
+            problems.append((fid, rec["bad"]))
+            continue
+        if rec["verdict"]:
+            save_verdict(fid, rec["verdict"], rec["note"])
+            written += 1
+
+    print(f"read {len(found)} row(s), wrote {written} verdict(s)")
+    if problems:
+        print(f"\n{len(problems)} 行的判定不是四个词之一，跳过：")
+        for fid, word in problems[:10]:
+            print(f"  {fid}  ->  {word!r}")
+        if len(problems) > 10:
+            print(f"  ... 还有 {len(problems) - 10} 行")
+    if unknown:
+        print(f"\n{len(unknown)} 个 id 不在 out/audit_rows.json 里（重建过清单？先跑 build）：")
+        for fid in unknown[:5]:
+            print(f"  {fid}")
+    print(f"\n统计：python tools/review.py stats")
+    return 0 if not problems else 1
+
+
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     sub = ap.add_subparsers(dest="cmd", required=True)
@@ -359,6 +531,18 @@ def main(argv: list[str] | None = None) -> int:
     ins.add_argument("--unjudged", action="store_true")
     ins.add_argument("--limit", type=int, default=0)
     ins.set_defaults(fn=cmd_install)
+
+    md = sub.add_parser("md", help="write out/audit_review.md: paste-able code + a verdict slot")
+    md.add_argument("--rule", default="")
+    md.add_argument("--unjudged", action="store_true")
+    md.add_argument("--limit", type=int, default=0)
+    md.add_argument("--window", type=int, default=30, help="statements of context each side")
+    md.add_argument("--out", default=str(MD_PATH))
+    md.set_defaults(fn=cmd_md)
+
+    ig = sub.add_parser("ingest", help="read the verdicts you typed into the markdown back in")
+    ig.add_argument("path", nargs="?", default=str(MD_PATH))
+    ig.set_defaults(fn=cmd_ingest)
 
     for word in VERDICT_WORDS:
         vp = sub.add_parser(word, help=f"mark a row as {word}")

@@ -700,6 +700,13 @@ python tools/review.py show <id>             # 该行上下文（>>>> 标出）
 python tools/review.py bad <id> --note "为什么"
 python tools/review.py stats                 # 每条规则你判了几条、错了几条
 python tools/review.py export                # out/audit.md，分组表格
+python tools/review.py md --unjudged         # out/audit_review.md：源码 + `判定:` 空位，在编辑器里逐条判
+python tools/review.py ingest                # 把 md 里填的 ok/bad/unsure/skip 读回 out/verdicts.csv
+
+**判的载体是 markdown，不是游戏里。** `md` 把每条发现摊成：出处、处理器自己的链接名、
+带语句序号的源码（`>>>>` 标出被指那一条）、以及一行空的 `判定:`。要判「链接名指错了」
+不需要打开地图 —— 链接名就列在那一条里；要判「这行是不是白算」也不需要，源码就在下面。
+填完 `ingest` 读回来，`stats` 按规则算准确率。`--window N` 控制每条上下各给几行。
 ```
 
 - **kind**：`semantics`（游戏就是这样，禁止自动降级）/ `heuristic`（统计，可降级）/ `negative`（看着像错其实对，用来挡住想写的规则）。
