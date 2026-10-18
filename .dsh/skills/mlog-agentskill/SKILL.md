@@ -166,3 +166,11 @@ python mindustry-blueprint/tools/sync_mlogagent.py --check  # 只比对，过期
 ```
 
 本目录的 `SKILL.md` **不参与同步**（它只属于这个技能；蓝图技能有自己的一份）。两份工具不一致时 `mlogagent.py info --verify` 会报 `MISMATCH` 并指出是哪几个文件。
+
+## 死循环
+
+只有两种能静态证明,其余一律不报:
+
+- `jump <head> strictEqual ctrl @this` + 环内 `ubind <类型>` ⇒ `ubind` 立刻把单位认领给本处理器,守卫从此恒真,**永不退出**(ERR)。
+- `notEqual … @this` + 同一句 `ubind` ⇒ 守卫立刻恒假,循环一遍就结束 —— 这是标准写法,不报。
+- 真实语料 900 块里该形状 0 处;等外部状态的自旋 0.33 条/块,不报。

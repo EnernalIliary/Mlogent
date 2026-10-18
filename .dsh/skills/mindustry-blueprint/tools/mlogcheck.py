@@ -51,6 +51,15 @@ SIDE_EFFECT = {
 # unit-control statements that silently do nothing unless @unit is bound
 NEEDS_UNIT = {"ucontrol", "uradar", "ulocate"}
 
+# ---- loop progress ------------------------------------------------------- #
+# Instructions that can change something a line earlier in the same loop would
+# read again. If a loop body contains any of these, the loop can make progress
+# and there is nothing to say about it.
+
+# Reads whose value comes from outside this processor (a handshake source).
+EXTERNAL_READ = {"sensor", "getlink", "lookup", "read", "radar", "uradar",
+                 "getblock"}
+
 # ucontrol sub-actions that refresh the 10s control timer
 UNIT_ACTIONS_NO_TIMER = {"uradar"}
 
@@ -518,6 +527,24 @@ def uses_of(c: str) -> list[str]:
 
 def analyse(lines: list[str], links: list[str] | None = None) -> list[Finding]:
     code = [strip_comment(l) for l in lines]
+    # `jump <label>` has to become `jump <index>` before any rule can follow it.
+    # A label line stays in the list (it costs nothing at runtime), so jumping to
+    # it and falling through is the same thing as jumping to the next statement.
+    labels: dict[str, int] = {}
+    for i, c in enumerate(code):
+        t = c.split()
+        if len(t) == 1 and len(t[0]) > 1 and t[0].endswith(":"):
+            labels[t[0][:-1]] = i
+    if labels:
+        for i, c in enumerate(code):
+            t = c.split()
+            if len(t) < 2 or t[0].lower() != "jump":
+                continue
+            try:
+                int(t[1])
+            except ValueError:
+                if t[1] in labels:
+                    code[i] = " ".join([t[0], str(labels[t[1]])] + t[2:])
     stmts = [(i, c) for i, c in enumerate(code) if c]
     out: list[Finding] = []
     n = len(stmts)
@@ -812,6 +839,60 @@ def analyse(lines: list[str], links: list[str] | None = None) -> list[Finding]:
                                    f"`{c.split()[0]}` used but there is no `ubind` -> "
                                    f"@unit is null, this silently does nothing"))
                 break
+
+    # ---- a back-edge that can never come out --------------------------------
+    # `@this` inside a jump guard asks "is the bound unit mine". Exactly two
+    # lines in the whole executor ever write `controller` -- LExecutor.java:325
+    # and :329, both inside `ubind` -- so `ucontrol` never claims a unit. That
+    # makes the polarity of the guard decide the verdict:
+    #   * `ubind <type>` in the body claims the unit, so `@controller` becomes
+    #     `@this` and stays there. Under `equal`/`strictEqual ... @this` the guard
+    #     is then true forever: the loop never leaves and nothing after it runs.
+    #     ERR.
+    #   * the same body under `notEqual` is the ordinary "do not steal a unit
+    #     somebody already drives" idiom -- the guard goes false on the first
+    #     pass and the loop simply ends. 9 corpus files are exactly that shape
+    #     and all of them are correct, so this case stays silent.
+    #   * no `ubind` at all: nothing can claim the unit, so whether the jump is
+    #     ever taken depends on state we do not have. Silent.
+    # A nest of these is one statement, not three: only the outermost is reported.
+    _POS = {"equal", "strictequal"}
+    _spin = []
+    for i, (orig, c) in enumerate(stmts):
+        mj = JMP_RE.match(c)
+        if not mj:
+            continue
+        try:
+            tgt = int(mj.group(1))
+        except (TypeError, ValueError):
+            continue
+        if not (0 <= tgt < i):
+            continue                       # not a backward branch
+        head = c.split()
+        if len(head) < 3 or head[2].lower() not in _POS:
+            continue                       # only a positive guard can lock in
+        if "@this" not in c:
+            continue
+        ubind_real = False
+        for k in range(tgt, i + 1):
+            q = stmts[k][1].split()
+            if len(q) > 1 and q[0].lower() == "ubind" and q[1].lower() != "null":
+                ubind_real = True
+                break
+        if not ubind_real:
+            continue                       # nothing in the body can claim a unit
+        _spin.append((tgt, i, orig, c))
+    for tgt, i, orig, c in _spin:
+        if any(o[0] <= tgt and i <= o[1] and (o[0], o[1]) != (tgt, i)
+               for o in _spin):
+            continue                       # inside a wider loop of the same shape
+        out.append(Finding(
+            "ERR", orig + 1, c,
+            f"this loop can never leave: `ubind` hands the bound unit to this "
+            f"processor, so `@controller` equals `@this` from the first pass on "
+            f"and the guard is true forever -- it jumps back to "
+            f"L{stmts[tgt][0] + 1} instead of falling through, so nothing after "
+            f"this line ever runs"))
 
     # ---- version gate -----------------------------------------------------
     floor, users = build_floor(stmts)

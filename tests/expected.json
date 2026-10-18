@@ -99,6 +99,21 @@
       "writes_counter": false
     }
   },
+  "check/spin-deadlock": {
+    "kind": "check",
+    "case": "spin.mlog",
+    "digest": [
+      [
+        "ERR",
+        4
+      ]
+    ]
+  },
+  "check/spin-handshake": {
+    "kind": "check",
+    "case": "spin-ok.mlog",
+    "digest": []
+  },
   "pack/three-fields": {
     "kind": "pack",
     "case": "pack1.mlog",

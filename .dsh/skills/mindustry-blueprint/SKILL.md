@@ -442,6 +442,16 @@ python tools/sync_mlogagent.py --check --global  # 只核对,不同步就 exit 1
 
 它写的是仓库外目录,需要文件系统权限;全局副本与仓库副本的一致性由这个脚本负责,别手工复制。
 
+## 死循环怎么查
+
+`check` 只报能证明的那种:回边永远成立、而且环内没有任何语句能让它变假。
+
+- **`@this` 守卫**:`@this` 只能被 `ubind` 认领(`LExecutor.java:325`/`:329`,全树仅此两处写 `controller`)。于是
+  `jump loop strictEqual ctrl @this` + 体内 `ubind @flare` ⇒ 第一遍就恒真 ⇒ **ERR,其后全是死代码**;
+  `jump loop notEqual ctrl @this` + 同一句 `ubind` ⇒ 第一遍就恒假 ⇒ 循环一遍就结束,这是标准写法,**不报**。
+- **等外部状态的自旋**(`jump loop equal on 0`,`on` 来自 `read cell1`)不报:真实语料每块 0.33 条,报了只会淹没结论。
+- 模拟也替代不了:复现上一条要先构造"单位已被本处理器认领"的场面,喂不到场景时模拟器会说一切正常。
+
 ## 参考数据
 
 | 文件 | 内容 |
