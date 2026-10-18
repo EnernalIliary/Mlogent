@@ -2343,6 +2343,34 @@ def analyse(lines, links=None):
 注释 + 空行」三件同时成立）。`--cost` 当年正是因为把标签行算成了语句，才把所有 `main:` 循环报成
 `L0(?)`；那次只修了 `prepare()`，`analyse()` 里同样的错误又活了半年。
 
+## 15.36 读存档里的逻辑：`.msav` 的三种瓦片布局
+
+`mlog.py map <save.msav>` 把一个存档里所有处理器连同链接名和源码提取出来，然后
+对每一块跑正常的 `check`。做这件事之前我以为「存档格式只有一个」，实际是**三种**
+瓦片布局，按存档版本号分：
+
+| 存档版本 | 类 | 每格的字节 |
+|---|---|---|
+| 7–9 | `ShortChunkSaveVersion.readMap` | `block i16` + `packed` 字节（bit0 实体 / bit1 旧数据 1 字节 / bit2 新数据 7 字节），**chunk 只在「有实体且是中心格」时出现** |
+| 10–13 | `SaveVersion.readMap` | `block i16` + `packed` 字节（bit0 实体 / bit2 数据 7 字节）+ 实体格的 `isCenter` 布尔 |
+| ≤6 | `LegacySaveVersion.readMap` | 只有 `block i16`，建筑与否由 `block.hasBuilding()` 决定 —— 现网一个没有，没做 |
+
+三处踩过的坑，都是同一个形状：**`else if` 挂错了层**。
+
+- 现代布局：源码是 `if(hadEntity){ if(isCenter){chunk} } else if(hasData){...} else {consecutives}`。
+  我先写成 `if(hadEntity and isCenter){chunk} elif hasData {...} else {consecutives}` ——
+  于是「多格建筑的非中心格」（有实体、不是中心）掉进 `else`，多吃一个 consecutive 字节，
+  从此整张图 desync。表现是 `map region has 8292 byte(s) left over`，
+  而单独看 walk 的 `left=0`（因为我的调试脚本和解析器各写了一遍，只有后者错）。
+- 7–9 布局：同一个错误，只是这次掉进 `else` 的是 `isCenter` 为假的实体格，
+  于是 `tetrative-reconstructor` 之后 4 字节周期被读成 `01 7e 01`。
+- **调试脚本必须 import 被测模块，不能自己抄一遍**。中间有一版 `_sweep_saves.py`
+  把 `sys.path` 指向了根 `tools/`，读到的是没打补丁的旧副本，于是 1404 个失败"稳定复现"。
+
+另外两条：`556.msav-backup.msav` 报 6621 个处理器不是解析错误，那是一张逻辑计算机
+的图（6616 个 micro-processor，86 万条链接）；存档是 `zlib.decompress(整文件)`，
+**`MSAV` 头也在压缩流里**，先读 `data[4]` 当版本号只会拿到压缩字节。
+
 ## 16. ⚠️ 我写错的逻辑清单(生成前对照)
 
 这一节记录**实际被抓到的逻辑错误**,不是猜测。
@@ -2588,3 +2616,4 @@ F:\OneDrive\桌面\AtomicStates\mindustry-blueprint\                ← 开发�
 - 第 40 次整理：补数据（sensor 75 条 / 武器明细 / min_build 46 条 + 基线 146）。方法论：**「没找到出处」也是数据 —— 留空比编一个数字更省后面的人的时间。**
 - 第 41 次整理：补方块表 —— 建造配方(`requirements`)、液体(单数 `consumeLiquid` 55 处)、可选加速物(`boost`/`damp` 后缀)。75 个消耗器里缺配方 47→1，只剩 `landing-pad`（命中字段名 `consumeLiquidAmount`，假阳性）。方法论：**解析器的兜底分支要能自证「是真的，还是我没认出来」—— 把源码里的调用形式逐个计数，数量摆出来就没法自欺。**
 - 第 42 次整理：`check` 的标签解析从「行号」改成「语句序号」（复用 `prepare()`）。方法论：**同一个语法只准有一份解析**——两处各写一遍，分叉只是时间问题，而且它只在边角输入（标签 + 注释 + 空行同时出现）上现形，语料再大也扫不出来。
+- 第 43 次整理：读存档里的逻辑（`.msav` 三种瓦片布局）。方法论「同一个 walk 只准有一份实现 —— 调试脚本自己抄一遍，就会和被测代码一起错，或者只错一个、让你怀疑数据」；以及「多格建筑的非中心格是`else if` 最容易挂错的那一格」。

@@ -26,6 +26,9 @@ python mlog.py sensor [pattern]         # what @property names sensor can read
   python mlog.py block  [name]                 # recipe, capacity, power
   python mlog.py find   <words>                # corpus blueprints that solve this job
 python mlog.py style <words>           # how the corpus writes it: naming, shape, cost
+  python mlog.py map    <save.msav>            # every processor in a save:
+                                               #   code + links, then the
+                                               #   same checks as `check`
   python mlog.py cmd    [pattern]              # mlog instruction reference
   python mlog.py explain <mnemonic> [sub]      # one instruction: syntax + which
                                                #   positions are read / written
@@ -1521,6 +1524,70 @@ def cmd_text(args) -> int:
 
 # --------------------------------------------------------------------------- #
 
+# --------------------------------------------------------------------------- #
+# map -- every logic processor inside a .msav save
+# --------------------------------------------------------------------------- #
+
+def cmd_map(args) -> int:
+    """Pull each processor out of a save and run the same checks as `check`.
+
+    A save is a zlib stream of framed regions; map_logic.py locates the map
+    region by parsing it exactly to its own end instead of trusting the region
+    order, then finds each processor by scanning its building payload for a
+    deflate blob that validates as the logic config format.
+    """
+    import map_logic as _map
+
+    rc = 0
+    total_proc = total_lines = total_errs = 0
+    for path in args.saves:
+        try:
+            info = _map.read_save(path)
+        except Exception as exc:
+            print(f"{path}: FAILED -- {type(exc).__name__}: {exc}")
+            rc = 1
+            continue
+        tiles = info["logic"]
+        print(f"{path}  v{info['version']}  {info['width']}x{info['height']}  "
+              f"{len(tiles)} logic processor(s)")
+        if not tiles:
+            print("  (no logic in this save)")
+            continue
+        for t in tiles:
+            code = t["code"]
+            where = f"({t['x']},{t['y']})"
+            if code is None:
+                print(f"  !! {where} {t['block']}: {t.get('error', 'unreadable')}")
+                rc = 1
+                continue
+            lines = code.split("\n")
+            names = [l["name"] for l in t["links"]]
+            findings = _check.analyse(lines, names)
+            errs = [f for f in findings if f.sev in ("ERR", "SUSPECT")]
+            warns = [f for f in findings if f.sev == "WARN"]
+            stmts = _check.prepare(lines)
+            total_proc += 1
+            total_lines += len(stmts)
+            total_errs += len(errs)
+            head = (f"  {where} {t['block']:<15} {len(stmts):>5} stmt  "
+                    f"{len(t['links'])} link")
+            if errs or warns:
+                print(f"{head}  {len(errs)} error/suspect, {len(warns)} warn")
+            elif args.verbose:
+                print(f"{head}  clean")
+            for f in (errs + warns)[: args.show]:
+                print(f"        L{f.line} [{f.sev}] {f.code}: {f.msg}")
+            if args.code:
+                for n, line in enumerate(lines[: args.code], 1):
+                    print(f"        {n:>4} {line}")
+        print()
+
+    if len(args.saves) > 1 or total_proc:
+        print(f"{total_proc} processor(s), {total_lines} statement(s), "
+              f"{total_errs} error/suspect")
+    return rc
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(
         prog="mlog", description=__doc__,
@@ -1661,6 +1728,16 @@ def main() -> int:
     p.add_argument("--code", type=int, default=0,
                    help="also print the first N source lines")
     p.set_defaults(fn=cmd_style)
+
+    p = sub.add_parser("map", help="every logic processor inside a .msav save")
+    p.add_argument("saves", nargs="+", help=".msav save file(s)")
+    p.add_argument("--code", type=int, default=0,
+                   help="also print the first N source lines of each processor")
+    p.add_argument("--show", type=int, default=6,
+                   help="how many findings to print per processor")
+    p.add_argument("--verbose", action="store_true",
+                   help="also list processors with no findings")
+    p.set_defaults(fn=cmd_map)
 
     p = sub.add_parser("cmd", help="mlog instruction reference")
     p.add_argument("pattern", nargs="?", help="substring filter")

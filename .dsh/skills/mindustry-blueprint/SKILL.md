@@ -578,6 +578,21 @@ python mlog.py block --accepts coal      # 谁吃煤（按 recipe / ammo / any /
 2. **液体量是每秒**（源码写的是每 tick，`_rate()` 折过）。折不了的带布尔重载原样显示源码算式。
 3. **「烧整类物品」没有清单。** `rtg-generator` 显示 `burns radioactive items (no fixed item list)` —— 引擎按类别判，别去查它到底吃哪几种。
 
+## 读整个存档里的逻辑：`mlog.py map`
+
+```bash
+python tools/mlog.py map "C:/Users/<you>/AppData/Roaming/Mindustry/saves/430.msav"
+python tools/mlog.py map <save.msav> --verbose --show 0   # 连干净的一起列，只报汇总
+python tools/mlog.py map <save.msav> --code 3            # 每块再打前 3 行源码
+```
+
+支持 build 146 之后的三种瓦片布局（存档版本 7–9 shortchunk、10–13 现代）；
+版本 6 及更早的老存档不支持，会明确说 `legacy layout`。
+
+- 每个处理器一行：坐标、方块类型、语句数、链接数，以及 `check` 的结论。
+- 链接名来自存档里的链路表，所以「这个链接不存在」这类警告在整图上下文里同样可靠。
+- 大存档会很慢（`235.msav` 613 个处理器、56 万条语句）：先 `--show 0` 看汇总。
+
 ## 参考数据
 
 | 文件 | 内容 |
