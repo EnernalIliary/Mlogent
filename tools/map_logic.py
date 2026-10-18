@@ -335,10 +335,15 @@ def _parse_shortchunk_map(reg: bytes, blocks: list[str]):
             is_center = r.u8() != 0
 
         name = blocks[bid] if 0 <= bid < len(blocks) else f"<id {bid}>"
-        if had_entity and is_center:
-            payload = r.raw(r.u16())
-            if name in PROCESSORS:
-                found.append(_proc_entry(name, i % w, i // w, payload))
+        # the nesting matters: had_entity and hadDataOld are alternatives in the
+        # source, not independent flags. A non-centre tile of a multi-tile
+        # building carries an entity and therefore reads NO extra byte at all --
+        # putting the else-if on the outer level desyncs every map with one.
+        if had_entity:
+            if is_center:
+                payload = r.raw(r.u16())
+                if name in PROCESSORS:
+                    found.append(_proc_entry(name, i % w, i // w, payload))
         elif had_old or had_new:
             if had_old:
                 r.raw(1)
