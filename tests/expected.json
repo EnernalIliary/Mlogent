@@ -141,6 +141,16 @@
   "check/reactor-impact": {
     "kind": "check",
     "case": "reactor-guard-impact.mlog",
+    "digest": [
+      [
+        "WARN",
+        2
+      ]
+    ]
+  },
+  "check/reactor-impact-ok": {
+    "kind": "check",
+    "case": "reactor-guard-impact-ok.mlog",
     "digest": []
   },
   "check/spin-deadlock": {

@@ -1059,13 +1059,32 @@ def analyse(lines: list[str], links: list[str] | None = None, ipt: int = 2) -> l
         interval = max(1, -(-body // max(1, ipt)))
         if interval <= window:
             continue
-        # `reactor1` may be a thorium reactor OR an impact reactor, and the
-        # two do not share a heat curve. Only the thorium one climbs
-        # 0.01/tick from wherever it sits, so the arithmetic below is a
-        # promise only when the program itself proves the block type.
+        # `reactor1` may be a thorium reactor OR an impact reactor, and the two
+        # mean completely different things by `@heat`:
+        #   thorium -- a temperature. Uncooled it climbs 0.01/tick and
+        #              `kill()`s at 0.999 (NuclearReactor.java:95-125).
+        #   impact  -- its warmup, i.e. the power ramp: `sense(LAccess.heat)`
+        #              returns `warmup`, and `productionEfficiency = warmup^5`
+        #              (ImpactReactor.java:117-120). It never explodes from
+        #              heat; max warmup is max output.
+        # So the arithmetic below is a promise only when the program proves the
+        # type -- and a cutoff on an impact reactor is the opposite mistake: it
+        # protects nothing, it just holds the reactor down its ramp.
         proven = any("@thorium-reactor" in c for _, c in stmts)
         impact = any("@impact-reactor" in c for _, c in stmts)
         if impact and not proven:
+            cut = re.search(r"control\s+enabled\s+" + re.escape(q[2]) + r"\s+0\b",
+                            "\n".join(c for _, c in stmts))
+            cap = thresh ** 5
+            if cut and cap < 0.95:
+                out.append(Finding(
+                    "WARN", orig, "",
+                    f"capping an impact reactor does not protect it: `{q[2]}` is "
+                    f"cut at heat {thresh:g}, but on an impact reactor `@heat` is "
+                    f"its warmup and productionEfficiency = warmup^5 "
+                    f"(ImpactReactor.java:117-120), so this holds it at "
+                    f"{cap * 100:.1f}% output. An impact reactor never explodes "
+                    f"from heat; only a thorium reactor does (heat >= 0.999)"))
             continue
         if proven:
             out.append(Finding(
@@ -1083,8 +1102,9 @@ def analyse(lines: list[str], links: list[str] | None = None, ipt: int = 2) -> l
                 f"statements per pass / ipt {ipt}); IF that link is a thorium "
                 f"reactor, heat {thresh:g} to 0.999 takes only {window} ticks, so "
                 f"it could explode between two checks. Nothing here proves the "
-                f"type -- an impact reactor can share the same link name and has "
-                f"its own heat rules -- so this is a question, not a verdict"))
+                f"type -- on an impact reactor `@heat` is its warmup, a power "
+                f"ramp that never explodes -- so this is a question, not a "
+                f"verdict"))
 
     # dedupe, keep order
     seen, uniq = set(), []
