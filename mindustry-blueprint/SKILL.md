@@ -19,6 +19,9 @@ whenToUse: 涉及 Mindustry 蓝图（.msch / 蓝图码）、mlog 逻辑编写或
 | **打包配置** —— 字段布局 + 低位能装几个 id | `mlog.py pack <logic.mlog>` |
 | **查方块 ID / 尺寸** | `mlog.py id [名称]` |
 | **查物品 ID / 解打包配置** | `mlog.py item [名称] [--unpack N]` |
+| **查单位属性**（写逻辑第一步选单位） | `mlog.py unit [名称]` |
+| **查方块配方 / 容量 / 功耗** | `mlog.py block [名称]` |
+| **找参考实现** | `mlog.py find "几个词"` |
 | **查指令格式** | `mlog.py cmd [关键字]` |
 | **读信息板内容** —— 蓝图里 message 方块写的字 | mlog.py text <file.msch> [--plain] |
 | **查一条指令的读写位** —— 哪个参数是输出 | `mlog.py explain <指令> [子命令]` |
@@ -324,6 +327,19 @@ digest 是**去措辭的結論**（`(severity, line)` 對、語句數、分支�
 ### `values` 的跨处理器模式
 
 只有 `--msch` 会给它跨处理器的知识：先跑一遍 `cross` 拿到每个槽的值，再带着这张表重跑（**只迭代一次**，不做不动点）。单个 `.mlog` 没有同伴，`read` 仍是 ⊤。蓝图不完整时（对方处理器没一起存）报 null 可能只是没存下来。
+
+## 写逻辑之前：先查这三样
+
+写逻辑缺的从来不是语法，是**目标**和**游戏事实**。这三条命令对应后者的三个大头：
+
+```bash
+python mlog.py find "wireless overdrive"     # 1. 别人怎么做的（先找参考，别自己发明）
+python mlog.py unit flare                    # 2. 这个单位的速度/血量/能带多少货/会不会飞
+python mlog.py block silicon-smelter         # 3. 这个方块吃什么、产什么、装多少、多少电
+```
+
+- `find` 扫描游戏存档目录里的全部蓝图（`MLOG_CORPUS` 可覆盖），按 `名字/描述/信息板/变量名/指令` 打分，打印 **分数拆解**——匹配得不对时能看出为什么不对。默认跳过 >5000 条语句的块与 >2MB 的文件（`BADAPPLE!!` 是 56 万条语句的动画，`Linux on mlogv32` 是 16MB），这些不是参考逻辑。首次 9 秒，之后读缓存 0.7 秒；`--rebuild` 强制重建。
+- `unit` / `block` 的数据由 `tools/units_from_source.py` 与 `tools/blocks_from_source.py` 从源码抽出，`--check` 可校验是否与当前源码一致。**它们只列源码里写了的字段**，缺的字段是引擎默认值（`unit` 会标成 `(default X)`）——不要凭记忆补。
 
 ## 参考数据
 

@@ -1,0 +1,1168 @@
+{
+ "_note": "recipes and capacities as written in the source; a block absent here sets none of the captured fields",
+ "_source": "Mindustry-Source/core/src/mindustry/content/Blocks.java",
+ "blocks": {
+  "additive-reconstructor": {
+   "inputs": [
+    "silicon:40",
+    "graphite:40"
+   ],
+   "power": "3",
+   "size": "3"
+  },
+  "advanced-launch-pad": {
+   "hasPower": true,
+   "itemCapacity": "100",
+   "liquidCapacity": "40",
+   "power": "8",
+   "size": "4"
+  },
+  "afflict": {
+   "power": "5",
+   "size": "4"
+  },
+  "air-factory": {
+   "power": "1.2",
+   "size": "3"
+  },
+  "arc": {
+   "power": "3.3",
+   "size": "1"
+  },
+  "atmospheric-concentrator": {
+   "hasLiquids": true,
+   "itemCapacity": "0",
+   "liquidCapacity": "60",
+   "power": "2",
+   "size": "3"
+  },
+  "basic-assembler-module": {
+   "power": "3.5",
+   "size": "5"
+  },
+  "battery-large": {
+   "size": "3"
+  },
+  "beam-link": {
+   "size": "3"
+  },
+  "beam-tower": {
+   "size": "3"
+  },
+  "beryllium-wall-large": {
+   "size": "2"
+  },
+  "blast-door": {
+   "size": "2"
+  },
+  "blast-drill": {
+   "hasPower": true,
+   "itemCapacity": "20",
+   "power": "3",
+   "size": "4"
+  },
+  "blast-mixer": {
+   "hasItems": true,
+   "hasPower": true,
+   "inputs": [
+    "pyratite:1",
+    "spore-pod:1"
+   ],
+   "outputItem": "blast-compound:1",
+   "power": "0.40",
+   "size": "2"
+  },
+  "breach": {
+   "size": "3"
+  },
+  "bridge-conduit": {
+   "liquidCapacity": "100"
+  },
+  "build-tower": {
+   "power": "3",
+   "size": "3"
+  },
+  "canvas": {
+   "size": "2"
+  },
+  "carbide-crucible": {
+   "inputs": [
+    "tungsten:2",
+    "graphite:3"
+   ],
+   "itemCapacity": "20",
+   "outputItem": "carbide:1",
+   "power": "2",
+   "size": "3"
+  },
+  "carbide-wall-large": {
+   "size": "2"
+  },
+  "chemical-combustion-chamber": {
+   "size": "3"
+  },
+  "cliff-crusher": {
+   "size": "2"
+  },
+  "coal-centrifuge": {
+   "craftTime": "30",
+   "outputItem": "coal:1",
+   "power": "0.7",
+   "size": "2"
+  },
+  "conduit": {
+   "liquidCapacity": "20"
+  },
+  "constructor": {
+   "hasPower": true,
+   "power": "2.5",
+   "size": "3"
+  },
+  "container": {
+   "itemCapacity": "300",
+   "size": "2"
+  },
+  "copper-wall-large": {
+   "size": "2"
+  },
+  "core-acropolis": {
+   "itemCapacity": "4000",
+   "size": "6"
+  },
+  "core-bastion": {
+   "itemCapacity": "2000",
+   "size": "4"
+  },
+  "core-citadel": {
+   "itemCapacity": "3000",
+   "size": "5"
+  },
+  "core-foundation": {
+   "itemCapacity": "9000",
+   "size": "4"
+  },
+  "core-nucleus": {
+   "itemCapacity": "13000",
+   "size": "5"
+  },
+  "core-shard": {
+   "itemCapacity": "4000",
+   "size": "3"
+  },
+  "cryofluid-mixer": {
+   "craftTime": "120",
+   "hasItems": true,
+   "hasLiquids": true,
+   "hasPower": true,
+   "liquidCapacity": "36",
+   "power": "1",
+   "size": "2",
+   "solid": true
+  },
+  "cultivator": {
+   "craftTime": "100",
+   "hasItems": true,
+   "hasLiquids": true,
+   "hasPower": true,
+   "liquidCapacity": "80",
+   "outputItem": "spore-pod:1",
+   "size": "2"
+  },
+  "cyanogen-synthesizer": {
+   "liquidCapacity": "80",
+   "power": "2",
+   "size": "3"
+  },
+  "cyclone": {
+   "size": "3"
+  },
+  "deconstructor": {
+   "itemCapacity": "250",
+   "power": "3",
+   "size": "5"
+  },
+  "differential-generator": {
+   "hasItems": true,
+   "hasLiquids": true,
+   "size": "3"
+  },
+  "diffuse": {
+   "size": "3"
+  },
+  "disassembler": {
+   "craftTime": "15",
+   "hasPower": true,
+   "itemCapacity": "20",
+   "power": "4",
+   "size": "3"
+  },
+  "disperse": {
+   "size": "4"
+  },
+  "distributor": {
+   "size": "2"
+  },
+  "door-large": {
+   "size": "2"
+  },
+  "electric-heater": {
+   "itemCapacity": "0",
+   "size": "2"
+  },
+  "electrolyzer": {
+   "craftTime": "10",
+   "itemCapacity": "0",
+   "liquidCapacity": "50",
+   "power": "1",
+   "size": "3"
+  },
+  "eruption-drill": {
+   "hasPower": true,
+   "itemCapacity": "60",
+   "power": "6",
+   "size": "5"
+  },
+  "exponential-reconstructor": {
+   "inputs": [
+    "silicon:850",
+    "titanium:750",
+    "plastanium:650"
+   ],
+   "power": "13",
+   "size": "7"
+  },
+  "flux-reactor": {
+   "liquidCapacity": "30",
+   "size": "5"
+  },
+  "force-projector": {
+   "power": "4",
+   "size": "3"
+  },
+  "foreshadow": {
+   "liquidCapacity": "60",
+   "power": "10",
+   "size": "4"
+  },
+  "fuse": {
+   "size": "3"
+  },
+  "graphite-press": {
+   "craftTime": "90",
+   "hasItems": true,
+   "inputs": [
+    "coal:2"
+   ],
+   "outputItem": "graphite:1",
+   "size": "2"
+  },
+  "ground-factory": {
+   "power": "1.2",
+   "size": "3"
+  },
+  "heat-reactor": {
+   "inputs": [
+    "thorium:3"
+   ],
+   "itemCapacity": "20",
+   "outputItem": "fissile-matter:1",
+   "size": "3"
+  },
+  "heat-redirector": {
+   "size": "3"
+  },
+  "heat-router": {
+   "size": "3"
+  },
+  "heat-source": {
+   "itemCapacity": "0",
+   "size": "1"
+  },
+  "hyper-processor": {
+   "hasLiquids": true,
+   "size": "3"
+  },
+  "illuminator": {
+   "power": "0.05"
+  },
+  "impact-drill": {
+   "hasPower": true,
+   "itemCapacity": "40",
+   "size": "4"
+  },
+  "impact-reactor": {
+   "liquidCapacity": "80",
+   "power": "25",
+   "size": "4"
+  },
+  "impulse-pump": {
+   "hasPower": true,
+   "liquidCapacity": "200",
+   "power": "1.3",
+   "size": "3"
+  },
+  "incinerator": {
+   "power": "0.50"
+  },
+  "interplanetary-accelerator": {
+   "hasPower": true,
+   "power": "10",
+   "size": "7"
+  },
+  "kiln": {
+   "craftTime": "30",
+   "inputs": [
+    "lead:1",
+    "sand:1"
+   ],
+   "outputItem": "metaglass:1",
+   "power": "0.60",
+   "size": "2"
+  },
+  "lancer": {
+   "power": "6",
+   "size": "2"
+  },
+  "landing-pad": {
+   "itemCapacity": "100",
+   "liquidCapacity": "3000",
+   "size": "4"
+  },
+  "large-canvas": {
+   "size": "3"
+  },
+  "large-cliff-crusher": {
+   "itemCapacity": "20",
+   "power": "1",
+   "size": "3"
+  },
+  "large-constructor": {
+   "hasPower": true,
+   "power": "3",
+   "size": "5"
+  },
+  "large-logic-display": {
+   "size": "6"
+  },
+  "large-payload-mass-driver": {
+   "power": "3",
+   "size": "5"
+  },
+  "large-plasma-bore": {
+   "itemCapacity": "20",
+   "power": "0.8",
+   "size": "3"
+  },
+  "large-shield-projector": {
+   "power": "5",
+   "size": "4"
+  },
+  "laser-drill": {
+   "hasPower": true,
+   "power": "1.10",
+   "size": "3"
+  },
+  "launch-pad": {
+   "hasPower": true,
+   "itemCapacity": "100",
+   "power": "4",
+   "size": "3"
+  },
+  "liquid-container": {
+   "liquidCapacity": "700",
+   "size": "2",
+   "solid": true
+  },
+  "liquid-router": {
+   "liquidCapacity": "120"
+  },
+  "liquid-tank": {
+   "liquidCapacity": "1800",
+   "size": "3",
+   "solid": true
+  },
+  "logic-display": {
+   "size": "3"
+  },
+  "logic-processor": {
+   "size": "2"
+  },
+  "lustre": {
+   "size": "4"
+  },
+  "malign": {
+   "power": "40",
+   "size": "5"
+  },
+  "mass-driver": {
+   "itemCapacity": "120",
+   "power": "1.75",
+   "size": "3"
+  },
+  "mech-assembler": {
+   "power": "3",
+   "size": "5"
+  },
+  "mech-fabricator": {
+   "power": "1.5",
+   "size": "3"
+  },
+  "mech-refabricator": {
+   "inputs": [
+    "silicon:50",
+    "tungsten:40"
+   ],
+   "power": "2.5",
+   "size": "3"
+  },
+  "mechanical-drill": {
+   "size": "2"
+  },
+  "mechanical-pump": {
+   "liquidCapacity": "20"
+  },
+  "meltdown": {
+   "liquidCapacity": "60",
+   "power": "17",
+   "size": "4"
+  },
+  "melter": {
+   "craftTime": "10",
+   "inputs": [
+    "scrap:1"
+   ],
+   "power": "1"
+  },
+  "memory-bank": {
+   "size": "2"
+  },
+  "mend-projector": {
+   "power": "1.5",
+   "size": "2"
+  },
+  "mender": {
+   "power": "0.3",
+   "size": "1"
+  },
+  "micro-processor": {
+   "size": "1"
+  },
+  "multi-press": {
+   "craftTime": "30",
+   "hasItems": true,
+   "hasLiquids": true,
+   "hasPower": true,
+   "inputs": [
+    "coal:3"
+   ],
+   "itemCapacity": "20",
+   "outputItem": "graphite:2",
+   "power": "1.8",
+   "size": "3"
+  },
+  "multiplicative-reconstructor": {
+   "inputs": [
+    "silicon:130",
+    "titanium:80",
+    "metaglass:40"
+   ],
+   "power": "6",
+   "size": "5"
+  },
+  "naval-factory": {
+   "power": "1.2",
+   "size": "3"
+  },
+  "neoplasia-reactor": {
+   "itemCapacity": "10",
+   "liquidCapacity": "80",
+   "size": "5"
+  },
+  "oil-extractor": {
+   "liquidCapacity": "40",
+   "power": "3",
+   "size": "3"
+  },
+  "overdrive-dome": {
+   "inputs": [
+    "phase-fabric:1",
+    "silicon:1"
+   ],
+   "power": "10",
+   "size": "3"
+  },
+  "overdrive-projector": {
+   "power": "3.50",
+   "size": "2"
+  },
+  "oxidation-chamber": {
+   "liquidCapacity": "30",
+   "outputItem": "oxide:1",
+   "power": "0.5",
+   "size": "3"
+  },
+  "parallax": {
+   "hasPower": true,
+   "power": "3.3",
+   "size": "2"
+  },
+  "payload-loader": {
+   "hasPower": true,
+   "power": "2",
+   "size": "3"
+  },
+  "payload-mass-driver": {
+   "power": "0.5",
+   "size": "3"
+  },
+  "payload-source": {
+   "size": "5"
+  },
+  "payload-unloader": {
+   "hasPower": true,
+   "power": "2",
+   "size": "3"
+  },
+  "payload-void": {
+   "size": "5"
+  },
+  "phase-conduit": {
+   "hasPower": true,
+   "liquidCapacity": "100",
+   "power": "0.30"
+  },
+  "phase-conveyor": {
+   "hasPower": true,
+   "power": "0.30"
+  },
+  "phase-heater": {
+   "size": "2"
+  },
+  "phase-synthesizer": {
+   "inputs": [
+    "thorium:2",
+    "sand:6"
+   ],
+   "itemCapacity": "40",
+   "outputItem": "phase-fabric:1",
+   "power": "8",
+   "size": "3"
+  },
+  "phase-wall-large": {
+   "size": "2"
+  },
+  "phase-weaver": {
+   "craftTime": "120",
+   "hasPower": true,
+   "inputs": [
+    "thorium:4",
+    "sand:10"
+   ],
+   "itemCapacity": "30",
+   "outputItem": "phase-fabric:1",
+   "power": "5",
+   "size": "2"
+  },
+  "plasma-bore": {
+   "power": "0.15",
+   "size": "2"
+  },
+  "plastanium-compressor": {
+   "craftTime": "60",
+   "hasItems": true,
+   "inputs": [
+    "titanium:2"
+   ],
+   "liquidCapacity": "60",
+   "outputItem": "plastanium:1",
+   "power": "3",
+   "size": "2"
+  },
+  "plastanium-conveyor": {
+   "itemCapacity": "10"
+  },
+  "plastanium-wall-large": {
+   "size": "2"
+  },
+  "plated-conduit": {
+   "liquidCapacity": "50"
+  },
+  "pneumatic-drill": {
+   "size": "2"
+  },
+  "power-node-large": {
+   "size": "2"
+  },
+  "prime-refabricator": {
+   "inputs": [
+    "thorium:80",
+    "silicon:100"
+   ],
+   "power": "4.5",
+   "size": "5"
+  },
+  "pulse-conduit": {
+   "liquidCapacity": "40"
+  },
+  "pulverizer": {
+   "craftTime": "40",
+   "inputs": [
+    "scrap:1"
+   ],
+   "outputItem": "sand:1",
+   "power": "0.50"
+  },
+  "pyratite-mixer": {
+   "hasItems": true,
+   "hasPower": true,
+   "inputs": [
+    "coal:1",
+    "lead:2",
+    "sand:2"
+   ],
+   "outputItem": "pyratite:1",
+   "power": "0.20",
+   "size": "2"
+  },
+  "pyrolysis-generator": {
+   "size": "3"
+  },
+  "radar": {
+   "power": "0.6"
+  },
+  "regen-projector": {
+   "power": "1",
+   "size": "3"
+  },
+  "reinforced-bridge-conduit": {
+   "liquidCapacity": "120"
+  },
+  "reinforced-conduit": {
+   "liquidCapacity": "50"
+  },
+  "reinforced-container": {
+   "itemCapacity": "160",
+   "size": "2"
+  },
+  "reinforced-liquid-container": {
+   "liquidCapacity": "1000",
+   "size": "2",
+   "solid": true
+  },
+  "reinforced-liquid-router": {
+   "liquidCapacity": "150"
+  },
+  "reinforced-liquid-tank": {
+   "liquidCapacity": "2700",
+   "size": "3",
+   "solid": true
+  },
+  "reinforced-pump": {
+   "liquidCapacity": "160",
+   "size": "2"
+  },
+  "reinforced-surge-wall-large": {
+   "size": "2"
+  },
+  "reinforced-vault": {
+   "itemCapacity": "900",
+   "size": "3"
+  },
+  "repair-turret": {
+   "size": "2"
+  },
+  "ripple": {
+   "size": "3"
+  },
+  "rotary-pump": {
+   "hasPower": true,
+   "liquidCapacity": "80",
+   "power": "0.3",
+   "size": "2"
+  },
+  "rtg-generator": {
+   "size": "2"
+  },
+  "salvo": {
+   "size": "2"
+  },
+  "scathe": {
+   "size": "4"
+  },
+  "scatter": {
+   "size": "2"
+  },
+  "scrap-wall-gigantic": {
+   "size": "4"
+  },
+  "scrap-wall-huge": {
+   "size": "3"
+  },
+  "scrap-wall-large": {
+   "size": "2"
+  },
+  "segment": {
+   "hasPower": true,
+   "power": "8",
+   "size": "2"
+  },
+  "separator": {
+   "craftTime": "35",
+   "hasPower": true,
+   "power": "1.1",
+   "size": "2"
+  },
+  "shield-projector": {
+   "power": "5",
+   "size": "3"
+  },
+  "shielded-wall": {
+   "hasPower": true,
+   "size": "2"
+  },
+  "ship-assembler": {
+   "power": "2.5",
+   "size": "5"
+  },
+  "ship-fabricator": {
+   "power": "1.5",
+   "size": "3"
+  },
+  "ship-refabricator": {
+   "inputs": [
+    "silicon:60",
+    "tungsten:40"
+   ],
+   "power": "2.5",
+   "size": "3"
+  },
+  "shockwave-tower": {
+   "size": "3"
+  },
+  "silicon-arc-furnace": {
+   "craftTime": "50",
+   "hasPower": true,
+   "inputs": [
+    "graphite:1",
+    "sand:4"
+   ],
+   "itemCapacity": "30",
+   "outputItem": "silicon:4",
+   "power": "5",
+   "size": "3"
+  },
+  "silicon-crucible": {
+   "craftTime": "90",
+   "hasPower": true,
+   "inputs": [
+    "coal:4",
+    "sand:6",
+    "pyratite:1"
+   ],
+   "itemCapacity": "30",
+   "outputItem": "silicon:8",
+   "power": "4",
+   "size": "3"
+  },
+  "silicon-smelter": {
+   "craftTime": "40",
+   "hasPower": true,
+   "inputs": [
+    "coal:1",
+    "sand:2"
+   ],
+   "outputItem": "silicon:1",
+   "power": "0.50",
+   "size": "2"
+  },
+  "slag-centrifuge": {
+   "inputs": [
+    "sand:1"
+   ],
+   "liquidCapacity": "80",
+   "size": "3"
+  },
+  "slag-heater": {
+   "itemCapacity": "0",
+   "liquidCapacity": "120",
+   "size": "3"
+  },
+  "slag-incinerator": {
+   "size": "1"
+  },
+  "small-deconstructor": {
+   "itemCapacity": "100",
+   "power": "1",
+   "size": "3"
+  },
+  "small-heat-redirector": {
+   "size": "2"
+  },
+  "smite": {
+   "size": "5"
+  },
+  "solar-panel-large": {
+   "size": "3"
+  },
+  "space": {
+   "solid": true
+  },
+  "spectre": {
+   "liquidCapacity": "120",
+   "size": "4"
+  },
+  "spore-press": {
+   "craftTime": "20",
+   "hasLiquids": true,
+   "hasPower": true,
+   "inputs": [
+    "spore-pod:1"
+   ],
+   "liquidCapacity": "60",
+   "power": "0.7",
+   "size": "2"
+  },
+  "steam-generator": {
+   "hasLiquids": true,
+   "size": "2"
+  },
+  "sublimate": {
+   "liquidCapacity": "50",
+   "size": "3"
+  },
+  "surge-conveyor": {
+   "hasPower": true,
+   "itemCapacity": "10"
+  },
+  "surge-crucible": {
+   "inputs": [
+    "silicon:3"
+   ],
+   "itemCapacity": "20",
+   "outputItem": "surge-alloy:1",
+   "power": "1.5",
+   "size": "3"
+  },
+  "surge-router": {
+   "hasPower": true
+  },
+  "surge-smelter": {
+   "craftTime": "75",
+   "hasPower": true,
+   "inputs": [
+    "copper:3",
+    "lead:4",
+    "titanium:2",
+    "silicon:3"
+   ],
+   "itemCapacity": "20",
+   "outputItem": "surge-alloy:1",
+   "power": "4",
+   "size": "3"
+  },
+  "surge-tower": {
+   "size": "2"
+  },
+  "surge-wall-large": {
+   "size": "2"
+  },
+  "swarmer": {
+   "size": "2"
+  },
+  "tank-assembler": {
+   "power": "2.5",
+   "size": "5"
+  },
+  "tank-fabricator": {
+   "power": "1.5",
+   "size": "3"
+  },
+  "tank-refabricator": {
+   "inputs": [
+    "silicon:40",
+    "tungsten:30"
+   ],
+   "power": "3",
+   "size": "3"
+  },
+  "tetrative-reconstructor": {
+   "inputs": [
+    "silicon:1000",
+    "plastanium:600",
+    "surge-alloy:500",
+    "phase-fabric:350"
+   ],
+   "power": "25",
+   "size": "9"
+  },
+  "thermal-generator": {
+   "size": "2"
+  },
+  "thorium-reactor": {
+   "size": "3"
+  },
+  "thorium-wall-large": {
+   "size": "2"
+  },
+  "thruster": {
+   "size": "4"
+  },
+  "titan": {
+   "size": "4"
+  },
+  "titanium-wall-large": {
+   "size": "2"
+  },
+  "tsunami": {
+   "liquidCapacity": "40",
+   "size": "3"
+  },
+  "tungsten-wall-large": {
+   "size": "2"
+  },
+  "turbine-condenser": {
+   "hasLiquids": true,
+   "liquidCapacity": "20",
+   "size": "3"
+  },
+  "unit-cargo-loader": {
+   "itemCapacity": "200",
+   "size": "3"
+  },
+  "unit-cargo-unload-point": {
+   "itemCapacity": "100",
+   "size": "2"
+  },
+  "unit-repair-tower": {
+   "power": "1",
+   "size": "2"
+  },
+  "vault": {
+   "itemCapacity": "1000",
+   "size": "3"
+  },
+  "vent-condenser": {
+   "craftTime": "120",
+   "hasLiquids": true,
+   "itemCapacity": "0",
+   "liquidCapacity": "60",
+   "power": "0.5",
+   "size": "3"
+  },
+  "water-extractor": {
+   "liquidCapacity": "40",
+   "power": "1.5",
+   "size": "2"
+  },
+  "wave": {
+   "liquidCapacity": "10",
+   "size": "2"
+  },
+  "world-processor": {
+   "size": "1"
+  }
+ },
+ "classes": {
+  "additive-reconstructor": "Reconstructor",
+  "advanced-launch-pad": "LaunchPad",
+  "afflict": "PowerTurret",
+  "air-factory": "UnitFactory",
+  "arc": "PowerTurret",
+  "atmospheric-concentrator": "HeatCrafter",
+  "basic-assembler-module": "UnitAssemblerModule",
+  "battery-large": "Battery",
+  "beam-link": "LongPowerNode",
+  "beam-tower": "BeamNode",
+  "beryllium-wall-large": "Wall",
+  "blast-door": "AutoDoor",
+  "blast-drill": "Drill",
+  "blast-mixer": "GenericCrafter",
+  "breach": "ItemTurret",
+  "bridge-conduit": "LiquidBridge",
+  "build-tower": "BuildTurret",
+  "canvas": "CanvasBlock",
+  "carbide-crucible": "HeatCrafter",
+  "carbide-wall-large": "Wall",
+  "chemical-combustion-chamber": "ConsumeGenerator",
+  "cliff-crusher": "WallCrafter",
+  "coal-centrifuge": "GenericCrafter",
+  "conduit": "Conduit",
+  "constructor": "Constructor",
+  "container": "StorageBlock",
+  "copper-wall-large": "Wall",
+  "core-acropolis": "CoreBlock",
+  "core-bastion": "CoreBlock",
+  "core-citadel": "CoreBlock",
+  "core-foundation": "CoreBlock",
+  "core-nucleus": "CoreBlock",
+  "core-shard": "CoreBlock",
+  "cryofluid-mixer": "GenericCrafter",
+  "cultivator": "AttributeCrafter",
+  "cyanogen-synthesizer": "HeatCrafter",
+  "cyclone": "ItemTurret",
+  "deconstructor": "PayloadDeconstructor",
+  "differential-generator": "ConsumeGenerator",
+  "diffuse": "ItemTurret",
+  "disassembler": "Separator",
+  "disperse": "ItemTurret",
+  "distributor": "Router",
+  "door-large": "Door",
+  "electric-heater": "HeatProducer",
+  "electrolyzer": "GenericCrafter",
+  "eruption-drill": "BurstDrill",
+  "exponential-reconstructor": "Reconstructor",
+  "flux-reactor": "VariableReactor",
+  "force-projector": "ForceProjector",
+  "foreshadow": "ItemTurret",
+  "fuse": "ItemTurret",
+  "graphite-press": "GenericCrafter",
+  "ground-factory": "UnitFactory",
+  "heat-reactor": "HeatProducer",
+  "heat-redirector": "HeatConductor",
+  "heat-router": "HeatConductor",
+  "heat-source": "HeatProducer",
+  "hyper-processor": "LogicBlock",
+  "illuminator": "LightBlock",
+  "impact-drill": "BurstDrill",
+  "impact-reactor": "ImpactReactor",
+  "impulse-pump": "Pump",
+  "incinerator": "Incinerator",
+  "interplanetary-accelerator": "Accelerator",
+  "kiln": "GenericCrafter",
+  "lancer": "PowerTurret",
+  "landing-pad": "LandingPad",
+  "large-canvas": "CanvasBlock",
+  "large-cliff-crusher": "WallCrafter",
+  "large-constructor": "Constructor",
+  "large-logic-display": "LogicDisplay",
+  "large-payload-mass-driver": "PayloadMassDriver",
+  "large-plasma-bore": "BeamDrill",
+  "large-shield-projector": "BaseShield",
+  "laser-drill": "Drill",
+  "launch-pad": "LaunchPad",
+  "liquid-container": "LiquidRouter",
+  "liquid-router": "LiquidRouter",
+  "liquid-tank": "LiquidRouter",
+  "logic-display": "LogicDisplay",
+  "logic-processor": "LogicBlock",
+  "lustre": "ContinuousTurret",
+  "malign": "PowerTurret",
+  "mass-driver": "MassDriver",
+  "mech-assembler": "UnitAssembler",
+  "mech-fabricator": "UnitFactory",
+  "mech-refabricator": "Reconstructor",
+  "mechanical-drill": "Drill",
+  "mechanical-pump": "Pump",
+  "meltdown": "LaserTurret",
+  "melter": "GenericCrafter",
+  "memory-bank": "MemoryBlock",
+  "mend-projector": "MendProjector",
+  "mender": "MendProjector",
+  "micro-processor": "LogicBlock",
+  "multi-press": "GenericCrafter",
+  "multiplicative-reconstructor": "Reconstructor",
+  "naval-factory": "UnitFactory",
+  "neoplasia-reactor": "HeaterGenerator",
+  "oil-extractor": "Fracker",
+  "overdrive-dome": "OverdriveProjector",
+  "overdrive-projector": "OverdriveProjector",
+  "oxidation-chamber": "HeatProducer",
+  "parallax": "TractorBeamTurret",
+  "payload-loader": "PayloadLoader",
+  "payload-mass-driver": "PayloadMassDriver",
+  "payload-source": "PayloadSource",
+  "payload-unloader": "PayloadUnloader",
+  "payload-void": "PayloadVoid",
+  "phase-conduit": "LiquidBridge",
+  "phase-conveyor": "ItemBridge",
+  "phase-heater": "HeatProducer",
+  "phase-synthesizer": "HeatCrafter",
+  "phase-wall-large": "Wall",
+  "phase-weaver": "GenericCrafter",
+  "plasma-bore": "BeamDrill",
+  "plastanium-compressor": "GenericCrafter",
+  "plastanium-conveyor": "StackConveyor",
+  "plastanium-wall-large": "Wall",
+  "plated-conduit": "ArmoredConduit",
+  "pneumatic-drill": "Drill",
+  "power-node-large": "PowerNode",
+  "prime-refabricator": "Reconstructor",
+  "pulse-conduit": "Conduit",
+  "pulverizer": "GenericCrafter",
+  "pyratite-mixer": "GenericCrafter",
+  "pyrolysis-generator": "ConsumeGenerator",
+  "radar": "Radar",
+  "regen-projector": "RegenProjector",
+  "reinforced-bridge-conduit": "DirectionLiquidBridge",
+  "reinforced-conduit": "ArmoredConduit",
+  "reinforced-container": "StorageBlock",
+  "reinforced-liquid-container": "LiquidRouter",
+  "reinforced-liquid-router": "LiquidRouter",
+  "reinforced-liquid-tank": "LiquidRouter",
+  "reinforced-pump": "Pump",
+  "reinforced-surge-wall-large": "Wall",
+  "reinforced-vault": "StorageBlock",
+  "repair-turret": "RepairTurret",
+  "ripple": "ItemTurret",
+  "rotary-pump": "Pump",
+  "rtg-generator": "ConsumeGenerator",
+  "salvo": "ItemTurret",
+  "scathe": "ItemTurret",
+  "scatter": "ItemTurret",
+  "scrap-wall-gigantic": "Wall",
+  "scrap-wall-huge": "Wall",
+  "scrap-wall-large": "Wall",
+  "segment": "PointDefenseTurret",
+  "separator": "Separator",
+  "shield-projector": "BaseShield",
+  "shielded-wall": "ShieldWall",
+  "ship-assembler": "UnitAssembler",
+  "ship-fabricator": "UnitFactory",
+  "ship-refabricator": "Reconstructor",
+  "shockwave-tower": "ShockwaveTower",
+  "silicon-arc-furnace": "GenericCrafter",
+  "silicon-crucible": "AttributeCrafter",
+  "silicon-smelter": "GenericCrafter",
+  "slag-centrifuge": "GenericCrafter",
+  "slag-heater": "HeatProducer",
+  "slag-incinerator": "ItemIncinerator",
+  "small-deconstructor": "PayloadDeconstructor",
+  "small-heat-redirector": "HeatConductor",
+  "smite": "ItemTurret",
+  "solar-panel-large": "SolarGenerator",
+  "space": "Floor",
+  "spectre": "ItemTurret",
+  "spore-press": "GenericCrafter",
+  "steam-generator": "ConsumeGenerator",
+  "sublimate": "ContinuousLiquidTurret",
+  "surge-conveyor": "StackConveyor",
+  "surge-crucible": "HeatCrafter",
+  "surge-router": "StackRouter",
+  "surge-smelter": "GenericCrafter",
+  "surge-tower": "PowerNode",
+  "surge-wall-large": "Wall",
+  "swarmer": "ItemTurret",
+  "tank-assembler": "UnitAssembler",
+  "tank-fabricator": "UnitFactory",
+  "tank-refabricator": "Reconstructor",
+  "tetrative-reconstructor": "Reconstructor",
+  "thermal-generator": "ThermalGenerator",
+  "thorium-reactor": "NuclearReactor",
+  "thorium-wall-large": "Wall",
+  "thruster": "Thruster",
+  "titan": "ItemTurret",
+  "titanium-wall-large": "Wall",
+  "tsunami": "LiquidTurret",
+  "tungsten-wall-large": "Wall",
+  "turbine-condenser": "ThermalGenerator",
+  "unit-cargo-loader": "UnitCargoLoader",
+  "unit-cargo-unload-point": "UnitCargoUnloadPoint",
+  "unit-repair-tower": "RepairTower",
+  "vault": "StorageBlock",
+  "vent-condenser": "AttributeCrafter",
+  "water-extractor": "SolidPump",
+  "wave": "LiquidTurret",
+  "world-processor": "LogicBlock"
+ },
+ "count": 200
+}

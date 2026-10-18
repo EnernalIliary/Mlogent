@@ -21,3 +21,4 @@ out/_portrait*.txt
 out/_user*.msch
 out/_junk.msch
 out/caime_scan*.txt
+.find_cache.json

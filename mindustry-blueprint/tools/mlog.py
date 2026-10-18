@@ -20,6 +20,9 @@ python mlog.py cross  <blueprint.msch>        # cross-processor read/write: what
                                                #   many ids still fit the low field
   python mlog.py id     [name]                 # block content ids / sizes
   python mlog.py item   [name] [--unpack N]    # item content ids / packed configs
+  python mlog.py unit   [name]                 # unit stats: speed, hp, payload
+  python mlog.py block  [name]                 # recipe, capacity, power
+  python mlog.py find   <words>                # corpus blueprints that solve this job
   python mlog.py cmd    [pattern]              # mlog instruction reference
   python mlog.py explain <mnemonic> [sub]      # one instruction: syntax + which
                                                #   positions are read / written
@@ -53,6 +56,7 @@ from __future__ import annotations
 
 import argparse
 import base64
+import collections
 import json
 import os
 import re
@@ -86,6 +90,8 @@ BLOCK_SIZES = _load_json("block_sizes.json")
 CMD_INDEX = _load_json("cmd_index.json")
 ITEM_IDS = _load_json("item_ids.json").get("items", {})
 ITEM_NAME_TO_ID = {v: int(k) for k, v in ITEM_IDS.items()}
+UNIT_ATTRS = _load_json("unit_attrs.json")
+BLOCK_ATTRS = _load_json("block_attrs.json")
 
 
 # --------------------------------------------------------------------------- #
@@ -641,6 +647,249 @@ def cmd_item(args) -> int:
     return 0
 
 
+def cmd_unit(args) -> int:
+    """Unit stats from `UnitTypes.java`: the first decision when writing logic."""
+    units = UNIT_ATTRS.get("units") or {}
+    dflt = UNIT_ATTRS.get("defaults") or {}
+    if not units:
+        print("unit_attrs.json missing (run tools/units_from_source.py)",
+              file=sys.stderr)
+        return 1
+    q = (args.name or "").strip().lower()
+    hits = sorted(n for n in units if not q or q in n)
+    if not hits:
+        print(f"no unit matching {args.name!r}")
+        return 1
+    if not q:
+        print(f"{len(units)} units known  (fields are only the ones the source "
+              f"sets; `(default ...)` comes from UnitType.java)")
+        print()
+    for n in hits:
+        rec = units[n]
+        bits = []
+        for f in ("speed", "health", "armor", "hitSize", "itemCapacity",
+                  "mineSpeed", "mineTier", "buildSpeed", "range", "flying"):
+            if f in rec:
+                bits.append(f"{f} {rec[f]}")
+            elif f in dflt:
+                bits.append(f"{f} (default {dflt[f]})")
+        w = rec.get("weapons") or {}
+        if w.get("count"):
+            wtxt = f"{w['count']} weapon(s)"
+            if w.get("reload"):
+                wtxt += f", reload {w['reload']}t"
+            if w.get("bullet_damage"):
+                wtxt += f", {w['bullet']} {w['bullet_speed']}sp/{w['bullet_damage']}dmg"
+            bits.append(wtxt)
+        print(f"  {n:<14} " + "; ".join(bits))
+    return 0
+
+
+def cmd_block(args) -> int:
+    """What a block accepts, produces and holds -- recipes straight from source."""
+    blocks = BLOCK_ATTRS.get("blocks") or {}
+    classes = BLOCK_ATTRS.get("classes") or {}
+    if not blocks:
+        print("block_attrs.json missing (run tools/blocks_from_source.py)",
+              file=sys.stderr)
+        return 1
+    q = (args.name or "").strip().lower()
+    hits = sorted(n for n in blocks if not q or q in n)
+    if not hits:
+        print(f"no block with captured behaviour matching {args.name!r}")
+        return 1
+    for n in hits:
+        rec = blocks[n]
+        ids = [k for k, v in BLOCK_IDS.items() if v == n]
+        head = f"  {n:<22}"
+        if ids:
+            head += f" id={ids[0]:>4}"
+        head += f"  size={rec.get('size', '?')}  ({classes.get(n, '?')})"
+        print(head)
+        if rec.get("inputs") and rec.get("outputItem"):
+            t = f" craftTime={rec['craftTime']}t" if rec.get("craftTime") else ""
+            print(f"      recipe  {' + '.join(rec['inputs'])} -> "
+                  f"{rec['outputItem']}{t}")
+        elif rec.get("outputItems"):
+            print(f"      outputs {' + '.join(rec['outputItems'])}")
+        elif rec.get("inputs"):
+            print(f"      consumes {' + '.join(rec['inputs'])}")
+        extra = []
+        if rec.get("itemCapacity"):
+            extra.append(f"itemCapacity {rec['itemCapacity']}")
+        if rec.get("liquidCapacity"):
+            extra.append(f"liquidCapacity {rec['liquidCapacity']}")
+        if rec.get("power"):
+            extra.append(f"power {rec['power']}")
+        if rec.get("hasItems"):
+            extra.append("hasItems")
+        if extra:
+            print("      " + "; ".join(extra))
+    return 0
+
+
+def _cheap_profile(code: list[str]) -> tuple[collections.Counter, set[str], str]:
+    """Opcodes, identifiers and quoted text, without building the IR.
+
+    Searching does not need a real parse: `mlogir.parse` builds Tok/Stmt objects
+    and costs seconds per thousand statements, which made a corpus-wide search
+    take minutes for no gain -- the search only needs "which words appear here".
+    """
+    ops: collections.Counter = collections.Counter()
+    names: set[str] = set()
+    strings: list[str] = []
+    for raw in code:
+        line = _check.strip_comment(raw).strip()
+        if not line:
+            continue
+        parts = line.split()
+        mn = parts[0].lower()
+        if mn.endswith(":"):
+            continue                      # jump label, not a statement
+        ops[mn] += 1
+        for tok in parts[1:]:
+            if tok.startswith('"') and tok.endswith('"') and len(tok) >= 2:
+                strings.append(tok[1:-1])
+            elif not _check.is_number(tok) and tok not in ("true", "false", "null"):
+                names.add(tok.lower())
+    return ops, names, " ".join(strings).lower()
+
+
+def _find_cache_path() -> str:
+    return os.path.join(HERE, ".find_cache.json")
+
+
+def _load_find_cache() -> dict:
+    try:
+        with open(_find_cache_path(), encoding="utf-8") as fh:
+            return json.load(fh)
+    except Exception:
+        return {}
+
+
+def _store_find_cache(cache: dict) -> None:
+    try:
+        with open(_find_cache_path(), "w", encoding="utf-8") as fh:
+            json.dump(cache, fh, ensure_ascii=False)
+    except Exception:
+        pass
+
+
+def _corpus_dir() -> str:
+    return os.environ.get("MLOG_CORPUS") or os.path.join(
+        os.path.expanduser("~"), "AppData", "Roaming", "Mindustry", "schematics")
+
+
+def cmd_find(args) -> int:
+    """Find the corpus blueprint that looks most like a described job.
+
+    This is the step that was missing when I wrote wireless-overdrive logic: the
+    correct move was "go read how someone else solved this", and nothing in the
+    toolset could do it. Scoring is deliberately crude and explainable -- the
+    score breakdown is printed so a bad match is visible, not mysterious.
+    """
+    terms = [t for t in (args.query or "").lower().split() if t]
+    if not terms:
+        print("give at least one search term", file=sys.stderr)
+        return 2
+    root = args.corpus or _corpus_dir()
+    if not os.path.isdir(root):
+        print(f"corpus not found: {root}  (set MLOG_CORPUS or pass --corpus)",
+              file=sys.stderr)
+        return 2
+    limit = args.limit or 5
+    max_stmts = args.max_stmts
+    max_bytes = args.max_bytes
+    rows = []
+    skipped = 0
+    big_files = 0
+    cache = {} if args.rebuild else _load_find_cache()
+    fresh: dict = {}
+    for path in sorted(os.listdir(root)):
+        if not path.lower().endswith(".msch"):
+            continue
+        full = os.path.join(root, path)
+        try:
+            size = os.path.getsize(full)
+        except OSError:
+            continue
+        if size > max_bytes:
+            big_files += 1
+            continue
+        stamp = f"{size}:{int(os.path.getmtime(full))}"
+        entry = cache.get(path)
+        if entry and entry.get("stamp") == stamp:
+            blocks = entry.get("blocks") or []
+            texts = entry.get("texts", "")
+        else:
+            try:
+                sch = msch.parse_file(full)
+            except Exception:
+                continue
+            texts = " ".join([sch.name or "", sch.description or ""]).lower()
+            blocks = []
+            for t in sch.logic_tiles():
+                if t.logic is None:
+                    continue
+                src = t.logic.code
+                # Generated art (BADAPPLE!! is 564k statements and takes 24s to
+                # parse) is not reference logic; searching it costs minutes and
+                # never produces a useful hit. Test the raw string first --
+                # split() on half a megabyte of lines costs more than the whole
+                # rest of the scan.
+                if len(src) > max_stmts * 32:
+                    skipped += 1
+                    continue
+                code = src.split("\n")
+                if len(code) > max_stmts:
+                    skipped += 1
+                    continue
+                ops, names, strings = _cheap_profile(code)
+                blocks.append([f"{t.block} @({t.x},{t.y})", sum(ops.values()),
+                               dict(ops), sorted(names), strings])
+            entry = {"stamp": stamp, "texts": texts, "blocks": blocks}
+        fresh[path] = entry
+        for label, n, ops, names, strings in blocks:
+            names = set(names)
+            hay = f"{texts} {strings}"
+            name_hit = sum(1 for t2 in terms if t2 in hay)
+            var_hit = sum(1 for t2 in terms if t2 in names or any(t2 in x for x in names))
+            op_hit = sum(1 for t2 in terms if t2 in ops)
+            score = 10 * name_hit + 4 * var_hit + 6 * op_hit
+            if score <= 0:
+                continue
+            rows.append((score, path, label, n, collections.Counter(ops),
+                         strings, (name_hit, var_hit, op_hit)))
+    _store_find_cache(fresh)
+    if not rows:
+        print(f"nothing in {root} matches {' '.join(terms)!r}")
+        return 1
+    rows.sort(key=lambda r: (-r[0], -r[3]))
+    print(f"{len(rows)} candidate(s) matching {' '.join(terms)!r}, "
+          f"top {min(limit, len(rows))}:")
+    if skipped:
+        print(f"({skipped} generated art block(s) over {max_stmts} statements "
+              f"skipped -- raise --max-stmts to search them)")
+    if big_files:
+        print(f"({big_files} blueprint file(s) over {max_bytes // 1000}k "
+              f"skipped: 16MB pixel art / emulator dumps, not reference logic "
+              f"-- raise --max-bytes to include them)")
+    for score, path, label, n, ops, strings, why in rows[:limit]:
+        print()
+        print(f"=== {path}  [{label}]  {n} statements  "
+              f"score {score}  (text {why[0]}, name {why[1]}, opcode {why[2]})")
+        top = ", ".join(f"{k}x{v}" for k, v in ops.most_common(6))
+        print(f"    opcodes : {top}")
+        if strings.strip():
+            print(f"    text    : {strings.strip()[:160]}")
+        print(f"    read it : python mlog.py ir --msch \"{full_path(root, path)}\"")
+    return 0
+
+
+def full_path(root: str, name: str) -> str:
+    return os.path.join(root, name)
+
+
 def cmd_cmd(args) -> int:
     if not CMD_INDEX:
         print("cmd_index.json missing", file=sys.stderr)
@@ -971,6 +1220,26 @@ def main() -> int:
     p.add_argument("--unpack", metavar="N",
                    help="decode status*1e8 + outputID*1e6 + inputMask")
     p.set_defaults(fn=cmd_item)
+
+    p = sub.add_parser("unit", help="unit stats: speed, hp, payload, weapons")
+    p.add_argument("name", nargs="?", help="substring; omit to list all")
+    p.set_defaults(fn=cmd_unit)
+
+    p = sub.add_parser("block", help="block behaviour: recipe, capacity, power")
+    p.add_argument("name", nargs="?", help="substring; omit to list all")
+    p.set_defaults(fn=cmd_block)
+
+    p = sub.add_parser("find", help="find corpus blueprints that solve a job")
+    p.add_argument("query", help="words to look for, e.g. 'wireless overdrive'")
+    p.add_argument("--corpus", help="schematic folder (default: game save dir)")
+    p.add_argument("--limit", type=int, default=5)
+    p.add_argument("--max-stmts", type=int, default=5000,
+                   help="skip blocks longer than this (generated art); 0 = no cap")
+    p.add_argument("--max-bytes", type=int, default=2_000_000,
+                   help="skip blueprint files larger than this (pixel art)")
+    p.add_argument("--rebuild", action="store_true",
+                   help="ignore the search cache and re-read every blueprint")
+    p.set_defaults(fn=cmd_find)
 
     p = sub.add_parser("cmd", help="mlog instruction reference")
     p.add_argument("pattern", nargs="?", help="substring filter")

@@ -246,7 +246,8 @@ def cmd_report(args) -> int:
 # --------------------------------------------------------------------------- #
 
 _DATA = ["wiki_block_ids.json", "block_sizes.json", "cmd_index.json",
-         "item_ids.json", "instr_semantics.json"]
+         "item_ids.json", "instr_semantics.json",
+         "unit_attrs.json", "block_attrs.json"]
 _MODULES = ["mlog.py", "mlogcheck.py", "mlogir.py", "mlogval.py", "mlogpack.py",
             "mlogcross.py", "msch.py", "mschgen.py", "mlogagent.py"]
 

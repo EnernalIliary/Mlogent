@@ -1,0 +1,378 @@
+{
+ "_note": "only fields the source sets are listed; absent ones are the engine default in `defaults`",
+ "_source": "Mindustry-Source/core/src/mindustry/content/UnitTypes.java",
+ "count": 39,
+ "defaults": {
+  "itemCapacity": "-1",
+  "mineSpeed": "1",
+  "mineTier": "-1",
+  "speed": "1.1"
+ },
+ "units": {
+  "aegires": {
+   "accel": "0.2",
+   "armor": "12",
+   "buildSpeed": "3",
+   "drag": "0.17",
+   "health": "12000",
+   "hitSize": "44",
+   "speed": "0.7"
+  },
+  "alpha": {
+   "accel": "0.1",
+   "buildSpeed": "0.5",
+   "drag": "0.05",
+   "flying": "true",
+   "health": "150",
+   "hitSize": "8",
+   "itemCapacity": "30",
+   "mineSpeed": "6.5",
+   "mineTier": "1",
+   "speed": "3"
+  },
+  "antumbra": {
+   "accel": "0.04",
+   "armor": "9",
+   "drag": "0.04",
+   "flying": "true",
+   "health": "7200",
+   "hitSize": "46",
+   "speed": "0.8"
+  },
+  "arkyid": {
+   "armor": "6",
+   "drag": "0.1",
+   "health": "8000",
+   "hitSize": "23",
+   "speed": "0.62"
+  },
+  "atrax": {
+   "armor": "3",
+   "drag": "0.4",
+   "health": "600",
+   "hitSize": "13",
+   "speed": "0.6"
+  },
+  "beta": {
+   "accel": "0.1",
+   "buildSpeed": "0.75",
+   "drag": "0.05",
+   "flying": "true",
+   "health": "170",
+   "hitSize": "9",
+   "itemCapacity": "50",
+   "mineSpeed": "7",
+   "mineTier": "1",
+   "speed": "3.3"
+  },
+  "block": {
+   "health": "1",
+   "hitSize": "0",
+   "itemCapacity": "0",
+   "speed": "0"
+  },
+  "bryde": {
+   "accel": "0.2",
+   "armor": "7",
+   "drag": "0.17",
+   "health": "910",
+   "hitSize": "20",
+   "speed": "0.85"
+  },
+  "corvus": {
+   "armor": "9",
+   "health": "18000",
+   "hitSize": "29",
+   "speed": "0.3"
+  },
+  "crawler": {
+   "health": "150",
+   "hitSize": "8",
+   "range": "40",
+   "speed": "1",
+   "weapons": {
+    "count": 1,
+    "reload": "24"
+   }
+  },
+  "cyerce": {
+   "accel": "0.22",
+   "armor": "6",
+   "buildSpeed": "2",
+   "drag": "0.16",
+   "health": "870",
+   "hitSize": "20",
+   "speed": "0.86"
+  },
+  "dagger": {
+   "health": "150",
+   "hitSize": "8",
+   "speed": "0.5"
+  },
+  "eclipse": {
+   "accel": "0.04",
+   "armor": "13",
+   "drag": "0.04",
+   "flying": "true",
+   "health": "22000",
+   "hitSize": "58",
+   "speed": "0.54"
+  },
+  "flare": {
+   "accel": "0.08",
+   "drag": "0.04",
+   "flying": "true",
+   "health": "70",
+   "hitSize": "9",
+   "itemCapacity": "10",
+   "speed": "2.7",
+   "weapons": {
+    "bullet": "BasicBulletType",
+    "bullet_damage": "9",
+    "bullet_speed": "2.5",
+    "count": 1,
+    "reload": "80"
+   }
+  },
+  "fortress": {
+   "armor": "9",
+   "health": "900",
+   "hitSize": "13",
+   "speed": "0.43"
+  },
+  "gamma": {
+   "accel": "0.11",
+   "buildSpeed": "1",
+   "drag": "0.05",
+   "flying": "true",
+   "health": "220",
+   "hitSize": "11",
+   "itemCapacity": "70",
+   "mineSpeed": "8",
+   "mineTier": "2",
+   "speed": "3.55"
+  },
+  "horizon": {
+   "accel": "0.08",
+   "armor": "3",
+   "drag": "0.03",
+   "flying": "true",
+   "health": "340",
+   "hitSize": "11",
+   "itemCapacity": "0",
+   "range": "140",
+   "speed": "1.65",
+   "weapons": {
+    "bullet": "BombBulletType",
+    "bullet_damage": "25",
+    "bullet_speed": "27",
+    "count": 1,
+    "reload": "12"
+   }
+  },
+  "mace": {
+   "armor": "4",
+   "health": "550",
+   "hitSize": "10",
+   "speed": "0.5"
+  },
+  "mega": {
+   "accel": "0.06",
+   "armor": "3",
+   "buildSpeed": "2.6",
+   "drag": "0.017",
+   "flying": "true",
+   "health": "460",
+   "hitSize": "16.05",
+   "mineSpeed": "4",
+   "mineTier": "3",
+   "speed": "2.5"
+  },
+  "minke": {
+   "accel": "0.3",
+   "armor": "4",
+   "drag": "0.15",
+   "health": "600",
+   "hitSize": "13",
+   "speed": "0.9"
+  },
+  "mono": {
+   "accel": "0.12",
+   "drag": "0.06",
+   "flying": "true",
+   "health": "100",
+   "mineSpeed": "2.5",
+   "mineTier": "1",
+   "range": "50",
+   "speed": "1.5"
+  },
+  "navanax": {
+   "accel": "0.2",
+   "armor": "16",
+   "buildSpeed": "3.5",
+   "drag": "0.17",
+   "health": "20000",
+   "hitSize": "58",
+   "speed": "0.65"
+  },
+  "nova": {
+   "armor": "1",
+   "boostMultiplier": "1.5",
+   "buildSpeed": "0.3",
+   "health": "120",
+   "hitSize": "8",
+   "speed": "0.55"
+  },
+  "oct": {
+   "accel": "0.04",
+   "armor": "16",
+   "buildSpeed": "4",
+   "drag": "0.018",
+   "flying": "true",
+   "health": "24000",
+   "hitSize": "66",
+   "speed": "0.8"
+  },
+  "omura": {
+   "accel": "0.19",
+   "armor": "16",
+   "drag": "0.18",
+   "health": "22000",
+   "hitSize": "58",
+   "speed": "0.62"
+  },
+  "oxynoe": {
+   "accel": "0.4",
+   "armor": "4",
+   "buildSpeed": "2",
+   "drag": "0.14",
+   "health": "560",
+   "hitSize": "14",
+   "speed": "0.83"
+  },
+  "poly": {
+   "accel": "0.1",
+   "buildSpeed": "0.5",
+   "drag": "0.05",
+   "flying": "true",
+   "health": "400",
+   "hitSize": "9",
+   "mineSpeed": "3.5",
+   "mineTier": "2",
+   "range": "130",
+   "speed": "2.6"
+  },
+  "pulsar": {
+   "armor": "4",
+   "boostMultiplier": "1.6",
+   "buildSpeed": "0.5",
+   "health": "320",
+   "hitSize": "11",
+   "mineSpeed": "3",
+   "mineTier": "2",
+   "speed": "0.7"
+  },
+  "quad": {
+   "accel": "0.05",
+   "armor": "8",
+   "buildSpeed": "2.5",
+   "drag": "0.017",
+   "flying": "true",
+   "health": "6000",
+   "hitSize": "36",
+   "range": "140",
+   "speed": "1.2",
+   "weapons": {
+    "count": 1,
+    "reload": "55"
+   }
+  },
+  "quasar": {
+   "armor": "9",
+   "boostMultiplier": "2",
+   "buildSpeed": "1.1",
+   "health": "640",
+   "hitSize": "13",
+   "mineSpeed": "4",
+   "mineTier": "3",
+   "speed": "0.5"
+  },
+  "reign": {
+   "armor": "18",
+   "health": "24000",
+   "hitSize": "30",
+   "speed": "0.4"
+  },
+  "retusa": {
+   "accel": "0.4",
+   "armor": "3",
+   "buildSpeed": "1.5",
+   "drag": "0.14",
+   "health": "270",
+   "hitSize": "11",
+   "range": "100",
+   "speed": "0.9",
+   "weapons": {
+    "bullet": "LaserBoltBulletType",
+    "bullet_damage": "12",
+    "bullet_speed": "5.2",
+    "count": 1,
+    "reload": "22"
+   }
+  },
+  "risso": {
+   "accel": "0.4",
+   "armor": "2",
+   "drag": "0.13",
+   "health": "280",
+   "hitSize": "10",
+   "speed": "1.1"
+  },
+  "scepter": {
+   "armor": "10",
+   "health": "9000",
+   "hitSize": "22",
+   "speed": "0.36"
+  },
+  "sei": {
+   "accel": "0.2",
+   "armor": "12",
+   "drag": "0.17",
+   "health": "11000",
+   "hitSize": "39",
+   "speed": "0.73"
+  },
+  "spiroct": {
+   "armor": "5",
+   "drag": "0.4",
+   "health": "1000",
+   "hitSize": "15",
+   "speed": "0.54"
+  },
+  "toxopid": {
+   "armor": "13",
+   "drag": "0.1",
+   "health": "22000",
+   "hitSize": "26",
+   "speed": "0.5"
+  },
+  "vela": {
+   "armor": "9",
+   "boostMultiplier": "2.4",
+   "buildSpeed": "3",
+   "health": "8200",
+   "hitSize": "24",
+   "speed": "0.44"
+  },
+  "zenith": {
+   "accel": "0.04",
+   "armor": "5",
+   "drag": "0.016",
+   "flying": "true",
+   "health": "700",
+   "hitSize": "20",
+   "range": "140",
+   "speed": "1.7"
+  }
+ }
+}

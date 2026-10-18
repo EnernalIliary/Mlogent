@@ -14,7 +14,8 @@ SKILL_AG = ROOT / ".dsh/skills/mlogagent"
 PY = ["mlog.py", "mlogir.py", "mlogcheck.py", "mlogval.py", "mlogpack.py",
       "msch.py", "mschgen.py", "mlogagent.py"]
 DATA = ["instr_semantics.json", "item_ids.json", "block_ids.json",
-        "block_sizes.json", "cmd_index.json"]
+        "block_sizes.json", "cmd_index.json", "unit_attrs.json",
+        "block_attrs.json"]
 DOCS = ["SKILL.md", "BUILDS.md", "REFERENCE.md", "PATTERNS.md",
         "BLUEPRINT-ANALYSIS.md", "README.md"]
 
