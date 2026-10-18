@@ -35,6 +35,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "mindustry-blueprint" / "tools"))
 
 import map_logic as ML  # noqa: E402
+import mlogcheck as _check  # noqa: E402
 
 ROWS = ROOT / "out" / "audit_rows.json"
 VERDICTS = ROOT / "out" / "verdicts.csv"
@@ -125,6 +126,106 @@ def _load_code(row: dict) -> str:
     sys.exit(f"no processor at ({row['x']},{row['y']}) in {row['file']}")
 
 
+def _blueprint_for(row: dict, code: str) -> str:
+    """A one-processor schematic holding exactly this program, as a paste-able code.
+
+    The point is that judging a finding should not require opening the save. Paste the
+    code in-game (or open it in the editor) and the processor is right there, with the
+    variable list the user reads anyway.
+
+    Links are NOT re-created: a row about a missing link is about the name being absent,
+    and inventing a target would hide that. The names still appear in the code.
+    """
+    import base64
+
+    import mschgen as G
+
+    name = f"audit-{row['id']}"[:40]
+    desc = f"{row['rule']} @ {Path(row['file']).stem}:{row['x']},{row['y']} L{row['line']}"
+    bp = G.Blueprint(name, desc, [])
+    bp.add_logic(code, 0, 0, "micro-processor", 0, [])
+    return base64.b64encode(bp.build()).decode("ascii")
+
+
+def cmd_code(args) -> int:
+    row = find_row(load_rows(), args.id)
+    code = _load_code(row)
+    b64 = _blueprint_for(row, code)
+    if args.out:
+        path = Path(args.out)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        import base64
+
+        path.write_bytes(base64.b64decode(b64))
+        print(f"wrote {path}  ({len(b64)} chars of code)")
+    print(b64)
+    return 0
+
+
+def cmd_codes(args) -> int:
+    rows = load_rows()
+    verd = load_verdicts()
+    if args.rule:
+        rows = [r for r in rows if args.rule.lower() in r["rule"].lower()]
+    if args.unjudged:
+        rows = [r for r in rows if r["id"] not in verd]
+    if args.limit:
+        rows = rows[: args.limit]
+    out_dir = ROOT / "out" / "review"
+    out_dir.mkdir(parents=True, exist_ok=True)
+    md = [f"# 可粘贴的蓝图码（{len(rows)} 条）", ""]
+    md.append("每条一个微处理器，源码就是那张图里那台处理器的原文。")
+    md.append("粘贴进游戏即可在编辑器里看变量列表；`out/review/*.msch` 也可以直接丢进")
+    md.append("存档目录的 `schematics/` 让它在游戏里出现。")
+    md.append("")
+    for r in rows:
+        code = _load_code(r)
+        b64 = _blueprint_for(r, code)
+        (out_dir / f"{r['id']}.msch").write_bytes(__import__("base64").b64decode(b64))
+        md.append(f"## `{r['id']}` — {r['rule']}")
+        md.append("")
+        md.append(f"- 出处：`{Path(r['file']).stem}` ({r['x']},{r['y']}) {r.get('block')}")
+        md.append(f"- 第 {r['line']} 行：`{(r['code'] or '').strip()}`")
+        md.append(f"- 判定行：`{r['msg'][:180]}`")
+        md.append("")
+        md.append("```")
+        md.append(b64)
+        md.append("```")
+        md.append("")
+    path = ROOT / "out" / "audit_codes.md"
+    path.write_text("\n".join(md) + "\n", encoding="utf-8")
+    print(f"wrote {path} and {len(rows)} .msch file(s) in {out_dir}")
+    return 0
+
+
+def cmd_install(args) -> int:
+    """Drop the review blueprints into the game's schematic folder."""
+    rows = load_rows()
+    verd = load_verdicts()
+    if args.rule:
+        rows = [r for r in rows if args.rule.lower() in r["rule"].lower()]
+    if args.unjudged:
+        rows = [r for r in rows if r["id"] not in verd]
+    if args.limit:
+        rows = rows[: args.limit]
+    import base64
+
+    import mschgen as G
+
+    target = Path(G.default_schematics_dir() or "")
+    if not target or not target.is_dir():
+        sys.exit(f"schematic folder not found: {target}")
+    target = target / "audit"
+    target.mkdir(parents=True, exist_ok=True)
+    n = 0
+    for r in rows:
+        b64 = _blueprint_for(r, _load_code(r))
+        (target / f"audit-{r['id']}.msch").write_bytes(base64.b64decode(b64))
+        n += 1
+    print(f"installed {n} blueprint(s) into {target}")
+    return 0
+
+
 def cmd_show(args) -> int:
     row = find_row(load_rows(), args.id)
     code = _load_code(row)
@@ -134,11 +235,21 @@ def cmd_show(args) -> int:
     print(f"where : {row['file']} ({row['x']},{row['y']}) {row.get('block')}  line {line}")
     print()
     lines = code.splitlines()
-    lo = max(1, line - args.context)
-    hi = min(len(lines), line + args.context)
+    # `line` is a STATEMENT index -- the number you would type into a `jump`.
+    # Map it to the raw line so the window can show surrounding text, then label
+    # every printed row with its statement index so the two agree.
+    stmts = _check.prepare(lines)
+    idx_of = {ln + 1: k for k, (ln, _c) in enumerate(stmts)}
+    if 0 <= line < len(stmts):
+        raw = stmts[line][0] + 1
+    else:
+        raw = max(1, min(len(lines), line + 1))
+    lo = max(1, raw - args.context)
+    hi = min(len(lines), raw + args.context)
     for i in range(lo, hi + 1):
-        mark = ">>>>" if i == line else "    "
-        print(f"{mark} {i:>4} | {lines[i - 1]}")
+        k = idx_of.get(i)
+        mark = ">>>>" if k == line else "    "
+        print(f"{mark} {k if k is not None else '-':>4} | {lines[i - 1]}")
     verdict = load_verdicts().get(row["id"])
     print()
     if verdict:
@@ -231,6 +342,23 @@ def main(argv: list[str] | None = None) -> int:
     sh.add_argument("id")
     sh.add_argument("--context", type=int, default=6)
     sh.set_defaults(fn=cmd_show)
+
+    cd = sub.add_parser("code", help="print a paste-able blueprint code holding this program")
+    cd.add_argument("id")
+    cd.add_argument("--out", default="", help="also write the .msch file here")
+    cd.set_defaults(fn=cmd_code)
+
+    cs = sub.add_parser("codes", help="write out/audit_codes.md + out/review/*.msch")
+    cs.add_argument("--rule", default="")
+    cs.add_argument("--unjudged", action="store_true")
+    cs.add_argument("--limit", type=int, default=0)
+    cs.set_defaults(fn=cmd_codes)
+
+    ins = sub.add_parser("install", help="drop the blueprints into the game's schematics/audit")
+    ins.add_argument("--rule", default="")
+    ins.add_argument("--unjudged", action="store_true")
+    ins.add_argument("--limit", type=int, default=0)
+    ins.set_defaults(fn=cmd_install)
 
     for word in VERDICT_WORDS:
         vp = sub.add_parser(word, help=f"mark a row as {word}")

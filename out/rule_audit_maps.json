@@ -1,8 +1,8 @@
 {
-  "dir": "out\\maps",
+  "dir": "F:\\OneDrive\\桌面\\AtomicStates\\out\\maps",
   "saves": 20,
   "errors": 0,
-  "total": 1626,
+  "total": 1285,
   "rules": [
     {
       "id": "unary-op-extra-operand",
@@ -10,28 +10,13 @@
       "sev": "INFO",
       "hits": 673,
       "programs": 13,
-      "share": 0.4138991389913899,
+      "share": 0.5237354085603113,
       "precision": 1.0,
       "auto": false,
       "samples": [
-        "mindustrytop-25774.msav:125,137 L72  op sqrt endl.set n.pad 1",
-        "mindustrytop-25774.msav:125,137 L77  op rand pad.instruct pad.volum n.pad",
-        "mindustrytop-25773.msav:314,228 L25  op floor fx x b"
-      ]
-    },
-    {
-      "id": "jump-to-jump-chain",
-      "kind": "heuristic",
-      "sev": "INFO",
-      "hits": 456,
-      "programs": 17,
-      "share": 0.28044280442804426,
-      "precision": 1.0,
-      "auto": false,
-      "samples": [
-        "mindustrytop-25774.msav:343,102 L8  jump 13 equal temp.i temp.j",
-        "mindustrytop-25774.msav:127,114 L4  jump 6 greaterThan silicon 70",
-        "mindustrytop-25773.msav:314,228 L2  jump 6 notEqual arc1 null"
+        "mindustrytop-25774.msav:125,137 L71  op sqrt endl.set n.pad 1",
+        "mindustrytop-25774.msav:125,137 L76  op rand pad.instruct pad.volum n.pad",
+        "mindustrytop-25773.msav:314,228 L24  op floor fx x b"
       ]
     },
     {
@@ -40,7 +25,7 @@
       "sev": "INFO",
       "hits": 243,
       "programs": 15,
-      "share": 0.14944649446494465,
+      "share": 0.18910505836575875,
       "precision": 1.0,
       "auto": false,
       "samples": [
@@ -55,13 +40,28 @@
       "sev": "INFO",
       "hits": 119,
       "programs": 10,
-      "share": 0.07318573185731857,
+      "share": 0.09260700389105059,
       "precision": 1.0,
       "auto": false,
       "samples": [
-        "mindustrytop-25559.msav:590,11 L6  status false unmoving @unit 0.1",
-        "mindustrytop-25559.msav:591,11 L6  status false unmoving @unit 0.1",
-        "mindustrytop-26053.msav:64,17 L33  sensor e b @surge-alloy"
+        "mindustrytop-25559.msav:590,11 L5  status false unmoving @unit 0.1",
+        "mindustrytop-25559.msav:591,11 L5  status false unmoving @unit 0.1",
+        "mindustrytop-26053.msav:64,17 L32  sensor e b @surge-alloy"
+      ]
+    },
+    {
+      "id": "jump-to-jump-chain",
+      "kind": "heuristic",
+      "sev": "INFO",
+      "hits": 115,
+      "programs": 5,
+      "share": 0.08949416342412451,
+      "precision": 1.0,
+      "auto": false,
+      "samples": [
+        "mindustrytop-25774.msav:6,493 L18  jump 21 always x false",
+        "mindustrytop-25774.msav:7,493 L18  jump 21 always x false",
+        "mindustrytop-24936.msav:0,118 L205  jump 209 always x false"
       ]
     },
     {
@@ -70,13 +70,13 @@
       "sev": "WARN",
       "hits": 106,
       "programs": 7,
-      "share": 0.06519065190651907,
+      "share": 0.08249027237354085,
       "precision": 1.0,
       "auto": false,
       "samples": [
-        "mindustrytop-25774.msav:127,114 L1  sensor silicon vault1 @silicon",
-        "mindustrytop-25774.msav:127,114 L2  sensor phase-fabric vault1 @phase-fabric",
-        "mindustrytop-25559.msav:389,444 L19  sensor rx1 route1 @x"
+        "mindustrytop-25774.msav:127,114 L0  sensor silicon vault1 @silicon",
+        "mindustrytop-25774.msav:127,114 L1  sensor phase-fabric vault1 @phase-fabric",
+        "mindustrytop-25559.msav:389,444 L18  sensor rx1 route1 @x"
       ]
     },
     {
@@ -85,13 +85,13 @@
       "sev": "WARN",
       "hits": 14,
       "programs": 2,
-      "share": 0.008610086100861008,
+      "share": 0.010894941634241245,
       "precision": 1.0,
       "auto": false,
       "samples": [
-        "mindustrytop-25774.msav:143,138 L10  jump 18 equal colour ender",
-        "mindustrytop-25774.msav:143,138 L10  jump 18 equal colour ender",
-        "mindustrytop-25680.msav:177,140 L31  jump -1 equal colour ender"
+        "mindustrytop-25774.msav:143,138 L9  jump 18 equal colour ender",
+        "mindustrytop-25774.msav:143,138 L9  jump 18 equal colour ender",
+        "mindustrytop-25680.msav:177,140 L30  jump -1 equal colour ender"
       ]
     },
     {
@@ -100,13 +100,13 @@
       "sev": "SUSPECT",
       "hits": 14,
       "programs": 6,
-      "share": 0.008610086100861008,
+      "share": 0.010894941634241245,
       "precision": 1.0,
       "auto": false,
       "samples": [
-        "mindustrytop-25774.msav:139,142 L2  jump 5 notEqual 单位存亡 1",
-        "mindustrytop-25559.msav:351,272 L21  jump 18 notEqual dead 1",
-        "mindustrytop-25559.msav:427,437 L131  jump 107 notEqual d 1"
+        "mindustrytop-25774.msav:139,142 L1  jump 5 notEqual 单位存亡 1",
+        "mindustrytop-25559.msav:351,272 L20  jump 18 notEqual dead 1",
+        "mindustrytop-25559.msav:427,437 L130  jump 107 notEqual d 1"
       ]
     },
     {
@@ -115,11 +115,11 @@
       "sev": "INFO",
       "hits": 1,
       "programs": 1,
-      "share": 0.0006150061500615006,
+      "share": 0.0007782101167315176,
       "precision": 1.0,
       "auto": false,
       "samples": [
-        "mindustrytop-25774.msav:125,137 L25  printflush Notification"
+        "mindustrytop-25774.msav:125,137 L24  printflush Notification"
       ]
     },
     {

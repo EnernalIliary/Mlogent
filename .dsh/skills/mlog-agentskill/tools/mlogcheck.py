@@ -618,6 +618,31 @@ def analyse(lines: list[str], links: list[str] | None = None, ipt: int = 2) -> l
                 f"`{_t[1]}` is not a label in this program, so the game turns this "
                 f"into a jump to -1, which does nothing; execution just falls through"))
 
+    # ---- 病毒逻辑 / virus logic: `ucontrol build ... @this` ---------------
+    # The last argument of `ucontrol build` is the config copied onto the new
+    # block, so passing `@this` builds a processor configured with THIS
+    # program -- one processor that builds processors that build processors.
+    # It is not an error (self-replicating factories are a real design) but it
+    # is the one line worth seeing before importing somebody else's map, and
+    # the community has a name for it, so it gets its own check instead of
+    # hiding inside the generic `ucontrol build` warnings.  `@this` reaches the
+    # config through a variable just as often as directly, so track both.
+    _this_vars = {"@this"}
+    for _i, _c in stmts:
+        if "@this" in _c:
+            _this_vars |= set(defs_of(_c))
+    for _idx, (_i, _c) in enumerate(stmts):
+        _t = _c.split()
+        if len(_t) < 5 or _t[0].lower() != "ucontrol" or _t[1].lower() != "build":
+            continue
+        if _t[-1] in _this_vars:
+            out.append(Finding(
+                "INFO", _idx, "virus-logic",
+                f"`{_t[-1]}` is this processor's own program, so the `{_t[4]}` it builds "
+                f"runs the same code and builds more -- 病毒逻辑 (virus logic), "
+                f"i.e. self-replication; check the rest of the program before importing "
+                f"the map"))
+
     # Link names are bound by the processor itself, not by an assignment, so
     # they are live from the very first statement. We also auto-detect them by
     # the game's naming rule (internal-name tail + index, e.g. message1, arc1).
@@ -855,7 +880,15 @@ def analyse(lines: list[str], links: list[str] | None = None, ipt: int = 2) -> l
         given = 1 + sum(1 for x in (a, b) if x is not None)
         if want is None:
             out.append(Finding("ERR", orig + 1, c, f"unknown op `{op}`"))
-        elif given != want:
+        elif given > want:
+            # An operator handed more operands than it reads: the game parses the
+            # extra tokens and never looks at them, so nothing goes wrong at run
+            # time. It is worth surfacing (people write `op sin y angle 90`
+            # believing the 90 means degrees) but it is not a defect.
+            out.append(Finding("INFO", orig + 1, c,
+                               f"`op {op}` reads {want - 1} operand(s); the extra "
+                               f"{given - want} token(s) are parsed and then ignored"))
+        elif given < want:
             out.append(Finding("WARN", orig + 1, c,
                                f"`op {op}` given {given} args, expects {want}"))
 

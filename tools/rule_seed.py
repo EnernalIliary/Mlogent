@@ -237,7 +237,7 @@ SEED = [
         "ref": "m14738",
         "since": "2026-10-18",
         "counter_example": "tests/cases/virus-logic-clean.mlog",
-        "match": {"sevs": ["INFO"], "msg_any": ["is itself a jump"]},
+        "match": {"sevs": ["INFO"], "msg_any": ["lands on another unconditional jump"]},
         "auto_downgrade": False,
     },
     {

@@ -208,6 +208,11 @@ SUITE: list[tuple[str, str, str | None]] = [
     ("check/reactor-unknown",  "check",   "reactor-guard-unknown.mlog"),
     ("check/reactor-impact",   "check",   "reactor-guard-impact.mlog"),
     ("check/reactor-impact-ok", "check",  "reactor-guard-impact-ok.mlog"),
+    # A finding's line number is the STATEMENT index -- the same number
+    # `jump` uses -- not the line you would count in the file. The label
+    # on line 1 of this fixture is not a statement, so a raw-line number
+    # would report 1 and 2 instead of 0 and 1.
+    ("check/label-index", "check", "label-index.mlog"),
     ("check/virus",           "check",   "virus-logic.mlog"),
     ("check/spin-deadlock",   "check",   "spin.mlog"),
     ("check/spin-handshake",  "check",   "spin-ok.mlog"),

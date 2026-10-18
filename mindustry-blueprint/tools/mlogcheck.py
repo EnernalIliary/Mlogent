@@ -614,7 +614,7 @@ def analyse(lines: list[str], links: list[str] | None = None, ipt: int = 2) -> l
             int(_t[1])
         except ValueError:
             out.append(Finding(
-                "WARN", _idx, "no-target-jump",
+                "WARN", _i + 1, "no-target-jump",
                 f"`{_t[1]}` is not a label in this program, so the game turns this "
                 f"into a jump to -1, which does nothing; execution just falls through"))
 
@@ -637,7 +637,7 @@ def analyse(lines: list[str], links: list[str] | None = None, ipt: int = 2) -> l
             continue
         if _t[-1] in _this_vars:
             out.append(Finding(
-                "INFO", _idx, "virus-logic",
+                "INFO", _i + 1, "virus-logic",
                 f"`{_t[-1]}` is this processor's own program, so the `{_t[4]}` it builds "
                 f"runs the same code and builds more -- 病毒逻辑 (virus logic), "
                 f"i.e. self-replication; check the rest of the program before importing "
@@ -866,9 +866,17 @@ def analyse(lines: list[str], links: list[str] | None = None, ipt: int = 2) -> l
             out.append(Finding("ERR", orig + 1, c,
                                f"jump target {tgt} out of range (0..{n-1})"))
             continue
-        if stmts[tgt][1].startswith("jump ") and m.group(2) != "always":
+        # Only UNCONDITIONAL into UNCONDITIONAL is a chain: then the second hop
+        # is guaranteed and one instruction is spent for nothing. A conditional
+        # jump landing on a jump is an ordinary dispatch triangle -- when the
+        # condition is false you fall through and never touch the target.
+        _hop = stmts[tgt][1].split()
+        if (m.group(2) == "always" and _hop[0].lower() == "jump"
+                and len(_hop) > 2 and _hop[2] == "always"):
             out.append(Finding("INFO", orig + 1, c,
-                               f"target {tgt} is itself a jump"))
+                               f"this jump is unconditional and lands on another "
+                               f"unconditional jump (L{tgt}), so that hop is "
+                               f"executed for nothing"))
 
     # ---- op arity ---------------------------------------------------------
     for i, (orig, c) in enumerate(stmts):
@@ -1016,7 +1024,7 @@ def analyse(lines: list[str], links: list[str] | None = None, ipt: int = 2) -> l
             f"the bound unit to this processor (UnitControlI.checkLogicAI sets "
             f"the controller), so `@controller` equals `@this` from the first "
             f"pass on and the guard is true forever -- it jumps back to "
-            f"L{stmts[tgt][0] + 1} instead of falling through, so nothing after "
+            f"L{tgt} instead of falling through, so nothing after "
             f"this line ever runs"))
 
     # ---- version gate -----------------------------------------------------
@@ -1140,6 +1148,17 @@ def analyse(lines: list[str], links: list[str] | None = None, ipt: int = 2) -> l
                 f"verdict"))
 
     # dedupe, keep order
+    # Every finding above was created against the RAW line index (orig + 1),
+    # because that is what someone counting in a text editor expects. But `jump
+    # N` counts STATEMENTS: labels and blank lines are not statements, so on any
+    # program with a label our number and the jump target disagree by the number
+    # of label lines before the row -- and a reader checking "is line 13 really a
+    # jump?" lands on the wrong line. Report the statement index instead: it is
+    # the only number that agrees with the code itself.
+    _raw_to_idx = {ln + 1: k for k, (ln, _c) in enumerate(stmts)}
+    out = [Finding(f.sev, _raw_to_idx.get(f.line, f.line), f.code, f.msg)
+           for f in out]
+
     seen, uniq = set(), []
     for f in out:
         k = (f.sev, f.line, f.msg)

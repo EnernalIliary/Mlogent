@@ -119,7 +119,7 @@
     "digest": [
       [
         "WARN",
-        2
+        1
       ]
     ]
   },
@@ -144,7 +144,7 @@
     "digest": [
       [
         "WARN",
-        2
+        1
       ]
     ]
   },
@@ -152,6 +152,20 @@
     "kind": "check",
     "case": "reactor-guard-impact-ok.mlog",
     "digest": []
+  },
+  "check/label-index": {
+    "kind": "check",
+    "case": "label-index.mlog",
+    "digest": [
+      [
+        "INFO",
+        0
+      ],
+      [
+        "INFO",
+        1
+      ]
+    ]
   },
   "check/virus": {
     "kind": "check",
@@ -169,7 +183,7 @@
     "digest": [
       [
         "ERR",
-        4
+        3
       ]
     ]
   },
