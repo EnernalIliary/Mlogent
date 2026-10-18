@@ -1,0 +1,96 @@
+# 着陆板资源调度:6 个着陆板都请求「核心最少的那个资源」
+# 优先用链接 core1;没链接就用 ubind + ulocate 找核心
+set by:DeepSeek 1
+sensor probe core1 @copper
+jump havecore notEqual probe null
+ubind @flare
+ulocate building core false @copper cx cy found core1
+jump nocore equal found 0
+havecore:
+set best @copper
+sensor mn core1 @copper
+sensor n core1 @lead
+jump s1 greaterThanEq n mn
+set mn n
+set best @lead
+s1:
+sensor n core1 @graphite
+jump s2 greaterThanEq n mn
+set mn n
+set best @graphite
+s2:
+sensor n core1 @silicon
+jump s3 greaterThanEq n mn
+set mn n
+set best @silicon
+s3:
+sensor n core1 @metaglass
+jump s4 greaterThanEq n mn
+set mn n
+set best @metaglass
+s4:
+sensor n core1 @titanium
+jump s5 greaterThanEq n mn
+set mn n
+set best @titanium
+s5:
+sensor n core1 @thorium
+jump s6 greaterThanEq n mn
+set mn n
+set best @thorium
+s6:
+sensor n core1 @plastanium
+jump s7 greaterThanEq n mn
+set mn n
+set best @plastanium
+s7:
+sensor n core1 @phase-fabric
+jump s8 greaterThanEq n mn
+set mn n
+set best @phase-fabric
+s8:
+sensor n core1 @surge-alloy
+jump s9 greaterThanEq n mn
+set mn n
+set best @surge-alloy
+s9:
+sensor n core1 @spore-pod
+jump s10 greaterThanEq n mn
+set mn n
+set best @spore-pod
+s10:
+sensor n core1 @blast-compound
+jump s11 greaterThanEq n mn
+set mn n
+set best @blast-compound
+s11:
+sensor n core1 @pyratite
+jump s12 greaterThanEq n mn
+set best @pyratite
+s12:
+sensor cur pad1 @config
+jump wpad1 strictEqual cur best
+control config pad1 best
+wpad1:
+sensor cur pad2 @config
+jump wpad2 strictEqual cur best
+control config pad2 best
+wpad2:
+sensor cur pad3 @config
+jump wpad3 strictEqual cur best
+control config pad3 best
+wpad3:
+sensor cur pad4 @config
+jump wpad4 strictEqual cur best
+control config pad4 best
+wpad4:
+sensor cur pad5 @config
+jump wpad5 strictEqual cur best
+control config pad5 best
+wpad5:
+sensor cur pad6 @config
+jump wpad6 strictEqual cur best
+control config pad6 best
+wpad6:
+nocore:
+end
