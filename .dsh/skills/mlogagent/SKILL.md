@@ -33,6 +33,12 @@ python tools/mlogagent.py info --verify                # 校验 MANIFEST.sha256
 
 `VERDICT` 那行是结论摘要；末尾的「先看这里」按上表强弱排序，只指一个地方。
 
+**报告的基线是 build 146**（7.0 Build 146，2023-09-04，v7 首个正式版）：基线里就有的
+语句（`effect`、`sync`、`ucontrol autoPathfind`、按名字 `read`/`write` 处理器或 message、
+内容 ID 传感器）**永不报告**；只有**比基线新**的才报。判据是 `floor > 146`
+（`mlogcheck.BASELINE_BUILD`），不是 `>= 147` —— 换句话说，闸门回答的是
+「这份逻辑比 v7 基线新多少」，不是「是不是 v7」。
+
 ## 死存储必须分层读
 
 `ir` 默认只报 `reported` 层，其余三层计数后隐藏（`--all` 才列出）：

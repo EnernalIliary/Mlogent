@@ -314,6 +314,14 @@ SPECS = _load_specs()
 #: citable release note are listed (see `mindustry-blueprint/BUILDS.md`); everything
 #: else is assumed to exist since the v7 baseline (146), which is where most of the
 #: player base sat for a year.
+#: The reporting baseline: build 146, the first *released* v7 build (7.0 Build
+#: 146, 2023-09-04) -- where most of the player base sat for a year. A statement
+#: that exists there is part of the baseline and is never reported; only
+#: statements added *after* it can make a blueprint un-runnable for someone.
+#: Kept as a constant so the rule reads as "newer than the baseline", not as a
+#: magic 147.
+BASELINE_BUILD = 146
+
 MIN_BUILD: dict[str, int] = {
     k: v["min_build"] for k, v in SPECS.items() if isinstance(v.get("min_build"), int)
 }
@@ -323,7 +331,8 @@ def build_floor(stmts: list[tuple[int, str]]) -> tuple[int, list[str]]:
     """Oldest vanilla build that understands every statement here, plus which ones.
 
     A schematic has no version field, so this is inferred from the statements it
-    uses. Returns `(0, [])` when everything is pre-147, i.e. nothing to say.
+    uses. Anything at or below BASELINE_BUILD is "always there" and returns
+    `(0, [])`, i.e. nothing to say.
     """
     floor, users = 0, []
     for _, c in stmts:
@@ -806,7 +815,7 @@ def analyse(lines: list[str], links: list[str] | None = None) -> list[Finding]:
 
     # ---- version gate -----------------------------------------------------
     floor, users = build_floor(stmts)
-    if floor >= 147:
+    if floor > BASELINE_BUILD:
         who = ", ".join(sorted(set(users)))
         out.append(Finding(
             "INFO", 0, "",
@@ -816,7 +825,7 @@ def analyse(lines: list[str], links: list[str] | None = None) -> list[Finding]:
     noop_lines = [orig + 1 for orig, c in stmts
                   if c.strip() and c.split()[0].lower() == "noop"]
     if noop_lines:
-        if floor >= 147:
+        if floor > BASELINE_BUILD:
             # The generic noop ERR already fired; replace it instead of stacking a
             # second finding on the same line -- the point is one conclusion, not
             # two overlapping ones.
