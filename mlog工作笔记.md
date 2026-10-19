@@ -3040,3 +3040,5 @@ F:\OneDrive\桌面\AtomicStates\mindustry-blueprint\                ← 开发�
 - 第 56 次整理：按用户判定删掉 `@dead` 极性规则（11/11 全错）。方法论：「一条规则的 claim 如果写不出一句不含『如果』的判据，它就不该存在」——这条的 claim 缺了「且比较值是 1」，而那一步我根本没解析。
 
 - 第 57 次整理：作者通读 86 行全部判 ok（20 张社区地图、7 类规则零假阳性）。方法论：「精确率 100% 只说明这批语料上没假阳性，不说明规则的证明是对的」——样本换了就要重跑。唯一被整条删掉的 `@dead` 极性规则记在 §15.48。
+
+- 第 58 次整理：**真执行器跑通了**（`tools/mlogsim.py`）。不装 JDK、不编译、不做 mod：起官方 `server-release.jar`，用控制台自带的 `js`（Rhino）放方块、`updateCode`、手动逐条 `runOnce()`，再读回 `LExecutor.vars` 与 `textBuffer`。当前默认 **v159.3 server jar + Temurin JRE 21**（Steam 的 jlink 运行时缺 `java.logging`，v159 起不来；v146 的 9.6 MB jar 用 Steam jre 就能跑）。`p1`–`p8` 在 v159 上与 mindcode 模拟器结论全部一致，`_sim_a.mlog` 10 步得 `result=43 / print 4343`，`p8-cross.msch` 得 `a=7 / b=null / c=null`。三个必须记住的坑：①**v146 的 `LogicBlock.LogicBuild` 没有 `readable/read`**，跨处理器按名读恒 null —— p8 在 v146 的 null 是版本缺功能，不是驱动 bug；②世界 `pause` 后 `updateTile` 不跑，`executor.team` 停在 `Team.derelict`，跨处理器读会因 team 不等全 null，必须手动 `b.executor.team = Team.sharded`；③Java 子进程不能写 `%TEMP%`（`config\rules.hjson (拒绝访问。)`），workdir 必须放 `out/_sim` 并预建 `config/logs`。方法论：**模拟器的结论要拿真执行器复核一遍，因为「语言层一致」不代表「世界层一致」——而版本差异会伪装成你的驱动 bug。**

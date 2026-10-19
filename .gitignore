@@ -1,6 +1,9 @@
-﻿# 上游源码树：各自带独立的 .git，本仓库不跟踪（需要时用 submodule）
+# 上游源码树：各自带独立的 .git，本仓库不跟踪（需要时用 submodule）
 /Mindustry-Source/
 /Arc-Source/
+
+# server runtime data if a headless server is started from the repo root
+/config/
 
 # 生成物与垃圾
 /out/npmcache/
