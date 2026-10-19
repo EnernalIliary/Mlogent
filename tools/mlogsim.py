@@ -20,6 +20,21 @@ For a schematic every tile is placed, every logic block is compiled with its
 named links, and the logic blocks are stepped in schematic order (so a
 two-processor cross-read behaves like the save it came from).
 
+World simulation (`--ticks` only; `--steps` stays pure logic stepping):
+
+    --update all    (default for --ticks) every building is updated each tick,
+                    so factories, conveyors, drills, power and turrets run
+    --update none   logic only; buildings stay frozen
+
+`--update all` snapshots Groups.build, skips processors (the step loop drives
+those), pins every consumer's `power.status` to 1.0 (`--power full`, default;
+`--power none` pins 0.0), and sets `state` to playing for the duration of the
+loop only -- otherwise `Building.update()`/`updateConsumption()` no-op, and
+the server's own frame loop never gets a chance to advance the world.
+
+Units spawned with `--units` are still static: they can be sensed, not moved.
+Power graphs are not simulated; `--power` is the hook reserved for that.
+
 Default runtime is the newest local pair, overridable with env vars:
     MLOGSIM_JAR   (default: out/_server159.jar, then out/_server146.jar)
     MLOGSIM_JAVA  (default: out/jre21/.../java.exe, then the Steam jre)
@@ -280,7 +295,28 @@ print("UNITS\t" + made);
 '''
 
 
-def _loop_js(obj: str, steps: int, ticks: bool) -> str:
+WORLD_JS = r'''
+var GS = Packages.mindustry.core.GameState; var ST = GS.State;
+var GB = Packages.mindustry.gen.Groups.build;
+/* Snapshot first: update() may add/remove buildings and shift the group. */
+function worldTick(){
+    var arr = [];
+    for(var k = 0; k < GB.size(); k++){ arr.push(GB.index(k)); }
+    for(var k = 0; k < arr.length; k++){
+        var w = arr[k];
+        if(w.block.name.indexOf("processor") >= 0) continue;
+        if(w.power != null) w.power.status = %(power)s;
+        w.update();
+    }
+}
+'''
+
+
+def _world_js(power: float) -> str:
+    return WORLD_JS % {"power": power}
+
+
+def _loop_js(obj: str, steps: int, ticks: bool, update: str = "none", power: float = 1.0) -> str:
     """Instruction mode steps the executor directly; tick mode drives updateTile.
 
     In tick mode Time.delta must be 1.0: edelta() = delta * timeScale feeds the
@@ -289,13 +325,19 @@ def _loop_js(obj: str, steps: int, ticks: bool) -> str:
     """
     if ticks:
         # advance the global clock too: @time/@tick/@second/@mapw come from
-        # GlobalVars.update(), which only runs inside State.update()
-        return ("Time.delta = 1.0; for(var i = 0; i < %d; i++){"
-                " Vars.state.tick++; Vars.logicVars.update(); %s.updateTile(); }" % (steps, obj))
+        # GlobalVars.update(), which only runs inside State.update().
+        # state must be playing or Building.update()/updateConsumption() no-op;
+        # it is restored in finally so no frame ever runs the game for real.
+        world = _world_js(power) + "worldTick();" if update == "all" else ""
+        return ("var GS = Packages.mindustry.core.GameState; var ST = GS.State;"
+                "Vars.state.set(ST.playing); Time.delta = 1.0;"
+                "try{ for(var i = 0; i < %d; i++){"
+                " Vars.state.tick++; Vars.logicVars.update(); %s %s.updateTile(); }"
+                " } finally { Vars.state.set(ST.paused); }" % (steps, world, obj))
     return "for(var i = 0; i < %d; i++){ %s.executor.runOnce(); }" % (steps, obj)
 
 
-def _scene_loop_js(steps: int, ticks: bool) -> str:
+def _scene_loop_js(steps: int, ticks: bool, update: str = "none", power: float = 1.0) -> str:
     """Same, but tick every processor together so cross-reads see one world.
 
     A scene has N processors, so the tick loop must nest: outer ticks, inner
@@ -303,9 +345,13 @@ def _scene_loop_js(steps: int, ticks: bool) -> str:
     let one processor run far ahead of the other.
     """
     if ticks:
-        return ("Time.delta = 1.0; for(var t = 0; t < %d; t++){"
-                " Vars.state.tick++; Vars.logicVars.update();"
-                " for(var j = 0; j < procs.length; j++){ procs[j].updateTile(); } }" % steps)
+        world = _world_js(power) + "worldTick();" if update == "all" else ""
+        return ("var GS = Packages.mindustry.core.GameState; var ST = GS.State;"
+                "Vars.state.set(ST.playing); Time.delta = 1.0;"
+                "try{ for(var t = 0; t < %d; t++){"
+                " Vars.state.tick++; Vars.logicVars.update(); %s"
+                " for(var j = 0; j < procs.length; j++){ procs[j].updateTile(); } }"
+                " } finally { Vars.state.set(ST.paused); }" % (steps, world))
     return ("for(var i = 0; i < procs.length; i++){"
             " for(var k = 0; k < %d; k++){ procs[i].executor.runOnce(); } }" % steps)
 
@@ -338,7 +384,8 @@ def parse_results(lines: list[str]) -> list[dict]:
     return recs
 
 
-def run_mlog(srv: Server, name: str, code: str, steps: int, ticks: bool = False) -> dict:
+def run_mlog(srv: Server, name: str, code: str, steps: int, ticks: bool = False,
+             update: str = "none", power: float = 1.0) -> dict:
     # a fresh processor keeps textBuffer/vars from leaking between programs
     srv.js(place_js(*srv.base))
     fd, path = tempfile.mkstemp(suffix=".mlog", dir=srv.workdir, text=True)
@@ -347,18 +394,20 @@ def run_mlog(srv: Server, name: str, code: str, steps: int, ticks: bool = False)
         with open(path, "w", encoding="utf-8", newline="\n") as f:
             f.write(code)
         js = STEP_JS % {"path": path.replace("\\", "/"), "x": srv.base[0], "y": srv.base[1],
-                        "loop": _loop_js("b", steps, ticks)}
+                        "loop": _loop_js("b", steps, ticks, update, power)}
         recs = parse_results(srv.js(js))
         rec = recs[0] if recs else {"vars": {}, "counter": None, "text": ""}
         rec["name"] = name
         rec["steps"] = steps
         rec["mode"] = "tick" if ticks else "instruction"
+        rec["update"] = update
         return rec
     finally:
         os.unlink(path)
 
 
-def run_msch(srv: Server, name: str, path: str, steps: int, ticks: bool = False) -> list[dict]:
+def run_msch(srv: Server, name: str, path: str, steps: int, ticks: bool = False,
+             update: str = "none", power: float = 1.0) -> list[dict]:
     sys.path.insert(0, TOOLS)
     import msch  # noqa: E402
 
@@ -381,12 +430,13 @@ def run_msch(srv: Server, name: str, path: str, steps: int, ticks: bool = False)
                 for l in t.logic.links
             ]
         tiles.append(entry)
-    js = SCENE_JS % {"tiles": json.dumps(tiles), "loop": _scene_loop_js(steps, ticks)}
+    js = SCENE_JS % {"tiles": json.dumps(tiles), "loop": _scene_loop_js(steps, ticks, update, power)}
     recs = parse_results(srv.js(js, timeout=180))
     for r in recs:
         r["name"] = name
         r["steps"] = steps
         r["mode"] = "tick" if ticks else "instruction"
+        r["update"] = update
     return recs
 
 
@@ -406,11 +456,17 @@ def main(argv=None):
                     help="JS run once after the world exists: set rules, seed blocks")
     ap.add_argument("--units", metavar="NAME[:N],...", default=None,
                     help="spawn units near the processor as team sharded, e.g. flare:3,poly:1")
+    ap.add_argument("--update", choices=["none", "all"], default=None,
+                    help="world update per tick: all = every building (default in --ticks mode), none = logic only")
+    ap.add_argument("--power", choices=["full", "none"], default="full",
+                    help="for --update all: pin every consumer's power.status (default full = 100% power)")
     ap.add_argument("--json", action="store_true")
     args = ap.parse_args(argv)
 
     ticks = args.ticks is not None
     steps = args.ticks if ticks else (args.steps if args.steps is not None else 200)
+    update = args.update if args.update is not None else ("all" if ticks else "none")
+    power = 1.0 if args.power == "full" else 0.0
 
     if not os.path.exists(args.jar):
         sys.exit(f"missing server jar: {args.jar}")
@@ -437,13 +493,13 @@ def main(argv=None):
             srv.js(UNIT_JS % {"spec": json.dumps(spec), "x": srv.base[0], "y": srv.base[1]})
         for f in args.files:
             if f.lower().endswith(".msch"):
-                results.extend(run_msch(srv, os.path.basename(f), f, steps, ticks))
+                results.extend(run_msch(srv, os.path.basename(f), f, steps, ticks, update, power))
             else:
                 # utf-8-sig: PowerShell's `Set-Content -Encoding utf8` prepends a BOM,
                 # and the parser turns a BOM-prefixed first line into a noop
                 with open(f, encoding="utf-8-sig") as fh:
                     code = fh.read()
-                results.append(run_mlog(srv, os.path.basename(f), code, steps, ticks))
+                results.append(run_mlog(srv, os.path.basename(f), code, steps, ticks, update, power))
     except FileNotFoundError as e:
         sys.exit(f"missing input: {e.filename}")
     except SimError as e:
@@ -467,6 +523,8 @@ def main(argv=None):
             if r["text"]:
                 print(f"  print: {r['text']}")
             print(f"  @counter = {r['counter']}  ipt = {r.get('ipt')}  acc = {r.get('accumulator')}")
+            if r.get("mode") == "tick":
+                print(f"  world = {r.get('update')}  power = {'full' if power else 'none'}")
             if r.get("skipped"):
                 print(f"  skipped: {', '.join(r['skipped'])}")
     return 0
