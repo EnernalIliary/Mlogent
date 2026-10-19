@@ -23,6 +23,7 @@ import re
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import mlogsearch as M
 
 # Mirror of mindustry.logic.LogicOp -- unary entries use an OpLambda1 ctor.

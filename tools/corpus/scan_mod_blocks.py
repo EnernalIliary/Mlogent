@@ -18,6 +18,7 @@ import sys
 import zipfile
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from classdump import parse, code_bytes  # noqa: E402
 
 MODS = r"C:\Users\lliary\AppData\Roaming\Mindustry\mods"

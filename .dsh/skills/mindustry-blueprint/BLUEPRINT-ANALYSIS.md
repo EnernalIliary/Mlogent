@@ -42,10 +42,10 @@
 
 ```
 ① 解析       tools/msch.py          → 624/625 成功
-② 分类       tools/analyze_logic.py → 剔除 18 个像素画
-③ 排名       tools/rank_logic.py    → 按"游戏逻辑指令数"排序
-④ 挖模式     tools/mine_idioms.py   → 归一化 n-gram
-⑤ 静态检查   tools/check_ops.py     → 找出 567 处参数错误
+② 分类       tools/corpus/analyze_logic.py → 剔除 18 个像素画
+③ 排名       tools/corpus/rank_logic.py    → 按"游戏逻辑指令数"排序
+④ 挖模式     tools/corpus/mine_idioms.py   → 归一化 n-gram
+⑤ 静态检查   tools/corpus/check_ops.py     → 找出 567 处参数错误
 ```
 
 **② 的分类判据**（写死的启发式，可复现）：
@@ -1812,7 +1812,7 @@ set c3 "[#0000ff]"
 
 | # | 问题 | 位置 | 影响 | 严重度 |
 |---|---|---|---|---|
-| 1 | **567 处一元运算写成三元** | 全语料 | 这些行不按意图执行。跑 `tools/check_ops.py` 逐个修 | 🔴 高 |
+| 1 | **567 处一元运算写成三元** | 全语料 | 这些行不按意图执行。跑 `tools/corpus/check_ops.py` 逐个修 | 🔴 高 |
 | 2 | `dx + dy` 当距离 | `ILI集火逻辑` `ILI集火逻辑(小)` 等 | 判定在某些方向上完全错误（异号时可得到 0）。改用 `op len` | 🔴 高 |
 | 3 | `@pingX` 用 `equal null` 判空 | `ILI集火逻辑` | **死判断**，会下发 NaN 坐标。改用 `strictEqual px px` | 🔴 高 |
 | 4 | `jump 0 equal @unit null` 死循环 | `多单位搬运` `僚机程序` 等 | 没单位时烧光 ipt。加 `wait` 节流 | 🟠 中 |
@@ -1842,7 +1842,7 @@ set c3 "[#0000ff]"
 
 ```bash
 # 找出所有参数个数错误的 op（最重要的一条）
-python tools/check_ops.py
+python tools/corpus/check_ops.py
 
 # 搜索所有用魔法数字做 flag 的地方
 python tools/mlogsearch.py grep "ucontrol flag [0-9]+" --context 1

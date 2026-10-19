@@ -17,10 +17,10 @@ import time
 from collections import Counter
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "mindustry-blueprint" / "tools"))
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "mindustry-blueprint" / "tools"))
 
 SAVES = Path.home() / "AppData/Roaming/Mindustry/saves"
-OUT = Path(__file__).resolve().parents[1] / "out" / "saves_scan.json"
+OUT = Path(__file__).resolve().parents[2] / "out" / "saves_scan.json"
 
 
 def scan_one(path_str: str) -> dict:

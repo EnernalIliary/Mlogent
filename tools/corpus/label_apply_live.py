@@ -25,7 +25,7 @@ import sys
 import time
 
 HERE = pathlib.Path(__file__).resolve().parent
-ROOT = HERE.parent
+ROOT = HERE.parent.parent
 sys.path.insert(0, str(ROOT / "mindustry-blueprint" / "tools"))
 sys.path.insert(0, str(HERE))
 import msch  # noqa: E402

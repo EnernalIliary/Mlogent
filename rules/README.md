@@ -68,7 +68,7 @@ python tools/rule_audit.py --apply        # 把实测数字写回 rules/*.json
 - `rule_capture.py` 无法读聊天记录。它只能把**已经写成一句话**的纠正落成文件；
   「我意识到用户刚才否掉了什么」这一步仍然是手动的。
 - R3（源码差分）、R4（与 mindcode 模拟器对拍）、R5（覆盖挖掘）还没实现，
-  但零件都有：`tools/_sweep_saves.py`（分桶）、`C:\Users\lliary\src\mindcode-dist\mindcode.jar`（第二实现）。
+  但零件都有：`tools/corpus/_sweep_saves.py`（分桶）、`C:\Users\lliary\src\mindcode-dist\mindcode.jar`（第二实现）。
 
 ## 审计之后改过的
 

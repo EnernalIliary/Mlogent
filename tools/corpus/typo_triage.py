@@ -5,7 +5,7 @@ import re
 import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "mindustry-blueprint" / "tools"))
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "mindustry-blueprint" / "tools"))
 
 import mlogcheck as C
 import msch

@@ -311,9 +311,9 @@ schematic 里 Stile 存的是方块的**中心格**,不是左上角。**已双�
 留出集精确率 ≥70%:
 
 ```bash
-python tools/label_auto.py                      # 学习规则 + 留出集报表
-python tools/label_auto.py --suggest F.msch      # 只输出可信建议(附依据与精确率)
-python tools/label_auto.py --apply F.msch --out DIR   # 写回副本,不动原件
+python tools/corpus/label_auto.py                      # 学习规则 + 留出集报表
+python tools/corpus/label_auto.py --suggest F.msch      # 只输出可信建议(附依据与精确率)
+python tools/corpus/label_auto.py --apply F.msch --out DIR   # 写回副本,不动原件
 ```
 
 `数量` / `品质` / `系列` / `无线` / `火控` 这类量不出精确率的值不会出现在建议里 ——
@@ -577,7 +577,7 @@ python tools/mlog.py map <save.msav> --code 3            # 每块再打前 3 行
 ### 全量体检（1421 个存档）
 
 `mlog.py map` 一次读一个文件。要看**所有**存档，先按源码哈希去重再跑静态检查
-（`tools/_sweep_analyse.py`）：1421 个存档、103,787 个处理器，去重后只有
+（`tools/corpus/_sweep_analyse.py`）：1421 个存档、103,787 个处理器，去重后只有
 **4,366 份不同的程序**（95.8% 是同一段代码的副本）——所以报告里所有比率的分母
 都是「不同的程序」，不是「处理器」。
 
@@ -590,8 +590,8 @@ python tools/mlog.py map <save.msav> --code 3            # 每块再打前 3 行
 ## 批量跑语料(并行)
 
 ```powershell
-python tools\_sweep_saves.py              # 1,421 个存档：34 秒
-python tools\_sweep_analyse.py            # 加六种分析：127 秒
+python tools\corpus\_sweep_saves.py              # 1,421 个存档：34 秒
+python tools\corpus\_sweep_analyse.py            # 加六种分析：127 秒
 python mindustry-blueprint\tools\parallel.py --items 1421   # 先看它会开几个 worker、为什么
 ```
 

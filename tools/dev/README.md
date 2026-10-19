@@ -7,5 +7,5 @@
 
 - 这些脚本**不保证还能跑**：它们写死了 `Path(__file__).resolve().parents[1]` 之类的仓库根假设，挪深一层后路径会指到 `tools/`。要用的话先把根路径改回 `parents[2]`。
 - 不要从这里 import，也不要把它当接口；稳定实现都在 `tools/` 顶层。
-- 带有记录价值的四个语料脚本仍然留在 `tools/` 顶层，被 SKILL/笔记引用：`_sweep_saves.py`、`_sweep_analyse.py`、`_label_programs.py`、`_err_table.py`。
+- 语料分析脚本在 `tools/corpus/`，不在本目录：`_sweep_saves.py`、`_sweep_analyse.py`、`_label_programs.py`、`_err_table.py` 等。
 - 目录内容默认被 `.gitignore` 忽略；要保留某个脚本请 `git add -f`。

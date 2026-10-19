@@ -1863,7 +1863,7 @@ control enabled 核电 0 0 0 0       # 不足则停机
 
 ## 11.1 一元运算写成三元 —— **全语料 567 处**
 
-这不是个别失误，而是**整个语料里最大的一类系统性错误**。我用 [tools/check_ops.py](tools/check_ops.py) 扫了全部 1081 个真实逻辑块，找出所有"参数个数和运算元数不匹配"的 `op` 行：
+这不是个别失误，而是**整个语料里最大的一类系统性错误**。我用 [tools/corpus/check_ops.py](tools/corpus/check_ops.py) 扫了全部 1081 个真实逻辑块，找出所有"参数个数和运算元数不匹配"的 `op` 行：
 
 | 运算 | 错误写法 | 正确参数数 | 出现次数 |
 |---|---|---|---|
@@ -1954,7 +1954,7 @@ if(op.unary){
 **顺手排查你自己的代码**：
 
 ```bash
-python tools/check_ops.py
+python tools/corpus/check_ops.py
 ```
 
 ## 11.2 "距离"算成了 `dx + dy`
@@ -2346,11 +2346,11 @@ python tools/mlogsearch.py top 30
 
 ```bash
 python tools/msch.py "某个蓝图.msch"     # 单文件验证解析
-python tools/scan_all.py                 # 全部蓝图解析覆盖率
-python tools/extract_logic.py            # 重新导出 by-blueprint/
-python tools/analyze_logic.py            # 像素画/真实逻辑分类
-python tools/rank_logic.py               # 重新排名
-python tools/mine_idioms.py              # 重新挖惯用法
+python tools/corpus/scan_all.py                 # 全部蓝图解析覆盖率
+python tools/corpus/extract_logic.py            # 重新导出 by-blueprint/
+python tools/corpus/analyze_logic.py            # 像素画/真实逻辑分类
+python tools/corpus/rank_logic.py               # 重新排名
+python tools/corpus/mine_idioms.py              # 重新挖惯用法
 python tools/mlogsearch.py --refresh stats   # 刷新检索缓存
 ```
 
@@ -2360,7 +2360,7 @@ python tools/mlogsearch.py --refresh stats   # 刷新检索缓存
 
 ```bash
 # 扫描所有 op 行的参数个数是否和运算元数匹配（找出 567 处错误）
-python tools/check_ops.py
+python tools/corpus/check_ops.py
 
 # 检查任一 .jar 里某个字段被赋成了什么常量（用于查 mod 是否改了游戏参数）
 python tools/classdump.py "某个mod.jar" "mindustry/world/blocks/logic/LogicBlock.class"

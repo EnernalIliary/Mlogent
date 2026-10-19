@@ -49,8 +49,8 @@ python tools/mlogagent.py info --verify                # 校验 MANIFEST.sha256
 批量与并行：
 
 ```powershell
-python tools\_sweep_saves.py        # 1,421 个存档：34 秒
-python tools\_sweep_analyse.py      # 加六种分析：127 秒
+python tools\corpus\_sweep_saves.py        # 1,421 个存档：34 秒
+python tools\corpus\_sweep_analyse.py      # 加六种分析：127 秒
 python mindustry-blueprint\tools\parallel.py --items 1421   # 它会开几个 worker、为什么
 ```
 
@@ -270,7 +270,7 @@ python tools/mlog.py map <save.msav> --code 3            # 每块再打前 3 行
 ### 全量体检（1421 个存档）
 
 `mlog.py map` 一次读一个文件。要看**所有**存档，先按源码哈希去重再跑静态检查
-（`tools/_sweep_analyse.py`）：1421 个存档、103,787 个处理器，去重后只有
+（`tools/corpus/_sweep_analyse.py`）：1421 个存档、103,787 个处理器，去重后只有
 **4,366 份不同的程序**（95.8% 是同一段代码的副本）——所以报告里所有比率的分母
 都是「不同的程序」，不是「处理器」。
 
@@ -296,8 +296,8 @@ python tools/mlog.py map <save.msav> --code 3            # 每块再打前 3 行
 ### 批量跑语料
 
 ```powershell
-python tools\_sweep_saves.py              # 1,421 个存档：34 秒
-python tools\_sweep_analyse.py            # 加六种分析：127 秒
+python tools\corpus\_sweep_saves.py              # 1,421 个存档：34 秒
+python tools\corpus\_sweep_analyse.py            # 加六种分析：127 秒
 python mindustry-blueprint\tools\parallel.py --items 1421   # 先看它会开几个 worker、为什么
 ```
 

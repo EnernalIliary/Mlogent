@@ -14,7 +14,7 @@ import sys
 import pathlib
 
 HERE = pathlib.Path(__file__).resolve().parent
-ROOT = HERE.parent
+ROOT = HERE.parent.parent
 sys.path.insert(0, str(ROOT / "mindustry-blueprint" / "tools"))
 import msch  # noqa: E402
 

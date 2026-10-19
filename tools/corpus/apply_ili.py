@@ -11,7 +11,7 @@ import sys
 import time
 
 sys.path.insert(0, "mindustry-blueprint/tools")
-sys.path.insert(0, "tools")
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 import msch  # noqa: E402
 import label_auto as L  # noqa: E402
 import label_apply_live as LIVE  # noqa: E402
