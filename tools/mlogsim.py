@@ -161,8 +161,9 @@ b.code = s;
 b.updateCode(s);
 /* updateTile() copies the team in; paused world never runs it */
 b.executor.team = Packages.mindustry.game.Team.sharded;
-b.accumulator = -1000000;
-for(var i = 0; i < %(steps)d; i++){ b.executor.runOnce(); }
+/* a block placed via setBlock keeps efficiency 0 until updateEfficiency runs */
+b.efficiency = 1;
+%(loop)s
 print("@@BEGIN");
 var vs = b.executor.vars;
 for(var i = 0; i < vs.length; i++){
@@ -171,6 +172,8 @@ for(var i = 0; i < vs.length; i++){
     print("VAR\t" + v.name + "\t" + val);
 }
 print("COUNTER\t" + b.executor.counter.numval);
+print("IPT\t" + b.executor.ipt.numval);
+print("ACC\t" + b.accumulator);
 print("TEXT\t" + String(b.executor.textBuffer.toString()).replace(/\n/g, "\\n"));
 print("@@END");
 '''
@@ -201,13 +204,11 @@ for(var i = 0; i < tiles.length; i++){
     b.updateCode(b.code);
     /* updateTile() copies the team in; paused world never runs it */
     b.executor.team = team;
-    b.accumulator = -1000000;
+    b.efficiency = 1;
     procs.push(b);
 }
 print("PROCS\t" + procs.length);
-for(var i = 0; i < procs.length; i++){
-    for(var k = 0; k < %(steps)d; k++){ procs[i].executor.runOnce(); }
-}
+%(loop)s
 for(var i = 0; i < procs.length; i++){
     var b = procs[i];
     print("@@BEGIN\t" + b.tileX() + "," + b.tileY());
@@ -218,10 +219,63 @@ for(var i = 0; i < procs.length; i++){
         print("VAR\t" + v.name + "\t" + val);
     }
     print("COUNTER\t" + b.executor.counter.numval);
+    print("IPT\t" + b.executor.ipt.numval);
+    print("ACC\t" + b.accumulator);
     print("TEXT\t" + String(b.executor.textBuffer.toString()).replace(/\n/g, "\\n"));
     print("@@END");
 }
 '''
+
+UNIT_JS = r'''
+var spec = %(spec)s;            /* [[name, count], ...] */
+var team = Packages.mindustry.game.Team.sharded;
+Vars.state.rules.logicUnitControl = true;
+var made = 0;
+for(var s = 0; s < spec.length; s++){
+    var name = spec[s][0], n = spec[s][1];
+    var ut = null;
+    for(var i = 0; i < Vars.content.units().size; i++){
+        var t = Vars.content.units().get(i);
+        if(t.name == name){ ut = t; break; }
+    }
+    if(ut == null){ print("NOUNIT\t" + name); continue; }
+    for(var k = 0; k < n; k++){
+        var wx = %(x)d * 8 + 16 + (k %% 5) * 12;
+        var wy = %(y)d * 8 + 16 + ((k / 5) | 0) * 12;
+        ut.spawn(team, wx, wy);
+        made++;
+    }
+}
+/* paused world never runs Teams.updateTeamStats, so ubind would see no units */
+Vars.state.teams.updateTeamStats();
+print("UNITS\t" + made);
+'''
+
+
+def _loop_js(obj: str, steps: int, ticks: bool) -> str:
+    """Instruction mode steps the executor directly; tick mode drives updateTile.
+
+    In tick mode Time.delta must be 1.0: edelta() = delta * timeScale feeds the
+    accumulator (ipt per tick) and WaitI adds Time.delta/60 per execution, so
+    1.0 is the value that makes 60 ticks equal one second.
+    """
+    if ticks:
+        return "Time.delta = 1.0; for(var i = 0; i < %d; i++){ %s.updateTile(); }" % (steps, obj)
+    return "for(var i = 0; i < %d; i++){ %s.executor.runOnce(); }" % (steps, obj)
+
+
+def _scene_loop_js(steps: int, ticks: bool) -> str:
+    """Same, but tick every processor together so cross-reads see one world.
+
+    A scene has N processors, so the tick loop must nest: outer ticks, inner
+    processors. Iterating each processor for `steps` ticks in isolation would
+    let one processor run far ahead of the other.
+    """
+    if ticks:
+        return ("Time.delta = 1.0; for(var t = 0; t < %d; t++){"
+                " for(var j = 0; j < procs.length; j++){ procs[j].updateTile(); } }" % steps)
+    return ("for(var i = 0; i < procs.length; i++){"
+            " for(var k = 0; k < %d; k++){ procs[i].executor.runOnce(); } }" % steps)
 
 
 def parse_results(lines: list[str]) -> list[dict]:
@@ -230,7 +284,8 @@ def parse_results(lines: list[str]) -> list[dict]:
     cur = None
     for ln in lines:
         if ln.startswith("@@BEGIN"):
-            cur = {"label": ln.split("\t", 1)[1] if "\t" in ln else "", "vars": {}, "counter": None, "text": "", "skipped": []}
+            cur = {"label": ln.split("\t", 1)[1] if "\t" in ln else "", "vars": {}, "counter": None,
+                   "ipt": None, "accumulator": None, "text": "", "skipped": []}
             recs.append(cur)
         elif ln.startswith("@@END"):
             cur = None
@@ -242,12 +297,16 @@ def parse_results(lines: list[str]) -> list[dict]:
                 cur["vars"][k] = v
             elif ln.startswith("COUNTER\t"):
                 cur["counter"] = float(ln.split("\t", 1)[1])
+            elif ln.startswith("IPT\t"):
+                cur["ipt"] = float(ln.split("\t", 1)[1])
+            elif ln.startswith("ACC\t"):
+                cur["accumulator"] = float(ln.split("\t", 1)[1])
             elif ln.startswith("TEXT\t"):
                 cur["text"] = ln.split("\t", 1)[1].replace("\\n", "\n")
     return recs
 
 
-def run_mlog(srv: Server, name: str, code: str, steps: int) -> dict:
+def run_mlog(srv: Server, name: str, code: str, steps: int, ticks: bool = False) -> dict:
     # a fresh processor keeps textBuffer/vars from leaking between programs
     srv.js(PLACE_JS)
     fd, path = tempfile.mkstemp(suffix=".mlog", dir=srv.workdir, text=True)
@@ -255,17 +314,19 @@ def run_mlog(srv: Server, name: str, code: str, steps: int) -> dict:
     try:
         with open(path, "w", encoding="utf-8", newline="\n") as f:
             f.write(code)
-        js = STEP_JS % {"path": path.replace("\\", "/"), "x": BASE[0], "y": BASE[1], "steps": steps}
+        js = STEP_JS % {"path": path.replace("\\", "/"), "x": BASE[0], "y": BASE[1],
+                        "loop": _loop_js("b", steps, ticks)}
         recs = parse_results(srv.js(js))
         rec = recs[0] if recs else {"vars": {}, "counter": None, "text": ""}
         rec["name"] = name
         rec["steps"] = steps
+        rec["mode"] = "tick" if ticks else "instruction"
         return rec
     finally:
         os.unlink(path)
 
 
-def run_msch(srv: Server, name: str, path: str, steps: int) -> list[dict]:
+def run_msch(srv: Server, name: str, path: str, steps: int, ticks: bool = False) -> list[dict]:
     sys.path.insert(0, TOOLS)
     import msch  # noqa: E402
 
@@ -283,22 +344,32 @@ def run_msch(srv: Server, name: str, path: str, steps: int) -> list[dict]:
                 for l in t.logic.links
             ]
         tiles.append(entry)
-    js = SCENE_JS % {"tiles": json.dumps(tiles), "steps": steps}
-    recs = parse_results(srv.js(js, timeout=120))
+    js = SCENE_JS % {"tiles": json.dumps(tiles), "loop": _scene_loop_js(steps, ticks)}
+    recs = parse_results(srv.js(js, timeout=180))
     for r in recs:
         r["name"] = name
         r["steps"] = steps
+        r["mode"] = "tick" if ticks else "instruction"
     return recs
 
 
 def main(argv=None):
     ap = argparse.ArgumentParser(description="run mlog on the real Mindustry LExecutor")
     ap.add_argument("files", nargs="+", help=".mlog files (or .msch schematics)")
-    ap.add_argument("--steps", type=int, default=200, help="instructions per program (default 200)")
+    ap.add_argument("--steps", type=int, default=None, help="instructions to execute (default 200)")
+    ap.add_argument("--ticks", type=int, default=None,
+                    help="simulated ticks: drive updateTile() with Time.delta=1 (accumulator/ipt/wait)")
     ap.add_argument("--jar", default=_default_jar())
     ap.add_argument("--java", default=_default_java())
+    ap.add_argument("--init-js", metavar="FILE|CODE", default=None,
+                    help="JS run once after host: set rules, seed the world")
+    ap.add_argument("--units", metavar="NAME[:N],...", default=None,
+                    help="spawn units near the processor as team sharded, e.g. flare:3,poly:1")
     ap.add_argument("--json", action="store_true")
     args = ap.parse_args(argv)
+
+    ticks = args.ticks is not None
+    steps = args.ticks if ticks else (args.steps if args.steps is not None else 200)
 
     if not os.path.exists(args.jar):
         sys.exit(f"missing server jar: {args.jar}")
@@ -306,15 +377,31 @@ def main(argv=None):
     srv = Server(args.java, args.jar)
     results = []
     try:
+        if args.init_js:
+            if os.path.exists(args.init_js):
+                with open(args.init_js, encoding="utf-8-sig") as fh:
+                    init_src = fh.read()
+            else:
+                init_src = args.init_js
+            srv.js(init_src)
+        if args.units:
+            spec = []
+            for part in args.units.split(","):
+                part = part.strip()
+                if not part:
+                    continue
+                name, _, cnt = part.partition(":")
+                spec.append([name.strip(), int(cnt) if cnt else 1])
+            srv.js(UNIT_JS % {"spec": json.dumps(spec), "x": BASE[0], "y": BASE[1]})
         for f in args.files:
             if f.lower().endswith(".msch"):
-                results.extend(run_msch(srv, os.path.basename(f), f, args.steps))
+                results.extend(run_msch(srv, os.path.basename(f), f, steps, ticks))
             else:
                 # utf-8-sig: PowerShell's `Set-Content -Encoding utf8` prepends a BOM,
                 # and the parser turns a BOM-prefixed first line into a noop
                 with open(f, encoding="utf-8-sig") as fh:
                     code = fh.read()
-                results.append(run_mlog(srv, os.path.basename(f), code, args.steps))
+                results.append(run_mlog(srv, os.path.basename(f), code, steps, ticks))
     except FileNotFoundError as e:
         sys.exit(f"missing input: {e.filename}")
     except SimError as e:
@@ -331,12 +418,13 @@ def main(argv=None):
         print(json.dumps(results, ensure_ascii=False, indent=2))
     else:
         for r in results:
-            print(f"== {r['name']} @{r.get('label', '')} ({r['steps']} steps) ==")
+            unit = "ticks" if r.get("mode") == "tick" else "steps"
+            print(f"== {r['name']} @{r.get('label', '')} ({r['steps']} {unit}) ==")
             for k, v in r["vars"].items():
                 print(f"  {k} = {v}")
             if r["text"]:
                 print(f"  print: {r['text']}")
-            print(f"  @counter = {r['counter']}")
+            print(f"  @counter = {r['counter']}  ipt = {r.get('ipt')}  acc = {r.get('accumulator')}")
             if r.get("skipped"):
                 print(f"  skipped: {', '.join(r['skipped'])}")
     return 0
