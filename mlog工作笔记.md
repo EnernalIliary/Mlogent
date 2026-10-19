@@ -3063,3 +3063,9 @@ F:\OneDrive\桌面\AtomicStates\mindustry-blueprint\                ← 开发�
 - 单位 spawn 在 solid 格（核心/处理器）上，第一次 u.update() 就 kill()（UnitComp 的 !canPassOn() 分支），900 HP 一帧归零；--units 现用 reeSpot 找 air+非液体地板并避开基站格；PICK_BASE_JS 也排除 loor().isLiquid（水不是 solid）。
 - --unit-pos 改为格中心 x*8+4。
 - 场景实测：open 从基地 1200 tick 到 28.3 格、核心 3500→1137；maze 直线撞墙停在 46.9 格（B 档无寻路）；garded-line 被 5 个敌方堡垒打到 12 HP，只开 1 炮。
+### 第 69 次整理：跳转越界没人报错，只有检查器会报
+
+- 粘贴版（聊天里少贴一个 end）只有 29 条语句（0..28），三处 jump 29 越界；游戏 LAssembler 照收，JumpStatement.destIndex 保留 29，LExecutor.runOnce 发现 counter 越界就归 0，于是每次执行都跳回第 0 条——表现是逻辑“断跳/卡在开头”，控制台无报错。
+- mlog.py check 会报 [ERR] jump target 29 out of range (0..28)；游戏内粘贴不会。
+- 定案：逻辑只留一个 end。堡垒寻核改为 29 条（0..28），三处 jump 28；装进游戏实测 N=29、destIndex 28/28/28，open 场景 1200 tick 仍是 dist 28.28、核心 3500→1137。
+- 教训：给用户的代码块必须与仓库文件逐行一致，end 不能省。

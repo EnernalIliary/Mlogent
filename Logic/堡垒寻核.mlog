@@ -13,11 +13,11 @@ set cfg.eps 0.5
 # ---- 绑定 ----
 ubind @fortress
 sensor unit.dead? @unit @dead
-jump 29 equal unit.dead? 1
+jump 28 equal unit.dead? 1
 
 # ---- 找最近敌方核心（true = 敌方，flag = core）----
 ulocate building core true @copper core.x core.y core.found? core
-jump 29 equal core.found? 0
+jump 28 equal core.found? 0
 
 # ---- 几何：距离与“保持点” ----
 sensor unit.x @unit @x
@@ -27,7 +27,7 @@ op sub tgt.keep unit.range cfg.margin
 op sub tmp.dx core.x unit.x
 op sub tmp.dy core.y unit.y
 op len tgt.dist tmp.dx tmp.dy
-jump 29 lessThan tgt.dist cfg.eps
+jump 28 lessThan tgt.dist cfg.eps
 
 # ---- 保持点 = core - (core-unit) * keep/dist，远近通用 ----
 op sub tmp.err tgt.dist tgt.keep
@@ -46,5 +46,4 @@ ucontrol stop
 
 # ---- 始终瞄准并开火 ----
 ucontrol target core.x core.y 1
-end
 end
