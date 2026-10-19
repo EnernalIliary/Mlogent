@@ -44,6 +44,23 @@ detail in the world. Passing here does not replace a real game run.
 `--update none` keeps units frozen where they spawned.
 Power graphs are not simulated; `--power` is the hook reserved for that.
 
+Weather (`--ticks` only) is the real state machine, not a stub: every tick each
+`state.rules.weather` entry loses `Time.delta` from its cooldown, and an entry
+whose cooldown expired (or that is `always`) creates its weather with a
+duration/frequency randomized from a fixed seed, so a run repeats. Active
+weathers fade/expire through `Groups.weather.update()`. `weathersense` and
+`weatherset` are privileged: a program that uses them (or `setrule`, `message`,
+`cutscene`, `spawn`, ...) is placed as a world processor automatically
+(`--processor auto`), because a micro processor's parser silently replaces
+those lines with invalid statements. `--weather NAME[:INTENSITY]` starts with
+that weather already active (repeatable) instead of a clear sky.
+
+Tick semantics: Mindustry adds `edelta()*ipt` to the accumulator *after* the
+instruction loop, so the first update after placement executes nothing --
+`--ticks N` therefore runs N-1 active ticks and `@tick` starts at 2. The print
+buffer is capped by the game at `maxTextBuffer` = 400 chars; longer output is
+truncated, not lost by the harness.
+
 Default runtime is the newest local pair, overridable with env vars:
     MLOGSIM_JAR   (default: out/_server159.jar, then out/_server146.jar)
     MLOGSIM_JAVA  (default: out/jre21/.../java.exe, then the Steam jre)
@@ -61,6 +78,7 @@ import argparse
 import json
 import os
 import queue
+import re
 import subprocess
 import sys
 import tempfile
@@ -69,6 +87,13 @@ import time
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 TOOLS = os.path.join(ROOT, "mindustry-blueprint", "tools")
+
+# Statements whose LStatement.privileged() is true: a micro processor silently
+# turns them into InvalidStatement (LParser.read()), i.e. the line vanishes.
+# Only the first word of a line is checked; operands are not.
+PRIVILEGED_RE = re.compile(
+    r"^\s*(weathersense|weatherset|setrule|message|cutscene|effect|fetch|sync|"
+    r"getblock|setblock|spawn|status)\b", re.M)
 STEAM_JAVA = r"E:\Program Files (x86)\Steam\steamapps\common\Mindustry\jre\bin\java.exe"
 V159_JAR = os.path.join(ROOT, "out", "_server159.jar")
 V159_JAVA = os.path.join(ROOT, "out", "jre21", "jdk-21.0.5+11-jre", "bin", "java.exe")
@@ -197,11 +222,11 @@ print("WORLD\t" + Vars.world.width() + "x" + Vars.world.height());
 '''
 
 
-def place_js(x: int, y: int) -> str:
+def place_js(x: int, y: int, block: str = "micro-processor") -> str:
     return ("var T=Packages.mindustry.game.Team.sharded;"
             "Vars.world.tile(%d,%d).setBlock(Vars.content.block('air'), T);"
-            "Vars.world.tile(%d,%d).setBlock(Vars.content.block('micro-processor'), T);"
-            "print('PLACED');" % (x, y, x, y))
+            "Vars.world.tile(%d,%d).setBlock(Vars.content.block('%s'), T);"
+            "print('PLACED');" % (x, y, x, y, block))
 
 STEP_JS = r'''
 var p = "%(path)s";
@@ -322,6 +347,40 @@ function worldTick(){
 }
 '''
 
+# Weather is a real state machine in Logic.updateWeather(): every entry has a
+# cooldown; when it fires, an event is created with a random duration and the
+# cooldown becomes duration + random frequency. WeatherState.update() counts
+# life down (Time.delta per tick), fades opacity, applies its status effect to
+# units, and removes itself at life < 0 -- that is exactly what `weathersense`
+# / `weatherset` observe and drive.
+WEATHER_JS = r'''
+var GW = Packages.mindustry.gen.Groups.weather;
+var WR = Vars.state.rules.weather;
+var WSEED = 123456789;
+function wrnd(){ WSEED = (WSEED * 16807) % 2147483647; return WSEED / 2147483647.0; }
+function weatherTick(){
+    for(var i = 0; i < WR.size; i++){
+        var e = WR.get(i);
+        if(e.weather == null) continue;
+        e.cooldown -= Time.delta;
+        if((e.cooldown < 0 || e.always) && !e.weather.isActive()){
+            var dur = e.always ? 1e30 : e.minDuration + wrnd() * (e.maxDuration - e.minDuration);
+            e.cooldown = dur + e.minFrequency + wrnd() * (e.maxFrequency - e.minFrequency);
+            e.weather.create(e.intensity, dur);
+        }
+    }
+    GW.update();
+}
+'''
+
+
+def weather_js(name: str, intensity: float = 1.0) -> str:
+    return ("var W = Vars.content.weather('%s');"
+            "if(W == null){ throw new Error('unknown weather: %s'); }"
+            "W.create(%f, 1e30);"
+            "print('WEATHER\\t' + W.name);" % (name, name, intensity))
+
+
 
 UNITS_JS = r'''
 var UG = Packages.mindustry.gen.Groups.unit;
@@ -356,11 +415,13 @@ def _loop_js(obj: str, steps: int, ticks: bool, update: str = "none", power: flo
         # state must be playing or Building.update()/updateConsumption() no-op;
         # it is restored in finally so no frame ever runs the game for real.
         world = _world_js(power) + UNITS_JS + "worldTick(); unitTick();" if update == "all" else ""
+        # weather ticks in every tick mode: it is its own state machine, not a building.
+        # Define it once outside the loop: WSEED is state and must keep advancing.
         return ("var GS = Packages.mindustry.core.GameState; var ST = GS.State;"
-                "Vars.state.set(ST.playing); Time.delta = 1.0;"
-                "try{ for(var i = 0; i < %d; i++){"
-                " Vars.state.tick++; Vars.logicVars.update(); %s %s.updateTile(); }"
-                " } finally { Vars.state.set(ST.paused); }" % (steps, world, obj))
+                " Vars.state.set(ST.playing); Time.delta = 1.0; %s"
+                " try{ for(var i = 0; i < %d; i++){"
+                " Vars.state.tick++; Vars.logicVars.update(); %s weatherTick(); %s.updateTile(); }"
+                " } finally { Vars.state.set(ST.paused); }" % (WEATHER_JS, steps, world, obj))
     return "for(var i = 0; i < %d; i++){ %s.executor.runOnce(); }" % (steps, obj)
 
 
@@ -374,11 +435,11 @@ def _scene_loop_js(steps: int, ticks: bool, update: str = "none", power: float =
     if ticks:
         world = _world_js(power) + UNITS_JS + "worldTick(); unitTick();" if update == "all" else ""
         return ("var GS = Packages.mindustry.core.GameState; var ST = GS.State;"
-                "Vars.state.set(ST.playing); Time.delta = 1.0;"
-                "try{ for(var t = 0; t < %d; t++){"
-                " Vars.state.tick++; Vars.logicVars.update(); %s"
+                " Vars.state.set(ST.playing); Time.delta = 1.0; %s"
+                " try{ for(var t = 0; t < %d; t++){"
+                " Vars.state.tick++; Vars.logicVars.update(); %s weatherTick();"
                 " for(var j = 0; j < procs.length; j++){ procs[j].updateTile(); } }"
-                " } finally { Vars.state.set(ST.paused); }" % (steps, world))
+                " } finally { Vars.state.set(ST.paused); }" % (WEATHER_JS, steps, world))
     return ("for(var i = 0; i < procs.length; i++){"
             " for(var k = 0; k < %d; k++){ procs[i].executor.runOnce(); } }" % steps)
 
@@ -412,9 +473,12 @@ def parse_results(lines: list[str]) -> list[dict]:
 
 
 def run_mlog(srv: Server, name: str, code: str, steps: int, ticks: bool = False,
-             update: str = "none", power: float = 1.0) -> dict:
+             update: str = "none", power: float = 1.0, processor: str = "auto") -> dict:
+    # privileged statements exist only in world processors; selecting the block
+    # that makes them compile is better than silently dropping whole lines.
+    world_proc = processor == "world" or (processor == "auto" and PRIVILEGED_RE.search(code) is not None)
     # a fresh processor keeps textBuffer/vars from leaking between programs
-    srv.js(place_js(*srv.base))
+    srv.js(place_js(*srv.base, "world-processor" if world_proc else "micro-processor"))
     fd, path = tempfile.mkstemp(suffix=".mlog", dir=srv.workdir, text=True)
     os.close(fd)
     try:
@@ -428,6 +492,7 @@ def run_mlog(srv: Server, name: str, code: str, steps: int, ticks: bool = False,
         rec["steps"] = steps
         rec["mode"] = "tick" if ticks else "instruction"
         rec["update"] = update
+        rec["processor"] = "world" if world_proc else "micro"
         return rec
     finally:
         os.unlink(path)
@@ -487,6 +552,12 @@ def main(argv=None):
                     help="world update per tick: all = every building (default in --ticks mode), none = logic only")
     ap.add_argument("--power", choices=["full", "none"], default="full",
                     help="for --update all: pin every consumer's power.status (default full = 100% power)")
+    ap.add_argument("--processor", choices=["auto", "micro", "world"], default="auto",
+                    help="block for a .mlog program; auto = world-processor when it uses privileged "
+                         "statements (weathersense/weatherset/...), which a micro processor silently drops")
+    ap.add_argument("--weather", metavar="NAME[:INTENSITY]", action="append", default=None,
+                    help="force a weather active from tick 0, e.g. rain or sandstorm:0.5; repeatable. "
+                         "Without it the world starts clear (a --host map can still start its own weather)")
     ap.add_argument("--json", action="store_true")
     args = ap.parse_args(argv)
 
@@ -518,6 +589,10 @@ def main(argv=None):
                 name, _, cnt = part.partition(":")
                 spec.append([name.strip(), int(cnt) if cnt else 1])
             srv.js(UNIT_JS % {"spec": json.dumps(spec), "x": srv.base[0], "y": srv.base[1]})
+        if args.weather:
+            for spec in args.weather:
+                wname, _, wint = spec.partition(":")
+                srv.js(weather_js(wname.strip(), float(wint) if wint else 1.0))
         for f in args.files:
             if f.lower().endswith(".msch"):
                 results.extend(run_msch(srv, os.path.basename(f), f, steps, ticks, update, power))
@@ -526,7 +601,8 @@ def main(argv=None):
                 # and the parser turns a BOM-prefixed first line into a noop
                 with open(f, encoding="utf-8-sig") as fh:
                     code = fh.read()
-                results.append(run_mlog(srv, os.path.basename(f), code, steps, ticks, update, power))
+                results.append(run_mlog(srv, os.path.basename(f), code, steps, ticks,
+                                        update, power, args.processor))
     except FileNotFoundError as e:
         sys.exit(f"missing input: {e.filename}")
     except SimError as e:
@@ -551,7 +627,8 @@ def main(argv=None):
                 print(f"  print: {r['text']}")
             print(f"  @counter = {r['counter']}  ipt = {r.get('ipt')}  acc = {r.get('accumulator')}")
             if r.get("mode") == "tick":
-                print(f"  world = {r.get('update')}  power = {'full' if power else 'none'}")
+                print(f"  world = {r.get('update')}  power = {'full' if power else 'none'}"
+                      + (f"  processor = {r['processor']}" if r.get("processor") else ""))
             if r.get("skipped"):
                 print(f"  skipped: {', '.join(r['skipped'])}")
     return 0
