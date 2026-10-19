@@ -7,6 +7,14 @@ buffer.
 
     python tools/mlogsim.py out/prog.mlog --steps 50
     python tools/mlogsim.py blueprints/x.msch --steps 200
+    python tools/mlogsim.py save.msch --ticks 60 --units flare:2
+
+By default the world is a blank 64x64 (`--world N` to resize, 0 or `--host` to
+host a random map). Blueprints are at most 64x64, so the default fits any
+schematic. No host means no 6567 port and no random-map load: ~1s per run
+faster; making the world smaller than 64 does not speed anything up, because
+instruction execution does not touch the map and `tile` lookup is O(1).
+`--host` is only needed for programs that read real terrain or `@mapw`.
 
 For a schematic every tile is placed, every logic block is compiled with its
 named links, and the logic blocks are stepped in schematic order (so a
@@ -56,15 +64,12 @@ def _default_java() -> str:
     return STEAM_JAVA
 
 
-BASE = (80, 80)  # scene origin on the hosted map
-
-
 class SimError(RuntimeError):
     pass
 
 
 class Server:
-    def __init__(self, java: str, jar: str):
+    def __init__(self, java: str, jar: str, world_size: int | None = 64):
         # writes must stay inside the workspace: Java child processes are not
         # allowed to write under %TEMP% (sandbox denies with "access denied")
         base = os.path.join(ROOT, "out", "_sim")
@@ -87,12 +92,24 @@ class Server:
         self.all: list[str] = []
         self.exit_code = None
         threading.Thread(target=self._pump, daemon=True).start()
-        self.wait_for("Server loaded.", 60)
-        # `pause` before a world exists is rejected; host first, then freeze
-        self.send("host")
-        self.wait_for("Opened a server", 120)
-        self.send("pause on")
-        time.sleep(0.4)
+        try:
+            self.wait_for("Server loaded.", 60)
+            if world_size:
+                # no host: Vars.init already built state/world, loadGenerator makes
+                # a blank map. Saves the ~0.5s random-map host and all port binding.
+                self.world_size = world_size
+                self.base = (0, 0)
+                self.js(LOAD_JS % {"n": world_size})
+            else:
+                self.world_size = None
+                self.base = (80, 80)
+                self.send("host")
+                self.wait_for("Opened a server", 120)
+                self.send("pause on")
+                time.sleep(0.4)
+        except Exception:
+            self.close()
+            raise
 
     def _pump(self):
         assert self.proc.stdout is not None
@@ -144,12 +161,23 @@ class Server:
             self.proc.kill()
 
 
-PLACE_JS = (
-    "var T=Packages.mindustry.game.Team.sharded;"
-    "Vars.world.tile(%d,%d).setBlock(Vars.content.block('air'), T);"
-    "Vars.world.tile(%d,%d).setBlock(Vars.content.block('micro-processor'), T);"
-    "print('PLACED');" % (BASE[0], BASE[1], BASE[0], BASE[1])
-)
+LOAD_JS = r'''
+Vars.world.loadGenerator(%(n)d,%(n)d,function(tiles){
+    tiles.fill();
+    var floor = Vars.content.block('stone').asFloor();
+    for(var x = 0; x < %(n)d; x++){
+        for(var y = 0; y < %(n)d; y++){ tiles.get(x,y).setFloor(floor); }
+    }
+});
+print("WORLD\t" + Vars.world.width() + "x" + Vars.world.height());
+'''
+
+
+def place_js(x: int, y: int) -> str:
+    return ("var T=Packages.mindustry.game.Team.sharded;"
+            "Vars.world.tile(%d,%d).setBlock(Vars.content.block('air'), T);"
+            "Vars.world.tile(%d,%d).setBlock(Vars.content.block('micro-processor'), T);"
+            "print('PLACED');" % (x, y, x, y))
 
 STEP_JS = r'''
 var p = "%(path)s";
@@ -308,13 +336,13 @@ def parse_results(lines: list[str]) -> list[dict]:
 
 def run_mlog(srv: Server, name: str, code: str, steps: int, ticks: bool = False) -> dict:
     # a fresh processor keeps textBuffer/vars from leaking between programs
-    srv.js(PLACE_JS)
+    srv.js(place_js(*srv.base))
     fd, path = tempfile.mkstemp(suffix=".mlog", dir=srv.workdir, text=True)
     os.close(fd)
     try:
         with open(path, "w", encoding="utf-8", newline="\n") as f:
             f.write(code)
-        js = STEP_JS % {"path": path.replace("\\", "/"), "x": BASE[0], "y": BASE[1],
+        js = STEP_JS % {"path": path.replace("\\", "/"), "x": srv.base[0], "y": srv.base[1],
                         "loop": _loop_js("b", steps, ticks)}
         recs = parse_results(srv.js(js))
         rec = recs[0] if recs else {"vars": {}, "counter": None, "text": ""}
@@ -333,14 +361,19 @@ def run_msch(srv: Server, name: str, path: str, steps: int, ticks: bool = False)
     sch = msch.parse_file(path)
     minx = min(t.x for t in sch.tiles)
     miny = min(t.y for t in sch.tiles)
+    w = max(t.x for t in sch.tiles) - minx + 1
+    h = max(t.y for t in sch.tiles) - miny + 1
+    if srv.world_size and (srv.base[0] + w > srv.world_size or srv.base[1] + h > srv.world_size):
+        raise SimError("schematic is %dx%d, does not fit the %dx%d world (use --world %d or --host)"
+                       % (w, h, srv.world_size, srv.world_size, max(w, h)))
     tiles = []
     for t in sch.tiles:
-        x, y = BASE[0] + (t.x - minx), BASE[1] + (t.y - miny)
+        x, y = srv.base[0] + (t.x - minx), srv.base[1] + (t.y - miny)
         entry = {"block": t.block, "x": x, "y": y, "logic": None, "links": []}
         if t.logic is not None:
             entry["logic"] = t.logic.code
             entry["links"] = [
-                {"name": l.name, "x": BASE[0] + (l.x - minx), "y": BASE[1] + (l.y - miny)}
+                {"name": l.name, "x": srv.base[0] + (l.x - minx), "y": srv.base[1] + (l.y - miny)}
                 for l in t.logic.links
             ]
         tiles.append(entry)
@@ -359,10 +392,14 @@ def main(argv=None):
     ap.add_argument("--steps", type=int, default=None, help="instructions to execute (default 200)")
     ap.add_argument("--ticks", type=int, default=None,
                     help="simulated ticks: drive updateTile() with Time.delta=1 (accumulator/ipt/wait)")
+    ap.add_argument("--world", type=int, default=64, metavar="N",
+                    help="blank NxN world loaded with loadGenerator (default 64, 0 = host a random map)")
+    ap.add_argument("--host", action="store_true",
+                    help="host a random map instead of the blank world (needed for terrain/@mapw)")
     ap.add_argument("--jar", default=_default_jar())
     ap.add_argument("--java", default=_default_java())
     ap.add_argument("--init-js", metavar="FILE|CODE", default=None,
-                    help="JS run once after host: set rules, seed the world")
+                    help="JS run once after the world exists: set rules, seed blocks")
     ap.add_argument("--units", metavar="NAME[:N],...", default=None,
                     help="spawn units near the processor as team sharded, e.g. flare:3,poly:1")
     ap.add_argument("--json", action="store_true")
@@ -374,7 +411,8 @@ def main(argv=None):
     if not os.path.exists(args.jar):
         sys.exit(f"missing server jar: {args.jar}")
 
-    srv = Server(args.java, args.jar)
+    world_size = None if args.host or args.world == 0 else args.world
+    srv = Server(args.java, args.jar, world_size)
     results = []
     try:
         if args.init_js:
@@ -392,7 +430,7 @@ def main(argv=None):
                     continue
                 name, _, cnt = part.partition(":")
                 spec.append([name.strip(), int(cnt) if cnt else 1])
-            srv.js(UNIT_JS % {"spec": json.dumps(spec), "x": BASE[0], "y": BASE[1]})
+            srv.js(UNIT_JS % {"spec": json.dumps(spec), "x": srv.base[0], "y": srv.base[1]})
         for f in args.files:
             if f.lower().endswith(".msch"):
                 results.extend(run_msch(srv, os.path.basename(f), f, steps, ticks))
