@@ -288,7 +288,10 @@ def _loop_js(obj: str, steps: int, ticks: bool) -> str:
     1.0 is the value that makes 60 ticks equal one second.
     """
     if ticks:
-        return "Time.delta = 1.0; for(var i = 0; i < %d; i++){ %s.updateTile(); }" % (steps, obj)
+        # advance the global clock too: @time/@tick/@second/@mapw come from
+        # GlobalVars.update(), which only runs inside State.update()
+        return ("Time.delta = 1.0; for(var i = 0; i < %d; i++){"
+                " Vars.state.tick++; Vars.logicVars.update(); %s.updateTile(); }" % (steps, obj))
     return "for(var i = 0; i < %d; i++){ %s.executor.runOnce(); }" % (steps, obj)
 
 
@@ -301,6 +304,7 @@ def _scene_loop_js(steps: int, ticks: bool) -> str:
     """
     if ticks:
         return ("Time.delta = 1.0; for(var t = 0; t < %d; t++){"
+                " Vars.state.tick++; Vars.logicVars.update();"
                 " for(var j = 0; j < procs.length; j++){ procs[j].updateTile(); } }" % steps)
     return ("for(var i = 0; i < procs.length; i++){"
             " for(var k = 0; k < %d; k++){ procs[i].executor.runOnce(); } }" % steps)
