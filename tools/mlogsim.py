@@ -41,7 +41,9 @@ and a unit whose 10s control timeout expires simply stops -- it does not revert
 to its faction AI. This is "B level": real executor, real unit update, real
 `LogicAI`, but no wave AI, combat targeting, power graphs or terrain collision
 detail in the world. Passing here does not replace a real game run.
-`--update none` keeps units frozen where they spawned.
+`--update none` keeps units frozen where they spawned. `--unit-pos X,Y` spawns
+them at a tile coordinate instead of two tiles off the processor, which makes
+motion demos reproducible (e.g. start a unit exactly on its orbit).
 Power graphs are not simulated; `--power` is the hook reserved for that.
 
 Weather (`--ticks` only) is the real state machine, not a stub: every tick each
@@ -319,8 +321,8 @@ for(var s = 0; s < spec.length; s++){
     }
     if(ut == null){ print("NOUNIT\t" + name); continue; }
     for(var k = 0; k < n; k++){
-        var wx = %(x)d * 8 + 16 + (k %% 5) * 12;
-        var wy = %(y)d * 8 + 16 + ((k / 5) | 0) * 12;
+        var wx = %(wx)f + (k %% 5) * 12;
+        var wy = %(wy)f + ((k / 5) | 0) * 12;
         ut.spawn(team, wx, wy);
         made++;
     }
@@ -548,6 +550,8 @@ def main(argv=None):
                     help="JS run once after the world exists: set rules, seed blocks")
     ap.add_argument("--units", metavar="NAME[:N],...", default=None,
                     help="spawn units near the processor as team sharded, e.g. flare:3,poly:1")
+    ap.add_argument("--unit-pos", metavar="X,Y", default=None,
+                    help="spawn units at this tile coordinate instead of 2 tiles off the processor, e.g. 6,4")
     ap.add_argument("--update", choices=["none", "all"], default=None,
                     help="world update per tick: all = every building (default in --ticks mode), none = logic only")
     ap.add_argument("--power", choices=["full", "none"], default="full",
@@ -588,7 +592,12 @@ def main(argv=None):
                     continue
                 name, _, cnt = part.partition(":")
                 spec.append([name.strip(), int(cnt) if cnt else 1])
-            srv.js(UNIT_JS % {"spec": json.dumps(spec), "x": srv.base[0], "y": srv.base[1]})
+            if args.unit_pos:
+                ux, uy = (float(v) for v in args.unit_pos.split(","))
+                wx, wy = ux * 8, uy * 8
+            else:
+                wx, wy = srv.base[0] * 8 + 16, srv.base[1] * 8 + 16
+            srv.js(UNIT_JS % {"spec": json.dumps(spec), "wx": wx, "wy": wy})
         if args.weather:
             for spec in args.weather:
                 wname, _, wint = spec.partition(":")
