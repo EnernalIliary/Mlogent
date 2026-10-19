@@ -32,7 +32,16 @@ those), pins every consumer's `power.status` to 1.0 (`--power full`, default;
 loop only -- otherwise `Building.update()`/`updateConsumption()` no-op, and
 the server's own frame loop never gets a chance to advance the world.
 
-Units spawned with `--units` are still static: they can be sensed, not moved.
+Units spawned with `--units` are driven by their controller in the same mode:
+under `--update all` every unit whose controller is a `LogicAI` gets one real
+`Unit.update()` per tick, so `ucontrol move/approach/stop/boost` actually moves
+it, `within`/`@x`/`@y` see the result, and `@unit` stays the same object.
+Units that are not logic-controlled are not updated (wild AI is not simulated),
+and a unit whose 10s control timeout expires simply stops -- it does not revert
+to its faction AI. This is "B level": real executor, real unit update, real
+`LogicAI`, but no wave AI, combat targeting, power graphs or terrain collision
+detail in the world. Passing here does not replace a real game run.
+`--update none` keeps units frozen where they spawned.
 Power graphs are not simulated; `--power` is the hook reserved for that.
 
 Default runtime is the newest local pair, overridable with env vars:
@@ -273,6 +282,8 @@ UNIT_JS = r'''
 var spec = %(spec)s;            /* [[name, count], ...] */
 var team = Packages.mindustry.game.Team.sharded;
 Vars.state.rules.logicUnitControl = true;
+/* blank world has no cores, so Units.getCap() is 0 and every spawn dies at add() */
+Vars.state.rules.unitCap = 1000;
 var made = 0;
 for(var s = 0; s < spec.length; s++){
     var name = spec[s][0], n = spec[s][1];
@@ -312,6 +323,22 @@ function worldTick(){
 '''
 
 
+UNITS_JS = r'''
+var UG = Packages.mindustry.gen.Groups.unit;
+/* Snapshot first: update() may kill/despawn units and shift the group. */
+function unitTick(){
+    var arr = [];
+    for(var k = 0; k < UG.size(); k++){ arr.push(UG.index(k)); }
+    for(var k = 0; k < arr.length; k++){
+        var u = arr[k];
+        if(!u.isValid()) continue;
+        /* only drive units that a processor actually controls; wild AI is not simulated */
+        if(u.controller() instanceof Packages.mindustry.ai.types.LogicAI) u.update();
+    }
+}
+'''
+
+
 def _world_js(power: float) -> str:
     return WORLD_JS % {"power": power}
 
@@ -328,7 +355,7 @@ def _loop_js(obj: str, steps: int, ticks: bool, update: str = "none", power: flo
         # GlobalVars.update(), which only runs inside State.update().
         # state must be playing or Building.update()/updateConsumption() no-op;
         # it is restored in finally so no frame ever runs the game for real.
-        world = _world_js(power) + "worldTick();" if update == "all" else ""
+        world = _world_js(power) + UNITS_JS + "worldTick(); unitTick();" if update == "all" else ""
         return ("var GS = Packages.mindustry.core.GameState; var ST = GS.State;"
                 "Vars.state.set(ST.playing); Time.delta = 1.0;"
                 "try{ for(var i = 0; i < %d; i++){"
@@ -345,7 +372,7 @@ def _scene_loop_js(steps: int, ticks: bool, update: str = "none", power: float =
     let one processor run far ahead of the other.
     """
     if ticks:
-        world = _world_js(power) + "worldTick();" if update == "all" else ""
+        world = _world_js(power) + UNITS_JS + "worldTick(); unitTick();" if update == "all" else ""
         return ("var GS = Packages.mindustry.core.GameState; var ST = GS.State;"
                 "Vars.state.set(ST.playing); Time.delta = 1.0;"
                 "try{ for(var t = 0; t < %d; t++){"
