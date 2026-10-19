@@ -302,7 +302,7 @@ for(var r = 3; r < 40 && found == null; r++){
             var x = cx + dx, y = cy + dy;
             if(x < 1 || y < 1 || x >= W.width() - 1 || y >= W.height() - 1) continue;
             var t = W.tile(x, y);
-            if(t.block().name != "air" || t.floor().solid) continue;
+            if(t.block().name != "air" || t.floor().solid || t.floor().isLiquid) continue;
             found = [x, y];
         }
     }
@@ -396,9 +396,30 @@ for(var i = 0; i < procs.length; i++){
 UNIT_JS = r'''
 var spec = %(spec)s;            /* [[name, count], ...] */
 var team = Packages.mindustry.game.Team.sharded;
+var wantx = %(wx)f, wanty = %(wy)f;
 Vars.state.rules.logicUnitControl = true;
 /* blank world has no cores, so Units.getCap() is 0 and every spawn dies at add() */
 Vars.state.rules.unitCap = 1000;
+/* Spawning on top of a solid block kills the unit on its first update(): the
+ * processor is placed at the base tile, and a +16px offset can land inside the
+ * core. Find a free standable tile near the requested point, skipping the base
+ * tile itself (the processor goes there), and spawn at the tile center. */
+function freeSpot(cx, cy){
+    var bw = Math.floor(cx / 8), bh = Math.floor(cy / 8);
+    for(var r = 1; r < 16; r++){
+        for(var dx = -r; dx <= r; dx++){
+            for(var dy = -r; dy <= r; dy++){
+                if(Math.max(Math.abs(dx), Math.abs(dy)) != r) continue;
+                var x = bw + dx, y = bh + dy;
+                if(x < 1 || y < 1 || x >= Vars.world.width() - 1 || y >= Vars.world.height() - 1) continue;
+                var t = Vars.world.tile(x, y);
+                if(t.block().name != "air" || t.floor().solid || t.floor().isLiquid) continue;
+                return [x * 8 + 4, y * 8 + 4];
+            }
+        }
+    }
+    return [cx, cy];
+}
 var made = 0;
 for(var s = 0; s < spec.length; s++){
     var name = spec[s][0], n = spec[s][1];
@@ -409,9 +430,8 @@ for(var s = 0; s < spec.length; s++){
     }
     if(ut == null){ print("NOUNIT\t" + name); continue; }
     for(var k = 0; k < n; k++){
-        var wx = %(wx)f + (k %% 5) * 12;
-        var wy = %(wy)f + ((k / 5) | 0) * 12;
-        ut.spawn(team, wx, wy);
+        var sp = freeSpot(wantx + (k %% 5) * 16, wanty + ((k / 5) | 0) * 16);
+        ut.spawn(team, sp[0], sp[1]);
         made++;
     }
 }
@@ -850,9 +870,9 @@ def main(argv=None):
                 spec.append([name.strip(), int(cnt) if cnt else 1])
             if args.unit_pos:
                 ux, uy = (float(v) for v in args.unit_pos.split(","))
-                wx, wy = ux * 8, uy * 8
+                wx, wy = ux * 8 + 4, uy * 8 + 4
             else:
-                wx, wy = srv.base[0] * 8 + 16, srv.base[1] * 8 + 16
+                wx, wy = srv.base[0] * 8 + 4, srv.base[1] * 8 + 4
             srv.js(UNIT_JS % {"spec": json.dumps(spec), "wx": wx, "wy": wy})
         if args.weather:
             for spec in args.weather:

@@ -1,0 +1,50 @@
+# 用途：控制堡垒（fortress）找到最近敌方核心，走到射程边缘停住并持续炮击
+# 依赖：micro-processor（ipt=2）；需 Unit Control 规则或 world processor 的 ulocate 特权
+# 坐标：ucontrol/ulocate/sensor @x 全部是 tile 坐标；@range 也是 tile
+# 判定：tgt.keep = @range - cfg.margin；在 ±cfg.band 内就 stop + target
+# 注意：逻辑每 tick 重算一次；ulocate 结果缓存 40 tick；控制 10 秒不刷新会掉
+# 版本：build 146+（ulocate/ucontrol 为 v7 起；fortress v7 单位）
+
+# ---- 常量 ----
+set cfg.margin 2
+set cfg.band 1
+set cfg.eps 0.5
+
+# ---- 绑定 ----
+ubind @fortress
+sensor unit.dead? @unit @dead
+jump 29 equal unit.dead? 1
+
+# ---- 找最近敌方核心（true = 敌方，flag = core）----
+ulocate building core true @copper core.x core.y core.found? core
+jump 29 equal core.found? 0
+
+# ---- 几何：距离与“保持点” ----
+sensor unit.x @unit @x
+sensor unit.y @unit @y
+sensor unit.range @unit @range
+op sub tgt.keep unit.range cfg.margin
+op sub tmp.dx core.x unit.x
+op sub tmp.dy core.y unit.y
+op len tgt.dist tmp.dx tmp.dy
+jump 29 lessThan tgt.dist cfg.eps
+
+# ---- 保持点 = core - (core-unit) * keep/dist，远近通用 ----
+op sub tmp.err tgt.dist tgt.keep
+op abs tmp.err tmp.err
+op div tmp.k tgt.keep tgt.dist
+op mul tmp.mx tmp.dx tmp.k
+op mul tmp.my tmp.dy tmp.k
+op sub tgt.x core.x tmp.mx
+op sub tgt.y core.y tmp.my
+
+# ---- 在带内停住，带外朝保持点移动 ----
+jump 26 lessThan tmp.err cfg.band
+ucontrol move tgt.x tgt.y
+jump 27 always
+ucontrol stop
+
+# ---- 始终瞄准并开火 ----
+ucontrol target core.x core.y 1
+end
+end
