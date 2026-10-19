@@ -63,6 +63,29 @@ instruction loop, so the first update after placement executes nothing --
 buffer is capped by the game at `maxTextBuffer` = 400 chars; longer output is
 truncated, not lost by the harness.
 
+Combat (`--ticks` only) mirrors `Logic.updateEntities()`: before the logic
+step, `Groups.bullet.updatePhysics()` and `Groups.unit.updatePhysics()` run;
+after it, `Groups.bullet.update()` and `.collide()`. A unit's `ucontrol target`
+shots then really travel, hit buildings, and drain health. `--combat off`
+leaves bullets frozen: useful to isolate aiming, but nothing takes damage.
+Not a battle model: waves, enemy AI, death/despawn edge cases and block
+destruction consequences are still the game's job.
+
+Trace (`--ticks` only): `--trace FILE` writes one CSV row per tick per unit
+whose controller is a `LogicAI` (a unit a processor took over):
+
+    unit,tick,ux,uy,uhp,range,tx,ty,dist,cx,cy,chp,bullets,shots
+
+`ux/uy` are tiles; `range` is `@range` (tiles); `tx/ty/dist` are the current
+`ucontrol target` point (blank unless aim mode is target); `cx/cy/chp` are the
+nearest enemy core (blank if none); `bullets` is `Groups.bullet.size()`;
+`shots` sums each weapon mount's `totalShots`. Works with `--update none` too.
+
+Assertions run on trace rows: `--assert EXPR` on every row (invariant, e.g.
+`dist >= range - 1.5`), `--assert-last EXPR` on the final row only (outcome,
+e.g. `chp < 1100`). Column names are variables, `eval` has no builtins, and
+any failure exits 3. `ASSERT PASS` prints the row/expr counts.
+
 Default runtime is the newest local pair, overridable with env vars:
     MLOGSIM_JAR   (default: out/_server159.jar, then out/_server146.jar)
     MLOGSIM_JAVA  (default: out/jre21/.../java.exe, then the Steam jre)
@@ -400,11 +423,76 @@ function unitTick(){
 '''
 
 
+COMBAT_JS = r'''
+var GBU = Packages.mindustry.gen.Groups.bullet;
+var GUU = Packages.mindustry.gen.Groups.unit;
+/* Logic.updateEntities() runs bullet/unit physics first, then the updates,
+   then bullet.update()/collide(). Mirror that order, otherwise real bullets
+   never move and never deal damage. */
+function combatPre(){ GBU.updatePhysics(); GUU.updatePhysics(); }
+function combatPost(){ GBU.update(); GBU.collide(); }
+'''
+
+# Per-tick trace of the unit a processor is steering. Coordinates are tiles.
+# Columns: unit,tick,ux,uy,uhp,range,tx,ty,dist,cx,cy,chp,bullets,shots
+TRACE_JS = r'''
+var TRACE = [];
+var GBT = Packages.mindustry.gen.Groups.build;
+var GUT = Packages.mindustry.gen.Groups.unit;
+var GBL = Packages.mindustry.gen.Groups.bullet;
+function traceCore(u){
+    var best = null, bd = 1e30;
+    for(var i = 0; i < GBT.size(); i++){
+        var w = GBT.index(i);
+        if(w == null || !w.isValid()) continue;
+        if(!(w.block instanceof Packages.mindustry.world.blocks.storage.CoreBlock)) continue;
+        if(w.team == u.team) continue;
+        var dx = w.x - u.x, dy = w.y - u.y;
+        var d = Math.sqrt(dx*dx + dy*dy);
+        if(d < bd){ bd = d; best = w; }
+    }
+    return best;
+}
+function traceTick(){
+    for(var i = 0; i < GUT.size(); i++){
+        var u = GUT.index(i);
+        if(u == null || !u.isValid()) continue;
+        var ctl = u.controller();
+        if(!(ctl instanceof Packages.mindustry.ai.types.LogicAI)) continue;
+        var tx = "", ty = "", dist = "";
+        if(("" + ctl.aimControl) == "target"){
+            tx = ctl.posTarget.x / 8.0; ty = ctl.posTarget.y / 8.0;
+            var ax = ctl.posTarget.x - u.x, ay = ctl.posTarget.y - u.y;
+            dist = Math.sqrt(ax*ax + ay*ay) / 8.0;
+        }
+        var c = traceCore(u);
+        var cx = "", cy = "", chp = "";
+        if(c != null){ cx = c.x / 8.0; cy = c.y / 8.0; chp = c.health; }
+        var shots = 0;
+        try { for(var m = 0; m < u.mounts.length; m++){ shots += u.mounts[m].totalShots; } } catch(e){}
+        TRACE.push(["TRACE", u.type.name, Vars.state.tick, (u.x/8.0), (u.y/8.0), u.health,
+                    (u.type.maxRange/8.0), tx, ty, dist, cx, cy, chp, GBL.size(), shots].join("\t"));
+    }
+}
+'''
+
+
+def parse_trace(lines: list[str]) -> list[list[str]]:
+    rows = []
+    for ln in lines:
+        if ln.startswith("TRACE\t"):
+            parts = ln.split("\t")
+            if len(parts) >= 15:
+                rows.append(parts[1:])
+    return rows
+
+
 def _world_js(power: float) -> str:
     return WORLD_JS % {"power": power}
 
 
-def _loop_js(obj: str, steps: int, ticks: bool, update: str = "none", power: float = 1.0) -> str:
+def _loop_js(obj: str, steps: int, ticks: bool, update: str = "none", power: float = 1.0,
+             combat: bool = False, trace: bool = False) -> str:
     """Instruction mode steps the executor directly; tick mode drives updateTile.
 
     In tick mode Time.delta must be 1.0: edelta() = delta * timeScale feeds the
@@ -419,15 +507,26 @@ def _loop_js(obj: str, steps: int, ticks: bool, update: str = "none", power: flo
         world = _world_js(power) + UNITS_JS + "worldTick(); unitTick();" if update == "all" else ""
         # weather ticks in every tick mode: it is its own state machine, not a building.
         # Define it once outside the loop: WSEED is state and must keep advancing.
+        setup = WEATHER_JS
+        pre = post = ""
+        if combat:
+            setup += COMBAT_JS
+            pre = "combatPre(); "
+            post = " combatPost();"
+        if trace:
+            setup += TRACE_JS
+        body = pre + world + " %s.updateTile();" % obj + post + (" traceTick();" if trace else "")
+        dump = (" for(var q = 0; q < TRACE.length; q++){ print(TRACE[q]); }" if trace else "")
         return ("var GS = Packages.mindustry.core.GameState; var ST = GS.State;"
                 " Vars.state.set(ST.playing); Time.delta = 1.0; %s"
                 " try{ for(var i = 0; i < %d; i++){"
-                " Vars.state.tick++; Vars.logicVars.update(); %s weatherTick(); %s.updateTile(); }"
-                " } finally { Vars.state.set(ST.paused); }" % (WEATHER_JS, steps, world, obj))
+                " Vars.state.tick++; Vars.logicVars.update(); weatherTick(); %s }"
+                " } finally { Vars.state.set(ST.paused); }%s" % (setup, steps, body, dump))
     return "for(var i = 0; i < %d; i++){ %s.executor.runOnce(); }" % (steps, obj)
 
 
-def _scene_loop_js(steps: int, ticks: bool, update: str = "none", power: float = 1.0) -> str:
+def _scene_loop_js(steps: int, ticks: bool, update: str = "none", power: float = 1.0,
+                   combat: bool = False, trace: bool = False) -> str:
     """Same, but tick every processor together so cross-reads see one world.
 
     A scene has N processors, so the tick loop must nest: outer ticks, inner
@@ -436,12 +535,23 @@ def _scene_loop_js(steps: int, ticks: bool, update: str = "none", power: float =
     """
     if ticks:
         world = _world_js(power) + UNITS_JS + "worldTick(); unitTick();" if update == "all" else ""
+        setup = WEATHER_JS
+        pre = post = ""
+        if combat:
+            setup += COMBAT_JS
+            pre = "combatPre(); "
+            post = " combatPost();"
+        if trace:
+            setup += TRACE_JS
+        dump = (" for(var q = 0; q < TRACE.length; q++){ print(TRACE[q]); }" if trace else "")
         return ("var GS = Packages.mindustry.core.GameState; var ST = GS.State;"
                 " Vars.state.set(ST.playing); Time.delta = 1.0; %s"
                 " try{ for(var t = 0; t < %d; t++){"
-                " Vars.state.tick++; Vars.logicVars.update(); %s weatherTick();"
-                " for(var j = 0; j < procs.length; j++){ procs[j].updateTile(); } }"
-                " } finally { Vars.state.set(ST.paused); }" % (WEATHER_JS, steps, world))
+                " Vars.state.tick++; Vars.logicVars.update(); weatherTick(); %s"
+                " for(var j = 0; j < procs.length; j++){ procs[j].updateTile(); }"
+                " %s%s }"
+                " } finally { Vars.state.set(ST.paused); }%s"
+                % (setup, steps, pre + world, post, " traceTick();" if trace else "", dump))
     return ("for(var i = 0; i < procs.length; i++){"
             " for(var k = 0; k < %d; k++){ procs[i].executor.runOnce(); } }" % steps)
 
@@ -475,7 +585,8 @@ def parse_results(lines: list[str]) -> list[dict]:
 
 
 def run_mlog(srv: Server, name: str, code: str, steps: int, ticks: bool = False,
-             update: str = "none", power: float = 1.0, processor: str = "auto") -> dict:
+             update: str = "none", power: float = 1.0, processor: str = "auto",
+             combat: bool = False, trace: bool = False) -> dict:
     # privileged statements exist only in world processors; selecting the block
     # that makes them compile is better than silently dropping whole lines.
     world_proc = processor == "world" or (processor == "auto" and PRIVILEGED_RE.search(code) is not None)
@@ -487,9 +598,11 @@ def run_mlog(srv: Server, name: str, code: str, steps: int, ticks: bool = False,
         with open(path, "w", encoding="utf-8", newline="\n") as f:
             f.write(code)
         js = STEP_JS % {"path": path.replace("\\", "/"), "x": srv.base[0], "y": srv.base[1],
-                        "loop": _loop_js("b", steps, ticks, update, power)}
-        recs = parse_results(srv.js(js))
+                        "loop": _loop_js("b", steps, ticks, update, power, combat, trace)}
+        lines = srv.js(js)
+        recs = parse_results(lines)
         rec = recs[0] if recs else {"vars": {}, "counter": None, "text": ""}
+        rec["trace"] = parse_trace(lines) if trace else []
         rec["name"] = name
         rec["steps"] = steps
         rec["mode"] = "tick" if ticks else "instruction"
@@ -501,7 +614,8 @@ def run_mlog(srv: Server, name: str, code: str, steps: int, ticks: bool = False,
 
 
 def run_msch(srv: Server, name: str, path: str, steps: int, ticks: bool = False,
-             update: str = "none", power: float = 1.0) -> list[dict]:
+             update: str = "none", power: float = 1.0,
+             combat: bool = False, trace: bool = False) -> list[dict]:
     sys.path.insert(0, TOOLS)
     import msch  # noqa: E402
 
@@ -524,14 +638,65 @@ def run_msch(srv: Server, name: str, path: str, steps: int, ticks: bool = False,
                 for l in t.logic.links
             ]
         tiles.append(entry)
-    js = SCENE_JS % {"tiles": json.dumps(tiles), "loop": _scene_loop_js(steps, ticks, update, power)}
-    recs = parse_results(srv.js(js, timeout=180))
+    js = SCENE_JS % {"tiles": json.dumps(tiles),
+                     "loop": _scene_loop_js(steps, ticks, update, power, combat, trace)}
+    lines = srv.js(js, timeout=180)
+    recs = parse_results(lines)
+    rows = parse_trace(lines) if trace else []
     for r in recs:
         r["name"] = name
         r["steps"] = steps
         r["mode"] = "tick" if ticks else "instruction"
         r["update"] = update
+        r["trace"] = rows
     return recs
+
+
+TRACE_COLUMNS = ["unit", "tick", "ux", "uy", "uhp", "range", "tx", "ty", "dist",
+                 "cx", "cy", "chp", "bullets", "shots"]
+
+
+def check_asserts(rows: list[list[str]], exprs: list[str]) -> int:
+    """Evaluate EXPR per trace row; return the number of failed evaluations."""
+    if not rows:
+        print("ASSERT: no trace rows (are you using --ticks?)", file=sys.stderr)
+        return 1
+    fails = []
+    for expr in exprs:
+        for row in rows:
+            env = {}
+            for key, val in zip(TRACE_COLUMNS, row):
+                if key == "unit":
+                    env[key] = val
+                else:
+                    try:
+                        env[key] = float(val)
+                    except ValueError:
+                        env[key] = None
+            try:
+                ok = bool(eval(expr, {"__builtins__": {}}, env))  # noqa: S307 - local, no builtins
+            except Exception as e:  # noqa: BLE001 - report, do not crash
+                ok = False
+                env["_error"] = str(e)
+            if not ok:
+                fails.append((expr, env))
+    if not fails:
+        print(f"ASSERT PASS  {len(rows)} row(s) x {len(exprs)} expr(s)")
+        return 0
+    for expr, env in fails[:5]:
+        detail = " ".join(f"{k}={env[k]}" for k in
+                          ("tick", "unit", "dist", "range", "chp", "ux", "uy") if k in env)
+        err = f"  ({env['_error']})" if "_error" in env else ""
+        print(f"ASSERT FAIL  {expr}\n              {detail}{err}")
+    print(f"ASSERT FAILED  {len(fails)}/{len(rows) * len(exprs)} evaluation(s)")
+    return len(fails)
+
+
+def _write_trace(path: str, rows: list[list[str]]):
+    with open(path, "w", encoding="utf-8", newline="") as fh:
+        fh.write(",".join(TRACE_COLUMNS) + "\n")
+        for row in rows:
+            fh.write(",".join(row) + "\n")
 
 
 def main(argv=None):
@@ -555,7 +720,19 @@ def main(argv=None):
     ap.add_argument("--update", choices=["none", "all"], default=None,
                     help="world update per tick: all = every building (default in --ticks mode), none = logic only")
     ap.add_argument("--power", choices=["full", "none"], default="full",
-                    help="for --update all: pin every consumer's power.status (default full = 100% power)")
+                    help="for --update all: pin every consumer's power.status (default full = 100 percent power)")
+    ap.add_argument("--combat", choices=["on", "off"], default=None,
+                    help="run bullet physics + damage each tick (default on with --ticks). "
+                         "Without it a unit fires but bullets never move or hit")
+    ap.add_argument("--trace", metavar="FILE", default=None,
+                    help="write per-tick CSV of logic-controlled units (tiles): "
+                         "unit,tick,ux,uy,uhp,range,tx,ty,dist,cx,cy,chp,bullets,shots")
+    ap.add_argument("--assert", dest="asserts", action="append", default=None, metavar="EXPR",
+                    help="evaluate EXPR on every trace row (e.g. 'dist >= range - 1.5'); "
+                         "exit 3 on any failure")
+    ap.add_argument("--assert-last", dest="asserts_last", action="append", default=None, metavar="EXPR",
+                    help="evaluate EXPR on the final trace row only (e.g. 'chp < 1100' = "
+                         "the target took damage); exit 3 on failure")
     ap.add_argument("--processor", choices=["auto", "micro", "world"], default="auto",
                     help="block for a .mlog program; auto = world-processor when it uses privileged "
                          "statements (weathersense/weatherset/...), which a micro processor silently drops")
@@ -569,6 +746,8 @@ def main(argv=None):
     steps = args.ticks if ticks else (args.steps if args.steps is not None else 200)
     update = args.update if args.update is not None else ("all" if ticks else "none")
     power = 1.0 if args.power == "full" else 0.0
+    combat = (args.combat == "on") if args.combat else ticks
+    want_trace = bool(args.trace or args.asserts or args.asserts_last)
 
     if not os.path.exists(args.jar):
         sys.exit(f"missing server jar: {args.jar}")
@@ -604,14 +783,15 @@ def main(argv=None):
                 srv.js(weather_js(wname.strip(), float(wint) if wint else 1.0))
         for f in args.files:
             if f.lower().endswith(".msch"):
-                results.extend(run_msch(srv, os.path.basename(f), f, steps, ticks, update, power))
+                results.extend(run_msch(srv, os.path.basename(f), f, steps, ticks, update, power,
+                                        combat, want_trace))
             else:
                 # utf-8-sig: PowerShell's `Set-Content -Encoding utf8` prepends a BOM,
                 # and the parser turns a BOM-prefixed first line into a noop
                 with open(f, encoding="utf-8-sig") as fh:
                     code = fh.read()
                 results.append(run_mlog(srv, os.path.basename(f), code, steps, ticks,
-                                        update, power, args.processor))
+                                        update, power, args.processor, combat, want_trace))
     except FileNotFoundError as e:
         sys.exit(f"missing input: {e.filename}")
     except SimError as e:
@@ -623,6 +803,15 @@ def main(argv=None):
         except OSError:
             pass
         srv.close()
+
+    trace_rows: list[list[str]] = []
+    for r in results:
+        trace_rows.extend(r.pop("trace", []) or [])
+    if args.trace:
+        _write_trace(args.trace, trace_rows)
+    failed = check_asserts(trace_rows, args.asserts) if args.asserts else 0
+    if args.asserts_last:
+        failed += check_asserts(trace_rows[-1:], args.asserts_last)
 
     if args.json:
         print(json.dumps(results, ensure_ascii=False, indent=2))
@@ -637,10 +826,13 @@ def main(argv=None):
             print(f"  @counter = {r['counter']}  ipt = {r.get('ipt')}  acc = {r.get('accumulator')}")
             if r.get("mode") == "tick":
                 print(f"  world = {r.get('update')}  power = {'full' if power else 'none'}"
+                      f"  combat = {'on' if combat else 'off'}"
                       + (f"  processor = {r['processor']}" if r.get("processor") else ""))
             if r.get("skipped"):
                 print(f"  skipped: {', '.join(r['skipped'])}")
-    return 0
+    if args.trace:
+        print(f"TRACE  {len(trace_rows)} row(s) -> {args.trace}")
+    return 3 if failed else 0
 
 
 if __name__ == "__main__":
