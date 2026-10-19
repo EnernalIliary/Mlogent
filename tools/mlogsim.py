@@ -7,7 +7,7 @@ buffer.
 
     python tools/mlogsim.py out/prog.mlog --steps 50
     python tools/mlogsim.py blueprints/x.msch --steps 200
-    python tools/mlogsim.py save.msch --ticks 60 --units flare:2
+    python tools/mlogsim.py scene.msav --ticks 60 --units flare:2
 
 By default the world is a blank 64x64 (`--world N` to resize, 0 or `--host` to
 host a random map). Blueprints are at most 64x64, so the default fits any
@@ -36,15 +36,27 @@ Units spawned with `--units` are driven by their controller in the same mode:
 under `--update all` every unit whose controller is a `LogicAI` gets one real
 `Unit.update()` per tick, so `ucontrol move/approach/stop/boost` actually moves
 it, `within`/`@x`/`@y` see the result, and `@unit` stays the same object.
-Units that are not logic-controlled are not updated (wild AI is not simulated),
-and a unit whose 10s control timeout expires simply stops -- it does not revert
-to its faction AI. This is "B level": real executor, real unit update, real
-`LogicAI`, but no wave AI, combat targeting, power graphs or terrain collision
-detail in the world. Passing here does not replace a real game run.
+Units that are not logic-controlled are not updated by default (wild AI is not
+simulated; `--unit-ai all` turns it on), and a unit whose 10s control timeout
+expires simply stops -- it does not revert to its faction AI. This is "B
+level": real executor, real unit update, real `LogicAI`, but no wave AI, combat
+targeting, power graphs or terrain collision detail in the world. Passing here
+does not replace a real game run.
 `--update none` keeps units frozen where they spawned. `--unit-pos X,Y` spawns
 them at a tile coordinate instead of two tiles off the processor, which makes
 motion demos reproducible (e.g. start a unit exactly on its orbit).
 Power graphs are not simulated; `--power` is the hook reserved for that.
+
+Scenes (`--save FILE`) load a real `.msav`: the map, teams, cores, buildings
+and units come with it, so logic runs against the exact layout it will meet in
+game. The processor is auto-placed on a free tile beside your core (`--base
+X,Y` overrides) and the world size comes from the save, not `--world`. The
+save's world clock is reset to 0 once, so `@tick`/`@time` start at 0 and runs
+repeat; the absolute clock value inside a save is otherwise arbitrary.
+`--unit-ai all` also updates units that no processor controls, i.e. the save's
+own AI: turrets are buildings and already fire under `--update all`, while
+this lets mobile defenders and attackers act. `CommandAI` units stay passive
+unless the save gave them a command -- the stock server has no commander.
 
 Weather (`--ticks` only) is the real state machine, not a stub: every tick each
 `state.rules.weather` entry loses `Time.delta` from its cooldown, and an entry
@@ -104,6 +116,7 @@ import json
 import os
 import queue
 import re
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -143,7 +156,8 @@ class SimError(RuntimeError):
 
 
 class Server:
-    def __init__(self, java: str, jar: str, world_size: int | None = 64):
+    def __init__(self, java: str, jar: str, world_size: int | None = 64,
+                 save: str | None = None):
         # writes must stay inside the workspace: Java child processes are not
         # allowed to write under %TEMP% (sandbox denies with "access denied")
         base = os.path.join(ROOT, "out", "_sim")
@@ -168,7 +182,26 @@ class Server:
         threading.Thread(target=self._pump, daemon=True).start()
         try:
             self.wait_for("Server loaded.", 60)
-            if world_size:
+            if save:
+                # a save brings its own map, teams, cores, buildings and units;
+                # `load` takes the slot name without the .msav suffix
+                saves = os.path.join(self.workdir, "config", "saves")
+                os.makedirs(saves, exist_ok=True)
+                shutil.copyfile(save, os.path.join(saves, "scene.msav"))
+                self.send("load scene")
+                self.wait_for("Save loaded.", 120)
+                self.send("pause on")
+                time.sleep(0.3)
+                out = self.js(PICK_BASE_JS)
+                base_line = next((ln for ln in out if ln.startswith("BASE\t")), None)
+                if base_line is None:
+                    raise SimError("could not find an empty tile for the processor")
+                _, bx, by = base_line.split("\t")
+                self.base = (int(bx), int(by))
+                world_line = next((ln for ln in out if ln.startswith("WORLD\t")), "")
+                dims = world_line.split("\t", 1)[1].split("x") if "\t" in world_line else []
+                self.world_size = int(dims[0]) if dims else None
+            elif world_size:
                 # no host: Vars.init already built state/world, loadGenerator makes
                 # a blank map. Saves the ~0.5s random-map host and all port binding.
                 self.world_size = world_size
@@ -244,6 +277,38 @@ Vars.world.loadGenerator(%(n)d,%(n)d,function(tiles){
     }
 });
 print("WORLD\t" + Vars.world.width() + "x" + Vars.world.height());
+'''
+
+
+PICK_BASE_JS = r'''
+print("WORLD\t" + Vars.world.width() + "x" + Vars.world.height());
+/* a save carries its own world clock; scene runs start from zero so @tick/@time
+   are readable and repeatable (the absolute value is meaningless between saves) */
+Vars.state.tick = 0; Packages.arc.util.Time.setInternalTime(0); Vars.logicVars.update();
+var W = Vars.world, air = Vars.content.block("air");
+var own = null, GB = Packages.mindustry.gen.Groups.build;
+for(var i = 0; i < GB.size(); i++){
+    var b = GB.index(i);
+    if(b.block instanceof Packages.mindustry.world.blocks.storage.CoreBlock
+       && b.team == Packages.mindustry.game.Team.sharded){ own = b; break; }
+}
+var cx = own == null ? 2 : Math.round(own.x / 8), cy = own == null ? 2 : Math.round(own.y / 8);
+var found = null;
+/* spiral outward: an air tile with a non-solid floor is safe to put a processor on */
+for(var r = 3; r < 40 && found == null; r++){
+    for(var dx = -r; dx <= r && found == null; dx++){
+        for(var dy = -r; dy <= r && found == null; dy++){
+            if(Math.max(Math.abs(dx), Math.abs(dy)) != r) continue;
+            var x = cx + dx, y = cy + dy;
+            if(x < 1 || y < 1 || x >= W.width() - 1 || y >= W.height() - 1) continue;
+            var t = W.tile(x, y);
+            if(t.block().name != "air" || t.floor().solid) continue;
+            found = [x, y];
+        }
+    }
+}
+if(found == null){ found = [1, 1]; }
+print("BASE\t" + found[0] + "\t" + found[1]);
 '''
 
 
@@ -409,6 +474,7 @@ def weather_js(name: str, intensity: float = 1.0) -> str:
 
 UNITS_JS = r'''
 var UG = Packages.mindustry.gen.Groups.unit;
+var UNIT_ALL = %(all)s;
 /* Snapshot first: update() may kill/despawn units and shift the group. */
 function unitTick(){
     var arr = [];
@@ -416,8 +482,8 @@ function unitTick(){
     for(var k = 0; k < arr.length; k++){
         var u = arr[k];
         if(!u.isValid()) continue;
-        /* only drive units that a processor actually controls; wild AI is not simulated */
-        if(u.controller() instanceof Packages.mindustry.ai.types.LogicAI) u.update();
+        /* logic-controlled units always; --unit-ai all adds the world's own AI */
+        if(UNIT_ALL || u.controller() instanceof Packages.mindustry.ai.types.LogicAI) u.update();
     }
 }
 '''
@@ -487,12 +553,12 @@ def parse_trace(lines: list[str]) -> list[list[str]]:
     return rows
 
 
-def _world_js(power: float) -> str:
-    return WORLD_JS % {"power": power}
+def _world_js(power: float, unit_ai: str = "logic") -> str:
+    return WORLD_JS % {"power": power} + UNITS_JS % {"all": "true" if unit_ai == "all" else "false"}
 
 
 def _loop_js(obj: str, steps: int, ticks: bool, update: str = "none", power: float = 1.0,
-             combat: bool = False, trace: bool = False) -> str:
+             combat: bool = False, trace: bool = False, unit_ai: str = "logic") -> str:
     """Instruction mode steps the executor directly; tick mode drives updateTile.
 
     In tick mode Time.delta must be 1.0: edelta() = delta * timeScale feeds the
@@ -504,7 +570,7 @@ def _loop_js(obj: str, steps: int, ticks: bool, update: str = "none", power: flo
         # GlobalVars.update(), which only runs inside State.update().
         # state must be playing or Building.update()/updateConsumption() no-op;
         # it is restored in finally so no frame ever runs the game for real.
-        world = _world_js(power) + UNITS_JS + "worldTick(); unitTick();" if update == "all" else ""
+        world = _world_js(power, unit_ai) + "worldTick(); unitTick();" if update == "all" else ""
         # weather ticks in every tick mode: it is its own state machine, not a building.
         # Define it once outside the loop: WSEED is state and must keep advancing.
         setup = WEATHER_JS
@@ -520,13 +586,13 @@ def _loop_js(obj: str, steps: int, ticks: bool, update: str = "none", power: flo
         return ("var GS = Packages.mindustry.core.GameState; var ST = GS.State;"
                 " Vars.state.set(ST.playing); Time.delta = 1.0; %s"
                 " try{ for(var i = 0; i < %d; i++){"
-                " Vars.state.tick++; Vars.logicVars.update(); weatherTick(); %s }"
+                " Vars.state.tick++; Time.update(); Vars.logicVars.update(); weatherTick(); %s }"
                 " } finally { Vars.state.set(ST.paused); }%s" % (setup, steps, body, dump))
     return "for(var i = 0; i < %d; i++){ %s.executor.runOnce(); }" % (steps, obj)
 
 
 def _scene_loop_js(steps: int, ticks: bool, update: str = "none", power: float = 1.0,
-                   combat: bool = False, trace: bool = False) -> str:
+                   combat: bool = False, trace: bool = False, unit_ai: str = "logic") -> str:
     """Same, but tick every processor together so cross-reads see one world.
 
     A scene has N processors, so the tick loop must nest: outer ticks, inner
@@ -534,7 +600,7 @@ def _scene_loop_js(steps: int, ticks: bool, update: str = "none", power: float =
     let one processor run far ahead of the other.
     """
     if ticks:
-        world = _world_js(power) + UNITS_JS + "worldTick(); unitTick();" if update == "all" else ""
+        world = _world_js(power, unit_ai) + "worldTick(); unitTick();" if update == "all" else ""
         setup = WEATHER_JS
         pre = post = ""
         if combat:
@@ -547,7 +613,7 @@ def _scene_loop_js(steps: int, ticks: bool, update: str = "none", power: float =
         return ("var GS = Packages.mindustry.core.GameState; var ST = GS.State;"
                 " Vars.state.set(ST.playing); Time.delta = 1.0; %s"
                 " try{ for(var t = 0; t < %d; t++){"
-                " Vars.state.tick++; Vars.logicVars.update(); weatherTick(); %s"
+                " Vars.state.tick++; Time.update(); Vars.logicVars.update(); weatherTick(); %s"
                 " for(var j = 0; j < procs.length; j++){ procs[j].updateTile(); }"
                 " %s%s }"
                 " } finally { Vars.state.set(ST.paused); }%s"
@@ -586,7 +652,7 @@ def parse_results(lines: list[str]) -> list[dict]:
 
 def run_mlog(srv: Server, name: str, code: str, steps: int, ticks: bool = False,
              update: str = "none", power: float = 1.0, processor: str = "auto",
-             combat: bool = False, trace: bool = False) -> dict:
+             combat: bool = False, trace: bool = False, unit_ai: str = "logic") -> dict:
     # privileged statements exist only in world processors; selecting the block
     # that makes them compile is better than silently dropping whole lines.
     world_proc = processor == "world" or (processor == "auto" and PRIVILEGED_RE.search(code) is not None)
@@ -598,7 +664,7 @@ def run_mlog(srv: Server, name: str, code: str, steps: int, ticks: bool = False,
         with open(path, "w", encoding="utf-8", newline="\n") as f:
             f.write(code)
         js = STEP_JS % {"path": path.replace("\\", "/"), "x": srv.base[0], "y": srv.base[1],
-                        "loop": _loop_js("b", steps, ticks, update, power, combat, trace)}
+                        "loop": _loop_js("b", steps, ticks, update, power, combat, trace, unit_ai)}
         lines = srv.js(js)
         recs = parse_results(lines)
         rec = recs[0] if recs else {"vars": {}, "counter": None, "text": ""}
@@ -615,7 +681,7 @@ def run_mlog(srv: Server, name: str, code: str, steps: int, ticks: bool = False,
 
 def run_msch(srv: Server, name: str, path: str, steps: int, ticks: bool = False,
              update: str = "none", power: float = 1.0,
-             combat: bool = False, trace: bool = False) -> list[dict]:
+             combat: bool = False, trace: bool = False, unit_ai: str = "logic") -> list[dict]:
     sys.path.insert(0, TOOLS)
     import msch  # noqa: E402
 
@@ -639,7 +705,7 @@ def run_msch(srv: Server, name: str, path: str, steps: int, ticks: bool = False,
             ]
         tiles.append(entry)
     js = SCENE_JS % {"tiles": json.dumps(tiles),
-                     "loop": _scene_loop_js(steps, ticks, update, power, combat, trace)}
+                     "loop": _scene_loop_js(steps, ticks, update, power, combat, trace, unit_ai)}
     lines = srv.js(js, timeout=180)
     recs = parse_results(lines)
     rows = parse_trace(lines) if trace else []
@@ -739,6 +805,15 @@ def main(argv=None):
     ap.add_argument("--weather", metavar="NAME[:INTENSITY]", action="append", default=None,
                     help="force a weather active from tick 0, e.g. rain or sandstorm:0.5; repeatable. "
                          "Without it the world starts clear (a --host map can still start its own weather)")
+    ap.add_argument("--unit-ai", choices=["logic", "all"], default="logic",
+                    help="which units get Unit.update() per tick: logic = only units a "
+                         "processor controls; all = also the world's own AI (enemy defenders shoot back)")
+    ap.add_argument("--save", metavar="FILE", default=None,
+                    help="load a .msav scene instead of a blank world: its map, teams, "
+                         "cores, buildings and units all come with it (slot 'scene')")
+    ap.add_argument("--base", metavar="X,Y", default=None,
+                    help="tile for the processor: default 0,0 on a blank world, auto "
+                         "next to your core with --save")
     ap.add_argument("--json", action="store_true")
     args = ap.parse_args(argv)
 
@@ -753,7 +828,9 @@ def main(argv=None):
         sys.exit(f"missing server jar: {args.jar}")
 
     world_size = None if args.host or args.world == 0 else args.world
-    srv = Server(args.java, args.jar, world_size)
+    srv = Server(args.java, args.jar, world_size, args.save)
+    if args.base:
+        srv.base = tuple(int(v) for v in args.base.split(","))
     results = []
     try:
         if args.init_js:
@@ -784,14 +861,15 @@ def main(argv=None):
         for f in args.files:
             if f.lower().endswith(".msch"):
                 results.extend(run_msch(srv, os.path.basename(f), f, steps, ticks, update, power,
-                                        combat, want_trace))
+                                        combat, want_trace, args.unit_ai))
             else:
                 # utf-8-sig: PowerShell's `Set-Content -Encoding utf8` prepends a BOM,
                 # and the parser turns a BOM-prefixed first line into a noop
                 with open(f, encoding="utf-8-sig") as fh:
                     code = fh.read()
                 results.append(run_mlog(srv, os.path.basename(f), code, steps, ticks,
-                                        update, power, args.processor, combat, want_trace))
+                                        update, power, args.processor, combat, want_trace,
+                                        args.unit_ai))
     except FileNotFoundError as e:
         sys.exit(f"missing input: {e.filename}")
     except SimError as e:
