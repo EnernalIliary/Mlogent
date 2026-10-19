@@ -3069,3 +3069,10 @@ F:\OneDrive\桌面\AtomicStates\mindustry-blueprint\                ← 开发�
 - mlog.py check 会报 [ERR] jump target 29 out of range (0..28)；游戏内粘贴不会。
 - 定案：逻辑只留一个 end。堡垒寻核改为 29 条（0..28），三处 jump 28；装进游戏实测 N=29、destIndex 28/28/28，open 场景 1200 tick 仍是 dist 28.28、核心 3500→1137。
 - 教训：给用户的代码块必须与仓库文件逐行一致，end 不能省。
+### 第 70 次整理：tick 1 预检（编译、生成数量、单位存活）
+
+- mlogsim 默认在 tick 1 做三件事：`b.executor.initialized()` 必须为真；`--units` 的请求数必须全部生成；生成出来的每个单位 `isValid()` 必须仍为真。失败抛 `PREFLIGHT: ...`，退出码 1；`--no-preflight` 只关第三条。
+- 动机：单位落在实体格上时第一次 `u.update()` 就被 kill，之后的 1200 tick 只是“单位没动”，日志无任何报错。预检把这种静默错误变成 tick 1 的显式失败。
+- 实测耗时：编译错误 3.1 s 退出；正常 10 tick 3.3 s；open 场景 1200 tick（含 trace）5.8 s——之前“每次跑 30-40 s”的估计偏高，真实成本主要在诊断而非运行。
+- 实现点：`UNIT_JS` 保存 `SPAWNED` 数组并核对 `made < total`；`PREFLIGHT_JS` 的 `preflightTick()` 只在 `i==0`/`t==0` 调；`STEP_JS`/`SCENE_JS` 编译后直接查 `initialized()`。
+- 验证：compile 失败 `jump nowhere`、未知单位 `nosuchunit:1` 均 3 s 内报 PREFLIGHT；24/24、p8（a=7/b=null/c=null）、天气、堡垒 open 1200 tick 全部不变。

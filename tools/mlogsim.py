@@ -75,6 +75,13 @@ instruction loop, so the first update after placement executes nothing --
 buffer is capped by the game at `maxTextBuffer` = 400 chars; longer output is
 truncated, not lost by the harness.
 
+Preflight (default on; `--no-preflight` disables): the program must compile
+(`executor.initialized()`), every `--units` entry must actually spawn, and at
+tick 1 every spawned unit must still be alive. That last one matters: a unit
+spawned on a solid tile is killed by its first `update()`, which otherwise
+looks like "the unit never moved" only after the whole run has finished.
+Failures abort with the cause instead of a silent wrong result.
+
 Combat (`--ticks` only) mirrors `Logic.updateEntities()`: before the logic
 step, `Groups.bullet.updatePhysics()` and `Groups.unit.updatePhysics()` run;
 after it, `Groups.bullet.update()` and `.collide()`. A unit's `ucontrol target`
@@ -326,6 +333,12 @@ var s = Packages.java.nio.file.Files.readString(
 var b = Vars.world.build(%(x)d,%(y)d);
 b.code = s;
 b.updateCode(s);
+/* compile errors (undefined label, malformed statement) leave no instructions;
+   fail here in ~3 s instead of after a full scene run */
+if(!b.executor.initialized()){
+    throw new Error("PREFLIGHT: program did not compile (run mlog.py check; "
+                    + "a jump target out of range/undefined label compiles to nothing)");
+}
 /* updateTile() copies the team in; paused world never runs it */
 b.executor.team = Packages.mindustry.game.Team.sharded;
 /* a block placed via setBlock keeps efficiency 0 until updateEfficiency runs */
@@ -369,6 +382,9 @@ for(var i = 0; i < tiles.length; i++){
         b.links.add(new LL(l.x, l.y, l.name, true));
     }
     b.updateCode(b.code);
+    if(!b.executor.initialized()){
+        throw new Error("PREFLIGHT: processor at " + t.x + "," + t.y + " did not compile");
+    }
     /* updateTile() copies the team in; paused world never runs it */
     b.executor.team = team;
     b.efficiency = 1;
@@ -421,8 +437,11 @@ function freeSpot(cx, cy){
     return [cx, cy];
 }
 var made = 0;
+var SPAWNED = [];
+var total = 0;
 for(var s = 0; s < spec.length; s++){
     var name = spec[s][0], n = spec[s][1];
+    total += n;
     var ut = null;
     for(var i = 0; i < Vars.content.units().size; i++){
         var t = Vars.content.units().get(i);
@@ -431,9 +450,13 @@ for(var s = 0; s < spec.length; s++){
     if(ut == null){ print("NOUNIT\t" + name); continue; }
     for(var k = 0; k < n; k++){
         var sp = freeSpot(wantx + (k %% 5) * 16, wanty + ((k / 5) | 0) * 16);
-        ut.spawn(team, sp[0], sp[1]);
+        SPAWNED.push(ut.spawn(team, sp[0], sp[1]));
         made++;
     }
+}
+if(made < total){
+    throw new Error("PREFLIGHT: requested " + total + " unit(s), spawned " + made
+                    + " (unknown unit name? see --units)");
 }
 /* paused world never runs Teams.updateTeamStats, so ubind would see no units */
 Vars.state.teams.updateTeamStats();
@@ -508,6 +531,22 @@ function unitTick(){
 }
 '''
 
+# Cheap first-tick checks: a unit spawned on a solid tile is killed by its first
+# update() (900 HP gone in one frame) and the run then looks like "the unit did
+# not move". Fail at tick 1 with the real cause instead of after 1200 ticks.
+PREFLIGHT_JS = r'''
+function preflightTick(){
+    if(typeof SPAWNED === "undefined") return;
+    for(var i = 0; i < SPAWNED.length; i++){
+        var u = SPAWNED[i];
+        if(u == null || !u.isValid()){
+            throw new Error("PREFLIGHT: a spawned unit died on tick 1 (solid spawn tile? "
+                            + "use --unit-pos; pass --no-preflight to ignore)");
+        }
+    }
+}
+'''
+
 
 COMBAT_JS = r'''
 var GBU = Packages.mindustry.gen.Groups.bullet;
@@ -578,7 +617,8 @@ def _world_js(power: float, unit_ai: str = "logic") -> str:
 
 
 def _loop_js(obj: str, steps: int, ticks: bool, update: str = "none", power: float = 1.0,
-             combat: bool = False, trace: bool = False, unit_ai: str = "logic") -> str:
+             combat: bool = False, trace: bool = False, unit_ai: str = "logic",
+             preflight: bool = True) -> str:
     """Instruction mode steps the executor directly; tick mode drives updateTile.
 
     In tick mode Time.delta must be 1.0: edelta() = delta * timeScale feeds the
@@ -593,7 +633,7 @@ def _loop_js(obj: str, steps: int, ticks: bool, update: str = "none", power: flo
         world = _world_js(power, unit_ai) + "worldTick(); unitTick();" if update == "all" else ""
         # weather ticks in every tick mode: it is its own state machine, not a building.
         # Define it once outside the loop: WSEED is state and must keep advancing.
-        setup = WEATHER_JS
+        setup = PREFLIGHT_JS + WEATHER_JS
         pre = post = ""
         if combat:
             setup += COMBAT_JS
@@ -602,17 +642,19 @@ def _loop_js(obj: str, steps: int, ticks: bool, update: str = "none", power: flo
         if trace:
             setup += TRACE_JS
         body = pre + world + " %s.updateTile();" % obj + post + (" traceTick();" if trace else "")
+        check = " if(i == 0) preflightTick();" if preflight else ""
         dump = (" for(var q = 0; q < TRACE.length; q++){ print(TRACE[q]); }" if trace else "")
         return ("var GS = Packages.mindustry.core.GameState; var ST = GS.State;"
                 " Vars.state.set(ST.playing); Time.delta = 1.0; %s"
                 " try{ for(var i = 0; i < %d; i++){"
-                " Vars.state.tick++; Time.update(); Vars.logicVars.update(); weatherTick(); %s }"
-                " } finally { Vars.state.set(ST.paused); }%s" % (setup, steps, body, dump))
+                " Vars.state.tick++; Time.update(); Vars.logicVars.update(); weatherTick(); %s%s }"
+                " } finally { Vars.state.set(ST.paused); }%s" % (setup, steps, body, check, dump))
     return "for(var i = 0; i < %d; i++){ %s.executor.runOnce(); }" % (steps, obj)
 
 
 def _scene_loop_js(steps: int, ticks: bool, update: str = "none", power: float = 1.0,
-                   combat: bool = False, trace: bool = False, unit_ai: str = "logic") -> str:
+                   combat: bool = False, trace: bool = False, unit_ai: str = "logic",
+                   preflight: bool = True) -> str:
     """Same, but tick every processor together so cross-reads see one world.
 
     A scene has N processors, so the tick loop must nest: outer ticks, inner
@@ -621,7 +663,7 @@ def _scene_loop_js(steps: int, ticks: bool, update: str = "none", power: float =
     """
     if ticks:
         world = _world_js(power, unit_ai) + "worldTick(); unitTick();" if update == "all" else ""
-        setup = WEATHER_JS
+        setup = PREFLIGHT_JS + WEATHER_JS
         pre = post = ""
         if combat:
             setup += COMBAT_JS
@@ -630,14 +672,15 @@ def _scene_loop_js(steps: int, ticks: bool, update: str = "none", power: float =
         if trace:
             setup += TRACE_JS
         dump = (" for(var q = 0; q < TRACE.length; q++){ print(TRACE[q]); }" if trace else "")
+        check = " if(t == 0) preflightTick();" if preflight else ""
         return ("var GS = Packages.mindustry.core.GameState; var ST = GS.State;"
                 " Vars.state.set(ST.playing); Time.delta = 1.0; %s"
                 " try{ for(var t = 0; t < %d; t++){"
                 " Vars.state.tick++; Time.update(); Vars.logicVars.update(); weatherTick(); %s"
                 " for(var j = 0; j < procs.length; j++){ procs[j].updateTile(); }"
-                " %s%s }"
+                " %s%s%s }"
                 " } finally { Vars.state.set(ST.paused); }%s"
-                % (setup, steps, pre + world, post, " traceTick();" if trace else "", dump))
+                % (setup, steps, pre + world, post, " traceTick();" if trace else "", check, dump))
     return ("for(var i = 0; i < procs.length; i++){"
             " for(var k = 0; k < %d; k++){ procs[i].executor.runOnce(); } }" % steps)
 
@@ -672,7 +715,8 @@ def parse_results(lines: list[str]) -> list[dict]:
 
 def run_mlog(srv: Server, name: str, code: str, steps: int, ticks: bool = False,
              update: str = "none", power: float = 1.0, processor: str = "auto",
-             combat: bool = False, trace: bool = False, unit_ai: str = "logic") -> dict:
+             combat: bool = False, trace: bool = False, unit_ai: str = "logic",
+             preflight: bool = True) -> dict:
     # privileged statements exist only in world processors; selecting the block
     # that makes them compile is better than silently dropping whole lines.
     world_proc = processor == "world" or (processor == "auto" and PRIVILEGED_RE.search(code) is not None)
@@ -684,7 +728,8 @@ def run_mlog(srv: Server, name: str, code: str, steps: int, ticks: bool = False,
         with open(path, "w", encoding="utf-8", newline="\n") as f:
             f.write(code)
         js = STEP_JS % {"path": path.replace("\\", "/"), "x": srv.base[0], "y": srv.base[1],
-                        "loop": _loop_js("b", steps, ticks, update, power, combat, trace, unit_ai)}
+                        "loop": _loop_js("b", steps, ticks, update, power, combat, trace, unit_ai,
+                                         preflight)}
         lines = srv.js(js)
         recs = parse_results(lines)
         rec = recs[0] if recs else {"vars": {}, "counter": None, "text": ""}
@@ -701,7 +746,8 @@ def run_mlog(srv: Server, name: str, code: str, steps: int, ticks: bool = False,
 
 def run_msch(srv: Server, name: str, path: str, steps: int, ticks: bool = False,
              update: str = "none", power: float = 1.0,
-             combat: bool = False, trace: bool = False, unit_ai: str = "logic") -> list[dict]:
+             combat: bool = False, trace: bool = False, unit_ai: str = "logic",
+             preflight: bool = True) -> list[dict]:
     sys.path.insert(0, TOOLS)
     import msch  # noqa: E402
 
@@ -725,7 +771,8 @@ def run_msch(srv: Server, name: str, path: str, steps: int, ticks: bool = False,
             ]
         tiles.append(entry)
     js = SCENE_JS % {"tiles": json.dumps(tiles),
-                     "loop": _scene_loop_js(steps, ticks, update, power, combat, trace, unit_ai)}
+                     "loop": _scene_loop_js(steps, ticks, update, power, combat, trace, unit_ai,
+                                            preflight)}
     lines = srv.js(js, timeout=180)
     recs = parse_results(lines)
     rows = parse_trace(lines) if trace else []
@@ -834,6 +881,8 @@ def main(argv=None):
     ap.add_argument("--base", metavar="X,Y", default=None,
                     help="tile for the processor: default 0,0 on a blank world, auto "
                          "next to your core with --save")
+    ap.add_argument("--no-preflight", action="store_true",
+                    help="skip the tick-1 check that spawned units are still alive")
     ap.add_argument("--json", action="store_true")
     args = ap.parse_args(argv)
 
@@ -843,6 +892,7 @@ def main(argv=None):
     power = 1.0 if args.power == "full" else 0.0
     combat = (args.combat == "on") if args.combat else ticks
     want_trace = bool(args.trace or args.asserts or args.asserts_last)
+    preflight = not args.no_preflight
 
     if not os.path.exists(args.jar):
         sys.exit(f"missing server jar: {args.jar}")
@@ -881,7 +931,7 @@ def main(argv=None):
         for f in args.files:
             if f.lower().endswith(".msch"):
                 results.extend(run_msch(srv, os.path.basename(f), f, steps, ticks, update, power,
-                                        combat, want_trace, args.unit_ai))
+                                        combat, want_trace, args.unit_ai, preflight))
             else:
                 # utf-8-sig: PowerShell's `Set-Content -Encoding utf8` prepends a BOM,
                 # and the parser turns a BOM-prefixed first line into a noop
@@ -889,7 +939,7 @@ def main(argv=None):
                     code = fh.read()
                 results.append(run_mlog(srv, os.path.basename(f), code, steps, ticks,
                                         update, power, args.processor, combat, want_trace,
-                                        args.unit_ai))
+                                        args.unit_ai, preflight))
     except FileNotFoundError as e:
         sys.exit(f"missing input: {e.filename}")
     except SimError as e:
