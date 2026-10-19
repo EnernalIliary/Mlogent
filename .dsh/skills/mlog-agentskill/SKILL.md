@@ -186,7 +186,7 @@ mlog **只有 `#` 起注释**（`LParser.java:98-99`），没有行尾注释 —
 - **外部输入一律 ⊤**。`sensor` / `getlink` / `ulocate` 拿到的都是运行期状态 ⇒ 一半变量退化成未知，`values` 只能对纯计算链说话。
 - `values` 3 轮后按变量放宽；`cost` 在 1000 条处截断并显式打 `>=`（那是下界，不是总量）。
 - `pack` 只认**同一 `src` 上 ≥2 个不同指数**的 `op idiv`，不重建表达式；`MIN_EXP = 3`。
-- **模拟器只到「逻辑层 + 单位运动层（B 档）+ 世界更新/天气」**。`tools/mlogsim.py` 跑真 `LExecutor`；`--update all` 下真 `Building.update()`（工厂/传送带/电力消费者，满电由 `--power` 钉）与真 `LogicAI` 单位 `update()`；tick 循环复刻 `Logic.updateWeather()` 的冷却/生成并 `Groups.weather.update()`，能证明 `move/approach/within/@x/@y`、生产进度、`weathersense/weatherset` 的时序。`weathersense`/`weatherset` 等特权语句只有 world processor 认，微处理器会把整行**静默删掉**（`--processor auto` 按语句自动选）。不模拟野 AI、波次、战斗、电力图和真实地形碰撞细节。**真游戏行为必须由玩家在游戏里验收**——模拟器通过不等于上手能跑；交付时要把「哪些部分是模拟器验证过的、哪些要你进游戏试」分开写。
+- **模拟器只到「逻辑层 + 单位运动层（B 档）+ 世界更新/天气 + 子弹命中」**。`tools/mlogsim.py` 跑真 `LExecutor`；`--update all` 下真 `Building.update()`（工厂/传送带/电力消费者，满电由 `--power` 钉）与真 `LogicAI` 单位 `update()`；tick 循环复刻 `Logic.updateWeather()` 的冷却/生成并 `Groups.weather.update()`；`--combat on`（`--ticks` 默认）按 `Logic.updateEntities()` 的顺序跑 `Groups.bullet.updatePhysics/update/collide`，所以 `ucontrol target` 的子弹会飞、会命中、会掉血。能证明 `move/approach/within/@x/@y`、生产进度、`weathersense/weatherset` 时序、目标 hp 变化。`--trace FILE` 每 tick 记逻辑单位一行（`unit,tick,ux,uy,uhp,range,tx,ty,dist,cx,cy,chp,bullets,shots`），`--assert` 逐行不变量、`--assert-last` 只看末行（失败退 3）。`weathersense`/`weatherset` 等特权语句只有 world processor 认，微处理器会把整行**静默删掉**（`--processor auto` 按语句自动选）。不模拟野 AI、波次、敌方 AI、电力图、真实地形碰撞，也不结算建筑被毁后的连锁后果。`shots` 增加不等于命中——必须看 `chp` 并开 `--combat off` 对照。**真游戏行为必须由玩家在游戏里验收**——模拟器通过不等于上手能跑；交付时要把「哪些部分是模拟器验证过的、哪些要你进游戏试」分开写。
 
 ## 典型流程
 
