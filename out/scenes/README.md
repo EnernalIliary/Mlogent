@@ -68,13 +68,17 @@ python tools/mlogsim.py my.mlog --save scene.msav --ticks 60 --update none
 
 ## 还需要什么
 
-### P0：只补三个盲区合成台
+### P0：三个盲区合成台（已建好）
 
-| 场景 | 摆什么 | 验证什么 |
-|---|---|---|
-| `memory-bench` | 3 个 micro + 2 个 memory cell：写入端、读取端、协调端 | 跨处理器 `read`/`write` 按名；未声明槽读 `null`；`wait`/轮询时序 |
-| `processor-bench` | micro、logic、hyper、world 各一个，各连 memory cell/bank、message、switch | `@ipt` 是否为 2/8/25/8；特权语句只有 world 能编译；链接名怎么读 |
-| `sensor-bench` | 一排不同单位：dagger、flare、mono、mega、fortress，`flag` 设 1..5（其中一个留 null） | `sensor` 能读到什么：`@health/@armor/@shield/@range/@speed/@flag/@team/@type/@controlled/@dead/@x/@y`；null 与 0 的区别 |
+`out/scenes/benches/`：`build.py` 重建两张 `.msch`，`run.py` 三台全跑（58 项断言，全绿）。
+
+| 场景 | 摆什么 | 验证什么 | 实测结论 |
+|---|---|---|---|
+| `memory-bench` | 3 个 micro + 2 个 memory cell：写入端、读取端、协调端 | 跨处理器 `read`/`write` 按名；未写槽的读值；同轮写入可见性 | 跨处理器读 `set` 变量=42；**未写槽读 0（不是 null）**；write 后同轮 read=99 |
+| `processor-bench` | micro、logic、hyper、world 各一个，各连 memory cell；hyper 另连 bank | `@ipt` 是否为 2/8/25/8；特权语句只有 world 能编译；链接名怎么读 | ipt 2/8/25/8；hyper 写 bank 槽 63=25；world 的 `setrule unitCap 77` 生效 |
+| `sensor-bench` | 脚本 spawn 五个单位：dagger、flare、mono、mega、fortress，`flag` 设 1..5 | `sensor` 读数与引擎值是否一致；null 与 0 的区别 | 五项 health/armor/range/speed/flag 全对上；controlled 全 0；`@type` 返回类型对象 |
+
+链接范围只有 **10 格**（`LogicBlock.range = 8 * 10`），超出的链接装载时静默变 `null`——这是第一版台子 `cell1=null` 的原因。
 
 ### 现实场景已经覆盖的（不用另做）
 

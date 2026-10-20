@@ -3083,3 +3083,11 @@ F:\OneDrive\桌面\AtomicStates\mindustry-blueprint\                ← 开发�
 - 堡垒在 PVP 上 `ulocate` 到 crux shard(49,14)；从 (35,20) 出发会后退到 25.6 格并开火（核心 1100→1056）。从基地出发会被基地建筑卡住（B 档不寻路）——实景测试用 `--unit-pos` 放空地，或换 open。
 - `ulocate ... outBuild` 只在 `within(max(unit.range, buildingRange))` 时赋值：47 格时 `core` 为 null，`core.x/core.y` 仍有效。判存在用 found?，不要用 outBuild。
 - `--save` 载入后世界时钟归零；campaign 自带的 5534 字节处理器不参与执行（`--update all` 跳过 processor）。
+
+### 第 72 次整理：三个盲区合成台（memory / processor / sensor）
+
+- memory-bench：未写过的记忆格槽读 **0**，不是 null；`read d writer1 "declared"` 跨处理器读到 42；`write 99` 后同一轮 `read` 立即读到 99。同队处理器按名读写不需要 `logicUnitControl`。
+- processor-bench：micro/logic/hyper/world 的 `@ipt` 实测 2/8/25/8；hyper 可写 bank 槽 63=25；world 的 `setrule unitCap 77` 编译并生效（同一行在 micro 里被静默丢弃）。
+- 链接范围是 10 格（`LogicBlock.range = 8 * 10`）。超范围链接不报错、装载时变成 null——台子第一版把 cell 放到 14 格外，read 全 null，就是它。
+- sensor-bench：五个单位（dagger/flare/mono/mega/fortress）的 health/armor/shield/range/speed/flag 与引擎值逐一相等；`@type` 返回类型对象；无玩家/无命令时 `@controlled=0`。fortress `@range=29.5`、`@speed=3.225`（tile、tile/秒）。
+- 两个工具坑：`mschgen.Blueprint.add_block()` 拒绝逻辑方块，要 `add_logic(block="logic-processor")`，默认 micro；mlog 的 `print` 只吃一个参数，多参数只打第一个。
