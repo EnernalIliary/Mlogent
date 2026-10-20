@@ -110,6 +110,41 @@ def _find(text: str):
     return [m for m in (SIG_RE.match(ln.strip()) for ln in text.split("\n")) if m]
 
 
+def sign_text(text: str, author: str = DEFAULT_AUTHOR, force: bool = False):
+    """Return (signed_text, id).  Raises SignError if it would change an id."""
+    hits = _find(text)
+    body = _body(text)
+    if not body:
+        raise SignError("no statement to attach the signature to")
+    author = re.sub(r'[:"]', "", author).strip() or DEFAULT_AUTHOR
+    pid = _hash(author, body)[:12]
+    if hits:
+        old_id, old_author = hits[0].group(2), hits[0].group(1)
+        if old_id == pid and old_author == author and not force:
+            return text, pid
+        if (old_id != pid or old_author != author) and not force:
+            raise SignError(
+                f"body changed since signing (id {old_id} -> {pid}); "
+                f"pass --force to re-sign")
+    lines = body.rstrip("\n").split("\n")
+    lines[-1] = SIG_LINE.format(author=author, pid=pid)
+    return "\n".join(lines) + "\n", pid
+
+
+def verify_text(text: str) -> list[str]:
+    hits = _find(text)
+    if not hits:
+        return ['missing hidden @aigenerated argument '
+                '(expected `jump 0 always 0 "aigenerated:<author>:<id>"`)']
+    if len(hits) > 1:
+        return [f"{len(hits)} @aigenerated arguments found, expected 1"]
+    author, want = hits[0].group(1), hits[0].group(2)
+    got = _hash(author, _body(text))[:12]
+    if want != got:
+        return [f"body changed after signing (id {want} != {got})"]
+    return []
+
+
 def sign(path: Path, author: str, force: bool) -> str:
     text = _read(path)
     hits = _find(text)
@@ -126,27 +161,13 @@ def sign(path: Path, author: str, force: bool) -> str:
                 f"{path}: body changed since signing "
                 f"(id {old_id} -> {pid}); pass --force to re-sign")
 
-    author = re.sub(r'[:"]', "", author).strip() or DEFAULT_AUTHOR
-    pid = _hash(author, body)[:12]
-    lines = body.rstrip("\n").split("\n")
-    lines[-1] = SIG_LINE.format(author=author, pid=pid)
-    _write(path, "\n".join(lines) + "\n")
+    signed, pid = sign_text(text, author, force=True)
+    _write(path, signed)
     return f"signed  {path}  id={pid}  author={author}"
 
 
 def verify(path: Path) -> list[str]:
-    text = _read(path)
-    hits = _find(text)
-    if not hits:
-        return [f'{path}: missing hidden @aigenerated argument '
-                f'(expected `jump 0 always 0 "aigenerated:<author>:<id>"`)']
-    if len(hits) > 1:
-        return [f"{path}: {len(hits)} @aigenerated arguments found, expected 1"]
-    author, want = hits[0].group(1), hits[0].group(2)
-    got = _hash(author, _body(text))[:12]
-    if want != got:
-        return [f"{path}: body changed after signing (id {want} != {got})"]
-    return []
+    return [f"{path}: {p}" for p in verify_text(_read(path))]
 
 
 def main(argv) -> int:

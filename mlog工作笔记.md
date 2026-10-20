@@ -3142,3 +3142,9 @@ F:\OneDrive\桌面\AtomicStates\mindustry-blueprint\                ← 开发�
 - `LAssembler.write` 的签名是 `write(Seq<LStatement>)`，没有 `write(LExecutor)`；`read` 要 `privileged=true` 才认特权语句。
 - aigenerated.py 哈希改成 sha256(author + "\n" + body)[:12]，作者进哈希；旧式头注释/`set aigenerated.<id>`/尾参数在重签时清掉。
 - 实测：sign→id 63fa438c6056，verify OK；check 0 issue；mlogsim 行为不变（血量序列同前）；tests 30/30。
+第 79 次整理：gen 默认自动签名
+- `tools/mlog.py gen` 现在默认先签再打包：`--source` 把源 .mlog 原地签好再读回；`--logic`/stdin 在内存里签；`--no-sign` 关闭，`--author` 换作者。
+- 已有签名且正文未改：`sign` 返回 already signed，不会重写文件；正文改过则自动 `--force` 重签（生成流程不为签名停下）。
+- 打包前的 VERIFY 比对的是**签名后的 code**，所以蓝图里存的源码带签名；`LAssembler.write` 往返保留 jump 的 p4。
+- golden：`digest_aigenerated` 增加 `gen/gen_nosign` 四个字段（rc、蓝图里是否带签名、源文件是否带签名），30/30。
+- 注意：`gen` 会写源文件；不想让工具改文件时用 `--no-sign` 或先复制。
