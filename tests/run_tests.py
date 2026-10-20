@@ -217,6 +217,10 @@ SUITE: list[tuple[str, str, str | None]] = [
     # Privileged built-ins are INFO, not WARN: the same file may legitimately be
     # pasted into a world processor. The point is the line number and severity.
     ("check/privileged-var",  "check",   "privileged-var.mlog"),
+    # read/write @this "name" addresses a processor VARIABLE by string; an
+    # undeclared name reads null / writes nothing. INFO, because both are
+    # legal -- and the second one is the silent no-op worth seeing.
+    ("check/self-readwrite",  "check",   "self-readwrite.mlog"),
     ("check/spin-deadlock",   "check",   "spin.mlog"),
     ("check/spin-handshake",  "check",   "spin-ok.mlog"),
     ("pack/three-fields",      "pack",    "pack1.mlog"),

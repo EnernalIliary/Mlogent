@@ -3120,3 +3120,11 @@ F:\OneDrive\桌面\AtomicStates\mindustry-blueprint\                ← 开发�
 - `set cfg.count 0` 不是死代码：它是留给使用者改的配置面；规范 §2 已写明，交付时在文件头写含义与范围，`ir` 报“赋值未读”先确认是不是参数。
 - `ubind` 给类型是按 `unitCache` 轮转（`exec.binds[id]` 取模自增），给单位是直接绑；要盯一个单位就别每轮 `ubind @type`。
 - 顺带：`_link_test` 42/4242；`无线超-v3` 在 PVP 存档上自动接 `dome1`。
+### 第 76 次整理（2026-10-20）：read/write 按名字访问处理器变量
+
+- `read a @this "secret"` / `write 9 @this "secret"` 在**模拟器里本来就能跑**（真 `LExecutor`）：`LogicBlock.read` 先 `executor.optionalVar(name)`，没有变量再 `optionalLink(name)`；数字下标才是链接。
+- `LogicBlock.write` 找不到变量名或目标是常量时直接 return，**静默空操作**；所以 `write 5 @this "nope"` 什么也不发生。
+- 缺的是静态分析：`mlogir` 之前不把字符串地址当变量。现在 `Stmt.addr_reads/addr_writes` 记录 read/write 的 `@this "name"`，`check` 报两条 INFO：`self-read-undefined`（读未声明，得 null）、`self-write-noop`（写未声明，空操作）。带编号的名字（`cell1`）按链接算，不报。
+- `ucontrol idle` 的绑定架构：`ubind` 只写 `@unit`，不认领控制；第一条 `ucontrol`/`ulocate` 走 `checkLogicAI`，把 `LogicAI` 挂到单位上（控制器=本处理器，清 `mineTile`/`buildPlan`），并把 `controlTimer` 续到 600 tick。`idle` 只设 `control=idle`，`LogicAI.updateMovement` 没有 idle 分支，所以它**不发运动指令**（速度靠 drag 衰减），也不清 `mineTile`——那是 `stop` 的事。
+- 证据：`_this_test` → `a=7,b=9,c=null`、text `7/9/null`；`_idle_test` → `@controlled=1`、`@controller=micro-processor`。
+- 坑：`tests/run_tests.py` 导入的是 `mindustry-blueprint/tools/` 副本，改根 `tools/mlogcheck.py` 后必须复制并 `sync_mlogagent.py`；`--write --case` 会把 golden 重写成一条，恢复用 `git checkout -- tests/expected.json` 后全量 `--write`。golden 26 条。

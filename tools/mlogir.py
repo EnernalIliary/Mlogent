@@ -256,6 +256,11 @@ class Stmt:
     args: list[Tok] = field(default_factory=list)
     defs: set[str] = field(default_factory=set)
     uses: set[str] = field(default_factory=set)
+    # `read x @this "name"` / `write v @this "name"` address a *processor
+    # variable* by a string, so the text argument is not a variable token and
+    # never reaches defs/uses. Keep the names separately for the checker.
+    addr_reads: set[str] = field(default_factory=set)
+    addr_writes: set[str] = field(default_factory=set)
     unknown: bool = False           # mnemonic not in the semantics table
 
     def arg(self, i: int) -> Tok | None:
@@ -387,6 +392,15 @@ def build_stmt(index: int, line_no: int, raw: str, table: dict) -> Stmt:
         return out
 
     known = mnemonic in table
+    addr_reads: set[str] = set()
+    addr_writes: set[str] = set()
+    # `read out target address` / `write value target address`: a *string*
+    # address on @this names a processor variable. The name is data, not a
+    # variable token, so record it separately for the checker.
+    if mnemonic in ("read", "write") and len(args) > 2:
+        if args[1].text == "@this" and args[2].kind == KIND_STR:
+            name = args[2].text.strip('"')
+            (addr_reads if mnemonic == "read" else addr_writes).add(name)
     return Stmt(
         index=index,
         line=line_no,
@@ -395,6 +409,8 @@ def build_stmt(index: int, line_no: int, raw: str, table: dict) -> Stmt:
         args=args,
         defs=vars_at(defs_idx),
         uses=vars_at(uses_idx),
+        addr_reads=addr_reads,
+        addr_writes=addr_writes,
         unknown=not known,
     )
 

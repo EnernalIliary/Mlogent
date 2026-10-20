@@ -728,6 +728,33 @@ def analyse(lines: list[str], links: list[str] | None = None, ipt: int = 2) -> l
         ever_defined |= set(defs_of(c))
     ever_defined |= link_vars
 
+    # ---- read/write @this "name": a string addresses a processor variable ----
+    # `LogicBlock.read` looks the name up in `executor.optionalVar(name)`, then
+    # falls back to `optionalLink(name)`; `LogicBlock.write` returns silently
+    # when the name is not a variable (LogicBlock.java:607-650). Neither path
+    # shows up in defs_of(), because the name is a string, not a variable token.
+    _SELF_READ = re.compile(r'^read\s+\S+\s+@this\s+"([^"]+)"\s*$')
+    _SELF_WRITE = re.compile(r'^write\s+\S+\s+@this\s+"([^"]+)"\s*$')
+    for _ln, _code in stmts:
+        m = _SELF_READ.match(_code)
+        if m:
+            name = m.group(1)
+            if name not in ever_defined and not LINK_RE.match(name):
+                out.append(Finding(
+                    "INFO", _ln + 1, "self-read-undefined",
+                    f'`read ... @this "{name}"` addresses a processor variable this '
+                    f'program never declares, so the game returns null (a name ending '
+                    f'in a digit would resolve as a link instead)'))
+        m = _SELF_WRITE.match(_code)
+        if m:
+            name = m.group(1)
+            if name not in ever_defined:
+                out.append(Finding(
+                    "INFO", _ln + 1, "self-write-noop",
+                    f'`write ... @this "{name}"` addresses a variable this program '
+                    f'never declares; LogicBlock.write returns silently when the name '
+                    f'is not a variable, so this statement does nothing'))
+
     # How is each name USED? A name that only ever appears in `print` is not a
     # mistake: the in-game editor shows every variable of a program in its
     # variable list, so signing a blueprint by printing an unassigned name is a

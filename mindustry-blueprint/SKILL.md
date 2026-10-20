@@ -136,6 +136,7 @@ python tools/mlogsim.py my.mlog --save scene.msav --ticks 120 \
 - `--units name:count` 生成单位、`--unit-pos X,Y` 指定 tile 出生点；`--unit-ai all` 让场景里原有单位也按 AI 行动。单位落在实体格会在第一次 `update()` 被 `kill()`，所以有 `PREFLIGHT:` 预检——比"跑 1200 tick 发现单位没动"便宜得多；`--no-preflight` 只关单位存活检查。
 - `--core-items ITEM:N,...` 给核心灌库存（空白世界会在处理器旁自动放一个 `core-shard`）；`ulocate`/`itemTake`/`itemDrop` 由此可断言。取放料要求同队、目标有 `items`、距离在 `45 world + 方块半宽`（约 6 格）内。
 - `--links auto`（`.mlog` 默认）：裸 `.mlog` 没有链接表，模拟器会找出“读而不赋值”的链接名（`cell1`、`bank1`、`message1`、`dome1`），在处理器旁放同类方块并接上（同队、10 格内）；`.msch` 用自己的链接表；`--links off` 恢复原样（读 `null`）。
+- `read`/`write` 的 `@this` 地址是**处理器变量**：`read v @this "slot"` 读、`write v @this "slot"` 写，名字是**字符串**；写一个程序里没声明过的名字是静默空操作（`check` 报 INFO `self-write-noop`），读未声明的名字得到 `null`（`self-read-undefined`）。数字下标 `read v @this 0` 取的是链接，不是变量。
 - `--update all` 才跑 `Building.update()`（工厂、传送带、电力消费者）与 `LogicAI` 单位；`--power full|none` 把电力钉死；`--combat on`（`--ticks` 默认）按 `Logic.updateEntities()` 的顺序推进子弹物理/碰撞/伤害；`--weather rain` 可强制开局天气。
 - `--trace FILE` 每 tick 一行逻辑单位轨迹（`unit,tick,ux,uy,uhp,range,tx,ty,dist,cx,cy,chp,bullets,shots`，tile 坐标）；`--assert EXPR` 对每行、`--assert-last EXPR` 只对末行求值，失败退 3。列名就是变量名。
 - 特权语句（`weathersense/weatherset/setrule/message/cutscene/effect/fetch/sync/getblock/setblock/spawn/status`）只有 world processor 认；放进微处理器会被**静默删掉整行**。`--processor auto` 按语句自动选处理器。

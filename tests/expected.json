@@ -191,6 +191,20 @@
       ]
     ]
   },
+  "check/self-readwrite": {
+    "kind": "check",
+    "case": "self-readwrite.mlog",
+    "digest": [
+      [
+        "INFO",
+        4
+      ],
+      [
+        "INFO",
+        5
+      ]
+    ]
+  },
   "check/spin-deadlock": {
     "kind": "check",
     "case": "spin.mlog",
