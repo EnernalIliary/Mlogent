@@ -118,8 +118,30 @@ whenToUse: 涉及 Mindustry 蓝图（.msch / 蓝图码）、mlog 逻辑编写或
 5. **`values`**：没有意外的恒真/恒假分支和可证 null（尤其是 `equal X null`——未赋值变量是 0，只有 `===` 区分 null 与 0）。
 6. **跨处理器**（用了 `read`/`write` 别的处理器时）：`cross` 报 `0 never-assigned`；槽名必须在对方先声明，且拼写一致。
 7. **点名与署名**：变量命名跟 `style` 里看到的语料风格一致；署名用 `print`/`set` 的未赋值名字（会在编辑器变量列表里显示），不要写成参数槽里没人读的垃圾位。
-8. **假设写清**：模拟器不支持 `ubind`/`ucontrol`/世界处理器/`draw`/`control`，所以超出静态分析的部分（时序、竞态、真实单位行为）是推理不是验证。交付时明说哪些是"读起来没错"。
+8. **假设写清**：静态分析之外，时序、跨处理器读写、单位运动、生产/天气/子弹命中都要用 `tools/mlogsim.py` 跑真执行器（见下节）；模拟器覆盖不到的部分（画面、野 AI、波次、建筑被毁的连锁后果）才是推理不是验证。交付时明说哪些是"跑过"，哪些是"读起来没错"。
 9. **蓝图用 `mlog.py gen` 产出**，不要手拼 base64；生成后 `ir`/`check` 再跑一遍确认逻辑没被截断。
+
+## 模拟器：`tools/mlogsim.py`（真执行器）
+
+静态分析回答"读起来对不对"，这个工具回答"跑起来是不是这样"。它直接驱动真 `LExecutor`，不是重写的 VM。
+
+```bash
+python tools/mlogsim.py my.mlog --steps 10                  # 指令级：只跑逻辑，不跑世界
+python tools/mlogsim.py my.mlog --ticks 120 --update all    # tick 级：工厂/传送带/单位也动
+python tools/mlogsim.py my.mlog --save scene.msav --ticks 120 \
+  --units fortress:1 --trace out/t.csv --assert-last "chp < 3500"
+```
+
+- 默认 v160.7（`out/_server160.jar`）+ JRE21，可用 `MLOGSIM_JAR`/`MLOGSIM_JAVA` 换。空白世界默认 64×64；`--host` 用随机真实地图；`--save` 载存档（从我方核心旁自动找空地放入口处理器，`--base X,Y` 覆盖）。
+- `--units name:count` 生成单位、`--unit-pos X,Y` 指定 tile 出生点；`--unit-ai all` 让场景里原有单位也按 AI 行动。单位落在实体格会在第一次 `update()` 被 `kill()`，所以有 `PREFLIGHT:` 预检——比"跑 1200 tick 发现单位没动"便宜得多；`--no-preflight` 只关单位存活检查。
+- `--update all` 才跑 `Building.update()`（工厂、传送带、电力消费者）与 `LogicAI` 单位；`--power full|none` 把电力钉死；`--combat on`（`--ticks` 默认）按 `Logic.updateEntities()` 的顺序推进子弹物理/碰撞/伤害；`--weather rain` 可强制开局天气。
+- `--trace FILE` 每 tick 一行逻辑单位轨迹（`unit,tick,ux,uy,uhp,range,tx,ty,dist,cx,cy,chp,bullets,shots`，tile 坐标）；`--assert EXPR` 对每行、`--assert-last EXPR` 只对末行求值，失败退 3。列名就是变量名。
+- 特权语句（`weathersense/weatherset/setrule/message/cutscene/effect/fetch/sync/getblock/setblock/spawn/status`）只有 world processor 认；放进微处理器会被**静默删掉整行**。`--processor auto` 按语句自动选处理器。
+- 能证明：`move/approach/within/@x/@y`、`ipt`、跨处理器读写、生产进度、天气时序、子弹命中掉血。不能证明：野 AI、波次、电力图、真实地形碰撞、建筑被毁的连锁；`draw` 会执行但没有画面。**真游戏行为必须由玩家验收**。
+
+场景：`out/scenes/` 有 5 张现实存档（open / garded-line / maze / PVP / campaign）；`benches/run.py` 是 memory/processor/sensor 三张合成台（58 项断言）；`_snapshot.py` 出 PNG 快照。
+
+注意：`mlogsim.py` 只在仓库根的 `tools/`（独立拷走的技能副本不含它，因为它要 Java + `out/_server160.jar`）；下面命令都假定当前目录是仓库根。
 
 ## 写逻辑之前：先查这四样
 
@@ -622,9 +644,9 @@ python mindustry-blueprint\tools\parallel.py --items 1421   # 先看它会开几
 |---|---|
 | `equal <未赋值> null` 恒真 · `logn(0,2)`→null · `1/0`→null · `sensor @unit @dead`→1 · `print <未声明>`→`null` · 记忆格未写→0 | **双实现确认** |
 | `read`/`write` 只认对方**已声明**的变量，`write` 到未声明名字不建槽 | **双实现确认**（蓝图级探针 `A=7 B=null C=null`） |
-| `ubind` 后 `@controller == @this` | 只有源码依据（模拟器不支持 `ubind`） |
+| `ubind` 后 `@controller == @this` | 真执行器实测（v159.3 / v160.7，`mlogsim`；mindcode 模拟器不支持 `ubind`） |
 
-复跑方法与探针文件见 `EMULATOR-CROSSCHECK.md`（需要 JDK 22 与 `mindcode.jar`）。
+复跑方法与探针文件见 `EMULATOR-CROSSCHECK.md`（需要 JDK 22 与 `mindcode.jar`）。平时不需要 mindcode：`tools/mlogsim.py` 本身就是真执行器，`out/probes/p1..p8` 已在 v159.3 与 v160.7 上复跑通过；`tests/run_tests.py` 是 24 条 golden，不依赖 Java。
 
 ## 独立副本
 

@@ -179,6 +179,25 @@ mlog **只有 `#` 起注释**（`LParser.java:98-99`），没有行尾注释 —
 - NaN / ±Infinity 在 `LVar.setnum()` 里被**静默转成 null**。这就是 `op logn x 2` 在 `x=0` 时得 `-Infinity` → null、从而成为按位剥离循环退出条件的原因 —— **令牌流里没有任何字面信息说"退出"，只有值域说得清**。
 - 所以 `op rand` / `op noise` 的值**不能建模成 NaN**（那会变成"必定是 null"）；本项目里它们一律是 ⊤。
 
+## 真执行器模拟器（`mlogsim.py`）
+
+这份副本只做静态分析；`mlogsim.py` 在本仓库根的 `tools/`，不在本目录里。它驱动真 `LExecutor`（默认 v160.7 + JRE21，`MLOGSIM_JAR`/`MLOGSIM_JAVA` 可换），不是重写的 VM。
+
+```bash
+python tools/mlogsim.py logic.mlog --steps 20                    # 指令级，不跑世界
+python tools/mlogsim.py logic.mlog --ticks 120 --update all      # tick 级，工厂/单位也动
+python tools/mlogsim.py logic.mlog --save scene.msav --units fortress:1 \
+  --ticks 120 --trace out/t.csv --assert-last "chp < 3500"
+```
+
+- 世界：空白 64×64（默认）/ `--host` 随机真实图 / `--save` 载存档（自动在我方核心旁放处理器，`--base X,Y` 覆盖）。
+- 单位：`--units name:count`、`--unit-pos X,Y`、`--unit-ai all`（场景原有单位按 AI 行动）。单位落在实体格会在第一次 `update()` 被 `kill()`，所以 tick 1 会跑 `PREFLIGHT:`（编译失败、单位没生成、落地即死都会直接报，不用等 1200 tick）。
+- 世界更新：`--update all` 跑真 `Building.update()` 与 `LogicAI` 单位；`--power full|none` 钉电力；`--combat on`（`--ticks` 默认）按 `Logic.updateEntities()` 推进子弹物理/碰撞/伤害；`--weather rain` 强制开局天气。
+- 观测：`--trace FILE` 每 tick 一行（`unit,tick,ux,uy,uhp,range,tx,ty,dist,cx,cy,chp,bullets,shots`，tile 坐标）；`--assert EXPR` 逐行、`--assert-last EXPR` 只查末行，失败退 3。
+- 特权语句（`weathersense/weatherset/setrule/message/...`）只有 world processor 认，放微处理器里整行被静默删掉；`--processor auto` 自动选。
+- 证明不了：野 AI、波次、电力图、真实地形碰撞、建筑被毁连锁；`draw` 执行但无画面。**真游戏行为必须玩家验收**，交付时把"跑过"和"读起来没错"分开写。
+- 现成场景：`out/scenes/`（5 张现实存档）、`out/scenes/benches/run.py`（memory/processor/sensor 三张台子，58 项断言）、`_snapshot.py`（PNG 快照）。
+
 ## 边界：这些工具证明不了的事
 
 - **不跨处理器(说明:`read`/`write` 可以按**名字**访问另一个处理器的变量(必須提前聲明、寫給未聲明的槽是靜默空操作)。老蓝图库里看不到这种写法,所以对老库「这个变量从未赋值」的判断是可靠的;新库里它是一条合法的"别处赋值"路径 —— 报 A 层之前先确认两份逻辑是不是同一代产物。)**。别的处理器 `read x cell1 "名字"` 看不见；实测 0 例，但 `ir` 报了死存储仍要自查有没有跨块约定。

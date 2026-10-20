@@ -7,6 +7,11 @@
 > 这里用的是 [`cardillan/mindcode`](https://github.com/cardillan/mindcode) 自带的
 > 处理器模拟器 —— 一个**不读我这份源码**、由别人独立写的 mlog 执行器。
 
+> **2026-10 后记**：日常已经改用仓库根的 `tools/mlogsim.py` —— 它驱动游戏真正的
+> `LExecutor`（默认 v160.7 + JRE21），不需要 JDK 22 和 `mindcode.jar`；
+> `out/probes/p1..p8` 已在 v159.3 与 v160.7 上复跑通过。mindcode 这条独立实现仍然有效
+> （它的价值是"不读我的源码"），但不再是必跑项。下文保留当时的原始记录。
+
 ## 用的是哪一版
 
 | 项 | 值 |
