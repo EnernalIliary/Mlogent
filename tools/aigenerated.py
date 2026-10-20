@@ -55,6 +55,7 @@ def _write(path: Path, text: str) -> None:
 
 def _body(text: str) -> str:
     """Normalise, drop old-style marks, and remove the hidden signature token."""
+    text = text.replace("\r\n", "\n").replace("\r", "\n")
     text = SIG_RE.sub("", text)
     lines = [ln for ln in text.split("\n") if not OLD_MARK_RE.match(ln)]
     return "\n".join(lines).rstrip("\n") + "\n"
@@ -65,6 +66,7 @@ def _hash(body: str) -> str:
 
 
 def _find(text: str):
+    text = text.replace("\r\n", "\n").replace("\r", "\n").rstrip("\n")
     hits = []
     for line in text.split("\n"):
         m = SIG_RE.search(line)
