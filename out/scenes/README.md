@@ -66,6 +66,17 @@ python tools/mlogsim.py my.mlog --save scene.msav --ticks 60 --update none
 
 **版本注意**：这两个复杂存档是 build 160 格式。v159.3 能读 PVP，读不了 campaign（`Error reading region map`）——`mlogsim` 默认已切到 v160.7，两个都能载；旧场景要回退就设 `MLOGSIM_JAR=out/_server159.jar`。
 
+## 快照
+
+```bash
+# 需要带 Pillow 的 bundled python
+& 'C:\Users\lliary\.dsh\dsh-runtimes\dsh-primary-runtime\dependencies\python\python.exe' out/scenes/_snapshot.py
+```
+
+每张存档渲染成 `out/scenes/snap_<name>.png`：一格 11 px，颜色按“核心=队伍色（字母 S/C/B）、红=防御、黄=物流、绿=逻辑、青=钻头/抽水、紫=生产、橙=电力、青绿=单位工厂、灰=墙”，底下有图例；圆点=单位（队伍色），网格线每 8 格。
+
+`_block_hist.py <存档>` 打方块直方图（核对快照里的色块到底是什么）。快照只画方块和单位，不画地板细节以外的世界状态（电力、液体、工厂进度）。
+
 ## 还需要什么
 
 ### P0：三个盲区合成台（已建好）
