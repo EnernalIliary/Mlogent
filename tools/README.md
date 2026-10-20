@@ -11,6 +11,8 @@
 | 静态检查 | `python tools/mlog.py check x.mlog`（`--cost` 加成本/最坏指令数） |
 | 生成只含处理器的蓝图 | `python tools/mlog.py gen --name 名字 --code x.mlog` |
 | 模拟运行 | `python tools/mlogsim.py x.mlog --ticks 120 --trace t.csv` |
+| 值域 / 跳转表 | `python tools/mlogrange.py ranges x.mlog --var n`；`jumps x.mlog --var n` |
+| 指令级执行流 | `python tools/mlogsim.py x.mlog --ticks 120 --itrace t.tsv --itrace-var n` |
 | 这个程序需要哪些世界符号 | `python tools/mlog_needs.py 图.msch` |
 | 整批存档里的逻辑 | `python tools/mlog.py map <存档目录>` |
 | 规则逐条审计 | `python tools/review.py md` |

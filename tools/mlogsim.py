@@ -754,23 +754,53 @@ def _world_js(power: float, unit_ai: str = "logic") -> str:
     return WORLD_JS % {"power": power} + UNITS_JS % {"all": "true" if unit_ai == "all" else "false"}
 
 
+
+ITRACE_JS = """
+var ITRACE = [];
+var ITR_CODE = __CODE__;
+var ITR_VARS = __VARS__;
+function itr_val(ex, name){
+  try{
+    var v = ex.optionalVar(name);
+    if(v == null) return "?";
+    return v.isobj ? "<obj>" : String(v.numval);
+  }catch(e){ return "?"; }
+}
+function itr_exec(obj, t){
+  var ex = obj.executor;
+  if(!obj.enabled || !ex.initialized()) return;
+  obj.accumulator += obj.block.instructionsPerTick;
+  var guard = 0;
+  while(obj.accumulator >= 1){
+    var pc = ex.counter.numval|0;
+    var src = (pc >= 0 && pc < ITR_CODE.length) ? ITR_CODE[pc] : "";
+    var extra = "";
+    for(var q = 0; q < ITR_VARS.length; q++){ extra += ITR_VARS[q] + "=" + itr_val(ex, ITR_VARS[q]) + ";"; }
+    ITRACE.push("ITRACE\t" + t + "\t" + pc + "\t" + extra + "\t" + src);
+    ex.runOnce();
+    obj.accumulator -= 1;
+    if(++guard > 2000) break;
+    if(ex.yield){ ex.yield = false; obj.accumulator = 0; break; }
+  }
+}
+""".strip()
+
 def _loop_js(obj: str, steps: int, ticks: bool, update: str = "none", power: float = 1.0,
              combat: bool = False, trace: bool = False, unit_ai: str = "logic",
-             preflight: bool = True) -> str:
+             preflight: bool = True, itrace: dict | None = None) -> str:
     """Instruction mode steps the executor directly; tick mode drives updateTile.
 
     In tick mode Time.delta must be 1.0: edelta() = delta * timeScale feeds the
     accumulator (ipt per tick) and WaitI adds Time.delta/60 per execution, so
     1.0 is the value that makes 60 ticks equal one second.
+
+    itrace={"code": [...], "vars": [...]} switches tick mode from updateTile()
+    to a hand-driven loop that records (tick, pc, vars, source line) per
+    executed instruction. That is the only way to see which line ran: reading
+    @counter after updateTile only tells you where the tick ended.
     """
     if ticks:
-        # advance the global clock too: @time/@tick/@second/@mapw come from
-        # GlobalVars.update(), which only runs inside State.update().
-        # state must be playing or Building.update()/updateConsumption() no-op;
-        # it is restored in finally so no frame ever runs the game for real.
         world = _world_js(power, unit_ai) + "worldTick(); unitTick();" if update == "all" else ""
-        # weather ticks in every tick mode: it is its own state machine, not a building.
-        # Define it once outside the loop: WSEED is state and must keep advancing.
         setup = PREFLIGHT_JS + WEATHER_JS
         pre = post = ""
         if combat:
@@ -779,9 +809,20 @@ def _loop_js(obj: str, steps: int, ticks: bool, update: str = "none", power: flo
             post = " combatPost();"
         if trace:
             setup += TRACE_JS
-        body = pre + world + " %s.updateTile();" % obj + post + (" traceTick();" if trace else "")
+        if itrace is not None:
+            setup += (ITRACE_JS.replace("__CODE__", json.dumps(itrace.get("code", []), ensure_ascii=False))
+                      .replace("__VARS__", json.dumps(itrace.get("vars", []), ensure_ascii=False)))
+        trace_tick = " traceTick();" if trace else ""
+        if itrace is not None:
+            body = pre + world + " itr_exec(%s, i);" % obj + post + trace_tick
+        else:
+            body = pre + world + " %s.updateTile();" % obj + post + trace_tick
         check = " if(i == 0) preflightTick();" if preflight else ""
-        dump = (" for(var q = 0; q < TRACE.length; q++){ print(TRACE[q]); }" if trace else "")
+        dump = ""
+        if trace:
+            dump += " for(var q = 0; q < TRACE.length; q++){ print(TRACE[q]); }"
+        if itrace is not None:
+            dump += " for(var q = 0; q < ITRACE.length; q++){ print(ITRACE[q]); }"
         return ("var GS = Packages.mindustry.core.GameState; var ST = GS.State;"
                 " Vars.state.set(ST.playing); Time.delta = 1.0; %s"
                 " try{ for(var i = 0; i < %d; i++){"
@@ -898,7 +939,8 @@ def infer_links(code: str) -> list[dict]:
 def run_mlog(srv: Server, name: str, code: str, steps: int, ticks: bool = False,
              update: str = "none", power: float = 1.0, processor: str = "auto",
              combat: bool = False, trace: bool = False, unit_ai: str = "logic",
-             preflight: bool = True, links: str = "auto") -> dict:
+             preflight: bool = True, links: str = "auto",
+             itrace: str | None = None, itrace_vars: tuple = ()) -> dict:
     # privileged statements exist only in world processors; selecting the block
     # that makes them compile is better than silently dropping whole lines.
     world_proc = processor == "world" or (processor == "auto" and PRIVILEGED_RE.search(code) is not None)
@@ -910,14 +952,24 @@ def run_mlog(srv: Server, name: str, code: str, steps: int, ticks: bool = False,
     try:
         with open(path, "w", encoding="utf-8", newline="\n") as f:
             f.write(code)
+        itr = None
+        if itrace:
+            itr = {"code": code.splitlines(), "vars": list(itrace_vars)}
         js = STEP_JS % {"path": path.replace("\\", "/"), "x": srv.base[0], "y": srv.base[1],
                         "links": json.dumps(link_specs, ensure_ascii=False),
                         "loop": _loop_js("b", steps, ticks, update, power, combat, trace, unit_ai,
-                                         preflight)}
+                                         preflight, itr)}
         lines = srv.js(js)
         recs = parse_results(lines)
         rec = recs[0] if recs else {"vars": {}, "counter": None, "text": ""}
         rec["trace"] = parse_trace(lines) if trace else []
+        if itrace:
+            rows = [ln for ln in lines if ln.startswith("ITRACE\t")]
+            with open(itrace, "w", encoding="utf-8", newline="\n") as f:
+                f.write("tick\tpc\tvars\tsource\n")
+                for ln in rows:
+                    f.write(ln[len("ITRACE\t"):] + "\n")
+            rec["itrace"] = itrace
         rec["name"] = name
         rec["steps"] = steps
         rec["mode"] = "tick" if ticks else "instruction"
@@ -1042,6 +1094,10 @@ def main(argv=None):
     ap.add_argument("--combat", choices=["on", "off"], default=None,
                     help="run bullet physics + damage each tick (default on with --ticks). "
                          "Without it a unit fires but bullets never move or hit")
+    ap.add_argument("--itrace", metavar="FILE", default=None,
+                    help="write per-instruction execution trace (tick, pc, vars, source)")
+    ap.add_argument("--itrace-var", dest="itrace_vars", action="append", default=[],
+                    metavar="NAME", help="variable to include in each --itrace row (repeatable)")
     ap.add_argument("--trace", metavar="FILE", default=None,
                     help="write per-tick CSV of logic-controlled units (tiles): "
                          "unit,tick,ux,uy,uhp,range,tx,ty,dist,cx,cy,chp,bullets,shots")
@@ -1131,9 +1187,13 @@ def main(argv=None):
                 # and the parser turns a BOM-prefixed first line into a noop
                 with open(f, encoding="utf-8-sig") as fh:
                     code = fh.read()
+                itr_path = args.itrace
+                if itr_path and len(args.files) > 1:
+                    itr_path = itr_path + "." + os.path.basename(f)
                 results.append(run_mlog(srv, os.path.basename(f), code, steps, ticks,
                                         update, power, args.processor, combat, want_trace,
-                                        args.unit_ai, preflight, args.links))
+                                        args.unit_ai, preflight, args.links,
+                                        itr_path, tuple(args.itrace_vars)))
     except FileNotFoundError as e:
         sys.exit(f"missing input: {e.filename}")
     except SimError as e:
