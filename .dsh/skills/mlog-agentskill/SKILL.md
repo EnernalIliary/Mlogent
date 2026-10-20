@@ -199,6 +199,8 @@ python tools/mlogsim.py logic.mlog --save scene.msav --units fortress:1 \
 - 世界：空白 64×64（默认）/ `--host` 随机真实图 / `--save` 载存档（自动在我方核心旁放处理器，`--base X,Y` 覆盖）。
 - 单位：`--units name:count`、`--unit-pos X,Y`、`--unit-ai all`（场景原有单位按 AI 行动）。单位落在实体格会在第一次 `update()` 被 `kill()`，所以 tick 1 会跑 `PREFLIGHT:`（编译失败、单位没生成、落地即死都会直接报，不用等 1200 tick）。
 - 库存：`--core-items silicon:400,copper:200` 给核心灌料（空白世界会自动放一个 `core-shard`）；`ulocate` 找核心、`itemTake`/`itemDrop` 取放料由此可断言（距离上限 `45 world + 方块半宽`，先 `approach` 到 2 格内）。
+- 值域 / 跳转表：`tools/mlogrange.py ranges logic.mlog --var unit.n`、`jumps logic.mlog --var unit.n`（独立 CLI，同上不在本副本）。只从写点推区间，`sensor`/`read`/`ubind`/`ulocate` 一律 unknown；`jumps` 只展开 `op add/sub @counter`。
+- 指令级执行流：`--itrace out/it.tsv --itrace-var unit.n`，每执行一条语句一行 `tick pc vars source`；`pc` 就是当时的 `@counter`。逐指令有开销，`.msch` 暂不支持。
 - 链接：裸 `.mlog` 没有链接表；`--links auto`（默认）会找出读而不赋值的链接名（`cell1`、`bank1`、`message1`、`dome1`）自动放同类方块并接线（同队、10 格内），`--links off` 才是 `null`。`.msch` 用自己的链接表。
 - 世界更新：`--update all` 跑真 `Building.update()` 与 `LogicAI` 单位；`--power full|none` 钉电力；`--combat on`（`--ticks` 默认）按 `Logic.updateEntities()` 推进子弹物理/碰撞/伤害；`--weather rain` 强制开局天气。
 - 观测：`--trace FILE` 每 tick 一行（`unit,tick,ux,uy,uhp,range,tx,ty,dist,cx,cy,chp,bullets,shots`，tile 坐标）；`--assert EXPR` 逐行、`--assert-last EXPR` 只查末行，失败退 3。

@@ -146,6 +146,25 @@ python tools/mlogsim.py my.mlog --save scene.msav --ticks 120 \
 - 特权**内置变量**（`@server`、`@client`、`@clientLocale`、`@clientUnit`、`@clientName`、`@clientTeam`、`@clientMobile`、`@clientMusicPlaying`）在普通处理器里不报错，而是被 `GlobalVars.get(name, false)` 换成 `null` 常量——分支永远不走。要在普通逻辑里判断玩家/客户端，换成 world processor 或游戏内可观测的数据。
 - 能证明：`move/approach/within/@x/@y`、`ipt`、跨处理器读写、生产进度、天气时序、子弹命中掉血。不能证明：野 AI、波次、电力图、真实地形碰撞、建筑被毁的连锁；`draw` 会执行但没有画面。**真游戏行为必须由玩家验收**。
 
+### 值域与跳转表：`tools/mlogrange.py`
+
+```bash
+python tools/mlogrange.py ranges my.mlog --var unit.n
+python tools/mlogrange.py jumps  my.mlog --var unit.n
+```
+
+- `ranges` 是前向区间分析：只从写点推区间，分支按与字面量的比较收窄。`sensor`/`read`/`ubind`/`ulocate` 的结果一律 **unknown**，不猜。
+- `jumps` 展开 `op add/sub @counter @counter V` 这种算术派发，逐值给落点；`set @counter 变量` 只能给 unknown。
+- 它回答的是“可能取什么值/可能落到哪”，不是“一定会”。循环无法收敛时会放宽成 unknown。
+
+### 指令级执行流：`--itrace`
+
+```bash
+python tools/mlogsim.py my.mlog --ticks 60 --itrace out/it.tsv --itrace-var unit.n
+```
+
+每执行一条语句一行：`tick  pc  vars  source`。`pc` 就是当时的 `@counter`，`vars` 是点名变量的快照（对象显示 `<obj>`）——比 `--trace`（只记单位轨迹）细，适合查“第几拍走到哪一行、变量是什么”。`.msch` 暂不支持，逐指令有开销。
+
 场景：`out/scenes/` 有 5 张现实存档（open / garded-line / maze / PVP / campaign）；`benches/run.py` 是 memory/processor/sensor/core 四张合成台（62 项断言）；`_snapshot.py` 出 PNG 快照。
 
 注意：`mlogsim.py` 只在仓库根的 `tools/`（独立拷走的技能副本不含它，因为它要 Java + `out/_server160.jar`）；下面命令都假定当前目录是仓库根。
