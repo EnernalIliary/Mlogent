@@ -3135,3 +3135,10 @@ F:\OneDrive\桌面\AtomicStates\mindustry-blueprint\                ← 开发�
 3. **AI 署名改成“命令的无效字符串参数”**：`end "aigenerated:猪猪鱼:<id>"`。`LParser` 按声明参数个数填字段，多出来的 token 解析后丢弃，所以指令行为、print 输出、语句数、最坏指令数都不变；注释会被游戏剥掉，`end` 后再加 `set` 会改 jump 相对位置，都不行。
 4. **签名不能自毁**：`_body` 先剥掉签名和旧式 `# @aigenerated`/`set aigenerated.*` 行再算 sha256，id 取前 12 hex；改正文再 `sign` 会拒绝，必须 `--force`；`verify` 发现改正文/删 token 退 1；`strip` 退 2。测试 `tool/aigenerated` 跑 sign/verify/篡改/拒签/强签/strip 七步。
 5. **测试导入的是分发副本**：`tests/run_tests.py` 的 `TOOLS` 指向 `mindustry-blueprint/tools`，改根 `tools/*.py` 后必须复制两份再跑，否则 digest 为空/旧。本次 30/30。
+第 78 次整理：隐签名改到 jump 的 p4 槽
+- 尾参数方案作废：`end "aigenerated:..."` 的多余 token 在 LParser 里就丢，游戏 `LAssembler.write` 往返后签名消失。
+- 也验证了 `end` 后加 `set` 会被整段丢弃（write 输出到 `end` 就停），`op`/`control` 的多余 token 同样丢。
+- 能活下来的位置是语句声明的参数槽：`jump 0 always 0 "aigenerated:作者:id"` 替换末尾 `end`。always 不读 p3/p4；end 与 jump 0 都把 @counter 置 0，语义等价；p4 是 JumpStatement 的字段，write 原样保留。
+- `LAssembler.write` 的签名是 `write(Seq<LStatement>)`，没有 `write(LExecutor)`；`read` 要 `privileged=true` 才认特权语句。
+- aigenerated.py 哈希改成 sha256(author + "\n" + body)[:12]，作者进哈希；旧式头注释/`set aigenerated.<id>`/尾参数在重签时清掉。
+- 实测：sign→id 63fa438c6056，verify OK；check 0 issue；mlogsim 行为不变（血量序列同前）；tests 30/30。
