@@ -85,7 +85,6 @@ python tools/mlogsim.py my.mlog --save scene.msav --ticks 60 --update none
 | `weather-bench` | 四种天气 + 世界处理器 | `weathersense`/`weatherset`、240 tick 淡出、`@rain` 等常量 |
 | `building-bench` | 炮台（arc/scatter/cyclone）、雷达、开关、显示器、修理器 | `control shoot/configure/color`、`radar/uradar` 的过滤、`sensor` 建筑属性 |
 | `terrain-bench` | 沙/石/水/矿/墙/悬崖各一片 | `getblock`/`setblock`/`lookup`/`ulocate`、`@mapw`/`@maph`、地形阻挡 |
-| `path-bench` | 迷宫、窄口、水域、悬崖 | 地面单位 `pathfind` 与卡墙（B 档路径支持待验证） |
 | `display-bench` | message、display、printflush，多个处理器 | 文本缓冲 400 字符上限、flush 到 message、跨处理器消息 |
 
 ### P2：边界与压力
@@ -111,6 +110,6 @@ python tools/mlogsim.py my.mlog --save scene.msav --ticks 60 --update none
 
 - **电力图**：只支持 `--power full/none` 把消费者钉在满电/断电，不跑真实发电与电网平衡。
 - **刷怪/波次**：不跑 `Logic` 的刷怪器与波次计时；`rules-bench` 只能测规则值。
-- **地形寻路**：`pathfind` 依赖游戏的 pathfinder 网格，B 档是否可用还没验证；先按“可能不通”设计。
+- **寻路**：不单独做场景。逻辑能做的只有 `ucontrol pathfind`，路径由引擎算；在 `control-bench` 里留一条“绕墙到目标点”的用例即可验证它接没接通。
 - **绘制/特效**：`draw`、`effect` 在 headless 下静默执行，没有画面可看。
 - **payload/单位建造**：不模拟 payload 搬运与单位建造进度；相关方块只当静态建筑。
