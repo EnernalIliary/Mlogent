@@ -52,19 +52,65 @@ python tools/mlogsim.py my.mlog --save scene.msav --ticks 60 --unit-ai all
 python tools/mlogsim.py my.mlog --save scene.msav --ticks 60 --update none
 ```
 
-## 建议覆盖的场景类型
+## 已有场景
 
-不限于“进攻”：任何逻辑都可能用到下面这些，一类一个文件即可。
+| 文件 | 覆盖 |
+|---|---|
+| `Mlog场景-进攻-open.msav` | 空旷对峙、远距离寻的、射程保持 |
+| `Mlog场景-进攻-garded-line.msav` | 防御线、炮台集火、进攻方生存 |
+| `Mlog场景-进攻-maze.msav` | 墙/迷宫、卡墙、寻路失败 |
 
-1. **空旷对峙**：双方核心相距 60 格，无遮挡。测寻路、射程、目标选择。
-2. **墙/缺口**：一道墙留 8 格口。测绕行、卡墙、`pathfind` 失败。
-3. **贴脸**：敌方核心就在 12 格内。测“已在射程内会不会冲过头”。
-4. **多核心**：两个敌方核心。测先打近的、毁后重选。
-5. **防御线**：炮台 + 会动的防守单位。测进攻方生存与 `@range` 保持。
-6. **资源/工厂**：矿、传送带、冶炼厂、电力。测物品计数、满电/缺电。
-7. **内存/跨处理器**：两三个处理器 + 内存格。测 `read`/`write` 按名、链接名。
-8. **单位编队**：多种单位 + `ubind`。测 `@unit` 切换、`ucontrol`、`flag`。
-9. **天气/规则**：需要 `weathersense`/`weatherset` 时用世界处理器。
-10. **空地**：什么都没有，只测纯逻辑/时钟/打印。
+## 还需要什么（按优先级）
 
-场景不需要完美：能复现一个逻辑分支就够；缺什么在文件名或说明里写一句。
+写逻辑时真正卡住的不是“能不能编译”，而是**世界语义**：程序以为自己在打核心，实际在撞墙；以为单位在射程内，实际差 0.3 格。下面每类场景只回答一个问题：程序在这样的世界里，行为对不对。
+
+### P0：先做这 6 个（覆盖大多数逻辑）
+
+| 场景 | 摆什么 | 验证什么 | 建议断言 |
+|---|---|---|---|
+| `sensor-bench` | 我方核心旁一排不同单位：dagger、flare、mono、mega、fortress，`flag` 分别设 1..5（其中一个不设，留 null） | `sensor` 能读到什么：`@health/@armor/@shield/@range/@speed/@flag/@team/@type/@controlled/@dead/@x/@y`；null 与 0 的区别 | `flag == 3`、`dead == 0`、`hp > 0` |
+| `control-bench` | 我方核心 + 目标点 + 一堵留 8 格口的墙 + dagger/flare/mono | `ucontrol move/approach/pathfind/within/stop/boost/flag/mine` 的真实位移与到达判定 | `dist < 2`、`within` 翻 1 |
+| `processor-bench` | micro、logic、hyper、world 各一个，各连 memory cell、memory bank、message、switch | `@ipt` 是否为 2/8/25/8；`weatherset`、`setrule`、`message` 等特权语句只有 world 能编译；链接名怎么读 | `ipt == 8`（logic）、world 程序能跑 |
+| `memory-bench` | 3 个 micro + 2 个 memory cell：写入端、读取端、协调端 | 跨处理器 `read`/`write` 按名；未声明槽读 `null`；`wait`/轮询的时序 | `a == 7`、`b == null` |
+| `factory-bench` | 铜/铅矿 + 钻头 + 传送带 + 石墨压机 + 硅冶炼厂 + 容器/仓库 + 卸载器 | 物品计数、`@totalItems`、生产 `progress`、满电与 `--power none` 断电 | `silicon >= 1`；断电后 progress 不涨 |
+| `range-bench` | 敌方核心 + 三个靶（建筑或单位）在 0.9R、1.0R、1.1R（fortress R≈30 格） | 射程边缘：该开火时开火、超出不浪费、保持距离不冲过头 | `dist <= range + 1`、`chp` 下降 |
+
+### P1：按逻辑主题补（有空再做）
+
+| 场景 | 摆什么 | 验证什么 |
+|---|---|---|
+| `multi-core-bench` | 2 个敌方核心（12 格与 56 格）+ 1 个我方核心 | 选近的；毁掉一个后 `ulocate` 能否重选 |
+| `team-bench` | sharded/crux/green 三队的核心、建筑、单位 | `@team` 判定、误伤、`ulocate ... enemy` 不锁友军 |
+| `rules-bench` | 世界处理器 + 不同单位上限/核心血量/波次间隔 | `setrule` 的读回与效果（**刷怪器不跑**，只能测规则值） |
+| `weather-bench` | 四种天气 + 世界处理器 | `weathersense`/`weatherset`、240 tick 淡出、`@rain` 等常量 |
+| `building-bench` | 炮台（arc/scatter/cyclone）、雷达、开关、显示器、修理器 | `control shoot/configure/color`、`radar/uradar` 的过滤、`sensor` 建筑属性 |
+| `terrain-bench` | 沙/石/水/矿/墙/悬崖各一片 | `getblock`/`setblock`/`lookup`/`ulocate`、`@mapw`/`@maph`、地形阻挡 |
+| `path-bench` | 迷宫、窄口、水域、悬崖 | 地面单位 `pathfind` 与卡墙（B 档路径支持待验证） |
+| `display-bench` | message、display、printflush，多个处理器 | 文本缓冲 400 字符上限、flush 到 message、跨处理器消息 |
+
+### P2：边界与压力
+
+| 场景 | 摆什么 | 验证什么 |
+|---|---|---|
+| `empty-bench` | 只有我方核心 + 一个处理器 | 纯时钟/数学/打印，`@tick` 起点与 `--ticks` 语义 |
+| `error-bench` | 坏链接名、未定义变量、越界 `jump`、不存在的 content | 检查器与模拟器的报错路径，别静默跑错 |
+| `scale-bench` | 30+ 处理器互联 + 大量内存格 | 链接上限、重名、性能、批量 trace |
+| `edge-bench` | 地图四角、边界、纯水面 | 坐标 0 与 W-1、越界读写、单位落水 |
+
+## 场景模板（每个场景都按这个来）
+
+- 一张图一个 `.msav`，64×64 以内；文件名 `Mlog场景-<类别>-<名字>.msav`。
+- **必须有我方核心**（`sharded`）：处理器自动落位靠它找空地；没有核心就用 `--base X,Y`。
+- **不要摆处理器**：`mlogsim` 会自己放；手工摆的处理器不会被当成本次运行的入口。
+- 需要目标的场景放一个敌方核心（`crux`）；只测单位就放 2–3 个不同单位并设 `flag`。
+- 存档前先 `pause`，避免存档里带着半截生产进度；世界时钟加载时会被归零。
+- 每个场景配一句说明（建议写进 `out/scenes/index.md`）：测什么、期望什么、用什么断言。
+- 场景不需要完美：能复现一个逻辑分支就够。
+
+## 模拟器边界（这些场景测不了，别白做）
+
+- **电力图**：只支持 `--power full/none` 把消费者钉在满电/断电，不跑真实发电与电网平衡。
+- **刷怪/波次**：不跑 `Logic` 的刷怪器与波次计时；`rules-bench` 只能测规则值。
+- **地形寻路**：`pathfind` 依赖游戏的 pathfinder 网格，B 档是否可用还没验证；先按“可能不通”设计。
+- **绘制/特效**：`draw`、`effect` 在 headless 下静默执行，没有画面可看。
+- **payload/单位建造**：不模拟 payload 搬运与单位建造进度；相关方块只当静态建筑。
