@@ -3128,3 +3128,10 @@ F:\OneDrive\桌面\AtomicStates\mindustry-blueprint\                ← 开发�
 - `ucontrol idle` 的绑定架构：`ubind` 只写 `@unit`，不认领控制；第一条 `ucontrol`/`ulocate` 走 `checkLogicAI`，把 `LogicAI` 挂到单位上（控制器=本处理器，清 `mineTile`/`buildPlan`），并把 `controlTimer` 续到 600 tick。`idle` 只设 `control=idle`，`LogicAI.updateMovement` 没有 idle 分支，所以它**不发运动指令**（速度靠 drag 衰减），也不清 `mineTile`——那是 `stop` 的事。
 - 证据：`_this_test` → `a=7,b=9,c=null`、text `7/9/null`；`_idle_test` → `@controlled=1`、`@controller=micro-processor`。
 - 坑：`tests/run_tests.py` 导入的是 `mindustry-blueprint/tools/` 副本，改根 `tools/mlogcheck.py` 后必须复制并 `sync_mlogagent.py`；`--write --case` 会把 golden 重写成一条，恢复用 `git checkout -- tests/expected.json` 后全量 `--write`。golden 26 条。
+### 第 77 次整理：@counter 也是跳转，署名藏在参数尾巴（2026-10-20）
+
+1. **`set`/`op` 写 @counter，检查器以前当普通语句**。现在 `_counter_target` 和 `mlogir.successors` 都算：取指先自增，所以 `op add @counter @counter K` 落到 `i+1+K`，`set @counter N` 是绝对 N；变量/解析不出的目标按全可达处理，越界按 `[]`（真执行器把 counter 归 0）。golden 新增 cost/counter-op（`[2,4]`）、counter-set（`[1,2]`）、counter-unknown（无不可达）。
+2. **digest_cost 解析 UNREACHABLE 时差点把 `⏸ blocking` 的 L3/L5 当不可达**。必须只认 UNREACHABLE 段内的 `L\d+:`，遇到 `opcodes|loop heads|worst-case|⏸|reachability` 就退出该段；否则 wait1/wait2 的 golden 全被污染。
+3. **AI 署名改成“命令的无效字符串参数”**：`end "aigenerated:猪猪鱼:<id>"`。`LParser` 按声明参数个数填字段，多出来的 token 解析后丢弃，所以指令行为、print 输出、语句数、最坏指令数都不变；注释会被游戏剥掉，`end` 后再加 `set` 会改 jump 相对位置，都不行。
+4. **签名不能自毁**：`_body` 先剥掉签名和旧式 `# @aigenerated`/`set aigenerated.*` 行再算 sha256，id 取前 12 hex；改正文再 `sign` 会拒绝，必须 `--force`；`verify` 发现改正文/删 token 退 1；`strip` 退 2。测试 `tool/aigenerated` 跑 sign/verify/篡改/拒签/强签/strip 七步。
+5. **测试导入的是分发副本**：`tests/run_tests.py` 的 `TOOLS` 指向 `mindustry-blueprint/tools`，改根 `tools/*.py` 后必须复制两份再跑，否则 digest 为空/旧。本次 30/30。
