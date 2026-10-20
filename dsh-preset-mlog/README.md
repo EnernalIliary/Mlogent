@@ -3,8 +3,8 @@
 DSH Agent 预设：猪猪鱼（Mindustry mlog / 蓝图 / 存档专家），给艾铭（iliary）用。
 
 预设 id 是 **`mlog`**，`order: 5`（在官方 `standard` 之后）。插件清单完整照抄官方
-`preset-standard`（22 个顶层插件，含 delegation / workflow / compaction / plan-mode），
-只替换了两处：
+`preset-standard`（**32 个插件条目**，含 delegation / workflow / compaction / plan-mode
+及其子插件；对齐 DSH **0.2.1-rc.2**），只替换了两处：
 
 1. **persona**：猪猪鱼的人设与两条不可协商规则（写新逻辑前先问 3-5 个问题；交付前过
    `mindustry-blueprint` 的九条自检）。
@@ -42,8 +42,9 @@ dsh plugin --profile desktop remove dsh-preset-mlog
 
 ## 维护
 
+- 当前对齐：DSH **0.2.1-rc.2**（2026-10-20 核对，32 个插件条目）。
 - 补丁是**整份快照**，不是深合并：DSH 升级后官方 `preset-standard` 的插件清单可能变，
-  需要重新对齐。官方定义可以从 asar 里导出
+  需要重新对齐（升级后先跑 `dsh --version` 对照）。官方定义可以从 asar 里导出
   （`C:\Users\lliary\AppData\Local\Programs\DeepSeek Harness\resources\app.asar`，
   搜 `id: preset-standard`），再和这里的 `cordis.patch.yml` 逐项比对。
 - `dsh --profile desktop --dump-config` 不可用（desktop profile 由 Electron 独占管理），
