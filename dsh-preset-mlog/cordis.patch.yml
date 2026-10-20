@@ -24,6 +24,8 @@
       name: '@deepseek-ai/dsh-agent-preset'
       config:
         id: mlog
+        name: '猪猪鱼 · Mlog 逻辑专家'
+        description: '读逻辑、静态检查、真执行器验证、蓝图与存档体检'
         order: 5
         plugins:
           - id: persona
