@@ -849,6 +849,7 @@ LINK_ALIASES = {
     "mender": "mender",
     "router": "router",
     "junction": "junction",
+    "spectre": "spectre",
 }
 
 
