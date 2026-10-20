@@ -106,10 +106,15 @@ e.g. `chp < 1100`). Column names are variables, `eval` has no builtins, and
 any failure exits 3. `ASSERT PASS` prints the row/expr counts.
 
 Default runtime is the newest local pair, overridable with env vars:
-    MLOGSIM_JAR   (default: out/_server159.jar, then out/_server146.jar)
+    MLOGSIM_JAR   (default: out/_server160.jar, then out/_server159.jar, then out/_server146.jar)
     MLOGSIM_JAVA  (default: out/jre21/.../java.exe, then the Steam jre)
 
-v159.3 needs a Java 21+ runtime (the Steam jlink image lacks java.logging).
+Saves made in build 160 (the current Mindustry format) need the v160 server:
+v159.3 loads build-160 saves whose map uses the old tile encoding, and fails
+with "Error reading region map" on the newer one. Keep both jars around; the
+default is v160.7, and `MLOGSIM_JAR=.../_server159.jar` switches back.
+
+Java 21+ is required (the Steam jlink image lacks java.logging).
 v146 is kept for comparison only: it lacks `LogicBlock.readable`, so
 cross-processor `read` by name always yields null there.
 
@@ -140,13 +145,19 @@ PRIVILEGED_RE = re.compile(
     r"^\s*(weathersense|weatherset|setrule|message|cutscene|effect|fetch|sync|"
     r"getblock|setblock|spawn|status)\b", re.M)
 STEAM_JAVA = r"E:\Program Files (x86)\Steam\steamapps\common\Mindustry\jre\bin\java.exe"
+V160_JAR = os.path.join(ROOT, "out", "_server160.jar")
 V159_JAR = os.path.join(ROOT, "out", "_server159.jar")
 V159_JAVA = os.path.join(ROOT, "out", "jre21", "jdk-21.0.5+11-jre", "bin", "java.exe")
 V146_JAR = os.path.join(ROOT, "out", "_server146.jar")
 
 
 def _default_jar() -> str:
-    return os.environ.get("MLOGSIM_JAR") or (V159_JAR if os.path.exists(V159_JAR) else V146_JAR)
+    if os.environ.get("MLOGSIM_JAR"):
+        return os.environ["MLOGSIM_JAR"]
+    for jar in (V160_JAR, V159_JAR, V146_JAR):
+        if os.path.exists(jar):
+            return jar
+    return V146_JAR
 
 
 def _default_java() -> str:

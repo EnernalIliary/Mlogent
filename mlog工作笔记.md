@@ -3076,3 +3076,10 @@ F:\OneDrive\桌面\AtomicStates\mindustry-blueprint\                ← 开发�
 - 实测耗时：编译错误 3.1 s 退出；正常 10 tick 3.3 s；open 场景 1200 tick（含 trace）5.8 s——之前“每次跑 30-40 s”的估计偏高，真实成本主要在诊断而非运行。
 - 实现点：`UNIT_JS` 保存 `SPAWNED` 数组并核对 `made < total`；`PREFLIGHT_JS` 的 `preflightTick()` 只在 `i==0`/`t==0` 调；`STEP_JS`/`SCENE_JS` 编译后直接查 `initialized()`。
 - 验证：compile 失败 `jump nowhere`、未知单位 `nosuchunit:1` 均 3 s 内报 PREFLIGHT；24/24、p8（a=7/b=null/c=null）、天气、堡垒 open 1200 tick 全部不变。
+### 第 71 次整理：现实场景（PVP / campaign）与 v160.7 默认
+
+- 默认 jar 改为 v160.7（`out/_server160.jar`，19,453,000 B）。build 160 存档在 v159.3 报 `Error reading region "map"` / `Could not skip bytes. Expected length: 16842752; Actual length: 11699`，v160 可读；PVP 两版都能读。`_default_jar()` 顺序 MLOGSIM_JAR → v160 → v159 → v146。
+- PVP：64×64，sharded/crux/blue，双方各 2 核心（nucleus 6000 + shard 1100）、钻头/传送带/工厂、5 mono/5 poly；蓝队 118 item-source/62 scorch。campaign：单队核心 3500、硅/塑钢/爆炸物/冷冻液/电力、8 mass-driver、1 个 5534 字节 micro 处理器（不会被当入口执行）。
+- 堡垒在 PVP 上 `ulocate` 到 crux shard(49,14)；从 (35,20) 出发会后退到 25.6 格并开火（核心 1100→1056）。从基地出发会被基地建筑卡住（B 档不寻路）——实景测试用 `--unit-pos` 放空地，或换 open。
+- `ulocate ... outBuild` 只在 `within(max(unit.range, buildingRange))` 时赋值：47 格时 `core` 为 null，`core.x/core.y` 仍有效。判存在用 found?，不要用 outBuild。
+- `--save` 载入后世界时钟归零；campaign 自带的 5534 字节处理器不参与执行（`--update all` 跳过 processor）。
