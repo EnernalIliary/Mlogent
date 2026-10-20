@@ -1,10 +1,12 @@
-"""Run the three theory benches and print a PASS/FAIL table.
+"""Run the four theory benches and print a PASS/FAIL table.
 
     python out/scenes/benches/run.py
 
 memory-bench / processor-bench are schematics built by build.py.
 sensor-bench spawns five real units and compares every mlog `sensor` read
 against the engine's own value for that unit.
+core-bench runs core-bench.mlog on the blank world: a core-shard is filled by
+`Server.fill_cores`, then the unit reads it, takes 15, drops 5, reads it again.
 """
 import sys
 from pathlib import Path
@@ -150,10 +152,29 @@ def sensor_bench() -> None:
     print()
 
 
+# ------------------------------------------------------------------ core bench
+def core_bench() -> None:
+    code = (HERE / "core-bench.mlog").read_text(encoding="utf-8")
+    srv = M.Server(M._default_java(), M._default_jar())
+    try:
+        srv.fill_cores("silicon:400")
+        srv.js(M.UNIT_JS % {"spec": '[["mono", 1]]', "wx": 4, "wy": 4})
+        rec = M.run_mlog(srv, "core-bench", code, 300, ticks=True, update="all")
+    finally:
+        srv.close()
+
+    v = rec["vars"]
+    check("core: stock before/after take reads 385", v.get("si") == "385", str(v.get("si")))
+    check("core: unit took 15", v.get("have") == "15", str(v.get("have")))
+    check("core: unit dropped 5 -> 10", v.get("left") == "10", str(v.get("left")))
+    check("core: stock after drop == 390", v.get("after") == "390", str(v.get("after")))
+
+
 def main() -> int:
     memory_bench()
     processor_bench()
     sensor_bench()
+    core_bench()
     print()
     if FAILS:
         print(f"{len(FAILS)} check(s) FAILED")

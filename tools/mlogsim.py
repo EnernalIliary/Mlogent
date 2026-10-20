@@ -278,6 +278,39 @@ class Server:
             raise SimError("\n".join(err))
         return out
 
+    def fill_cores(self, spec: str) -> list[dict]:
+        """Stock our team's cores; if there is none, drop a core-shard next to base.
+
+        SPEC is `item:amount,item:amount` (item ids as in `sensor ... @copper`).
+        """
+        items: dict[str, int] = {}
+        for part in spec.split(","):
+            part = part.strip()
+            if not part:
+                continue
+            name, _, amount = part.partition(":")
+            name = name.strip().lstrip("@")
+            if not name:
+                raise SimError(f"bad --core-items entry: {part!r}")
+            items[name] = int(amount) if amount else 1
+        if not items:
+            raise SimError("--core-items is empty")
+        # auto-placed core: 3x3 core-shard needs its center >= 1 and <= size-2
+        limit = self.world_size if self.world_size else 64
+        cx = min(max(self.base[0] + 6, 2), limit - 2)
+        cy = min(max(self.base[1] + 4, 2), limit - 2)
+        out = self.js(CORE_JS % {"spec": json.dumps(items), "cx": cx, "cy": cy})
+        cores = []
+        for ln in out:
+            if not ln.startswith("CORE\t"):
+                continue
+            _, x, y, name, total = ln.split("\t")
+            cores.append({"x": int(x), "y": int(y), "block": name, "total": int(total)})
+        if not cores:
+            raise SimError("--core-items: no core found and the auto-placed one was not created")
+        self.cores = cores
+        return cores
+
     def close(self):
         try:
             self.send("exit")
@@ -327,6 +360,42 @@ for(var r = 3; r < 40 && found == null; r++){
 }
 if(found == null){ found = [1, 1]; }
 print("BASE\t" + found[0] + "\t" + found[1]);
+'''
+
+
+CORE_JS = r'''
+var spec = %(spec)s;
+var team = Packages.mindustry.game.Team.sharded;
+var GB = Packages.mindustry.gen.Groups.build;
+var found = 0;
+for(var i = 0; i < GB.size(); i++){
+    var b = GB.index(i);
+    if(!(b.block instanceof Packages.mindustry.world.blocks.storage.CoreBlock)) continue;
+    if(b.team != team) continue;
+    if(b.items == null) continue;
+    found++;
+    for(var k in spec){
+        var it = Vars.content.item(k);
+        if(it == null) throw new Error("unknown item: " + k);
+        b.items.add(it, spec[k]);
+    }
+    print("CORE\t" + Math.round(b.x / 8) + "\t" + Math.round(b.y / 8) + "\t"
+          + b.block.name + "\t" + b.items.total());
+}
+if(found == 0){
+    var x = %(cx)d, y = %(cy)d;
+    Vars.world.tile(x, y).setBlock(Vars.content.block("core-shard"), team);
+    /* Tile.setBlock does NOT update BlockIndexer (Tile.java:208); without this
+       ulocate building core finds nothing, and the team's building list is empty */
+    Vars.indexer.addIndex(Vars.world.tile(x, y));
+    var nb = Vars.world.build(x, y);
+    for(var k2 in spec){
+        var it2 = Vars.content.item(k2);
+        if(it2 == null) throw new Error("unknown item: " + k2);
+        nb.items.add(it2, spec[k2]);
+    }
+    print("CORE\t" + x + "\t" + y + "\tcore-shard\t" + nb.items.total());
+}
 '''
 
 
@@ -889,6 +958,9 @@ def main(argv=None):
     ap.add_argument("--save", metavar="FILE", default=None,
                     help="load a .msav scene instead of a blank world: its map, teams, "
                          "cores, buildings and units all come with it (slot 'scene')")
+    ap.add_argument("--core-items", metavar="ITEM:N,...", default=None,
+                    help="fill our team's core(s) before the run, e.g. silicon:400,phase-fabric:200; "
+                         "on a blank world a core-shard is placed next to the processor")
     ap.add_argument("--base", metavar="X,Y", default=None,
                     help="tile for the processor: default 0,0 on a blank world, auto "
                          "next to your core with --save")
@@ -921,6 +993,8 @@ def main(argv=None):
             else:
                 init_src = args.init_js
             srv.js(init_src)
+        if args.core_items:
+            srv.fill_cores(args.core_items)
         if args.units:
             spec = []
             for part in args.units.split(","):

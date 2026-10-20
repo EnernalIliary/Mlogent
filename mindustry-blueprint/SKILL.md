@@ -117,7 +117,7 @@ whenToUse: 涉及 Mindustry 蓝图（.msch / 蓝图码）、mlog 逻辑编写或
 4. **`cost`**：`worst-case path` 与每圈 tick 对上需求里的周期；把 `wait` 的 `⏸ blocking` 一起看（它一条 ipt 都不烧，但周期时间常常全在这里）。
 5. **`values`**：没有意外的恒真/恒假分支和可证 null（尤其是 `equal X null`——未赋值变量是 0，只有 `===` 区分 null 与 0）。
 6. **跨处理器**（用了 `read`/`write` 别的处理器时）：`cross` 报 `0 never-assigned`；槽名必须在对方先声明，且拼写一致。
-7. **点名与署名**：变量命名跟 `style` 里看到的语料风格一致；署名用 `print`/`set` 的未赋值名字（会在编辑器变量列表里显示），不要写成参数槽里没人读的垃圾位。
+7. **署名**：AI 生成的逻辑先 `python tools/aigenerated.py sign <file>`，交付前 `verify` 一遍；署名不 print、不参与执行，删掉或改逻辑都会验证失败（`strip` 被策略拒绝）。变量命名跟 `style` 里看到的语料风格一致。
 8. **假设写清**：静态分析之外，时序、跨处理器读写、单位运动、生产/天气/子弹命中都要用 `tools/mlogsim.py` 跑真执行器（见下节）；模拟器覆盖不到的部分（画面、野 AI、波次、建筑被毁的连锁后果）才是推理不是验证。交付时明说哪些是"跑过"，哪些是"读起来没错"。
 9. **蓝图用 `mlog.py gen` 产出**，不要手拼 base64；生成后 `ir`/`check` 再跑一遍确认逻辑没被截断。
 
@@ -134,9 +134,11 @@ python tools/mlogsim.py my.mlog --save scene.msav --ticks 120 \
 
 - 默认 v160.7（`out/_server160.jar`）+ JRE21，可用 `MLOGSIM_JAR`/`MLOGSIM_JAVA` 换。空白世界默认 64×64；`--host` 用随机真实地图；`--save` 载存档（从我方核心旁自动找空地放入口处理器，`--base X,Y` 覆盖）。
 - `--units name:count` 生成单位、`--unit-pos X,Y` 指定 tile 出生点；`--unit-ai all` 让场景里原有单位也按 AI 行动。单位落在实体格会在第一次 `update()` 被 `kill()`，所以有 `PREFLIGHT:` 预检——比"跑 1200 tick 发现单位没动"便宜得多；`--no-preflight` 只关单位存活检查。
+- `--core-items ITEM:N,...` 给核心灌库存（空白世界会在处理器旁自动放一个 `core-shard`）；`ulocate`/`itemTake`/`itemDrop` 由此可断言。取放料要求同队、目标有 `items`、距离在 `45 world + 方块半宽`（约 6 格）内。
 - `--update all` 才跑 `Building.update()`（工厂、传送带、电力消费者）与 `LogicAI` 单位；`--power full|none` 把电力钉死；`--combat on`（`--ticks` 默认）按 `Logic.updateEntities()` 的顺序推进子弹物理/碰撞/伤害；`--weather rain` 可强制开局天气。
 - `--trace FILE` 每 tick 一行逻辑单位轨迹（`unit,tick,ux,uy,uhp,range,tx,ty,dist,cx,cy,chp,bullets,shots`，tile 坐标）；`--assert EXPR` 对每行、`--assert-last EXPR` 只对末行求值，失败退 3。列名就是变量名。
 - 特权语句（`weathersense/weatherset/setrule/message/cutscene/effect/fetch/sync/getblock/setblock/spawn/status`）只有 world processor 认；放进微处理器会被**静默删掉整行**。`--processor auto` 按语句自动选处理器。
+- 特权**内置变量**（`@server`、`@client`、`@clientLocale`、`@clientUnit`、`@clientName`、`@clientTeam`、`@clientMobile`、`@clientMusicPlaying`）在普通处理器里不报错，而是被 `GlobalVars.get(name, false)` 换成 `null` 常量——分支永远不走。要在普通逻辑里判断玩家/客户端，换成 world processor 或游戏内可观测的数据。
 - 能证明：`move/approach/within/@x/@y`、`ipt`、跨处理器读写、生产进度、天气时序、子弹命中掉血。不能证明：野 AI、波次、电力图、真实地形碰撞、建筑被毁的连锁；`draw` 会执行但没有画面。**真游戏行为必须由玩家验收**。
 
 场景：`out/scenes/` 有 5 张现实存档（open / garded-line / maze / PVP / campaign）；`benches/run.py` 是 memory/processor/sensor 三张合成台（58 项断言）；`_snapshot.py` 出 PNG 快照。
@@ -307,6 +309,7 @@ instructions[(int)(counter.numval++)].run(this);   // ← 无条件 +1
 **两条容易漏的**:
 
 - **只有 `wait` / `stop` / `printflush @wait` 会 `yield`**,提前结束这一 tick 的额度;**`jump 0 always` 没有这个机制**,会在一个 tick 内把额度烧光
+- 但 `wait` 期间处理器是**静止**的,不干别的活;要边等边算(看单位、轮询目标、多任务)就用 `op add cfg.timer @time 500` + `jump ... greaterThan @time cfg.timer`,别用 `wait` 空转。
 - `setrate` 是唯一能改 ipt 的指令,上限是 `maxInstructionsPerTick`(逻辑卡 **40**,比默认 8 大 5 倍);`@ipt` 立即变新值,但**本 tick 的循环边界已经固定**,下个 tick 才生效
 
 **所以改循环之前先跑 `check --cost`。** 算完的秒数就是单位从"看到"到"反应"的延迟。

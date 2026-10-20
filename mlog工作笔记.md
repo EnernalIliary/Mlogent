@@ -3091,3 +3091,15 @@ F:\OneDrive\桌面\AtomicStates\mindustry-blueprint\                ← 开发�
 - 链接范围是 10 格（`LogicBlock.range = 8 * 10`）。超范围链接不报错、装载时变成 null——台子第一版把 cell 放到 14 格外，read 全 null，就是它。
 - sensor-bench：五个单位（dagger/flare/mono/mega/fortress）的 health/armor/shield/range/speed/flag 与引擎值逐一相等；`@type` 返回类型对象；无玩家/无命令时 `@controlled=0`。fortress `@range=29.5`、`@speed=3.225`（tile、tile/秒）。
 - 两个工具坑：`mschgen.Blueprint.add_block()` 拒绝逻辑方块，要 `add_logic(block="logic-processor")`，默认 micro；mlog 的 `print` 只吃一个参数，多参数只打第一个。
+
+
+### 第 73 次整理：核心库存取放、aigenerated、两条“静默”规则
+
+- `--core-items silicon:400` 遍历我方（sharded）核心逐个 `items.add`；空白世界会在 base+(6,4) 自动放一个 `core-shard`。放完必须 `Vars.indexer.addIndex(tile)`——`Tile.setBlock` 不更新索引器，否则 `ulocate building core` 永远 `found?=0`。
+- 取放料距离 = `logicItemTransferRange`（45 world）+ `block.size*8/2`；核心 3×3 约 6 格，间距 7.1 格取不到，要先 `ucontrol approach core.x core.y 2`。
+- core-bench：`--core-items silicon:400`，取 15、放回 5，断言 385 / 15 / 10 / 390；四台合计 62 项全绿。
+- `ucontrol itemTake` 还要求 `build.team==unit.team`、`build.items!=null`、第二参是 Item、`timeoutDone(unit, LogicAI.transferDelay)`；`itemDrop` 额外要 `allowDeposit()`。
+- 特权内置变量 `@server`、`@client`、`@clientLocale/@clientUnit/@clientName/@clientTeam/@clientMobile/@clientMusicPlaying` 在普通处理器里被 `GlobalVars.get(name,false)` 换成 `"null"` 常量，不报错；只有 world processor 有真值。
+- `wait`/`stop`/`printflush @wait` 的 yield 只让出本 tick 剩余 ipt，等待期间处理器静止；要边等边算就用 `op add cfg.timer @time 500` + `@time >= cfg.timer` 判定，别用 `wait` 空转。
+- `tools/aigenerated.py`：`sign` 写文件头注释 + `end` 之后的不可达 `set`，哈希只覆盖正文；`verify` 检头部/正文哈希/尾部；`strip` 直接拒绝（退 2）。`.msch` 存源码，先签 `.mlog` 再生成，标记随源码进蓝图。
+- 回归：`tests/run_tests.py` 24/24；四台 62 项全 PASS；场景 README 同步为“四个合成台”。

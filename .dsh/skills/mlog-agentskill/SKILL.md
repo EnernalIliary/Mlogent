@@ -192,6 +192,7 @@ python tools/mlogsim.py logic.mlog --save scene.msav --units fortress:1 \
 
 - 世界：空白 64×64（默认）/ `--host` 随机真实图 / `--save` 载存档（自动在我方核心旁放处理器，`--base X,Y` 覆盖）。
 - 单位：`--units name:count`、`--unit-pos X,Y`、`--unit-ai all`（场景原有单位按 AI 行动）。单位落在实体格会在第一次 `update()` 被 `kill()`，所以 tick 1 会跑 `PREFLIGHT:`（编译失败、单位没生成、落地即死都会直接报，不用等 1200 tick）。
+- 库存：`--core-items silicon:400,copper:200` 给核心灌料（空白世界会自动放一个 `core-shard`）；`ulocate` 找核心、`itemTake`/`itemDrop` 取放料由此可断言（距离上限 `45 world + 方块半宽`，先 `approach` 到 2 格内）。
 - 世界更新：`--update all` 跑真 `Building.update()` 与 `LogicAI` 单位；`--power full|none` 钉电力；`--combat on`（`--ticks` 默认）按 `Logic.updateEntities()` 推进子弹物理/碰撞/伤害；`--weather rain` 强制开局天气。
 - 观测：`--trace FILE` 每 tick 一行（`unit,tick,ux,uy,uhp,range,tx,ty,dist,cx,cy,chp,bullets,shots`，tile 坐标）；`--assert EXPR` 逐行、`--assert-last EXPR` 只查末行，失败退 3。
 - 特权语句（`weathersense/weatherset/setrule/message/...`）只有 world processor 认，放微处理器里整行被静默删掉；`--processor auto` 自动选。
@@ -205,7 +206,7 @@ python tools/mlogsim.py logic.mlog --save scene.msav --units fortress:1 \
 - **外部输入一律 ⊤**。`sensor` / `getlink` / `ulocate` 拿到的都是运行期状态 ⇒ 一半变量退化成未知，`values` 只能对纯计算链说话。
 - `values` 3 轮后按变量放宽；`cost` 在 1000 条处截断并显式打 `>=`（那是下界，不是总量）。
 - `pack` 只认**同一 `src` 上 ≥2 个不同指数**的 `op idiv`，不重建表达式；`MIN_EXP = 3`。
-- **模拟器只到「逻辑层 + 单位运动层（B 档）+ 世界更新/天气 + 子弹命中」**。`tools/mlogsim.py` 跑真 `LExecutor`；`--update all` 下真 `Building.update()`（工厂/传送带/电力消费者，满电由 `--power` 钉）与真 `LogicAI` 单位 `update()`；tick 循环复刻 `Logic.updateWeather()` 的冷却/生成并 `Groups.weather.update()`；`--combat on`（`--ticks` 默认）按 `Logic.updateEntities()` 的顺序跑 `Groups.bullet.updatePhysics/update/collide`，所以 `ucontrol target` 的子弹会飞、会命中、会掉血。能证明 `move/approach/within/@x/@y`、生产进度、`weathersense/weatherset` 时序、目标 hp 变化。`--trace FILE` 每 tick 记逻辑单位一行（`unit,tick,ux,uy,uhp,range,tx,ty,dist,cx,cy,chp,bullets,shots`），`--assert` 逐行不变量、`--assert-last` 只看末行（失败退 3）。`weathersense`/`weatherset` 等特权语句只有 world processor 认，微处理器会把整行**静默删掉**（`--processor auto` 按语句自动选）。不模拟野 AI、波次、敌方 AI、电力图、真实地形碰撞，也不结算建筑被毁后的连锁后果。`shots` 增加不等于命中——必须看 `chp` 并开 `--combat off` 对照。**真游戏行为必须由玩家在游戏里验收**——模拟器通过不等于上手能跑；交付时要把「哪些部分是模拟器验证过的、哪些要你进游戏试」分开写。
+- **模拟器只到「逻辑层 + 单位运动层（B 档）+ 世界更新/天气 + 子弹命中」**。`tools/mlogsim.py` 跑真 `LExecutor`；`--update all` 下真 `Building.update()`（工厂/传送带/电力消费者，满电由 `--power` 钉）与真 `LogicAI` 单位 `update()`；tick 循环复刻 `Logic.updateWeather()` 的冷却/生成并 `Groups.weather.update()`；`--combat on`（`--ticks` 默认）按 `Logic.updateEntities()` 的顺序跑 `Groups.bullet.updatePhysics/update/collide`，所以 `ucontrol target` 的子弹会飞、会命中、会掉血。能证明 `move/approach/within/@x/@y`、生产进度、`weathersense/weatherset` 时序、目标 hp 变化。`--trace FILE` 每 tick 记逻辑单位一行（`unit,tick,ux,uy,uhp,range,tx,ty,dist,cx,cy,chp,bullets,shots`），`--assert` 逐行不变量、`--assert-last` 只看末行（失败退 3）。`weathersense`/`weatherset` 等特权语句只有 world processor 认，微处理器会把整行**静默删掉**（`--processor auto` 按语句自动选）。不模拟野 AI、波次、敌方 AI、电力图、真实地形碰撞，也不结算建筑被毁后的连锁后果。`shots` 增加不等于命中——必须看 `chp` 并开 `--combat off` 对照。**真游戏行为必须由玩家在游戏里验收**——模拟器通过不等于上手能跑；交付时要把「哪些部分是模拟器验证过的、哪些要你进游戏试」分开写。普通处理器读 `@client`/`@clientUnit` 等特权内置变量不会报错，而是静默得到 `null`（`GlobalVars.get(name,false)`）；要玩家/客户端数据只能用 world processor。AI 生成的逻辑必须先 `python tools/aigenerated.py sign` 签名（署名不可去除，交付前 `verify`）。
 
 ## 典型流程
 

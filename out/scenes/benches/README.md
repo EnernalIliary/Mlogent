@@ -1,10 +1,10 @@
-# 三个盲区合成台
+# 四个合成台
 
-现实场景（PVP / campaign / open / garded-line / maze）覆盖世界语义；这三张台子只补现实场景里不好摆的东西：跨处理器内存、四种处理器的 ipt/特权、单位属性矩阵。
+现实场景（PVP / campaign / open / garded-line / maze）覆盖世界语义；这四张台子只补现实场景里不好摆的东西：跨处理器内存、四种处理器的 ipt/特权、单位属性矩阵、核心库存取放。
 
 ```
 python out/scenes/benches/build.py   # 生成两张 .msch
-python out/scenes/benches/run.py     # 三张台子全跑，打印 PASS/FAIL
+python out/scenes/benches/run.py     # 四张台子全跑，打印 PASS/FAIL
 ```
 
 `run.py` 需要 `out/_server160.jar`（v160.7）和 `out/jre21/...`，与 `mlogsim` 默认一致。
@@ -60,6 +60,20 @@ python out/scenes/benches/run.py     # 三张台子全跑，打印 PASS/FAIL
 - `range` 是 tile（`type.maxRange / 8`），`speed` 是 tile/秒（`type.speed * 60 / 8`）。
 - 没有玩家、没有指挥命令、没有 `ucontrol` 时 `controlled` 一律 0；`ucontrol` 接管后才是 1。
 - `sensor ... @type` 返回单位类型对象，不是字符串。
+
+## core-bench（无 .msch，`--core-items`）
+
+空白世界由 `--core-items silicon:400` 在处理器旁放一个 `core-shard` 并灌 400 硅；`core-bench.mlog` 走 `ulocate` → `approach` → `itemTake` → `itemDrop` 全链路。
+
+| 断言 | 期望 | 实测 |
+|---|---|---|
+| `si`（取料前核心库存） | 385 | 385 |
+| `have`（单位背包） | 15 | 15 |
+| `left`（放回 5 后背包） | 10 | 10 |
+| `after`（核心库存） | 390 | 390 |
+
+- 取放料距离上限 = `45 world + 方块半宽`（核心 3×3 约 6 格），所以程序必须先 `approach` 到 2 格内。
+- 两次转移之间隔 `LogicAI.transferDelay`；没到时间就重发会空转，用 `@time` 计时。
 
 ## 这张台子证不了什么
 
