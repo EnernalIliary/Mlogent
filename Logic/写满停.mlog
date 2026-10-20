@@ -1,0 +1,53 @@
+set cfg.ratio 999
+set cfg.item @silicon
+ubind @flare
+jump 9 notEqual @unit null
+ubind @mono
+jump 9 notEqual @unit null
+ubind @poly
+jump 9 notEqual @unit null
+jump 41 always 0 0
+ulocate building core false @copper cx cy cf core
+jump 41 equal cf 0
+sensor n core cfg.item
+sensor cap core @itemCapacity
+jump 41 lessThanEq cap 0
+op mul a n 1000
+op mul b cap cfg.ratio
+jump 29 greaterThanEq a b
+control enabled silicon-arc-furnace1 1
+control enabled silicon-arc-furnace2 1
+control enabled silicon-arc-furnace3 1
+control enabled silicon-arc-furnace4 1
+control enabled silicon-arc-furnace5 1
+control enabled silicon-arc-furnace6 1
+control enabled silicon-arc-furnace7 1
+control enabled silicon-arc-furnace8 1
+control enabled silicon-arc-furnace9 1
+sensor e silicon-arc-furnace1 @enabled
+set st.on 1
+end
+control enabled silicon-arc-furnace1 0
+control enabled silicon-arc-furnace2 0
+control enabled silicon-arc-furnace3 0
+control enabled silicon-arc-furnace4 0
+control enabled silicon-arc-furnace5 0
+control enabled silicon-arc-furnace6 0
+control enabled silicon-arc-furnace7 0
+control enabled silicon-arc-furnace8 0
+control enabled silicon-arc-furnace9 0
+sensor e silicon-arc-furnace1 @enabled
+set st.on 0
+end
+control enabled silicon-arc-furnace1 1
+control enabled silicon-arc-furnace2 1
+control enabled silicon-arc-furnace3 1
+control enabled silicon-arc-furnace4 1
+control enabled silicon-arc-furnace5 1
+control enabled silicon-arc-furnace6 1
+control enabled silicon-arc-furnace7 1
+control enabled silicon-arc-furnace8 1
+control enabled silicon-arc-furnace9 1
+sensor e silicon-arc-furnace1 @enabled
+set st.on 1
+jump 0 always 0 "aigenerated:猪猪鱼:a975f1fbb4e2"

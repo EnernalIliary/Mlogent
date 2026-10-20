@@ -3148,3 +3148,17 @@ F:\OneDrive\桌面\AtomicStates\mindustry-blueprint\                ← 开发�
 - 打包前的 VERIFY 比对的是**签名后的 code**，所以蓝图里存的源码带签名；`LAssembler.write` 往返保留 jump 的 p4。
 - golden：`digest_aigenerated` 增加 `gen/gen_nosign` 四个字段（rc、蓝图里是否带签名、源文件是否带签名），30/30。
 - 注意：`gen` 会写源文件；不想让工具改文件时用 `--no-sign` 或先复制。
+
+
+### 80. 读核心库存与“写满停”
+
+- **读核心没有内置变量**：`@core` 不存在。唯一正规路径是先用 `ubind` 绑一个己方单位（`ulocate` 的 `checkLogicAI` 要求 `@unit` 非空），再
+  `ulocate building core false @copper cx cy cf core`，然后 `sensor n core @silicon` / `sensor cap core @itemCapacity`。
+  `cf=0` 要先判掉；`core` 只是接收第 8 个输出的变量名，不是关键字。
+- 写满停用 `op mul a n 1000`、`op mul b cap 999`、`greaterThanEq a b` 做千分比比较，避免浮点；满则对 9 台硅炉
+  `control enabled <炉> 0`，未满/失败则 `1`（失败保运行）。`control enabled` 落在 `BuildingComp.control(LAccess,double,...)`：
+  `if(type == LAccess.enabled) enabled = !Mathf.zero(p1)`，与 UI 的开关同一条路。
+- 实测：核心 3996/4000（99.9%）→ `st.on=0`、`e=0`；1000/4000 → `st.on=1`、`e=1`。
+- mlogsim 两个测试用修复：①`freeSpot` 只看原点格的 `block()==air`，多格方块的其余格仍是 air，3×3 炉会重叠；
+  改为维护 `placed` 矩形并检查 `t.build != null`（`Tile.build` 是字段不是方法）。②自动核心改放到世界远角，
+  否则自动接线在基地旁的炉子会压到核心的非原点格，把整个核心删掉、`ulocate` 返回 `cf=0`。

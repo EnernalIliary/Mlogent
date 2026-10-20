@@ -302,10 +302,12 @@ class Server:
             items[name] = int(amount) if amount else 1
         if not items:
             raise SimError("--core-items is empty")
-        # auto-placed core: 3x3 core-shard needs its center >= 1 and <= size-2
+        # auto-placed core: put it in a far corner.  A 3x3 core-shard dropped
+        # next to base can be clipped by the auto-link ring (a 3x3 furnace
+        # overlapping any of its tiles deletes the whole core).
         limit = self.world_size if self.world_size else 64
-        cx = min(max(self.base[0] + 6, 2), limit - 2)
-        cy = min(max(self.base[1] + 4, 2), limit - 2)
+        cx = min(max(limit - 5, 2), limit - 3)
+        cy = min(max(limit - 5, 2), limit - 3)
         out = self.js(CORE_JS % {"spec": json.dumps(items), "cx": cx, "cy": cy})
         cores = []
         for ln in out:
@@ -427,6 +429,7 @@ var LL = Packages.mindustry.world.blocks.logic.LogicBlock.LogicLink;
 var W = Vars.world, team = Packages.mindustry.game.Team.sharded;
 var air = Vars.content.block("air");
 var bx = %(x)d, by = %(y)d;
+var placed = [];
 function freeSpot(size){
     for(var r = 2; r <= 24; r++){
         for(var dx = -r; dx <= r; dx++){
@@ -437,7 +440,17 @@ function freeSpot(size){
                 var ok = true;
                 for(var i = 0; i < size && ok; i++){
                     for(var j = 0; j < size; j++){
-                        if(W.tile(x + i, y + j).block() != air){ ok = false; break; }
+                        var t = W.tile(x + i, y + j);
+                        if(t.block() != air || t.build != null){ ok = false; break; }
+                    }
+                }
+                /* a multi-block's non-origin tiles still read as air, so also
+                   reject anything overlapping a rectangle placed during this run */
+                if(ok){
+                    for(var q = 0; q < placed.length; q++){
+                        var p = placed[q];
+                        if(x < p[0] + p[2] && x + size > p[0]
+                           && y < p[1] + p[2] && y + size > p[1]){ ok = false; break; }
                     }
                 }
                 if(ok) return [x, y];
@@ -453,6 +466,7 @@ for(var k = 0; k < links.length; k++){
     var spot = freeSpot(blk.size);
     if(spot == null){ print("LINKWARN\t" + spec.name + "\tno space"); continue; }
     W.tile(spot[0], spot[1]).setBlock(blk, team);
+    placed.push([spot[0], spot[1], blk.size]);
     b.links.add(new LL(spot[0], spot[1], spec.name, true));
     print("LINK\t" + spec.name + "\t" + spot[0] + "\t" + spot[1] + "\t" + blk.name);
 }
@@ -850,6 +864,7 @@ LINK_ALIASES = {
     "router": "router",
     "junction": "junction",
     "spectre": "spectre",
+    "silicon-arc-furnace": "silicon-arc-furnace",
 }
 
 

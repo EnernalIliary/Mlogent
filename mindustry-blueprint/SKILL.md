@@ -96,6 +96,8 @@ whenToUse: 涉及 Mindustry 蓝图（.msch / 蓝图码）、mlog 逻辑编写或
 4. **取货点用 `move`,不要用 `approach`** —— `approach` 停在半径外可能够不到仓库,而 `itemTake` 够不到时**静默跳过**。
    `move` 不读第 3 个参数。(`move` 精确到 1 格;`approach` 停在 `radius - 7`)
 5. **`ulocate` 要无条件执行,不能放进分支** —— 否则另一条路径上坐标从未赋值,单位会飞向 `(0,0)`。
+   读核心库存没有内置变量:先 `ubind` 拿一个己方单位(常用 `@mono`),再 `ulocate building core false @copper cx cy cf core`;
+   `sensor n core @silicon` / `sensor cap core @itemCapacity`。`cf=0` 时先判掉,别拿坐标去飞。
 6. **`end` 是"跳回开头"**,不能用来"结束一个分支后继续往下"。分支互斥请用 `jump`。
 7. **`jump` 存的是绝对行号** —— 增删一行全盘偏移,生成前逐条数一遍。重点查:目标是否落在 `sensor`/`set` 这类有副作用的行上。
 8. **单位只能带一种物品** —— `itemCapacity` 是**堆叠上限**,不是每种物品的上限。

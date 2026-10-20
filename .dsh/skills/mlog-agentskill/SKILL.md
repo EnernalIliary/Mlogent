@@ -128,6 +128,7 @@ mlog **只有 `#` 起注释**（`LParser.java:98-99`），没有行尾注释 —
 | `true`/`false` 是**注册常量**（1 / 0） | `GlobalVars.java:54-55` `putEntry("false", 0)`、`putEntry("true", 1)`，`LAssembler.var()` 先查 `logicVars` 才轮到 `putVar` | `jump T equal X true` 就是 `X == 1`，**不是**未赋值变量 |
 | `lookup` 的结果在**第 2 参** | `LStatements.java:875-909`，第 0 位是 `ContentType` 关键字 | 把 `unit` 当目标 ⇒ 每个 `ubind u` 都变假错 |
 | `ubind` 给类型和给单位的语义不同 | `LExecutor.UnitBindI`：类型走 `unitCache`，`exec.binds[id]` 取模后自增（轮转）；单位满足同队/特权且 `logicControllable` 才直接绑 | `ubind @flare` 每轮可能是不同单位；要盯一个就 `ubind unit.target`，否则 `sensor` 读到的是“另一个单位” |
+| 读核心库存没有内置变量 | 没有 `@core`；`ulocate` 先走 `checkLogicAI`，要求 `@unit` 已绑（`LExecutor.java:230`） | 先 `ubind @mono`，再 `ulocate building core false @copper cx cy cf core`，然后 `sensor n core @silicon` / `sensor cap core @itemCapacity` |
 | `ucontrol getBlock x y a b c` 有**三个输出** | `LExecutor.java:491-509`（p3/p4/p5） | 只认一个输出会把 `b` 当未赋值 |
 | `ucontrol within x y r result` | `LExecutor.java:377` `p4.setnum(unit.within(...))` | `r` 是半径，`result` 是 1/0 |
 | `equal X null` ⇔ `X.num() == 0` | `ConditionOp.java:31-40` | 对未赋值变量**恒真**；只有 `===` 区分 null 与 0 |
