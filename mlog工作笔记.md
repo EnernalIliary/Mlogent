@@ -3103,3 +3103,12 @@ F:\OneDrive\桌面\AtomicStates\mindustry-blueprint\                ← 开发�
 - `wait`/`stop`/`printflush @wait` 的 yield 只让出本 tick 剩余 ipt，等待期间处理器静止；要边等边算就用 `op add cfg.timer @time 500` + `@time >= cfg.timer` 判定，别用 `wait` 空转。
 - `tools/aigenerated.py`：`sign` 写文件头注释 + `end` 之后的不可达 `set`，哈希只覆盖正文；`verify` 检头部/正文哈希/尾部；`strip` 直接拒绝（退 2）。`.msch` 存源码，先签 `.mlog` 再生成，标记随源码进蓝图。
 - 回归：`tests/run_tests.py` 24/24；四台 62 项全 PASS；场景 README 同步为“四个合成台”。
+
+
+**第 74 次整理（2026-10-20）：检查器认识特权内置变量**
+
+- `check` 新增 INFO：`@server` / `@client` / `@clientLocale` / `@clientUnit` / `@clientName` / `@clientTeam` / `@clientMobile` / `@clientMusicPlaying`。
+- 语义：`GlobalVars.get(name, false)` 对 `privilegedNames` 直接返回 `"null"` 常量（GlobalVars.java:253-256），普通处理器里不报错、读到 null；只有 world processor（privileged=true）有真值（:81-90）。
+- `check` 是静态的，`.mlog` 不说明方块类型，所以报 INFO 而不是 WARN；world processor 是合法例外。
+- 语料 65 份 `out/*.mlog`：16 份 29 条命中，集中在 `无线超-v3`(4)、`无线超-v2`(3)、`_ai-wireless`(3)、`other-ai`(5)，其余多为 `_t`/`_emod`/`_ds_*` 测试文件；`print "@clientUnit"` 这类字符串不算（检测前先剥引号内容）。
+- golden 25 条；`rules/privileged-var-needs-world-processor.json`（semantics/INFO）；反例用 `print "@clientUnit…"` 字符串。

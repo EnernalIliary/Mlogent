@@ -214,6 +214,9 @@ SUITE: list[tuple[str, str, str | None]] = [
     # would report 1 and 2 instead of 0 and 1.
     ("check/label-index", "check", "label-index.mlog"),
     ("check/virus",           "check",   "virus-logic.mlog"),
+    # Privileged built-ins are INFO, not WARN: the same file may legitimately be
+    # pasted into a world processor. The point is the line number and severity.
+    ("check/privileged-var",  "check",   "privileged-var.mlog"),
     ("check/spin-deadlock",   "check",   "spin.mlog"),
     ("check/spin-handshake",  "check",   "spin-ok.mlog"),
     ("pack/three-fields",      "pack",    "pack1.mlog"),

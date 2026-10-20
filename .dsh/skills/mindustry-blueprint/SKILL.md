@@ -354,10 +354,12 @@ python tools/mlog.py parse "schematics/无线超.msch"
 
 ### 检查:生成前必做
 python tools/mlog.py check logic.mlog
+python tools/mlog.py check logic.mlog --cost
 python tools/mlog.py check --msch out.msch
 
+`check` 的 INFO 不是错误：`@server` / `@client*` 是特权内置量，micro/logic/hyper 里读到的是 `null` 常量，只有 world processor 有真值；这条 INFO 是在问“这段逻辑到底跑在哪个方块上”。
+
 ### 成本分析:死代码 + 最坏多少条指令 + 折合几秒
-python tools/mlog.py check logic.mlog --cost
 python tools/mlog.py check --msch out.msch --cost
 
 ### 死存储:赋值了但整个程序(含跨周期)从未读取

@@ -177,6 +177,20 @@
       ]
     ]
   },
+  "check/privileged-var": {
+    "kind": "check",
+    "case": "privileged-var.mlog",
+    "digest": [
+      [
+        "INFO",
+        1
+      ],
+      [
+        "INFO",
+        2
+      ]
+    ]
+  },
   "check/spin-deadlock": {
     "kind": "check",
     "case": "spin.mlog",

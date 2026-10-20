@@ -117,6 +117,8 @@ mlog **只有 `#` 起注释**（`LParser.java:98-99`），没有行尾注释 —
 - **B 恒真守卫**。`jump T equal X Y` 两边都不是变量赋值时，分支是常量。要么是署名，要么作者想要 `always`。
 - **D 死引用**。`scatter1` 这种名字**看着**是有效链接，但处理器的链接表里没有它 —— `LExecutor` 的 `validLink(b)` 直接挡掉，`control shootp scatter1` 一发不发，不报错、不崩溃。`.mlog` 单独文件没有链接表，只有 `.msch` 能查。
 
+- **F 特权内置变量**。`@server` / `@client` / `@clientUnit` / `@clientName` … 在普通处理器里不是「未定义」，而是 `GlobalVars.get(name, false)` 直接返回的 **null 常量**：不报错、指令照跑、分支永远不走。`check` 报 **INFO**；只有 world processor（privileged）看得到真值。见到 `INFO ... privileged` 先确认这段逻辑跑在哪个方块上，别急着改代码。
+
 真正要改的 A 层长这样：`op mod n n padNeedCount`（模数 0 ⇒ null）、`ubind u` 而 `u` 从未赋过、`control config unloader1 mmm 0 0 0`（`mmm` 当 0 用，但写成了名字）、`flase` 拼错落在 `ulocate` 的 enemy 位。
 
 ## 语言事实速查（每条都曾经让我误判）

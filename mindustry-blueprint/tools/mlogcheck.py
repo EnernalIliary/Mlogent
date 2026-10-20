@@ -102,6 +102,17 @@ KEYWORDS = {
     "block", "floor", "ore_", "building_", "type", "apply", "clear_",
 }
 
+# Built-ins GlobalVars registers with privileged=true. A normal processor that
+# reads one gets the `null` constant, not the value: GlobalVars.putEntry(name,
+# value, true) at :81-90, and get(name, privileged) at :253-256 returns
+# `vars.get("null")` when `!privileged && privilegedNames.contains(name)`.
+# Nothing throws -- the branch just never takes, which is invisible until the
+# logic is run against a real server/client.
+PRIVILEGED_VARS = {
+    "@server", "@client", "@clientLocale", "@clientUnit", "@clientName",
+    "@clientTeam", "@clientMobile", "@clientMusicPlaying",
+}
+
 # draw sub-commands: `draw <sub> ...` -- the sub-command is not an operand
 DRAW_SUBS = {
     "clear", "color", "col", "stroke", "line", "rect", "lineRect", "poly",
@@ -886,6 +897,25 @@ def analyse(lines: list[str], links: list[str] | None = None, ipt: int = 2) -> l
                 "ERR", orig + 1, c,
                 f"`{v}` is read here but is never assigned anywhere in this "
                 f"program (and is not a link or built-in)"))
+
+    # ---- privileged built-ins --------------------------------------------
+    # INFO, not WARN: a world processor legitimately reads these, and a .mlog
+    # file does not say which block will run it. What is worth saying is that
+    # in micro/logic/hyper the value is a null constant -- no error, no warning,
+    # the branch simply never runs.
+    for i, (orig, c) in enumerate(stmts):
+        # A quoted string is data, not a variable read: `print "@clientUnit"`
+        # must not be flagged. Only bare @tokens count.
+        bare = re.sub(r'"[^"]*"', '""', c)
+        hits = sorted({t for t in re.findall(r"@\w+", bare) if t in PRIVILEGED_VARS})
+        if hits:
+            names = ", ".join(f"`{h}`" for h in hits)
+            out.append(Finding(
+                "INFO", orig + 1, c,
+                f"{names} privileged: only a world processor sees a real value; "
+                f"in a micro/logic/hyper processor this reads the null constant "
+                f"(GlobalVars.java:81-90) -- fine if this program is meant for a "
+                f"world processor"))
 
     # ---- jump diagnostics (only structural problems) ---------------------
     for i, (orig, c) in enumerate(stmts):
