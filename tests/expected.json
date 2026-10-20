@@ -205,6 +205,20 @@
       ]
     ]
   },
+  "check/link-hyphen": {
+    "kind": "check",
+    "case": "link-hyphen.mlog",
+    "digest": [
+      [
+        "ERR",
+        0
+      ],
+      [
+        "ERR",
+        1
+      ]
+    ]
+  },
   "check/spin-deadlock": {
     "kind": "check",
     "case": "spin.mlog",

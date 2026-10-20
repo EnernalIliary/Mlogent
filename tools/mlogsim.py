@@ -864,7 +864,7 @@ LINK_ALIASES = {
     "router": "router",
     "junction": "junction",
     "spectre": "spectre",
-    "silicon-arc-furnace": "silicon-arc-furnace",
+    "furnace": "silicon-arc-furnace",
 }
 
 

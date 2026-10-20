@@ -3162,3 +3162,11 @@ F:\OneDrive\桌面\AtomicStates\mindustry-blueprint\                ← 开发�
 - mlogsim 两个测试用修复：①`freeSpot` 只看原点格的 `block()==air`，多格方块的其余格仍是 air，3×3 炉会重叠；
   改为维护 `placed` 矩形并检查 `t.build != null`（`Tile.build` 是字段不是方法）。②自动核心改放到世界远角，
   否则自动接线在基地旁的炉子会压到核心的非原点格，把整个核心删掉、`ulocate` 返回 `cf=0`。
+
+## 第 81 次整理：链接名只看最后一段（2026-10-21）
+
+- `LogicBlock.getLinkName()`：方块名按 `-` 切，最后一段是 `large` 或数字就取前一段。`silicon-arc-furnace` → `furnace1`，写全名永远不绑定。
+- 症状：`control enabled silicon-arc-furnace1 1` 不报错、静默无操作；`jump` 行号全对也白搭。
+- `check` 新增 ERR `link-name-hyphen`：名字里带 `-` 且不是字面量/`@` 开头就报。fixture `link-hyphen.mlog`（2 条 ERR）。
+- 修法：`Logic/写满停.mlog` 全部改 `furnace1..9`，重签 id `bac1e1ef283b`；`mlogsim` 的 `LINK_ALIASES` 改为 `furnace: silicon-arc-furnace`。
+- 复测：3996/4000 → `st.on=0,e=0`；1000/4000 → `st.on=1,e=1`；31/31 golden。

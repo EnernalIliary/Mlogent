@@ -142,6 +142,7 @@ mlog **只有 `#` 起注释**（`LParser.java:98-99`），没有行尾注释 —
 | `control` 的 p2–p4 各方块忽略 | `LExecutor.ControlI.run()` | 实用有效位只有三个 |
 | `ucontrol payTake`/`boost` 只吃布尔 | `LUnitControl.java:17,20` | 未赋值 ⇒ 恒 false，"只捡建筑" |
 | `read`/`write` 的 `@this "名字"` 是**处理器变量** | `LogicBlock.java:607-620, 644-650`：字符串先 `optionalVar(name)`，没有再 `optionalLink(name)`；write 找不到变量直接 return | 名字是字符串不是变量；写未声明=静默空操作（`check` 报 INFO `self-write-noop`），读未声明=null（INFO `self-read-undefined`）；数字下标 `read v @this 0` 是链接 |
+| **链接名不是方块全名** | `LogicBlock.getLinkName()` 取方块名最后一个连字符段再加序号：`silicon-arc-furnace` → `furnace1`；`large` 结尾先去掉 `large` | 写 `silicon-arc-furnace1` 永远不绑定（静默无操作）；`check` 报 ERR `link-name-hyphen` |
 
 ## 「我以为是作者写错」清单（其实都是检查器的 bug）
 
