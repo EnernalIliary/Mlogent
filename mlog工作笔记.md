@@ -3112,3 +3112,11 @@ F:\OneDrive\桌面\AtomicStates\mindustry-blueprint\                ← 开发�
 - `check` 是静态的，`.mlog` 不说明方块类型，所以报 INFO 而不是 WARN；world processor 是合法例外。
 - 语料 65 份 `out/*.mlog`：16 份 29 条命中，集中在 `无线超-v3`(4)、`无线超-v2`(3)、`_ai-wireless`(3)、`other-ai`(5)，其余多为 `_t`/`_emod`/`_ds_*` 测试文件；`print "@clientUnit"` 这类字符串不算（检测前先剥引号内容）。
 - golden 25 条；`rules/privileged-var-needs-world-processor.json`（semantics/INFO）；反例用 `print "@clientUnit…"` 字符串。
+### 第 75 次整理（2026-10-20）：链接自动接线 + 三条语义纠正
+
+- `--links auto`：裸 `.mlog` 没有链接表，模拟器从 `uses - defs` 找 `cell1`/`bank1`/`message1`/`dome1` 这类名字，按别名表放同类方块并用 `new LogicBlock$LogicLink(x,y,name,true)` 接上，再 `updateCode`；`--links off` 才是 null。
+- `LogicLink` 的 x/y 是格坐标（游戏自己的建链代码用 `tileX()/tileY()`），`updateCode` 用 `world.build` 还原；`validLink` 要求同队、`within(range + 半宽)`，`range = 80 world = 10 格`。
+- 自动接线前必须 `b.executor.team = Team.sharded`，否则 `MemoryBuild.readable` 判队伍不符 → 读写都是 null（`MemoryBlock.java:59-81`）。
+- `set cfg.count 0` 不是死代码：它是留给使用者改的配置面；规范 §2 已写明，交付时在文件头写含义与范围，`ir` 报“赋值未读”先确认是不是参数。
+- `ubind` 给类型是按 `unitCache` 轮转（`exec.binds[id]` 取模自增），给单位是直接绑；要盯一个单位就别每轮 `ubind @type`。
+- 顺带：`_link_test` 42/4242；`无线超-v3` 在 PVP 存档上自动接 `dome1`。

@@ -53,6 +53,13 @@ game. The processor is auto-placed on a free tile beside your core (`--base
 X,Y` overrides) and the world size comes from the save, not `--world`. The
 save's world clock is reset to 0 once, so `@tick`/`@time` start at 0 and runs
 repeat; the absolute clock value inside a save is otherwise arbitrary.
+
+Links (`--links auto`, default for a `.mlog`): a plain `.mlog` has no link
+table, so `read cell1 0` normally compiles to a null constant. The simulator
+finds names the program reads but never assigns and, when the name looks like
+a link (`cell1`, `bank1`, `message1`, `dome1`), places the matching block on a
+free tile next to the processor and wires it (10-tile link range, same team).
+`--links off` restores the raw behaviour. A `.msch` keeps its own links.
 `--unit-ai all` also updates units that no processor controls, i.e. the save's
 own AI: turrets are buildings and already fire under `--update all`, while
 this lets mobile defenders and attackers act. `CommandAI` units stay passive
@@ -412,6 +419,43 @@ var s = Packages.java.nio.file.Files.readString(
     Packages.java.nio.charset.StandardCharsets.UTF_8);
 var b = Vars.world.build(%(x)d,%(y)d);
 b.code = s;
+/* a .mlog file has no link table; place a matching block next to the processor
+   and wire it, so `read cell1 0` / `print message1` behave like the real build.
+   Link names follow the game's defaults: memory-cell -> cell1, memory-bank -> bank1. */
+var links = %(links)s;
+var LL = Packages.mindustry.world.blocks.logic.LogicBlock.LogicLink;
+var W = Vars.world, team = Packages.mindustry.game.Team.sharded;
+var air = Vars.content.block("air");
+var bx = %(x)d, by = %(y)d;
+function freeSpot(size){
+    for(var r = 2; r <= 24; r++){
+        for(var dx = -r; dx <= r; dx++){
+            for(var dy = -r; dy <= r; dy++){
+                if(Math.max(Math.abs(dx), Math.abs(dy)) != r) continue;
+                var x = bx + dx, y = by + dy;
+                if(x < 0 || y < 0 || x + size > W.width() || y + size > W.height()) continue;
+                var ok = true;
+                for(var i = 0; i < size && ok; i++){
+                    for(var j = 0; j < size; j++){
+                        if(W.tile(x + i, y + j).block() != air){ ok = false; break; }
+                    }
+                }
+                if(ok) return [x, y];
+            }
+        }
+    }
+    return null;
+}
+for(var k = 0; k < links.length; k++){
+    var spec = links[k];
+    var blk = Vars.content.block(spec.block);
+    if(blk == null){ print("LINKWARN\t" + spec.name + "\tunknown block " + spec.block); continue; }
+    var spot = freeSpot(blk.size);
+    if(spot == null){ print("LINKWARN\t" + spec.name + "\tno space"); continue; }
+    W.tile(spot[0], spot[1]).setBlock(blk, team);
+    b.links.add(new LL(spot[0], spot[1], spec.name, true));
+    print("LINK\t" + spec.name + "\t" + spot[0] + "\t" + spot[1] + "\t" + blk.name);
+}
 b.updateCode(s);
 /* compile errors (undefined label, malformed statement) leave no instructions;
    fail here in ~3 s instead of after a full scene run */
@@ -793,13 +837,56 @@ def parse_results(lines: list[str]) -> list[dict]:
     return recs
 
 
+LINK_ALIASES = {
+    "cell": "memory-cell",
+    "bank": "memory-bank",
+    "message": "message",
+    "switch": "switch",
+    "sorter": "sorter",
+    "unloader": "unloader",
+    "dome": "overdrive-dome",
+    "projector": "force-projector",
+    "mender": "mender",
+    "router": "router",
+    "junction": "junction",
+}
+
+
+def infer_links(code: str) -> list[dict]:
+    """Link names a `.mlog` uses but never assigns (`cell1`, `message2`, ...).
+
+    A plain `.mlog` file has no link table: `read cell1 0` normally compiles to a
+    null constant. With `--links auto` the simulator places a matching block next
+    to the processor and wires it under that name. Names follow the game defaults
+    (`memory-cell` -> `cell1`, `memory-bank` -> `bank1`, `overdrive-dome` -> `dome1`).
+    """
+    sys.path.insert(0, TOOLS)
+    import mlogir  # noqa: E402
+
+    prog = mlogir.parse(code)
+    defined, used = set(), set()
+    for st in prog.stmts:
+        defined.update(st.defs)
+        used.update(st.uses)
+    out = []
+    for name in sorted(used - defined):
+        if name.startswith("@") or not re.fullmatch(r"[a-z][a-z0-9-]*\d+", name):
+            continue
+        base = re.sub(r"\d+$", "", name)
+        if base not in LINK_ALIASES:
+            continue
+        out.append({"name": name, "block": LINK_ALIASES[base]})
+    return out
+
+
 def run_mlog(srv: Server, name: str, code: str, steps: int, ticks: bool = False,
              update: str = "none", power: float = 1.0, processor: str = "auto",
              combat: bool = False, trace: bool = False, unit_ai: str = "logic",
-             preflight: bool = True) -> dict:
+             preflight: bool = True, links: str = "auto") -> dict:
     # privileged statements exist only in world processors; selecting the block
     # that makes them compile is better than silently dropping whole lines.
     world_proc = processor == "world" or (processor == "auto" and PRIVILEGED_RE.search(code) is not None)
+    link_specs = infer_links(code) if links == "auto" else []
     # a fresh processor keeps textBuffer/vars from leaking between programs
     srv.js(place_js(*srv.base, "world-processor" if world_proc else "micro-processor"))
     fd, path = tempfile.mkstemp(suffix=".mlog", dir=srv.workdir, text=True)
@@ -808,6 +895,7 @@ def run_mlog(srv: Server, name: str, code: str, steps: int, ticks: bool = False,
         with open(path, "w", encoding="utf-8", newline="\n") as f:
             f.write(code)
         js = STEP_JS % {"path": path.replace("\\", "/"), "x": srv.base[0], "y": srv.base[1],
+                        "links": json.dumps(link_specs, ensure_ascii=False),
                         "loop": _loop_js("b", steps, ticks, update, power, combat, trace, unit_ai,
                                          preflight)}
         lines = srv.js(js)
@@ -819,6 +907,7 @@ def run_mlog(srv: Server, name: str, code: str, steps: int, ticks: bool = False,
         rec["mode"] = "tick" if ticks else "instruction"
         rec["update"] = update
         rec["processor"] = "world" if world_proc else "micro"
+        rec["links"] = link_specs
         return rec
     finally:
         os.unlink(path)
@@ -966,6 +1055,10 @@ def main(argv=None):
                          "next to your core with --save")
     ap.add_argument("--no-preflight", action="store_true",
                     help="skip the tick-1 check that spawned units are still alive")
+    ap.add_argument("--links", choices=["auto", "off"], default="auto",
+                    help="auto (default): for a .mlog, place a block for every name it "
+                         "reads but never assigns (cell1 -> memory-cell, message1 -> message) "
+                         "and wire it; off: leave them null as a plain .mlog would")
     ap.add_argument("--json", action="store_true")
     args = ap.parse_args(argv)
 
@@ -1024,7 +1117,7 @@ def main(argv=None):
                     code = fh.read()
                 results.append(run_mlog(srv, os.path.basename(f), code, steps, ticks,
                                         update, power, args.processor, combat, want_trace,
-                                        args.unit_ai, preflight))
+                                        args.unit_ai, preflight, args.links))
     except FileNotFoundError as e:
         sys.exit(f"missing input: {e.filename}")
     except SimError as e:

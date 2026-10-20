@@ -91,7 +91,7 @@ python mindustry-blueprint\tools\parallel.py --items 1421   # 它会开几个 wo
 |---|---|---|
 | `reported` | 值被覆盖前没人读(`overwritten`),或从没人读却写了不止一次(`stale-write`) | **是 bug**，逐条看 |
 | `slot` | 语法强制的输出槽（`ulocate` 的 `found`、`ucontrol` 的返回等）**且只写一次** | 多数不改，作者不需要那个值 |
-| `declaration` | `set x <字面量>` 之后没读 | 作者的声明式初始化，无价值 |
+| `declaration` | `set x <字面量>` 之后没读 | 作者的声明式初始化；**也可能是留给使用者改的配置**（`set count 0`、`set limit 40`）——先看文件头注释/命名（`cfg.*`）再决定删 |
 | `annotation` | 变量名是纯标点（`//`、`--`） | 作者拿变量名当注释，不是 bug |
 
 `stale-write` 专治「强制输出槽写两次」：写**一次**且没人读，可能只是语法逼你起个名字（`slot`，隐藏）；同一个槽**写两次**且从没人读，第一次写就可证被丢弃 —— 那是真 bug。实例：`17十七硫幽灵四熔毁四油海啸组.msch` 的 micro-processor @(16,8)，`found` 在 `L6` 与 `L61` 各被 `ulocate` 写一次、全程序无读；改动前它被归进 `slot`、只算进 `(+3 hidden)`，改动后才作为 `reported` 报出来。
@@ -127,6 +127,7 @@ mlog **只有 `#` 起注释**（`LParser.java:98-99`），没有行尾注释 —
 |---|---|---|
 | `true`/`false` 是**注册常量**（1 / 0） | `GlobalVars.java:54-55` `putEntry("false", 0)`、`putEntry("true", 1)`，`LAssembler.var()` 先查 `logicVars` 才轮到 `putVar` | `jump T equal X true` 就是 `X == 1`，**不是**未赋值变量 |
 | `lookup` 的结果在**第 2 参** | `LStatements.java:875-909`，第 0 位是 `ContentType` 关键字 | 把 `unit` 当目标 ⇒ 每个 `ubind u` 都变假错 |
+| `ubind` 给类型和给单位的语义不同 | `LExecutor.UnitBindI`：类型走 `unitCache`，`exec.binds[id]` 取模后自增（轮转）；单位满足同队/特权且 `logicControllable` 才直接绑 | `ubind @flare` 每轮可能是不同单位；要盯一个就 `ubind unit.target`，否则 `sensor` 读到的是“另一个单位” |
 | `ucontrol getBlock x y a b c` 有**三个输出** | `LExecutor.java:491-509`（p3/p4/p5） | 只认一个输出会把 `b` 当未赋值 |
 | `ucontrol within x y r result` | `LExecutor.java:377` `p4.setnum(unit.within(...))` | `r` 是半径，`result` 是 1/0 |
 | `equal X null` ⇔ `X.num() == 0` | `ConditionOp.java:31-40` | 对未赋值变量**恒真**；只有 `===` 区分 null 与 0 |
@@ -195,11 +196,12 @@ python tools/mlogsim.py logic.mlog --save scene.msav --units fortress:1 \
 - 世界：空白 64×64（默认）/ `--host` 随机真实图 / `--save` 载存档（自动在我方核心旁放处理器，`--base X,Y` 覆盖）。
 - 单位：`--units name:count`、`--unit-pos X,Y`、`--unit-ai all`（场景原有单位按 AI 行动）。单位落在实体格会在第一次 `update()` 被 `kill()`，所以 tick 1 会跑 `PREFLIGHT:`（编译失败、单位没生成、落地即死都会直接报，不用等 1200 tick）。
 - 库存：`--core-items silicon:400,copper:200` 给核心灌料（空白世界会自动放一个 `core-shard`）；`ulocate` 找核心、`itemTake`/`itemDrop` 取放料由此可断言（距离上限 `45 world + 方块半宽`，先 `approach` 到 2 格内）。
+- 链接：裸 `.mlog` 没有链接表；`--links auto`（默认）会找出读而不赋值的链接名（`cell1`、`bank1`、`message1`、`dome1`）自动放同类方块并接线（同队、10 格内），`--links off` 才是 `null`。`.msch` 用自己的链接表。
 - 世界更新：`--update all` 跑真 `Building.update()` 与 `LogicAI` 单位；`--power full|none` 钉电力；`--combat on`（`--ticks` 默认）按 `Logic.updateEntities()` 推进子弹物理/碰撞/伤害；`--weather rain` 强制开局天气。
 - 观测：`--trace FILE` 每 tick 一行（`unit,tick,ux,uy,uhp,range,tx,ty,dist,cx,cy,chp,bullets,shots`，tile 坐标）；`--assert EXPR` 逐行、`--assert-last EXPR` 只查末行，失败退 3。
 - 特权语句（`weathersense/weatherset/setrule/message/...`）只有 world processor 认，放微处理器里整行被静默删掉；`--processor auto` 自动选。
 - 证明不了：野 AI、波次、电力图、真实地形碰撞、建筑被毁连锁；`draw` 执行但无画面。**真游戏行为必须玩家验收**，交付时把"跑过"和"读起来没错"分开写。
-- 现成场景：`out/scenes/`（5 张现实存档）、`out/scenes/benches/run.py`（memory/processor/sensor 三张台子，58 项断言）、`_snapshot.py`（PNG 快照）。
+- 现成场景：`out/scenes/`（5 张现实存档）、`out/scenes/benches/run.py`（memory/processor/sensor/core 四张台子，62 项断言）、`_snapshot.py`（PNG 快照）。
 
 ## 边界：这些工具证明不了的事
 

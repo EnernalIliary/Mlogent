@@ -90,7 +90,7 @@ whenToUse: 涉及 Mindustry 蓝图（.msch / 蓝图码）、mlog 逻辑编写或
 ## 铁律(生成前逐条自查)
 
 1. **`@dead` 死亡返回 1** —— "死了就重绑"必须写 `equal`,不是 `notEqual`。**这条抓出过真实 bug。**
-2. **控制单位前必须 `ubind`** —— 否则 `@unit` 为 `null`,所有 `ucontrol`/`uradar`/`ulocate` 静默失效。
+2. **控制单位前必须 `ubind`** —— 否则 `@unit` 为 `null`,所有 `ucontrol`/`uradar`/`ulocate` 静默失效。`ubind @flare` 是同类型**轮流绑**（内部计数器，每次 +1），`ubind someUnit` 才是绑那个具体单位；要盯住一个单位就别反复绑类型。
 3. **`ulocate` 第 8 参必须接住** —— 写 `0` 就丢掉了建筑引用,后面无法 `itemTake`/`itemDrop`。
    (`core` 不是内置关键字,它只是接收这个输出的**变量名**。)
 4. **取货点用 `move`,不要用 `approach`** —— `approach` 停在半径外可能够不到仓库,而 `itemTake` 够不到时**静默跳过**。
@@ -135,13 +135,14 @@ python tools/mlogsim.py my.mlog --save scene.msav --ticks 120 \
 - 默认 v160.7（`out/_server160.jar`）+ JRE21，可用 `MLOGSIM_JAR`/`MLOGSIM_JAVA` 换。空白世界默认 64×64；`--host` 用随机真实地图；`--save` 载存档（从我方核心旁自动找空地放入口处理器，`--base X,Y` 覆盖）。
 - `--units name:count` 生成单位、`--unit-pos X,Y` 指定 tile 出生点；`--unit-ai all` 让场景里原有单位也按 AI 行动。单位落在实体格会在第一次 `update()` 被 `kill()`，所以有 `PREFLIGHT:` 预检——比"跑 1200 tick 发现单位没动"便宜得多；`--no-preflight` 只关单位存活检查。
 - `--core-items ITEM:N,...` 给核心灌库存（空白世界会在处理器旁自动放一个 `core-shard`）；`ulocate`/`itemTake`/`itemDrop` 由此可断言。取放料要求同队、目标有 `items`、距离在 `45 world + 方块半宽`（约 6 格）内。
+- `--links auto`（`.mlog` 默认）：裸 `.mlog` 没有链接表，模拟器会找出“读而不赋值”的链接名（`cell1`、`bank1`、`message1`、`dome1`），在处理器旁放同类方块并接上（同队、10 格内）；`.msch` 用自己的链接表；`--links off` 恢复原样（读 `null`）。
 - `--update all` 才跑 `Building.update()`（工厂、传送带、电力消费者）与 `LogicAI` 单位；`--power full|none` 把电力钉死；`--combat on`（`--ticks` 默认）按 `Logic.updateEntities()` 的顺序推进子弹物理/碰撞/伤害；`--weather rain` 可强制开局天气。
 - `--trace FILE` 每 tick 一行逻辑单位轨迹（`unit,tick,ux,uy,uhp,range,tx,ty,dist,cx,cy,chp,bullets,shots`，tile 坐标）；`--assert EXPR` 对每行、`--assert-last EXPR` 只对末行求值，失败退 3。列名就是变量名。
 - 特权语句（`weathersense/weatherset/setrule/message/cutscene/effect/fetch/sync/getblock/setblock/spawn/status`）只有 world processor 认；放进微处理器会被**静默删掉整行**。`--processor auto` 按语句自动选处理器。
 - 特权**内置变量**（`@server`、`@client`、`@clientLocale`、`@clientUnit`、`@clientName`、`@clientTeam`、`@clientMobile`、`@clientMusicPlaying`）在普通处理器里不报错，而是被 `GlobalVars.get(name, false)` 换成 `null` 常量——分支永远不走。要在普通逻辑里判断玩家/客户端，换成 world processor 或游戏内可观测的数据。
 - 能证明：`move/approach/within/@x/@y`、`ipt`、跨处理器读写、生产进度、天气时序、子弹命中掉血。不能证明：野 AI、波次、电力图、真实地形碰撞、建筑被毁的连锁；`draw` 会执行但没有画面。**真游戏行为必须由玩家验收**。
 
-场景：`out/scenes/` 有 5 张现实存档（open / garded-line / maze / PVP / campaign）；`benches/run.py` 是 memory/processor/sensor 三张合成台（58 项断言）；`_snapshot.py` 出 PNG 快照。
+场景：`out/scenes/` 有 5 张现实存档（open / garded-line / maze / PVP / campaign）；`benches/run.py` 是 memory/processor/sensor/core 四张合成台（62 项断言）；`_snapshot.py` 出 PNG 快照。
 
 注意：`mlogsim.py` 只在仓库根的 `tools/`（独立拷走的技能副本不含它，因为它要 Java + `out/_server160.jar`）；下面命令都假定当前目录是仓库根。
 
@@ -445,7 +446,7 @@ worst-case path : ~2001 instructions       ← 一次完整决策最坏多少条
 |---|---|---|
 | `reported` | 值被覆盖前没人读(`overwritten`)/ 从没人读但写了不止一次(`stale-write`) | **是 bug,去看** |
 | `slot` | `ulocate`/`ucontrol`/`radar`/`sensor` 的多输出槽没读,且**只写一次** | 语法强制,不是错 |
-| `declaration` | `set x 字面量` 且没人读 | 作者的"声明",忽略 |
+| `declaration` | `set x 字面量` 且没人读 | 声明式初始化；**也可能是给使用者留的配置**（`set count 0`、`set limit 40`）——有 `cfg.` 命名或文件头注释就别删 |
 | `annotation` | 变量名是纯标点(`//`) | mlog 没有行尾注释(只有 `#`),作者拿它当注释 |
 
 `stale-write` 是为「强制输出槽写两次」加的一层:写**一次**且没人读,可能只是语法逼你起个名字(`slot`,降级隐藏);但同一个槽**写两次**且从没人读,第一次写可证被丢弃 —— 那是真 bug。实例:`17十七硫幽灵四熔毁四油海啸组.msch` 的 micro-processor @(16,8) 里 `found` 在 `L6` 与 `L61` 各被 `ulocate` 写一次、全程序无读,改动前它被 `slot` 层藏住(`dead-store 0(+3 hidden)`),改动后才报出来。
