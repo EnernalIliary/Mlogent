@@ -3189,3 +3189,11 @@ F:\OneDrive\桌面\AtomicStates\mindustry-blueprint\                ← 开发�
 - `draw triangle a b c d e f` 是紧凑声明表（6 个，值 null→0），不是“画三角形”专用；它的参数仍被读，但效果是声明。
 - `read/write @this "名字"`：只有**全文从未提及**才算未声明；只声明未赋值读到 null（不是 0），`op add` 仍然报“读 null”。
 - `mlogir.Stmt.declares` + `Program.declared` 暴露声明集；check 的 `self-read-undefined`/`self-write-noop` 改用 `mentioned`（defs∪uses）。fixture `check/declared-by-mention`，34/34。
+### 85. 序切着陆 v2.1：排序 bug 与 209→65
+- 2.0 的 `set num.min itc` 只在进 10 轮循环前执行一次，第 2..10 轮不再产生新的 min，`aclist` 被同一个 `10^(15-id)` 连减，掩码借位。v2.1 每轮重置 `num.min`/`item.min`/`accut`。
+- `lookup` 参数序是 `lookup <type> <result> <id>`，写成 `lookup uty unit uid` 会报 result 未赋值；`select` 有 build>=150 版本门，改成 `jump` 比较更稳。
+- 所有空 pad 只吃 `abs.min.item`，K=10 名次没被消费；把 `cfg.top` 默认设 1，单轮 min，209 条降到 65 条（~62 指令/周期）。
+- `pad.i` 原为 1 基，跳过了第 0 个 pad、`< @links` 又读到 null；改 0 基。
+- 模拟器验证：mask 只留硅/钛，`--core-items silicon:10,titanium:4000` → `item.min=silicon`、`pad1 @config=silicon`；反向 `titanium:10` → `titanium`。空白世界 `state.getPlanet()` 为 null，着陆台 `config` 被 `accessible()` 拒绝，测试需 `--init-js` 设 `rules.planet=serpulo` 并去掉效率守卫。
+- 提交：`Logic/序切着陆-v2.1.mlog` + `mlogsim` 的 `pad→landing-pad` 别名。
+

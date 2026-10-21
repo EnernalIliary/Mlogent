@@ -1,0 +1,89 @@
+﻿# 序切着陆控制 v2.1（选最缺的候选资源，配置空着陆台）
+# cfg.mask：位 i（十进制第 15-i 位）对应物品内容 id；1 = 候选
+set cfg.mask 1111001101111011
+set cfg.top 1
+set core.timer 0
+
+# ---- 找核心：6 分钟内复用；失败 1 分钟后重试 ----
+find:
+  jump scan notEqual core null
+  jump waitCore lessThan @time core.timer
+  set uid 0
+findLoop:
+  lookup unit uty uid
+  op add uid uid 1
+  ubind uty
+  ulocate building core false @copper cx cy cf core
+  jump gotCore notEqual cf 0
+  jump findLoop lessThan uid @unitCount
+  op add core.timer @time 60000
+waitCore:
+  jump scan notEqual core null
+  jump idle always
+gotCore:
+  op add core.timer @time 360000
+  ucontrol unbind 0 0 0 0 0
+
+# ---- 每次重扫，取最缺的候选物品（可扩到 K 个名次） ----
+scan:
+  sensor itc core @itemCapacity
+  jump idle strictEqual itc null
+  set rank 0
+  set mask cfg.mask
+rank:
+  set num.min itc
+  set item.min null
+  set accut mask
+  set id 15
+rankScan:
+  op mod bit accut 10
+  jump rankNext notEqual bit 1
+  lookup item it id
+  sensor n core it
+  jump notBetter greaterThanEq n num.min
+  set item.min it
+  set num.min n
+notBetter:
+rankNext:
+  op idiv accut accut 10
+  op sub id id 1
+  jump rankScan greaterThanEq id 0
+  jump rankDone strictEqual item.min null
+
+# ---- 第 rank 名：把所有空着陆台设成它 ----
+  set pad.i 0
+padLoop:
+  getlink pad pad.i
+  jump padNext strictEqual pad null
+  sensor ef pad @efficiency
+  jump padNext notEqual ef 1
+  sensor ti pad @totalItems
+  jump padNext notEqual ti 0
+  sensor cfg.pad pad @config
+  jump padNext notEqual cfg.pad null
+  control config pad item.min 0 0 0
+padNext:
+  op add pad.i pad.i 1
+  jump padLoop lessThan pad.i @links
+  sensor mid item.min @id
+  op sub place 15 mid
+  op pow place 10 place
+  op sub mask mask place
+  op add rank rank 1
+  jump rank lessThan rank cfg.top
+
+# ---- 收尾：报一次选择，然后 5 秒后再来 ----
+rankDone:
+idle:
+  print "pick="
+  print item.min
+  print " | pad1="
+  sensor pc pad1 @config
+  print pc
+  print " |"
+  printflush message1
+  op add cycle @time 5000
+wait:
+  jump find greaterThanEq @time cycle
+  wait 0.1
+  jump wait always
