@@ -156,6 +156,9 @@ def main(argv=None) -> int:
     if signed or args.sign:
         out_text, pid = aigenerated.sign_text(
             out_text, author, force=True, comments=comments)
+        if comments:
+            # visible for editing; the token keeps the original line numbers
+            out_text, pid, _ = aigenerated.restore_text(out_text)
 
     dst = Path(args.output) if args.output else src.with_suffix(".labels.mlog")
     dst.write_text(out_text.replace("\r\n", "\n"), encoding="utf-8", newline="\n")

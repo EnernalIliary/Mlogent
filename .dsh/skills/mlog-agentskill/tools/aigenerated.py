@@ -189,6 +189,15 @@ def sign_text(text: str, author: str = DEFAULT_AUTHOR, force: bool = False,
                 f"body changed since signing (id {old_id} -> {pid}); "
                 f"pass --force to re-sign")
     cs = collect_comments(text) if comments is None else comments
+    old = (decode_comments(hits[0].group(3))
+           if hits and hits[0].group(3) else [])
+    if comments is None and old:
+        if len(cs) == len(old):
+            # keep the original line numbers, refresh the text/anchors
+            for o, c in zip(old, cs):
+                c["line"] = o["line"]
+        else:
+            cs = old
     enc = encode_comments(cs)
     payload = f":{enc}" if enc else ""
     lines = body.rstrip("\n").split("\n")
@@ -300,8 +309,7 @@ def post(path: Path, author: str, output: Path | None = None) -> str:
         if m:
             author = m.group(1)
     numeric, nlabels, rewritten = resolve_labels(text)
-    signed, pid = sign_text(numeric, author, force=True,
-                            comments=collect_comments(text))
+    signed, pid = sign_text(numeric, author, force=True)
     dst = output or path
     _write(dst, signed)
     return (f"post  {dst}: {nlabels} label(s), {rewritten} jump(s) numeric; "
