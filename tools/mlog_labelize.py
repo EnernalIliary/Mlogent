@@ -17,8 +17,13 @@ What it does
   alone and reported on stderr.
 * Comments and blank lines are preserved.
 
-The result is directly pastable into the game (Mindustry's LAssembler accepts
-`label:` lines); `mlog.py check` resolves them through mlogir.
+The result is for *editing*. Mindustry's LAssembler accepts `label:` lines, but
+for delivery run the same post-process as the signature:
+
+    python tools/aigenerated.py post foo.labels.mlog -o foo.mlog
+
+That turns labels back into line numbers and re-signs in one step; the round
+trip is byte-identical to the original numeric file.
 """
 from __future__ import annotations
 

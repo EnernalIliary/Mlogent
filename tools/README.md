@@ -13,7 +13,8 @@
 | 模拟运行 | `python tools/mlogsim.py x.mlog --ticks 120 --trace t.csv` |
 | 值域 / 跳转表 | `python tools/mlogrange.py ranges x.mlog --var n`；`jumps x.mlog --var n` |
 | 指令级执行流 | `python tools/mlogsim.py x.mlog --ticks 120 --itrace t.tsv --itrace-var n` |
-| 把数字跳转换成标签，方便编辑 | `python tools/mlog_labelize.py x.mlog`（输出 `x.labels.mlog`；签名自动重签） |
+| 把数字跳转换成标签，方便编辑 | `python tools/mlog_labelize.py x.mlog`（输出 `x.labels.mlog`） |
+| 交付前把标签转回行号并签名 | `python tools/aigenerated.py post x.labels.mlog -o x.mlog` |
 | 这个程序需要哪些世界符号 | `python tools/mlog_needs.py 图.msch` |
 | 整批存档里的逻辑 | `python tools/mlog.py map <存档目录>` |
 | 规则逐条审计 | `python tools/review.py md` |
