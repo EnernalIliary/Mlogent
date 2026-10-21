@@ -16,7 +16,7 @@
 | 值域 / 跳转表 | `python tools/mlog.py ranges x.mlog --var n`；`python tools/mlog.py jumps x.mlog --var n` |
 | 指令级执行流 | `python tools/mlogsim.py x.mlog --ticks 120 --itrace t.tsv --itrace-var n` |
 | 把数字跳转换成标签，方便编辑 | `python tools/mlog.py labelize x.mlog`（输出 `x.labels.mlog`） |
-| 交付前把标签转回行号并签名 | `python tools/mlog.py post x.labels.mlog -o x.mlog` |
+| 交付前把标签转回行号并签名 | `python tools/mlog.py post x.labels.mlog -o x.mlog`（`#` 注释统一挪到签名前） |
 | 这个程序需要哪些世界符号 | `python tools/mlog_needs.py 图.msch` |
 | 整批存档里的逻辑 | `python tools/mlog.py map <存档目录>` |
 | 规则逐条审计 | `python tools/review.py md` |

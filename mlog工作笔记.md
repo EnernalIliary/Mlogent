@@ -3197,3 +3197,8 @@ F:\OneDrive\桌面\AtomicStates\mindustry-blueprint\                ← 开发�
 - 模拟器验证：mask 只留硅/钛，`--core-items silicon:10,titanium:4000` → `item.min=silicon`、`pad1 @config=silicon`；反向 `titanium:10` → `titanium`。空白世界 `state.getPlanet()` 为 null，着陆台 `config` 被 `accessible()` 拒绝，测试需 `--init-js` 设 `rules.planet=serpulo` 并去掉效率守卫。
 - 提交：`Logic/序切着陆-v2.1.mlog` + `mlogsim` 的 `pad→landing-pad` 别名。
 
+### 86. aigenerated.post 把注释挪到签名前
+- `post` 先把 `jump Lx` 转回行号，再把所有 `#` 注释整行搬到末尾（签名行之前），最后签名；正文只剩语句，复制进游戏不会带着半截注释。
+- `_canonical` 修复：文件末尾有注释时，原实现把 `end` 插在注释**之前**，`sign_text` 又把最后一行（注释）替换成签名，最后一个注释会丢；现在把尾随注释移到 `end` 之前。
+- `Logic/序切着陆-v2.1.mlog`：post（14 label/19 jump→数字，id c42be3de8eb6）→ labelize 重新标注（12 label，id 28a3a1ce8ceb），verify OK、check 0 issue、34/34。
+

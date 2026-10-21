@@ -92,9 +92,11 @@ def _canonical(lines: list[str]) -> str:
             break
     if last < 0:
         return ""
-    if lines[last].strip() != "end":
-        lines.insert(last + 1, "end")
-    return "\n".join(lines) + "\n"
+    trailing = [l for l in lines[last + 1:] if l.strip().startswith("#")]
+    head = lines[:last + 1]
+    if head[last].strip() == "end":
+        head = head[:last]
+    return "\n".join(head + trailing + ["end"]) + "\n"
 
 
 def _body(text: str) -> str:
@@ -211,6 +213,22 @@ def resolve_labels(text: str) -> tuple[str, int, int]:
     return "\n".join(out) + "\n", len(labels), rewritten
 
 
+def _group_comments(text: str) -> str:
+    """Move every `#` line to just before the signature (delivery layout)."""
+    lines = text.replace("\r\n", "\n").replace("\r", "\n").split("\n")
+    code, comments = [], []
+    for line in lines:
+        if line.strip().startswith("#"):
+            comments.append(line.rstrip())
+        elif line.strip() or code:
+            code.append(line.rstrip())
+    while code and not code[-1].strip():
+        code.pop()
+    if not comments:
+        return "\n".join(code) + "\n"
+    return "\n".join(code + [""] + comments) + "\n"
+
+
 def post(path: Path, author: str, output: Path | None = None) -> str:
     """Delivery post-process: labels -> line numbers, then sign."""
     text = _read(path)
@@ -219,6 +237,7 @@ def post(path: Path, author: str, output: Path | None = None) -> str:
         if m:
             author = m.group(1)
     numeric, nlabels, rewritten = resolve_labels(text)
+    numeric = _group_comments(numeric)
     signed, pid = sign_text(numeric, author, force=True)
     dst = output or path
     _write(dst, signed)
