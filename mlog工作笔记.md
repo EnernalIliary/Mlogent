@@ -3177,3 +3177,9 @@ F:\OneDrive\桌面\AtomicStates\mindustry-blueprint\                ← 开发�
 - `--daemon` 预热 + `--remote` 投任务：单文件 0.61 s（含 Python 启动），冷启动约 3.7 s；预处理阶段就可以先起 daemon。
 - 预检扩展：`LINKWARN`（未知方块/没地方放）与 `updateCode` 后 `link.valid == false`（目标缺失或超 10 格）都直接 `PREFLIGHT: link 'x' did not bind`，不再等跑完才发现 null。
 - `mlog.py` 收编：`sim`（转发 mlogsim）、`ranges`/`jumps`（mlogrange）、`post`/`labelize`（aigenerated/mlog_labelize）；`mlog_labelize.main(argv)` 现在收 argv。
+
+## 第 83 次整理（2026-10-21）：蓝图生成器坐标归一化 + BOM
+- `Blueprint.build()` 没减包围盒原点：`--at 20,20` 出 24x21、内容偏 20 格；现在 `_origin()` + `_pack(x-ox,y-oy)`，`bounds()` 用 max-min+1，parse 得 4x1/(0,0)。
+- 链接坐标本来就是相对处理器（`msch.parse_logic(relative_to=...)` 加回），别改成绝对——双重偏移会得 (43,40)。
+- `--source` 必须 utf-8-sig：PowerShell 的 BOM 把首行编成 Noop，`write` 静默不执行。
+- 回归 `gen/normalized`：BOM + `--at 20,20` + link/with-block，33/33。
