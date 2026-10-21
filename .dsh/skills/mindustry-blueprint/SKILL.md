@@ -140,7 +140,8 @@ python tools/mlogsim.py my.mlog --save scene.msav --ticks 120 \
 - `--core-items ITEM:N,...` 给核心灌库存（空白世界会在处理器旁自动放一个 `core-shard`）；`ulocate`/`itemTake`/`itemDrop` 由此可断言。取放料要求同队、目标有 `items`、距离在 `45 world + 方块半宽`（约 6 格）内。
 - `--links auto`（`.mlog` 默认）：裸 `.mlog` 没有链接表，模拟器会找出“读而不赋值”的链接名（`cell1`、`bank1`、`message1`、`dome1`），在处理器旁放同类方块并接上（同队、10 格内）；`.msch` 用自己的链接表；`--links off` 恢复原样（读 `null`）。没放成或超出 10 格的链接现在会在预检阶段报 `PREFLIGHT: link 'x' did not bind`，不再等到跑完才发现是 null。
 - **批量与预热**：`mlogsim.py a.mlog b.mlog --ticks 60` 只启动一次 JVM，每个文件前重载世界（约 0.12 s）；`--daemon` 先在后台预热，`--remote x.mlog --ticks 60` 直接投任务（单文件约 0.6 s，冷启动约 3.7 s）。预处理阶段就可以先起 `--daemon`，检查/标签化跑完再 `--remote`。
-- `read`/`write` 的 `@this` 地址是**处理器变量**：`read v @this "slot"` 读、`write v @this "slot"` 写，名字是**字符串**；写一个程序里没声明过的名字是静默空操作（`check` 报 INFO `self-write-noop`），读未声明的名字得到 `null`（`self-read-undefined`）。数字下标 `read v @this 0` 取的是链接，不是变量。
+- `read`/`write` 的 `@this` 地址是**处理器变量**：`read v @this "slot"` 读、`write v @this "slot"` 写，名字是**字符串**；写一个程序里没出现过的名字是静默空操作（`check` 报 INFO `self-write-noop`），读没出现过的名字得到 `null`（`self-read-undefined`）。数字下标 `read v @this 0` 取的是链接，不是变量。
+- **声明不等于赋值**：汇编器 `readVar()` 用 `vars.get(name, true)`，任何语句里第一次出现的名字都会被创建（初值 null），不要求 `set`。所以 `draw triangle a b c d e f` 是“一次声明 6 个”的紧凑写法（每个都是 null→0）；只有全文从未出现过的名字才算未声明。`op add x copper 1` 里 `copper` 被声明但从未赋值，读到的是 null（不是 0）；`check` 不会按“未定义”报它，算术上要自己保证先赋值。
 - `--update all` 才跑 `Building.update()`（工厂、传送带、电力消费者）与 `LogicAI` 单位；`--power full|none` 把电力钉死；`--combat on`（`--ticks` 默认）按 `Logic.updateEntities()` 的顺序推进子弹物理/碰撞/伤害；`--weather rain` 可强制开局天气。
 - `--trace FILE` 每 tick 一行逻辑单位轨迹（`unit,tick,ux,uy,uhp,range,tx,ty,dist,cx,cy,chp,bullets,shots`，tile 坐标）；`--assert EXPR` 对每行、`--assert-last EXPR` 只对末行求值，失败退 3。列名就是变量名。
 - 特权语句（`weathersense/weatherset/setrule/message/cutscene/effect/fetch/sync/getblock/setblock/spawn/status`）只有 world processor 认；放进微处理器会被**静默删掉整行**。`--processor auto` 按语句自动选处理器。

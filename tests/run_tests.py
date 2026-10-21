@@ -251,6 +251,7 @@ SUITE: list[tuple[str, str, str | None]] = [
     ("cost/counter-op",        "cost",    "counter-op.mlog"),
     ("cost/counter-set",       "cost",    "counter-set.mlog"),
     ("cost/counter-unknown",   "cost",    "counter-unknown.mlog"),
+    ("check/declared-by-mention", "check", "declared-by-mention.mlog"),
     ("tool/aigenerated",       "aigenerated", None),
     ("gen/normalized",         "gen",     None),
     ("cross/unit-verdicts",    "cross",   None),

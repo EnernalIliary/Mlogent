@@ -3183,3 +3183,9 @@ F:\OneDrive\桌面\AtomicStates\mindustry-blueprint\                ← 开发�
 - 链接坐标本来就是相对处理器（`msch.parse_logic(relative_to=...)` 加回），别改成绝对——双重偏移会得 (43,40)。
 - `--source` 必须 utf-8-sig：PowerShell 的 BOM 把首行编成 Noop，`write` 静默不执行。
 - 回归 `gen/normalized`：BOM + `--at 20,20` + link/with-block，33/33。
+
+## 第 84 次整理（2026-10-21）：变量声明 = 任意语句首次提及
+- 汇编器 `readVar()` 是 `vars.get(name, true)`：任何语句第一次出现名字就创建变量（初值 null），不需要 `set`。
+- `draw triangle a b c d e f` 是紧凑声明表（6 个，值 null→0），不是“画三角形”专用；它的参数仍被读，但效果是声明。
+- `read/write @this "名字"`：只有**全文从未提及**才算未声明；只声明未赋值读到 null（不是 0），`op add` 仍然报“读 null”。
+- `mlogir.Stmt.declares` + `Program.declared` 暴露声明集；check 的 `self-read-undefined`/`self-write-noop` 改用 `mentioned`（defs∪uses）。fixture `check/declared-by-mention`，34/34。

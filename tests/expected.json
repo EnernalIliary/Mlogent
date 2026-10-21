@@ -368,6 +368,16 @@
       "worst": "~7 instructions per full cycle (approximate)"
     }
   },
+  "check/declared-by-mention": {
+    "kind": "check",
+    "case": "declared-by-mention.mlog",
+    "digest": [
+      [
+        "INFO",
+        4
+      ]
+    ]
+  },
   "tool/aigenerated": {
     "kind": "aigenerated",
     "case": null,

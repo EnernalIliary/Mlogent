@@ -728,6 +728,14 @@ def analyse(lines: list[str], links: list[str] | None = None, ipt: int = 2) -> l
         ever_defined |= set(defs_of(c))
     ever_defined |= link_vars
 
+    # Declaration does not require `set`: the assembler's readVar() creates a
+    # variable on its first mention anywhere (`vars.get(name, true)`), which is
+    # why `draw triangle a b c d e f` works as a compact six-slot table. So the
+    # only truly undeclared name is one no statement mentions at all.
+    mentioned: set[str] = set(ever_defined)
+    for _, c in stmts:
+        mentioned |= set(uses_of(c))
+
     # ---- a name containing '-' can never be a link variable ---------------
     # LogicBlock.getLinkName() builds the link name from the block name's LAST
     # '-'-separated segment (plus its index): `silicon-arc-furnace` -> `furnace1`.
@@ -763,21 +771,22 @@ def analyse(lines: list[str], links: list[str] | None = None, ipt: int = 2) -> l
         m = _SELF_READ.match(_code)
         if m:
             name = m.group(1)
-            if name not in ever_defined and not LINK_RE.match(name):
+            if name not in mentioned and not LINK_RE.match(name):
                 out.append(Finding(
                     "INFO", _ln + 1, "self-read-undefined",
-                    f'`read ... @this "{name}"` addresses a processor variable this '
-                    f'program never declares, so the game returns null (a name ending '
-                    f'in a digit would resolve as a link instead)'))
+                    f'`read ... @this "{name}"` names a variable no statement in '
+                    f'this program mentions (a mention anywhere would declare it), '
+                    f'so the game returns null (a name ending in a digit would '
+                    f'resolve as a link instead)'))
         m = _SELF_WRITE.match(_code)
         if m:
             name = m.group(1)
-            if name not in ever_defined:
+            if name not in mentioned:
                 out.append(Finding(
                     "INFO", _ln + 1, "self-write-noop",
-                    f'`write ... @this "{name}"` addresses a variable this program '
-                    f'never declares; LogicBlock.write returns silently when the name '
-                    f'is not a variable, so this statement does nothing'))
+                    f'`write ... @this "{name}"` names a variable this program '
+                    f'never mentions; LogicBlock.write returns silently when the '
+                    f'name is not a variable, so this statement does nothing'))
 
     # How is each name USED? A name that only ever appears in `print` is not a
     # mistake: the in-game editor shows every variable of a program in its
@@ -946,8 +955,9 @@ def analyse(lines: list[str], links: list[str] | None = None, ipt: int = 2) -> l
                 continue
             out.append(Finding(
                 "ERR", orig + 1, c,
-                f"`{v}` is read here but is never assigned anywhere in this "
-                f"program (and is not a link or built-in)"))
+                f"`{v}` is mentioned (so it is declared, with the initial value "
+                f"null) but is never assigned anywhere in this program; reading "
+                f"it here yields null (and it is not a link or built-in)"))
 
     # ---- privileged built-ins --------------------------------------------
     # INFO, not WARN: a world processor legitimately reads these, and a .mlog
