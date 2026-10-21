@@ -119,7 +119,7 @@ def labelize(text: str, prefix: str = "L"):
     return "\n".join(out) + "\n", total, len(jumps), sorted(set(names.values()))
 
 
-def main() -> int:
+def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description="convert numeric jump targets to labels")
     ap.add_argument("file", help="input .mlog")
     ap.add_argument("-o", "--output", help="output path (default: <stem>.labels.mlog)")
@@ -127,7 +127,7 @@ def main() -> int:
     ap.add_argument("--check", action="store_true", help="run mlog.py check on the result")
     ap.add_argument("--sign", action="store_true",
                     help="re-apply the @aigenerated signature (automatic if the input is signed)")
-    args = ap.parse_args()
+    args = ap.parse_args(argv)
 
     src = Path(args.file)
     if not src.is_file():

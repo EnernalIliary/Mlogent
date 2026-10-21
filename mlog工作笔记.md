@@ -3170,3 +3170,10 @@ F:\OneDrive\桌面\AtomicStates\mindustry-blueprint\                ← 开发�
 - `check` 新增 ERR `link-name-hyphen`：名字里带 `-` 且不是字面量/`@` 开头就报。fixture `link-hyphen.mlog`（2 条 ERR）。
 - 修法：`Logic/写满停.mlog` 全部改 `furnace1..9`，重签 id `bac1e1ef283b`；`mlogsim` 的 `LINK_ALIASES` 改为 `furnace: silicon-arc-furnace`。
 - 复测：3996/4000 → `st.on=0,e=0`；1000/4000 → `st.on=1,e=1`；31/31 golden。
+
+## 第 82 次整理：批量/预热与统一入口
+
+- `mlogsim.py` 支持一次启动跑多个文件：`--ticks 20` 跑 10 个文件 5.25 s（逐个冷启动约 37 s）；每个文件前 `reset_world()` 重载世界（约 0.12 s），`prepare()` 重放 init-js/核心/单位/天气。
+- `--daemon` 预热 + `--remote` 投任务：单文件 0.61 s（含 Python 启动），冷启动约 3.7 s；预处理阶段就可以先起 daemon。
+- 预检扩展：`LINKWARN`（未知方块/没地方放）与 `updateCode` 后 `link.valid == false`（目标缺失或超 10 格）都直接 `PREFLIGHT: link 'x' did not bind`，不再等跑完才发现 null。
+- `mlog.py` 收编：`sim`（转发 mlogsim）、`ranges`/`jumps`（mlogrange）、`post`/`labelize`（aigenerated/mlog_labelize）；`mlog_labelize.main(argv)` 现在收 argv。
