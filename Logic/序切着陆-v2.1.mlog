@@ -2,71 +2,73 @@ set cfg.mask 1111001101111011
 set cfg.top 1
 set core.timer 0
 
-L3:
-  jump L17 notEqual core null
-  jump L13 lessThan @time core.timer
+find:
+  jump scan notEqual core null
+  jump waitCore lessThan @time core.timer
   set uid 0
-L6:
+findLoop:
   lookup unit uty uid
   op add uid uid 1
   ubind uty
   ulocate building core false @copper cx cy cf core
-  jump L15 notEqual cf 0
-  jump L6 lessThan uid @unitCount
+  jump gotCore notEqual cf 0
+  jump findLoop lessThan uid @unitCount
   op add core.timer @time 60000
-L13:
-  jump L17 notEqual core null
-  jump L54 always
-L15:
+waitCore:
+  jump scan notEqual core null
+  jump idle always
+gotCore:
   op add core.timer @time 360000
   ucontrol unbind 0 0 0 0 0
 
-L17:
+scan:
   sensor itc core @itemCapacity
-  jump L54 strictEqual itc null
+  jump idle strictEqual itc null
   set rank 0
   set mask cfg.mask
-L21:
+rank:
   set num.min itc
   set item.min null
   set accut mask
   set id 15
-L25:
+rankScan:
   op mod bit accut 10
-  jump L32 notEqual bit 1
+  jump rankNext notEqual bit 1
   lookup item it id
   sensor n core it
-  jump L32 greaterThanEq n num.min
+  jump notBetter greaterThanEq n num.min
   set item.min it
   set num.min n
-L32:
+notBetter:
+rankNext:
   op idiv accut accut 10
   op sub id id 1
-  jump L25 greaterThanEq id 0
-  jump L54 strictEqual item.min null
+  jump rankScan greaterThanEq id 0
+  jump rankDone strictEqual item.min null
 
   set pad.i 0
-L37:
+padLoop:
   getlink pad pad.i
-  jump L46 strictEqual pad null
+  jump padNext strictEqual pad null
   sensor ef pad @efficiency
-  jump L46 notEqual ef 1
+  jump padNext notEqual ef 1
   sensor ti pad @totalItems
-  jump L46 notEqual ti 0
+  jump padNext notEqual ti 0
   sensor cfg.pad pad @config
-  jump L46 notEqual cfg.pad null
+  jump padNext notEqual cfg.pad null
   control config pad item.min 0 0 0
-L46:
+padNext:
   op add pad.i pad.i 1
-  jump L37 lessThan pad.i @links
+  jump padLoop lessThan pad.i @links
   sensor mid item.min @id
   op sub place 15 mid
   op pow place 10 place
   op sub mask mask place
   op add rank rank 1
-  jump L21 lessThan rank cfg.top
+  jump rank lessThan rank cfg.top
 
-L54:
+rankDone:
+idle:
   print "pick="
   print item.min
   print " | pad1="
@@ -75,14 +77,8 @@ L54:
   print " |"
   printflush message1
   op add cycle @time 5000
-L62:
-  jump L3 greaterThanEq @time cycle
+wait:
+  jump find greaterThanEq @time cycle
   wait 0.1
-  jump L62 always
-# 序切着陆控制 v2.1（选最缺的候选资源，配置空着陆台）
-# cfg.mask：位 i（十进制第 15-i 位）对应物品内容 id；1 = 候选
-# ---- 找核心：6 分钟内复用；失败 1 分钟后重试 ----
-# ---- 每次重扫，取最缺的候选物品（可扩到 K 个名次） ----
-# ---- 第 rank 名：把所有空着陆台设成它 ----
-# ---- 收尾：报一次选择，然后 5 秒后再来 ----
-jump 0 always 0 "aigenerated:猪猪鱼:28a3a1ce8ceb"
+  jump wait always
+jump 0 always 0 "aigenerated:猪猪鱼:aa28ebad9bdf:enjaXZHPTsJAEMZfZYLXQixYOPkEPgLhQDQaQvSgiecSoLRoaYNowr-oCURR0mKiBJoCL8Pstqe-glOqYNzTbGa-33zfbjYrCvtCbA_QMVCt8b7stxXWeEF1CtfJhBi4qi9rrCdz1-GdCsptunpfFeaYgXvrV3W-sPjIiXRoTAJXi-WEbDKCHp-eJc7zV8XA7awXOhSIhnrJW3UJz8djEKV4AahDKrTn6LS4NsK7EipVtOZQOAncrgiHEG0NuRkhFXLjdIBpS_Y0w1WZ6GlAVfGbj6FyoPPWKylx8OF9DkH8bZkNv6Z79v1GvTGZEcTMDmcbbPxMI0x7p2hoPPxLHXkLIxg2o1qdwBGsZ29o6iSkCFuwlBJS6S04DHqZvygCDZJVVq8zTWY97e-zedaSqSZa5S0jIwnSwc5ca4qT5UY9XM_k0Cj9ys2IjPLKlKKBBPylSQUqOusPfzC5b8ynA0k"

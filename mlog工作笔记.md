@@ -3202,3 +3202,11 @@ F:\OneDrive\桌面\AtomicStates\mindustry-blueprint\                ← 开发�
 - `_canonical` 修复：文件末尾有注释时，原实现把 `end` 插在注释**之前**，`sign_text` 又把最后一行（注释）替换成签名，最后一个注释会丢；现在把尾随注释移到 `end` 之前。
 - `Logic/序切着陆-v2.1.mlog`：post（14 label/19 jump→数字，id c42be3de8eb6）→ labelize 重新标注（12 label，id 28a3a1ce8ceb），verify OK、check 0 issue、34/34。
 
+## 87. 注释进签名：token 里带原始行号
+
+- 署名 token 现在可以带第 4 段 payload：`base64url(zlib(JSON [[line, stmt, text], ...]))`；`line` 是输入文件 1 基行号，`stmt` 是该注释之前的语句数（标签行不算语句，重新标注后锚点仍成立）。
+- 哈希只覆盖**无注释正文**：`_clean` 直接丢掉 `#` 行，签名/旧标记先剥；所以把注释挪进挪出正文 id 不变，改真逻辑才失败。
+- `restore` 不能走 `sign_text`（它会把注释再丢掉），必须直接重建“正文 + 注释 + 签名行”；`extract` 按 `L<line> (stmt N): text` 打印。
+- `labelize` 在有签名时先 `extract_text` 拿 payload，重新标注后再 `sign_text(comments=...)`，否则一标注就丢注释。
+- `Logic/序切着陆-v2.1.mlog` 重新签为 id `aa28ebad9bdf`，6 条注释（L1/L2/L7/L27/L53/L75），签名行 518 字符；正文 0 条 `#`。
+- 教训：`sign --force` 对“注释已在 token、正文无注释”的文件会收集到 0 条注释，必须从带注释的原稿重签或先 `restore`。

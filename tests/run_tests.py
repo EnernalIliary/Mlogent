@@ -284,6 +284,22 @@ def digest_aigenerated() -> dict:
         out["verify_forced"], _ = run("verify", str(p))
         out["strip"], _ = run("strip", str(p))
 
+        # comments travel inside the signature payload, with original lines
+        c = Path(d) / "c.mlog"
+        c.write_text("# head\nset x 1\n# mid\nprint \"hi\"\nend\n",
+                     "utf-8", newline="\n")
+        out["comments_sign"], _ = run("sign", "--force", str(c))
+        out["comments_body_has_none"] = not any(
+            l.strip().startswith("#")
+            for l in c.read_text(encoding="utf-8").splitlines()[:-1])
+        _, txt = run("extract", str(c))
+        out["comments_extract"] = [l for l in txt.splitlines() if l.startswith("L")]
+        out["comments_restore"], _ = run("restore", str(c))
+        out["comments_lines"] = [
+            i + 1 for i, l in enumerate(c.read_text(encoding="utf-8").splitlines())
+            if l.strip().startswith("#")]
+        out["comments_verify"], _ = run("verify", str(c))
+
         # `mlog.py gen` must sign both the source and the emitted blueprint.
         import msch
         mlog_tool = HERE.parent / "tools" / "mlog.py"
