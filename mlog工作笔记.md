@@ -3210,3 +3210,12 @@ F:\OneDrive\桌面\AtomicStates\mindustry-blueprint\                ← 开发�
 - `labelize` 在有签名时先 `extract_text` 拿 payload，重新标注后再 `sign_text(comments=...)`，否则一标注就丢注释。
 - `Logic/序切着陆-v2.1.mlog` 重新签为 id `aa28ebad9bdf`，6 条注释（L1/L2/L7/L27/L53/L75），签名行 518 字符；正文 0 条 `#`。
 - 教训：`sign --force` 对“注释已在 token、正文无注释”的文件会收集到 0 条注释，必须从带注释的原稿重签或先 `restore`。
+## 第 85 次整理（2026-10-22）：签名落点按「有效槽」选，而不是无条件替换 end
+
+用户规则：末行有可解析的无效参数就签在参数里；是 `end` 就转 `jump 0` 再签；没有 `end` 补 `jump 0` 再签。
+
+在 v160.7 上实测 `LAssembler.read` / `write`：`JumpStatement` 的声明字段是 `destIndex, op, value, compare`，写回时**总输出 4 个参数**，缺失的 compare 补 `false`——`jump 0 always "sig"` 会变成 `jump 0 always "sig" false`，所以签名必须占 **compare 槽**（`jump N always <value> "sig"`），不能占 value 槽；`op` / `end` 的多余 token 会直接丢。
+
+落地：`sign_text` 先 `_canonical` 成以 `end` 收尾；若 `end` 前一条（跳过注释）是无条件跳转且还没有 compare，就把签名写进它的 compare 槽（`end` 保留，jump 语义不变）；否则把 `end` 换成 `jump 0 always 0 "sig"`。`_clean` 对应：addr=0 丢弃、addr≠0 还原 `jump N always <value>`，旧格式仍可 verify。测试加进 `digest_aigenerated`（slot_line / slot_end_kept / terminal_line），34/34。
+
+方法论：**「多余 token」和「声明参数槽」是两回事**——解析器容忍多余 token，不代表序列化会保留；能活下来的只有语句声明过的字段。改格式前先在真 `LAssembler` 上做一次 read→write 往返，比读十遍解析器代码可靠。
