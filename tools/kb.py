@@ -49,7 +49,6 @@ DOC_FILES = [
     "mindustry-blueprint/SKILL.md",
     "mindustry-blueprint/REFERENCE.md",
     "mindustry-blueprint/EMULATOR-CROSSCHECK.md",
-    "mindustry-blueprint/README.md",
     "tools/README.md",
     "dsh-preset-mlog/README.md",
     "rules/README.md",
@@ -110,10 +109,15 @@ def _section_chunks(text: str, path: str, kind: str) -> list[dict]:
         nonlocal cur, cur_start
         body = "\n".join(cur).strip()
         if body:
+            lines = body.splitlines()
+            # 标题行本身已经在 body 里了，别再加一次前缀（之前每个块标题都出现两遍）
+            if lines and re.match(r"^#{1,4} ", lines[0]):
+                body = "\n".join(lines[1:]).strip()
             prefix = f"# {heading}\n" if heading else ""
-            for piece, ps, pe in _split_long(prefix + body, cur_start, 1400):
-                out.append({"path": path, "start": ps, "end": pe, "kind": kind,
-                            "heading": heading, "text": piece})
+            if body:
+                for piece, ps, pe in _split_long(prefix + body, cur_start, 1400):
+                    out.append({"path": path, "start": ps, "end": pe, "kind": kind,
+                                "heading": heading, "text": piece})
         cur = []
 
     for i, line in enumerate(lines, 1):
@@ -170,6 +174,7 @@ def build(quiet: bool = False) -> dict:
                tokenize='trigram');"""
     )
     rows: list[tuple] = []
+    seen: set[str] = set()
     for path, kind in _corpus():
         try:
             text = path.read_text(encoding="utf-8-sig")
@@ -177,6 +182,10 @@ def build(quiet: bool = False) -> dict:
             continue
         rel = path.relative_to(ROOT).as_posix()
         for ch in _section_chunks(text, rel, kind):
+            norm = re.sub(r"\s+", "", ch["text"])
+            if len(norm) < 24 or norm in seen:
+                continue  # 同一段文字在 SKILL/README 等文档里重复出现时只留第一份
+            seen.add(norm)
             rows.append((ch["path"], ch["start"], ch["end"], ch["kind"],
                          ch["heading"], ch["text"]))
     if not rows:
