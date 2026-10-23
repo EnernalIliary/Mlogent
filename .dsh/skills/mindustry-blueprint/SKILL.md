@@ -20,6 +20,7 @@ python tools/mlog.py doctor
 - 输出已经是 UTF-8：直接读工具结果，**不要** `> tmp\out.txt` 再 `read`（多两次调用就多两轮）。
 - 看一个逻辑：`check --cost` + `ir` + `values` 三条足够，不要 parse/text/gen 逐个试探。
 - 跑真实行为：`python tools/mlogsim.py FILE --ticks 120 --update all`；多文件先 `--daemon`。
+- 如果会话里能看到 `mlog_check` / `mlog_ir` / `mlog_values` / `mlog_sim` / `mlog_gen` 这些 MCP 工具，**优先直接调用它们**（服务端已保温、返回 JSON），不要退回 shell 拼路径；没有再用上面的命令。
 - 记不清指令：`python tools/mlog.py cmd <名字>` / `explain <名字>`，比翻源码快。
 
 ## 目录
@@ -422,8 +423,8 @@ python tools/mlog.py pack --msch out.msch
 python tools/mlog.py gen logic.mlog --name "我的逻辑" --link dome1@3,1
 
 ### 生成:连目标方块一起放(--with-block 坐标是【中心格】)
-python tools/mlog.py gen logic.mlog --name "无线超" \
-    --link dome1@3,1 --with-block overdrive-dome@4,2=248 \
+python tools/mlog.py gen logic.mlog --name "示例" \
+    --link dome1@2,1 --with-block overdrive-dome@2,1=248 \
     --out paste.txt --binary out.msch
 
 ### 查方块 ID 和尺寸
@@ -445,6 +446,7 @@ python tools/mlog.py explain op add
 
 - 前缀**不固定**:游戏自己写 `78 9c`(默认 zlib),`mschgen` 用 `78 da`(最高压缩)⇒ 第 11 个字符会不同(`bXNjaAF4**2**mPg` vs `bXNjaAF4**n**mPg`)。**两种都合法**,只认解码后的 `msch` 魔数。
 - `--with-block` / `--link` 的坐标都是**相对处理器的中心格**,和方块的绝对坐标不是一回事。
+- **从地图/蓝图里直接抄的坐标要加 `--abs`**:`--at 3,0 --with-block overdrive-dome@5,1 --abs` 表示“地图上的 (5,1)”,内部会换成相对 (2,1);不写 `--abs` 就会把 5,1 当偏移,穹顶被推到 (5,1),画布从 4×3 变成 7×3。命令检测到“偏移 ≥ --at”时会打一行 `# note: ... looks absolute` 提醒。
 - **输出坐标一律归一化到 (0,0)**:`--at 20,20` 只是摆位时用的参考系,`build()` 会减去整个包围盒的原点再写盘(真实蓝图也从 0 开始)。曾经没减,`--at 20,20` 出来一块 24×21 的画布、内容偏在右下角,粘贴后整体偏 20 格——用 `mlog.py parse` 看 `size` 和 tile 坐标能立刻发现。
 - `--source` 按 `utf-8-sig` 读:PowerShell `Set-Content -Encoding utf8` 带 BOM,而 BOM 开头的第一行会被编译成 `noop` 静默丢掉(症状是第一条语句不执行)。
 
