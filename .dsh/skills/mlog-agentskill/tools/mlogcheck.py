@@ -307,6 +307,23 @@ def _load_arity() -> dict[str, int]:
 ARITY = _load_arity()
 
 
+def _load_sensor_props() -> set[str]:
+    """The `LAccess` attributes a `sensor` instruction can read.
+
+    `sensor` compiles to `SenseI`, which looks the third operand up in
+    `LAccess`; anything else (an item, a block, a typo) reads null. The table
+    ships next to this file as `sensor_attrs.json` (`access` = 75 entries).
+    """
+    try:
+        raw = (Path(__file__).with_name("sensor_attrs.json")).read_text("utf-8")
+        return set((json.loads(raw).get("access") or {}).keys())
+    except Exception:
+        return set()
+
+
+SENSOR_PROPS = _load_sensor_props()
+
+
 def _load_specs() -> dict[str, dict]:
     """`defs` / `uses` / `tokens` per mnemonic, from `instr_semantics.json`.
 
@@ -759,6 +776,28 @@ def analyse(lines: list[str], links: list[str] | None = None, ipt: int = 2) -> l
                     f"block name's last hyphenated segment plus its index "
                     f"(`silicon-arc-furnace` -> `furnace1`), so this name never binds "
                     f"and the statement is a silent no-op"))
+
+    # ---- sensor property must be one of the 75 LAccess attributes ----------
+    # `sensor result target @prop`: the game calls `sense(LAccess)`. A property
+    # that is not in `LAccess` -- an item name, a block name, a typo -- reads
+    # null, so the statement looks like it worked. `sensor 铜 core
+    # @hyper-processor` is a real example from a user program: every branch on
+    # it was silently false.
+    if SENSOR_PROPS:
+        for _ln, _code in stmts:
+            _q = _code.split()
+            if len(_q) < 4 or _q[0].lower() != "sensor":
+                continue
+            _prop = _q[3]
+            if not _prop.startswith("@") or _prop[1:] in SENSOR_PROPS:
+                continue
+            out.append(Finding(
+                "WARN", _ln + 1, "sensor-not-a-property",
+                f"`{_prop}` is not a sensor property: `sensor` reads one of the "
+                f"{len(SENSOR_PROPS)} `LAccess` attributes (`@x`, `@health`, "
+                f"`@totalItems`, `@itemCapacity`, ...), not an item or block name "
+                f"-- the game returns null here, so comparisons against it are "
+                f"silently false"))
 
     # ---- read/write @this "name": a string addresses a processor variable ----
     # `LogicBlock.read` looks the name up in `executor.optionalVar(name)`, then

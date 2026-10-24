@@ -154,12 +154,14 @@ python tools/mlogsim.py my.mlog --save scene.msav --ticks 120 \
 
 - 默认 v160.7（`out/_server160.jar`）+ JRE21，可用 `MLOGSIM_JAR`/`MLOGSIM_JAVA` 换。空白世界默认 64×64；`--host` 用随机真实地图；`--save` 载存档（从我方核心旁自动找空地放入口处理器，`--base X,Y` 覆盖）。
 - `--units name:count` 生成单位、`--unit-pos X,Y` 指定 tile 出生点；`--unit-ai all` 让场景里原有单位也按 AI 行动。单位落在实体格会在第一次 `update()` 被 `kill()`，所以有 `PREFLIGHT:` 预检——比"跑 1200 tick 发现单位没动"便宜得多；`--no-preflight` 只关单位存活检查。
-- `--core-items ITEM:N,...` 给核心灌库存（空白世界会在处理器旁自动放一个 `core-shard`）；`ulocate`/`itemTake`/`itemDrop` 由此可断言。取放料要求同队、目标有 `items`、距离在 `45 world + 方块半宽`（约 6 格）内。
+- `--core-items ITEM:N,...` 给核心灌库存（空白世界会在处理器旁自动放一个 `core-shard`）；`ulocate`/`itemTake`/`itemDrop` 由此可断言。取放料要求同队、目标有 `items`、距离在 `45 world + 方块半宽`（约 6 格）内；`itemTake`/`itemDrop` 还受 `LogicAI.transferDelay` 门控，单位刚出生那几 tick 会静默失败——要循环重试（约 30–40 tick 后才成功），单条指令不能当成“一次就成”。
 - `--links auto`（`.mlog` 默认）：裸 `.mlog` 没有链接表，模拟器会找出“读而不赋值”的链接名（`cell1`、`bank1`、`message1`、`dome1`），在处理器旁放同类方块并接上（同队、10 格内）；`.msch` 用自己的链接表；`--links off` 恢复原样（读 `null`）。没放成或超出 10 格的链接现在会在预检阶段报 `PREFLIGHT: link 'x' did not bind`，不再等到跑完才发现是 null。
 - **批量与预热**：`mlogsim.py a.mlog b.mlog --ticks 60` 只启动一次 JVM，每个文件前重载世界（约 0.12 s）；`--daemon` 先在后台预热，`--remote x.mlog --ticks 60` 直接投任务（单文件约 0.6 s，冷启动约 3.7 s）。预处理阶段就可以先起 `--daemon`，检查/标签化跑完再 `--remote`。
 - `read`/`write` 的 `@this` 地址是**处理器变量**：`read v @this "slot"` 读、`write v @this "slot"` 写，名字是**字符串**；写一个程序里没出现过的名字是静默空操作（`check` 报 INFO `self-write-noop`），读没出现过的名字得到 `null`（`self-read-undefined`）。数字下标 `read v @this 0` 取的是链接，不是变量。
 - **声明不等于赋值**：汇编器 `readVar()` 用 `vars.get(name, true)`，任何语句里第一次出现的名字都会被创建（初值 null），不要求 `set`。所以 `draw triangle a b c d e f` 是“一次声明 6 个”的紧凑写法（每个都是 null→0）；只有全文从未出现过的名字才算未声明。`op add x copper 1` 里 `copper` 被声明但从未赋值，读到的是 null（不是 0）；`check` 不会按“未定义”报它，算术上要自己保证先赋值。
 - `--update all` 才跑 `Building.update()`（工厂、传送带、电力消费者）与 `LogicAI` 单位；`--power full|none` 把电力钉死；`--combat on`（`--ticks` 默认）按 `Logic.updateEntities()` 的顺序推进子弹物理/碰撞/伤害；`--weather rain` 可强制开局天气。
+- **`sensor` 的第三个参数必须是 `LAccess` 属性**（75 个：`@x`、`@health`、`@totalItems`、`@itemCapacity`、`@config`、`@shootX`…）。填物品名/方块名（`@copper`、`@hyper-processor`）不会报错，只会读到 null，分支静默失效；`check` 现在报 WARN `sensor-not-a-property`。
+- `ucontrol stop` **不是刹车**：只清 `mineTile`/`building`，速度靠 drag 衰减（实测 120 tick 后仍约 0.1 格残余位移）；要立刻停就别给 `move` 指令或把它 `move` 到当前点。
 - `--trace FILE` 每 tick 一行逻辑单位轨迹（`unit,tick,ux,uy,uhp,range,tx,ty,dist,cx,cy,chp,bullets,shots`，tile 坐标）；`--assert EXPR` 对每行、`--assert-last EXPR` 只对末行求值，失败退 3。列名就是变量名。
 - 特权语句（`weathersense/weatherset/setrule/message/cutscene/effect/fetch/sync/getblock/setblock/spawn/status`）只有 world processor 认；放进微处理器会被**静默删掉整行**。`--processor auto` 按语句自动选处理器。
 - 特权**内置变量**（`@server`、`@client`、`@clientLocale`、`@clientUnit`、`@clientName`、`@clientTeam`、`@clientMobile`、`@clientMusicPlaying`）在普通处理器里不报错，而是被 `GlobalVars.get(name, false)` 换成 `null` 常量——分支永远不走。要在普通逻辑里判断玩家/客户端，换成 world processor 或游戏内可观测的数据。
