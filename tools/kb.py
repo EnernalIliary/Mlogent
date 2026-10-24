@@ -52,8 +52,10 @@ DOC_FILES = [
     "tools/README.md",
     "dsh-preset-mlog/README.md",
     "rules/README.md",
+    "docs/本地知识库.md",
 ]
 CODE_GLOBS = ["tools/*.py", "tests/run_tests.py"]
+DOC_GLOBS = ["docs/游戏速查/*.md"]
 EXCLUDE_DIRS = {"__pycache__", "out", ".git", "assetsraw", "Mindustry-Source", "Arc-Source"}
 _EMB = None
 _RR = None
@@ -156,6 +158,10 @@ def _corpus() -> list[tuple[Path, str]]:
         for p in sorted(ROOT.glob(pattern)):
             if p.is_file() and not any(part in EXCLUDE_DIRS for part in p.parts):
                 files.append((p, "code"))
+    for pattern in DOC_GLOBS:
+        for p in sorted(ROOT.glob(pattern)):
+            if p.is_file() and not any(part in EXCLUDE_DIRS for part in p.parts):
+                files.append((p, "doc"))
     return files
 
 

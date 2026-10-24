@@ -32,8 +32,9 @@ python tools/mlogsim.py logic.mlog --save scene.msav --units mono:1 --core-items
 | `tools/` | 统一入口 `mlog.py`、模拟器 `mlogsim.py`、检查器/IR/值域、MCP 服务、签名、知识库 |
 | `mindustry-blueprint/` | 蓝图/逻辑技能文档（SKILL / REFERENCE / EMULATOR-CROSSCHECK）与参考数据 |
 | `rules/` | 28 条规则，一条一个 JSON，供 `review.py` 逐条审计 |
-| `tests/` | 35 个 golden 用例，`python tests/run_tests.py` |
-| `docs/` | 本地知识库说明等 |
+| `tests/` | 36 个 golden 用例，`python tests/run_tests.py` |
+| `docs/` | 本地知识库说明、`断言表.md`、`验证记录.md`、`游戏速查/`（物品/方块/单位/配方） |
+| `data/game/` | 从 v160.7 真执行器导出的游戏事实（物品/液体/方块/单位/别名），供 `game.py` 与知识库使用 |
 | `Logic/` | `逻辑代码规范.md` 与示例逻辑（个人程序） |
 | `out/scenes/` | 5 张现实场景 `.msav`、4 个合成台、快照 |
 | `.dsh/skills/` | `mlog-agentskill`（可独立拷走）与 `mindustry-blueprint` 安装副本 |
