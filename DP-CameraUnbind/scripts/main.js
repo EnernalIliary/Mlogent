@@ -26,9 +26,25 @@ function __cameraUnbindMain(){
     var log = function(msg){ print("[camera-unbind] " + msg); };
 
     // ============================ 配置区 ============================
-    var MOD_VERSION  = "5.5";               // 版本号（camVersion() 会回报它）
+    var MOD_VERSION  = "5.6";               // 版本号（camVersion() 会回报它）
     var PREF_KEY     = "dp-camera-unbind";  // 设置项的键名（存进 settings.bin）
     var DEFAULT_ON   = true;                // 默认开：本版是"让自由视角好用"的修复，装上即生效
+
+    // 「学术端原味」模式（v5.6 新增，默认**关**）。
+    //
+    // 背景：用户的旧包（v146 + CN-ARC，BE-25737）自己给原版加了自由视角，
+    //   5 处改动全部考据在 LEGACY-FREECAM.md 里。今天 160.5 已经把 5 处全收了，
+    //   唯一能"还原"的差异是**它没有模组这层覆写**，所以单位移动用的是原版语义：
+    //     目标 = camera.position（屏幕中心），15 格内到位刹车。
+    //   本开关把模组拨回那个语义，**但保留相机压制**（镜头不乱动是用户要的净增量）。
+    //
+    // 与主开关的关系（两个都是"开"时）：
+    //   · 单位移动 = 原版（朝屏幕中心走）
+    //   · 相机     = 仍被压住（按住移动键时不被推向鼠标）
+    //   · WASD     = 平移相机（原版语义），不再被当成"在移动单位"
+    // 只开主开关：单位走到鼠标位置 + 相机压住（v5.5 行为）。
+    var LEGACY_KEY   = "dp-camera-unbind-legacy";
+    var DEFAULT_LEGACY = false;
 
     // ⚠ 热键必须避开原版**已绑定**的键 —— 尤其是有正式键位名、玩家能改的那些。
     //   踩过的坑：最初用 V 和 N，结果
@@ -44,6 +60,7 @@ function __cameraUnbindMain(){
     //   写 null 表示不要该热键。
     var KEY_TOGGLE   = ["f10"];             // F10：开关本功能
     var KEY_RECENTER = null;                // 默认不给"拉回单位"配热键（N 已被星球地图占用）
+    var KEY_LEGACY   = ["f9"];              // F9：切换「学术端原味」（v5.6 新增；F9 同样空闲）
     // ================================================================
 
     try{
@@ -89,6 +106,17 @@ function __cameraUnbindMain(){
             try{ settings.put(PREF_KEY, !!v); }catch(e){ log("写设置失败：" + e); }
         }
 
+        // 「学术端原味」模式的读写。和主开关完全独立的两份真相（各自一个设置键），
+        // 但**语义上**它只在主开关开着时才有意义：主开关关着 = 模组整个不接管。
+        function legacyOn(){
+            try{ return !!settings.getBool(LEGACY_KEY, DEFAULT_LEGACY); }
+            catch(e){ return false; }
+        }
+
+        function setLegacy(v){
+            try{ settings.put(LEGACY_KEY, !!v); }catch(e){ log("写 legacy 设置失败：" + e); }
+        }
+
         // 注册"默认值"。
         // ⚠ 这里**只能**用 settings.defaults()（只补默认值，不碰玩家已经保存的选择），
         //   绝对不能用 settings.put() —— 那会在每次启动时把玩家勾上的开关重新抹成默认值。
@@ -96,6 +124,7 @@ function __cameraUnbindMain(){
         function registerDefault(){
             try{
                 settings.defaults(PREF_KEY, !!DEFAULT_ON);
+                settings.defaults(LEGACY_KEY, !!DEFAULT_LEGACY);
                 return true;
             }catch(e){ log("注册默认值失败：" + e); return false; }
         }
@@ -182,10 +211,75 @@ function __cameraUnbindMain(){
             if(!inserted){
                 try{ list.add(el); }catch(e4){ log("加入设置列表失败：" + e4); return false; }
             }
+
+            // 第二个复选框：「学术端原味」。失败不影响主功能（还有控制台 camLegacy()）。
+            try{ injectLegacySetting(table, list); }catch(e6){ log("注入 legacy 设置项失败（不影响功能）：" + e6); }
+
             try{ table.rebuild(); }catch(e5){ log("rebuild 失败：" + e5); }
 
             log("设置项注入成功：设置 → 图像 → 自由视角 下面「" + el.title + "」（当前值=" + settingOn()
                 + (inserted ? "，位置=紧随自由视角" : "，位置=页尾") + "）");
+            return true;
+        }
+
+        // v5.6：在同一个设置页里再塞一个「学术端原味」复选框，紧跟主开关后面。
+        //   幂等：先按 LEGACY_KEY 扫一遍，已存在就跳过。
+        //   失败**不影响主功能** —— 最坏情况只是这个复选框进不了界面，
+        //   仍然可以用控制台 camLegacy(true|false) 切换。
+        function injectLegacySetting(table, list){
+            try{
+                for(var i = 0; i < list.size; i++){
+                    var it = list.get(i);
+                    if(it != null && it.name == LEGACY_KEY) return true;
+                }
+            }catch(e){ /* 遍历失败就继续尝试注入 */ }
+
+            var CheckSetting = null;
+            try{ CheckSetting = Packages.mindustry.ui.dialogs.SettingsMenuDialog.SettingsTable.CheckSetting; }catch(e2){}
+            if(CheckSetting == null){ log("legacy：取不到 CheckSetting 类"); return false; }
+
+            var el = null;
+            try{ el = new CheckSetting(LEGACY_KEY, !!DEFAULT_LEGACY, null); }
+            catch(e3){ log("legacy：new CheckSetting 失败：" + e3); return false; }
+            if(el == null){ log("legacy：CheckSetting 返回空对象"); return false; }
+
+            try{
+                if(el.title == null || el.title.length === 0 || el.title == LEGACY_KEY || el.title.indexOf("setting.") === 0){
+                    el.title = "学术端原味（单位朝屏幕中心走）";
+                }
+                if(el.description == null || el.description.length === 0){
+                    el.description = "勾上后单位移动**完全按原版**：目标 = 屏幕中心，走到 15 格内停下并刹车；"
+                        + "WASD 变成平移镜头而不是移动单位。"
+                        + "「按住移动键时镜头不被推向鼠标」这条压制**仍然有效**。"
+                        + "这个模式复刻的是 v146 学术端（BE-25737）那份自己写的自由视角的手感，"
+                        + "考据见 LEGACY-FREECAM.md。默认关；也可以按 F9 切换。";
+                }
+            }catch(e4){ log("legacy：写标题/描述失败（不影响功能）：" + e4); }
+
+            // 紧跟主开关（主开关在 detach-camera 后面，所以这里就是 detach-camera + 2）
+            var placed = false;
+            try{
+                var f = table.getClass().getDeclaredField("list");
+                f.setAccessible(true);
+                var arr = f.get(table);
+                var idx = -1;
+                for(var k = 0; k < arr.size; k++){
+                    var s = arr.get(k);
+                    if(s != null && s.name == PREF_KEY){ idx = k; break; }
+                }
+                if(idx >= 0){
+                    arr.insert(idx + 1, el);
+                    placed = true;
+                }else{
+                    log("legacy：没找到主开关项，退化为加到页尾");
+                }
+            }catch(e5){ log("legacy：反射插入失败（退化为页尾）：" + e5); }
+
+            if(!placed){
+                try{ list.add(el); }catch(e6){ log("legacy：加入设置列表失败：" + e6); return false; }
+            }
+            log("设置项注入成功（legacy）：「" + el.title + "」（当前值=" + legacyOn() + "，位置="
+                + (placed ? "紧随主开关" : "页尾") + "）");
             return true;
         }
 
@@ -242,6 +336,7 @@ function __cameraUnbindMain(){
 
         var KEY_ON   = keyPick(KEY_TOGGLE,   "开关镜头解绑");
         var KEY_BACK = keyPick(KEY_RECENTER, "视角拉回单位");
+        var KEY_LEG  = keyPick(KEY_LEGACY,   "切换学术端原味");
 
         // 界面正在吃键盘（聊天 / 控制台 / 输入框）时不要抢按键
         function uiBusy(){
@@ -569,7 +664,9 @@ function __cameraUnbindMain(){
                 var boosted = (Mechc != null && (unit instanceof Mechc)) && unit.isFlying();
 
                 var Vars0 = Packages.mindustry.Vars;
-                var on = cursorOn();
+                // 「学术端原味」开着 → 单位移动**退回原版分支**（③ 目标 = 相机/屏幕中心），
+                // 但相机压制（holdCamera）不受影响 —— 那是由主开关单独管的。
+                var on = cursorOn() && !legacyOn();
 
                 if(settings.getBool("detach-camera")){
                     var holding = Core.input.keyDown(Binding.mouseMove);
@@ -1050,8 +1147,16 @@ function __cameraUnbindMain(){
         }
 
         // 玩家是否正在用键鼠移动单位：鼠标移动键 或 W/A/S/D
+        //
+        // ⚠ v5.6：「学术端原味」模式下 **W/A/S/D 不算"在移动单位"**。
+        //   原因是那个模式把单位移动交回原版（目标 = 屏幕中心），
+        //   此时 WASD 在原版里是「平移相机」。如果仍把它算成"在移动单位"，
+        //   holdCamera() 就会把相机钉住 → WASD 推不动镜头 → 玩家没法调视角，
+        //   整个模式就废了（这正是"判据要和模式对齐"的老坑）。
         function unitMoveInputHeld(){
-            return mouseMoveHeld() || wasdHeld();
+            if(mouseMoveHeld()) return true;
+            if(legacyOn()) return false;          // 学术端原味：WASD 归相机
+            return wasdHeld();
         }
 
         // 是否按着 W/A/S/D（原版自由视角下用它做**键盘平移**；我们改成"直接移动单位"）
@@ -1211,6 +1316,17 @@ function __cameraUnbindMain(){
                 // N：立刻把视角拉回单位 / 核心（只在开启状态下有意义）
                 try{
                     if(KEY_BACK != null && Core.input.keyTap(KEY_BACK) && on) recenter();
+                }catch(e){}
+                // F9：切换「学术端原味」（v5.6）。它只在主开关开着时才有意义，所以不做 gating，
+                //     先让玩家能随时切，下次开主开关时直接生效。
+                try{
+                    if(KEY_LEG != null && Core.input.keyTap(KEY_LEG)){
+                        var lg = !legacyOn();
+                        setLegacy(lg);
+                        notify("[camera-unbind] 学术端原味 " + (lg
+                            ? "已开启：单位朝屏幕中心走（WASD 平移镜头），镜头仍不乱动"
+                            : "已关闭：单位走到鼠标位置"));
+                    }
                 }catch(e){}
 
                 // 本模组作用的前提是**自由视角（设置 → 图像 → 自由视角）开着**。
@@ -1382,6 +1498,7 @@ function __cameraUnbindMain(){
                 camHelp:     function(){
                     return "camVersion() 版本 | camWhere() 状态 | camMeasure(秒) 实测 | camDrift(秒) 抖动诊断 | "
                          + "camHold(true|false) 相机压制开关 | camCursor(true|false) 单位移动模式 | "
+                         + "camLegacy(true|false) 学术端原味（单位朝屏幕中心走） | "
                          + "camOverride(true|false) 覆写开关";
                 },
                 camHold: function(on){
@@ -1401,6 +1518,16 @@ function __cameraUnbindMain(){
                     log("单位移动 → " + (settingOn() ? "走到鼠标位置" : "原生（朝屏幕中心）")
                         + "（已写入设置项 dp-camera-unbind=" + settingOn() + "）");
                     return settingOn() ? "on" : "off";
+                },
+                // camLegacy(true|false)：学术端原味（v5.6）。
+                //   和 camCursor 的区别：camCursor 改的是**主开关**（整模组关掉），
+                //   而 legacy 只改"单位移动目标"，**相机压制照旧生效**。
+                camLegacy: function(on){
+                    if(on === undefined) return legacyOn() ? "legacy" : "cursor";
+                    setLegacy(!!on);
+                    log("单位移动目标 → " + (legacyOn() ? "相机/屏幕中心（学术端原味）" : "鼠标位置")
+                        + "（已写入设置项 " + LEGACY_KEY + "=" + legacyOn() + "）");
+                    return legacyOn() ? "legacy" : "cursor";
                 },
                 camOverride: function(on){
                     if(on === undefined) return overrideInstalled ? "installed" : "not installed";
@@ -1506,6 +1633,9 @@ function __cameraUnbindMain(){
         function describe(){
             var o = {};
             try{ o.setting = settingOn(); }catch(e){ o.setting = "?"; }
+            // v5.6：学术端原味开关 + 当前实际生效的"单位移动目标"
+            try{ o.legacy = legacyOn(); }catch(e){ o.legacy = "?"; }
+            try{ o.moveTarget = (settingOn() && !legacyOn()) ? "mouse" : "camera"; }catch(e){}
             try{ o.inGame = Vars.state.isGame(); }catch(e){}
             try{ o.unitId = Vars.player.unit() != null ? Vars.player.unit().id : 0; }catch(e){}
             try{ o.dead = Vars.player.dead(); }catch(e){}

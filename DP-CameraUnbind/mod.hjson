@@ -1,8 +1,8 @@
 name: "camera-unbind"
 displayName: "自由视角修复"
 author: "DP"
-description: "自由视角下按住「鼠标移动」键拖动时：① 单位走到**鼠标指的位置**停下、松开即停（原版是让单位一直朝屏幕中心飞）；② **镜头不被推向鼠标**（原版 update() 第 278/294 行让同一个键既移动单位又把镜头推向鼠标）。③ 想用原版平移（镜头与单位一起走）就**只按平移键**；**平移键 + 移动键同按**仍以「移动单位」为准（镜头不动）。做法：覆写 DesktopInput.updateMovement（Rhino JavaAdapter）+ 按住移动键期间把 panSpeed/panBoostSpeed 置 0 并把相机钉在进入拖拽时的位置，其余时刻一个字节都不碰相机，**不需要重新构建游戏**。控制台（全局函数）：camVersion() / camWhere() / camMeasure(6) / camDrift(6) / camHold(true|false) / camClearHold() / camCursor(false) / camOverride(false)。"
-version: "5.5"
+description: "自由视角下按住「鼠标移动」键拖动时：① 单位走到**鼠标指的位置**停下、松开即停（原版是让单位一直朝屏幕中心飞）；② **镜头不被推向鼠标**（原版 update() 第 278/294 行让同一个键既移动单位又把镜头推向鼠标）。③ 想用原版平移（镜头与单位一起走）就**只按平移键**；**平移键 + 移动键同按**仍以「移动单位」为准（镜头不动）。④ v5.6 新增「学术端原味」模式（默认关，F9 切换）：单位移动交回原版（目标 = 屏幕中心、15 格到位刹车），WASD 变平移镜头，**镜头压制仍然有效** —— 复刻 v146 学术端（BE-25737）那份自己写的自由视角的手感。做法：覆写 DesktopInput.updateMovement（Rhino JavaAdapter）+ 按住移动键期间把 panSpeed/panBoostSpeed 置 0 并把相机钉在进入拖拽时的位置，其余时刻一个字节都不碰相机，**不需要重新构建游戏**。控制台（全局函数）：camVersion() / camWhere() / camMeasure(6) / camDrift(6) / camHold(true|false) / camClearHold() / camCursor(false) / camLegacy(true|false) / camOverride(false)。"
+version: "5.6"
 minGameVersion: "146"
 # hidden: true —— 关键的一行（学 MindustryX 的做法）
 #

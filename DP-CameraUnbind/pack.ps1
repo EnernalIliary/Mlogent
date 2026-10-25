@@ -44,6 +44,7 @@ $names = @(
 
 if($WithDocs){
     $names += 'METHOD.md'
+    $names += 'LEGACY-FREECAM.md'
     $names += 'freecam-2-line.patch'
     foreach($f in (Get-ChildItem (Join-Path $ModDir 'tools') -File | Sort-Object Name)){
         $names += 'tools/' + $f.Name

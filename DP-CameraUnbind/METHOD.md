@@ -682,6 +682,8 @@ if(inp != null && inp.spectating != null) return false;   // 错！
 | 17 | **用户实测"未生效"，但一切日志正常** | `if(inp.spectating != null) return false` —— boolean 字段 `false != null` 恒真，那道门每帧都拦 | 判布尔标志就写 `if(inp.spectating)`；"取到了没"另起一步（§5.6） |
 | 18 | **整块逻辑无声失效（十几个断言一起红）** | 覆写体抛 `TypeError`（`unit.type.omniMovement` —— `type()` 是方法）+ 安全网 `superBroken = true` 永久卸载 | 先找日志里的 `⚠ … 已停用覆写`；成员是方法还是字段先反射（§5.6 / §1.4） |
 | 19 | 夹具断言"模组没改 panSpeed"，实际改了 | 模组写的是 `JavaAdapter` 实例自己的字段，夹具读的是影子副本 | 透过 `Core.input.<字段>` 读，或断言 `Core.input.panSpeed`（§5.7） |
+| 20 | 新加的"复刻模式"一开就废（WASD 推不动镜头） | 判据没跟模式走：legacy 模式下 WASD 归相机平移，但 `unitMoveInputHeld()` 仍把它算成"在移动单位" → `holdCamera()` 把相机钉死 | **判据必须和被复刻的那套语义对齐**；同一个"玩家在动吗"在不同模式下答案不同（§5.8） |
+| 21 | 反汇编老版本 class 卡住 | 本机 JDK 17 的 `javap` 读不了 major 52？反过来 —— 是 **160.5 的 major 61 读不了**，老包是 Java 8，用本机 Android JDK 8 的 `javap` 反而能直接读 | **先看 class 的 major 版本再选工具**（`tools/classinfo.js` 会统计版本分布），别默认"最新 JDK 通吃" |
 
 ---
 

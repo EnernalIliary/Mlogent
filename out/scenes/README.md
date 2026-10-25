@@ -30,13 +30,26 @@
 - 位置：`out/scenes/<name>.msch`，≤ 64×64。
 - 只放建筑（墙、核心、工厂、炮台、内存格……），**不要放处理器**。
 - 加载时按最小 x/y 归一到 (0,0)；地板统一铺 stone。
-- 默认整张图算敌方（`crux`）；需要在 `out/scenes/scenes.json` 里用 `ours`
-  矩形声明我方，`start` 指定处理器落点。
+- 贴图按场景默认队落地（整张图算敌方 `crux`），处理器落在 `--base` 指定处。
+- **没有** `scenes.json` 这类清单/声明文件：`tools/` 里对 `scenes.json` 是**零引用**，
+  之前这里写的 `ours` / `start` / `enemy_team` 字段是**未实现的设计稿，已删除**。
+- 需要声明我方队伍与处理器落点，请改用 `.msav` 存档（存档自带地图、队伍与建筑，见上表首选）。
 
-```json
-{
-  "wall": { "start": [4, 32], "ours": [[0, 28, 8, 36]], "enemy_team": "crux" }
-}
+两种跑法（均已实测可跑）：
+
+```bash
+# 蓝图小场景：.msch 走**位置参数**（不需要额外开关）
+python tools/mlogsim.py out/scenes/benches/processor-bench.msch --steps 200 --base 4,32
+
+# 存档场景：逻辑文件 + --save 指定 .msav
+python tools/mlogsim.py my.mlog --save "out/scenes/Mlog场景-进攻-open.msav" --ticks 60
+```
+
+实测（本次用 20 steps / 60 ticks 验证过）：
+
+```
+== processor-bench.msch @12,32 (20 steps) ==   print: 25|25|2525|25|25   ipt = 25.0
+== baseline.mlog @ (60 ticks) ==               print: 1111…（60 个 1）    world = all
 ```
 
 ## 跑法

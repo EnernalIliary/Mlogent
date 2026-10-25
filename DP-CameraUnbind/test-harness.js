@@ -393,7 +393,7 @@ try {
 Events.fire(ET.ClientLoadEvent, {});
 section('load');
 ok(typeof scriptScope.camVersion === 'function', 'camVersion() exported');
-ok(scriptScope.camVersion() === '5.5', 'camVersion() = ' + scriptScope.camVersion());
+ok(scriptScope.camVersion() === '5.6', 'camVersion() = ' + scriptScope.camVersion());
 ok(typeof scriptScope.camWhere === 'function', 'camWhere() exported');
 ok(typeof scriptScope.camClearHold === 'function', 'camClearHold() exported (test hook)');
 ok(scriptScope.camOverride() === 'installed', 'override installed: ' + scriptScope.camOverride());
@@ -560,6 +560,45 @@ section('7) world reset clears every piece of state');
 Events.fire(ET.ResetEvent, {});
 const afterReset = where();
 ok(afterReset.deathSnap === 'none', 'deathSnap cleared on reset');
+
+// ================================================================ case 8
+section('8) legacy mode (v146 academic-build feel): unit walks to the screen centre');
+scriptScope.camClearHold();
+scriptScope.camCursor(true);              // main switch on
+scriptScope.camLegacy(true);
+ok(where().legacy === true, 'camWhere().legacy = ' + where().legacy);
+ok(where().moveTarget === 'camera', 'moveTarget = ' + where().moveTarget);
+
+// Camera and mouse deliberately in DIFFERENT directions from the unit, so
+// "walked to the camera" and "walked to the mouse" cannot be confused.
+setCamera(2000, 2000);                    // unit -> camera = (+1000,+1000) = 45 degrees
+player._unit.x = 1000; player._unit.y = 1000;
+world.mouseWorldX = 1200; world.mouseWorldY = 1600;   // unit -> mouse = (+200,+600) = ~72 degrees
+holdMove(true);
+const camBefore8 = camera.position.x;
+fireUpdate();
+const m8 = input.movement.cpy();
+ok(Math.abs(m8.x - m8.y) < 1e-6,
+   'movement points at the CAMERA, not the mouse (45deg, not 72deg): '
+   + m8.x.toFixed(3) + ',' + m8.y.toFixed(3));
+ok(Math.abs(camera.position.x - camBefore8) < 1e-6,
+   'camera still pinned while the move key is held (' + camera.position.x.toFixed(2) + ')');
+ok(control.input.panSpeed === 0,
+   'panSpeed still zeroed in legacy mode (' + control.input.panSpeed + ')');
+holdMove(false);
+
+// WASD must NOT count as "the player is moving the unit" here: in legacy mode
+// vanilla uses WASD to pan the camera, so pinning it would break the mode.
+press('KEY_W', true);
+fireUpdate();
+ok(where().hold === false, 'WASD does not pin the camera in legacy mode (hold=' + where().hold + ')');
+press('KEY_W', false);
+fireUpdate();
+
+scriptScope.camLegacy(false);
+ok(where().moveTarget === 'mouse', 'camLegacy(false) restores mouse targeting');
+ok(where().legacy === false, 'camWhere().legacy = ' + where().legacy);
+fireUpdate();
 
 // ---------------------------------------------------------------- summary
 console.log('\nResult: ' + pass + ' passed / ' + fail + ' failed');

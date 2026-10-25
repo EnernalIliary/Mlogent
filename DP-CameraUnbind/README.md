@@ -1,4 +1,4 @@
-# 自由视角修复（Camera Unbind）v5.5
+# 自由视角修复（Camera Unbind）v5.6
 
 Mindustry 脚本模组（`mod.hjson` + `scripts/main.js`，Rhino 执行）。
 
@@ -11,7 +11,7 @@ Mindustry 脚本模组（`mod.hjson` + `scripts/main.js`，Rhino 执行）。
 > （最关键的一条：当时以为"自由视角下原版不会把相机拉回单位"，实测证明你实际
 > 运行的那份**会**）。当前行为的权威描述见 §0 与 METHOD.md §3。
 
-## 0. 当前行为（v5.5，以此为准）
+## 0. 当前行为（v5.6，以此为准）
 
 **作用**：自由视角下按住「鼠标移动」键拖动时 ——
 
@@ -26,11 +26,35 @@ Mindustry 脚本模组（`mod.hjson` + `scripts/main.js`，Rhino 执行）。
 | **死亡 → 重生** | **落地动画允许走完**（这段完全不插手），**重生后定位回死前视野**（不是停在核心/新单位处） |
 | 死亡 / 观战 / 界面打开 | **脚本一个字节都不碰相机**（死亡时只把镜头放到核心一次，与原版一致） |
 
-- 设置位置：**设置 → 图像 → 「自由视角」正下方的那一项**（v3.0 起**默认开启**）
+### 0.1 「学术端原味」模式（v5.6 新增，默认**关**）
+
+勾上**设置 → 图像 → 自由视角 下面第二项**，或按 `F9`：
+
+| 项目 | 普通模式（默认） | 学术端原味 |
+|---|---|---|
+| 单位移动目标 | **鼠标位置** | **屏幕中心**（原版语义，camera.position） |
+| 到位判据 | 距鼠标 15 格内停 | 距相机 15 格内停 + 刹车（原版一模一样） |
+| `W/A/S/D` | 移动单位 | **平移镜头**（原版语义） |
+| 镜头被推向鼠标 | **压掉** | **仍然压掉** ← 这是模组的净增量 |
+| 松开移动键 | 靠惯性滑停 | 单位停在那儿（它盯的是屏幕中心） |
+
+复刻对象是 **v146 学术端（BE-25737）自己写的那份自由视角**：
+
+```java
+movement.set(camera.position).sub(player).limit(speed);
+if(player.within(camera.position, 15f)){
+    movement.setZero();
+    player.unit().vel.approachDelta(Vec2.ZERO, player.unit().speed() * player.unit().type().accel / 2f);
+}
+```
+
+五个改动点、字节码偏移、与 160.5 的逐项对照，全在 **[LEGACY-FREECAM.md](LEGACY-FREECAM.md)**。
+
+- 设置位置：**设置 → 图像 → 「自由视角」正下方的那两项**（v3.0 起主开关**默认开启**；v5.6 的 legacy 默认**关**）
 - 前提：**设置 → 图像 → 自由视角** 要开着（这是原版的开关，本模组不动它）
 - **触发键**：原版「鼠标移动」默认绑在**鼠标侧键（Thumb Mouse Button / mouseBack）**，
   不是左键；想改用别的键去 设置 → 操作 里改 `鼠标移动`
-- 热键：`V` 开关本功能，`N` 立刻把视角拉回单位
+- 热键：`F10` 开关本功能，`F9` 切换「学术端原味」（`F10`/`F9` 在 160.5 与本机改端里都没被引用）
 - **免装**：`mod.hjson` 里 `hidden: true` —— 自用不影响进任何服务器（原理见 METHOD.md §4）
 - **控制台接口**（单机按 `Enter`）—— **顶层全局函数**，没有 `cam` 对象
   （v4.0 起移除了那个冗余副本：实测 `cam.measure` / `cam.drift` 在控制台里取不到，
@@ -43,7 +67,8 @@ Mindustry 脚本模组（`mod.hjson` + `scripts/main.js`，Rhino 执行）。
   camDrift(6)         抖动诊断（帧间位移统计）
   camHold(true|false) 相机压制开关
   camClearHold()      立刻清掉重生死后视野的 30 帧宽限期（调试/自测用）
-  camCursor(false)    单位移动退回原版行为
+  camCursor(false)    单位移动退回原版行为（**整个模组**关掉）
+  camLegacy(true)     学术端原味：单位朝屏幕中心走（相机压制照旧）
   camOverride(false)  卸掉 updateMovement 覆写
   camHelp()           全部列出
   ```
@@ -242,11 +267,11 @@ cd DP-CameraUnbind
 node test-harness.js
 ```
 
-覆盖（**28 项断言，全绿**）—— 用例就是按"用户会怎么按"排的：
+覆盖（**36 项断言，全绿**）—— 用例就是按"用户会怎么按"排的：
 
 | 组 | 验的东西 |
 |---|---|
-| load | `camVersion()` = 5.5、`camWhere()` / `camClearHold()` 都挂上了、`camOverride()` 回 `installed`（**覆写真的装上了**，这一条最容易被 mock 骗过去） |
+| load | `camVersion()` = 5.6、`camWhere()` / `camClearHold()` 都挂上了、`camOverride()` 回 `installed`（**覆写真的装上了**，这一条最容易被 mock 骗过去） |
 | **1** | **只按移动键**：`panSpeed` 被置 0、相机 10 帧纹丝不动（< 0.01）、`camWhere().hold === true`、相机停在锚点上、`movement` 非零 |
 | **2** | **平移键 + 移动键同按**（用户的实际键位，也就是报的 bug）：`panSpeed` 仍被置 0、相机逐帧打点全部不动、锚点仍在、`movement` 非零且**与"单位→鼠标"方向余弦 > 0.99** |
 | 3 | 松开两个键：`panSpeed` 恢复、此后 10 帧模组一个字节都不写相机 |
@@ -254,6 +279,7 @@ node test-harness.js
 | 5 | **关掉开关**：单位被原版拉向屏幕中心（`movement` 非零）、`panSpeed` 不被改 |
 | 6 | **死亡 → 重生**：活着时不快照；死亡帧快照 = 死前视野 (1200,1300)；落地动画期间快照不被消费；重生后定位回死前视野；宽限期内不按键也保持 |
 | 7 | `ResetEvent` 把全部状态清干净（含 `deathSnap`） |
+| 8 | **学术端原味**：`camWhere().legacy/moveTarget` 对；相机(2000,2000)、鼠标放在**另一个方向**(1200,1600)时，`movement` 指向**相机**（45°）而不是鼠标（72°）；镜头仍被压住、`panSpeed` 仍置 0；**WASD 不再钉相机**（`hold=false`，否则 WASD 平移镜头就废了）；`camLegacy(false)` 恢复 |
 
 **夹具保真度**（这一版重写时逐条对齐过，都是"mock 不对 → 假红/假绿"的教训）：
 
@@ -322,6 +348,7 @@ node test-harness.js
 
 | 版本 | 内容 |
 |---|---|
+| **5.6** | **考据并复刻「学术端」的自由视角**。用户给了一份 v146 的 CN-ARC 学术端（`BE-25737`，字节码 major 52 = Java 8，所以本机 JDK 8 的 `javap` 能直接读），要求"看看它和原版的差异，然后试着还原它的效果"。用 `strscan.js` 定位到 `mindustry/input/DesktopInput.class`，反汇编出它给原版加的 **5 处**改动：① `detach-camera` 设置 + 键位翻转；② **`panning \|= detached`**（核心）；③ 相机分支加 `\|\| detached`，并让该分支内的 `mouse_move` 也能置 `panCam`；④ 进自由视角清 `follow/spectating`；⑤ `updateMovement` 里 `movement.set(camera.position).sub(player).limit(speed)` + `within(camera.position, 15f)` 到位刹车。**结论：这 5 处今天的 160.5 已经全收了**（Steam `desktop.jar` 命中 `detach-camera`；本机 `Mindustry-Source` 工作区的 `git diff` 正是 `freecam-recenter` 与 `freecam-cursor-move` 两个开关，后者 `=false` 就是第 ⑤ 处的原味）。所以真正能"还原"的差异只剩**我们这层覆写**：它没有覆写，单位移动走原版语义。→ 新增**「学术端原味」模式**（独立设置键 `dp-camera-unbind-legacy`，默认关，`F9` 切换，设置页里紧挨主开关的第二个复选框）：单位移动交回原版（目标 = 屏幕中心、15 格到位刹车、WASD 归相机平移），**但相机压制照旧生效** —— 这正是用户选的方案 B。<br>判据同步：`unitMoveInputHeld()` 在 legacy 下**不把 WASD 算作"在移动单位"**（否则 `holdCamera()` 会把相机钉住、WASD 推不动镜头，模式直接废掉）；`realUpdateMovement` 里 `on = cursorOn() && !legacyOn()`。考据全文见 **LEGACY-FREECAM.md**。<br>夹具加第 8 组（相机与鼠标放在**不同方向**，断言 `movement` 指向相机 45° 而非鼠标 72°）→ **36 断言 / 0 失败**。 |
 | **5.5** | **修用户实测的「未生效」**（两个根因都在 `holdCamera()` 的守卫链上）：① **平移键的门写反了** —— 原判据只要"按着平移键"就让位，而用户的键位是**中键平移 + 右键移动两个一起按**，于是 `pan` 恒真 → 压制永不生效 → 原版每帧朝鼠标推镜（现场：相机 1360 → 1504 → 1580，"单位到鼠标"格数 446/517/518 不收敛）。改为 **`pan && !unitMoveInputHeld()`**：只有"只按平移键、没在移动单位"时才让位。② **`if(inp.spectating != null) return false`** —— `spectating` 是 boolean 字段，`false != null` 恒真，这道门每帧都拦。改为真值判断。<br>宽限期（重生后 30 帧）里**保留无条件**的 pan 让位（加了 `&& !unitMoveInputHeld()` 会让重生后 0.5 秒内中键平移完全失效）；新增 `camClearHold()` 清宽限期。<br>自测夹具同期**整份重写**（原文件在一次 PowerShell 编码事故里损坏）并修掉 6 处 mock 失真，**28 断言 / 0 失败**（含"两键同按镜头不动""只按平移键原版推镜照常""关开关逐字节回退原版"）。 |
 | **5.4** | **「死前视野」**：用户选定（选前比较过三版判据，全被实测推翻）—— 死亡瞬间把锚点钉在**死前那一刻的视野**上，死亡延迟与**落地动画一律放手让游戏走完**，重生之后再定位回死前视野；另外给恢复加 30 帧宽限期（落地那一刻玩家通常什么都没按，否则恢复的下一帧就被原版 AutoFollow 拽回重生点，肉眼是"闪一下又飞走"）。根因链：160.5 里死亡时**没有任何代码动相机**，把镜头拉到新单位的是两条既有 vanilla 路径（`CoreBlock.zoomLaunch()` 锁核心 + 新单位在核心处生成），而本模组当时在死亡窗口主动放手，等于把相机交给了它们。修 bug 期间踩到三个 heisenbug（谓词带副作用 / 观察被挂在 `dead` 判定之后 / 调用点被上游 `return` 跳过），已写进 METHOD.md §5.5 |
 | 5.3 | 修"按住移动键拖拽时的画面抖动"：去掉成因（按住期间把 `panSpeed`/`panBoostSpeed` 置 0）而不是事后把相机写回上一帧 —— "帧尾写回旧值"与"同帧原版写入"会在两值之间摆动 |
