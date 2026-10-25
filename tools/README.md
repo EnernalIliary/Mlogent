@@ -8,7 +8,7 @@
 | 想做什么 | 命令 |
 |---|---|
 | 看蓝图里的逻辑 | `python tools/mlog.py parse 图.msch` |
-| 静态检查 | `python tools/mlog.py check x.mlog`（`--cost` 加成本/最坏指令数） |
+| 静态检查 | `python tools/mlog.py check x.mlog`（`--cost` 加成本/最坏指令数，`--rid` 每行尾部显示规则 id） |
 | 生成只含处理器的蓝图 | `python tools/mlog.py gen --name 名字 --code x.mlog` |
 | 模拟运行 | `python tools/mlogsim.py x.mlog --ticks 120 --trace t.csv` |
 | 一次启动跑多个文件 | `python tools/mlogsim.py a.mlog b.mlog c.mlog --ticks 60` |

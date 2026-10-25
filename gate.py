@@ -22,7 +22,7 @@ stop being run first:
 Usage
 -----
     python gate.py                # walk the cheap gates
-    python gate.py --full         # + mlog.py selftest (430-case round trip)
+    python gate.py --full         # + mlog.py selftest, + runtime probes (needs a JRE)
     python gate.py --kb-build     # rebuild the KB when it is stale
     python gate.py --only test    # run steps whose name contains "test"
     python gate.py -v             # stream child output instead of capturing it
@@ -118,6 +118,9 @@ def build_steps(full: bool, only: str | None) -> list[tuple[str, list[str] | Non
         steps.append(("global", None, "not installed at " + str(global_skill)))
     if full:
         steps.append(("selftest", ["tools/mlog.py", "selftest"], ""))
+        # runtime truth: probes need a JRE and the versioned jars under out/,
+        # which are not in git, so a fresh clone SKIPs rather than fails.
+        steps.append(("probes", ["tests/probes/run_probes.py"], ""))
     steps.append(("kb", None, ""))                # handled inline, see main()
     if only:
         steps = [s for s in steps if only.lower() in s[0].lower()]
@@ -161,6 +164,11 @@ def main() -> int:
             out, secs = "", time.time() - t0
         else:
             rc, out, secs = run_child(argv)
+        if rc == 3:
+            # the child reports "nothing could run" as 3 (no JRE, no jars)
+            note = [ln for ln in out.splitlines() if ln.startswith("SKIP")]
+            results.append((name, "SKIP", secs, "", note[-1] if note else "child skipped"))
+            continue
         results.append((name, "PASS" if rc == 0 else "FAIL", secs, out, ""))
 
     width = max((len(r[0]) for r in results), default=5)

@@ -14,7 +14,8 @@ python tools/mlog.py check logic.mlog          # 静态检查
 python tools/mlog.py check logic.mlog --cost   # 死代码 / 最坏指令数
 python tools/mlogagent.py report logic.mlog    # 五层分析一次跑完
 python gate.py                                 # 全部门禁一次跑完（见下）
-python gate.py --full                          # 再加 430 项蓝图自检
+python gate.py --full                          # 再加 430 项蓝图自检 + 运行期探针（需 JRE）
+python tests/probes/run_probes.py              # 只跑运行期探针（真执行器，断言语义）
 ```
 
 `python gate.py` 依次跑：`mirror`（`tools/` 与三处副本是否一致 —— 测试实际上导入的是
@@ -22,6 +23,9 @@ python gate.py --full                          # 再加 430 项蓝图自检
 `rule_capture.py lint`、`global`（用户级技能副本）、`kb`（`out/_kb/kb.sqlite3` 是否比
 `docs/断言表.md`、`tools/*.py` 旧）。`--full` 追加 `mlog.py selftest`，`--kb-build` 在 KB
 陈旧时自动重建，`--only test` 只跑名字含某子串的步骤，`--strict` 把 WARN 当失败。
+`--full` 里的 `probes` 用真执行器跑 `tests/probes/manifest.json` 里的程序并比对数字（例如
+“裸状态名在 v160.7 施加 1200 tick、`@wet` 是静默 no-op”）——静态检查说什么都不算数，
+运行的数字才算；没有 JRE 或 `out/` 下的分版本 jar 时该步骤报 SKIP 而不是失败。
 
 模拟器（真 v160.7 执行器，需要 Java 21 + server jar）：
 
@@ -40,8 +44,8 @@ python tools/mlogsim.py logic.mlog --save scene.msav --units mono:1 --core-items
 | `tools/` | 统一入口 `mlog.py`、模拟器 `mlogsim.py`、检查器/IR/值域、MCP 服务、签名、知识库 |
 | `mindustry-blueprint/` | 蓝图/逻辑技能文档（SKILL / REFERENCE / EMULATOR-CROSSCHECK）与参考数据 |
 | `gate.py` | 一键门禁（mirror 一致性 / tests / lint / 全局副本 / KB 新鲜度） |
-| `rules/` | 32 条规则，一条一个 JSON，供 `review.py` 逐条审计 |
-| `tests/` | 38 个 golden 用例，`python tests/run_tests.py`（副本陈旧时直接拒绝运行） |
+| `rules/` | 36 条规则，一条一个 JSON，供 `review.py` 逐条审计 |
+| `tests/` | 38 个 golden 用例，`python tests/run_tests.py`（副本陈旧时直接拒绝运行）；`tests/probes/` 是真执行器的运行期断言 |
 | `docs/` | 本地知识库说明、`断言表.md`、`验证记录.md`、`游戏速查/`（物品/方块/单位/配方） |
 | `data/game/` | 从 v160.7 真执行器导出的游戏事实（物品/液体/方块/单位/别名），供 `game.py` 与知识库使用 |
 | `Logic/` | `逻辑代码规范.md` 与示例逻辑（个人程序） |
