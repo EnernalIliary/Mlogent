@@ -1,0 +1,195 @@
+#!/usr/bin/env python3
+"""Run every gate this repo has, from one command.
+
+Why this exists
+---------------
+The gate list used to live in 00-HANDOVER.md and in whoever remembered it, so a
+round ended with five or six hand-typed commands.  Several of them got mangled on
+the way -- this shell is Windows PowerShell 5.1, where "&&" is a parse error and
+nested quotes inside python -c are a coin flip.  A gate that is not one command
+does not reliably get run, and two of the checks below are the ones that quietly
+stop being run first:
+
+* mirror -- tests/run_tests.py imports the analyzers from the
+  mindustry-blueprint/tools COPY, so an unsynced source tree means a green suite
+  over stale code.  tests/run_tests.py refuses to start in that state now; this
+  step checks it first so the failure is one line, not a traceback.
+* kb -- the local knowledge base is a snapshot.  If kb.sqlite3 is older than
+  docs/断言表.md or any tools/*.py, "kb.py search" answers from the previous
+  round and nobody notices.  This step compares mtimes; it does not rebuild
+  unless asked (--kb-build), because a rebuild needs the offline model cache.
+
+Usage
+-----
+    python gate.py                # walk the cheap gates
+    python gate.py --full         # + mlog.py selftest (430-case round trip)
+    python gate.py --kb-build     # rebuild the KB when it is stale
+    python gate.py --only test    # run steps whose name contains "test"
+    python gate.py -v             # stream child output instead of capturing it
+
+Exit status: 0 when every step PASSes (WARN allowed unless --strict), 1 otherwise.
+"""
+from __future__ import annotations
+
+import argparse
+import os
+import subprocess
+import sys
+import time
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent
+PY = sys.executable
+
+
+def child_env() -> dict:
+    e = dict(os.environ)
+    e["PYTHONIOENCODING"] = "utf-8"
+    e["PYTHONUTF8"] = "1"
+    return e
+
+
+def run_child(argv: list[str], timeout: int = 3600) -> tuple[int, str, float]:
+    t0 = time.time()
+    cp = subprocess.run([PY, *argv], cwd=str(ROOT), env=child_env(),
+                        capture_output=True, text=True, encoding="utf-8",
+                        errors="replace", timeout=timeout)
+    out = (cp.stdout or "") + (cp.stderr or "")
+    return cp.returncode, out, time.time() - t0
+
+
+def tail(text: str, n: int = 12) -> str:
+    lines = [ln for ln in text.splitlines() if ln.strip()]
+    return "\n".join("    " + ln for ln in lines[-n:])
+
+
+# --------------------------------------------------------------------------- #
+# KB freshness: reuse kb.py's own source list instead of guessing at globs.
+# --------------------------------------------------------------------------- #
+
+def kb_sources() -> tuple[Path, list[Path]]:
+    sys.path.insert(0, str(ROOT / "tools"))
+    import kb as K                                            # noqa: PLC0415
+
+    src: list[Path] = []
+    for rel in K.DOC_FILES:
+        p = ROOT / rel
+        if p.is_file():
+            src.append(p)
+    for pat in list(K.CODE_GLOBS) + list(K.DOC_GLOBS):
+        src += [p for p in ROOT.glob(pat) if p.is_file()]
+    return K.DB_PATH, src
+
+
+def kb_status() -> tuple[str, str, Path | None]:
+    """Return (PASS or WARN, note, newest source file)."""
+    try:
+        db, src = kb_sources()
+    except Exception as exc:                                  # noqa: BLE001
+        return "SKIP", "cannot introspect kb.py: " + type(exc).__name__ + ": " + str(exc), None
+    rel_db = db.relative_to(ROOT) if db.is_absolute() else db
+    if not db.is_file():
+        return "WARN", "no " + str(rel_db) + " yet -- run: python tools/kb.py build", None
+    if not src:
+        return "PASS", str(rel_db) + " (no source list)", None
+    newest = max(src, key=lambda p: p.stat().st_mtime)
+    if newest.stat().st_mtime > db.stat().st_mtime + 1:
+        return ("WARN", "stale: " + str(newest.relative_to(ROOT)) + " is newer than " + str(rel_db),
+                newest)
+    return "PASS", str(rel_db) + " covers " + str(len(src)) + " source file(s)", None
+
+
+# --------------------------------------------------------------------------- #
+# Steps
+# --------------------------------------------------------------------------- #
+
+def build_steps(full: bool, only: str | None) -> list[tuple[str, list[str] | None, str]]:
+    """(name, argv or None for special steps, skip note)."""
+    steps: list[tuple[str, list[str] | None, str]] = [
+        ("mirror", ["tools/sync_mlogagent.py", "--mirror", "all", "--check"], ""),
+        ("tests", ["tests/run_tests.py"], ""),
+        ("lint", ["tools/rule_capture.py", "lint"], ""),
+    ]
+    global_skill = (Path(os.environ.get("DSH_HOME") or (Path.home() / ".dsh"))
+                    / "skills" / "mlog-agentskill")
+    if global_skill.is_dir():
+        steps.append(("global", ["tools/sync_mlogagent.py", "--global", "--check"], ""))
+    else:
+        steps.append(("global", None, "not installed at " + str(global_skill)))
+    if full:
+        steps.append(("selftest", ["tools/mlog.py", "selftest"], ""))
+    steps.append(("kb", None, ""))                # handled inline, see main()
+    if only:
+        steps = [s for s in steps if only.lower() in s[0].lower()]
+    return steps
+
+
+def main() -> int:
+    ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    ap.add_argument("--full", action="store_true",
+                    help="also run mlog.py selftest")
+    ap.add_argument("--kb-build", action="store_true",
+                    help="rebuild the KB when it is stale instead of warning")
+    ap.add_argument("--only", help="run steps whose name contains this substring")
+    ap.add_argument("--strict", action="store_true", help="treat WARN as failure")
+    ap.add_argument("-v", "--stream", action="store_true",
+                    help="let child output through instead of capturing it")
+    args = ap.parse_args()
+
+    results: list[tuple[str, str, float, str, str]] = []
+    t_all = time.time()
+    for name, argv, skip_note in build_steps(args.full, args.only):
+        if name == "kb":
+            t0 = time.time()
+            status, note, _newest = kb_status()
+            if status == "WARN" and args.kb_build:
+                rc, out, _secs = run_child(["tools/kb.py", "build"])
+                if rc != 0:
+                    results.append((name, "FAIL", time.time() - t0, out, note))
+                    continue
+                status, note, _ = kb_status()
+                note = "rebuilt; " + note
+            results.append((name, status, time.time() - t0, "", note))
+            continue
+        if argv is None:
+            results.append((name, "SKIP", 0.0, "", skip_note))
+            continue
+        t0 = time.time()
+        if args.stream:
+            print("--> " + name + ": " + " ".join(argv), flush=True)
+            rc = subprocess.run([PY, *argv], cwd=str(ROOT), env=child_env()).returncode
+            out, secs = "", time.time() - t0
+        else:
+            rc, out, secs = run_child(argv)
+        results.append((name, "PASS" if rc == 0 else "FAIL", secs, out, ""))
+
+    width = max((len(r[0]) for r in results), default=5)
+    print("gate".ljust(width) + "  status  secs  note")
+    print("-" * (width + 40))
+    for name, status, secs, _out, note in results:
+        print(name.ljust(width) + "  " + status.ljust(6) + f"  {secs:5.1f}  " + note)
+    print()
+    for name, status, _secs, out, _note in results:
+        if status == "FAIL" and out.strip():
+            print("--- " + name + " (last lines) ---")
+            print(tail(out))
+            print()
+
+    fails = [r[0] for r in results if r[1] == "FAIL"]
+    warns = [r[0] for r in results if r[1] == "WARN"]
+    skips = [r[0] for r in results if r[1] == "SKIP"]
+    ok = len(results) - len(fails) - len(warns) - len(skips)
+    summary = str(ok) + "/" + str(len(results)) + " passed"
+    if warns:
+        summary += ", " + str(len(warns)) + " warn (" + ", ".join(warns) + ")"
+    if skips:
+        summary += ", " + str(len(skips)) + " skipped"
+    summary += f" in {time.time() - t_all:.1f}s"
+    if fails:
+        summary += " -- FAILED: " + ", ".join(fails)
+    print(summary)
+    return 1 if fails or (warns and args.strict) else 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

@@ -42,7 +42,33 @@ CASES = HERE / "cases"
 EXPECTED = HERE / "expected.json"
 TOOLS = HERE.parent / "mindustry-blueprint" / "tools"
 
+ROOT = HERE.parent
 sys.path.insert(0, str(TOOLS))
+
+
+def _mirror_stale_reason() -> str | None:
+    """Why is this suite about to grade stale code?  None = fine.
+
+    Every analyzer imported below comes from ``mindustry-blueprint/tools`` (the
+    mirror), not from ``tools/`` (the source of truth).  Editing the source and
+    forgetting ``--mirror`` therefore leaves the suite green on old code -- the
+    exact shape of the failure that hid the status-slot mistake on 2026-10-25.
+    So compare the two first, and refuse to report anything from a stale copy.
+    """
+    script = ROOT / "tools" / "sync_mlogagent.py"
+    if not script.is_file() or not TOOLS.is_dir():
+        return None
+    try:
+        cp = subprocess.run(
+            [sys.executable, str(script), "--mirror", "all", "--check"],
+            cwd=str(ROOT), capture_output=True, text=True,
+            encoding="utf-8", errors="replace", timeout=180)
+    except Exception as exc:                                  # noqa: BLE001
+        return f"could not run the mirror check: {type(exc).__name__}: {exc}"
+    if cp.returncode == 0:
+        return None
+    tail = [ln for ln in (cp.stdout or "").splitlines() if ln.strip()][-6:]
+    return "\n".join(tail)
 
 import mlogcheck as C          # noqa: E402
 import mlogir as I             # noqa: E402
@@ -436,7 +462,20 @@ def main() -> int:
     ap.add_argument("--write", action="store_true", help="regenerate expected.json")
     ap.add_argument("--case", help="only run labels containing this substring")
     ap.add_argument("-v", "--verbose", action="store_true")
+    ap.add_argument("--no-mirror-check", action="store_true",
+                    help="skip the tools/ vs mindustry-blueprint/tools check")
     args = ap.parse_args()
+
+    if not args.no_mirror_check:
+        why = _mirror_stale_reason()
+        if why:
+            print("refusing to run: the analyzers under test would be the stale COPY\n"
+                  f"  {TOOLS.relative_to(ROOT)}\n"
+                  "  ...not tools/.  Run: python tools/sync_mlogagent.py --mirror all\n"
+                  "  (--no-mirror-check skips this when the tree has no mirror)",
+                  file=sys.stderr)
+            print(why, file=sys.stderr)
+            return 2
 
     got = run(args.case)
     if args.write:
