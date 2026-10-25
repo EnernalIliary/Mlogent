@@ -170,9 +170,18 @@ def write_target(name: str, check_only: bool) -> int:
         print(f"ok     {name}: {len(present)} tool file(s) in sync")
         return 0
 
-    if absent and may_create:
-        d.mkdir(parents=True, exist_ok=True)
     wrote = 0
+    if absent and may_create:
+        # The skill payload is generated, so a new module belongs there by
+        # definition: leaving it out let a vendored copy import a module that
+        # does not exist (mlogcheck -> rule_ids, 2026-10-26). bp/install stay
+        # "overwrite what is there" -- they are supersets with their own files.
+        d.mkdir(parents=True, exist_ok=True)
+        for n in absent:
+            shutil.copy2(HERE / n, d / n)
+            wrote += 1
+        absent = []
+        present = [n for n in payload() if (d / n).is_file()]   # for the manifest
     for n in present:
         dst = d / n
         if sha256(HERE / n) != sha256(dst):

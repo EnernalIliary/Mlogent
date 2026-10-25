@@ -26,6 +26,16 @@ from pathlib import Path
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
+# Rule ids for findings: tools/rule_ids.py reads rules/*.json, which is the one
+# place that says which prose a rule claims. A payload packaged without that
+# directory (the standalone skill) leaves Finding.rid as None -- callers then
+# fall back to the statement text, i.e. the pre-2026-10-26 behaviour.
+try:
+    from rule_ids import rule_id as _rule_id_of
+except Exception:                                   # pragma: no cover
+    def _rule_id_of(sev, msg):
+        return None
+
 # --------------------------------------------------------------------------- #
 # instruction tables
 # --------------------------------------------------------------------------- #
@@ -136,10 +146,18 @@ OP_RE = re.compile(r"^op\s+(\S+)\s+(\S+)(?:\s+(\S+))?(?:\s+(\S+))?$")
 
 
 class Finding:
-    __slots__ = ("sev", "line", "code", "msg")
+    """One diagnostic.
 
-    def __init__(self, sev: str, line: int, code: str, msg: str):
+    rid is the id of the rule in rules/*.json that claims this message (see
+    tools/rule_ids.py), or None when no rule owns it. Consumers used to
+    re-derive that by matching text themselves -- the corpus sweep did, and its
+    report ended up showing statement source in the "rule" column.
+    """
+    __slots__ = ("sev", "line", "code", "msg", "rid")
+
+    def __init__(self, sev: str, line: int, code: str, msg: str, rid=None):
         self.sev, self.line, self.code, self.msg = sev, line, code, msg
+        self.rid = rid if rid is not None else _rule_id_of(sev, msg)
 
     def __str__(self):
         return f"  [{self.sev}] L{self.line:<4} {self.code:<44} {self.msg}"
