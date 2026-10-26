@@ -20,9 +20,13 @@ LOGIC_BLOCKS = ("micro-processor", "logic-processor", "hyper-processor", "memory
 
 def main(argv=None):
     ap = argparse.ArgumentParser()
-    ap.add_argument("--dest", default=os.path.join(ROOT, "logic-corpus"))
+    ap.add_argument("--dest", default=os.path.join(ROOT, "logic-corpus"),
+                    help="语料根目录；程序写到 <dest>/_procs/")
+    ap.add_argument("--src", default="",
+                    help="从别处扫 .msch（例如仓库外的 git clone），默认扫 --dest 自己")
     a = ap.parse_args(argv)
-    src = a.dest
+    src = a.src or a.dest
+    os.makedirs(a.dest, exist_ok=True)
     files = []
     for dirpath, dirnames, filenames in os.walk(src):
         if os.path.basename(dirpath).startswith("_"):
@@ -31,7 +35,7 @@ def main(argv=None):
             if fn.lower().endswith(".msch"):
                 files.append(os.path.join(dirpath, fn))
     files.sort()
-    outdir = os.path.join(src, "_procs")
+    outdir = os.path.join(a.dest, "_procs")
     os.makedirs(outdir, exist_ok=True)
     progs, unreadable, no_logic, tiles_total = {}, [], 0, 0
     for path in files:
