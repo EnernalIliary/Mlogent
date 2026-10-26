@@ -941,7 +941,10 @@ def analyse(lines: list[str], links: list[str] | None = None, ipt: int = 2) -> l
                     f"count and one without returns null (`sensor x vault1 "
                     f"@hyper-processor` -> null; "
                     f"out/takeover-20261024/15-sensor-link-oracle.md). If a property "
-                    f"was meant, this is the wrong spelling"))
+                    f"was meant, this is the wrong spelling. Note: this table is "
+                    f"the vanilla v160 snapshot -- modded content (`@commanded`, "
+                    f"`@new-horizon-...`) is simply not in it, so a modded name "
+                    f"lands here too"))
                 continue
             out.append(Finding(
                 "WARN", _ln + 1, "sensor-not-a-property",
@@ -952,7 +955,10 @@ def analyse(lines: list[str], links: list[str] | None = None, ipt: int = 2) -> l
                 f"destination is then written null, so every comparison against it "
                 f"is false -- `jump ... equal x 0` matches too, because null's "
                 f"numeric value is 0 "
-                f"(out/takeover-20261024/15-sensor-link-oracle.md)"))
+                f"(out/takeover-20261024/15-sensor-link-oracle.md). Note: this "
+                f"table is the vanilla v160 snapshot, so a modded attribute or "
+                f"content name (`@commanded`, `@饱和火力-...`) lands here without "
+                f"being an author mistake"))
 
     # ---- read/write @this "name": a string addresses a processor variable ----
     # `LogicBlock.read` looks the name up in `executor.optionalVar(name)`, then
@@ -1035,6 +1041,35 @@ def analyse(lines: list[str], links: list[str] | None = None, ipt: int = 2) -> l
                 return False
         return True
 
+    # A name that only ever appears in the ADDRESS slot of a memory cell
+    # (`read c stream0 frame`, `write 7 cell1 frame`) is a different animal from
+    # a name used as a value: the program computes nothing with it, it is only an
+    # index. One such name can account for hundreds of findings in one program
+    # (the `frame` family in the Anon blueprint corpus: 53 statements in a single
+    # 186-line file, 7,346 findings over 1,401 programs). They are therefore
+    # summarized once per name instead of once per statement.
+    def _index_slots(p: list[str]) -> set[int]:
+        op = p[0].lower() if p else ""
+        if op in ("read", "write") and len(p) >= 4:
+            return {3}
+        if op == "getlink" and len(p) >= 3:
+            return {2}
+        return set()
+
+    _n_uses: dict[str, int] = {}
+    _n_index: dict[str, int] = {}
+    for _, c in stmts:
+        p = tokenize(c)
+        for v in uses_of(c):
+            _n_uses[v] = _n_uses.get(v, 0) + 1
+        for pos in _index_slots(p):
+            if pos < len(p):
+                _n_index[p[pos]] = _n_index.get(p[pos], 0) + 1
+    # Only names this program never assigns and never uses as a value.
+    _index_only = {v for v, n in _n_uses.items()
+                   if v not in ever_defined and n == _n_index.get(v, 0)}
+    _index_only_sites: dict[str, list[tuple[int, str]]] = {}
+
     for i, (orig, c) in enumerate(stmts):
         # `set // read anything` is the de-facto comment idiom: the author names
         # the destination with punctuation so it stands out in the variable
@@ -1082,10 +1117,28 @@ def analyse(lines: list[str], links: list[str] | None = None, ipt: int = 2) -> l
             # nothing (`LExecutor` requires `exec.build.validLink(b)`).
             if LINK_RE.match(v):
                 if links is not None and v not in link_vars:
-                    out.append(Finding(
-                        "WARN", orig + 1, c,
-                        f"`{v}` is shaped like a block link but this processor "
-                        f"has no such link (it has: {', '.join(sorted(link_vars)) or 'none'})"))
+                    # A blueprint that carries NO links at all and holds a long
+                    # program is a fragment cropped out of a larger base (the
+                    # Anon corpus: 2,865 of 44,241 programs have zero links, and
+                    # they account for the `display1`/`message1` bulk of this
+                    # rule's hits). There the reference is unbound because the
+                    # target block was left outside the copied region, not
+                    # because the author asked for a link that never existed --
+                    # still null at runtime, so INFO with honest wording.
+                    if not link_vars and len(stmts) > 200:
+                        out.append(Finding(
+                            "INFO", orig + 1, c,
+                            f"`{v}` is shaped like a block link, but this "
+                            f"blueprint carries no links at all and the program is "
+                            f"{len(stmts)} statements long -- that combination is a "
+                            f"fragment cropped out of a larger base, so every block "
+                            f"reference in it is unbound (in game it reads null "
+                            f"until the targets are re-linked)"))
+                    else:
+                        out.append(Finding(
+                            "WARN", orig + 1, c,
+                            f"`{v}` is shaped like a block link but this processor "
+                            f"has no such link (it has: {', '.join(sorted(link_vars)) or 'none'})"))
                 continue
             kinds = use_kinds.get(v, set())
             bslot = _bool_slot(p)
@@ -1132,11 +1185,25 @@ def analyse(lines: list[str], links: list[str] | None = None, ipt: int = 2) -> l
                     f"unset variable is 0 and `null` reads as 0, so only `===` "
                     f"tells null from 0 (a constant branch is often a signature)"))
                 continue
+            if v in _index_only:
+                _index_only_sites.setdefault(v, []).append((orig + 1, c))
+                continue
             out.append(Finding(
                 "ERR", orig + 1, c,
                 f"`{v}` is mentioned (so it is declared, with the initial value "
                 f"null) but is never assigned anywhere in this program; reading "
                 f"it here yields null (and it is not a link or built-in)"))
+
+    for _v, _sites in _index_only_sites.items():
+        _ln0, _c0 = _sites[0]
+        out.append(Finding(
+            "ERR", _ln0, _c0,
+            f"`{_v}` is never assigned, and it is used only as a memory cell "
+            f"index ({len(_sites)} statement(s), first at line {_sites[0][0]}) "
+            f"-- every one of them addresses "
+            f"null, so all {len(_sites)} fail. A program that indexes cells with a "
+            f"variable it never sets is usually a fragment: the variable is "
+            f"written by another processor in the same base"))
 
     # ---- status: the effect slot (bare name vs @status-<name>) -------------
     # `status <clear> <effect> <unit> <duration>`. The slot changed shape:
