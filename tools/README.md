@@ -137,19 +137,25 @@ python tools/kb.py serve
 5. **规则**：`review.py`、`rule_seed.py`、`rule_capture.py`、`rule_audit.py`；规则数据在 `rules/`。
 6. **数据表维护**：`*_from_source.py`、`build_cmd_index.py`、`block_sizes.py`——需要 `Mindustry-Source`，输出 JSON 已在仓库里，平时不用跑。
 7. **语料流水线**（`corpus/`，低频，文档里有引用）：`analyze_logic.py`、`rank_logic.py`、`mine_idioms.py`、`check_ops.py`、`scan_all.py`、`extract_logic.py`、`label_*.py`、`sweep_*.py`、`pack_scan.py`、`typo_*.py`、`_sweep_saves.py`、`_sweep_analyse.py`、`_label_programs.py`、`_err_table.py` 等。脚本已按新位置改过路径，能直接跑。
-8. **一次性脚本**：`dev/`——探针、patch、调试脚本，默认被忽略，不保证能跑，不要依赖。
 
-   其中**外部蓝图语料流水线**（2026-10-26 新增，需要网络，不进 gate）：
+8. **外部逻辑语料**（`corpus/`，2026-10-26 新增，需要网络，不进 gate）：两条流水线，共用 `check_corpus.py` 按 rule id 聚合。蓝图包走 GitHub，成品地图走 mindustry.top 站点（限速极狠，默认 10 s 间隔）。
 
    ```
-   python tools/dev/fetch_schematics.py      # GitHub 抓 .msch 包 -> logic-corpus/<owner>-<repo>/
-   python tools/dev/classify_schematics.py   # 解码 + 去重 -> logic-corpus/_procs/<sha>.mlog + _meta.json
-   python tools/dev/check_corpus.py          # 跑全部规则，按 rule id 聚合 -> out/_crawl/check-corpus.json
+   python tools/corpus/fetch_schematics.py      # GitHub 抓 .msch 包 -> logic-corpus/<owner>-<repo>/
+   python tools/corpus/classify_schematics.py   # 解码 + 去重 -> logic-corpus/_procs/<sha>.mlog + _meta.json
+   python tools/corpus/crawl_maps.py --search 逻辑 --search 塔防 --want 20
+                                                # 站点抓 .msav -> logic-corpus/_maps/（--list-only 只刷 id）
+   python tools/corpus/extract_maps.py          # 读存档 + 去重 -> logic-corpus/_maps_procs/<sha>.mlog
+   python tools/corpus/check_corpus.py                            # 蓝图：_procs
+   python tools/corpus/check_corpus.py --procs _maps_procs        # 地图：_maps_procs
    ```
 
-   `logic-corpus/` 已 gitignore（可随时重抓）；`check_corpus.py` 会把蓝图里声明的链接名一起传进
+   `logic-corpus/` 已 gitignore（可随时重抓）；两条命令都把蓝图/存档里声明的链接名传进
    `mlogcheck.analyse(links=...)`，所以 `link-name-not-bound` 这类规则在外部语料上才有意义。
-9. **数据 JSON**（顶层，和代码同目录）：`block_attrs`(253)、`sensor_attrs`(75)、`unit_attrs`、`instr_semantics`、`cmd_index`(86)、`wiki_block_ids`(422)、`block_sizes`(446)、`item_ids`、`status_names`、`label_rules`。
+   `map_site.download()` 的 `dest` 必须是 `Path`（传 `str` 报 `AttributeError`）。
+
+9. **一次性脚本**：`dev/`——探针、patch、调试脚本，默认被忽略，不保证能跑，不要依赖。
+10. **数据 JSON**（顶层，和代码同目录）：`block_attrs`(253)、`sensor_attrs`(75)、`unit_attrs`、`instr_semantics`、`cmd_index`(86)、`wiki_block_ids`(422)、`block_sizes`(446)、`item_ids`、`status_names`、`label_rules`。
 
 ## 不要手改的副本
 
