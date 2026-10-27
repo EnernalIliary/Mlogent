@@ -181,6 +181,10 @@ python tools/kb.py serve
    与语料无关的还有一个 `shapes` 步（0.1 s）：`python tests/shapes/run_shapes.py`
    断言检查器自己的**语句形状不变量**——每条规则对坏样例追加 1/2/5 个惰性 token 与行尾注释后仍必须开火，
    防的是整行锚定正则 fail-open（`op select` 那类漏洞；`--module` 可指向旧版做负向自证）。
+    `--full` 独有的四步（`selftest` / `probes` / `corpus` / `coverage`）互不依赖——各自起 JVM、
+    各写各的 `out/_bench` 文件、互不读对方输出——所以 `gate.py` 把它们**并发**跑：
+    74.7 s → 43.8 s（长杆是 `probes` 的 40 s，不是四者之和）。`--serial` 回到串行，`--stream` 也强制串行。
+    日常改完跑默认档即可（3.3 s，含 `shapes` 与 `lint`），`--full` 留给提交前/发版前。
    注意 `mlog_needs.py` 的 `programs_detail` 在大语料上是几百 MB，
    4 万程序全量跑要加 `--no-detail`，否则 JSON 慢到像挂死。
 

@@ -14,7 +14,7 @@ python tools/mlog.py check logic.mlog          # 静态检查
 python tools/mlog.py check logic.mlog --cost   # 死代码 / 最坏指令数
 python tools/mlogagent.py report logic.mlog    # 五层分析一次跑完
 python gate.py                                 # 全部门禁一次跑完（见下）
-python gate.py --full                          # 再加 430 项蓝图自检 + 运行期探针 + 语料两关 + 语句形状不变量（需 JRE）
+python gate.py --full                          # 再加 430 项蓝图自检 + 运行期探针 + 语料两关 + 语句形状不变量（需 JRE；重步骤并发，约 44 s）
 python tests/probes/run_probes.py              # 只跑运行期探针（真执行器，断言语义）
 ```
 
@@ -22,7 +22,7 @@ python tests/probes/run_probes.py              # 只跑运行期探针（真执�
 `mindustry-blueprint/tools` 副本，副本陈旧会让整套测试“绿着但测的是旧代码”）、`tests`、
 `rule_capture.py lint`、`tests/shapes/run_shapes.py`（检查器自身的语句形状不变量：
 语句尾部追加惰性 token 后规则仍须开火，防整行锚定正则 fail-open）、`global`（用户级技能副本）、`kb`（`out/_kb/kb.sqlite3` 是否比
-`docs/断言表.md`、`tools/*.py` 旧）。`--full` 追加 `mlog.py selftest`，`--kb-build` 在 KB
+`docs/断言表.md`、`tools/*.py` 旧）。默认档约 3 s，够日常改完就看；`--full` 追加 `mlog.py selftest` / `probes` / `corpus` / `coverage` 四步——它们互不依赖（各自起 JVM、各写各的 `out/_bench` 文件），所以**并发跑**，75 s 压到约 44 s，`--serial` 恢复串行。`--kb-build` 在 KB
 陈旧时自动重建，`--only test` 只跑名字含某子串的步骤，`--strict` 把 WARN 当失败。
 `--full` 里的 `probes` 用真执行器跑 `tests/probes/manifest.json` 里的程序并比对数字（例如
 “裸状态名在 v160.7 施加 1200 tick、`@wet` 是静默 no-op”）——静态检查说什么都不算数，

@@ -21,8 +21,10 @@ stop being run first:
 
 Usage
 -----
-    python gate.py                # walk the cheap gates
-    python gate.py --full         # + mlog.py selftest, + runtime probes (needs a JRE)
+    python gate.py                # walk the cheap gates (~3 s)
+    python gate.py --full         # + selftest / probes / corpus / coverage (~42 s, needs a JRE);
+                                  #   those four are independent, so they run concurrently --
+                                  #   --serial brings back the old one-at-a-time order
     python gate.py --kb-build     # rebuild the KB when it is stale
     python gate.py --only test    # run steps whose name contains "test"
     python gate.py -v             # stream child output instead of capturing it
@@ -41,6 +43,15 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent
 PY = sys.executable
 
+# The four --full steps are independent of each other and of the cheap gates:
+# each drives its own JVM (mlogsim/mlog.py start one per run, and a host-less
+# run binds no 6567 port), each writes a different file under out/_bench, and
+# none of them reads another one's output.  Run them together: the full gate
+# goes from ~75 s to ~42 s, and the long pole is probes (38 s) not the sum.
+# --serial restores the sequential order; --stream implies it (interleaved
+# child output would be unreadable).
+PARALLEL = ("selftest", "probes", "corpus", "coverage")
+
 
 def child_env() -> dict:
     e = dict(os.environ)
@@ -56,6 +67,31 @@ def run_child(argv: list[str], timeout: int = 3600) -> tuple[int, str, float]:
                         errors="replace", timeout=timeout)
     out = (cp.stdout or "") + (cp.stderr or "")
     return cp.returncode, out, time.time() - t0
+
+
+def run_step(name: str, argv: list[str], stream: bool = False) -> tuple[str, str, float, str, str]:
+    """Run one child and turn its exit code into a gate row."""
+    t0 = time.time()
+    if stream:
+        print("--> " + name + ": " + " ".join(argv), flush=True)
+        rc = subprocess.run([PY, *argv], cwd=str(ROOT), env=child_env()).returncode
+        out, secs = "", time.time() - t0
+    else:
+        rc, out, secs = run_child(argv)
+    if rc == 3:
+        # the child reports "nothing could run" as 3 (no JRE, no jars)
+        note = [ln for ln in out.splitlines() if ln.startswith("SKIP")]
+        return (name, "SKIP", secs, "", note[-1] if note else "child skipped")
+    return (name, "PASS" if rc == 0 else "FAIL", secs, out, "")
+
+
+def run_parallel(steps: list[tuple[str, list[str]]]) -> list[tuple[str, str, float, str, str]]:
+    """Run independent steps at once, but return the rows in list order."""
+    from concurrent.futures import ThreadPoolExecutor            # noqa: PLC0415
+
+    with ThreadPoolExecutor(max_workers=len(steps)) as pool:
+        futures = [pool.submit(run_step, name, argv) for name, argv in steps]
+        return [f.result() for f in futures]
 
 
 def tail(text: str, n: int = 12) -> str:
@@ -169,11 +205,17 @@ def main() -> int:
     ap.add_argument("--strict", action="store_true", help="treat WARN as failure")
     ap.add_argument("-v", "--stream", action="store_true",
                     help="let child output through instead of capturing it")
+    ap.add_argument("--serial", action="store_true",
+                    help="do not run the independent --full steps concurrently")
     args = ap.parse_args()
 
     results: list[tuple[str, str, float, str, str]] = []
     t_all = time.time()
-    for name, argv, skip_note in build_steps(args.full, args.only):
+    steps = build_steps(args.full, args.only)
+    batch = [] if (args.serial or args.stream) else [s for s in steps
+                                                    if s[0] in PARALLEL and s[1]]
+    batch_done = False
+    for name, argv, skip_note in steps:
         if name == "kb":
             t0 = time.time()
             status, note, _newest = kb_status()
@@ -189,19 +231,12 @@ def main() -> int:
         if argv is None:
             results.append((name, "SKIP", 0.0, "", skip_note))
             continue
-        t0 = time.time()
-        if args.stream:
-            print("--> " + name + ": " + " ".join(argv), flush=True)
-            rc = subprocess.run([PY, *argv], cwd=str(ROOT), env=child_env()).returncode
-            out, secs = "", time.time() - t0
-        else:
-            rc, out, secs = run_child(argv)
-        if rc == 3:
-            # the child reports "nothing could run" as 3 (no JRE, no jars)
-            note = [ln for ln in out.splitlines() if ln.startswith("SKIP")]
-            results.append((name, "SKIP", secs, "", note[-1] if note else "child skipped"))
+        if batch and name in PARALLEL:
+            if not batch_done:                      # first of the batch: run them all
+                results.extend(run_parallel([(n, a) for n, a, _s in batch]))
+                batch_done = True
             continue
-        results.append((name, "PASS" if rc == 0 else "FAIL", secs, out, ""))
+        results.append(run_step(name, argv, args.stream))
 
     width = max((len(r[0]) for r in results), default=5)
     print("gate".ljust(width) + "  status  secs  note")
