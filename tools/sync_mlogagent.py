@@ -137,8 +137,10 @@ def _run_verify(d: Path) -> bool | None:
 def write_target(name: str, check_only: bool) -> int:
     d, may_create, want_manifest = MIRRORS[name]
     if not d.is_dir():
-        print(f"!! {name}: directory not found: {d}")
-        return 2
+        # 公开仓/精简导出里没有某个镜像目录是正常的（比如 install 那份只在作者本机），
+        # 不是「陈旧」——只提示一下，别让 --check 因此判定失败。
+        print(f".. {name}: directory not found, skipped: {d}")
+        return 0
 
     present = [n for n in payload() if (d / n).is_file()]
     absent = [n for n in payload() if n not in present]

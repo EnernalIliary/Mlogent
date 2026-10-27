@@ -315,6 +315,13 @@ SUITE: list[tuple[str, str, str | None]] = [
     ("cost/counter-set",       "cost",    "counter-set.mlog"),
     ("cost/counter-unknown",   "cost",    "counter-unknown.mlog"),
     ("check/declared-by-mention", "check", "declared-by-mention.mlog"),
+    # The operator NAME inside `op` has to be validated even when the line is
+    # long. OP_RE stopped matching after four tokens, so
+    # `op select k1 lessThan cu 6 @copper @dormant-cyst` was skipped whole and
+    # the checker reported "no issues" -- in game LParser.java:142-147 replaces
+    # the line with an InvalidStatement (a noop), the destination variable stays
+    # null and nothing says why. Eight-token line, one ERR, nothing else.
+    ("check/op-long-unknown", "check_msg", "op-long-unknown.mlog"),
     ("tool/aigenerated",       "aigenerated", None),
     ("gen/normalized",         "gen",     None),
     ("tool/mcp",               "mcp",     None),

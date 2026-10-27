@@ -445,6 +445,17 @@
       ]
     ]
   },
+  "check/op-long-unknown": {
+    "kind": "check_msg",
+    "case": "op-long-unknown.mlog",
+    "digest": [
+      [
+        "ERR",
+        1,
+        "unknown op `select`"
+      ]
+    ]
+  },
   "tool/aigenerated": {
     "kind": "aigenerated",
     "case": null,

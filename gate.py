@@ -133,8 +133,21 @@ def build_steps(full: bool, only: str | None) -> list[tuple[str, list[str] | Non
                                      "--stride", "37", "--limit", "400", "--jobs", "8",
                                      "--fail-on-errors",
                                      "--json", "out/_bench/_gate_corpus.json"], ""))
+            # Instruction coverage cannot assert an absolute number (it depends on
+            # the sample), but it can assert that the statements *this* sample
+            # never uses are still the ones a human signed off on: adding a row to
+            # tools/instr_semantics.json, or losing one from the sample, changes
+            # the set and fails here until the baseline is re-recorded on purpose
+            # (tests/corpus-coverage-baseline.json, written by
+            # instr_coverage.py --write-baseline at the same --limit).
+            steps.append(("coverage", ["tools/corpus/instr_coverage.py",
+                                       "--src", str(corpus / "_procs"), "--limit", "400",
+                                       "--baseline", "tests/corpus-coverage-baseline.json",
+                                       "--json", "out/_bench/_gate_coverage.json",
+                                       "--md", "out/_bench/_gate_coverage.md"], ""))
         else:
             steps.append(("corpus", None, "no corpus at " + str(corpus) + " (MLOG_CORPUS overrides)"))
+            steps.append(("coverage", None, "no corpus at " + str(corpus) + " (MLOG_CORPUS overrides)"))
     steps.append(("kb", None, ""))                # handled inline, see main()
     if only:
         steps = [s for s in steps if only.lower() in s[0].lower()]

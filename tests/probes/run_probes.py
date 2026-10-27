@@ -12,6 +12,21 @@ Each probe in manifest.json is a program plus the numbers the real executor must
 produce. Adding a semantic claim means adding a probe, and a wrong claim now fails
 a gate instead of surviving until someone re-reads a class file.
 
+What a probe may assert
+-----------------------
+    expect {effect: duration}   status effect duration in ticks
+    expect_has {effect: bool}   hasEffect bit
+    expect_vars {name: value}   value: number (|got-want| <= 1e-6) or string (exact),
+                                or {"approx": 60, "tol": 1e-3}
+    expect_classes [names]      compiled instruction classes, exact list
+    expect_classes_has [names]  classes that must be present
+    expect_text "..."           text buffer, exact (newlines appear as \\n)
+    expect_text_contains [...]  substrings that must appear in the text buffer
+    expect_text_empty true      text buffer must be empty
+    processor "world"|"auto"    block to place ("auto" sniffs PRIVILEGED_RE)
+    rules {field: value}        Vars.state.rules overrides applied before compiling
+                                (e.g. allowLogicData, which gates clientdata)
+
 Usage
 -----
     python tests/probes/run_probes.py              # all probes
@@ -50,7 +65,32 @@ if(U === null){ print('NOUNIT'); } else {
         print('E\t' + e.name + '\t' + Math.round(U.getDuration(e)) + '\t' + U.hasEffect(e));
     }
 }
+void 0
 '''
+
+#: reads the class of every compiled instruction: a privileged statement placed in
+#: a micro processor vanishes without a trace, so the class list *is* the evidence
+CLASSES_JS = r'''
+var b = Vars.world.build(%d, %d);
+if(b === null || b.executor === null){ print('NOPROC'); } else {
+    var a = [];
+    var ins = b.executor.instructions;
+    for(var i = 0; i < ins.length; i++){
+        a.push(String(ins[i].getClass().getSimpleName()));
+    }
+    print('CLS\t' + a.join(','));
+}
+void 0
+'''
+
+
+def as_lines(out):
+    """srv.js() returns a list of lines on some paths and a string on others."""
+    if out is None:
+        return []
+    if isinstance(out, str):
+        return out.splitlines()
+    return [str(x) for x in out]
 
 
 def probe_js(names):
@@ -65,6 +105,68 @@ def read_effects(lines):
         _, name, dur, has = line.split('\t')[:4]
         got[name] = (int(float(dur)), has == 'true')
     return got
+
+
+def read_classes(srv):
+    for line in as_lines(srv.js(CLASSES_JS % srv.base)):
+        if line.startswith('CLS\t'):
+            return [x for x in line.split('\t', 1)[1].split(',') if x]
+    return []
+
+
+def num_close(got, want):
+    try:
+        return abs(float(got) - float(want)) <= 1e-6
+    except (TypeError, ValueError):
+        return str(got) == str(want)
+
+
+def check(p, rec, effects, classes):
+    """Return the list of failed assertions; empty means the probe passed."""
+    bad = []
+    for name, want in (p.get('expect') or {}).items():
+        dur, has = effects.get(name, (None, None))
+        if dur != want:
+            bad.append('%s duration want %s got %s' % (name, want, dur))
+    for name, want in (p.get('expect_has') or {}).items():
+        dur, has = effects.get(name, (None, None))
+        if has != want:
+            bad.append('%s hasEffect want %s got %s' % (name, want, has))
+
+    vars_ = (rec or {}).get('vars') or {}
+    for name, want in (p.get('expect_vars') or {}).items():
+        got = vars_.get(name)
+        if got is None:
+            bad.append('%s missing (vars: %s)' % (name, sorted(vars_)))
+        elif isinstance(want, dict):
+            if not num_close(got, want.get('approx')):
+                bad.append('%s want ~%s got %s' % (name, want.get('approx'), got))
+            elif 'tol' in want and abs(float(got) - float(want['approx'])) > float(want['tol']):
+                bad.append('%s want %s+-%s got %s' % (name, want['approx'], want['tol'], got))
+        elif isinstance(want, (int, float)):
+            if not num_close(got, want):
+                bad.append('%s want %s got %s' % (name, want, got))
+        elif str(got) != str(want):
+            bad.append('%s want %r got %r' % (name, want, got))
+
+    if 'expect_classes' in p:
+        if list(classes) != list(p['expect_classes']):
+            bad.append('classes want %s got %s' % (p['expect_classes'], classes))
+    for name in (p.get('expect_classes_has') or []):
+        if name not in classes:
+            bad.append('class %s missing (got %s)' % (name, classes))
+
+    text = (rec or {}).get('text')
+    if text is None:
+        text = ''
+    if 'expect_text' in p and text != p['expect_text']:
+        bad.append('text want %r got %r' % (p['expect_text'], text))
+    for part in (p.get('expect_text_contains') or []):
+        if part not in text:
+            bad.append('text missing %r (got %r)' % (part, text))
+    if p.get('expect_text_empty') and text != '':
+        bad.append('text want empty got %r' % (text,))
+    return bad
 
 
 def main(argv=None):
@@ -92,14 +194,25 @@ def main(argv=None):
             skipped.append((p['id'], 'missing jar ' + str(jar)))
             continue
         names = list(p.get('expect') or {})
+        proc = p.get('processor', 'auto')
         srv = None
         try:
             srv = M.Server(java, jar)
             srv._core_spec = 'copper:100'
             srv._unit_spec = [['flare', 1]]
             srv.prepare()
-            M.run_mlog(srv, 'p', p['code'], steps=int(p.get('steps', 20)))
-            got = read_effects(srv.js(probe_js(names)))
+            for field, value in (p.get('rules') or {}).items():
+                # Server.js() ends a console command by waiting for the line
+                # "undefined" (Rhino prints the value of the last expression).
+                # A bare assignment evaluates to true/false and would never
+                # print it, so end the script with an explicit void 0.
+                srv.js('Vars.state.rules.%s = %s; void 0' % (
+                    field, 'true' if value is True else
+                    'false' if value is False else json.dumps(value)))
+            rec = M.run_mlog(srv, 'p', p['code'], steps=int(p.get('steps', 20)),
+                             processor=proc)
+            effects = read_effects(as_lines(srv.js(probe_js(names))))
+            classes = read_classes(srv)
         except Exception as exc:
             failed.append((p['id'], '%s: %s' % (type(exc).__name__, str(exc)[:120])))
             continue
@@ -109,15 +222,7 @@ def main(argv=None):
                     srv.close()
                 except Exception:
                     pass
-        bad = []
-        for name, want in (p.get('expect') or {}).items():
-            dur, has = got.get(name, (None, None))
-            if dur != want:
-                bad.append('%s duration want %s got %s' % (name, want, dur))
-        for name, want in (p.get('expect_has') or {}).items():
-            dur, has = got.get(name, (None, None))
-            if has != want:
-                bad.append('%s hasEffect want %s got %s' % (name, want, has))
+        bad = check(p, rec, effects, classes)
         if bad:
             failed.append((p['id'], '; '.join(bad)))
         else:

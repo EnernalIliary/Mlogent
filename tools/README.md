@@ -156,6 +156,9 @@ python tools/kb.py serve
                                                  # 抽样冒烟：只跑 400 个，分析器抛异常就 exit 1（gate --full 用）
    python tools/corpus/instr_coverage.py --src <doc>/_procs --json out/_crawl/instr-coverage-anon.json
                                                  # 指令覆盖率：语料里每条 instruction/op/draw 子命令出现几次
+   python tools/corpus/instr_coverage.py --src <doc>/_procs --limit 400 --baseline tests/corpus-coverage-baseline.json
+                                                 # 覆盖率关：绝对值随样本漂，只钉「这批样本从不使用的指令集合」；
+                                                 # 集合一变就 FAIL，要人重录基线（--write-baseline）
    python tools/mlog_needs.py <doc>/_procs --brief --no-detail --stride 10
                                                  # 世界符号清单（传感器/单位/方块/全局量）；大语料必须 --no-detail
    ```
@@ -170,7 +173,10 @@ python tools/kb.py serve
 
    语料还能当**回归基线**用：`python gate.py --full` 末尾有一个 `corpus` 步，
    对 4 万程序按 `--stride 37` 抽 400 个跑 `check_corpus.py --fail-on-errors`
-   （约 10 s），断言「分析器在真实代码上不崩」。语料不在 git 里，机器上没有时该步 SKIP；
+   （约 10 s），断言「分析器在真实代码上不崩」。紧接着的 `coverage` 步用同一批样本跑
+   `instr_coverage.py --limit 400 --baseline tests/corpus-coverage-baseline.json`（0.5 s），
+   断言零覆盖指令集合仍是签过字的那 18 条 —— 往 `instr_semantics.json` 加一行、或样本里
+   丢一条指令，集合就变，必须有人重新录基线。两步都依赖语料目录；不在 git 里，机器上没有时 SKIP，
    目录可用 `MLOG_CORPUS` 覆盖（默认 `~/mlog-corpus/anon-corpus`）。
    注意 `mlog_needs.py` 的 `programs_detail` 在大语料上是几百 MB，
    4 万程序全量跑要加 `--no-detail`，否则 JSON 慢到像挂死。
@@ -192,7 +198,7 @@ python tools/kb.py serve
     python tools/sync_mlogagent.py --mirror all   # 三处仓库内副本 + 各自 MANIFEST.sha256
     python tools/sync_mlogagent.py --mirror all --check   # 只比不写
     python tools/sync_mlogagent.py --global      # 第四处（仓库外），需全权限
-    python tests/run_tests.py                     # 门禁：36 条 golden（行为层；副本一致性由上面的 --check 负责）
+    python tests/run_tests.py                     # 门禁：41 条 golden（行为层；副本一致性由上面的 --check 负责）
 
 `--mirror` 只有 skill（默认）/ bp / install / all，**all 不含 global**；写完会对每个目标自动跑一次它自己的 `mlogagent.py info --verify`（要关掉加 `--no-verify`）。
 

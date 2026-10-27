@@ -81,6 +81,12 @@ OP_BINARY = {"add", "sub", "mul", "div", "idiv", "mod", "emod", "pow",
              "shl", "shr", "ushr", "or", "and", "xor",
              "max", "min", "angle", "angleDiff", "len", "noise", "logn"}
 
+# LParser.java:11-14 rewrites two legacy operator names before parsing
+# (`atan2` -> `angle`, `dst` -> `len`), so both are legal in game even though
+# LogicOp has no constant for them. Keep them out of the missing-argument test
+# (they take two operands) but do not call them unknown.
+OP_LEGACY = {"atan2", "dst"}
+
 # built-in / magic symbols that are always in scope.
 # `true` / `false` ARE here: GlobalVars.init() registers them as plain constants
 # (`putEntry("false", 0)`, `putEntry("true", 1)` at GlobalVars.java:54-55), and
@@ -142,7 +148,12 @@ OTHER_KEYWORDS = {
 KEYWORDS |= DRAW_SUBS | OTHER_KEYWORDS
 
 JMP_RE = re.compile(r"^jump\s+(-?\d+)\s+(\S+)(?:\s+(\S+))?(?:\s+(\S+))?$")
-OP_RE = re.compile(r"^op\s+(\S+)\s+(\S+)(?:\s+(\S+))?(?:\s+(\S+))?$")
+# There used to be an OP_RE here, and it only matched op lines with at most four
+# tokens after `op`.  Every longer line -- e.g. the 8-token
+# `op select k1 lessThan cu 6 @copper @dormant-cyst` -- fell through the arity
+# check silently, so an unknown operator name was never reported even though in
+# game it becomes a noop (see the op-arity block below).  The arity check now
+# tokenizes; do not reintroduce a bounded regex here.
 
 
 class Finding:
@@ -1024,6 +1035,21 @@ def analyse(lines: list[str], links: list[str] | None = None, ipt: int = 2) -> l
     for _, c in stmts:
         ever_read |= set(uses_of(c))
 
+    # Names a statement dereferences as a BLOCK (LINK_SLOTS): those really are
+    # link references. A link-shaped name that never lands in one is only an
+    # ordinary variable that happens to end in a digit -- the public blueprint
+    # corpus has 329 such findings (jump 43 equal stop1 false), and calling them
+    # dead links over-claims: at runtime they are null, but the mistake (if there
+    # is one) is a missing assignment, not a missing link.
+    link_slot_used: set[str] = set()
+    for _, c in stmts:
+        _lp = tokenize(c)
+        if not _lp:
+            continue
+        for _s in LINK_SLOTS.get(_lp[0].lower(), ()):
+            if _s < len(_lp):
+                link_slot_used.add(_lp[_s])
+
     def _constant_guard(c: str) -> bool:
         """A `jump` whose comparison cannot vary: both operands are constants,
         builtins, or names nothing ever assigns. `jump 21 equal colour ender`
@@ -1134,11 +1160,21 @@ def analyse(lines: list[str], links: list[str] | None = None, ipt: int = 2) -> l
                             f"fragment cropped out of a larger base, so every block "
                             f"reference in it is unbound (in game it reads null "
                             f"until the targets are re-linked)"))
-                    else:
+                    elif v in link_slot_used:
                         out.append(Finding(
                             "WARN", orig + 1, c,
                             f"`{v}` is shaped like a block link but this processor "
                             f"has no such link (it has: {', '.join(sorted(link_vars)) or 'none'})"))
+                    else:
+                        # Ends in a digit, but no statement ever puts it in
+                        # a link slot and nothing assigns it: the author is
+                        # using it as a plain value. Still null at runtime.
+                        out.append(Finding(
+                            "INFO", orig + 1, c,
+                            f"`{v}` looks like a block link but this program never uses "
+                            f"it as the target of a block instruction and never assigns "
+                            f"it -- here it is an ordinary variable that happens to end "
+                            f"in a digit, so every read of it is null"))
                 continue
             kinds = use_kinds.get(v, set())
             bslot = _bool_slot(p)
@@ -1316,13 +1352,24 @@ def analyse(lines: list[str], links: list[str] | None = None, ipt: int = 2) -> l
                                f"executed for nothing"))
 
     # ---- op arity ---------------------------------------------------------
+    # Parse with tokenize() instead of the old bounded OP_RE (removed above,
+    # its regex stopped matching once a line had more than 4 tokens after
+    # `op`), so any long op line -- including
+    # `op select k1 lessThan cu 6 @copper @dormant-cyst` (8 tokens) -- was
+    # skipped entirely and never reached the unknown-name test below.  An
+    # unknown operator name is NOT harmless: LParser.java:142-147 catches the
+    # parse exception and substitutes InvalidStatement, which builds a NoopI
+    # (LStatements.java:48-58), so the line silently becomes `noop` in game --
+    # no error, no warning, the destination variable just stays null.
     for i, (orig, c) in enumerate(stmts):
-        mo = OP_RE.match(c)
-        if not mo:
+        p = tokenize(c)
+        if len(p) < 2 or p[0] != "op":
             continue
-        op, a, b = mo.group(1), mo.group(3), mo.group(4)
-        want = 2 if op in OP_UNARY else (3 if op in OP_BINARY else None)
-        given = 1 + sum(1 for x in (a, b) if x is not None)
+        op = p[1]
+        want = 2 if op in OP_UNARY else (
+            3 if op in OP_BINARY or op in OP_LEGACY else None)
+        # dest + operands; surplus tokens are inert filler (see the note below)
+        given = len(p) - 1
         if want is None:
             out.append(Finding("ERR", orig + 1, c, f"unknown op `{op}`"))
         # `given > want` is deliberately silent.  The maintainer audited 29 of

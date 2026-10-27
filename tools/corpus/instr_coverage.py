@@ -195,6 +195,10 @@ def main(argv=None):
     ap.add_argument("--md", default="out/_crawl/instr-coverage.md")
     ap.add_argument("--limit", type=int, default=0, help="only first N files (smoke)")
     ap.add_argument("--top", type=int, default=20)
+    ap.add_argument("--baseline", default="",
+                    help="compare against a recorded coverage baseline; exit 1 on drift")
+    ap.add_argument("--write-baseline", default="", dest="write_baseline",
+                    help="record the current zero-coverage sets as the baseline")
     a = ap.parse_args(argv)
 
     ci, co, ver = load_canonical()
@@ -231,6 +235,49 @@ def main(argv=None):
     print("wrote %s and %s" % (a.json, a.md))
     print("zero-coverage instructions: %d/%d ; unknown tokens: %d"
           % (len(data["zero_instructions"]), len(ci), len(data["unknown_tokens"])))
+
+    # A gate cannot assert an absolute coverage number: it depends on the sample.
+    # What it can assert is that the *set* of instructions this sample never uses
+    # is still the set a human signed off on. Adding a statement to
+    # tools/instr_semantics.json, or losing one from the sample, changes the set
+    # and stops the gate until someone records a new baseline on purpose.
+    recorded = {
+        "limit": a.limit,
+        "files": data["files"],
+        "semantics_version": ver,
+        "zero_instructions": sorted(data["zero_instructions"]),
+        "zero_ops": sorted(data["zero_ops"]),
+        "unknown_tokens": sorted(data["unknown_tokens"]),
+    }
+    if a.write_baseline:
+        with open(a.write_baseline, "w", encoding="utf-8", newline="\n") as fh:
+            json.dump(recorded, fh, ensure_ascii=False, indent=1)
+            fh.write("\n")
+        print("wrote baseline %s" % a.write_baseline)
+    if a.baseline:
+        try:
+            with open(a.baseline, encoding="utf-8") as fh:
+                base = json.load(fh)
+        except OSError as exc:
+            print("FAIL cannot read baseline %s: %s" % (a.baseline, exc))
+            return 1
+        drift = []
+        if base.get("limit") != a.limit:
+            drift.append("limit: baseline %s, run %s"
+                         % (base.get("limit"), a.limit))
+        for key in ("zero_instructions", "zero_ops", "unknown_tokens"):
+            want = sorted(base.get(key) or [])
+            got = recorded[key]
+            if want != got:
+                added = [x for x in got if x not in want]
+                gone = [x for x in want if x not in got]
+                drift.append("%s: +%s -%s" % (key, added, gone))
+        if drift:
+            print("FAIL coverage drifts from %s" % a.baseline)
+            for line in drift:
+                print("  " + line)
+            return 1
+        print("PASS coverage matches %s (%d file(s))" % (a.baseline, data["files"]))
     return 0
 
 

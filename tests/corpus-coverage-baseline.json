@@ -1,0 +1,52 @@
+{
+ "limit": 400,
+ "files": 400,
+ "semantics_version": "mindustry-v159.3",
+ "zero_instructions": [
+  "bullet",
+  "clientdata",
+  "cutscene",
+  "format",
+  "localeprint",
+  "makemarker",
+  "noop",
+  "playmusic",
+  "playsound",
+  "printchar",
+  "query",
+  "setflag",
+  "setmarker",
+  "setrule",
+  "spawn",
+  "spawnwave",
+  "weathersense",
+  "weatherset"
+ ],
+ "zero_ops": [
+  "acos",
+  "asin",
+  "atan",
+  "emod",
+  "log10",
+  "logn",
+  "noise",
+  "not",
+  "round",
+  "shr",
+  "sign",
+  "strictEqual",
+  "tan",
+  "ushr",
+  "xor"
+ ],
+ "unknown_tokens": [
+  "aim",
+  "i",
+  "ix",
+  "j",
+  "numleft",
+  "shoot",
+  "shot",
+  "tick"
+ ]
+}
