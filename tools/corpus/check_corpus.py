@@ -41,6 +41,10 @@ def main(argv=None):
     ap.add_argument("--json", default=os.path.join(ROOT, "out", "_crawl", "check-corpus.json"))
     ap.add_argument("--top", type=int, default=30)
     ap.add_argument("--jobs", type=int, default=1, help="并行进程数；1=串行（旧行为）")
+    ap.add_argument("--stride", type=int, default=1, help="按排序后的程序名等间隔抽样（1=全量）")
+    ap.add_argument("--limit", type=int, default=0, help="抽样后只跑前 N 个程序（0=全部）")
+    ap.add_argument("--fail-on-errors", action="store_true",
+                    help="analyse 抛异常时以 1 退出（gate 用；全量跑仍只看统计）")
     a = ap.parse_args(argv)
     metap = os.path.join(a.corpus, a.procs, "_meta.json")
     meta = json.load(open(metap, encoding="utf-8"))
@@ -48,6 +52,10 @@ def main(argv=None):
     jobs = []
     for sha, rec in sorted(progs.items()):
         jobs.append((sha, os.path.join(a.corpus, a.procs, sha + ".mlog"), list(rec.get("link_names") or [])))
+    if a.stride > 1:
+        jobs = jobs[::a.stride]
+    if a.limit:
+        jobs = jobs[:a.limit]
     rule_n = collections.Counter()
     rule_progs = collections.Counter()
     rule_sev = {}
@@ -70,27 +78,32 @@ def main(argv=None):
         errors = _aggregate(gen(), progs, rule_n, rule_progs, sev_n, samples, rule_sev)
     dt = time.time() - t0
     total = sum(rule_n.values())
-    print("programs: %d   findings: %d   analyse errors: %d   %.1f s (%.1f ms/program)   jobs=%d" % (
-        len(progs), total, errors, dt, 1000.0 * dt / max(1, len(progs)), a.jobs))
+    print("programs: %d   findings: %d   analyse errors: %d   %.1f s (%.1f ms/program)   jobs=%d%s" % (
+        len(jobs), total, errors, dt, 1000.0 * dt / max(1, len(jobs)), a.jobs,
+        "" if len(jobs) == len(progs) else "   (sampled: %d of %d)" % (len(jobs), len(progs))))
     print("severity: %s" % dict(sev_n))
     print()
     print("%-34s %6s %6s %7s  %s" % ("rule id", "hits", "progs", "progs%", "sample"))
     for rid, n in rule_n.most_common(a.top):
         s = samples.get(rid, {})
-        print("%-34s %6d %6d %6.1f%%  %s" % (rid, n, rule_progs[rid], 100.0 * rule_progs[rid] / max(1, len(progs)),
+        print("%-34s %6d %6d %6.1f%%  %s" % (rid, n, rule_progs[rid], 100.0 * rule_progs[rid] / max(1, len(jobs)),
                                             (s.get("code") or "")[:60]))
     try:
         corpus_label = os.path.relpath(a.corpus, ROOT)
     except ValueError:          # 语料在工作区外的另一个盘（如 C:），relpath 会抛
         corpus_label = os.path.abspath(a.corpus)
     out = {"corpus": corpus_label, "generated_at": time.strftime("%Y-%m-%dT%H:%M:%S"),
-           "programs": len(progs), "findings": total, "errors": errors, "secs": round(dt, 1), "jobs": a.jobs,
+           "programs": len(jobs), "findings": total, "errors": errors, "secs": round(dt, 1), "jobs": a.jobs,
+           "stride": a.stride, "limit": a.limit, "corpus_total": len(progs),
            "rule_counts": dict(rule_n), "rule_programs": dict(rule_progs), "sev_counts": dict(sev_n),
            "rule_sev": {rid: dict(v) for rid, v in rule_sev.items()},
            "samples": samples}
     os.makedirs(os.path.dirname(a.json), exist_ok=True)
     json.dump(out, open(a.json, "w", encoding="utf-8"), ensure_ascii=False, indent=1)
     print("\nwrote %s" % os.path.relpath(a.json, ROOT))
+    if a.fail_on_errors and errors:
+        print("FAIL: %d program(s) made the analyzer raise" % errors)
+        return 1
     return 0
 
 

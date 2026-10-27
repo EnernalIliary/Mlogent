@@ -121,6 +121,20 @@ def build_steps(full: bool, only: str | None) -> list[tuple[str, list[str] | Non
         # runtime truth: probes need a JRE and the versioned jars under out/,
         # which are not in git, so a fresh clone SKIPs rather than fails.
         steps.append(("probes", ["tests/probes/run_probes.py"], ""))
+        # A real-corpus smoke test: 400 programs sampled out of the 44k-program
+        # Anon pack (see out/takeover-20261024/24-anon-corpus.md).  It lives
+        # outside git, so a machine without it SKIPs.  What it asserts is that
+        # the analyzers survive real code at all -- count drift is expected when
+        # a rule changes on purpose, a crash is not.
+        corpus = Path(os.environ.get("MLOG_CORPUS") or (Path.home() / "mlog-corpus" / "anon-corpus"))
+        if corpus.is_dir():
+            steps.append(("corpus", ["tools/corpus/check_corpus.py",
+                                     "--corpus", str(corpus), "--procs", "_procs",
+                                     "--stride", "37", "--limit", "400", "--jobs", "8",
+                                     "--fail-on-errors",
+                                     "--json", "out/_bench/_gate_corpus.json"], ""))
+        else:
+            steps.append(("corpus", None, "no corpus at " + str(corpus) + " (MLOG_CORPUS overrides)"))
     steps.append(("kb", None, ""))                # handled inline, see main()
     if only:
         steps = [s for s in steps if only.lower() in s[0].lower()]

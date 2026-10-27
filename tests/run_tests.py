@@ -101,6 +101,30 @@ def digest_check_msg(name: str) -> list:
     return [[f.sev, f.line, f.msg[:40]] for f in C.analyse([c for _, c in st])]
 
 
+def digest_check_rid(name: str) -> list:
+    """(severity, statement line, rule id) -- pins the *classification*, not wording.
+
+    A finding's id comes from tools/rule_ids.py, which picks the rule with the
+    longest matching message fragment.  That is exactly how the fragment-link
+    INFO once got attributed to unary-op-extra-operand (see
+    out/takeover-20261024/24-anon-corpus.md section 10.2), so the id is worth pinning.
+    """
+    st = _prepared(name)
+    return [[f.sev, f.line, f.rid] for f in C.analyse([c for _, c in st])]
+
+
+def digest_check_nolinks(name: str) -> list:
+    """Same as digest_check_rid, but links=[] -- the corpus case.
+
+    check_corpus.py passes the links a blueprint actually carries; an empty list
+    means "we know this program has no links", which is what downgrades a
+    block-shaped name to the fragment INFO.  analyse(lines) alone passes
+    links=None ("unknown"), so it cannot reach that branch.
+    """
+    st = _prepared(name)
+    return [[f.sev, f.line, f.rid] for f in C.analyse([c for _, c in st], links=[])]
+
+
 def digest_ir(name: str) -> dict:
     """Dead code / dead stores, reported as **1-based file lines**.
 
@@ -240,6 +264,12 @@ SUITE: list[tuple[str, str, str | None]] = [
     ("gate/noop-drift",        "gate",    "gate1.mlog"),
     ("gate/baseline-silent",   "gate",    "baseline.mlog"),
     ("gate/op-emod",           "gate",    "gate-emod.mlog"),
+    # Corpus-driven classification: an index-only variable is summarised into
+    # ONE finding (not one per statement), and it must keep its own rule id.
+    ("check/index-only-summary", "check_rid", "index-only-summary.mlog"),
+    # 0 links + >200 statements = a fragment cropped out of a larger base: the
+    # block-shaped name is INFO (link-name-unbound-fragment), not WARN.
+    ("check/link-unbound-fragment", "check_nolinks", "link-unbound-fragment.mlog"),
     ("ir/labels-resolved",     "ir",      "label.mlog"),
     ("ir/odd-name",            "odd",     None),
     ("ir/stale-write",        "ir",      "stale.mlog"),
@@ -429,6 +459,7 @@ def digest_mcp() -> dict:
 
 DIGESTS = {
     "gate": digest_gate, "check": digest_check, "check_msg": digest_check_msg,
+    "check_rid": digest_check_rid, "check_nolinks": digest_check_nolinks,
     "ir": digest_ir, "values": digest_values, "pack": digest_pack,
     "cost": digest_cost, "cross": lambda _f: digest_cross_unit(),
     "crossvalues": lambda _f: digest_cross_values(),

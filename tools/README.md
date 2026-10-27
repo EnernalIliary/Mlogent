@@ -152,6 +152,12 @@ python tools/kb.py serve
    python tools/corpus/check_corpus.py                            # 蓝图：_procs
    python tools/corpus/check_corpus.py --procs _maps_procs        # 地图：_maps_procs
    python tools/corpus/check_corpus.py --procs _procs --jobs 16   # 4 万程序 / 3 千万行：16 进程 199 s（串行要 20 min）
+   python tools/corpus/check_corpus.py --procs _procs --stride 37 --limit 400 --fail-on-errors
+                                                 # 抽样冒烟：只跑 400 个，分析器抛异常就 exit 1（gate --full 用）
+   python tools/corpus/instr_coverage.py --src <doc>/_procs --json out/_crawl/instr-coverage-anon.json
+                                                 # 指令覆盖率：语料里每条 instruction/op/draw 子命令出现几次
+   python tools/mlog_needs.py <doc>/_procs --brief --no-detail --stride 10
+                                                 # 世界符号清单（传感器/单位/方块/全局量）；大语料必须 --no-detail
    ```
 
    `logic-corpus/` 已 gitignore（可随时重抓）；三条命令都把蓝图/存档里声明的链接名传进
@@ -161,6 +167,13 @@ python tools/kb.py serve
    这类仓库的**文件名多为中文，Windows 自带 `tar.exe` 会按 CP936 解码 UTF-8 文件名**（`核心入冷` → `鏍稿績鍏ュ喎`），
    不同名字撞成同一文件、只落一半且互相覆盖——必须用 Python `tarfile` 解包；
    `git clone --depth 1` 对大包也不稳（`RPC failed; curl 28 Recv failure: Connection was reset`）。
+
+   语料还能当**回归基线**用：`python gate.py --full` 末尾有一个 `corpus` 步，
+   对 4 万程序按 `--stride 37` 抽 400 个跑 `check_corpus.py --fail-on-errors`
+   （约 10 s），断言「分析器在真实代码上不崩」。语料不在 git 里，机器上没有时该步 SKIP；
+   目录可用 `MLOG_CORPUS` 覆盖（默认 `~/mlog-corpus/anon-corpus`）。
+   注意 `mlog_needs.py` 的 `programs_detail` 在大语料上是几百 MB，
+   4 万程序全量跑要加 `--no-detail`，否则 JSON 慢到像挂死。
 
 9. **一次性脚本**：`dev/`——探针、patch、调试脚本，默认被忽略，不保证能跑，不要依赖。
 10. **数据 JSON**（顶层，和代码同目录）：`block_attrs`(253)、`sensor_attrs`(75)、`unit_attrs`、`instr_semantics`、`cmd_index`(86)、`wiki_block_ids`(422)、`block_sizes`(446)、`item_ids`、`status_names`、`label_rules`。
