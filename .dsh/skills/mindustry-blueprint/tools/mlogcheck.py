@@ -1366,21 +1366,21 @@ def analyse(lines: list[str], links: list[str] | None = None, ipt: int = 2) -> l
         if len(p) < 2 or p[0] != "op":
             continue
         op = p[1]
-        want = 2 if op in OP_UNARY else (
-            3 if op in OP_BINARY or op in OP_LEGACY else None)
-        # dest + operands; surplus tokens are inert filler (see the note below)
-        given = len(p) - 1
-        if want is None:
+        # Only an unknown NAME is an error.  Slot COUNT is not checked: a
+        # missing slot is silent, and that is deliberate.  LStatement's default
+        # read() leaves absent fields at their declared defaults
+        # (`OperationStatement.dest = "result", a = "a", b = "b"`,
+        # LStatements.java:708-711), so `op add r 1`, `op add` and `op abs` each
+        # compile to a real OpI -- v160.7 jar: `op add r 1` -> [OpI] with r=1
+        # (the absent operand reads null and adds as 0), `op abs` -> [OpI].
+        # The old WARN (`given 2 args, expects 3`) was a false positive on
+        # every one of those, and a *surplus* slot is inert filler anyway (the
+        # maintainer audited 29 of them and judged each "not worth reporting"),
+        # so the count check is gone rather than kept as a warning.
+        # `rules/arity-is-not-effective-params.json` keeps the whole per-case
+        # record for both counts (op and ucontrol), so nobody re-adds them.
+        if op not in OP_UNARY and op not in OP_BINARY and op not in OP_LEGACY:
             out.append(Finding("ERR", orig + 1, c, f"unknown op `{op}`"))
-        # `given > want` is deliberately silent.  The maintainer audited 29 of
-        # these and judged every single one "not worth reporting": an extra
-        # operand is what you get when someone edits an operator in place and
-        # leaves the old tokens behind, and the game parses the line then hands
-        # the operator only the operands it takes.  The rule JSON keeps this as
-        # a negative record (`unary-op-extra-operand`) so nobody re-adds it.
-        elif given < want:
-            out.append(Finding("WARN", orig + 1, c,
-                               f"`op {op}` given {given} args, expects {want}"))
 
     # ---- @dead polarity: NOT reported ------------------------------------
     # Every row of this rule was judged bad by the author (m15434): "这个逻辑使用
