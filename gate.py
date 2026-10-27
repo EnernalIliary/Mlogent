@@ -109,6 +109,11 @@ def build_steps(full: bool, only: str | None) -> list[tuple[str, list[str] | Non
         ("mirror", ["tools/sync_mlogagent.py", "--mirror", "all", "--check"], ""),
         ("tests", ["tests/run_tests.py"], ""),
         ("lint", ["tools/rule_capture.py", "lint"], ""),
+        # the checkers' own invariant: a malformed statement must still be
+        # caught after junk tokens are appended, i.e. no check may parse a
+        # statement with an anchored regex and fail open when the line grows
+        # (tests/shapes/run_shapes.py).
+        ("shapes", ["tests/shapes/run_shapes.py"], ""),
     ]
     global_skill = (Path(os.environ.get("DSH_HOME") or (Path.home() / ".dsh"))
                     / "skills" / "mlog-agentskill")

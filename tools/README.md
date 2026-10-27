@@ -178,6 +178,9 @@ python tools/kb.py serve
    断言零覆盖指令集合仍是签过字的那 18 条 —— 往 `instr_semantics.json` 加一行、或样本里
    丢一条指令，集合就变，必须有人重新录基线。两步都依赖语料目录；不在 git 里，机器上没有时 SKIP，
    目录可用 `MLOG_CORPUS` 覆盖（默认 `~/mlog-corpus/anon-corpus`）。
+   与语料无关的还有一个 `shapes` 步（0.1 s）：`python tests/shapes/run_shapes.py`
+   断言检查器自己的**语句形状不变量**——每条规则对坏样例追加 1/2/5 个惰性 token 与行尾注释后仍必须开火，
+   防的是整行锚定正则 fail-open（`op select` 那类漏洞；`--module` 可指向旧版做负向自证）。
    注意 `mlog_needs.py` 的 `programs_detail` 在大语料上是几百 MB，
    4 万程序全量跑要加 `--no-detail`，否则 JSON 慢到像挂死。
 
