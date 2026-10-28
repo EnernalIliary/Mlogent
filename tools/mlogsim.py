@@ -557,6 +557,11 @@ for(var k = 0; k < b.links.size; k++){
 b.executor.team = Packages.mindustry.game.Team.sharded;
 /* a block placed via setBlock keeps efficiency 0 until updateEfficiency runs */
 b.efficiency = 1;
+/* probe hook: runs after the program compiled and the units exist but before the
+   first instruction executes, so a probe can put the world in a state (kill the
+   bound unit, hand it to another processor) and then let the program see it.
+   `b` is this processor's building; empty when the caller passes nothing. */
+%(setup)s
 %(loop)s
 print("@@BEGIN");
 var vs = b.executor.vars;
@@ -1030,7 +1035,8 @@ def run_mlog(srv: Server, name: str, code: str, steps: int, ticks: bool = False,
              update: str = "none", power: float = 1.0, processor: str = "auto",
              combat: bool = False, trace: bool = False, unit_ai: str = "logic",
              preflight: bool = True, links: str = "auto",
-             itrace: str | None = None, itrace_vars: tuple = ()) -> dict:
+             itrace: str | None = None, itrace_vars: tuple = (),
+             setup_js: str | None = None) -> dict:
     # privileged statements exist only in world processors; selecting the block
     # that makes them compile is better than silently dropping whole lines.
     world_proc = processor == "world" or (processor == "auto" and PRIVILEGED_RE.search(code) is not None)
@@ -1047,6 +1053,7 @@ def run_mlog(srv: Server, name: str, code: str, steps: int, ticks: bool = False,
             itr = {"code": code.splitlines(), "vars": list(itrace_vars)}
         js = STEP_JS % {"path": path.replace("\\", "/"), "x": srv.base[0], "y": srv.base[1],
                         "links": json.dumps(link_specs, ensure_ascii=False),
+                        "setup": setup_js or "",
                         "loop": _loop_js("b", steps, ticks, update, power, combat, trace, unit_ai,
                                          preflight, itr)}
         lines = srv.js(js)

@@ -26,6 +26,11 @@ What a probe may assert
     processor "world"|"auto"    block to place ("auto" sniffs PRIVILEGED_RE)
     rules {field: value}        Vars.state.rules overrides applied before compiling
                                 (e.g. allowLogicData, which gates clientdata)
+    setup_js "..."              JS run after the program compiled and the units exist,
+                                but before the first instruction executes -- for probes
+                                that need the world in a state (kill the bound unit, hand
+                                it to another processor). `b` is this processor's
+                                building; `W` is Vars.world, `team` is Team.sharded.
 
 Usage
 -----
@@ -240,7 +245,7 @@ def run_one(p, java, M):
                 field, 'true' if value is True else
                 'false' if value is False else json.dumps(value)))
         rec = M.run_mlog(srv, 'p', p['code'], steps=int(p.get('steps', 20)),
-                         processor=proc)
+                         processor=proc, setup_js=p.get('setup_js'))
         effects = read_effects(as_lines(srv.js(probe_js(names))))
         classes = read_classes(srv)
         radar = read_radar(srv) if 'expect_radar' in p else []

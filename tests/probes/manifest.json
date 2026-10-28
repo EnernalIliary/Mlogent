@@ -203,6 +203,57 @@
       },
       "why": "the 6-operand shape the old doc showed is off by one: 'target' is read as the direction and the result falls through to the default `result` variable",
       "ref": "out/takeover-20261024/26-docsig.md"
+    },
+    {
+      "id": "unit-legal-fresh-v160",
+      "jar": "160",
+      "steps": 20,
+      "code": "ubind @flare\nsensor ctrl @unit @controller\nsensor dd @unit @dead\nset ok 0\njump 9 equal dd 1\njump 8 equal ctrl @unit\njump 8 equal ctrl @this\njump 9 always\nset ok 1\nprint ok\nend\n",
+      "expect_vars": {
+        "ok": 1,
+        "dd": 0
+      },
+      "why": "an AI unit nobody controls: @controller is the unit itself (UnitComp.java:319) and @dead is 0, so the guard says legal",
+      "ref": "out/takeover-20261024/28-unit-legality.md"
+    },
+    {
+      "id": "unit-legal-dead-v160",
+      "jar": "160",
+      "steps": 20,
+      "code": "ubind @flare\nsensor ctrl @unit @controller\nsensor dd @unit @dead\nset ok 0\njump 9 equal dd 1\njump 8 equal ctrl @unit\njump 8 equal ctrl @this\njump 9 always\nset ok 1\nprint ok\nend\n",
+      "setup_js": "var G = Packages.mindustry.gen.Groups.unit; var U = null; for(var i = 0; i < G.size(); i++){ var q = G.index(i); if(q.team == team){ U = q; break; } } U.kill();\n",
+      "expect_vars": {
+        "ok": 0,
+        "dd": 1
+      },
+      "why": "@dead is the only check that sees a dead unit: @unit goes stale, and a null @unit also reads @dead = 1 (LExecutor.java:685-688)",
+      "ref": "out/takeover-20261024/28-unit-legality.md"
+    },
+    {
+      "id": "unit-legal-self-v160",
+      "jar": "160",
+      "steps": 20,
+      "code": "ubind @flare\nsensor ctrl @unit @controller\nsensor dd @unit @dead\nset ok 0\njump 9 equal dd 1\njump 8 equal ctrl @unit\njump 8 equal ctrl @this\njump 9 always\nset ok 1\nprint ok\nend\n",
+      "setup_js": "var G = Packages.mindustry.gen.Groups.unit; var U = null; for(var i = 0; i < G.size(); i++){ var q = G.index(i); if(q.team == team){ U = q; break; } }\nvar la = new (Packages.mindustry.ai.types.LogicAI)();\nla.controller = b;\nU.controller(la);\n",
+      "expect_vars": {
+        "ok": 1,
+        "dd": 0
+      },
+      "why": "a unit this processor drives: @controller returns the controlling building, which is @this, so the guard says legal",
+      "ref": "out/takeover-20261024/28-unit-legality.md"
+    },
+    {
+      "id": "unit-legal-other-v160",
+      "jar": "160",
+      "steps": 20,
+      "code": "ubind @flare\nsensor ctrl @unit @controller\nsensor dd @unit @dead\nset ok 0\njump 9 equal dd 1\njump 8 equal ctrl @unit\njump 8 equal ctrl @this\njump 9 always\nset ok 1\nprint ok\nend\n",
+      "setup_js": "var G = Packages.mindustry.gen.Groups.unit; var U = null; for(var i = 0; i < G.size(); i++){ var q = G.index(i); if(q.team == team){ U = q; break; } }\nvar t = null;\nfor(var r = 3; r < 12 && t === null; r++){\n  for(var dx = -r; dx <= r && t === null; dx++){\n    for(var dy = -r; dy <= r && t === null; dy++){\n      var tt = W.tile(b.tileX() + dx, b.tileY() + dy);\n      if(tt != null && tt.block() == Vars.content.block('air') && tt.build == null){ t = tt; }\n    }\n  }\n}\nt.setBlock(Vars.content.block('micro-processor'), team);\nvar b2 = W.build(t.x, t.y);\nvar la = new (Packages.mindustry.ai.types.LogicAI)();\nla.controller = b2;\nU.controller(la);\n",
+      "expect_vars": {
+        "ok": 0,
+        "dd": 0
+      },
+      "why": "a unit another processor drives: @controller is that building, neither @unit nor @this, so the guard says illegal -- and a later ucontrol would silently steal it (LExecutor.java:324-326)",
+      "ref": "out/takeover-20261024/28-unit-legality.md"
     }
   ]
 }

@@ -569,7 +569,7 @@ sensor ctr @unit @controller
 jump 是我控的 equal ctr @this
 ```
 
-> ⚠️ `@controller` **没有出现在 `sensor` 属性总表里**，只在官方示例代码中使用——属于"能用但未文档化"，用前建议实测。
+> ✅ `@controller` **是正式 LAccess**：v160.7 的 `LAccess` 共 77 项、含 `controller`（jar 枚举，S-18），`tools/sensor_attrs.json` 也已按 jar 重建为 77 项。不必当"未文档化属性"绕开。
 
 **`@controlled` 唯一无歧义的用法**是判断"是不是完全自由的单位"：
 
@@ -655,6 +655,58 @@ nowait:
 
 > **顺带说明 `wait 0.5` 到底做了什么**：`wait` 在时间没到时**会回退 `@counter`**（回到自己这一条）并设 `yield = true` 结束本 tick。所以下一 tick 会**重新执行同一条 `wait`** 并累加 `curTime`，直到累计到 0.5 秒才继续往下。
 > **关键结论：等待期间 `accumulator` 不递减，等完了也**不会**"补偿性"地猛跑一堆指令。所以 `wait` 是干净的降频手段。**
+
+### 绑定单位合法性：一条检查管住四种状态
+
+`ubind` 会**无条件**绑定（包括已经被别的处理器控制的单位，见上面关键点 3），而 `ucontrol` 在 `checkLogicAI` 不通过时是**静默 no-op**。所以「这个 `@unit` 我现在能不能用」必须有明确判据，否则代码会在「抢别人的单位」和「指令悄悄不生效」之间反复踩坑。
+
+**定义（本仓库口径）**：`@unit` 合法 ⇔
+
+1. 单位**没有死**（也覆盖「根本没绑到」），且
+2. 单位**没有被别的处理器控制**——即 `@controller` 是 `@unit` 自己（没有逻辑处理器控制它）或 `@this`（本处理器在控制）。
+
+```mlog
+# 绑定单位合法性检查（canonical 片段，四条探针逐态验证）
+ubind @flare
+sensor ctrl @unit @controller
+sensor dd @unit @dead
+set ok 0
+jump 9 equal dd 1            # 死了 / 没绑到 → 非法
+jump 8 equal ctrl @unit      # 控制者是它自己 → 没有逻辑处理器在控 → 合法
+jump 8 equal ctrl @this      # 控制者就是本处理器 → 合法
+jump 9 always                # 别的处理器在控 → 非法
+set ok 1
+print ok
+end
+```
+
+真 v160.7 实测（`python tests/probes/run_probes.py unit-legal`，每个状态单独开一个 Server 构造）：
+
+| 状态 | `@controller` | `@dead` | `@controlled` | `ok` |
+|---|---|---|---|---|
+| 裸单位（普通 AI，没人用逻辑控） | 单位自身（`== @unit`） | 0 | 0 | **1** |
+| 本处理器在控（`LogicAI.controller = @this`） | 本处理器建筑（`== @this`） | 0 | 1 | **1** |
+| 别的处理器在控 | **那个**处理器建筑 | 0 | 1 | **0** |
+| 单位已死 / 根本没绑到 | null | **1** | 0 / null | **0** |
+
+**为什么这样写（源码）**：
+
+- `@controller` 是**三态**：[UnitComp.java:319](../Mindustry-Source/core/src/mindustry/entities/comp/UnitComp.java#L319) `case controller -> !isValid() ? null : controller instanceof LogicAI log ? log.controller : this;` —— **只要控制者不是 LogicAI 就返回单位自身**（普通 AI、玩家、指令 AI 全都如此）。所以「等于 `@unit`」正好就是「没有逻辑处理器控制我」。
+- `@dead` 同时覆盖「已死」和「没绑到」：[LExecutor.java:685-688](../Mindustry-Source/core/src/mindustry/logic/LExecutor.java#L685) 里 `if(target == null && sense == LAccess.dead){ to.setnum(1); return; }`，而 `@unit` 死亡后**不会自动清空**（仍指向旧单位）。所以判「能不能用」用 `@dead` 就够，**不要**用 `equal @unit null` 判死。
+- 检查必须在 `ucontrol` **之前**：`checkLogicAI`（[LExecutor.java:322-340](../Mindustry-Source/core/src/mindustry/logic/LExecutor.java#L322)）通过时会把 `la.controller` 直接改成 `exec.thisv.building()`——**那一刻就已经抢走了**。合法性检查是「抢之前先问一句」，不是「抢了会失败」。
+
+**三条容易搞错的边界**：
+
+- `@controlled` **不能**替代这个检查：本处理器与别的处理器**都返回 1**（§3.4、§11.3）。它只能告诉你「逻辑 / 玩家 / 指令 / 没人」，不能告诉你「是不是我」。
+- **「合法」不等于「`ucontrol` 一定生效」**：玩家控制的单位（`PlayerComp.isLogicControllable() == false`）和带命令的 `CommandAI`（[CommandAI.java:107](../Mindustry-Source/core/src/mindustry/ai/types/CommandAI.java#L107) `return !hasCommand();`）都不可被逻辑接管，而 `@controller` 对它们返回的是**单位自身**——和「没人管」长得一模一样。要一并挡掉，加一条 `sensor co @unit @controlled` 并要求 `co == 0`。
+- `ucontrol` 还有一道全局开关：[LExecutor.java:344](../Mindustry-Source/core/src/mindustry/logic/LExecutor.java#L344) `if(!exec.privileged && !state.rules.logicUnitControl) return;` —— 地图/服务器关掉 `logicUnitControl` 时，所有 `ucontrol` 都是空转。
+
+**保守版**（连玩家/指令控制也挡掉，代价是多一条 sensor；注意 `co == 1` 仍然包含「别的处理器在控」）：
+
+```mlog
+sensor co @unit @controlled
+jump 非法 notEqual co 0      # 0 = 真没人管；1 = 逻辑（含别人）、2 = 玩家、3 = 指令
+```
 
 ## 4.2 多控槽位模式（Multi-Control）
 
@@ -2013,7 +2065,7 @@ sensor ctr @unit @controller
 jump 是我的 equal ctr @this       # 对比控制器引用
 ```
 
-> ⚠️ `@controller` **没有出现在 `sensor` 属性总表里**，只在官方示例代码中使用，属于"能用但未文档化"的属性。用之前建议实测。
+> ✅ `@controller` 是正式 LAccess（v160.7 共 77 项，见 S-18 与 §3.4），不是"未文档化属性"，可以直接用。
 
 **多逻辑抢占单位的标准做法**（来自你的文档 §兵控规范）：
 
