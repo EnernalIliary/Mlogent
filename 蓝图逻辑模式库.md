@@ -1200,7 +1200,7 @@ control config pad4 item2 0 0 0
 ### 建筑雷达 `radar`
 
 ```
-radar <目标阵营> <关系> <排序依据> <排序方向> <建筑> <数量> <输出>
+radar <target1> <target2> <target3> <sort> <building> <order> <output>
 ```
 
 来自 `11-12双液体大超着陆合金气旋.msch`：
@@ -1209,15 +1209,15 @@ radar <目标阵营> <关系> <排序依据> <排序方向> <建筑> <数量> <�
 radar enemy any any maxHealth b 1 u
 ```
 
-| 参数 | 取值 | 说明 |
-|---|---|---|
-| 阵营 | `enemy` / `ally` / `player` / `attacker` / `flying` / `boss` / `ground` | 筛什么 |
-| 关系 | `any` / `enemy` / `ally` / `player` | 与谁的敌我关系 |
-| 排序 | `distance` / `health` / `shield` / `armor` / `maxHealth` | 按什么排 |
-| 方向 | **`1` = 正序（最近/最高优先），`0` 或负值 = 反序（最远/最低优先）** | ← 注意方向语义 |
-| 建筑 | 链接名 | 以谁为圆心 |
-| 数量 | 1..10 | 取前 N 个 |
-| 输出 | **必须是一个变量**，结果存进去 | |
+| 字段 | param | 取值 | 说明 |
+|---|---|---|---|
+| 筛选目标 1 | `target1` | `any` / `enemy` / `ally` / `player` / `attacker` / `flying` / `boss` / `ground` | 第一层筛选 |
+| 筛选目标 2 | `target2` | 同上 | 第二层，与其余两层 AND |
+| 筛选目标 3 | `target3` | 同上 | 第三层，与其余两层 AND |
+| 排序依据 | `sort` | `distance` / `health` / `shield` / `armor` / `maxHealth` | 按什么排 |
+| 建筑 | `building` | 链接名（必须实现 `Ranged`） | 以谁为圆心 |
+| 排序方向 | `order` | **`1`（非零）= 正序（最近/最高优先），`0` = 反序（最远/最低优先）** | 源码 `sortOrder.bool() ? 1 : -1` |
+| 输出 | `output` | **一个变量** | 存**一个**单位引用，找不到就是 `null` |
 
 **三个容易踩的语义细节**：
 
@@ -1227,21 +1227,29 @@ radar enemy any any maxHealth b 1 u
 
 **注意**：`radar` 的建筑参数**必须实现 `Ranged` 接口**（也就是炮塔、雷达这类有射程的建筑）。拿一个传送带当搜索源是不行的。
 
-**`radar` 一次只能取 N 个（最多 10），存进一个变量**——实际上是取第 N 个。要取多个得写多次。
+**没有"数量"这个字段**——整条 `radar` 只有一个输出，一次返回**一个**单位（或 `null`）。想拿多个目标就多写几次 `radar`（换筛选/换排序），或改用 `ubind` + 单位循环。结果还有 **30 tick 缓存**（`LExecutor.java:763` 的 `timer.get(30f)`），同一窗口内反复调用拿到的是同一个目标，连续调用并不会"多取一个"。
 
 ### 单位雷达 `uradar`
 
 ```
-uradar <阵营> <关系> <排序> <方向> <输出>
+uradar <target1> <target2> <target3> <sort> <ignored> <order> <output>
 ```
 
-**没有"建筑"参数**——以当前 `@unit` 为圆心，所以**必须先 `ubind`**。
+| 字段 | param | 取值 | 说明 |
+|---|---|---|---|
+| 三个筛选器 | `target1` `target2` `target3` | 同 `radar` | AND 关系 |
+| 排序依据 | `sort` | 同 `radar` | |
+| 死槽 | `ignored` | 固定写 `0` | 源码里占的是 `building` 位，`uradar` 不用它 |
+| 排序方向 | `order` | `1` / `0` | 同 `radar` |
+| 输出 | `output` | 一个变量 | 单个单位引用或 `null` |
+
+**第 5 槽是死槽**（源码里是建筑位，`uradar` 不用）——它以当前 `@unit` 为圆心，所以**必须先 `ubind`**。
 
 `10冷冻厄兆.msch` 的模式：
 
 ```mlog
 ubind @flare
-uradar enemy any any distance 1 目标
+uradar enemy any any distance 0 1 目标
 jump X equal 目标 null            # 没找到
 ```
 
@@ -1777,10 +1785,17 @@ op add b 240 0
 ## 9.4 `format` 指令
 
 ```
-format <模板> <输出>
+format <value>
 ```
 
-模板里 `{0}` `{1}` 是占位符，后面跟变量。**比多次 `print` 更省指令**。
+`format` **只有一个参数**：模板不是它的参数。模板得先用 `print` 塞进文本缓冲区（里面写 `{0}` `{1}` 这类占位符），每执行一次 `format` 就把**编号最小的**占位符替换成 `value`。所以一串打印只要一次模板 + 若干次 `format`，**比多次 `print` 更省指令**。
+
+```mlog
+print "hp: {0}/{1}"      # 模板进缓冲区
+format hp                # 替换最小编号的 {0}
+format maxHp             # 再替换 {1}
+printflush message1
+```
 
 ---
 
@@ -2175,7 +2190,7 @@ ucontrol move bx by @copper-wall 0 0    # @copper-wall 被忽略
 | `getlink` | `getlink 输出 索引` |
 | `sensor` | `sensor 输出 建筑 属性` |
 | `control` | `control <动作> 建筑 <参数...>` |
-| `radar` | `radar 阵营 关系 排序 方向 建筑 数量 输出` |
+| `radar` | `radar 筛选1 筛选2 筛选3 排序 建筑 方向 输出` |
 | `printflush` | `printflush 消息块` |
 | `drawflush` | `drawflush 显示屏` |
 

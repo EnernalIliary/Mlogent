@@ -181,6 +181,12 @@ python tools/kb.py serve
    与语料无关的还有一个 `shapes` 步（0.1 s）：`python tests/shapes/run_shapes.py`
    断言检查器自己的**语句形状不变量**——每条规则对坏样例追加 1/2/5 个惰性 token 与行尾注释后仍必须开火，
    防的是整行锚定正则 fail-open（`op select` 那类漏洞；`--module` 可指向旧版做负向自证）。
+    和语料无关的还有一个 `docsig` 步（0.2 s）：`python tests/docsig/run_docsig.py` 把四份文档里每个
+    「助记符 + `<占位符>`」签名与 `tools/instr_semantics.json` 机检——占位符个数、逐槽名字、`mlog` 代码块的
+    示例参数数、表头含 param 的表格列序；`--self-test` 用合成文档自证四项检查会开火。它抓的是「文档教错语法」：
+    `getblock <result> <x> <y> <layer>` 这种**数目对、顺序错**的签名（真序 `layer,result,x,y`）在旧文档里
+    活了整个版本，玩家照着写就是静默错位。原理写在脚本 docstring 里：mlog 文本 token 序 = Java **字段声明序**
+    （`build(LAssembler)` 的传参序与之无关）；`radar` 那种「槽位数没错、语义错」属于已知盲区，只能靠 `probes` 钉住。
     `--full` 独有的四步（`selftest` / `probes` / `corpus` / `coverage`）互不依赖——各自起 JVM、
     各写各的 `out/_bench` 文件、互不读对方输出——所以 `gate.py` 把它们**并发**跑：75 s → 44 s。
     两条长杆内部再各自并行：`probes` 每条探针一个 JVM（`run_probes.py --jobs`，默认 min(8, CPU)，41 s → 9.6 s）；

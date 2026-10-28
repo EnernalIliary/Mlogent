@@ -803,6 +803,30 @@ def analyse(lines: list[str], links: list[str] | None = None, ipt: int = 2) -> l
                 f"i.e. self-replication; check the rest of the program before importing "
                 f"the map"))
 
+    # ---- radar/uradar: the 6th operand is a sort DIRECTION, not a count ----
+    # LStatements.java:485-547 -> RadarI. The operands are
+    #   radar  <t1> <t2> <t3> <sort> <building> <order> <output>
+    # and LExecutor.java:753 is `int sortDir = sortOrder.bool() ? 1 : -1;`, so
+    # the order operand is a boolean: 5 is simply "true". The statement has ONE
+    # output (LExecutor.java:802 output.setobj(targeted)) and no count at all.
+    # 蓝图逻辑模式库.md used to teach a count ("at most 10, it is really the Nth
+    # one"), which is how this program shape got written; the doc is fixed and
+    # tests/docsig/ checks the signature, but a program copied from the old
+    # page still deserves one line. Measured on v160.7 (out/_radar_probe.py):
+    # `radar enemy any any distance turret1 5 u` -> out=u, sortOrder=___5.0.
+    for _idx, (_i, _c) in enumerate(stmts):
+        _t = _c.split()
+        if len(_t) < 7 or _t[0].lower() not in ("radar", "uradar"):
+            continue
+        _num = _num_or_none(_t[6])
+        if _num is not None and _num > 1:
+            out.append(Finding(
+                "WARN", _i + 1, "radar-takes-no-count",
+                f"`{_t[6]}` sits in the sort-direction slot of `{_t[0]}`, which the "
+                f"engine reads as a boolean (1 ascending, anything else descending) "
+                f"and the statement returns ONE unit -- there is no count operand; "
+                f"writing {_t[6]} does not make it look for {_t[6]} units"))
+
     # Link names are bound by the processor itself, not by an assignment, so
     # they are live from the very first statement. We also auto-detect them by
     # the game's naming rule (internal-name tail + index, e.g. message1, arc1).

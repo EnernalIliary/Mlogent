@@ -66,9 +66,9 @@ is_art = (draw/print 占比 > 0.9 且字面量数字 > 200 且数字占比 ≥ 0
 
 | 我最初的判断 | 源码事实 | 出处 |
 |---|---|---|
-| `op abs` 不存在 | **存在，是一元运算** | [LogicOp.java:40](../Mindustry-Source/core/src/mindustry/logic/LogicOp.java#L40) |
-| `setrate` 上限是 40 | **世界处理器是 1000** | [Blocks.java:6958](../Mindustry-Source/core/src/mindustry/content/Blocks.java#L6958) |
-| `@controlled` 能判断"被逻辑占用" | **返回 1/2/3/0，所有逻辑控制都是 1，无法区分处理器** | [UnitComp.java:296](../Mindustry-Source/core/src/mindustry/entities/comp/UnitComp.java#L296) |
+| `op abs` 不存在 | **存在，是一元运算** | [LogicOp.java:40](../../../Mindustry-Source/core/src/mindustry/logic/LogicOp.java#L40) |
+| `setrate` 上限是 40 | **世界处理器是 1000** | [Blocks.java:6958](../../../Mindustry-Source/core/src/mindustry/content/Blocks.java#L6958) |
+| `@controlled` 能判断"被逻辑占用" | **返回 1/2/3/0，所有逻辑控制都是 1，无法区分处理器** | [UnitComp.java:296](../../../Mindustry-Source/core/src/mindustry/entities/comp/UnitComp.java#L296) |
 
 **方法论**：读蓝图只能得到"作者想干什么"，读源码才能得到"实际会发生什么"。**两者必须交叉验证。**
 
@@ -434,7 +434,7 @@ read item.num.l @this n.item     # 用同样的名字读回来
 
 **`op add @counter ...` 之后到底执行哪一条？**
 
-`runOnce()` 是**先自增再执行**（[LExecutor.java:113-119](../Mindustry-Source/core/src/mindustry/logic/LExecutor.java#L113)）：
+`runOnce()` 是**先自增再执行**（[LExecutor.java:113-119](../../../Mindustry-Source/core/src/mindustry/logic/LExecutor.java#L113)）：
 
 ```java
 if(counter.numval >= instructions.length || counter.numval < 0){
@@ -670,7 +670,7 @@ read  数量 @this nm                  # 读
 > ```mlog
 > jump 35 equal 艾铭还想约的x null
 > ```
-> `@pingX` 在没有 ping 时返回 **`Float.NaN`，不是 `null`**（[UnitComp.java:307](../Mindustry-Source/core/src/mindustry/entities/comp/UnitComp.java#L307)）。
+> `@pingX` 在没有 ping 时返回 **`Float.NaN`，不是 `null`**（[UnitComp.java:307](../../../Mindustry-Source/core/src/mindustry/entities/comp/UnitComp.java#L307)）。
 > 所以这个判断**永远不成立**——代码会继续用 NaN 去算坐标，最终下发一个 NaN 的瞄准点。
 > 修正见 [模式库 §11.5](PATTERNS.md#115-pingx-的-nan-陷阱)。
 
@@ -840,7 +840,7 @@ jump 0 equal s 0
 
 **它们怎么避免抢同一个单位？**
 
-答案是 **`ubind` 的环形计数器**（[LExecutor.java:190](../Mindustry-Source/core/src/mindustry/logic/LExecutor.java#L190)）：
+答案是 **`ubind` 的环形计数器**（[LExecutor.java:190](../../../Mindustry-Source/core/src/mindustry/logic/LExecutor.java#L190)）：
 
 ```java
 exec.binds[type.id] %= seq.size;
@@ -893,7 +893,7 @@ ucontrol stop @thisx @thisy 0 0 0
 1. `ai.control = stop` + `unit.mineTile = null` + `unit.clearBuilding()` → **单位彻底停手**（不会去挖矿、不会去建造）
 2. **刷新 `controlTimer` 到 600 帧** → 保持控制权。**如果去掉这条 `stop`，只有 `move` 的话控制也会刷新；但只有 `uradar` 就不会**（见 [模式库 §6.1](PATTERNS.md#61-索敌radar-与-uradar)）
 
-> **注意冗余**：`ucontrol stop @thisx @thisy 0 0 0` 里的 `@thisx @thisy` **没有意义**——`stop` 不读任何参数（[LExecutor.java:358](../Mindustry-Source/core/src/mindustry/logic/LExecutor.java#L358) 的 `stop` 分支只设 `ai.control` 和清空状态）。这是"从 `move` 复制过来忘了清参数"的残留。
+> **注意冗余**：`ucontrol stop @thisx @thisy 0 0 0` 里的 `@thisx @thisy` **没有意义**——`stop` 不读任何参数（[LExecutor.java:358](../../../Mindustry-Source/core/src/mindustry/logic/LExecutor.java#L358) 的 `stop` 分支只设 `ai.control` 和清空状态）。这是"从 `move` 复制过来忘了清参数"的残留。
 
 ### 4.3.3 为什么用 48 个核而不是 1 个
 
@@ -1332,7 +1332,7 @@ set myUnit @unit
 ok:
 ```
 
-> **注意 L4 的 `strictEqual c @unit`**：用 `strictEqual` 而不是 `equal` 是必要的——`@controller` 是**对象引用**，`equal` 对对象走 `Structs.eq`，而 `strictEqual` 才是精确的引用比较（[LogicOp.java:17/24](../Mindustry-Source/core/src/mindustry/logic/LogicOp.java#L17)）。
+> **注意 L4 的 `strictEqual c @unit`**：用 `strictEqual` 而不是 `equal` 是必要的——`@controller` 是**对象引用**，`equal` 对对象走 `Structs.eq`，而 `strictEqual` 才是精确的引用比较（[LogicOp.java:17/24](../../../Mindustry-Source/core/src/mindustry/logic/LogicOp.java#L17)）。
 > **这也再次证明：判"是不是我"必须用 `strictEqual`。**
 
 ### 这个蓝图的另外两个可学点
@@ -1349,13 +1349,13 @@ ok:
 
 > **这里要澄清一个容易搞错的机制**（源码级）：
 >
-> [LExecutor.java:1054](../Mindustry-Source/core/src/mindustry/logic/LExecutor.java#L1054) — `PrintI.run()` **只往缓冲区追加文本，不输出任何东西**：
+> [LExecutor.java:1054](../../../Mindustry-Source/core/src/mindustry/logic/LExecutor.java#L1054) — `PrintI.run()` **只往缓冲区追加文本，不输出任何东西**：
 > ```java
 > if(exec.textBuffer.length() >= maxTextBuffer) return;      // 缓冲区满了就什么都不做
 > exec.textBuffer.append(...);                                // 只追加
 > ```
 >
-> [LExecutor.java:1171](../Mindustry-Source/core/src/mindustry/logic/LExecutor.java#L1171) — `PrintFlushI.run()` 才是真正"提交"的地方：
+> [LExecutor.java:1171](../../../Mindustry-Source/core/src/mindustry/logic/LExecutor.java#L1171) — `PrintFlushI.run()` 才是真正"提交"的地方：
 > ```java
 > public void run(LExecutor exec){
 >     if(target.building() instanceof MessageBuild d && d.isValid() && (...)){
@@ -1416,7 +1416,7 @@ sensor Hp target.shell @health
 - `shoot` 打**坐标点**，敌人移动就打空
 - `shootp` **跟踪实体**，炮塔自己解算提前量
 
-**源码**（[LExecutor.java](../Mindustry-Source/core/src/mindustry/logic/LExecutor.java)）：`shootp` 走的是 `ControlI` 的 `shootp` 分支，把目标设为 `Teamc`，炮塔的 `target()` 会持续跟随。
+**源码**（[LExecutor.java](../../../Mindustry-Source/core/src/mindustry/logic/LExecutor.java)）：`shootp` 走的是 `ControlI` 的 `shootp` 分支，把目标设为 `Teamc`，炮塔的 `target()` 会持续跟随。
 
 ## 7.3 `蓝瑟火控` 系列（矢量瞄准）
 
@@ -1467,7 +1467,7 @@ op sin sy sr 90
 
 **想干什么**：用角度 `sr` 算一个圆周上的点（`cos/sin` 是横扫的关键）。
 
-**问题**：`sin`/`cos` 在 mlog 里是**一元**运算（[LogicOp.java:51](../Mindustry-Source/core/src/mindustry/logic/LogicOp.java#L51)）：
+**问题**：`sin`/`cos` 在 mlog 里是**一元**运算（[LogicOp.java:51](../../../Mindustry-Source/core/src/mindustry/logic/LogicOp.java#L51)）：
 
 ```java
 sin("sin", d -> Math.sin(d * Mathf.doubleDegRad)),
@@ -1517,11 +1517,11 @@ jump 25 always yi ym
 
 | 问题 | 说明 | 修正 |
 |---|---|---|
-| `ucontrol move bx by @copper-wall 0 0` | `move` **只读 p1/p2**（[LExecutor.java:358](../Mindustry-Source/core/src/mindustry/logic/LExecutor.java#L358)），`@copper-wall` 被忽略 | 删掉，或在**建墙时**才用 `build` |
+| `ucontrol move bx by @copper-wall 0 0` | `move` **只读 p1/p2**（[LExecutor.java:358](../../../Mindustry-Source/core/src/mindustry/logic/LExecutor.java#L358)），`@copper-wall` 被忽略 | 删掉，或在**建墙时**才用 `build` |
 | `ucontrol stop 0 0 0 0 0` 里的参数 | `stop` 不读参数 | 无伤，但写 `stop 0 0 0 0 0` 是规范格式 |
 | **没有检测建造是否成功** | 如果 `bx by` 被占据或方块未解锁，`build` 静默失败 | 加 `ucontrol getBlock` 复查 |
 
-**"没检测成功"是最值得注意的**——源码 [LExecutor.java:445](../Mindustry-Source/core/src/mindustry/logic/LExecutor.java#L445) 的条件：
+**"没检测成功"是最值得注意的**——源码 [LExecutor.java:445](../../../Mindustry-Source/core/src/mindustry/logic/LExecutor.java#L445) 的条件：
 
 ```java
 if((state.rules.logicUnitBuild || exec.privileged)

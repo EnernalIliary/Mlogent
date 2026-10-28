@@ -780,7 +780,7 @@ python tools/review.py ingest && python tools/review.py stats
 而每条规则都该能被一个人判成「对 / 错 / 不知道」。
 
 ```bash
-python tools/rule_capture.py list            # 25 条规则，带实测命中数
+python tools/rule_capture.py list            # 39 条规则，带实测命中数
 python tools/rule_capture.py lint -v         # schema + 反例必须不命中
 python tools/rule_audit.py --dir out/maps    # 按规则统计噪声 → out/rule_audit_maps.md
 python tools/review.py build --dir out/maps  # 压成可判的行 → out/audit_rows.json

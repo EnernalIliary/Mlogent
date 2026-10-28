@@ -270,6 +270,10 @@ SUITE: list[tuple[str, str, str | None]] = [
     # 0 links + >200 statements = a fragment cropped out of a larger base: the
     # block-shaped name is INFO (link-name-unbound-fragment), not WARN.
     ("check/link-unbound-fragment", "check_nolinks", "link-unbound-fragment.mlog"),
+    # radar/uradar take no count: the 6th operand is a sort direction, so a
+    # number > 1 there is the shape the old doc taught (radar-takes-no-count).
+    ("check/radar-count-misuse", "check_rid", "radar-count-misuse.mlog"),
+    ("check/radar-count-ok", "check_rid", "radar-count-ok.mlog"),
     ("ir/labels-resolved",     "ir",      "label.mlog"),
     ("ir/odd-name",            "odd",     None),
     ("ir/stale-write",        "ir",      "stale.mlog"),

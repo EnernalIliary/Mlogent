@@ -101,8 +101,15 @@
       "steps": 6,
       "code": "set r 0\nop acos r 0.5\nend\n",
       "processor": "world",
-      "expect_vars": {"r": {"approx": 60.0, "tol": 0.001}},
-      "expect_classes_has": ["OpI"],
+      "expect_vars": {
+        "r": {
+          "approx": 60,
+          "tol": 0.001
+        }
+      },
+      "expect_classes_has": [
+        "OpI"
+      ],
       "why": "op acos returns DEGREES: Math.acos(0.5) * doubleRadDeg = 60 (float noise 60.00000000000001)",
       "ref": "Mindustry-Source/core/src/mindustry/logic/LogicOp.java:56"
     },
@@ -112,7 +119,9 @@
       "steps": 6,
       "code": "set k 5\nlocaleprint k\nend\n",
       "processor": "world",
-      "expect_classes_has": ["LocalePrintI"],
+      "expect_classes_has": [
+        "LocalePrintI"
+      ],
       "expect_text_empty": true,
       "why": "localeprint only appends when the operand is an object: a numeric variable writes nothing",
       "ref": "Mindustry-Source/core/src/mindustry/logic/LExecutor.java:2393-2413"
@@ -123,8 +132,12 @@
       "steps": 6,
       "code": "localeprint \"no-such-locale-key\"\nend\n",
       "processor": "world",
-      "expect_classes_has": ["LocalePrintI"],
-      "expect_text_contains": ["???no-such-locale-key???"],
+      "expect_classes_has": [
+        "LocalePrintI"
+      ],
+      "expect_text_contains": [
+        "???no-such-locale-key???"
+      ],
       "why": "an unknown map locale key prints the wrapped key (v160.7 jar); the newer source snapshot appends null instead - the jar wins",
       "ref": "Mindustry-Source/core/src/mindustry/logic/LStatements.java:2614-2636"
     },
@@ -134,7 +147,9 @@
       "steps": 6,
       "code": "clientdata \"ch\" 5 1\nend\n",
       "processor": "world",
-      "expect_classes": ["EndI"],
+      "expect_classes": [
+        "EndI"
+      ],
       "why": "ClientDataStatement.build returns null unless state.rules.allowLogicData: the line compiles to nothing (not even a noop)",
       "ref": "Mindustry-Source/core/src/mindustry/logic/LStatements.java:2186-2190"
     },
@@ -144,10 +159,50 @@
       "steps": 6,
       "code": "clientdata \"ch\" 5 1\nend\n",
       "processor": "world",
-      "rules": {"allowLogicData": true},
-      "expect_classes_has": ["ClientDataI"],
+      "rules": {
+        "allowLogicData": true
+      },
+      "expect_classes_has": [
+        "ClientDataI"
+      ],
       "why": "with the map rule allowLogicData the same line compiles to ClientDataI - the gate is a rule, not a version",
       "ref": "Mindustry-Source/core/src/mindustry/logic/LStatements.java:2186-2190"
+    },
+    {
+      "id": "radar-single-output-v160",
+      "jar": "160",
+      "steps": 4,
+      "code": "ubind @flare\nradar enemy any any distance 0 1 u\nend\n",
+      "expect_radar": {
+        "output": "u",
+        "sortOrder": "___1.0"
+      },
+      "why": "radar has exactly one output LVar: the executor writes one unit to it (LExecutor.java:802 output.setobj(targeted)) and there is no loop over a count",
+      "ref": "out/takeover-20261024/26-docsig.md"
+    },
+    {
+      "id": "radar-sixth-slot-is-a-direction-v160",
+      "jar": "160",
+      "steps": 4,
+      "code": "ubind @flare\nradar enemy any any distance 0 5 u\nend\n",
+      "expect_radar": {
+        "output": "u",
+        "sortOrder": "___5.0"
+      },
+      "why": "the 6th operand is the sort direction: writing 5 lands as the constant ___5.0 in sortOrder and is read as a boolean (LExecutor.java:753), it does not mean 'find 5 units'",
+      "ref": "out/takeover-20261024/26-docsig.md"
+    },
+    {
+      "id": "uradar-six-operand-shape-v160",
+      "jar": "160",
+      "steps": 4,
+      "code": "ubind @flare\nuradar enemy any any distance 1 target\nend\n",
+      "expect_radar": {
+        "output": "result",
+        "sortOrder": "target"
+      },
+      "why": "the 6-operand shape the old doc showed is off by one: 'target' is read as the direction and the result falls through to the default `result` variable",
+      "ref": "out/takeover-20261024/26-docsig.md"
     }
   ]
 }

@@ -87,6 +87,25 @@ void 0
 '''
 
 
+#: reads the compiled radar instruction's fields.  The point is not the values a
+#: player sees but the SHAPE: `radar`/`uradar` have exactly one output LVar and
+#: their 6th operand is a sort direction (an LVar read as a boolean), so there is
+#: no slot where a count could live.
+RADAR_JS = r'''
+var b = Vars.world.build(%d, %d);
+if(b === null || b.executor === null){ print('NOPROC'); } else {
+    var ins = b.executor.instructions;
+    for(var i = 0; i < ins.length; i++){
+        var c = String(ins[i].getClass().getSimpleName());
+        if(c.indexOf('Radar') < 0) continue;
+        var r = ins[i];
+        print('RAD\t' + c + '\toutput=' + r.output.name + '\tsortOrder=' + r.sortOrder.name +
+              '\tsort=' + r.sort + '\ttarget1=' + r.target1);
+    }
+}
+void 0
+'''
+
 def as_lines(out):
     """srv.js() returns a list of lines on some paths and a string on others."""
     if out is None:
@@ -117,6 +136,21 @@ def read_classes(srv):
     return []
 
 
+def read_radar(srv):
+    """[{field: value}] for every compiled radar instruction (usually one)."""
+    got = []
+    for line in as_lines(srv.js(RADAR_JS % srv.base)):
+        if not line.startswith('RAD\t'):
+            continue
+        parts = line.split('\t')
+        rec = {'class': parts[1]}
+        for kv in parts[2:]:
+            if '=' in kv:
+                k, v = kv.split('=', 1)
+                rec[k] = v
+        got.append(rec)
+    return got
+
 def num_close(got, want):
     try:
         return abs(float(got) - float(want)) <= 1e-6
@@ -124,7 +158,7 @@ def num_close(got, want):
         return str(got) == str(want)
 
 
-def check(p, rec, effects, classes):
+def check(p, rec, effects, classes, radar=None):
     """Return the list of failed assertions; empty means the probe passed."""
     bad = []
     for name, want in (p.get('expect') or {}).items():
@@ -159,6 +193,14 @@ def check(p, rec, effects, classes):
         if name not in classes:
             bad.append('class %s missing (got %s)' % (name, classes))
 
+    if 'expect_radar' in p:
+        if len(radar or []) != 1:
+            bad.append('want exactly 1 radar instruction, got %d' % len(radar or []))
+        else:
+            for k, want in p['expect_radar'].items():
+                got = radar[0].get(k)
+                if str(got) != str(want):
+                    bad.append('radar %s want %r got %r' % (k, want, got))
     text = (rec or {}).get('text')
     if text is None:
         text = ''
@@ -201,6 +243,7 @@ def run_one(p, java, M):
                          processor=proc)
         effects = read_effects(as_lines(srv.js(probe_js(names))))
         classes = read_classes(srv)
+        radar = read_radar(srv) if 'expect_radar' in p else []
     except Exception as exc:
         return ('fail', p['id'], '%s: %s' % (type(exc).__name__, str(exc)[:120]))
     finally:
@@ -209,7 +252,7 @@ def run_one(p, java, M):
                 srv.close()
             except Exception:
                 pass
-    bad = check(p, rec, effects, classes)
+    bad = check(p, rec, effects, classes, radar)
     if bad:
         return ('fail', p['id'], '; '.join(bad))
     return ('pass', p['id'], '')

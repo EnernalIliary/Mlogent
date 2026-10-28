@@ -55,6 +55,27 @@
       ]
     ]
   },
+  "check/radar-count-misuse": {
+    "kind": "check_rid",
+    "case": "radar-count-misuse.mlog",
+    "digest": [
+      [
+        "WARN",
+        1,
+        "radar-takes-no-count"
+      ],
+      [
+        "WARN",
+        2,
+        "radar-takes-no-count"
+      ]
+    ]
+  },
+  "check/radar-count-ok": {
+    "kind": "check_rid",
+    "case": "radar-count-ok.mlog",
+    "digest": []
+  },
   "ir/labels-resolved": {
     "kind": "ir",
     "case": "label.mlog",

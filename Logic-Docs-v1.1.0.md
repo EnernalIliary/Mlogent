@@ -3243,7 +3243,7 @@ radar <target1> <target2> <target3> <sort> <building> <order> <output>
 
 搜索结果按指定的排序方式和方向排列，返回最佳匹配的单位。如果未找到任何匹配单位，output 被设为 `null`。
 
-**缓存机制**：为防止雷达指令频繁执行导致的性能问题，雷达结果会被缓存。建筑类雷达每 40 tick 更新一次结果，在此期间返回上次缓存的目标。当搜索源建筑变化时也会触发重新搜索。
+**缓存机制**：为防止雷达指令频繁执行导致的性能问题，雷达结果会被缓存。建筑类雷达每 30 tick 更新一次结果（源码 `timer.get(30f)`，约 0.5 秒），在此期间返回上次缓存的目标。当搜索源建筑变化时也会触发重新搜索。
 
 ## 源码实现要点
 
@@ -3658,7 +3658,7 @@ setrate <amount>
 setrate 1000
 
 ## 读取当前速度
-sensor currentRate @ipt
+set currentRate @ipt
 print currentRate
 printflush message1
 end
@@ -3673,17 +3673,17 @@ end
 ## 导出格式
 
 ```
-getblock <result> <x> <y> <layer>
+getblock <layer> <result> <x> <y>
 ```
 
 ## 参数说明
 
 | 参数   | 类型     | 说明                                         |
 | ------ | -------- | -------------------------------------------- |
+| layer  | 枚举     | 图层类型：`block`/`floor`/`overlay`          |
 | result | 输出变量 | 输出：获取到的方块/地板/覆盖层内容           |
 | x      | 数值     | tile 坐标 X                                  |
 | y      | 数值     | tile 坐标 Y                                  |
-| layer  | 枚举     | 图层类型：`block`/`floor`/`overlay`          |
 
 ## 功能说明
 
@@ -3730,19 +3730,19 @@ end
 ## 导出格式
 
 ```
-setblock <x> <y> <block> <team> <rotation> <layer>
+setblock <layer> <block> <x> <y> <team> <rotation>
 ```
 
 ## 参数说明
 
 | 参数     | 类型     | 说明                                            |
 | -------- | -------- | ----------------------------------------------- |
+| layer    | 枚举     | 图层类型：`block`/`floor`/`overlay`             |
+| block    | Content  | 方块类型（如 `@conveyor`、`@dirt` 等）          |
 | x        | 数值     | tile 坐标 X                                     |
 | y        | 数值     | tile 坐标 Y                                     |
-| block    | Content  | 方块类型（如 `@conveyor`、`@dirt` 等）          |
 | team     | Team     | 队伍（如 `derelict`、`sharded` 等）             |
 | rotation | 数值     | 旋转方向（0-3，对应 0°/90°/180°/270°）          |
-| layer    | 枚举     | 图层类型：`block`/`floor`/`overlay`             |
 
 ## 功能说明
 
@@ -3958,15 +3958,15 @@ end
 ## 导出格式
 
 ```
-weathersense <weather> <result>
+weathersense <result> <weather>
 ```
 
 ## 参数说明
 
 | 参数    | 类型     | 说明                                   |
 | ------- | -------- | -------------------------------------- |
-| weather | Content  | 天气类型（如 `@rain`、`@snow` 等）     |
 | result  | 输出变量 | 输出：1=该天气正在生效，0=未生效       |
+| weather | Content  | 天气类型（如 `@rain`、`@snow` 等）     |
 
 ## 功能说明
 
@@ -4063,16 +4063,16 @@ end
 ## 导出格式
 
 ```
-spawnwave <natural> <x> <y>
+spawnwave <x> <y> <natural>
 ```
 
 ## 参数说明
 
 | 参数    | 类型 | 说明                                                   |
 | ------- | ---- | ------------------------------------------------------ |
-| natural | 数值 | 是否自然生成：1=true（x/y 无效），0=false（使用 x/y） |
 | x       | 数值 | 生成位置 X（natural=0 时有效）                          |
 | y       | 数值 | 生成位置 Y（natural=0 时有效）                          |
+| natural | 数值 | 是否自然生成：1=true（x/y 无效），0=false（使用 x/y） |
 
 ## 功能说明
 
@@ -4623,7 +4623,7 @@ end
 ## 导出格式
 
 ```
-playsound <positional> <id> <volume> <pitch> <pan/x> <y> <limit>
+playsound <positional> <id> <volume> <pitch> <pan> <x> <y> <limit>
 ```
 
 ## 参数说明
@@ -4634,8 +4634,9 @@ playsound <positional> <id> <volume> <pitch> <pan/x> <y> <limit>
 | id         | 数值    | 音效 ID                                              |
 | volume     | 数值    | 音量（0-1，1 为最大）                                |
 | pitch      | 数值    | 音调（1 为原始音调）                                 |
-| pan/x      | 数值    | 全局模式下为声相（-1 左到 1 右）；定位模式下为 X 坐标 |
-| y          | 数值    | 定位模式下的 Y 坐标（全局模式下无效）                 |
+| pan        | 数值    | 全局模式下的声相（-1 左到 1 右）                |
+| x          | 数值    | 定位模式下的 X 坐标（全局模式下无效）            |
+| y          | 数值    | 定位模式下的 Y 坐标（全局模式下无效）            |
 | limit      | 数值    | 是否限制（1=是，0=否）                                |
 
 ## 功能说明

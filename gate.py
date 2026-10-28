@@ -150,6 +150,11 @@ def build_steps(full: bool, only: str | None) -> list[tuple[str, list[str] | Non
         # statement with an anchored regex and fail open when the line grows
         # (tests/shapes/run_shapes.py).
         ("shapes", ["tests/shapes/run_shapes.py"], ""),
+        # docs drift: the signature lines and field tables in the hand-written
+        # docs must agree with tools/instr_semantics.json (tests/docsig/),
+        # because a doc that teaches a nonexistent operand is how the radar
+        # "count" myth spread to four PATTERNS.md mirrors (see the docstring).
+        ("docsig", ["tests/docsig/run_docsig.py"], ""),
     ]
     global_skill = (Path(os.environ.get("DSH_HOME") or (Path.home() / ".dsh"))
                     / "skills" / "mlog-agentskill")
