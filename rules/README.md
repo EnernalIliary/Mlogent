@@ -25,6 +25,12 @@
 | `line_regex` | 可选：命中行应长什么样 | precision 无法测量 |
 | `auto_downgrade` | 允许 R2 自动降级 | 高噪声规则要人工发现 |
 | `observed` | R2 写回：命中数/程序数/占比 | 没人知道它现在有多吵 |
+| `surface` | 可选，目前只有 `blueprint`：这条规则只在 `analyse_blueprint()` 里可能命中（要读别的处理器的变量表），`.mlog` fixture 永远碰不到 | `tests/ruleids/run_ruleids.py` 会把它当死规则报错 |
+
+**每条规则都必须被某个 fixture 真的点火一次**（`tests/ruleids/run_ruleids.py`，
+也在 gate 里）。写规则时顺手写 `tests/cases/<rid>.mlog`：只写反例的规则在
+`rule_capture.py lint` 里也是绿的——lint 只证明「反例不命中」，不证明「正例能命中」。
+改 `match.msg_any` 就必须重跑 `run_ruleids.py --write`，diff 就是这次改动的复核。
 
 ## 三种 kind，一条硬规矩
 

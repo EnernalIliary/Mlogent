@@ -134,7 +134,7 @@ def _run_verify(d: Path) -> bool | None:
     return True
 
 
-def write_target(name: str, check_only: bool) -> int:
+def write_target(name: str, check_only: bool, allow_absent: bool = False) -> int:
     d, may_create, want_manifest = MIRRORS[name]
     if not d.is_dir():
         # 公开仓/精简导出里没有某个镜像目录是正常的（比如 install 那份只在作者本机），
@@ -152,6 +152,14 @@ def write_target(name: str, check_only: bool) -> int:
             print(f"  {name}/{n}: differs")
         if absent:
             print(f"  {name}: absent payload {', '.join(absent)}")
+            if not allow_absent:
+                # write mode already refuses (rc=1), and a silently short copy is
+                # worse than a loud one: a missing data JSON degrades to "{}" in
+                # every consumer and the tests then grade a table that is not there.
+                print(f"STALE  {name}: {len(absent)} payload file(s) missing from {d}")
+                print(f"  run: python tools/sync_mlogagent.py --mirror {name}"
+                      f"   (or pass --allow-absent if this tree is meant to be short)")
+                return 1
         if want_manifest:
             want = _manifest_text(d, present)
             mp = d / "MANIFEST.sha256"
@@ -272,6 +280,9 @@ def main(argv: list[str] | None = None) -> int:
                          "scope for every project (combine with --check to verify)")
     ap.add_argument("--no-verify", action="store_true",
                     help="skip the per-target 'mlogagent.py info --verify' pass")
+    ap.add_argument("--allow-absent", action="store_true",
+                    help="with --check: tolerate payload files missing from a copy "
+                         "(trimmed exports only; the repo copies must be complete)")
     args = ap.parse_args(argv)
 
     if not SKILL.is_dir():
@@ -283,7 +294,8 @@ def main(argv: list[str] | None = None) -> int:
     print(f"source : {HERE}  ({len(names)} payload file(s))")
     rc = 0
     for name in targets:
-        rc = max(rc, write_target(name, check_only=args.check))
+        rc = max(rc, write_target(name, check_only=args.check,
+                                  allow_absent=args.allow_absent))
 
     if not args.check and not args.no_verify:
         for name in targets:

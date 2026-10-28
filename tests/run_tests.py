@@ -558,9 +558,15 @@ def main() -> int:
             print(f"      expected {a!r}")
             print(f"      got      {b!r}")
 
+    # A case that disappeared from the suite is a failure, not a note: otherwise
+    # "delete the case that broke" is a green path past the whole gate.
     missing = sorted(set(want) - set(got))
     for label in missing:
+        bad += 1
         print(f"STALE {label}  (in expected.json, no longer in the suite)")
+    if missing:
+        print("      restoring the case or dropping its expected.json entry are the"
+              " only two honest fixes")
 
     total = len(got)
     print(f"\n{total - bad}/{total} passed" + ("" if not missing else

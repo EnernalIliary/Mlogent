@@ -21,15 +21,18 @@ stop being run first:
 
 Usage
 -----
-    python gate.py                # walk the cheap gates (~3 s)
-    python gate.py --full         # + selftest / probes / corpus / coverage (~42 s, needs a JRE);
-                                  #   those four are independent, so they run concurrently --
-                                  #   --serial brings back the old one-at-a-time order
+    python gate.py                # walk the cheap gates (~5 s, measured 2026-10-28)
+    python gate.py --full         # + selftest / probes / corpus / coverage (~25 s on this
+                                  #   machine, measured 2026-10-28; needs a JRE); those four
+                                  #   are independent, so they run concurrently and the long
+                                  #   pole is selftest (15.8 s) and probes (15.0 s), not the
+                                  #   sum -- --serial brings back the old one-at-a-time order
     python gate.py --kb-build     # rebuild the KB when it is stale
     python gate.py --only test    # run steps whose name contains "test"
     python gate.py -v             # stream child output instead of capturing it
 
-Exit status: 0 when every step PASSes (WARN allowed unless --strict), 1 otherwise.
+Exit status: 0 when every step PASSes (WARN allowed unless --strict; with --strict a
+SKIP is a failure too -- a machine that silently skips probes/corpus is not covered).
 """
 from __future__ import annotations
 
@@ -47,7 +50,8 @@ PY = sys.executable
 # each drives its own JVM (mlogsim/mlog.py start one per run, and a host-less
 # run binds no 6567 port), each writes a different file under out/_bench, and
 # none of them reads another one's output.  Run them together: the full gate
-# goes from ~75 s to ~42 s, and the long pole is probes (38 s) not the sum.
+# went from ~63 s serial to ~24 s (2026-10-28, 12 steps), and the long pole is
+# selftest/probes/corpus at ~19 s each, not the sum.
 # --serial restores the sequential order; --stream implies it (interleaved
 # child output would be unreadable).
 PARALLEL = ("selftest", "probes", "corpus", "coverage")
@@ -74,7 +78,13 @@ def run_step(name: str, argv: list[str], stream: bool = False) -> tuple[str, str
     t0 = time.time()
     if stream:
         print("--> " + name + ": " + " ".join(argv), flush=True)
-        rc = subprocess.run([PY, *argv], cwd=str(ROOT), env=child_env()).returncode
+        # a streamed child must still have a deadline: without one, a hung JVM
+        # pins the gate forever with no row and no failure.
+        try:
+            rc = subprocess.run([PY, *argv], cwd=str(ROOT), env=child_env(),
+                                timeout=timeout).returncode
+        except subprocess.TimeoutExpired:
+            return (name, "FAIL", time.time() - t0, "", f"timeout after {timeout}s")
         out, secs = "", time.time() - t0
     else:
         rc, out, secs = run_child(argv)
@@ -113,6 +123,12 @@ def kb_sources() -> tuple[Path, list[Path]]:
         if p.is_file():
             src.append(p)
     for pat in list(K.CODE_GLOBS) + list(K.DOC_GLOBS):
+        src += [p for p in ROOT.glob(pat) if p.is_file()]
+    # The KB answers "why does this rule fire" and "what does this fixture
+    # assert", so rules/*.json and tests/cases/*.mlog are inputs even though
+    # kb.py does not index them as documents: a rule rewritten yesterday and a
+    # fixture added an hour ago both make the answers stale.
+    for pat in ("rules/*.json", "tests/cases/*.mlog"):
         src += [p for p in ROOT.glob(pat) if p.is_file()]
     return K.DB_PATH, src
 
@@ -155,6 +171,12 @@ def build_steps(full: bool, only: str | None) -> list[tuple[str, list[str] | Non
         # because a doc that teaches a nonexistent operand is how the radar
         # "count" myth spread to four PATTERNS.md mirrors (see the docstring).
         ("docsig", ["tests/docsig/run_docsig.py"], ""),
+        # rule coverage: every active rule must fire on at least one fixture, the
+        # rid of every finding must belong to a rules/*.json, and the (rid ->
+        # cases) map must match tests/rule-coverage.json.  Without it, rewording a
+        # message silently re-classifies findings and a rule that never fires
+        # anywhere looks exactly like a rule that works (tests/ruleids/).
+        ("ruleids", ["tests/ruleids/run_ruleids.py"], ""),
     ]
     global_skill = (Path(os.environ.get("DSH_HOME") or (Path.home() / ".dsh"))
                     / "skills" / "mlog-agentskill")
@@ -263,12 +285,15 @@ def main() -> int:
     if warns:
         summary += ", " + str(len(warns)) + " warn (" + ", ".join(warns) + ")"
     if skips:
-        summary += ", " + str(len(skips)) + " skipped"
+        summary += ", " + str(len(skips)) + " skipped (" + ", ".join(skips) + ")"
+        if args.strict:
+            summary += " -- --strict counts a SKIP as a failure"
     summary += f" in {time.time() - t_all:.1f}s"
     if fails:
         summary += " -- FAILED: " + ", ".join(fails)
     print(summary)
-    return 1 if fails or (warns and args.strict) else 0
+    strict_bad = (warns or skips) if args.strict else []
+    return 1 if fails or (args.strict and strict_bad) else 0
 
 
 if __name__ == "__main__":

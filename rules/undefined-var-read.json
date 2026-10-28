@@ -13,7 +13,7 @@
       "ERR"
     ],
     "msg_any": [
-      "is read here but is never assigned"
+      "is mentioned (so it is declared"
     ]
   },
   "auto_downgrade": false,

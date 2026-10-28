@@ -72,10 +72,17 @@ sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
 ROOT = Path(__file__).resolve().parents[2]
 
-# Docs written by hand.  Deliberately NOT scanned:
+# Docs written by hand.  Deliberately NOT scanned here:
 #   Logic/                 original read-only copies (never edited)
 #   out/, dist/            drafts and build output
-#   */PATTERNS.md          generated from 蓝图逻辑模式库.md by tools/sync_mlogagent.py
+#   */PATTERNS.md, */BLUEPRINT-ANALYSIS.md
+#                          DERIVED, not written: they are 蓝图逻辑模式库.md and
+#                          蓝图层逐类精讲.md copied to a deeper directory by
+#                          tools/fix_skill_links.py (which rewrites the leading
+#                          ../ of every link and renames the file).  Scanning
+#                          them here would report the same defect once per copy;
+#                          derived() below asserts they are content-identical
+#                          instead, which is the real invariant.
 DOCS = [
     "蓝图逻辑模式库.md",
     "Logic-Docs-v1.1.0.md",
@@ -91,6 +98,11 @@ STRICT = {
     "wait", "ubind", "setrate", "printchar", "radar", "uradar", "noop", "end",
     "read", "write", "status",
 }
+
+# hand-written source -> derived copies, discovered by walking the tree (a new
+# mirror must not be able to escape this check by not being listed).
+DERIVED_SOURCES = ["蓝图逻辑模式库.md", "蓝图层逐类精讲.md"]
+DERIVED_SKIP = ("out", "dist", "Logic", ".git", "logic-corpus", "saves")
 
 PLACE = re.compile(r"^<[^<>]{1,40}>$")
 FENCE = re.compile(r"^\s*```\s*([A-Za-z0-9_+-]*)")
@@ -273,6 +285,63 @@ def scan_lines(rel, lines, sem, stats, problems):
     flush()
 
 
+def _norm_link_depth(line):
+    """Collapse ../ runs inside markdown link targets.
+
+    A derived copy sits one directory deeper (or three), so fix_skill_links.py
+    rewrites (../.../Mindustry-Source/x) to (../../../../Mindustry-Source/x).
+    Only the depth differs -- the target is the same file.
+    """
+    return re.sub(r"\((?:(\.\.)/)+", "(", line)
+
+
+def derived(root=ROOT, verbose=False):
+    """Compare every *derived* copy with its hand-written source.
+
+    Returns (checked, problems).  A copy that drifted is how the radar "count"
+    myth reached four mirrors: the source was fixed and the copies were not, and
+    nothing looked at them.
+    """
+    root = Path(root)
+    checked, problems = 0, []
+    copies = []
+    for dirpath, dirnames, filenames in __import__("os").walk(root):
+        dirnames[:] = [d for d in dirnames if d not in DERIVED_SKIP]
+        rel_dir = Path(dirpath).relative_to(root)
+        for fn in filenames:
+            if fn in ("PATTERNS.md", "BLUEPRINT-ANALYSIS.md"):
+                copies.append(rel_dir / fn)
+    src_of = {"PATTERNS.md": "蓝图逻辑模式库.md",
+              "BLUEPRINT-ANALYSIS.md": "蓝图层逐类精讲.md"}
+    for copy in sorted(copies):
+        src = root / src_of[copy.name]
+        if not src.is_file():
+            problems.append(f"{copy.as_posix()}: source {src.name} is gone")
+            continue
+        checked += 1
+        a = src.read_text("utf-8").splitlines()
+        b = (root / copy).read_text("utf-8").splitlines()
+        if len(a) != len(b):
+            problems.append(f"{copy.as_posix()}: {len(b)} line(s) vs {len(a)} in "
+                            f"{src.name} -- regenerate with "
+                            f"python tools/fix_skill_links.py <skill dir>")
+            continue
+        out = []
+        for i, (la, lb) in enumerate(zip(a, b), 1):
+            want = _norm_link_depth(la).replace(src.name, copy.name)
+            got = _norm_link_depth(lb)
+            if want != got:
+                out.append((i, la, lb))
+        if out:
+            problems.append(f"{copy.as_posix()}: {len(out)} line(s) differ from "
+                            f"{src.name} (first at line {out[0][0]})")
+            if verbose:
+                for ln, la, lb in out[:5]:
+                    print(f"    {copy.name}:{ln} source: {la[:90]}")
+                    print(f"    {copy.name}:{ln} copy  : {lb[:90]}")
+    return checked, problems
+
+
 def check(sem, verbose=False, root=ROOT):
     problems = []
     stats = {"signature": 0, "example": 0, "table": 0, "files": 0}
@@ -326,9 +395,12 @@ def main(argv):
     if "--self-test" in argv:
         return selftest(sem)
     problems, stats = check(sem, verbose, root)
+    n_derived, der_problems = derived(root, verbose)
+    problems += der_problems
     print("docs: %d file(s), %d signature line(s), %d example line(s), "
-          "%d table(s)" % (stats["files"], stats["signature"],
-                           stats["example"], stats["table"]))
+          "%d table(s), %d derived copy/copies"
+          % (stats["files"], stats["signature"], stats["example"],
+             stats["table"], n_derived))
     for p in problems:
         print("MISMATCH " + p)
     if problems:
