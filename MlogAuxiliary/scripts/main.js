@@ -28,7 +28,7 @@
 function __logicWriterMain(){
     "use strict";
 
-    var MOD_VERSION = "0.3.1";
+    var MOD_VERSION = "0.4.0";
     var URL_KEY     = "mlogauxiliary-url";
     var DEFAULT_URL = "http://127.0.0.1:8765";
     var KEY_PANEL   = ["f4"];      // F4：开面板（F1/F5/F6/F8/F11/F12 与 F9/F10 已被占用）
@@ -42,6 +42,7 @@ function __logicWriterMain(){
     // 所有游戏对象访问都套 try：无头环境里只是返回 false，不会炸。
 
     var sidecarOk = null;
+    var panel = null;          // 模板块面板的单实例（v0.3.1 之前每次按 F4 都新建一个，能叠起来）
     var settingsDone = false;
     var settingsErr = null;
     var settingsTries = 0;    // 见热键钩子：UI 晚于脚本建好时每 60 帧重试一次   // 注册失败时的原文，摊在诊断里，省得翻 last_log.txt
@@ -58,21 +59,28 @@ function __logicWriterMain(){
         catch(e){ return "?"; }
     }
 
-    function diagLines(){
-        var out = [];
-        out.push("版本 " + MOD_VERSION + "，游戏构建 " + gameBuild());
+    // 诊断数据只算一次，两个出口共用：设置页（键值两列对齐）与控制台/剪贴板（纯文本）。
+    function diagParts(){
+        var parts = [];
+        parts.push({k: "版本", v: MOD_VERSION + "（游戏构建 " + gameBuild() + "）"});
         if(RULES === null){
-            out.push("快检模块：没加载（scripts/rules.generated.js 或 scripts/quickcheck.js 缺失）");
+            parts.push({k: "快检模块", v: "没加载（scripts/rules.generated.js 或 scripts/quickcheck.js 缺失）"});
         }else{
-            out.push("快检模块：已加载，指令 " + countKeys(RULES.instr) + " 条 / op 版本门 "
-                     + countKeys(RULES.ops) + " 条 / 链接槽 " + countKeys(RULES.link) + " 条");
+            parts.push({k: "快检模块", v: "已加载 · 指令 " + countKeys(RULES.instr) + " 条 / op 版本门 "
+                       + countKeys(RULES.ops) + " 条 / 链接槽 " + countKeys(RULES.link) + " 条"});
         }
-        out.push("sidecar：" + base + "（"
-                 + (sidecarOk === null ? "未探测" : (sidecarOk ? "上次可达" : "上次不可达")) + "）");
-        out.push("数据目录：" + dirText(Vars.dataDirectory));
-        out.push("mods 目录：" + dirText(Vars.modDirectory));
-        out.push("设置分类：" + (settingsDone ? "已注册（设置 → Mlog辅助）"
-                 : (settingsErr === null ? "还没注册（Vars.ui 未就绪）" : "注册失败：" + settingsErr)));
+        parts.push({k: "sidecar", v: base + "（"
+                    + (sidecarOk === null ? "未探测" : (sidecarOk ? "上次可达" : "上次不可达")) + "）"});
+        parts.push({k: "数据目录", v: dirText(Vars.dataDirectory)});
+        parts.push({k: "mods 目录", v: dirText(Vars.modDirectory)});
+        parts.push({k: "设置分类", v: settingsDone ? "已注册（设置 → Mlog辅助）"
+                    : (settingsErr === null ? "还没注册（Vars.ui 未就绪）" : "注册失败：" + settingsErr)});
+        return parts;
+    }
+
+    function diagLines(){
+        var parts = diagParts(), out = [];
+        for(var i = 0; i < parts.length; i++){ out.push(parts[i].k + "：" + parts[i].v); }
         return out;
     }
 
@@ -118,31 +126,66 @@ function __logicWriterMain(){
     }
 
     // 只碰 Table / Cell 的少数几个方法，方便在没有 UI 的环境里用假表 smoke。
+    // ------------------------------------------------------------ 设置页
+    // 只用真引擎复核过的 Table / Cell 形状（tests/mlogauxiliary/run_ui_smoke.py）：
+    // 一律平铺成「键 值 + 按钮」，绝不 t.table(fn)（v160.7 Rhino 里重载歧义），
+    // 也不 t.scrollPane(fn) / t.textarea(fn)（Table 上根本没有这两个方法）。
+    var LABEL_W = 92, VALUE_W = 430;
+
+    function section(t, title){
+        t.add("── " + title + " ──────────────").colspan(2).left().padTop(10).padBottom(2).row();
+    }
+
+    function kv(t, k, v){
+        t.add(k).width(LABEL_W).right().padRight(8);
+        t.labelWrap(v).width(VALUE_W).left().row();
+    }
+    function copyDiag(){
+        try{
+            Core.app.setClipboardText(diagText());
+            if(Vars.ui !== null){ Vars.ui.showText("Mlog辅助 · 诊断", "诊断已复制到剪贴板。"); }
+        }catch(e){ log("clipboard failed: " + e); }
+    }
+
     function buildSettingsTable(t){
         t.defaults().pad(3).left();
-        t.labelWrap("Mlog辅助 " + MOD_VERSION + " · 写入走原版 config 通道，联机时由服务端执行").row();
-        var lines = diagLines();
-        for(var i = 0; i < lines.length; i++){ t.labelWrap("  " + lines[i]).row(); }
-        t.row();
-        t.labelWrap("sidecar 地址（改完按回车保存）").row();
+        kv(t, "", "Mlog辅助 " + MOD_VERSION + " · 把意图变成 mlog 写进处理器；写入走原版 config 通道，联机时由服务端执行");
+        var parts = diagParts(), i;
+        section(t, "运行环境");
+        for(i = 0; i < parts.length; i++){
+            if(parts[i].k !== "快检模块" && parts[i].k !== "sidecar"){ kv(t, parts[i].k, parts[i].v); }
+        }
+        section(t, "本地快检（离线也能用）");
+        for(i = 0; i < parts.length; i++){
+            if(parts[i].k === "快检模块"){ kv(t, parts[i].k, parts[i].v); }
+        }
+        section(t, "sidecar（本机进程，关掉也不影响进游戏）");
+        t.add("地址").width(LABEL_W).right().padRight(8);
         t.field(base, function(v){
             var s = String(v);
             if(s.length > 0){ base = s; Core.settings.put(URL_KEY, s); log("sidecar = " + s); }
-        }).width(320).row();
-        // 一律平铺在 t 上，不用 t.table(fn) / t.scrollPane(fn) 这类容器回调：
-        // 真 v160.7 的 Rhino 里 Table.table(function) 有重载歧义，方法解析阶段就抛
-        //   InternalError: The choice of Java method arc.scene.ui.layout.Table.table ... is ambiguous
-        // 而 t.pane(fn)/button/field/check/labelWrap/add 都能解析（只是 headless 下 skin 为 null）。
-        // tests/mlogauxiliary/run_ui_smoke.py 会拿真引擎逐个方法复核这张表用到的调用形状。
-        t.button("连接测试", function(){ probeSidecar(); }).width(120);
-        t.button("打开面板", function(){ openPanel(); }).width(120);
-        t.button("快检鼠标下的处理器", function(){ quickAimed(); }).width(200).row();
-        t.button("打印诊断到控制台", function(){
+        }).width(300).left().row();
+        t.add("操作").width(LABEL_W).right().padRight(8);
+        t.button("连接测试", function(){ probeSidecar(); }).width(110);
+        t.button("复制诊断", function(){ copyDiag(); }).width(110).row();
+        section(t, "快捷动作");
+        t.add("").width(LABEL_W);
+        t.button("AI 辅助编程", function(){ showAiPanel(); }).width(130);
+        t.button("模板面板", function(){ openPanel(); }).width(110).row();
+        t.add("").width(LABEL_W);
+        t.button("快检鼠标下的处理器", function(){ quickAimed(); }).width(190);
+        t.button("打印诊断", function(){
             print("[mai] --- diag ---");
             print(diagText());
-        }).width(240).row();
-        t.labelWrap("热键 F4 打开面板；面板里点模板 = 生成 + 预检 + 确认写入。").row();
+        }).width(110).row();
+        t.add("").width(LABEL_W);
+        t.button("重新注册分类", function(){ settingsDone = false; registerSettings(); }).width(150);
+        t.button("审查状态", function(){ showReview(); }).width(110).row();
+        section(t, "说明");
+        kv(t, "", "F4 = AI 辅助编程（描述意图 → 生成 → 预检 → 写入）；原版逻辑编辑器底部会多一条「审查」状态栏。"
+                  + "地址改完按回车保存。sidecar 不开也能进游戏，只是生成与模板不可用。");
     }
+
 
     // 无 UI 环境下也能验证设置表格的布线：喂一张假表，数它被填了多少行/格。
     // 假表只实现真实页面用到的方法 —— 少实现一个，selfTest 立刻炸；
@@ -152,8 +195,14 @@ function __logicWriterMain(){
         var used = [];
         function hit(m){ used.push(m); }
         var cell = {
-            pad: function(){ hit("pad"); return cell; }, left: function(){ hit("left"); return cell; },
-            width: function(){ hit("width"); return cell; }, colspan: function(){ hit("colspan"); return cell; },
+            pad: function(){ hit("pad"); return cell; },
+            padTop: function(){ hit("padTop"); return cell; },
+            padBottom: function(){ hit("padBottom"); return cell; },
+            padRight: function(){ hit("padRight"); return cell; },
+            left: function(){ hit("left"); return cell; },
+            right: function(){ hit("right"); return cell; },
+            width: function(){ hit("width"); return cell; },
+            colspan: function(){ hit("colspan"); return cell; },
             row: function(){ n++; hit("row"); return cell; }
         };
         var t = {
@@ -208,6 +257,7 @@ function __logicWriterMain(){
         var Vars    = Packages.mindustry.Vars;
         var ET      = Packages.mindustry.game.EventType;
         var Groups  = Packages.mindustry.gen.Groups;
+        var Pal     = Packages.mindustry.graphics.Pal;
 
         // P2 的两个模块。游戏只执行 scripts/main.js（Mods.loadScripts:809 只取 main.js，
         // 除非 scripts/ 下只有一个文件），其余文件必须 require 进来 —— Scripts.java:30-32
@@ -386,7 +436,28 @@ function __logicWriterMain(){
         // ---------------------------------------------------------- 面板
         // 模板按钮来自 GET /capabilities —— 面板本身就是"协议通了"的证据。
 
+        // ---------------------------------------------------------- 面板
+        // 模板按钮来自 GET /capabilities —— 面板本身就是「协议通了」的证据。
+        //
+        // 关不掉的教训（v0.3.1 之前）：Arc 的 Dialog.addCloseButton() 是空实现
+        //   Arc-Source/arc-core/src/arc/scene/ui/Dialog.java:453-455
+        //   "no default implementation; should be implemented by subclasses"
+        // 而 closeOnBack()（ESC / 返回键）也不会自动生效 —— Mindustry 的 BaseDialog
+        // 是在构造里显式调（BaseDialog.java:70）。我们既不是 BaseDialog、又只调了
+        // addCloseButton()，于是这个模态面板打开之后没有任何退出路径。现在三件一起做：
+        // 自加「关闭」按钮 + closeOnBack() + 再按一次 F4 关，并且只保留一个实例。
+
+        function panelShown(){
+            try{ return panel !== null && panel.isShown(); }catch(e){ return false; }
+        }
+
+        function togglePanel(){
+            if(panelShown()){ try{ panel.hide(); }catch(e){ /* ignore */ } return; }
+            openPanel();
+        }
+
         function openPanel(){
+            if(panelShown()){ try{ panel.toFront(); return; }catch(e){ /* ignore */ } }
             var b = targetBuild();
             var d = new Packages.arc.scene.ui.Dialog("Mlog辅助 v" + MOD_VERSION);
             d.cont.defaults().pad(4);
@@ -395,7 +466,7 @@ function __logicWriterMain(){
             var qres = quickRun(b === null ? "" : String(b.code), b);
             d.cont.add(quickSummary(qres)).left().row();
             var qlines = quickLines(qres);
-            var qmax = Math.min(qlines.length, 4);
+            var qmax = Math.min(qlines.length, 5);
             for(var qi = 0; qi < qmax; qi++){
                 d.cont.add("  " + qlines[qi]).left().row();
             }
@@ -404,9 +475,12 @@ function __logicWriterMain(){
             var pane = d.cont.pane(function(t){
                 t.defaults().pad(2).left();
                 t.add("正在读取模板…").row();
-            }).height(320).width(520).get();
-            d.addCloseButton();
+            }).height(300).width(520).get();
+            d.buttons.defaults().pad(4);
+            d.buttons.button("关闭", function(){ d.hide(); }).width(200);
+            d.closeOnBack();
             d.show();
+            panel = d;
 
             httpJson("GET", "/capabilities", null, function(code, text){
                 var cap = parse(text);
@@ -429,6 +503,192 @@ function __logicWriterMain(){
                 pane.add("ipt 上限 " + cap.limits.ipt_max
                        + "，链接半径 " + cap.limits.link_range_tiles + " 格").row();
             });
+        }
+
+        // ------------------------------------------ 原版逻辑编辑器里的审查
+        // LogicDialog 是 Vars.ui.logic 上的单例（UI.java:228 `logic = new LogicDialog()`），
+        // 它的构造里 clearChildren() 之后只放了三样东西：add(canvas).grow() / row() /
+        // add(buttons).growX()（LogicDialog.java:39-72）。所以最低侵入的接法是往它自己
+        // 身上再补一行：不改原版源码、不碰 canvas，只在底部加一条「审查」状态栏，
+        // 代码一变（canvas.save() 变了）就重算一次。
+        // 无头环境里 Vars.ui 是 null（Vars.java:209/332），每次访问都套 try。
+
+        var reviewHost = null, reviewBar = null, reviewLast = "", reviewFrame = 0, reviewRes = null;
+
+        function reviewTargets(){
+            try{
+                var L = Vars.ui.logic;
+                if(L !== null && L !== undefined && L.executor !== null){ return L.executor.build; }
+            }catch(e){ /* ignore */ }
+            return null;
+        }
+
+        function reviewCode(){
+            try{ return String(Vars.ui.logic.canvas.save()); }catch(e){ return null; }
+        }
+
+        function reviewCount(res){
+            var err = 0, warn = 0, info = 0, f = res.findings;
+            for(var k = 0; k < f.length; k++){
+                if(f[k].sev === "ERR"){ err++; } else if(f[k].sev === "WARN"){ warn++; } else { info++; }
+            }
+            return {err: err, warn: warn, info: info, total: f.length};
+        }
+
+        function refreshReview(force){
+            if(reviewBar === null){ return; }
+            var code = reviewCode();
+            if(code === null){ return; }
+            if(!force && code === reviewLast){ return; }
+            reviewLast = code;
+            var res = quickRun(code, reviewTargets());
+            reviewRes = res;
+            var c = reviewCount(res);
+            reviewBar.clear();
+            reviewBar.left();
+            reviewBar.add("审查").padRight(8);
+            if(c.total === 0){
+                reviewBar.add("没有发现问题").color(Pal.accent).padRight(16);
+            }else{
+                if(c.err > 0){ reviewBar.add("ERR " + c.err).color(Pal.remove).padRight(8); }
+                if(c.warn > 0){ reviewBar.add("WARN " + c.warn).color(Pal.lightOrange).padRight(8); }
+                if(c.info > 0){ reviewBar.add("INFO " + c.info).padRight(8); }
+            }
+            reviewBar.add("语句 " + res.stats.statements + " · 线性 " + res.stats.linearCost
+                          + " · ipt " + res.stats.ticksPerPass).padRight(16);
+            reviewBar.button("详情", function(){ showReview(); }).width(90);
+            reviewBar.button("AI 辅助", function(){ showAiPanel(); }).width(120);
+        }
+
+        function reviewText(){
+            // 控制台/诊断用的纯文本版审查（showReview 会弹对话框）
+            var b = reviewTargets();
+            var code = reviewCode();
+            if(code === null && b !== null){ code = String(b.code); }
+            var res = quickRun(code === null ? "" : code, b);
+            if(res.missing){ return "本地快检不可用（quickcheck.js 没加载）"; }
+            var out = [quickSummary(res)];
+            var ls = quickLines(res);
+            for(var i = 0; i < ls.length; i++){ out.push(ls[i]); }
+            return out.join("\n");
+        }
+
+        function showReview(){
+            var code = reviewCode();
+            var res = reviewRes;
+            if(code !== null){ res = quickRun(code, reviewTargets()); }
+            if(res === null){ if(Vars.ui !== null){ Vars.ui.showText("Mlog辅助 · 审查", "没有可审查的处理器。"); } return; }
+            var out = [quickSummary(res)];
+            var ls = quickLines(res);
+            for(var i = 0; i < ls.length; i++){ out.push(ls[i]); }
+            if(Vars.ui !== null){ Vars.ui.showText("Mlog辅助 · 审查", out.join("\n")); }
+        }
+
+        function injectReview(){
+            try{
+                var L = Vars.ui.logic;
+                if(L === null || L === undefined || reviewHost === L){ return false; }
+                var bar = new Packages.arc.scene.ui.layout.Table();
+                bar.left();
+                L.row();
+                L.add(bar).growX().height(46).pad(6);
+                reviewHost = L;
+                reviewBar = bar;
+                log("review bar injected into the vanilla logic editor");
+                refreshReview(true);
+                return true;
+            }catch(e){ log("review inject failed: " + e); return false; }
+        }
+
+        // 每帧被调一次：面板没开时只做两次属性读，代价可忽略。
+        function reviewTick(){
+            try{
+                if(Vars.ui === null || Vars.ui.logic === null || !Vars.ui.logic.isShown()){ return; }
+                if(reviewHost !== Vars.ui.logic){ injectReview(); }
+                reviewFrame++;
+                if(reviewFrame % 30 === 0){ refreshReview(false); }
+            }catch(e){ /* 每帧回调里绝不抛出去 */ }
+        }
+
+        // ------------------------------------------ AI 辅助编程（F4）
+        // 一句话 → sidecar POST /plan → 代码 + 预检 → 确认写入。
+        // 现在是规则式意图路由（tools/logicd.py 的 INTENTS 表），模型的接入点只在
+        // /plan 的实现里，模组这一侧不用改。
+
+        var aiPanel = null;
+
+        function aiShown(){
+            try{ return aiPanel !== null && aiPanel.isShown(); }catch(e){ return false; }
+        }
+
+        function toggleAiPanel(){
+            if(aiShown()){ try{ aiPanel.hide(); }catch(e){ /* ignore */ } return; }
+            showAiPanel();
+        }
+
+        function plan(intent, b, cb){
+            var req = {intent: String(intent), links: linkList(b), ipt: 2};
+            httpJson("POST", "/plan", JSON.stringify(req), function(code, text){
+                var res = parse(text);
+                if(code !== 200 || !res || res === null){
+                    cb({ok: false, reason: "sidecar 返回 " + code + "：" + String(text).substring(0, 200)});
+                    return;
+                }
+                cb(res);
+            });
+        }
+
+        function renderPlan(out, res, b, d){
+            out.clear();
+            if(!res || res.ok !== true){
+                out.add("没能生成：" + (res && res.reason ? res.reason : "sidecar 没给理由")).row();
+                if(res && res.templates){ out.add("可用模板：" + res.templates.join(" / ")).row(); }
+                return;
+            }
+            out.add("模板 " + res.template + " —— " + res.reason).row();
+            var c = reviewCount(res);
+            out.add(c.total === 0 ? "预检：通过（0 条）"
+                    : ("预检：ERR " + c.err + " / WARN " + c.warn + " / INFO " + c.info)).row();
+            var ls = res.findings;
+            for(var i = 0; i < ls.length && i < 6; i++){
+                out.add("  " + ls[i].sev + " L" + ls[i].line + " " + ls[i].msg).row();
+            }
+            out.add("--- 代码（" + res.statements + " 条语句，" + res.bytes_len + " 字节）---").row();
+            var code = String(res.code).split("\n");
+            for(var k = 0; k < code.length && k < 40; k++){ out.add(code[k]).row(); }
+            if(code.length > 40){ out.add("… 共 " + code.length + " 行").row(); }
+            d.buttons.clearChildren();
+            d.buttons.defaults().pad(4);
+            if(c.err === 0){
+                d.buttons.button("写入", function(){ writeBuild(b, res); d.hide(); }).width(140);
+            }
+            d.buttons.button("关闭", function(){ d.hide(); }).width(140);
+        }
+
+        function showAiPanel(){
+            if(aiShown()){ try{ aiPanel.toFront(); return; }catch(e){ /* ignore */ } }
+            var b = targetBuild();
+            var d = new Packages.arc.scene.ui.Dialog("Mlog辅助 · AI 辅助编程 v" + MOD_VERSION);
+            d.cont.defaults().pad(4).left();
+            d.cont.add("目标：" + describe(b)).row();
+            d.cont.add("描述这段逻辑要做什么，然后点「生成」：").padTop(6).row();
+            var intent = "";
+            d.cont.field("", function(v){ intent = String(v); }).width(560).row();
+            d.cont.add("例：巡逻，遇到敌人就开火 / 20% 物品以下给核心补货 / 每 2 秒打印一次计数").row();
+            var out = d.cont.pane(function(t){
+                t.defaults().pad(2).left();
+                t.add("（还没生成）").row();
+            }).height(300).width(580).get();
+            d.buttons.defaults().pad(4);
+            d.buttons.button("生成", function(){
+                out.clear();
+                out.add("正在请求 sidecar…").row();
+                plan(intent, b, function(res){ renderPlan(out, res, b, d); });
+            }).width(140);
+            d.buttons.button("关闭", function(){ d.hide(); }).width(140);
+            d.closeOnBack();
+            d.show();
+            aiPanel = d;
         }
 
         // ---------------------------------------------------------- 动作
@@ -598,6 +858,8 @@ function __logicWriterMain(){
         api.maiPanel = function(){ openPanel(); return "opened"; };
         api.maiSettings = function(){ return registerSettings() ? "registered" : "no ui"; };
         api.maiSelfTest = function(){ return selfTest(); };
+        api.maiAi = function(){ showAiPanel(); return "opened"; };
+        api.maiReview = function(){ return reviewText(); };
 
         // 挂到脚本作用域（控制台里能直接敲），并读回自检
         var scope = Vars.mods.getScripts().scope;
@@ -627,6 +889,7 @@ function __logicWriterMain(){
         if(KEY_PANEL !== null){
             Events.run(ET.Trigger.update, function(){
                 try{
+                    reviewTick();   // 原版逻辑编辑器开着就顺手刷新那条审查栏
                     // 「设置 → Mlog辅助」这一栏只在 Vars.ui 建好之后能注册。脚本加载时
                     // UI 往往还没建（真机日志里是在 ClientLoadEvent 前），所以这里补一次
                     // 有界重试：每 60 帧试一次、最多 600 次（≈10 s @60fps），成功即停。
@@ -637,7 +900,11 @@ function __logicWriterMain(){
                     if(Vars.state.isMenu()){ return; }
                     if(Vars.ui.chatfrag.shown()){ return; }
                     var key = Packages.arc.input.KeyCode[KEY_PANEL[0]];
-                    if(Core.input.keyTap(key)){ openPanel(); }
+                    if(Core.input.keyTap(key)){
+                        // 我们的面板开着 -> F4 关掉；别人的对话框开着 -> 别叠上去
+                        if(!aiShown() && !panelShown() && Core.scene !== null && Core.scene.hasDialog()){ return; }
+                        toggleAiPanel();
+                    }
                 }catch(e){ /* 每帧回调里绝不抛出去 */ }
             });
         }

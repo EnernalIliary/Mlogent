@@ -23,6 +23,7 @@ Protocol (v1, JSON over HTTP, loopback only)
     GET  /capabilities  -> instructions, ops, templates, limits
     POST /analyze       {code, links:[name|{name,x,y}], ipt}      -> findings + cost
     POST /compose       {template, params, links, ipt}            -> code + findings + bytes_b64
+    POST /plan          {intent, links, ipt}                       -> compose, plus which template matched and why
 
 Everything returns "ok": false when any finding is ERR: a write is refused, not
 downgraded.  WARN/INFO are returned with the payload so the panel can show them
@@ -40,6 +41,7 @@ import argparse
 import base64
 import json
 import os
+import re
 import sys
 import traceback
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -228,6 +230,207 @@ TEMPLATES = {t.id: t for t in [
 ]}
 
 
+# ---------------------------------------------------------------- intent routing
+#
+# This is the ONE place a language model would plug in.  Everything downstream is
+# the deterministic path (template -> code -> analyzer -> byte payload), so a model
+# can only ever choose a template and fill its parameters -- it never hands raw mlog
+# to the game.  The default backend is keyword rules, which runs offline; swapping in
+# a model means replacing _route() and keeping its return shape.
+
+_NUM = re.compile(r'-?[0-9]+(?:[.][0-9]+)?')
+_ATNAME = re.compile(r'@[A-Za-z][A-Za-z0-9_-]*')
+
+#: keyword sets, most specific first (ordered because ties break by position)
+_INTENTS = [
+    ('radar-fire', ('雷达', '开火', '炮塔', '攻击', '打怪', '射击', '瞄准',
+                    'radar', 'turret', 'fire', 'shoot', 'aim')),
+    ('item-threshold', ('物品', '资源', '容器', '阈值', '库存', '够', '满了', '铜', '铅',
+                        'container', 'vault', 'threshold', 'item', 'stock', 'enough')),
+    ('timer-flush', ('定时', '每隔', '周期', '报时', '刷屏', 'timer', 'every', 'interval')),
+    ('counter', ('计数', '自增', '累加', 'counter', 'count up', 'count', 'increment')),
+    ('memory-table', ('内存', '存储', '记忆', '存值', 'memory', 'store', 'save')),
+    ('patrol', ('巡逻', '来回', '移动', '飞过去', 'patrol', 'move', 'walk', 'fly')),
+]
+
+_ITEMS = None
+
+
+def _content_items():
+    """Item names from tools/content_names.json, for "watch copper" style intents."""
+    global _ITEMS
+    if _ITEMS is None:
+        try:
+            data = json.load(open(os.path.join(HERE, 'content_names.json'), encoding='utf-8'))
+            _ITEMS = [str(x) for x in (data.get('items') or [])]
+        except Exception:
+            _ITEMS = []
+    return _ITEMS
+
+
+def _numbers(text):
+    out = []
+    for m in _NUM.findall(text):
+        try:
+            f = float(m)
+        except ValueError:
+            continue
+        out.append(int(f) if f == int(f) else f)
+    return out
+
+
+def _atoms(text):
+    return _ATNAME.findall(text)
+
+
+def _pick_link(names, *subs):
+    for sub in subs:
+        for n in names:
+            if sub in n.lower():
+                return n
+    return None
+
+
+def _fallback_link(names, *avoid):
+    for n in names:
+        low = n.lower()
+        if not any(a in low for a in avoid):
+            return n
+    return names[0] if names else None
+
+
+def _params_patrol(text, names):
+    atoms = _atoms(text)
+    nums = _numbers(text)
+    p = {}
+    if atoms:
+        p['unit'] = atoms[0].lstrip('@')
+    if len(nums) >= 4:
+        p['x1'], p['y1'], p['x2'], p['y2'] = nums[0], nums[1], nums[2], nums[3]
+    elif len(nums) == 2:
+        p['x2'], p['y2'] = nums[0], nums[1]
+    return p
+
+
+def _params_radar_fire(text, names):
+    turret = _pick_link(names, 'turret', '炮', 'tur', 'duo', 'scatter', 'lance', 'arc')
+    if turret is None:
+        turret = _fallback_link(names, 'message', 'msg', 'cell', 'bank')
+    return {'turret': turret} if turret else {}
+
+
+def _params_item_threshold(text, names):
+    p = {}
+    container = _pick_link(names, 'container', 'vault', 'storage', '容器', 'core')
+    if container is None:
+        container = _fallback_link(names, 'message', 'msg', 'cell')
+    if container:
+        p['container'] = container
+    message = _pick_link(names, 'message', 'msg')
+    if message:
+        p['message'] = message
+    item = None
+    atoms = _atoms(text)
+    if atoms:
+        item = atoms[0].lstrip('@')
+    if item is None:
+        low = text.lower()
+        for name in _content_items():
+            if name.lower() in low:
+                item = name
+                break
+    if item:
+        p['item'] = item
+    nums = _numbers(text)
+    if nums:
+        p['threshold'] = nums[0]
+    return p
+
+
+def _params_memory(text, names):
+    p = {}
+    cell = _pick_link(names, 'cell', 'memory', 'bank', '内存')
+    if cell is None:
+        cell = _fallback_link(names, 'message', 'msg', 'container')
+    if cell:
+        p['cell'] = cell
+    nums = _numbers(text)
+    if len(nums) >= 2:
+        p['index'], p['value'] = nums[0], nums[1]
+    elif nums:
+        p['value'] = nums[0]
+    return p
+
+
+def _params_timer(text, names):
+    p = {}
+    message = _pick_link(names, 'message', 'msg')
+    if message:
+        p['message'] = message
+    nums = _numbers(text)
+    if nums:
+        p['seconds'] = nums[0]
+    return p
+
+
+def _params_counter(text, names):
+    p = {}
+    cell = _pick_link(names, 'cell', 'memory', 'bank', '内存')
+    if cell is None:
+        cell = _fallback_link(names, 'message', 'msg', 'container')
+    if cell:
+        p['cell'] = cell
+    nums = _numbers(text)
+    if nums:
+        p['step'] = nums[0]
+    return p
+
+
+_PARAMS = {
+    'patrol': _params_patrol,
+    'radar-fire': _params_radar_fire,
+    'item-threshold': _params_item_threshold,
+    'memory-table': _params_memory,
+    'timer-flush': _params_timer,
+    'counter': _params_counter,
+}
+
+
+def _route(intent, names):
+    """intent text -> (template id, one-line reason, params).  Rules only, offline."""
+    low = intent.lower()
+    best, best_score, best_words = None, 0, []
+    for tid, words in _INTENTS:
+        hit = [w for w in words if w.lower() in low]
+        if len(hit) > best_score:
+            best, best_score, best_words = tid, len(hit), hit
+    if best is None:
+        return None, '', {}
+    params = _PARAMS[best](intent, names)
+    why = 'matched %s -> template %r' % (', '.join(best_words), best)
+    return best, why, params
+
+
+def plan(req):
+    """Natural-language intent -> the same payload /compose returns, plus the reasoning."""
+    intent = str(req.get('intent') or '').strip()
+    if not intent:
+        raise ValueError('intent must be a non-empty string')
+    if len(intent) > 2000:
+        raise ValueError('intent is too long (2000 characters)')
+    links = req.get('links') or []
+    ipt = int(req.get('ipt') or 2)
+    tid, why, params = _route(intent, _link_names(links))
+    if tid is None:
+        why = 'no template matched this intent -- say what the processor should do: patrol, watch an item, point a turret, count up, print on a timer, store a value'
+        return {'ok': False, 'intent': intent, 'template': None, 'reason': why,
+                'candidates': [{'id': t.id, 'title': t.title} for t in TEMPLATES.values()]}
+    res = compose({'template': tid, 'params': params, 'links': links, 'ipt': ipt})
+    res['intent'] = intent
+    res['params'] = params
+    res['reason'] = why
+    return res
+
 # ---------------------------------------------------------------- analysis
 
 def _link_names(links):
@@ -389,6 +592,11 @@ class Handler(BaseHTTPRequestHandler):
                     self._send(200, compose(req))
                 except ValueError as exc:
                     self._send(400, {'ok': False, 'error': str(exc)})
+            elif path == '/plan':
+                try:
+                    self._send(200, plan(req))
+                except ValueError as exc:
+                    self._send(400, {'ok': False, 'error': str(exc)})
             else:
                 self._send(404, {'ok': False, 'error': 'no such endpoint: ' + path})
         except Exception:
@@ -408,11 +616,21 @@ def serve(host, port):
 
 
 def main(argv=None):
+    try:
+        sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+    except Exception:
+        pass
     ap = argparse.ArgumentParser(description='local half of the in-game logic-writing service')
     ap.add_argument('--host', default='127.0.0.1', help='bind address (loopback by default)')
     ap.add_argument('--port', type=int, default=8765, help='0 = pick a free port')
     ap.add_argument('--print-template', metavar='ID', help='dump one template and exit')
+    ap.add_argument('--plan', metavar='TEXT', help='route one intent, print the JSON result, exit')
     a = ap.parse_args(argv)
+    if a.plan:
+        out = plan({'intent': a.plan})
+        out.pop('bytes_b64', None)
+        print(json.dumps(out, ensure_ascii=False, indent=2))
+        return 0
     if a.print_template:
         t = TEMPLATES.get(a.print_template)
         if t is None:

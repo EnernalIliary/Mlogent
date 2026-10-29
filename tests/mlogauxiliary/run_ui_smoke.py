@@ -14,6 +14,8 @@ so this test does what the game does, minus the pixels:
     a fake JS table can never catch;
   * reads the diagnostics block (maiDiag) and checks it names both directories;
   * confirms maiSettings() says "no ui" headless instead of throwing.
+  * greps the source for the v0.4.0 wiring a headless engine cannot show: closeOnBack()
+    plus a close button on the modal panel, the review bar hooked to Vars.ui.logic, F4 -> AI panel.
 
 Gate treats exit 3 as SKIP (no JRE / no jar).
 
@@ -116,6 +118,12 @@ def main():
         'width': "t.add('x').width(120);",
         'colspan': "t.add('x').colspan(2);",
         'get': "t.add('x').get();",
+        'padTop': "t.add('x').padTop(4);",
+        'padBottom': "t.add('x').padBottom(4);",
+        'padRight': "t.add('x').padRight(4);",
+        'right': "t.add('x').right();",
+        'clear': 't.clear();',
+        'color': "t.add('x').color(Packages.arc.graphics.Color.white);",
     }
     missing = [m for m in used if m not in SHELL]
     probe = [
@@ -153,7 +161,7 @@ def main():
         problems.append('init threw')
     if 'MAISELF:\u8bbe\u7f6e\u8868\u683c\u53ef\u5efa' not in joined:
         problems.append('maiSelfTest did not build the settings table')
-    if 'MAISELF:' in joined and '0 \u884c' in joined:
+    if 'MAISELF:' in joined and '\u586b\u4e86 0 ' in joined:
         problems.append('maiSelfTest filled no rows')
     if '\u6570\u636e\u76ee\u5f55' not in joined or 'mods \u76ee\u5f55' not in joined:
         problems.append('maiDiag is missing a directory line')
@@ -172,6 +180,19 @@ def main():
     if re.search('[.](table|scrollPane)[(][ ]*function', code_only):
         problems.append('main.js calls t.table(function) / t.scrollPane(function) -- '
                         'ambiguous in this engine, keep the settings rows flat')
+
+    # v0.4.0 wiring: a headless engine has no scene, so these can only be pinned
+    # at the source level.  Each one is a bug that already shipped once.
+    if 'closeOnBack()' not in code_only:
+        problems.append('the modal panel never calls closeOnBack() -- arc Dialog.addCloseButton() '
+                        'is an empty default (Dialog.java:453-455), so it cannot be dismissed')
+    if 'buttons.button(' not in code_only:
+        problems.append('the panel has no visible close button in d.buttons')
+    if 'Vars.ui.logic' not in code_only or 'canvas.save()' not in code_only:
+        problems.append('the review bar is not wired to the vanilla logic editor '
+                        '(Vars.ui.logic / canvas.save) -- m08924 asked for that review')
+    if 'toggleAiPanel();' not in code_only:
+        problems.append('F4 does not open the AI panel (toggleAiPanel) -- m08925 asked for that')
 
     if problems:
         print('FAIL ' + '; '.join(problems))

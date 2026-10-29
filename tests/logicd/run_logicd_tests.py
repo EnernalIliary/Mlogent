@@ -186,6 +186,46 @@ def test_protocol():
         need(st == 200 and any(f['rid'] == 'link-name-not-bound' for f in res['findings']),
              'a typo link name produced no link-name-not-bound finding')
         checks += 1
+
+        # /plan: one sentence in, a template choice + params + the same payload out.
+        # This is the seam a language model would take over, so the shape has to be
+        # pinned: template, params, reason, and a payload that is already checked.
+        cases = [
+            ('let @flare patrol between 10 10 and 30 12', 'patrol'),
+            ('watch copper in the container, shout when it reaches 250', 'item-threshold'),
+            ('point the turret at the nearest enemy and fire', 'radar-fire'),
+            ('count up in the cell by 5 every second', 'counter'),
+            ('at index 3 store 42 in the memory cell', 'memory-table'),
+            ('print a line every 2 seconds', 'timer-flush'),
+        ]
+        for text, want in cases:
+            st, res = srv.post('/plan', {'intent': text, 'links': LINKS, 'ipt': 2})
+            need(st == 200, 'plan %r status %s' % (text, st))
+            need(res.get('template') == want,
+                 'plan %r chose %r, wanted %r (reason %r)' % (text, res.get('template'), want, res.get('reason')))
+            need(isinstance(res.get('params'), dict), 'plan %r params: %r' % (text, res.get('params')))
+            need(res.get('reason'), 'plan %r gave no reason' % text)
+            need(res.get('bytes_b64') and res.get('bytes_len', 0) > 0, 'plan %r returned no payload' % text)
+            need(res.get('errors') == 0, 'plan %r produced ERR: %r' % (text, res.get('findings')))
+            checks += 1
+        # the params are extracted, not just the template name
+        st, res = srv.post('/plan', {'intent': cases[0][0], 'links': LINKS})
+        need(res['params'].get('unit') == 'flare' and res['params'].get('x2') == 30,
+             'plan extracted patrol params: %r' % (res.get('params'),))
+        st, res = srv.post('/plan', {'intent': cases[1][0], 'links': LINKS})
+        need(res['params'].get('item') == 'copper' and res['params'].get('threshold') == 250
+             and res['params'].get('container') == 'container1',
+             'plan extracted item params: %r' % (res.get('params'),))
+        checks += 1
+        # a vague sentence is refused with the menu, not guessed at
+        st, res = srv.post('/plan', {'intent': 'make something nice', 'links': LINKS})
+        need(st == 200 and res['ok'] is False and res.get('template') is None,
+             'plan on a vague intent: %r' % (res,))
+        need(len(res.get('candidates') or []) >= 6, 'plan candidates: %r' % (res.get('candidates'),))
+        st, res = srv.post('/plan', {'intent': '   '})
+        need(st == 400 and res['ok'] is False, 'plan with an empty intent status %s' % st)
+        checks += 1
+
         return cap, checks
     finally:
         srv.close()

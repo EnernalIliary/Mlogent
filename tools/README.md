@@ -142,7 +142,9 @@ python tests/logicd/run_logicd_tests.py           # 契约测试：协议 13 项
 python tests/logicd/run_logicd_tests.py --no-sim  # 只跑协议层（不需要 JRE）
 ```
 
-接口只有四个：`GET /health`、`GET /capabilities`、`POST /analyze`、`POST /compose`；
+接口五个：`GET /health`、`GET /capabilities`、`POST /analyze`、`POST /compose`、`POST /plan`
+（一句话意图 -> 选模板 + 抽参数。**模型只有这一个接入点**：把 `_route()` 换成模型调用，返回形状不变，
+模组侧一行不用改，模型也就永远没办法把没检查过的 mlog 塞进存档）；
 `ok` 的语义是**没有 ERR**（ERR 一律拒绝写入）。设计、契约细节、分期与「已验证/未验证」
 边界写在 `docs/Mlog辅助-设计.md`，模组安装与操作写在 `MlogAuxiliary/README.md`，
 P2–P5 的路线（框选 → 队列 → 模型 → 写入）在 `docs/Mlog辅助-规划.md`。

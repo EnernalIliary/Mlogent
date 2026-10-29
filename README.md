@@ -60,7 +60,7 @@ python tools/mlogsim.py logic.mlog --save scene.msav --units mono:1 --core-items
 | `Logic/` | `逻辑代码规范.md` 与示例逻辑（个人程序） |
 | `out/scenes/` | 5 张现实场景 `.msav`、3 个合成台（`benches/`：core / memory / processor）、快照 |
 | `.dsh/skills/` | `mlog-agentskill`（可独立拷走）与 `mindustry-blueprint` 安装副本 |
-| `MlogAuxiliary/` | 游戏内模组（Rhino JS）：选意图 → 本地 sidecar 生成 + 预检 → 走原版 config 通道写进处理器 |
+| `MlogAuxiliary/` | 游戏内模组（Rhino JS）：F4 一句话 → 本地 sidecar 选模板生成 + 预检 → 走原版 config 通道写进处理器；原版逻辑编辑器底部自动挂审查栏 |
 | `dsh-preset-mlog/` | DeepSeek Harness 的 `mlog` Agent 预设（persona + 技能根 + 工具集） |
 
 ## 规则与边界
