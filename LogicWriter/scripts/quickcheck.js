@@ -16,9 +16,15 @@ var LW_QUICKCHECK = (function(){
     // Rhino 是 ES5，这里只用最老的 API；反斜杠一律用 charCode 拼，省得被转义吃掉。
     var BS = String.fromCharCode(92);
     var NL = String.fromCharCode(10);
-    var RE_WS = new RegExp(BS + "s+");
-    var RE_TRIM = new RegExp("^" + BS + "s+|" + BS + "s+$", "g");
-    var RE_NAME = /^[A-Za-z_][A-Za-z0-9_]*$/;
+    var CR = String.fromCharCode(13);
+    var TAB = String.fromCharCode(9);
+    var SP = " ";
+
+    // 不要用 String.prototype.split(正则)。真 v160.7 的 Rhino 里，带 + 量词的正则
+    // （/\s+/、/[ ]+/、new RegExp("\s+")）在 split 里等价于空匹配，会把整行拆成
+    // 单个字符 —— 每条语句的首 token 就变成第一个字母。见 tests/logicwriter 的
+    // rhino 回归（out/takeover-20261024/37-*.md）。这里全部手写扫描。
+    function isWs(ch){ return ch === SP || ch === TAB || ch === CR; }
 
     function isNumber(s){
         if(!s) return false;
@@ -33,16 +39,51 @@ var LW_QUICKCHECK = (function(){
         return true;
     }
 
+    function isNameStart(ch){
+        return (ch >= "A" && ch <= "Z") || (ch >= "a" && ch <= "z") || ch === "_";
+    }
+
+    function isNameRest(ch){
+        return isNameStart(ch) || (ch >= "0" && ch <= "9");
+    }
+
+    function isIdent(s){
+        if(!s || !isNameStart(s.charAt(0))) return false;
+        for(var i = 1; i < s.length; i++){ if(!isNameRest(s.charAt(i))) return false; }
+        return true;
+    }
+
     // 裸标识符：不是 @常量、不是数字、不是 true/false/null
     function isName(s){
         if(!s) return false;
         if(s.charAt(0) === "@" || s.charAt(0) === "\"") return false;
         if(isNumber(s)) return false;
         if(s === "true" || s === "false" || s === "null") return false;
-        return RE_NAME.test(s);
+        return isIdent(s);
     }
 
-    function trim(s){ return String(s).replace(RE_TRIM, ""); }
+    function trim(s){
+        s = String(s);
+        var a = 0, b = s.length;
+        while(a < b && isWs(s.charAt(a))) a++;
+        while(b > a && isWs(s.charAt(b - 1))) b--;
+        return s.substring(a, b);
+    }
+
+    // 按空白切成 token（连续空白算一个分隔符），等价于 split(/\s+/) 的正常语义。
+    function tokenize(s){
+        var out = [], cur = "", i, ch;
+        for(i = 0; i < s.length; i++){
+            ch = s.charAt(i);
+            if(isWs(ch)){
+                if(cur){ out.push(cur); cur = ""; }
+            }else{
+                cur += ch;
+            }
+        }
+        if(cur) out.push(cur);
+        return out;
+    }
 
     // 解析成语句表：空行、# 注释、`name:` 标签都不算语句（但占行号）。
     function statements(code){
@@ -51,7 +92,7 @@ var LW_QUICKCHECK = (function(){
         for(var i = 0; i < lines.length; i++){
             var s = trim(lines[i]);
             if(!s || s.charAt(0) === "#") continue;
-            var t = s.split(RE_WS);
+            var t = tokenize(s);
             if(t.length === 1 && t[0].charAt(t[0].length - 1) === ":") continue;
             out.push({line: i + 1, t: t});
         }

@@ -184,6 +184,11 @@ def build_steps(full: bool, only: str | None) -> list[tuple[str, list[str] | Non
         # then 14 hand-checked programs; then that it never calls a name unbound when
         # the full checker is happy (under-reporting is allowed, inventing is not).
         ("quickcheck", ["tests/logicwriter/run_quickcheck_tests.py"], ""),
+        # the same cases, re-run inside the game engine.  Real Rhino (v160.7) splits
+        # "abc def".split(/\s+/) into single characters -- a quantified pattern behaves
+        # like an empty match in its String.split -- so a node-only test cannot see the
+        # difference.  Needs the jar; exits 3 (SKIP) without it.
+        ("rhinoparity", ["tests/logicwriter/run_rhino_parity.py"], ""),
     ]
     global_skill = (Path(os.environ.get("DSH_HOME") or (Path.home() / ".dsh"))
                     / "skills" / "mlog-agentskill")

@@ -19,6 +19,7 @@ python tests/probes/run_probes.py              # 只跑运行期探针（真执�
 python tools/logicd.py                         # 逻辑写入服务的本地 sidecar（游戏内模组 LogicWriter/ 的后端）
 python tests/logicd/run_logicd_tests.py        # sidecar 契约：协议 + 把载荷灌进真处理器回读
 python tests/logicwriter/run_quickcheck_tests.py  # 游戏内快检：规则表没漂移 + 14 个用例 + 不误报交叉验证
+python tests/logicwriter/run_rhino_parity.py      # 同一批用例在真 v160.7 的 Rhino 里重跑，与 node 逐条比对
 ```
 
 `python gate.py` 依次跑：`mirror`（`tools/` 与三处副本是否一致 —— 测试实际上导入的是

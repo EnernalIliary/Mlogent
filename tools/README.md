@@ -157,7 +157,13 @@ P2–P5 的路线（框选 → 队列 → 模型 → 写入）在 `docs/逻辑�
 python tools/rules_export.py            # 从 instr_semantics.json + mlogcheck 重新生成
 python tools/rules_export.py --check    # 磁盘上的文件与生成结果不一致 -> exit 1（gate 跑这个）
 python tests/logicwriter/run_quickcheck_tests.py   # 14 个用例 + require 契约 + 不误报交叉验证
+python tests/logicwriter/run_rhino_parity.py       # 同一批用例在真 v160.7 的 Rhino 里重跑，与 node 逐条比对（无 JRE 则 SKIP）
 ```
+
+**为什么需要第 4 条**：真 Rhino（v160.7）里 `"abc def".split(/\s+/)` 会按每个字符切开
+—— 带 `+` 量词的正则在它的 `split` 里等价于空匹配，只有单字符/无量化模式正常。
+node 用的是 V8，14 个用例全绿也照样带着这个 bug 进游戏，所以快检的分词/裁剪/标识符判断
+一律手写扫描（不碰 `split(正则)`），并且每个用例都要在真引擎里再对一遍。
 
 五条判据：未知指令 / 子命令拼错（整行变 NoopI）/ 版本门（`min_build` 大于当前 build）/
 链接名未绑定 / 语句数超 1000。**它只许少报，不许瞎报**：测试里用 `mlogcheck.analyse()`

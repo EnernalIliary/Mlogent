@@ -25,9 +25,15 @@ P1 做 **API 接入** 与 **写入通道**；P2 把**快检**搬进游戏（没�
 
 ## 安装
 
-1. 把整个 `LogicWriter/` 目录放到 `<游戏目录>/saves/mods/LogicWriter/`（便携版数据目录 = 游戏目录）。
+1. 把整个 `LogicWriter/` 目录（或解压好的 zip）放到 `mods/` 下 —— 桌面版的数据目录是
+   `%APPDATA%\Mindustry`，所以路径是 `C:\Users\<你>\AppData\Roaming\Mindustry\mods\LogicWriter\`。
+   （依据 `Vars.java` 的 `modDirectory = dataDirectory.child("mods/")`；游戏内「模组 → 打开文件夹」就是它。
+   便携版数据目录才是游戏目录。）
 2. 启动 sidecar：`python tools/logicd.py`（默认 `http://127.0.0.1:8765`）。
-3. 进游戏，把鼠标指向一个处理器，按 **F4** 打开面板（或控制台敲 `lwPanel()`）。
+3. 进游戏（模组是 `hidden` 的，不会出现在模组列表里，这是故意的：联机不会被当成不兼容模组），
+   把鼠标指向一个处理器，按 **F4** 打开面板（或控制台敲 `lwPanel()`）。
+4. 确认加载成功：控制台敲 `lwVersion()`；或看 `%APPDATA%\Mindustry\last_log.txt` 里有没有
+   `[logic-writer] v0.2 ready, N/N console function(s), sidecar=...`。加载失败会打 `[logic-writer] init failed: ...`。
 
 sidecar 不可达时面板会明说「离线」，此时不提供写入 —— 但**本地快检照常工作**，
 可以先用 `lwCheck()` / `lwScan()` 看看现有代码有什么问题。宁可不能写也不要盲写。
@@ -69,6 +75,11 @@ sidecar 不可达时面板会明说「离线」，此时不提供写入 —— �
 规则表 `scripts/rules.generated.js` 由 `python tools/rules_export.py` 从
 `tools/instr_semantics.json` + `tools/mlogcheck.py` 生成；`gate.py` 跑 `--check` 防漂移，
 `tests/logicwriter/` 跑 14 个用例、`require()` 契约、以及「quickcheck 说断链时全量检查也必须同意」的单向验证。
+
+真 Rhino 与 node 的**逐条比对**是独立一步：`python tests/logicwriter/run_rhino_parity.py`
+（无 JRE 时 SKIP）。理由是真 v160.7 的 Rhino 里 `"abc def".split(/\s+/)` 会按**每个字符**切开
+（带 `+` 量词的正则在它的 `String.prototype.split` 里等价于空匹配，只有单字符模式正常），
+node 侧永远发现不了 —— 所以本文件的分词、裁剪、标识符判断全部手写扫描，不用 `split(正则)`。
 
 两条源码事实（v160.7 实测）：
 
