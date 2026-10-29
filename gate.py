@@ -54,7 +54,7 @@ PY = sys.executable
 # selftest/probes/corpus at ~19 s each, not the sum.
 # --serial restores the sequential order; --stream implies it (interleaved
 # child output would be unreadable).
-PARALLEL = ("selftest", "probes", "corpus", "coverage")
+PARALLEL = ("selftest", "probes", "logicd", "corpus", "coverage")
 
 
 def child_env() -> dict:
@@ -189,6 +189,11 @@ def build_steps(full: bool, only: str | None) -> list[tuple[str, list[str] | Non
         # runtime truth: probes need a JRE and the versioned jars under out/,
         # which are not in git, so a fresh clone SKIPs rather than fails.
         steps.append(("probes", ["tests/probes/run_probes.py"], ""))
+        # the mod <-> sidecar contract (tests/logicd/): logicd HTTP protocol, and --
+        # when a jar is present -- the bytes travelling through the game own
+        # configure() channel into a real v160.7 processor and back.  Exit 3 means
+        # no JRE or no versioned jar, which is the clean-checkout case.
+        steps.append(("logicd", ["tests/logicd/run_logicd_tests.py"], ""))
         # A real-corpus smoke test: 400 programs sampled out of the 44k-program
         # Anon pack (see out/takeover-20261024/24-anon-corpus.md).  It lives
         # outside git, so a machine without it SKIPs.  What it asserts is that

@@ -16,6 +16,8 @@ python tools/mlogagent.py report logic.mlog    # 五层分析一次跑完
 python gate.py                                 # 全部门禁一次跑完（见下）
 python gate.py --full                          # 再加 430 项蓝图自检 + 运行期探针 + 语料两关 + 语句形状不变量（需 JRE；重步骤并发，约 25 s）
 python tests/probes/run_probes.py              # 只跑运行期探针（真执行器，断言语义）
+python tools/logicd.py                         # 逻辑写入服务的本地 sidecar（游戏内模组 LogicWriter/ 的后端）
+python tests/logicd/run_logicd_tests.py        # sidecar 契约：协议 + 把载荷灌进真处理器回读
 ```
 
 `python gate.py` 依次跑：`mirror`（`tools/` 与三处副本是否一致 —— 测试实际上导入的是
@@ -24,7 +26,7 @@ python tests/probes/run_probes.py              # 只跑运行期探针（真执�
 语句尾部追加惰性 token 后规则仍须开火，防整行锚定正则 fail-open）、`tests/docsig/run_docsig.py`（文档里的语句签名与 `tools/instr_semantics.json` 机检：槽位数、槽位序、示例参数数、参数表、枚举槽名字（`ucontrol`/`draw`/`ulocate` 子命令、`status` 布尔第一槽、`sensor` 属性必须是 LAccess/Content）；
 文档教错语法会在这里红）、`tests/ruleids/run_ruleids.py`（每条规则必须在某个 `tests/cases/*.mlog` 上真点火一次，
 且 rid → 用例的映射与 `tests/rule-coverage.json` 一致——只写反例的规则在这里红）、`global`（用户级技能副本）、`kb`（`out/_kb/kb.sqlite3` 是否比
-`docs/断言表.md`、`tools/*.py` 旧）。默认档约 5 s，够日常改完就看；`--full` 追加 `mlog.py selftest` / `probes` / `corpus` / `coverage` 四步——它们互不依赖（各自起 JVM、各写各的 `out/_bench` 文件），所以**并发跑**；两条长杆内部再各自并行（`probes` 20 个 JVM、`selftest` 8 进程 + 验证重建用 deflate 1 级），合计 100 s → **约 25 s**，`--serial` 恢复串行。`--kb-build` 在 KB
+`docs/断言表.md`、`tools/*.py` 旧）。默认档约 5 s，够日常改完就看；`--full` 追加 `mlog.py selftest` / `probes` / `logicd` / `corpus` / `coverage` 五步——它们互不依赖（各自起 JVM、各写各的 `out/_bench` 文件），所以**并发跑**；两条长杆内部再各自并行（`probes` 20 个 JVM、`selftest` 8 进程 + 验证重建用 deflate 1 级），合计 100 s → **约 25 s**，`--serial` 恢复串行。`--kb-build` 在 KB
 陈旧时自动重建，`--only test` 只跑名字含某子串的步骤，`--strict` 把 WARN **和 SKIP** 都当失败
 （`probes`/`corpus` 的跳过条件正好是干净 checkout 的默认状态，不 strict 的话它们可以永久静默）。
 `--full` 里的 `probes` 用真执行器跑 `tests/probes/manifest.json` 里的程序并比对数字（例如
@@ -45,16 +47,17 @@ python tools/mlogsim.py logic.mlog --save scene.msav --units mono:1 --core-items
 
 | 路径 | 内容 |
 |---|---|
-| `tools/` | 统一入口 `mlog.py`、模拟器 `mlogsim.py`、检查器/IR/值域、MCP 服务、签名、知识库 |
+| `tools/` | 统一入口 `mlog.py`、模拟器 `mlogsim.py`、检查器/IR/值域、MCP 服务、签名、知识库、写入服务 sidecar `logicd.py` |
 | `mindustry-blueprint/` | 蓝图/逻辑技能文档（SKILL / REFERENCE / EMULATOR-CROSSCHECK）与参考数据 |
 | `gate.py` | 一键门禁（mirror 一致性 / tests / lint / 语句形状 / 全局副本 / KB 新鲜度） |
 | `rules/` | 41 条规则（33 条在报，8 条 SUPPRESSED），一条一个 JSON，供 `review.py` 逐条审计 |
 | `tests/` | 43 个 golden 用例，`python tests/run_tests.py`（副本陈旧时直接拒绝运行）；`tests/probes/` 是真执行器的运行期断言，`tests/shapes/` 是检查器自身的语句形状不变量（7 形状 x 4 变体），`tests/ruleids/` 断言没有死规则 |
-| `docs/` | 本地知识库说明、`断言表.md`、`验证记录.md`、`游戏速查/`（物品/方块/单位/配方） |
+| `docs/` | 本地知识库说明、`断言表.md`、`验证记录.md`、`速查卡.md`、`逻辑写入服务-设计.md`、`游戏速查/`（物品/方块/单位/配方） |
 | `data/game/` | 从 v160.7 真执行器导出的游戏事实（物品/液体/方块/单位/别名），供 `game.py` 与知识库使用 |
 | `Logic/` | `逻辑代码规范.md` 与示例逻辑（个人程序） |
 | `out/scenes/` | 5 张现实场景 `.msav`、3 个合成台（`benches/`：core / memory / processor）、快照 |
 | `.dsh/skills/` | `mlog-agentskill`（可独立拷走）与 `mindustry-blueprint` 安装副本 |
+| `LogicWriter/` | 游戏内模组（Rhino JS）：选意图 → 本地 sidecar 生成 + 预检 → 走原版 config 通道写进处理器 |
 | `dsh-preset-mlog/` | DeepSeek Harness 的 `mlog` Agent 预设（persona + 技能根 + 工具集） |
 
 ## 规则与边界

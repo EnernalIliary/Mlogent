@@ -128,9 +128,29 @@ python tools/kb.py serve
 - 工具名 `kb_search(query, k=6, kind="")`；`kind` 取 `doc` 或 `code`。
 
 
+## 逻辑写入服务（sidecar）
+
+`logicd.py` 是游戏内模组 `LogicWriter/` 的后端：玩家在游戏里选意图模板，模组 POST 过来，
+它生成 mlog、跑全量静态检查（`mlogcheck.analyse()` + `cost_report()`）、再把代码编成
+**游戏自己的** config 载荷（`msch.build_logic_data()` 与 `LogicBlock.compress()` 同一字节格式），
+模组用 `build.configure(bytes)` 走原版通道写进处理器。
+
+```
+python tools/logicd.py                            # 127.0.0.1:8765（--port 0 = 随机端口，就绪行里打印）
+python tools/logicd.py --print-template patrol    # 不启服务，只打一个模板的代码
+python tests/logicd/run_logicd_tests.py           # 契约测试：协议 13 项 + 真 v160.7 处理器写入 6 项
+python tests/logicd/run_logicd_tests.py --no-sim  # 只跑协议层（不需要 JRE）
+```
+
+接口只有四个：`GET /health`、`GET /capabilities`、`POST /analyze`、`POST /compose`；
+`ok` 的语义是**没有 ERR**（ERR 一律拒绝写入）。设计、契约细节、分期与「已验证/未验证」
+边界写在 `docs/逻辑写入服务-设计.md`，模组安装与操作写在 `LogicWriter/README.md`。
+
+
 ## 文件分层
 
-1. **入口**：`mlog.py`（统一下发子命令）、`mlogagent.py`（`report` / `info` 一条命令跑完五层）。
+1. **入口**：`mlog.py`（统一下发子命令）、`mlogagent.py`（`report` / `info` 一条命令跑完五层）、
+   `logicd.py`（本地 sidecar：给游戏内模组 `LogicWriter/` 提供 compose/analyze 的 HTTP 接口）。
 2. **分析层**：`mlogir.py`（解析/IR）、`mlogcheck.py`（静态检查）、`mlogval.py`（值域）、`mlogcross.py`（跨处理器）、`mlogpack.py`（打包配置）、`msch.py`/`mschgen.py`（蓝图容器）。
 3. **模拟器**：`mlogsim.py`（真执行器驱动）、`mlog_needs.py`（扫程序需要的地图/方块/单位/全局量）。
 4. **语料与存档**：`map_logic.py`（读存档）+ `parallel.py`（并行 worker）；语料挖掘、分桶、标注在 `corpus/`。

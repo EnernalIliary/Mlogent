@@ -1,0 +1,10 @@
+name: "logic-writer"
+displayName: "逻辑写入服务"
+author: "DP"
+description: "游戏内写逻辑的入口：选中处理器 → 选一个意图模板 → 本地 sidecar（tools/logicd.py）把意图变成 mlog 并用仓库那套规则做静态检查 → 面板显示 findings 与成本 → 确认后通过原版 config 通道（LogicBlock.config(byte[])）写进处理器。ERR 一律拒绝写入。P1 只做「API 接入 + 写入通道」：模板是确定性的，不做自然语言。控制台：lwVersion() / lwPing() / lwSel() / lwPanel() / lwCompose(template, paramsJson) / lwApply(template, paramsJson) / lwUndo()。F4 开关面板。"
+version: "0.1"
+minGameVersion: "146"
+# hidden: true —— 自用模组：不上报给服务器（Mods.getModStrings 只收 !meta.hidden），
+# 联机不会被 "Incompatible mods" 踢；hidden 只跳过 loadContent()（不能注册新方块/单位），
+# 本模组是纯代码 + 原版 config 通道，功能不受影响。依据见 DP-CameraUnbind/mod.hjson 注释。
+hidden: true
