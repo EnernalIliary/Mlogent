@@ -21,7 +21,7 @@ python tests/probes/run_probes.py              # 只跑运行期探针（真执�
 `python gate.py` 依次跑：`mirror`（`tools/` 与三处副本是否一致 —— 测试实际上导入的是
 `mindustry-blueprint/tools` 副本，副本陈旧会让整套测试“绿着但测的是旧代码”）、`tests`、
 `rule_capture.py lint`、`tests/shapes/run_shapes.py`（检查器自身的语句形状不变量：
-语句尾部追加惰性 token 后规则仍须开火，防整行锚定正则 fail-open）、`tests/docsig/run_docsig.py`（文档里的语句签名与 `tools/instr_semantics.json` 机检：槽位数、槽位序、示例参数数、参数表；
+语句尾部追加惰性 token 后规则仍须开火，防整行锚定正则 fail-open）、`tests/docsig/run_docsig.py`（文档里的语句签名与 `tools/instr_semantics.json` 机检：槽位数、槽位序、示例参数数、参数表、枚举槽名字（`ucontrol`/`draw`/`ulocate` 子命令、`status` 布尔第一槽、`sensor` 属性必须是 LAccess/Content）；
 文档教错语法会在这里红）、`tests/ruleids/run_ruleids.py`（每条规则必须在某个 `tests/cases/*.mlog` 上真点火一次，
 且 rid → 用例的映射与 `tests/rule-coverage.json` 一致——只写反例的规则在这里红）、`global`（用户级技能副本）、`kb`（`out/_kb/kb.sqlite3` 是否比
 `docs/断言表.md`、`tools/*.py` 旧）。默认档约 5 s，够日常改完就看；`--full` 追加 `mlog.py selftest` / `probes` / `corpus` / `coverage` 四步——它们互不依赖（各自起 JVM、各写各的 `out/_bench` 文件），所以**并发跑**；两条长杆内部再各自并行（`probes` 20 个 JVM、`selftest` 8 进程 + 验证重建用 deflate 1 级），合计 100 s → **约 25 s**，`--serial` 恢复串行。`--kb-build` 在 KB

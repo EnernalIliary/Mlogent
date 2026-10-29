@@ -181,9 +181,17 @@ python tools/kb.py serve
    与语料无关的还有一个 `shapes` 步（0.1 s）：`python tests/shapes/run_shapes.py`
    断言检查器自己的**语句形状不变量**——每条规则对坏样例追加 1/2/5 个惰性 token 与行尾注释后仍必须开火，
    防的是整行锚定正则 fail-open（`op select` 那类漏洞；`--module` 可指向旧版做负向自证）。
-    和语料无关的还有一个 `docsig` 步（0.2 s）：`python tests/docsig/run_docsig.py` 把四份文档里每个
+    和语料无关的还有一个 `docsig` 步（0.2 s）：`python tests/docsig/run_docsig.py` 把五份文档里每个
     「助记符 + `<占位符>`」签名与 `tools/instr_semantics.json` 机检——占位符个数、逐槽名字、`mlog` 代码块的
-    示例参数数、表头含 param 的表格列序；`--self-test` 用合成文档自证四项检查会开火。它抓的是「文档教错语法」：
+    示例参数数、表头含 param 的表格列序，以及**第五项**：枚举槽里的名字必须真实存在（`ucontrol`/`draw`/`ulocate`
+    第 1 槽查 `instr_semantics.json` 的 `subcommands`、`status` 第 1 槽必须是 `true`/`false` 且第 2 槽查
+    `tools/status_names.json`、`sensor` 第 3 槽查 `tools/sensor_attrs.json` 的 LAccess 或 `tools/content_names.json`；
+    这几槽在语义表里是枚举 token，**不可能装变量**，所以「不在表里」一定是文档错——2026-10-29 一次抓出 6 处真错：
+    `sensor ... @damage`（LAccess 无此项，读 null）、`status <apply|clear>`（第一槽是布尔，写 `apply` 反而静默不生效）、
+    `ulocate locate ...`（第一槽是 LLocate，非法值整条编译成 `NoopI`）、`@velX`/`@velY`（真名 `@velocityX`/`@velocityY`）。
+    `--self-test` 用合成文档自证五项检查会开火。**第六项**是引用存在性：`docs/速查卡.md` 里每个
+    `L\d-\d\d` 必须在 `docs/断言表.md` 里存在，且每个 `## ` 小节至少引用一个 id —— 速查卡是给人查的入口，
+    指错编号比没有更糟（负向自证：把 `L9-99` 写进卡片立刻 MISMATCH）。它抓的是「文档教错语法」：
     `getblock <result> <x> <y> <layer>` 这种**数目对、顺序错**的签名（真序 `layer,result,x,y`）在旧文档里
     活了整个版本，玩家照着写就是静默错位。原理写在脚本 docstring 里：mlog 文本 token 序 = Java **字段声明序**
     （`build(LAssembler)` 的传参序与之无关）；`radar` 那种「槽位数没错、语义错」属于已知盲区，只能靠 `probes` 钉住。

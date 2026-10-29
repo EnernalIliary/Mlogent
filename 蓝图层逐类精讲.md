@@ -1426,8 +1426,8 @@ sensor Hp target.shell @health
 # 典型矢量提前量算法
 sensor tx 目标 @x
 sensor ty 目标 @y
-sensor tvx 目标 @velX      # 或通过两次采样算速度
-sensor tvy 目标 @velY
+sensor tvx 目标 @velocityX   # 速度就是 @velocityX/@velocityY；@velX 不存在
+sensor tvy 目标 @velocityY
 sensor bx 炮塔 @x
 sensor by 炮塔 @y
 op sub dx tx bx

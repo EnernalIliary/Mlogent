@@ -44,6 +44,19 @@ See the table's _notes).  Four checks:
              the right count and the wrong order, all fixed 2026-10-28 along
              with spawnwave (doc order reversed, table already right).
 
+  operand    A token that SELECTS an enum value must exist: the subcommand of
+             ucontrol/draw/ulocate, the first operand of status, the status
+             effect name, and a sensor property written @name.  None of these
+             slots can hold a variable (the semantics table records them as
+             LUnitControl / LDrawType / LLocate / boolean / LAccess), so a name
+             outside the table is always wrong -- unlike an ordinary operand,
+             which may be a variable.  Measured on v160.7: `ulocate locate ...`
+             compiles to a NoopI (the statement silently does nothing),
+             `sensor d b @damage` leaves SenseI.type null (there is no @damage;
+             velocity is @velocityX/@velocityY), and status' first operand is a
+             BOOLEAN literal -- `status clear ...` parses clear=false, i.e. it
+             APPLIES the effect instead of clearing it.
+
 Known blind spot: an invented Chinese field name (the original radar 数量 row)
 is not detectable by check 3 -- it does not look like a param at all, so the
 row contributes no hit -- and the original line had 7 placeholders for 7
@@ -88,6 +101,7 @@ DOCS = [
     "Logic-Docs-v1.1.0.md",
     "蓝图层逐类精讲.md",
     "mlog工作笔记.md",
+    "docs/速查卡.md",
 ]
 
 # Mnemonics whose operand count is fixed and whose docs carry runnable examples.
@@ -119,6 +133,90 @@ def load_semantics(root=ROOT):
     for name, spec in (sem.get("instructions") or {}).items():
         out[name] = list(spec.get("params") or [])
     return out
+
+
+def load_vocab(root=ROOT):
+    """Names that a subcommand / enum / property slot is allowed to hold.
+
+    Returns None when a table is missing (the caller then skips the operand
+    check rather than reporting every name as wrong).
+    """
+    root = Path(root)
+    need = {"sem": "tools/instr_semantics.json",
+            "status": "tools/status_names.json",
+            "sensor": "tools/sensor_attrs.json",
+            "content": "tools/content_names.json"}
+    for k, rel in need.items():
+        if not (root / rel).is_file():
+            print("SKIP no " + rel)
+            return None
+    sem = json.loads((root / need["sem"]).read_text("utf-8"))["instructions"]
+    vocab = {}
+    for name in ("ucontrol", "draw", "ulocate"):
+        vocab[name] = set((sem.get(name) or {}).get("subcommands") or ())
+    vocab["status"] = set(json.loads((root / need["status"]).read_text("utf-8"))["status"])
+    vocab["access"] = set(json.loads((root / need["sensor"]).read_text("utf-8"))["access"])
+    cn = json.loads((root / need["content"]).read_text("utf-8"))
+    content = set()
+    for k in ("items", "liquids", "blocks", "units", "statuses"):
+        content |= set(cn.get(k) or ())
+    vocab["content"] = content
+    return vocab
+
+
+def operand(rel, lineno, toks, vocab, stats, problems):
+    """Check the token that selects a subcommand / names an enum value.
+
+    True when this line had such a slot (so the caller knows it was looked at).
+    """
+    if not vocab or len(toks) < 2:
+        return False
+    head = toks[0].lower()
+    arg = toks[1]
+    if PLACE.match(arg):
+        return False                    # generic signature: <动作>, <type>
+    if head in ("ucontrol", "draw", "ulocate"):
+        known = vocab.get(head) or set()
+        stats["operand"] += 1
+        if arg not in known:
+            problems.append(
+                "%s:%d %s subcommand %s does not exist -- the parser keeps the "
+                "line but turns it into a noop (measured: ulocate locate -> "
+                "NoopI); known: %s"
+                % (rel, lineno, head, arg, ", ".join(sorted(known))))
+        return True
+    if head == "status":
+        stats["operand"] += 1
+        if arg not in ("true", "false"):
+            problems.append(
+                "%s:%d status takes a BOOLEAN literal first (true/false), not %s: "
+                "the field is `clear`, and any other token parses as an "
+                "undefined variable = false, so `status clear ...` APPLIES the "
+                "effect instead of clearing it (measured on v160.7: clear=false)"
+                % (rel, lineno, arg))
+        elif len(toks) >= 3 and toks[2].startswith("@"):
+            name = toks[2][1:]
+            if name.startswith("status-"):
+                name = name[len("status-"):]
+            known = vocab.get("status") or set()
+            if name not in known:
+                problems.append(
+                    "%s:%d status effect @%s is not in StatusEffects; known: %s"
+                    % (rel, lineno, name, ", ".join(sorted(known))))
+        return True
+    if head == "sensor":
+        if len(toks) < 4 or not toks[3].startswith("@"):
+            return False
+        stats["operand"] += 1
+        name = toks[3][1:]
+        if name not in (vocab.get("access") or set()) and            name not in (vocab.get("content") or set()):
+            problems.append(
+                "%s:%d sensor property @%s is neither an LAccess nor a Content "
+                "name; the engine stores a null type and the statement reads "
+                "nothing (LAccess has %d entries on v160.7)"
+                % (rel, lineno, name, len(vocab.get("access") or ())))
+        return True
+    return False
 
 
 def strip_comment(line):
@@ -186,7 +284,7 @@ def signature(rel, lineno, toks, sem, stats, problems):
     return True
 
 
-def scan_lines(rel, lines, sem, stats, problems):
+def scan_lines(rel, lines, sem, stats, problems, vocab=None):
     """Check one document.  Appends to stats/problems, returns nothing."""
     in_fence = False
     lang = ""
@@ -238,6 +336,7 @@ def scan_lines(rel, lines, sem, stats, problems):
                     sig_at = toks[0].lower()
                     continue
                 head = toks[0].lower()
+                operand(rel, i, toks, vocab, stats, problems)
                 if head in STRICT and head in sem:
                     need = len(sem[head]) + 1
                     stats["example"] += 1
@@ -342,19 +441,63 @@ def derived(root=ROOT, verbose=False):
     return checked, problems
 
 
+QUICK = "docs/速查卡.md"
+ASSERT = "docs/断言表.md"
+AID = re.compile(r"\bL\d-\d\d\b")
+
+
+def refs(root=ROOT):
+    """Every assertion id cited by the cheat card must exist in the table.
+
+    The card is meant to be printable and quotable, so its value is exactly the
+    strength of the ids behind it: a citation to a deleted assertion (or a typo)
+    turns a one-page summary into folklore.  Sections are checked too -- a
+    section without a single id is an opinion, not a fact.
+    """
+    problems = []
+    qp, ap = Path(root) / QUICK, Path(root) / ASSERT
+    if not qp.is_file():
+        return problems, 0
+    if not ap.is_file():
+        problems.append("%s: cannot find %s to verify citations" % (QUICK, ASSERT))
+        return problems, 0
+    known = set(AID.findall(io.open(ap, encoding="utf-8").read()))
+    if not known:
+        problems.append("%s: no assertion ids found in %s" % (QUICK, ASSERT))
+        return problems, 0
+    seen, section, per = set(), None, {}
+    for lineno, line in enumerate(io.open(qp, encoding="utf-8").read().splitlines(), 1):
+        if line.startswith("## "):
+            section = line[3:].strip()
+            per.setdefault(section, 0)
+        ids = AID.findall(line)
+        for aid in ids:
+            seen.add(aid)
+            if aid not in known:
+                problems.append("%s:%d: cites %s, which is not in %s"
+                                % (QUICK, lineno, aid, ASSERT))
+        if section:
+            per[section] += len(ids)
+    for section, n in per.items():
+        if n == 0:
+            problems.append("%s: section %r cites no assertion id" % (QUICK, section))
+    return problems, len(seen)
+
+
 def check(sem, verbose=False, root=ROOT):
     problems = []
-    stats = {"signature": 0, "example": 0, "table": 0, "files": 0}
+    stats = {"signature": 0, "example": 0, "table": 0, "operand": 0, "files": 0}
+    vocab = load_vocab(root)
     for rel in DOCS:
         path = Path(root) / rel
         if not path.is_file():
             continue
         stats["files"] += 1
-        scan_lines(rel, doc_lines(path), sem, stats, problems)
+        scan_lines(rel, doc_lines(path), sem, stats, problems, vocab)
     return problems, stats
 
 
-def selftest(sem):
+def selftest(sem, vocab=None):
     """One planted defect per check must be reported; clean lines must not."""
     fake = [
         "- `getblock <result> <x> <y> <layer>`",                 # bad: slot order
@@ -363,16 +506,21 @@ def selftest(sem):
         "```mlog",
         "uradar enemy any any distance 1 target",                   # bad: 6 operands vs 7
         "```",
+        "```mlog",
+        "status clear @burning myUnit 5",                # bad: boolean literal
+        "sensor _dmg _bullet @damage",                   # bad: no such LAccess
+        "ulocate locate core true @copper x y f b",      # bad: no such subcommand
+        "```",
         "| field | param | value |",
         "|---|---|---|",
         "| a | sort | x |",                                        # table order: sort
         "| b | target1 | y |",                                     # bad: then target1
         "",
     ]
-    stats = {"signature": 0, "example": 0, "table": 0, "files": 1}
+    stats = {"signature": 0, "example": 0, "table": 0, "operand": 0, "files": 1}
     problems = []
-    scan_lines("<selftest>", fake, sem, stats, problems)
-    want = ("signature", "example", "table", "slot")
+    scan_lines("<selftest>", fake, sem, stats, problems, vocab)
+    want = ("signature", "example", "table", "slot", "operand")
     seen = {w for w in want for p in problems if w in p}
     if seen != set(want):
         print("SELFTEST FAIL: expected at least one finding per check (%s), got %d:"
@@ -380,7 +528,7 @@ def selftest(sem):
         for p in problems:
             print("  " + p)
         return 1
-    print("SELFTEST OK: %d findings, all four checks fired" % len(problems))
+    print("SELFTEST OK: %d findings, all five checks fired" % len(problems))
     return 0
 
 
@@ -393,14 +541,16 @@ def main(argv):
     if sem is None:
         return 3
     if "--self-test" in argv:
-        return selftest(sem)
+        return selftest(sem, load_vocab(root))
     problems, stats = check(sem, verbose, root)
     n_derived, der_problems = derived(root, verbose)
-    problems += der_problems
+    ref_problems, n_refs = refs(root)
+    problems += der_problems + ref_problems
     print("docs: %d file(s), %d signature line(s), %d example line(s), "
-          "%d table(s), %d derived copy/copies"
+          "%d table(s), %d operand line(s), %d cited assertion id(s), "
+          "%d derived copy/copies"
           % (stats["files"], stats["signature"], stats["example"],
-             stats["table"], n_derived))
+             stats["table"], stats["operand"], n_refs, n_derived))
     for p in problems:
         print("MISMATCH " + p)
     if problems:

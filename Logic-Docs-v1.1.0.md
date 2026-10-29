@@ -1328,7 +1328,7 @@ uradar target1 target2 target3 sort 0 order output
 ## 导出格式
 
 ```
-ulocate locate flag enemy ore outX outY outFound outBuild
+ulocate <ore|building|spawn|damaged> <flag> <enemy> <ore> <outX> <outY> <outFound> <outBuild>
 ```
 
 共 9 个 token。所有参数在导出时始终全部写出，无论 locate 模式是什么。
@@ -3891,9 +3891,13 @@ bullet <result> <from> <index> <x> <y> <rotation> <team> <owner> <damage> <veloc
 ## 从炮塔 turret1 的第一个武器发射子弹，朝向 90 度
 bullet _bullet turret1 0 400 400 90 sharded turret1 1 1 1 0 0
 
-## 读取子弹的伤害值
-sensor _dmg _bullet @damage
-print _dmg
+## 读取子弹的飞行时间与速度
+## （LAccess 77 项里没有伤害读数：@damage 不是合法属性，写上去 SenseI.type
+##  会是 null，这条语句什么也读不到。速度要写 @velocityX/@velocityY。）
+sensor _life _bullet @bulletLifetime
+sensor _vx _bullet @velocityX
+print _life
+print _vx
 printflush message1
 end
 ```
@@ -3907,14 +3911,14 @@ end
 ## 导出格式
 
 ```
-status <apply|clear> <effect> <unit> <duration>
+status <true|false> <effect> <unit> <duration>
 ```
 
 ## 参数说明
 
 | 参数     | 类型     | 说明                                        |
 | -------- | -------- | ------------------------------------------- |
-| apply/clear | 枚举 | 操作模式：`apply` 施加状态，`clear` 清除状态 |
+| true/false | 布尔 | `true` 清除状态、`false` 施加状态（源码字段名是 `clear`，所以 true 才是清除） |
 | effect   | Content  | 状态效果类型（如 `@burning`、`@wet` 等）    |
 | unit     | 单位引用 | 目标单位                                    |
 | duration | 数值     | 持续时间（秒），apply 模式下有效             |
@@ -3926,26 +3930,26 @@ status <apply|clear> <effect> <unit> <duration>
 ## 源码实现要点
 
 - 对应指令类：`ApplyEffectI`
-- `apply` 模式：调用 `unit.apply(effect, duration * 60)` 方法施加状态效果（duration 乘以 60 是将秒转换为 tick，因为游戏每秒 60 tick）
-- `clear` 模式：调用 `unit.unapply(effect)` 方法清除指定状态效果
+- `clear=false`（即 `status false`）：调用 `unit.apply(effect, duration * 60)` 施加状态效果（duration 乘以 60 是把秒换算成 tick，游戏每秒 60 tick）
+- `clear=true`（即 `status true`）：调用 `unit.unapply(effect)` 清除指定状态效果
 - effect 参数会被解析为 `StatusEffect` 类型
 
 ## 注意事项
 
 - 此指令为 **privileged（特权）** 指令，只能在世界处理器上运行
 - 世界处理器在服务器端执行，不存在客户端同步问题
-- effect 参数为状态效果类型，必须使用有效值（如 `@burning`、`@wet`、`@frozen` 等）
-- `clear` 模式下 duration 参数无效，但导出时仍需写出
-- 状态效果可以叠加，多次 apply 同一状态会刷新持续时间
+- effect 参数为状态效果类型，必须使用有效值（如 `@burning`、`@wet`、`@freezing` 等；`@frozen` 不存在）
+- 清除（`clear=true`）时 duration 参数无效，但导出时仍需写出
+- 状态效果可以叠加，多次施加同一状态会刷新持续时间
 
 ## 代码示例
 
 ```
 ## 对单位 myUnit 施加燃烧状态，持续 5 秒
-status apply @burning myUnit 5
+status false @burning myUnit 5
 
 ## 清除单位的燃烧状态
-status clear @burning myUnit 0
+status true @burning myUnit 0
 end
 ```
 

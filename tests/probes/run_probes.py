@@ -26,11 +26,16 @@ What a probe may assert
     processor "world"|"auto"    block to place ("auto" sniffs PRIVILEGED_RE)
     rules {field: value}        Vars.state.rules overrides applied before compiling
                                 (e.g. allowLogicData, which gates clientdata)
+    units [["mono", 1]]         unit spec spawned before the program runs
+                                (default [["flare", 1]])
     setup_js "..."              JS run after the program compiled and the units exist,
                                 but before the first instruction executes -- for probes
                                 that need the world in a state (kill the bound unit, hand
                                 it to another processor). `b` is this processor's
                                 building; `W` is Vars.world, `team` is Team.sharded.
+                                The whole script is joined into ONE console line, so
+                                ASI does not exist: every statement needs its own ';'
+                                (a setup ending in 'void 0' is a syntax error).
 
 Usage
 -----
@@ -234,7 +239,7 @@ def run_one(p, java, M):
     try:
         srv = M.Server(java, jar)
         srv._core_spec = 'copper:100'
-        srv._unit_spec = [['flare', 1]]
+        srv._unit_spec = p.get('units') or [['flare', 1]]
         srv.prepare()
         for field, value in (p.get('rules') or {}).items():
             # Server.js() ends a console command by waiting for the line
@@ -244,7 +249,13 @@ def run_one(p, java, M):
             srv.js('Vars.state.rules.%s = %s; void 0' % (
                 field, 'true' if value is True else
                 'false' if value is False else json.dumps(value)))
+        # ticks=1 drives updateTile() with Time.delta=1, so statements with a
+        # time component (wait) and per-tick machinery (AI control leases) behave
+        # like the game; steps= counts instructions and cannot express "600 ticks".
+        ticks = bool(p.get('ticks'))
         rec = M.run_mlog(srv, 'p', p['code'], steps=int(p.get('steps', 20)),
+                         ticks=ticks,
+                         update=p.get('update') or ('all' if ticks else 'none'),
                          processor=proc, setup_js=p.get('setup_js'))
         effects = read_effects(as_lines(srv.js(probe_js(names))))
         classes = read_classes(srv)

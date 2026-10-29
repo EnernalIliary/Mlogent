@@ -254,6 +254,82 @@
       },
       "why": "a unit another processor drives: @controller is that building, neither @unit nor @this, so the guard says illegal -- and a later ucontrol would silently steal it (LExecutor.java:324-326)",
       "ref": "out/takeover-20261024/28-unit-legality.md"
+    },
+    {
+      "id": "unit-control-lease-holds-v160",
+      "jar": "160",
+      "ticks": 400,
+      "steps": 400,
+      "code": "ubind @flare\nucontrol move 60 60 0 0 0\nwait 6\nsensor c @unit @controlled\nprint c\nend\n",
+      "expect_text": "1",
+      "why": "a unit handed to logic stays controlled while the 600-tick lease runs: wait 6 s = 360 ticks is still inside it",
+      "ref": "docs/断言表.md#L2-25"
+    },
+    {
+      "id": "unit-control-lease-expires-v160",
+      "jar": "160",
+      "ticks": 700,
+      "steps": 700,
+      "code": "ubind @flare\nucontrol move 60 60 0 0 0\nwait 11\nsensor c @unit @controlled\nprint c\nend\n",
+      "expect_text": "0",
+      "why": "600 ticks after the last ucontrol the lease expires and the unit reverts: LogicAI.java:59-64 resetController(); every ucontrol re-arms it (LExecutor.java:351)",
+      "ref": "docs/断言表.md#L2-25"
+    },
+    {
+      "id": "unit-range-fortress-v160",
+      "jar": "160",
+      "steps": 20,
+      "units": [
+        [
+          "fortress",
+          1
+        ]
+      ],
+      "code": "ubind @fortress\nsensor r @unit @range\nsensor hp @unit @health\nprint r\nend\n",
+      "expect_vars": {
+        "r": 29.5,
+        "hp": 900
+      },
+      "why": "sensor @unit @range returns the unit type's range (fortress 29.5) and @health its 900 hp",
+      "ref": "docs/断言表.md#L1-19"
+    },
+    {
+      "id": "control-shoot-tile-coords-v160",
+      "jar": "160",
+      "steps": 20,
+      "code": "control shoot turret1 20 20 1\nsensor sx turret1 @shootX\nsensor sy turret1 @shootY\nsensor sh turret1 @shooting\nprint sx\nend\n",
+      "expect_vars": {
+        "sx": 20,
+        "sy": 20
+      },
+      "why": "control shoot takes TILE coordinates (Turret.java:381-386 World.unconv(p1), World.unconv(p2)) and @shootX/@shootY read them back converted; the third operand is only a non-zero flag",
+      "ref": "docs/断言表.md#L2-14"
+    },
+    {
+      "id": "item-transfer-in-range-v160",
+      "jar": "160",
+      "ticks": 240,
+      "steps": 240,
+      "code": "ubind @flare\nwait 1.6\nucontrol itemTake container1 @copper 10\nwait 0.1\nsensor n @unit @totalItems\nprint n\nend\n",
+      "setup_js": "var C = null; for(var i = 0; i < b.links.size; i++){ var L = b.links.get(i); if(String(L.name) == 'container1'){ C = W.build(L.x, L.y); } }\nC.items.add(Vars.content.item('copper'), 100);\nvar G = Packages.mindustry.gen.Groups.unit; var U = null; for(var j = 0; j < G.size(); j++){ var u = G.index(j); if(u.team == team){ U = u; break; } }\nU.x = C.x + 6 * 8; U.y = C.y;\n",
+      "expect_vars": {
+        "n": 10
+      },
+      "why": "flare (itemCapacity 10) and a container 6 tiles away: item transfer runs on a 90-tick (1.5 s) cooldown (LogicAI.java:16 transferDelay, LExecutor.java:98 timeoutDone), and the sim's Time.time starts near zero, so the first take needs a 1.6 s wait; then the reach is Vars.java:125 logicItemTransferRange 45 world + block.size*4 -- 53 world = 6.625 tiles, so this is inside",
+      "ref": "docs/断言表.md#L2-08"
+    },
+    {
+      "id": "item-transfer-out-of-range-v160",
+      "jar": "160",
+      "ticks": 240,
+      "steps": 240,
+      "code": "ubind @flare\nwait 1.6\nucontrol itemTake container1 @copper 10\nwait 0.1\nsensor n @unit @totalItems\nprint n\nend\n",
+      "setup_js": "var C = null; for(var i = 0; i < b.links.size; i++){ var L = b.links.get(i); if(String(L.name) == 'container1'){ C = W.build(L.x, L.y); } }\nC.items.add(Vars.content.item('copper'), 100);\nvar G = Packages.mindustry.gen.Groups.unit; var U = null; for(var j = 0; j < G.size(); j++){ var u = G.index(j); if(u.team == team){ U = u; break; } }\nU.x = C.x + 8 * 8; U.y = C.y;\n",
+      "expect_vars": {
+        "n": 0
+      },
+      "why": "flare (itemCapacity 10) and a container 8 tiles away: item transfer runs on a 90-tick (1.5 s) cooldown (LogicAI.java:16 transferDelay, LExecutor.java:98 timeoutDone), and the sim's Time.time starts near zero, so the first take needs a 1.6 s wait; then the reach is Vars.java:125 logicItemTransferRange 45 world + block.size*4 -- past 6.625 tiles the take silently does nothing",
+      "ref": "docs/断言表.md#L2-08"
     }
   ]
 }

@@ -1001,6 +1001,8 @@ LINK_ALIASES = {
     "spectre": "spectre",
     "furnace": "silicon-arc-furnace",
     "pad": "landing-pad",
+    "container": "container",
+    "turret": "duo",
 }
 
 
