@@ -159,6 +159,11 @@ python tools/kb.py serve
    python tools/corpus/instr_coverage.py --src <doc>/_procs --limit 400 --baseline tests/corpus-coverage-baseline.json
                                                  # 覆盖率关：绝对值随样本漂，只钉「这批样本从不使用的指令集合」；
                                                  # 集合一变就 FAIL，要人重录基线（--write-baseline）
+    python tools/corpus/precision_sheet.py --corpus logic-corpus --procs _procs --label blueprint
+                                                 # 判读表：每条规则 6 条样本 + 机器旁证（名字出现次数 / 是否赋值 /
+                                                 # 是否本蓝图链接名），判读栏留空交人填；--verdicts 回填 TP/FP/mixed
+    python tools/corpus/precision_sheet.py --corpus C:/Users/lliary/mlog-corpus/anon-corpus \
+        --procs _procs --label anon --stride 8 --jobs 12   # 4 万程序抽样 5.5k，67 s
    python tools/mlog_needs.py <doc>/_procs --brief --no-detail --stride 10
                                                  # 世界符号清单（传感器/单位/方块/全局量）；大语料必须 --no-detail
    ```
