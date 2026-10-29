@@ -20,7 +20,9 @@
 //  ── 本版边界（别假装它做了）─────────────────────────────────────────────
 //   · UI 面板这一层**没有机器验证过**（无头模拟器里没有界面），协议层与写入通道
 //     由 tests/logicd/run_logicd_tests.py 逐条验（含真 v160.7 处理器回读）。
-//   · 没有游戏内快检（P2）、撤销只在内存（P3）、没有 diff 预览（P3）、不接 LLM（P4）。
+//   · 游戏内快检已接（P2：scripts/quickcheck.js + rules.generated.js，五条单行判据），
+//     但它只能“少报”：未赋值变量、成本 CFG、值域都在 sidecar 全量检查里。
+//   · 撤销只在内存（P3）、没有 diff 预览（P3）、不接 LLM（P4）。
 // ============================================================================
 
 function __logicWriterMain(){
@@ -40,6 +42,19 @@ function __logicWriterMain(){
         var Threads = Packages.arc.util.Threads;
         var Vars    = Packages.mindustry.Vars;
         var ET      = Packages.mindustry.game.EventType;
+        var Groups  = Packages.mindustry.gen.Groups;
+
+        // P2 的两个模块。游戏只执行 scripts/main.js（Mods.loadScripts:809 只取 main.js，
+        // 除非 scripts/ 下只有一个文件），其余文件必须 require 进来 —— Scripts.java:30-32
+        // 给脚本作用域装了 CommonJS 模块提供器，模块里 module.exports 就是取到的东西。
+        var QUICK = null, RULES = null;
+        try{
+            RULES = require("rules.generated");
+            QUICK = require("quickcheck");
+            log("quick check loaded: " + Object.keys(RULES.instr).length + " instruction(s)");
+        }catch(e){
+            log("quick check unavailable (" + e + ") -- 面板会少一行本地预检");
+        }
 
         var base = String(Core.settings.getString(URL_KEY, DEFAULT_URL));
         var undoStack = [];        // P1：内存快照，重启即失效（P3 落盘）
@@ -150,8 +165,9 @@ function __logicWriterMain(){
         // ---------------------------------------------------------- 展示
         // 结果用原版文本对话框显示：这是最稳的一层（面板表格在无头环境里验不了）。
 
-        function findingsText(res){
+        function findingsText(res, b){
             var lines = [];
+            lines.push(quickSummary(quickRun(res.code, b)));
             lines.push("模板：" + (res.template || "-") + "    语句：" + res.statements
                      + "    字节：" + res.bytes_len);
             lines.push("检查：" + (res.ok ? "通过（无 ERR）" : "有 ERR，禁止写入")
@@ -176,7 +192,7 @@ function __logicWriterMain(){
         }
 
         function showResult(res, b){
-            var text = findingsText(res);
+            var text = findingsText(res, b);
             if(!res.ok){
                 Vars.ui.showText("逻辑写入服务 · 已拒绝", text);
                 return;
@@ -199,6 +215,14 @@ function __logicWriterMain(){
             d.cont.defaults().pad(4);
             d.cont.add("sidecar: " + base).left().row();
             d.cont.add(describe(b)).left().row();
+            var qres = quickRun(b === null ? "" : String(b.code), b);
+            d.cont.add(quickSummary(qres)).left().row();
+            var qlines = quickLines(qres);
+            var qmax = Math.min(qlines.length, 4);
+            for(var qi = 0; qi < qmax; qi++){
+                d.cont.add("  " + qlines[qi]).left().row();
+            }
+            if(qlines.length > qmax){ d.cont.add("  … 共 " + qlines.length + " 条（控制台 lwCheck() 看全）").left().row(); }
             d.cont.add("").row();
             var pane = d.cont.pane(function(t){
                 t.defaults().pad(2).left();
@@ -264,6 +288,60 @@ function __logicWriterMain(){
             return "sidecar " + base + " -> " + out;
         }
 
+        // ---------------------------------------------------------- 本地快检（P2）
+        // scripts/quickcheck.js 与 scripts/rules.generated.js 由上面的 require 取到。
+        // 边界：这里只回答“单行 + 一张表”能定的事，不重写 sidecar 的 41 条规则。
+
+        function gameBuild(){
+            try{
+                var v = Packages.mindustry.core.Version.build;
+                return (v > 0) ? v : 0;      // 自定义构建是 -1，当作未知
+            }catch(e){ return 0; }
+        }
+
+        function quickApi(){
+            if(QUICK === null || RULES === null){ return null; }
+            return {q: QUICK, r: RULES};
+        }
+
+        function linkNames(b){
+            var out = [];
+            if(b === null || b === undefined){ return out; }
+            for(var i = 0; i < b.links.size; i++){ out.push(String(b.links.get(i).name)); }
+            return out;
+        }
+
+        function quickRun(code, b){
+            var api = quickApi();
+            if(api === null){ return {missing: true, findings: [], stats: null}; }
+            var res = api.q.check(api.r, String(code || ""), linkNames(b), {build: gameBuild()});
+            res.missing = false;
+            return res;
+        }
+
+        function quickSummary(res){
+            if(res.missing){ return "本地快检：不可用（quickcheck.js 没加载）"; }
+            var err = 0, warn = 0, i;
+            for(i = 0; i < res.findings.length; i++){
+                if(res.findings[i].sev === "ERR"){ err++; } else { warn++; }
+            }
+            var st = res.stats;
+            return "本地快检：" + (err ? ("ERR " + err) : "无 ERR")
+                 + " / WARN " + warn
+                 + "    语句 " + st.statements
+                 + "    版本地板 build " + st.floor
+                 + (st.truncates ? "    ⚠ 超过 1000 条会被截断" : "");
+        }
+
+        function quickLines(res){
+            var out = [];
+            for(var i = 0; i < res.findings.length; i++){
+                var f = res.findings[i];
+                out.push("L" + f.line + " " + f.sev + " [" + (f.rid || "-") + "] " + f.msg);
+            }
+            return out;
+        }
+
         // ---------------------------------------------------------- 控制台接口
         var api = {
             lwVersion: function(){ return "logic-writer " + MOD_VERSION + "  sidecar=" + base; },
@@ -298,7 +376,44 @@ function __logicWriterMain(){
                 if(got === null){ return "sidecar 超时"; }
                 return writeBuild(b, got.res);
             },
-            lwUndo:    function(){ return undo(); }
+            lwUndo:    function(){ return undo(); },
+            lwCheck:   function(code){
+                var b = targetBuild();
+                var src = (code === undefined || code === null) ? (b === null ? "" : String(b.code)) : String(code);
+                var res = quickRun(src, b);
+                if(res.missing){ return "本地快检不可用"; }
+                var out = [quickSummary(res)];
+                var ls = quickLines(res);
+                for(var i = 0; i < ls.length; i++){ out.push(ls[i]); }
+                return out.join("\n");
+            },
+            lwScan:    function(){
+                var api = quickApi();
+                if(api === null){ return "本地快检不可用"; }
+                var build = gameBuild();
+                var t0 = Packages.java.lang.System.currentTimeMillis();
+                var n = 0, bad = 0, errs = 0, warns = 0;
+                var byRule = {};
+                Groups.build.each(function(g){
+                    try{
+                        if(g.executor === undefined || g.code === undefined){ return; }
+                        var res = api.q.check(api.r, String(g.code), linkNames(g), {build: build});
+                        n++;
+                        if(res.findings.length > 0){ bad++; }
+                        for(var i = 0; i < res.findings.length; i++){
+                            var f = res.findings[i];
+                            if(f.sev === "ERR"){ errs++; } else { warns++; }
+                            var k = f.rid || "(no-id)";
+                            byRule[k] = (byRule[k] || 0) + 1;
+                        }
+                    }catch(e){ }
+                });
+                var ms = Packages.java.lang.System.currentTimeMillis() - t0;
+                var out = ["本地快检扫描：" + n + " 个处理器，" + bad
+                         + " 个有命中（ERR " + errs + " / WARN " + warns + "），" + ms + " ms"];
+                for(var k in byRule){ out.push("  " + k + "  " + byRule[k]); }
+                return out.join("\n");
+            }
         };
 
         // 挂到脚本作用域（控制台里能直接敲），并读回自检

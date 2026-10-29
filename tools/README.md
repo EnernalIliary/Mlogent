@@ -144,13 +144,35 @@ python tests/logicd/run_logicd_tests.py --no-sim  # 只跑协议层（不需要 
 
 接口只有四个：`GET /health`、`GET /capabilities`、`POST /analyze`、`POST /compose`；
 `ok` 的语义是**没有 ERR**（ERR 一律拒绝写入）。设计、契约细节、分期与「已验证/未验证」
-边界写在 `docs/逻辑写入服务-设计.md`，模组安装与操作写在 `LogicWriter/README.md`。
+边界写在 `docs/逻辑写入服务-设计.md`，模组安装与操作写在 `LogicWriter/README.md`，
+P2–P5 的路线（框选 → 队列 → 模型 → 写入）在 `docs/逻辑写入服务-规划.md`。
+
+### 游戏内快检（P2）
+
+游戏里没有 Python，所以「这行指令存在吗 / 要更新版本吗 / 这个名字是链接吗」这类
+**单行 + 一张表**就能定的事实由 `LogicWriter/scripts/quickcheck.js` 在游戏内回答。
+它的规则表 `LogicWriter/scripts/rules.generated.js` 是**生成的**，不是手抄的：
+
+```
+python tools/rules_export.py            # 从 instr_semantics.json + mlogcheck 重新生成
+python tools/rules_export.py --check    # 磁盘上的文件与生成结果不一致 -> exit 1（gate 跑这个）
+python tests/logicwriter/run_quickcheck_tests.py   # 14 个用例 + require 契约 + 不误报交叉验证
+```
+
+五条判据：未知指令 / 子命令拼错（整行变 NoopI）/ 版本门（`min_build` 大于当前 build）/
+链接名未绑定 / 语句数超 1000。**它只许少报，不许瞎报**：测试里用 `mlogcheck.analyse()`
+做单向包含验证 —— quickcheck 说是断链的行，全量检查必须也这么说。未赋值变量的槽位分级、
+成本 CFG、值域这些需要数据流推理的判据**不在游戏内**，仍然只由 sidecar 回答。
+
+游戏只执行 `scripts/main.js`（`Mods.java:809`），其它脚本文件靠 `require()` 进来
+（`Scripts.java:30-32` 装了 CommonJS 模块提供器）—— v160.7 实测 `typeof require` 是函数。
 
 
 ## 文件分层
 
 1. **入口**：`mlog.py`（统一下发子命令）、`mlogagent.py`（`report` / `info` 一条命令跑完五层）、
-   `logicd.py`（本地 sidecar：给游戏内模组 `LogicWriter/` 提供 compose/analyze 的 HTTP 接口）。
+   `logicd.py`（本地 sidecar：给游戏内模组 `LogicWriter/` 提供 compose/analyze 的 HTTP 接口）、
+   `rules_export.py`（把 instr_semantics.json + mlogcheck 的链接槽表导出成游戏内快检用的 JS）。
 2. **分析层**：`mlogir.py`（解析/IR）、`mlogcheck.py`（静态检查）、`mlogval.py`（值域）、`mlogcross.py`（跨处理器）、`mlogpack.py`（打包配置）、`msch.py`/`mschgen.py`（蓝图容器）。
 3. **模拟器**：`mlogsim.py`（真执行器驱动）、`mlog_needs.py`（扫程序需要的地图/方块/单位/全局量）。
 4. **语料与存档**：`map_logic.py`（读存档）+ `parallel.py`（并行 worker）；语料挖掘、分桶、标注在 `corpus/`。

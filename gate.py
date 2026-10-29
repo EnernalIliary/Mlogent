@@ -177,6 +177,13 @@ def build_steps(full: bool, only: str | None) -> list[tuple[str, list[str] | Non
         # message silently re-classifies findings and a rule that never fires
         # anywhere looks exactly like a rule that works (tests/ruleids/).
         ("ruleids", ["tests/ruleids/run_ruleids.py"], ""),
+        # the in-game quick check: LogicWriter/scripts/quickcheck.js answers "is this
+        # instruction real / does it need a newer build / is this name a link" without
+        # Python.  Its rule table is GENERATED from instr_semantics.json + mlogcheck,
+        # so the first assertion is that the file on disk still matches the generator;
+        # then 14 hand-checked programs; then that it never calls a name unbound when
+        # the full checker is happy (under-reporting is allowed, inventing is not).
+        ("quickcheck", ["tests/logicwriter/run_quickcheck_tests.py"], ""),
     ]
     global_skill = (Path(os.environ.get("DSH_HOME") or (Path.home() / ".dsh"))
                     / "skills" / "mlog-agentskill")

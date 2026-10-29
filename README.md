@@ -18,6 +18,7 @@ python gate.py --full                          # 再加 430 项蓝图自检 + �
 python tests/probes/run_probes.py              # 只跑运行期探针（真执行器，断言语义）
 python tools/logicd.py                         # 逻辑写入服务的本地 sidecar（游戏内模组 LogicWriter/ 的后端）
 python tests/logicd/run_logicd_tests.py        # sidecar 契约：协议 + 把载荷灌进真处理器回读
+python tests/logicwriter/run_quickcheck_tests.py  # 游戏内快检：规则表没漂移 + 14 个用例 + 不误报交叉验证
 ```
 
 `python gate.py` 依次跑：`mirror`（`tools/` 与三处副本是否一致 —— 测试实际上导入的是
@@ -25,7 +26,7 @@ python tests/logicd/run_logicd_tests.py        # sidecar 契约：协议 + 把�
 `rule_capture.py lint`、`tests/shapes/run_shapes.py`（检查器自身的语句形状不变量：
 语句尾部追加惰性 token 后规则仍须开火，防整行锚定正则 fail-open）、`tests/docsig/run_docsig.py`（文档里的语句签名与 `tools/instr_semantics.json` 机检：槽位数、槽位序、示例参数数、参数表、枚举槽名字（`ucontrol`/`draw`/`ulocate` 子命令、`status` 布尔第一槽、`sensor` 属性必须是 LAccess/Content）；
 文档教错语法会在这里红）、`tests/ruleids/run_ruleids.py`（每条规则必须在某个 `tests/cases/*.mlog` 上真点火一次，
-且 rid → 用例的映射与 `tests/rule-coverage.json` 一致——只写反例的规则在这里红）、`global`（用户级技能副本）、`kb`（`out/_kb/kb.sqlite3` 是否比
+且 rid → 用例的映射与 `tests/rule-coverage.json` 一致——只写反例的规则在这里红）、`quickcheck`（游戏内快检 `LogicWriter/scripts/quickcheck.js` 的规则表由 `tools/rules_export.py` 从 `instr_semantics.json` 生成：先验表没漂移，再跑 14 个用例，并用全量检查器做**单向**交叉验证——快检说断链的行，全量检查必须也这么说；少报允许，瞎报不允许）、`global`（用户级技能副本）、`kb`（`out/_kb/kb.sqlite3` 是否比
 `docs/断言表.md`、`tools/*.py` 旧）。默认档约 5 s，够日常改完就看；`--full` 追加 `mlog.py selftest` / `probes` / `logicd` / `corpus` / `coverage` 五步——它们互不依赖（各自起 JVM、各写各的 `out/_bench` 文件），所以**并发跑**；两条长杆内部再各自并行（`probes` 20 个 JVM、`selftest` 8 进程 + 验证重建用 deflate 1 级），合计 100 s → **约 25 s**，`--serial` 恢复串行。`--kb-build` 在 KB
 陈旧时自动重建，`--only test` 只跑名字含某子串的步骤，`--strict` 把 WARN **和 SKIP** 都当失败
 （`probes`/`corpus` 的跳过条件正好是干净 checkout 的默认状态，不 strict 的话它们可以永久静默）。
