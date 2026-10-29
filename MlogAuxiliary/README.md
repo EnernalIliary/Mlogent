@@ -1,4 +1,4 @@
-# MlogAuxiliary —— 游戏内Mlog辅助（P1 + P2 + 设置界面）
+# MlogAuxiliary —— 游戏内Mlog辅助（P1 + P2 + 设置界面，v0.3.1）
 
 把「写 mlog」这件事从玩家手里拿走：**说意图，不写代码**。
 
@@ -69,8 +69,15 @@ v0.3 起调试入口是**设置 → Mlog辅助**一栏，不再依赖控制台�
 
 注册走 `Vars.ui.settings.addCategory(name, Cons<SettingsTable>)`（`SettingsMenuDialog.java:329-330`），
 分类只在显示设置菜单时 rebuild（`:357`、`:658`），所以脚本加载时机不影响它出现；脚本加载时 UI 还可能不存在，
-`ClientLoadEvent` 上再补注册一次。**无头环境**（模拟器、`Vars.ui == null`）里 `maiSettings()` 返回 `no ui` 
-而不是抛错，设置表格的布线由 `maiSelfTest()` 用假表验证。
+`ClientLoadEvent` 上再补注册一次，之后热键钩子里还有一次**有界重试**（每 60 帧一次、最多 600 次）。
+诊断里最后一行 `设置分类：` 会直接告诉你注册成功还是在哪个异常上失败。
+
+**v0.3.0 那一栏没出现的原因**：设置表格用了 `t.table(function(tt){...})` 做按钮分组，真 v160.7 的 Rhino 在
+**方法解析阶段**就抛 `InternalError: ... Table.table ... is ambiguous`（重载歧义），异常被注册函数吞掉，
+于是游戏里根本没有这一栏 —— 而假表 smoke 还是绿的。v0.3.1 改成**平铺加行**（`t.button` / `t.labelWrap` /
+`t.field`，实测都能解析），并且 `run_ui_smoke.py` 多了一道探针：把 `maiSelfTest()` 报出的方法名逐个拿到
+真引擎里调用，出现 `ambiguous` 即 FAIL。**无头环境**（模拟器、`Vars.ui == null`）里 `maiSettings()` 返回
+`no ui` 而不是抛错，设置表格的布线由 `maiSelfTest()` 用假表验证。
 
 ## 接口契约（sidecar v1）
 
@@ -118,5 +125,6 @@ node 侧永远发现不了 —— 所以本文件的分词、裁剪、标识符�
 * 没有框选/队列（P3/P4）
 * 没有自然语言/LLM（P4）
 * 真界面的**像素**没法机器验证（无头模拟器里 `Vars.ui` 是 null）：`run_ui_smoke.py` 只验到
-  「main.js 整段初始化不抛错 + 设置表格能建到假 Table 上」，按钮点下去的实际效果仍要人看
+  「main.js 整段初始化不抛错 + 设置表格能建到假 Table 上 + 页面用到的每个 Table 方法在真引擎里能解析」，
+  按钮点下去的实际效果、这一栏在设置菜单里的位置与排版仍要人看
 * 面板里的模板按钮只用默认参数（改参数仍走控制台 `maiCompose(id, paramsJson)`）

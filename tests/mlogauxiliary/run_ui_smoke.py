@@ -8,6 +8,10 @@ so this test does what the game does, minus the pixels:
   * asserts init reports "ready" and never prints "init failed"/"bootstrap failed";
   * asks the mod itself to build its settings table against a fake Table
     (maiSelfTest) -- this catches Table/Cell API drift and broken wiring;
+  * takes the Table/Cell method names maiSelfTest reported using, and calls each
+    one on a REAL arc.scene.ui.layout.Table in the engine: a shape that hits a
+    Java overload ambiguity (t.table(function) does in v160.7) fails here, which
+    a fake JS table can never catch;
   * reads the diagnostics block (maiDiag) and checks it names both directories;
   * confirms maiSettings() says "no ui" headless instead of throwing.
 
@@ -17,7 +21,7 @@ Why this exists: the first version of the console-function mount read scope.get(
 back, which throws "Cannot find function get" under the real engine -- main.js died
 after loading its rule table and the mod looked half-installed.
 """
-import io, os, sys
+import io, os, re, sys
 
 sys.stdout.reconfigure(encoding='utf-8', errors='replace')
 
@@ -85,6 +89,63 @@ def main():
              or l.startswith(('MAISELF:', 'MAIDIAG:', 'MAISET:'))]
     joined = '\n'.join(lines)
 
+    # ---- resolve every Table/Cell method the page actually uses, in the engine
+    used = []
+    for l in text.splitlines():
+        if l.startswith('MAISELF:') and '\u7528\u5230\u7684\u65b9\u6cd5' in l:
+            used = [x for x in l.split('\u7528\u5230\u7684\u65b9\u6cd5 ')[-1].strip().split(',') if x]
+    if not used:
+        used = []
+
+    # arg shells: the method name is enough, because only Java overload RESOLUTION
+    # is under test here -- any runtime failure caused by a null skin counts as OK.
+    SHELL = {
+        'defaults': '', 'row': '',
+        'add': "t.add('x');",
+        'label': "t.label('x');",
+        'labelWrap': "t.labelWrap('x');",
+        'field': "t.field('v', function(){});",
+        'button': "t.button('b', function(){});",
+        'check': "t.check('c', false, function(){});",
+        'image': "t.image('info');",
+        'pane': "t.pane(function(tt){});",
+        'table': "t.table(function(tt){});",
+        'scrollPane': "t.scrollPane(function(tt){});",
+        'pad': "t.add('x').pad(4);",
+        'left': "t.add('x').left();",
+        'width': "t.add('x').width(120);",
+        'colspan': "t.add('x').colspan(2);",
+        'get': "t.add('x').get();",
+    }
+    missing = [m for m in used if m not in SHELL]
+    probe = [
+        "var T = Packages.arc.scene.ui.layout.Table;",
+        "function cls(e){ var s = '' + e;"
+        " if (s.indexOf('ambiguous') >= 0) return 'AMBIGUOUS';"
+        " if (s.indexOf('Cannot find function') >= 0) return 'NOFUNC';"
+        " if (s.indexOf('TypeError') >= 0) return 'TYPE';"
+        " return 'OK_SKIN'; }",
+        "var out = [];",
+    ]
+    for m in used:
+        if m in SHELL:
+            probe.append("(function(){ var t = new T(); var r;"
+                         " try { %s r = 'RESOLVED'; } catch(e){ r = cls(e); }"
+                         " out.push('%s=' + r); })();" % (SHELL[m], m))
+    # the console only echoes a trailing array literal without printing 'undefined',
+    # and Server.js waits for that marker -- so print explicitly and end with void 0
+    probe.append("print('MAISHAPES: ' + out.join(' '));")
+    probe.append("void 0;")
+    shapes = {}
+    if used and not missing:
+        try:
+            res = srv.js(' '.join(probe))
+            flat = ' '.join(str(x) for x in res)
+            for k, v in re.findall('([A-Za-z]+)=([A-Z_]+)', flat):
+                shapes[k] = v
+        except Exception as e:
+            shapes = {'<engine>': 'FAIL ' + str(e)[-200:]}
+
     problems = []
     if 'ready,' not in joined:
         problems.append('mod never reported ready')
@@ -98,12 +159,28 @@ def main():
         problems.append('maiDiag is missing a directory line')
     if 'MAISET:no ui' not in joined:
         problems.append('maiSettings should report "no ui" headless')
+    if not used:
+        problems.append('maiSelfTest did not report which Table methods it used')
+    if missing:
+        problems.append('no engine probe shell for Table method(s): ' + ', '.join(missing))
+    bad = [m + '=' + shapes.get(m, 'MISSING') for m in used
+           if shapes.get(m) not in ('RESOLVED', 'OK_SKIN')]
+    if bad:
+        problems.append('Table method(s) do not resolve in the engine: ' + ', '.join(bad))
+    # comments talk about the ambiguity, so cut them before scanning code
+    code_only = '\n'.join(l.split('//')[0] for l in io.open(MAIN, 'rb').read().decode('utf-8').splitlines())
+    if re.search('[.](table|scrollPane)[(][ ]*function', code_only):
+        problems.append('main.js calls t.table(function) / t.scrollPane(function) -- '
+                        'ambiguous in this engine, keep the settings rows flat')
 
     if problems:
         print('FAIL ' + '; '.join(problems))
         print(joined[-1500:])
         return 1
     print('ui smoke: main.js initialised in the real engine')
+    if shapes:
+        print('  table methods resolved: ' + ' '.join(
+            '%s=%s' % (m, shapes.get(m, '?')) for m in used))
     for l in lines:
         if l.startswith(('MAISELF:', 'MAIDIAG:')):
             print('  ' + l[:300])

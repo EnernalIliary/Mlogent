@@ -28,7 +28,7 @@
 function __logicWriterMain(){
     "use strict";
 
-    var MOD_VERSION = "0.3";
+    var MOD_VERSION = "0.3.1";
     var URL_KEY     = "mlogauxiliary-url";
     var DEFAULT_URL = "http://127.0.0.1:8765";
     var KEY_PANEL   = ["f4"];      // F4：开面板（F1/F5/F6/F8/F11/F12 与 F9/F10 已被占用）
@@ -43,6 +43,8 @@ function __logicWriterMain(){
 
     var sidecarOk = null;
     var settingsDone = false;
+    var settingsErr = null;
+    var settingsTries = 0;    // 见热键钩子：UI 晚于脚本建好时每 60 帧重试一次   // 注册失败时的原文，摊在诊断里，省得翻 last_log.txt
 
     function countKeys(o){
         var n = 0;
@@ -69,6 +71,8 @@ function __logicWriterMain(){
                  + (sidecarOk === null ? "未探测" : (sidecarOk ? "上次可达" : "上次不可达")) + "）");
         out.push("数据目录：" + dirText(Vars.dataDirectory));
         out.push("mods 目录：" + dirText(Vars.modDirectory));
+        out.push("设置分类：" + (settingsDone ? "已注册（设置 → Mlog辅助）"
+                 : (settingsErr === null ? "还没注册（Vars.ui 未就绪）" : "注册失败：" + settingsErr)));
         return out;
     }
 
@@ -125,46 +129,59 @@ function __logicWriterMain(){
             var s = String(v);
             if(s.length > 0){ base = s; Core.settings.put(URL_KEY, s); log("sidecar = " + s); }
         }).width(320).row();
-        t.table(function(tt){
-            tt.defaults().pad(4);
-            tt.button("连接测试", function(){ probeSidecar(); }).width(120);
-            tt.button("打开面板", function(){ openPanel(); }).width(120);
-            tt.button("快检鼠标下的处理器", function(){ quickAimed(); }).width(200);
-            tt.row();
-            tt.button("打印诊断到控制台", function(){
-                print("[mai] --- diag ---");
-                print(diagText());
-            }).colspan(3).width(240);
-        }).row();
+        // 一律平铺在 t 上，不用 t.table(fn) / t.scrollPane(fn) 这类容器回调：
+        // 真 v160.7 的 Rhino 里 Table.table(function) 有重载歧义，方法解析阶段就抛
+        //   InternalError: The choice of Java method arc.scene.ui.layout.Table.table ... is ambiguous
+        // 而 t.pane(fn)/button/field/check/labelWrap/add 都能解析（只是 headless 下 skin 为 null）。
+        // tests/mlogauxiliary/run_ui_smoke.py 会拿真引擎逐个方法复核这张表用到的调用形状。
+        t.button("连接测试", function(){ probeSidecar(); }).width(120);
+        t.button("打开面板", function(){ openPanel(); }).width(120);
+        t.button("快检鼠标下的处理器", function(){ quickAimed(); }).width(200).row();
+        t.button("打印诊断到控制台", function(){
+            print("[mai] --- diag ---");
+            print(diagText());
+        }).width(240).row();
         t.labelWrap("热键 F4 打开面板；面板里点模板 = 生成 + 预检 + 确认写入。").row();
     }
 
     // 无 UI 环境下也能验证设置表格的布线：喂一张假表，数它被填了多少行/格。
+    // 假表只实现真实页面用到的方法 —— 少实现一个，selfTest 立刻炸；
+    // 同时把用到的名字记下来，供 run_ui_smoke 去真引擎里复核「有没有重载歧义」。
     function fakeTable(){
         var n = 0;
+        var used = [];
+        function hit(m){ used.push(m); }
         var cell = {
-            pad: function(){ return cell; }, left: function(){ return cell; },
-            width: function(){ return cell; }, colspan: function(){ return cell; },
-            row: function(){ n++; return cell; }, get: function(){ return null; }
+            pad: function(){ hit("pad"); return cell; }, left: function(){ hit("left"); return cell; },
+            width: function(){ hit("width"); return cell; }, colspan: function(){ hit("colspan"); return cell; },
+            row: function(){ n++; hit("row"); return cell; }
         };
         var t = {
-            defaults: function(){ return cell; },
-            add: function(){ n++; return cell; },
-            labelWrap: function(){ n++; return cell; },
-            label: function(){ n++; return cell; },
-            field: function(v, f){ n++; return cell; },
-            button: function(s, f){ n++; return cell; },
-            table: function(cons){ n++; cons(t); return cell; },
-            row: function(){ n++; return cell; }
+            defaults: function(){ hit("defaults"); return cell; },
+            add: function(){ n++; hit("add"); return cell; },
+            labelWrap: function(){ n++; hit("labelWrap"); return cell; },
+            label: function(){ n++; hit("label"); return cell; },
+            field: function(v, f){ n++; hit("field"); return cell; },
+            button: function(s, f){ n++; hit("button"); return cell; },
+            row: function(){ n++; hit("row"); return cell; }
         };
-        return {table: t, count: function(){ return n; }};
+        return {table: t, count: function(){ return n; },
+                methods: function(){
+                    var out = [], seen = {};
+                    for(var i = 0; i < used.length; i++){
+                        if(seen[used[i]] !== true){ seen[used[i]] = true; out.push(used[i]); }
+                    }
+                    out.sort();
+                    return out.join(",");
+                }};
     }
 
     function selfTest(){
         var ft = fakeTable();
         try{ buildSettingsTable(ft.table); }
         catch(e){ return "设置表格布线失败：" + e; }
-        return "设置表格可建，填了 " + ft.count() + " 行/格；诊断 " + diagLines().length + " 行";
+        return "设置表格可建，填了 " + ft.count() + " 行/格；诊断 " + diagLines().length
+               + " 行；用到的方法 " + ft.methods();
     }
 
     function registerSettings(){
@@ -173,9 +190,11 @@ function __logicWriterMain(){
             if(Vars.ui === null || Vars.ui.settings === null){ return false; }
             Vars.ui.settings.addCategory("Mlog辅助", function(t){ buildSettingsTable(t); });
             settingsDone = true;
+            settingsErr = null;
             log("settings category registered");
             return true;
         }catch(e){
+            settingsErr = String(e);
             log("settings category failed: " + e);
             return false;
         }
@@ -608,6 +627,13 @@ function __logicWriterMain(){
         if(KEY_PANEL !== null){
             Events.run(ET.Trigger.update, function(){
                 try{
+                    // 「设置 → Mlog辅助」这一栏只在 Vars.ui 建好之后能注册。脚本加载时
+                    // UI 往往还没建（真机日志里是在 ClientLoadEvent 前），所以这里补一次
+                    // 有界重试：每 60 帧试一次、最多 600 次（≈10 s @60fps），成功即停。
+                    if(!settingsDone && settingsTries < 600){
+                        settingsTries++;
+                        if(settingsTries % 60 === 0){ registerSettings(); }
+                    }
                     if(Vars.state.isMenu()){ return; }
                     if(Vars.ui.chatfrag.shown()){ return; }
                     var key = Packages.arc.input.KeyCode[KEY_PANEL[0]];

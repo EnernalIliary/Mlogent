@@ -180,6 +180,14 @@ node 用的是 V8，14 个用例全绿也照样带着这个 bug 进游戏，所�
 写成 `scope.get(k, scope)`，真引擎报 `Cannot find function get in object [object global]`，初始化在「规则表已加载」
 之后整个中止 —— node 侧全绿也照样是半装状态。现在的读回改用静态 `ScriptableObject.getProperty`，失败也不算错。
 
+**第二个坑是 Java 重载歧义**（v0.3.1 修掉）：真 v160.7 里 `Table.table(function)`、`scrollPane` 这类容器回调
+在方法**解析阶段**就抛 `InternalError: The choice of Java method arc.scene.ui.layout.Table.table ... is ambiguous`，
+而假表只是 JS 对象，看不出这一点 —— 于是设置分类整个注册失败、游戏里根本没有那一栏，异常还被 `catch` 吞掉。
+现在设置页**一律平铺加行**（`t.button(...)` / `t.labelWrap(...)` / `t.field(...)`，这些实测能解析，只是 headless 下
+skin 为 null）。`run_ui_smoke.py` 也因此多了一道探针：`maiSelfTest()` 报出**页面实际用到的 Table/Cell 方法名**，
+测试拿这些名字去真引擎里逐个调用，`ambiguous` / `Cannot find function` 一律 FAIL；同时源码级拦
+`.table(function)` / `.scrollPane(function)`。改设置页布局先跑这条测试。
+
 五条判据：未知指令 / 子命令拼错（整行变 NoopI）/ 版本门（`min_build` 大于当前 build）/
 链接名未绑定 / 语句数超 1000。**它只许少报，不许瞎报**：测试里用 `mlogcheck.analyse()`
 做单向包含验证 —— quickcheck 说是断链的行，全量检查必须也这么说。未赋值变量的槽位分级、

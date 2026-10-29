@@ -216,6 +216,7 @@ self-repair：门禁返回 ERR 时，把 `findings`（行号 + rid + msg）作�
 | P1 API 接入 + 写入通道 | 完成（`c25d1c7`） | `tools/logicd.py`、`MlogAuxiliary/`、`tests/logicd/` | 协议 13 项 + 六个模板的载荷灌进真 v160.7 处理器回读一致 |
 | P2 快检进游戏 | 完成 | `tools/rules_export.py`、`MlogAuxiliary/scripts/{quickcheck,rules.generated}.js`、`tests/mlogauxiliary/`、`gate.py` 的 `quickcheck` / `rhinoparity` 步 | 规则表漂移检查 + 14 用例 + 单向交叉验证 + 真 Rhino 逐条一致，全部绿 |
 | v0.3 设置界面（P1.5） | 完成 | `MlogAuxiliary/scripts/main.js` 的「设置 → Mlog辅助」分类（版本/构建/快检模块/sidecar/两个目录 + 四个按钮）、`tests/mlogauxiliary/run_ui_smoke.py`、`gate.py` 的 `ui` 步 | main.js 整段在真 v160.7 脚本作用域里初始化；假 Table 上建出 26 行/格；无头 `maiSettings()` 返回 `no ui` 而不抛错 |
+| 设置界面（v0.3，额外做的调试入口） | 完成（v0.3.1 修掉重载歧义） | `MlogAuxiliary/scripts/main.js`、`tests/mlogauxiliary/run_ui_smoke.py` | 真引擎里 8 个 Table/Cell 调用形状全部解析 + 假表建出 27 行；诊断多一行 `设置分类：` |
 | P3 框选 + 快照 | 未开始 | — | — |
 | P4 队列 + 模型 + 门禁 | 未开始 | — | — |
 | P5 多处理器写入 + 撤销落盘 | 未开始 | — | — |
