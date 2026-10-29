@@ -17,10 +17,13 @@
   "noop-means-version-drift": [
     "gate1.mlog"
   ],
-  "undefined-var-is-not-automatically-an-error": [
+  "undefined-var-read": [
     "index-only-summary.mlog",
     "pack1.mlog",
-    "status-effect-slot.mlog"
+    "status-effect-slot.mlog",
+    "undefined-var-num-slot.mlog",
+    "undefined-var-read.mlog",
+    "virus-logic-clean.mlog"
   ],
   "jump-target-out-of-range": [
     "jump-range.mlog"
@@ -105,10 +108,6 @@
   ],
   "ulocate-outxy-discarded": [
     "ulocate-outxy.mlog"
-  ],
-  "undefined-var-read": [
-    "undefined-var-read.mlog",
-    "virus-logic-clean.mlog"
   ],
   "virus-logic": [
     "virus-logic.mlog"

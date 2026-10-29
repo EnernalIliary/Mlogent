@@ -61,8 +61,10 @@ def matchers() -> list:
                 keys = [k.lower() for k in (m.get("msg_any") or ()) if k]
                 if sevs and keys:
                     out.append((data.get("id") or p.stem, sevs, keys))
-        # Longest key first: a narrow rule beats a broad one, and the order is
-        # stable so two runs -- and two processes -- agree on the winner.
+        # Longest key first, then rule id: a narrow rule beats a broad one and
+        # two processes agree on the winner.  rule_id() re-does the comparison
+        # on the key that actually matched (this sort only orders by each
+        # rule's longest key, which is not the same thing).
         out.sort(key=lambda t: (-max(len(k) for k in t[2]), t[0]))
         _CACHE = out
     return _CACHE
@@ -79,7 +81,12 @@ def rule_id(sev: str, msg: str):
         if sev not in sevs:
             continue
         for k in keys:
-            if len(k) > blen and k in low:
+            if k not in low:
+                continue
+            # Longest matched key wins; equal keys are decided by rule id so the
+            # answer never depends on iteration order.  (Sorting alone is not
+            # enough: a rule whose OTHER key is longer would win a tie.)
+            if len(k) > blen or (len(k) == blen and (best is None or rid < best)):
                 best, blen = rid, len(k)
     return best
 

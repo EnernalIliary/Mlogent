@@ -621,6 +621,90 @@ def _bool_slot(p: list[str]) -> int | None:
             return _BOOL_PARAM[key]
     return None
 
+# ---- what the SLOT does with the null that an unset variable holds ---- #
+# An unset name reads as null.  Whether that is harmless or fatal is a property
+# of the slot, not of the name: LVar.num() / LVar.bool() turn null into 0 /
+# false, so the statement still runs with a value (INFO), while LVar.obj()
+# hands the null OBJECT to the instruction, which then either skips itself (a
+# link/unit/content guard, see LExecutor's instanceof checks) or writes null
+# onward (ERR).  So the severity of a never-assigned read is decided by the slot
+# the name sits in.
+_SLOT_NUM, _SLOT_BOOL, _SLOT_ANY, _SLOT_OBJ = "num", "bool", "any", "obj"
+
+#: Token index -> kind, for slots that are not plain numbers.  Token 0 is the
+#: mnemonic, so parameter p1 is token 1.  Link slots come from LINK_SLOTS
+#: (above) and are merged in by _slot_kinds().
+_NON_NUM_SLOTS = {
+    "set": {2: _SLOT_ANY},
+    "print": {1: _SLOT_ANY},
+    "format": {1: _SLOT_ANY},
+    "localeprint": {1: _SLOT_ANY},
+    "select": {4: _SLOT_ANY, 5: _SLOT_ANY},
+    "setprop": {3: _SLOT_ANY},
+    "setrule": {2: _SLOT_ANY},
+    "setflag": {2: _SLOT_ANY},
+    "clientdata": {2: _SLOT_ANY},
+    "effect": {5: _SLOT_ANY},
+    "sync": {1: _SLOT_ANY},
+    "ubind": {1: _SLOT_OBJ},
+    "setblock": {2: _SLOT_OBJ},
+    "status": {1: _SLOT_BOOL, 3: _SLOT_OBJ},
+    "radar": {6: _SLOT_BOOL},
+    "uradar": {6: _SLOT_BOOL},
+    "spawnwave": {3: _SLOT_BOOL},
+    "weatherset": {2: _SLOT_BOOL},
+    "playmusic": {2: _SLOT_BOOL},
+    "makemarker": {5: _SLOT_BOOL},
+    "fetch": {5: _SLOT_OBJ},
+}
+
+#: ucontrol <sub> ... -- the slots depend on the sub-command.
+_UCONTROL_SLOTS = {
+    "target": {2: _SLOT_OBJ},
+    "targetp": {2: _SLOT_OBJ, 3: _SLOT_BOOL},
+    "itemdrop": {2: _SLOT_OBJ, 3: _SLOT_OBJ},
+    "itemtake": {2: _SLOT_OBJ, 3: _SLOT_OBJ},
+    "paytake": {2: _SLOT_BOOL},
+    "boost": {2: _SLOT_BOOL},
+    "build": {2: _SLOT_OBJ, 4: _SLOT_ANY},
+    "deconstruct": {2: _SLOT_OBJ, 3: _SLOT_BOOL},
+}
+
+#: control <type> ... -- config takes a content or a number, shoot / shootp
+#: take coordinates plus a shoot flag, enabled a boolean.
+_CONTROL_SLOTS = {
+    "enabled": {3: _SLOT_BOOL},
+    "shoot": {5: _SLOT_BOOL},
+    "shootp": {3: _SLOT_OBJ, 5: _SLOT_BOOL},
+    "config": {3: _SLOT_ANY},
+}
+
+
+def _slot_kinds(p, name):
+    """Kinds of the parameter slots in which this statement reads a name.
+
+    Default is num: an unset name is null, and num() reads null as 0, so a
+    numeric slot does not fail -- it silently uses 0.
+    """
+    if not p:
+        return set()
+    mnem = p[0].lower()
+    table = {}
+    for i in LINK_SLOTS.get(mnem, ()):
+        table[i] = _SLOT_OBJ
+    table.update(_NON_NUM_SLOTS.get(mnem) or {})
+    sub = p[1].lower() if len(p) > 1 else ""
+    if mnem == "ucontrol":
+        table.update(_UCONTROL_SLOTS.get(sub) or {})
+    elif mnem == "control":
+        table.update(_CONTROL_SLOTS.get(sub) or {})
+    kinds = set()
+    for k in range(1, len(p)):
+        if p[k] == name:
+            kinds.add(table.get(k, _SLOT_NUM))
+    return kinds or {_SLOT_NUM}
+
+
 
 def _comment_stmt(c: str) -> bool:
     """True for `set <punctuation-name> <prose>` -- mlog's de-facto comment.
@@ -1240,7 +1324,7 @@ def analyse(lines: list[str], links: list[str] | None = None, ipt: int = 2) -> l
             bslot = _bool_slot(p)
             if bslot is not None and len(p) > bslot and p[bslot] == v:
                 out.append(Finding(
-                    "WARN", orig + 1, c,
+                    "INFO", orig + 1, c,
                     f"`{v}` is never assigned, and this parameter is read as a "
                     f"boolean -- so it is constantly 0 (false). Harmless if "
                     f"that is the intent; a typo of `true`/`false` lands here"))
@@ -1284,22 +1368,34 @@ def analyse(lines: list[str], links: list[str] | None = None, ipt: int = 2) -> l
             if v in _index_only:
                 _index_only_sites.setdefault(v, []).append((orig + 1, c))
                 continue
-            out.append(Finding(
-                "ERR", orig + 1, c,
-                f"`{v}` is mentioned (so it is declared, with the initial value "
-                f"null) but is never assigned anywhere in this program; reading "
-                f"it here yields null (and it is not a link or built-in)"))
+            _kinds = _slot_kinds(p, v)
+            if _kinds <= {_SLOT_NUM, _SLOT_BOOL}:
+                out.append(Finding(
+                    "INFO", orig + 1, c,
+                    f"`{v}` is never assigned, and every slot this statement "
+                    f"reads it in is numeric/boolean -- mlog turns null into 0 there, "
+                    f"so this runs with 0/false. Usually a forgotten `set` or a "
+                    f"typo; only `===` can tell null from 0"))
+            else:
+                out.append(Finding(
+                    "ERR", orig + 1, c,
+                    f"`{v}` is mentioned (so it is declared, with the initial "
+                    f"value null) but is never assigned anywhere in this program, and "
+                    f"this statement reads it in a {'/'.join(sorted(_kinds))} slot -- "
+                    f"the slot receives the null OBJECT, not 0, so the instruction "
+                    f"either skips itself (a link/unit/content target) or writes null "
+                    f"onward"))
 
     for _v, _sites in _index_only_sites.items():
         _ln0, _c0 = _sites[0]
         out.append(Finding(
-            "ERR", _ln0, _c0,
+            "INFO", _ln0, _c0,
             f"`{_v}` is never assigned, and it is used only as a memory cell "
             f"index ({len(_sites)} statement(s), first at line {_sites[0][0]}) "
-            f"-- every one of them addresses "
-            f"null, so all {len(_sites)} fail. A program that indexes cells with a "
-            f"variable it never sets is usually a fragment: the variable is "
-            f"written by another processor in the same base"))
+            f"-- the address slot is numeric and null reads as 0 there, so all "
+            f"{len(_sites)} of them address cell 0. A program that indexes cells "
+            f"with a variable it never sets is usually a fragment: the variable "
+            f"is written by another processor in the same base"))
 
     # ---- status: the effect slot (bare name vs @status-<name>) -------------
     # `status <clear> <effect> <unit> <duration>`. The slot changed shape:

@@ -38,9 +38,9 @@
     "case": "index-only-summary.mlog",
     "digest": [
       [
-        "ERR",
+        "INFO",
         1,
-        "undefined-var-is-not-automatically-an-error"
+        "undefined-var-read"
       ]
     ]
   },
@@ -52,6 +52,17 @@
         "INFO",
         202,
         "link-name-unbound-fragment"
+      ]
+    ]
+  },
+  "check/undefined-var-num-slot": {
+    "kind": "check_rid",
+    "case": "undefined-var-num-slot.mlog",
+    "digest": [
+      [
+        "INFO",
+        1,
+        "undefined-var-read"
       ]
     ]
   },
