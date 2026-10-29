@@ -1,0 +1,10 @@
+name: "mlog-auxiliary"
+displayName: "Mlog辅助"
+author: "DP"
+description: "游戏内写逻辑的入口：选中处理器 → 选一个意图模板 → 本地 sidecar（tools/logicd.py）把意图变成 mlog 并用仓库那套规则做静态检查 → 面板显示 findings 与成本 → 确认后通过原版 config 通道（LogicBlock.config(byte[])）写进处理器。ERR 一律拒绝写入。P2 起游戏内也有本地快检（未知指令 / 拼错子命令 / 版本门 / 断链名 / 超 1000 条），sidecar 没开也能用。P1 的生成层是确定性模板，不做自然语言。控制台：maiVersion() / maiPing() / maiSel() / maiPanel() / maiCompose(template, paramsJson) / maiApply(template, paramsJson) / maiUndo() / maiCheck() / maiScan() / maiDiag() / maiSelfTest()。设置菜单里有「Mlog辅助」一栏。F4 开关面板。"
+version: "0.3"
+minGameVersion: "146"
+# hidden: true —— 自用模组：不上报给服务器（Mods.getModStrings 只收 !meta.hidden），
+# 联机不会被 "Incompatible mods" 踢；hidden 只跳过 loadContent()（不能注册新方块/单位），
+# 本模组是纯代码 + 原版 config 通道，功能不受影响。依据见 DP-CameraUnbind/mod.hjson 注释。
+hidden: true

@@ -18,12 +18,12 @@ for(var i = 0; i < cases.length; i++){
     var c = cases[i];
     var code = c.code || "";
     if(c.repeat){ code = new Array(c.repeat[1] + 1).join(c.repeat[0] + "\n"); }
-    var r = LW_QUICKCHECK.check(LW_RULES, code, c.links || [], {build: c.build || 0});
+    var r = MAI_QUICKCHECK.check(MAI_RULES, code, c.links || [], {build: c.build || 0});
     out[c.name] = {findings: r.findings.map(function(f){ return [f.sev, f.line, f.rid]; }), stats: r.stats};
 }
-out.__modules = {rulesVersion: LW_RULES.v, instructions: Object.keys(LW_RULES.instr).length,
-                 hasCheck: typeof LW_QUICKCHECK.check, hasStatements: typeof LW_QUICKCHECK.statements};
-print("LWJSON:" + JSON.stringify(out));
+out.__modules = {rulesVersion: MAI_RULES.v, instructions: Object.keys(MAI_RULES.instr).length,
+                 hasCheck: typeof MAI_QUICKCHECK.check, hasStatements: typeof MAI_QUICKCHECK.statements};
+print("MAIJSON:" + JSON.stringify(out));
 '''
 
 def node_side():
@@ -50,7 +50,7 @@ def rhino_side():
     os.makedirs(d, exist_ok=True)
     inner_path = os.path.join(d, 'inner.js')
     io.open(inner_path, 'w', encoding='utf-8', newline='\n').write(INNER.replace('__CASES__', CASES.replace(chr(92), '/')))
-    scripts = os.path.join(ROOT, 'LogicWriter', 'scripts').replace(chr(92), '/')
+    scripts = os.path.join(ROOT, 'MlogAuxiliary', 'scripts').replace(chr(92), '/')
     js = ' '.join([
         "var s = Packages.mindustry.Vars.mods.getScripts();",
         "var F = Packages.java.nio.file.Files, P = Packages.java.nio.file.Paths, JS = Packages.java.lang.String;",
@@ -63,8 +63,8 @@ def rhino_side():
     lines = srv.js(js)
     for ln in lines:
         ln = str(ln)
-        if ln.startswith('LWJSON:'):
-            return json.loads(ln[len('LWJSON:'):])
+        if ln.startswith('MAIJSON:'):
+            return json.loads(ln[len('MAIJSON:'):])
     print('rhino produced no LWJSON; console said:', ' | '.join(str(x) for x in lines)[:800])
     return None
 

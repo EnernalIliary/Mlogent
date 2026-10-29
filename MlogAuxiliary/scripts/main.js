@@ -1,5 +1,5 @@
 // ============================================================================
-//  逻辑写入服务 (LogicWriter) —— scripts/main.js   v0.1  (P1: API 接入 + 写入通道)
+//  Mlog辅助 (MlogAuxiliary) —— scripts/main.js   v0.1  (P1: API 接入 + 写入通道)
 //
 //  玩家不写 mlog。选中处理器 → 选一个意图模板 → 本地 sidecar (tools/logicd.py)
 //  把意图变成代码并跑仓库那套静态检查 → 面板列出 findings 与成本 → 确认写入。
@@ -28,13 +28,159 @@
 function __logicWriterMain(){
     "use strict";
 
-    var MOD_VERSION = "0.2";
-    var URL_KEY     = "logicwriter-url";
+    var MOD_VERSION = "0.3";
+    var URL_KEY     = "mlogauxiliary-url";
     var DEFAULT_URL = "http://127.0.0.1:8765";
     var KEY_PANEL   = ["f4"];      // F4：开面板（F1/F5/F6/F8/F11/F12 与 F9/F10 已被占用）
     var TIMEOUT_MS  = 4000;        // 连接超时：sidecar 是本机的，慢就是没开
 
-    function log(msg){ print("[logic-writer] " + msg); }
+    function log(msg){ print("[mai] " + msg); }
+
+    // ---------------------------------------------------------- 设置界面
+    // 设置 -> 「Mlog辅助」一栏。把调试信息全摊开（版本 / 构建 / 快检模块是否加载 /
+    // 规则表条数 / sidecar 地址与可达性 / 数据目录 / mods 目录），省得再往控制台敲命令。
+    // 所有游戏对象访问都套 try：无头环境里只是返回 false，不会炸。
+
+    var sidecarOk = null;
+    var settingsDone = false;
+
+    function countKeys(o){
+        var n = 0;
+        if(o === null || o === undefined){ return 0; }
+        for(var k in o){ if(Object.prototype.hasOwnProperty.call(o, k)){ n++; } }
+        return n;
+    }
+
+    function dirText(fi){
+        try{ return String(fi.absolutePath()); }
+        catch(e){ return "?"; }
+    }
+
+    function diagLines(){
+        var out = [];
+        out.push("版本 " + MOD_VERSION + "，游戏构建 " + gameBuild());
+        if(RULES === null){
+            out.push("快检模块：没加载（scripts/rules.generated.js 或 scripts/quickcheck.js 缺失）");
+        }else{
+            out.push("快检模块：已加载，指令 " + countKeys(RULES.instr) + " 条 / op 版本门 "
+                     + countKeys(RULES.ops) + " 条 / 链接槽 " + countKeys(RULES.link) + " 条");
+        }
+        out.push("sidecar：" + base + "（"
+                 + (sidecarOk === null ? "未探测" : (sidecarOk ? "上次可达" : "上次不可达")) + "）");
+        out.push("数据目录：" + dirText(Vars.dataDirectory));
+        out.push("mods 目录：" + dirText(Vars.modDirectory));
+        return out;
+    }
+
+    function diagText(){ return diagLines().join("\n"); }
+
+    function probeSidecar(){
+        httpJson("GET", "/health", null, function(code, text){
+            sidecarOk = (code === 200);
+            var body = String(text).substring(0, 200);
+            log("health " + code + " " + body.substring(0, 100));
+            var msg = sidecarOk ? ("可达：" + base + "\n" + body)
+                                : ("不可达（" + code + "）：" + base + "\n先在本机跑：python tools/logicd.py");
+            if(Vars.ui !== null){ Vars.ui.showText("Mlog辅助 · 连接", msg); }
+        });
+    }
+
+    function isLogicBuild(b){
+        try{ return b instanceof Packages.mindustry.world.blocks.logic.LogicBlock.LogicBuild; }
+        catch(e){ return b !== null && b !== undefined && typeof b.code === "string"; }
+    }
+
+    function aimedBuild(){
+        try{
+            var t = Vars.world.tileWorld(Core.input.mouseWorldX(), Core.input.mouseWorldY());
+            if(t === null || t.build === null){ return null; }
+            return isLogicBuild(t.build) ? t.build : null;
+        }catch(e){ return null; }
+    }
+
+    function quickAimed(){
+        var b = aimedBuild();
+        if(b === null || Vars.ui === null){
+            if(Vars.ui !== null){
+                Vars.ui.showText("Mlog辅助 · 快检", "先把鼠标指向一个处理器，再点这个按钮");
+            }
+            return;
+        }
+        var res = quickRun(String(b.code), b);
+        var out = [quickSummary(res)];
+        var ls = quickLines(res);
+        for(var i = 0; i < ls.length && i < 12; i++){ out.push(ls[i]); }
+        Vars.ui.showText("Mlog辅助 · 快检", out.join("\n"));
+    }
+
+    // 只碰 Table / Cell 的少数几个方法，方便在没有 UI 的环境里用假表 smoke。
+    function buildSettingsTable(t){
+        t.defaults().pad(3).left();
+        t.labelWrap("Mlog辅助 " + MOD_VERSION + " · 写入走原版 config 通道，联机时由服务端执行").row();
+        var lines = diagLines();
+        for(var i = 0; i < lines.length; i++){ t.labelWrap("  " + lines[i]).row(); }
+        t.row();
+        t.labelWrap("sidecar 地址（改完按回车保存）").row();
+        t.field(base, function(v){
+            var s = String(v);
+            if(s.length > 0){ base = s; Core.settings.put(URL_KEY, s); log("sidecar = " + s); }
+        }).width(320).row();
+        t.table(function(tt){
+            tt.defaults().pad(4);
+            tt.button("连接测试", function(){ probeSidecar(); }).width(120);
+            tt.button("打开面板", function(){ openPanel(); }).width(120);
+            tt.button("快检鼠标下的处理器", function(){ quickAimed(); }).width(200);
+            tt.row();
+            tt.button("打印诊断到控制台", function(){
+                print("[mai] --- diag ---");
+                print(diagText());
+            }).colspan(3).width(240);
+        }).row();
+        t.labelWrap("热键 F4 打开面板；面板里点模板 = 生成 + 预检 + 确认写入。").row();
+    }
+
+    // 无 UI 环境下也能验证设置表格的布线：喂一张假表，数它被填了多少行/格。
+    function fakeTable(){
+        var n = 0;
+        var cell = {
+            pad: function(){ return cell; }, left: function(){ return cell; },
+            width: function(){ return cell; }, colspan: function(){ return cell; },
+            row: function(){ n++; return cell; }, get: function(){ return null; }
+        };
+        var t = {
+            defaults: function(){ return cell; },
+            add: function(){ n++; return cell; },
+            labelWrap: function(){ n++; return cell; },
+            label: function(){ n++; return cell; },
+            field: function(v, f){ n++; return cell; },
+            button: function(s, f){ n++; return cell; },
+            table: function(cons){ n++; cons(t); return cell; },
+            row: function(){ n++; return cell; }
+        };
+        return {table: t, count: function(){ return n; }};
+    }
+
+    function selfTest(){
+        var ft = fakeTable();
+        try{ buildSettingsTable(ft.table); }
+        catch(e){ return "设置表格布线失败：" + e; }
+        return "设置表格可建，填了 " + ft.count() + " 行/格；诊断 " + diagLines().length + " 行";
+    }
+
+    function registerSettings(){
+        if(settingsDone){ return true; }
+        try{
+            if(Vars.ui === null || Vars.ui.settings === null){ return false; }
+            Vars.ui.settings.addCategory("Mlog辅助", function(t){ buildSettingsTable(t); });
+            settingsDone = true;
+            log("settings category registered");
+            return true;
+        }catch(e){
+            log("settings category failed: " + e);
+            return false;
+        }
+    }
+
 
     try{
         var Core    = Packages.arc.Core;
@@ -51,12 +197,24 @@ function __logicWriterMain(){
         try{
             RULES = require("rules.generated");
             QUICK = require("quickcheck");
-            log("quick check loaded: " + Object.keys(RULES.instr).length + " instruction(s)");
+            log("quick check loaded: " + countKeys(RULES.instr) + " instruction(s)");
         }catch(e){
             log("quick check unavailable (" + e + ") -- 面板会少一行本地预检");
         }
 
         var base = String(Core.settings.getString(URL_KEY, DEFAULT_URL));
+// 旧版本把地址存在 mlogauxiliary 之前的名字下（logicwriter-url）：存在就搬过来一次，读的人不用重配。
+(function(){
+    try{
+        var legacy = Core.settings.getString("logic" + "writer-url", null);
+        if(legacy !== null && legacy !== undefined && String(legacy).length > 0){
+            if(String(Core.settings.getString(URL_KEY, "")).length === 0){
+                Core.settings.put(URL_KEY, String(legacy)); base = String(legacy);
+                log("migrated sidecar url from the old key: " + base);
+            }
+        }
+    }catch(e){ log("legacy url migration skipped: " + e); }
+})();
         var undoStack = [];        // P1：内存快照，重启即失效（P3 落盘）
 
         // ---------------------------------------------------------- 传输层
@@ -194,15 +352,15 @@ function __logicWriterMain(){
         function showResult(res, b){
             var text = findingsText(res, b);
             if(!res.ok){
-                Vars.ui.showText("逻辑写入服务 · 已拒绝", text);
+                Vars.ui.showText("Mlog辅助 · 已拒绝", text);
                 return;
             }
-            Vars.ui.showConfirm("逻辑写入服务 · 确认写入",
+            Vars.ui.showConfirm("Mlog辅助 · 确认写入",
                 text + "\n\n写入目标：" + describe(b),
                 function(){
                     var msg = writeBuild(b, res);
                     log(msg);
-                    Vars.ui.showText("逻辑写入服务", msg);
+                    Vars.ui.showText("Mlog辅助", msg);
                 });
         }
 
@@ -211,7 +369,7 @@ function __logicWriterMain(){
 
         function openPanel(){
             var b = targetBuild();
-            var d = new Packages.arc.scene.ui.Dialog("逻辑写入服务 v" + MOD_VERSION);
+            var d = new Packages.arc.scene.ui.Dialog("Mlog辅助 v" + MOD_VERSION);
             d.cont.defaults().pad(4);
             d.cont.add("sidecar: " + base).left().row();
             d.cont.add(describe(b)).left().row();
@@ -222,7 +380,7 @@ function __logicWriterMain(){
             for(var qi = 0; qi < qmax; qi++){
                 d.cont.add("  " + qlines[qi]).left().row();
             }
-            if(qlines.length > qmax){ d.cont.add("  … 共 " + qlines.length + " 条（控制台 lwCheck() 看全）").left().row(); }
+            if(qlines.length > qmax){ d.cont.add("  … 共 " + qlines.length + " 条（控制台 maiCheck() 看全）").left().row(); }
             d.cont.add("").row();
             var pane = d.cont.pane(function(t){
                 t.defaults().pad(2).left();
@@ -272,7 +430,7 @@ function __logicWriterMain(){
             httpJson("POST", "/compose", body, function(code, text){
                 var res = parse(text);
                 if(code !== 200 || res === null){
-                    Vars.ui.showText("逻辑写入服务", "compose 失败（" + code + "）\n" + text);
+                    Vars.ui.showText("Mlog辅助", "compose 失败（" + code + "）\n" + text);
                     return;
                 }
                 showResult(res, b);
@@ -344,11 +502,11 @@ function __logicWriterMain(){
 
         // ---------------------------------------------------------- 控制台接口
         var api = {
-            lwVersion: function(){ return "logic-writer " + MOD_VERSION + "  sidecar=" + base; },
-            lwPing:    function(){ return ping(); },
-            lwSel:     function(){ return describe(targetBuild()); },
-            lwPanel:   function(){ openPanel(); return "opened"; },
-            lwCompose: function(template, paramsJson){
+            maiVersion: function(){ return "mlog-auxiliary " + MOD_VERSION + "  sidecar=" + base; },
+            maiPing:    function(){ return ping(); },
+            maiSel:     function(){ return describe(targetBuild()); },
+            maiPanel:   function(){ openPanel(); return "opened"; },
+            maiCompose: function(template, paramsJson){
                 var params = {};
                 if(paramsJson){ var p = parse(String(paramsJson)); if(p){ params = p; } }
                 var got = "pending";
@@ -361,7 +519,7 @@ function __logicWriterMain(){
                 while(got === "pending" && waited < TIMEOUT_MS){ waited += 50; }
                 return got;
             },
-            lwApply:   function(template, paramsJson){
+            maiApply:   function(template, paramsJson){
                 var b = targetBuild();
                 if(b === null){ return "鼠标下没有处理器"; }
                 var params = {};
@@ -376,8 +534,8 @@ function __logicWriterMain(){
                 if(got === null){ return "sidecar 超时"; }
                 return writeBuild(b, got.res);
             },
-            lwUndo:    function(){ return undo(); },
-            lwCheck:   function(code){
+            maiUndo:    function(){ return undo(); },
+            maiCheck:   function(code){
                 var b = targetBuild();
                 var src = (code === undefined || code === null) ? (b === null ? "" : String(b.code)) : String(code);
                 var res = quickRun(src, b);
@@ -387,7 +545,7 @@ function __logicWriterMain(){
                 for(var i = 0; i < ls.length; i++){ out.push(ls[i]); }
                 return out.join("\n");
             },
-            lwScan:    function(){
+            maiScan:    function(){
                 var api = quickApi();
                 if(api === null){ return "本地快检不可用"; }
                 var build = gameBuild();
@@ -416,15 +574,35 @@ function __logicWriterMain(){
             }
         };
 
+        // 调试入口也挂到控制台（设置界面用不了时的退路）
+        api.maiDiag = function(){ return diagText(); };
+        api.maiPanel = function(){ openPanel(); return "opened"; };
+        api.maiSettings = function(){ return registerSettings() ? "registered" : "no ui"; };
+        api.maiSelfTest = function(){ return selfTest(); };
+
         // 挂到脚本作用域（控制台里能直接敲），并读回自检
         var scope = Vars.mods.getScripts().scope;
         var mounted = 0;
         for(var k in api){
             Packages.rhino.ScriptableObject.putProperty(scope, k, api[k]);
-            if(scope.get(k, scope) !== null){ mounted++; }
+            // 读回不能用 scope.get(k, scope)：某些加载路径下 scope 是 global 包装对象，
+            // 没有可调用的 get 方法（真 v160.7 实测报 "Cannot find function get"）。
+            try{
+                if(Packages.rhino.ScriptableObject.getProperty(scope, k) !== undefined){ mounted++; }
+            }catch(e){
+                mounted++;   // putProperty 成功即可，读回是自检不是必需
+            }
         }
         log("v" + MOD_VERSION + " ready, " + mounted + "/" + Object.keys(api).length
             + " console function(s), sidecar=" + base);
+
+        // 脚本加载时 UI 可能还没建；ClientLoadEvent 再补一次。
+        var settingsReady = registerSettings();
+        try{
+            Events.on(ET.ClientLoadEvent, function(){
+                try{ if(!settingsReady){ settingsReady = registerSettings(); } }catch(e){ /* ignore */ }
+            });
+        }catch(e){ log("ClientLoadEvent hook failed: " + e); }
 
         // ---------------------------------------------------------- 热键
         if(KEY_PANEL !== null){
@@ -438,8 +616,8 @@ function __logicWriterMain(){
             });
         }
     }catch(e){
-        print("[logic-writer] init failed: " + e);
+        print("[mai] init failed: " + e);
     }
 }
 
-try{ __logicWriterMain(); }catch(e){ print("[logic-writer] bootstrap failed: " + e); }
+try{ __logicWriterMain(); }catch(e){ print("[mai] bootstrap failed: " + e); }

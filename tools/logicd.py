@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """logicd -- the local half of the in-game logic-writing service.
 
-The mod (LogicWriter/) never composes mlog itself.  It posts an *intent* here, this
+The mod (MlogAuxiliary/) never composes mlog itself.  It posts an *intent* here, this
 process turns it into code, checks it with the same analyzer the gate uses, and
 hands back the exact byte payload the game's own config channel expects
 (LogicBlock.compress: version byte + code + link table, see

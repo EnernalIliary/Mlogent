@@ -1,4 +1,4 @@
-# 逻辑写入服务 —— 设计
+# Mlog辅助 —— 设计
 
 > 目标不是"把逻辑导出成文件"，也不是"给逻辑做静态分析报告"，而是**让玩家不写 mlog**：
 > 玩家只表达意图（选一个模板、填几个参数），模组 + 本地 sidecar 负责生成代码、做静态检查、
@@ -6,7 +6,7 @@
 
 ## 1. 三层结构
 
-    ┌─────────────────────────── 游戏内（Rhino JS 模组 LogicWriter/）───────────────────────────┐
+    ┌─────────────────────────── 游戏内（Rhino JS 模组 MlogAuxiliary/）───────────────────────────┐
     │  鼠标指向处理器 → F4 → 面板列出意图模板 → 点一个 → POST /compose → 显示 findings 与成本     │
     │  确认 → build.configure(bytes) ── 原版 config 通道 ──→ 服务端 readCompressed(data, true)    │
     └───────────────────────────────────────────┬───────────────────────────────────────────────┘
@@ -87,7 +87,7 @@ P1 的六个模板（`tools/logicd.py` 的 `TEMPLATES`，全部确定性、参�
 | 全量 | sidecar（Python） | 41 条规则 + 成本模型 + 可选模拟器对拍 | 十毫秒级（HTTP 往返） |
 | 快检 | 游戏内（Rhino） | 链接名绑定 / 未赋值变量 / ipt 超预算 / 版本门 | 微秒级，离线可用 |
 
-快检的规则表由 `rules/*.json` 生成 `LogicWriter/scripts/rules.generated.js`，gate 里校验
+快检的规则表由 `rules/*.json` 生成 `MlogAuxiliary/scripts/rules.generated.js`，gate 里校验
 "重新生成是否与仓库内文件一致"，防止两份规则表漂移（仓库已经因为文档/表不一致吃过亏：
 radar 的"数量参数"神话就是文档教出来的，见 `docs/断言表.md` L2-17）。
 
@@ -95,7 +95,7 @@ radar 的"数量参数"神话就是文档教出来的，见 `docs/断言表.md` 
 
 | 情况 | 行为 |
 | --- | --- |
-| 有 ERR | 面板显示 findings，**写入按钮不出现**；`lwApply` 直接返回"拒绝写入" |
+| 有 ERR | 面板显示 findings，**写入按钮不出现**；`maiApply` 直接返回"拒绝写入" |
 | sidecar 不可达 | 面板显示"离线"并给出启动命令；P1 没有快检，所以此时不提供写入（宁可不能写，也不盲写） |
 | 目标不是处理器 | 鼠标下的方块做鸭子类型判断（`executor` / `code` 字段），不是就拒绝 |
 | Rhino 主线程 | HTTP 全在 `Threads.daemon()` 里跑，结果用 `Core.app.post()` 回到游戏线程 |
@@ -124,7 +124,7 @@ radar 的"数量参数"神话就是文档教出来的，见 `docs/断言表.md` 
   `WaitI` / `ReadI`，与模板一一对应。
 
 **未验证**：面板 UI（无头模拟器里没有界面）、热键、控制台挂载 —— 这三样只能在真游戏里点一遍。
-它们的代码路径都包在 `try/catch` 里，失败时日志留 `[logic-writer]` 前缀，不会静默。
+它们的代码路径都包在 `try/catch` 里，失败时日志留 `[mlog-auxiliary]` 前缀，不会静默。
 
 ## 9. 关键坐标
 
@@ -133,6 +133,6 @@ radar 的"数量参数"神话就是文档教出来的，见 `docs/断言表.md` 
 | sidecar | `tools/logicd.py`（端点、六个模板、`analyse()`） |
 | 编码器 | `tools/msch.py:447 build_logic_data()`、`:322 parse_logic()`、`:159 LogicLink` |
 | 分析器 | `tools/mlogcheck.py:840 analyse()`、`:2068 cost_report()`、`:1999 prepare()` |
-| 模组 | `LogicWriter/mod.hjson`、`LogicWriter/scripts/main.js`、`LogicWriter/README.md` |
+| 模组 | `MlogAuxiliary/mod.hjson`、`MlogAuxiliary/scripts/main.js`、`MlogAuxiliary/README.md` |
 | 契约测试 | `tests/logicd/run_logicd_tests.py` |
 | 游戏侧 | `LogicBlock.java:65-69/114-116/137-166/256-258/362-369`、`LParser.java:117-125` |

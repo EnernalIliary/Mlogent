@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 """Export the mlog facts the in-game quick check needs, as a JS module.
 
-Why this exists: LogicWriter/scripts/quickcheck.js has to answer "is this
+Why this exists: MlogAuxiliary/scripts/quickcheck.js has to answer "is this
 instruction real, does it need a newer build, is this name a link" without
 Python.  Those answers live in tools/instr_semantics.json and in a handful of
 tables inside tools/mlogcheck.py.  Copying them by hand into JS is how the
 checker and the mod drift apart, so this tool *generates* the JS from the same
-source of truth and gate.py re-runs it byte-for-byte (tests/logicwriter/).
+source of truth and gate.py re-runs it byte-for-byte (tests/mlogauxiliary/).
 
 What is deliberately NOT exported: the rule implementations.  The quick check
 only makes single-line judgements; anything that needs control-flow or data-flow
@@ -15,7 +15,7 @@ in the sidecar, where the full 41 rules run.  Two implementations of the same
 judgement would drift, and a drifting checker is worse than no checker.
 
 Usage:
-    python tools/rules_export.py            # write LogicWriter/scripts/rules.generated.js
+    python tools/rules_export.py            # write MlogAuxiliary/scripts/rules.generated.js
     python tools/rules_export.py --check    # exit 1 if the file on disk differs
     python tools/rules_export.py --out X.js
 """
@@ -32,7 +32,7 @@ sys.path.insert(0, str(ROOT / "tools"))
 
 import mlogcheck as C  # noqa: E402  (needs the sys.path line above)
 
-OUT = ROOT / "LogicWriter" / "scripts" / "rules.generated.js"
+OUT = ROOT / "MlogAuxiliary" / "scripts" / "rules.generated.js"
 
 
 def payload() -> dict:
@@ -78,13 +78,13 @@ def render() -> str:
         "// source of truth: tools/instr_semantics.json + tools/mlogcheck.py",
         "// (LINK_SLOTS, MIN_BUILD, BASELINE_BUILD).  payload sha256: " + digest,
         "//",
-        "// Read by LogicWriter/scripts/quickcheck.js, in game and in tests/logicwriter/.",
+        "// Read by MlogAuxiliary/scripts/quickcheck.js, in game and in tests/mlogauxiliary/.",
         "// Only single-line facts live here; the full 41 rules stay in the sidecar.",
-        "var LW_RULES = " + body + ";",
+        "var MAI_RULES = " + body + ";",
         "",
         "// the game loads only scripts/main.js and pulls this file in with require();",
         "// node require() and the game CommonJS provider both read module.exports.",
-        "if(typeof module !== \"undefined\" && module.exports){ module.exports = LW_RULES; }",
+        "if(typeof module !== \"undefined\" && module.exports){ module.exports = MAI_RULES; }",
         "",
     ]
     return "\n".join(head)

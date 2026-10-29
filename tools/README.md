@@ -128,9 +128,9 @@ python tools/kb.py serve
 - 工具名 `kb_search(query, k=6, kind="")`；`kind` 取 `doc` 或 `code`。
 
 
-## 逻辑写入服务（sidecar）
+## Mlog辅助（sidecar）
 
-`logicd.py` 是游戏内模组 `LogicWriter/` 的后端：玩家在游戏里选意图模板，模组 POST 过来，
+`logicd.py` 是游戏内模组 `MlogAuxiliary/` 的后端：玩家在游戏里选意图模板，模组 POST 过来，
 它生成 mlog、跑全量静态检查（`mlogcheck.analyse()` + `cost_report()`）、再把代码编成
 **游戏自己的** config 载荷（`msch.build_logic_data()` 与 `LogicBlock.compress()` 同一字节格式），
 模组用 `build.configure(bytes)` 走原版通道写进处理器。
@@ -144,26 +144,41 @@ python tests/logicd/run_logicd_tests.py --no-sim  # 只跑协议层（不需要 
 
 接口只有四个：`GET /health`、`GET /capabilities`、`POST /analyze`、`POST /compose`；
 `ok` 的语义是**没有 ERR**（ERR 一律拒绝写入）。设计、契约细节、分期与「已验证/未验证」
-边界写在 `docs/逻辑写入服务-设计.md`，模组安装与操作写在 `LogicWriter/README.md`，
-P2–P5 的路线（框选 → 队列 → 模型 → 写入）在 `docs/逻辑写入服务-规划.md`。
+边界写在 `docs/Mlog辅助-设计.md`，模组安装与操作写在 `MlogAuxiliary/README.md`，
+P2–P5 的路线（框选 → 队列 → 模型 → 写入）在 `docs/Mlog辅助-规划.md`。
 
 ### 游戏内快检（P2）
 
 游戏里没有 Python，所以「这行指令存在吗 / 要更新版本吗 / 这个名字是链接吗」这类
-**单行 + 一张表**就能定的事实由 `LogicWriter/scripts/quickcheck.js` 在游戏内回答。
-它的规则表 `LogicWriter/scripts/rules.generated.js` 是**生成的**，不是手抄的：
+**单行 + 一张表**就能定的事实由 `MlogAuxiliary/scripts/quickcheck.js` 在游戏内回答。
+它的规则表 `MlogAuxiliary/scripts/rules.generated.js` 是**生成的**，不是手抄的：
 
 ```
 python tools/rules_export.py            # 从 instr_semantics.json + mlogcheck 重新生成
 python tools/rules_export.py --check    # 磁盘上的文件与生成结果不一致 -> exit 1（gate 跑这个）
-python tests/logicwriter/run_quickcheck_tests.py   # 14 个用例 + require 契约 + 不误报交叉验证
-python tests/logicwriter/run_rhino_parity.py       # 同一批用例在真 v160.7 的 Rhino 里重跑，与 node 逐条比对（无 JRE 则 SKIP）
+python tests/mlogauxiliary/run_quickcheck_tests.py   # 14 个用例 + require 契约 + 不误报交叉验证
+python tests/mlogauxiliary/run_rhino_parity.py       # 同一批用例在真 v160.7 的 Rhino 里重跑，与 node 逐条比对（无 JRE 则 SKIP）
+python tests/mlogauxiliary/run_ui_smoke.py           # 整个 main.js 在真引擎里初始化 + 让模组把设置表格造到一张假 Table 上（无 JRE 则 SKIP）
 ```
 
 **为什么需要第 4 条**：真 Rhino（v160.7）里 `"abc def".split(/\s+/)` 会按每个字符切开
 —— 带 `+` 量词的正则在它的 `split` 里等价于空匹配，只有单字符/无量化模式正常。
 node 用的是 V8，14 个用例全绿也照样带着这个 bug 进游戏，所以快检的分词/裁剪/标识符判断
 一律手写扫描（不碰 `split(正则)`），并且每个用例都要在真引擎里再对一遍。
+
+### 设置界面（v0.3）
+
+模组自己的调试入口不再是控制台命令，而是**设置 → Mlog辅助**一栏（`Vars.ui.settings.addCategory`，
+`SettingsMenuDialog.java:329-330`；分类只在显示设置菜单时 rebuild，所以脚本加载时机不影响它出现）。
+这一栏直接列出：版本 / 游戏构建 / 快检模块是否加载（指令、op 版本门、链接槽各几条）/ sidecar 地址与上次探测结果 / 
+**数据目录与 mods 目录**，并给出「连接测试」「打开面板」「快检鼠标下的处理器」「打印诊断到控制台」四个按钮。
+控制台还留了退路：`maiDiag()` / `maiSelfTest()`。
+
+**为什么需要第 5 条测试**：无头模拟器里 `Vars.ui` 是 null（`Vars.java:209/332`），真界面没法验，
+但**整段 main.js 的初始化**可以验 —— `run_ui_smoke.py` 按 `Mods.loadScripts` 的方式把 main.js 灌进真 v160.7 
+的脚本作用域，然后调 `maiSelfTest()` 让模组把设置表格建到一张假 Table 上。第一版就栽在这里：挂控制台函数后读回
+写成 `scope.get(k, scope)`，真引擎报 `Cannot find function get in object [object global]`，初始化在「规则表已加载」
+之后整个中止 —— node 侧全绿也照样是半装状态。现在的读回改用静态 `ScriptableObject.getProperty`，失败也不算错。
 
 五条判据：未知指令 / 子命令拼错（整行变 NoopI）/ 版本门（`min_build` 大于当前 build）/
 链接名未绑定 / 语句数超 1000。**它只许少报，不许瞎报**：测试里用 `mlogcheck.analyse()`
@@ -177,7 +192,7 @@ node 用的是 V8，14 个用例全绿也照样带着这个 bug 进游戏，所�
 ## 文件分层
 
 1. **入口**：`mlog.py`（统一下发子命令）、`mlogagent.py`（`report` / `info` 一条命令跑完五层）、
-   `logicd.py`（本地 sidecar：给游戏内模组 `LogicWriter/` 提供 compose/analyze 的 HTTP 接口）、
+   `logicd.py`（本地 sidecar：给游戏内模组 `MlogAuxiliary/` 提供 compose/analyze 的 HTTP 接口）、
    `rules_export.py`（把 instr_semantics.json + mlogcheck 的链接槽表导出成游戏内快检用的 JS）。
 2. **分析层**：`mlogir.py`（解析/IR）、`mlogcheck.py`（静态检查）、`mlogval.py`（值域）、`mlogcross.py`（跨处理器）、`mlogpack.py`（打包配置）、`msch.py`/`mschgen.py`（蓝图容器）。
 3. **模拟器**：`mlogsim.py`（真执行器驱动）、`mlog_needs.py`（扫程序需要的地图/方块/单位/全局量）。

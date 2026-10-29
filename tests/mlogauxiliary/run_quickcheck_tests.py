@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Tests for the in-game quick check (LogicWriter/scripts/quickcheck.js).
+"""Tests for the in-game quick check (MlogAuxiliary/scripts/quickcheck.js).
 
 Three things are pinned here, in order of how much they would hurt if they broke:
 
@@ -8,7 +8,7 @@ Three things are pinned here, in order of how much they would hurt if they broke
      to regenerate, the mod would answer with a stale rule table -- silently.  So the
      first check is `rules_export.py --check`, and it runs before anything else.
 
-  2. THE JUDGEMENTS.  tests/logicwriter/cases.json holds 14 hand-checked programs;
+  2. THE JUDGEMENTS.  tests/mlogauxiliary/cases.json holds 14 hand-checked programs;
      each carries the findings the check must produce, as [sev, line, rid] triples.
      The harness runs the SAME quickcheck.js the mod loads, under node.
 

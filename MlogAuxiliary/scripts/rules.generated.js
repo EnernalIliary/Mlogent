@@ -2,9 +2,9 @@
 // source of truth: tools/instr_semantics.json + tools/mlogcheck.py
 // (LINK_SLOTS, MIN_BUILD, BASELINE_BUILD).  payload sha256: 007080d5afde74dbdb76a311260fc45ced270b0344f7b4526122f386fd627bec
 //
-// Read by LogicWriter/scripts/quickcheck.js, in game and in tests/logicwriter/.
+// Read by MlogAuxiliary/scripts/quickcheck.js, in game and in tests/mlogauxiliary/.
 // Only single-line facts live here; the full 41 rules stay in the sidecar.
-var LW_RULES = {
+var MAI_RULES = {
  "baseline": 146,
  "instr": {
   "bullet": {
@@ -574,4 +574,4 @@ var LW_RULES = {
 
 // the game loads only scripts/main.js and pulls this file in with require();
 // node require() and the game CommonJS provider both read module.exports.
-if(typeof module !== "undefined" && module.exports){ module.exports = LW_RULES; }
+if(typeof module !== "undefined" && module.exports){ module.exports = MAI_RULES; }

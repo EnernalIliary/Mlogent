@@ -1,16 +1,16 @@
-// node harness for the two LogicWriter modules, loaded the SAME way the game loads
+// node harness for the two MlogAuxiliary modules, loaded the SAME way the game loads
 // them: through require().  Mods.java:809 runs only scripts/main.js, so the mod uses
 // require("quickcheck") / require("rules.generated") (Scripts.java:30-32 installs the
 // CommonJS provider).  Using require() here means the export contract is under test,
 // not just the functions.
 //
-// usage: node tests/logicwriter/harness.js [cases.json]  -> JSON on stdout
+// usage: node tests/mlogauxiliary/harness.js [cases.json]  -> JSON on stdout
 
 var fs = require("fs");
 var path = require("path");
 
 var here = __dirname;
-var scripts = path.join(here, "..", "..", "LogicWriter", "scripts");
+var scripts = path.join(here, "..", "..", "MlogAuxiliary", "scripts");
 
 var rules = require(path.join(scripts, "rules.generated.js"));
 var quickcheck = require(path.join(scripts, "quickcheck.js"));

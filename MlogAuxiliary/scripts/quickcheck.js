@@ -1,16 +1,16 @@
-// 逻辑写入服务 · 本地快检（纯函数，无游戏依赖）
+// Mlog辅助 · 本地快检（纯函数，无游戏依赖）
 //
-// 游戏里由 LogicWriter/scripts/main.js 调用；测试里由 tests/logicwriter/harness.js
-// 在 node 下调用。数据表 LW_RULES 由 tools/rules_export.py 生成（别手改）。
+// 游戏里由 MlogAuxiliary/scripts/main.js 调用；测试里由 tests/mlogauxiliary/harness.js
+// 在 node 下调用。数据表 MAI_RULES 由 tools/rules_export.py 生成（别手改）。
 //
-// 边界（见 docs/逻辑写入服务-规划.md 2.2）：只做「单行 + 一张数据表」就能定的事实。
+// 边界（见 docs/Mlog辅助-规划.md 2.2）：只做「单行 + 一张数据表」就能定的事实。
 // 任何需要控制流/数据流推理的判据都属于 sidecar 的全量检查（tools/mlogcheck.py
 // 41 条规则），这里不重写 —— 两份实现必然漂移，而漂移的检查器比没有检查器更糟。
 //
 // 因此本文件的五条判据是：未知指令 / 子命令拼错 / 版本门 / 链接名未绑定 / 体积。
 // 未赋值变量的槽位分级、cost_report 的 CFG 最长路径、值域、跨处理器 pin 流：不做。
 
-var LW_QUICKCHECK = (function(){
+var MAI_QUICKCHECK = (function(){
     "use strict";
 
     // Rhino 是 ES5，这里只用最老的 API；反斜杠一律用 charCode 拼，省得被转义吃掉。
@@ -22,7 +22,7 @@ var LW_QUICKCHECK = (function(){
 
     // 不要用 String.prototype.split(正则)。真 v160.7 的 Rhino 里，带 + 量词的正则
     // （/\s+/、/[ ]+/、new RegExp("\s+")）在 split 里等价于空匹配，会把整行拆成
-    // 单个字符 —— 每条语句的首 token 就变成第一个字母。见 tests/logicwriter 的
+    // 单个字符 —— 每条语句的首 token 就变成第一个字母。见 tests/mlogauxiliary 的
     // rhino 回归（out/takeover-20261024/37-*.md）。这里全部手写扫描。
     function isWs(ch){ return ch === SP || ch === TAB || ch === CR; }
 
@@ -176,4 +176,4 @@ var LW_QUICKCHECK = (function(){
 
 // scripts/main.js is the only file the game runs (Mods.java:809); it pulls this
 // in with require(), so the module has to export itself the CommonJS way.
-if(typeof module !== "undefined" && module.exports){ module.exports = LW_QUICKCHECK; }
+if(typeof module !== "undefined" && module.exports){ module.exports = MAI_QUICKCHECK; }

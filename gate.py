@@ -177,18 +177,24 @@ def build_steps(full: bool, only: str | None) -> list[tuple[str, list[str] | Non
         # message silently re-classifies findings and a rule that never fires
         # anywhere looks exactly like a rule that works (tests/ruleids/).
         ("ruleids", ["tests/ruleids/run_ruleids.py"], ""),
-        # the in-game quick check: LogicWriter/scripts/quickcheck.js answers "is this
+        # the in-game quick check: MlogAuxiliary/scripts/quickcheck.js answers "is this
         # instruction real / does it need a newer build / is this name a link" without
         # Python.  Its rule table is GENERATED from instr_semantics.json + mlogcheck,
         # so the first assertion is that the file on disk still matches the generator;
         # then 14 hand-checked programs; then that it never calls a name unbound when
         # the full checker is happy (under-reporting is allowed, inventing is not).
-        ("quickcheck", ["tests/logicwriter/run_quickcheck_tests.py"], ""),
+        ("quickcheck", ["tests/mlogauxiliary/run_quickcheck_tests.py"], ""),
         # the same cases, re-run inside the game engine.  Real Rhino (v160.7) splits
         # "abc def".split(/\s+/) into single characters -- a quantified pattern behaves
         # like an empty match in its String.split -- so a node-only test cannot see the
         # difference.  Needs the jar; exits 3 (SKIP) without it.
-        ("rhinoparity", ["tests/logicwriter/run_rhino_parity.py"], ""),
+        ("rhinoparity", ["tests/mlogauxiliary/run_rhino_parity.py"], ""),
+        # the mod whole init path, still without a window: main.js is loaded into the
+        # script scope the way Mods.loadScripts does it, then asked to build its settings
+        # table against a fake Table.  Catches Table/Cell drift and init-time throws that
+        # node cannot see (reading the mount back with scope.get(k, scope) used to kill
+        # init right after the rule table loaded).
+        ("ui", ["tests/mlogauxiliary/run_ui_smoke.py"], ""),
     ]
     global_skill = (Path(os.environ.get("DSH_HOME") or (Path.home() / ".dsh"))
                     / "skills" / "mlog-agentskill")
