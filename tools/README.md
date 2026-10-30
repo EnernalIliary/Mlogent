@@ -138,7 +138,7 @@ python tools/kb.py serve
 ```
 python tools/logicd.py                            # 127.0.0.1:8765（--port 0 = 随机端口，就绪行里打印）
 python tools/logicd.py --print-template patrol    # 不启服务，只打一个模板的代码
-python tests/logicd/run_logicd_tests.py           # 契约测试：协议 25 项 + 作业队列 12 项 + 真 v160.7 写入 7 项
+python tests/logicd/run_logicd_tests.py           # 契约测试：协议 25 项 + 作业队列 12 项 + provider 9 项 + 真 v160.7 写入 7 项
 python tests/logicd/run_logicd_tests.py --no-sim  # 只跑协议层（不需要 JRE）
 ```
 
@@ -178,7 +178,16 @@ attempts, findings[], code, explanation, assumptions[]}`，状态 `queued -> run
 最多 3 次尝试（1 + 2 次 self-repair，第二次起把 findings 当提示回给 provider），仍不过就 `rejected` 且 `code == ""`——绝不写入。
 v0.9.0 起 `links` 的 `[]` 与 `null` 不再等价：`[]` 是**权威空表**（处理器确实没接任何链接，链接名判据照查），
 `null` 是「模组读不到链接表」（判据跳过）；模组侧用 `linkListOrNull()` 发这个区别，`jobqueue._materialize()` 原样保留。
-provider 是唯一接模型的缝：默认 `template`（就是上面的 `/plan` 意图路由，全离线可跑），测试用 `--jobs-provider fake --fake-provider FILE` 喂固定答案；
+provider 是唯一接模型的缝（P4 第三刀，`tools/mlogprovider.py`）：默认 `template`（就是上面的 `/plan` 意图路由，全离线可跑）；
+`--jobs-provider fake --fake-provider FILE` 喂固定答案；`--jobs-provider llm` 才是真模型，两种入口：
+`--llm-url URL [--llm-model NAME] [--llm-key-env VAR] [--llm-timeout N]` 走 OpenAI 兼容的 `/chat/completions`（只用标准库，
+key 从环境变量读、绝不出现在命令行），或 `--llm-replay FILE` 回放录制好的回复（离线测试/回归都走这条）。
+`--llm-record FILE` 会把每次的 `{prompt, reply}` 追加成 JSONL，真跑一次就得到可回放的脚本。
+prompt 是规划 §4.4 的三段：**世界事实**（处理器坐标 + 快照摘要 + 附近方块 + 链接名白名单，`links: null` 写「UNKNOWN」、`[]` 写「EMPTY」）、
+**规则摘要**（mlog 语法与 v160 要点、必须有 end、任何 ERR 即拒）、**任务与 JSON 契约**（锚定档 `{template, params, explanation}` /
+自由档 `{code, explanation, assumptions, needs_links}`）；self-repair 时把上一轮的 findings 逐条附在任务段后面。
+回复用 `parse_reply()` 解析：容忍 markdown 围栏和前后散文（只取第一个配平的 `{...}`），字段类型不对就抛 `ProviderError`、作业按失败重试；
+`needs_links` 里出现白名单外的名字，`jobqueue` 直接判 `link-name-not-bound` ERR 并拒绝——不等分析器发现。
 模组侧（v0.8.0）已接：F4 面板投作业 + 每秒 `GET /jobs?id=` 轮询 + 完成/拒绝渲染 + 取消按钮，
 `--jobs-dir` 换队列目录（默认 `out/jobs`，或 `$MLOG_JOBS_DIR`），`--jobs-drain` 跑完就退（一次性批处理）。
 
@@ -279,6 +288,7 @@ object ScrollPane` —— 而且 `clear()` 还在（`Group.java:357` 有 clear�
 1. **入口**：`mlog.py`（统一下发子命令）、`mlogagent.py`（`report` / `info` 一条命令跑完五层）、
    `logicd.py`（本地 sidecar：给游戏内模组 `MlogAuxiliary/` 提供 compose/analyze 的 HTTP 接口）、
    `jobqueue.py`（P4 作业队列：状态机 + 双写落盘 + 写入门禁，provider 可换，默认走模板档）、
+   `mlogprovider.py`（P4 第三刀：§4.4 三段 prompt + 回复解析 + OpenAI 兼容调用 + 录制/回放，导入时不联网）、
    `rules_export.py`（把 instr_semantics.json + mlogcheck 的链接槽表导出成游戏内快检用的 JS）。
 2. **分析层**：`mlogir.py`（解析/IR）、`mlogcheck.py`（静态检查）、`mlogval.py`（值域）、`mlogcross.py`（跨处理器）、`mlogpack.py`（打包配置）、`msch.py`/`mschgen.py`（蓝图容器）。
 3. **模拟器**：`mlogsim.py`（真执行器驱动）、`mlog_needs.py`（扫程序需要的地图/方块/单位/全局量）。

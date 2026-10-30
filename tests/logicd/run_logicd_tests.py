@@ -32,6 +32,7 @@ from __future__ import annotations
 import argparse
 import base64
 import json
+import os
 import pathlib
 import shutil
 import subprocess
@@ -658,6 +659,154 @@ def test_jobs():
     return checks
 
 
+# ---- half D: the model-facing provider (offline -- scripted replies, no network)
+
+def test_provider():
+    """Prompt shape, reply parsing, and scripted replay through the real queue."""
+    import os
+    import jobqueue
+    import mlogprovider as MP
+
+    checks = 0
+    snap = {'bounds': {'x1': 4, 'y1': 14, 'x2': 16, 'y2': 26}, 'cells': 3,
+            'truncated': False,
+            'grid': [{'x': 10, 'y': 20, 'block': 'micro-processor'},
+                     {'x': 11, 'y': 20, 'block': 'container'},
+                     {'x': 12, 'y': 20, 'block': 'air'}],
+            'processors': [{'x': 10, 'y': 20}],
+            'map': {'name': 'groundZero'}}
+    job = {'desc': '容器里铜够 100 就打印', 'links': LINKS, 'origin': {'x': 10, 'y': 20},
+           'ipt': 2, 'snapshot': snap}
+
+    # 1. the three sections of section 4.4, and the whitelist being explicit
+    p = MP.build_prompt(job)
+    for sec in ('=== world facts ===', '=== rules ===', '=== task ==='):
+        need(sec in p, 'prompt lost the %s section' % sec)
+    need('container1 @ (1, 2)' in p, 'prompt lost the link whitelist: %r' % p[:400])
+    need('the player asked for: 容器里铜够 100 就打印' in p, 'prompt lost the task')
+    need('needs_links' in p and '"code"' in p, 'prompt lost the JSON contract')
+    need('container x1' in p, 'prompt lost the nearby-block summary')
+    hint = [{'sev': 'ERR', 'line': 1, 'rid': 'link-name-not-bound', 'msg': 'x is not bound'}]
+    p2 = MP.build_prompt(job, hint)
+    need('REJECTED by the gate' in p2 and 'line 1: [ERR] x is not bound' in p2,
+         'the self-repair hint is not in the prompt: %r' % p2[-400:])
+    need('link whitelist: UNKNOWN' in MP.build_prompt(dict(job, links=None)),
+         'an unknown link table is not called out')
+    need('link whitelist: EMPTY' in MP.build_prompt(dict(job, links=[])),
+         'an authoritative empty table is not called out')
+    checks += 1
+
+    # 2. parse_reply tolerates fences and prose, and refuses junk
+    rep = MP.parse_reply('sure:\n```json\n{"code": "set n 0\\nend", "explanation": "ok",'
+                         ' "assumptions": ["a"], "needs_links": ["container1"]}\n```\ndone')
+    need(rep['code'] == 'set n 0\nend', 'fenced reply did not parse: %r' % (rep,))
+    need(rep['needs_links'] == ['container1'] and rep['assumptions'] == ['a'],
+         'reply fields lost: %r' % (rep,))
+    need('template' not in rep, 'a free-tier reply grew a template')
+    anchored = MP.parse_reply('{"template": "item-threshold", "params": {"item": "copper"}}')
+    need(anchored.get('template') == 'item-threshold' and anchored['params']['item'] == 'copper',
+         'anchored reply did not parse: %r' % (anchored,))
+    for bad in ('', 'no json here', '{"code": 3}', '{"explanation": "x"}',
+                '{"code": "set n 0", "needs_links": "container1"}'):
+        try:
+            MP.parse_reply(bad)
+        except MP.ProviderError:
+            continue
+        raise Fail('parse_reply accepted junk: %r' % (bad,))
+    checks += 1
+
+    tmp = tempfile.mkdtemp(prefix='mlogprov-')
+    try:
+        # 3. a fenced scripted reply drives the real queue to done
+        prov = MP.ScriptedProvider(['```json\n{"code": "set n 0\\nop add n n 1\\nprint n\\nend"}\n```'])
+        q = jobqueue.Queue(jobqueue.Store(os.path.join(tmp, 'q1')), provider=prov)
+        j, created = q.enqueue({'desc': 'scripted clean', 'links': LINKS,
+                                'origin': {'x': 1, 'y': 1}, 'snapshot': snap})
+        q.drain()
+        got = q.get(j['id'])
+        need(got['state'] == 'done' and got['code'].startswith('set n 0') and got['bytes_b64'],
+             'a scripted clean reply did not reach done: %r' % (got,))
+        need('=== world facts ===' in prov.prompts[0] and 'scripted clean' in prov.prompts[0],
+             'the queue did not send the three-section prompt')
+        checks += 1
+
+        # 4. a hallucinated link is refused (3 attempts, no code, fatal finding)
+        prov2 = MP.ScriptedProvider([{'code': 'sensor x container9 @copper\nend'}] * 3)
+        q2 = jobqueue.Queue(jobqueue.Store(os.path.join(tmp, 'q2')), provider=prov2)
+        j2, _ = q2.enqueue({'desc': 'scripted hallucinated', 'links': LINKS,
+                            'origin': {'x': 1, 'y': 1}})
+        q2.drain()
+        got2 = q2.get(j2['id'])
+        need(got2['state'] == 'rejected' and got2['code'] == '' and got2['attempts'] == 3,
+             'a hallucinated link was not refused: %r' % (got2,))
+        need(any(f.get('rid') == 'link-name-not-bound' and f['sev'] == 'ERR'
+                 for f in got2['findings']),
+             'the refusal lost its rule id: %r' % (got2['findings'],))
+        checks += 1
+
+        # 5. self-repair: the second prompt carries the findings of the first attempt
+        prov3 = MP.ScriptedProvider([{'code': 'jump 99 always x 0\nend'},
+                                     {'code': 'set n 0\nprint n\nend'}])
+        q3 = jobqueue.Queue(jobqueue.Store(os.path.join(tmp, 'q3')), provider=prov3)
+        j3, _ = q3.enqueue({'desc': 'scripted repair', 'links': LINKS})
+        q3.drain()
+        got3 = q3.get(j3['id'])
+        need(got3['state'] == 'done' and got3['attempts'] == 2,
+             'self-repair did not converge: %r' % (got3,))
+        need(len(prov3.prompts) == 2 and 'REJECTED by the gate' in prov3.prompts[1],
+             'the repair attempt was not told what was wrong')
+        checks += 1
+
+        # 6. needs_links that the processor does not have is a refusal by itself
+        prov4 = MP.ScriptedProvider([{'code': 'set n 0\nend',
+                                     'needs_links': ['container9']}] * 3)
+        q4 = jobqueue.Queue(jobqueue.Store(os.path.join(tmp, 'q4')), provider=prov4)
+        j4, _ = q4.enqueue({'desc': 'scripted needs', 'links': LINKS})
+        q4.drain()
+        got4 = q4.get(j4['id'])
+        need(got4['state'] == 'rejected' and got4['code'] == '',
+             'a reply asking for a link it does not own was accepted: %r' % (got4,))
+        need(any('container9' in f.get('msg', '') for f in got4['findings']),
+             'the needs_links refusal is not explained: %r' % (got4['findings'],))
+        checks += 1
+
+        # 7. the llm provider is opt-in: no endpoint and no replay is a usage error
+        r = subprocess.run([sys.executable, '-X', 'utf8', str(ROOT / 'tools' / 'logicd.py'),
+                            '--jobs-provider', 'llm', '--jobs-dir', os.path.join(tmp, 'q5')],
+                           capture_output=True, text=True)
+        need(r.returncode == 2 and 'llm' in (r.stdout + r.stderr),
+             'llm without an endpoint did not exit 2: rc=%r %r' % (r.returncode,
+                                                                  (r.stdout + r.stderr)[:200]))
+        checks += 1
+
+        # 8. a replay file round-trips through load_script
+        path = os.path.join(tmp, 'replay.json')
+        with open(path, 'w', encoding='utf-8') as fh:
+            json.dump({'replies': [{'code': 'set n 0\nend'}]}, fh)
+        prov5 = MP.load_script(path)
+        out5 = prov5({'desc': 'replay', 'links': []})
+        need(out5.get('code') == 'set n 0\nend', 'a replay file did not load: %r' % (out5,))
+        checks += 1
+
+        # 9. the CLI can drain a queue from a replay file -- the whole seam end to end
+        qdir = os.path.join(tmp, 'q6')
+        q6 = jobqueue.Queue(jobqueue.Store(qdir))
+        j6, _ = q6.enqueue({'desc': 'cli replay', 'links': []})
+        r6 = subprocess.run([sys.executable, '-X', 'utf8', str(ROOT / 'tools' / 'logicd.py'),
+                             '--jobs-provider', 'llm', '--llm-replay', path,
+                             '--jobs-dir', qdir, '--jobs-drain'],
+                            capture_output=True, text=True, timeout=120)
+        need(r6.returncode == 0, 'the CLI replay drain failed: rc=%r %r'
+             % (r6.returncode, (r6.stdout + r6.stderr)[-300:]))
+        with open(os.path.join(qdir, j6['id'] + '.json'), encoding='utf-8') as fh:
+            drained = json.load(fh)
+        need(drained['state'] == 'done' and drained['code'].startswith('set n 0'),
+             'the CLI replay drain did not produce the scripted code: %r' % (drained,))
+        checks += 1
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    return checks
+
 def main(argv=None):
     ap = argparse.ArgumentParser(description='logicd contract tests')
     ap.add_argument('--no-sim', action='store_true', help='protocol half only (no JRE needed)')
@@ -679,6 +828,15 @@ def main(argv=None):
         return 1
     except Exception as exc:
         print('FAIL jobs: %s: %s' % (type(exc).__name__, exc))
+        return 1
+    try:
+        n = test_provider()
+        print('provider: %d check(s) passed' % n)
+    except Fail as exc:
+        print('FAIL provider: %s' % exc)
+        return 1
+    except Exception as exc:
+        print('FAIL provider: %s: %s' % (type(exc).__name__, exc))
         return 1
     if a.no_sim:
         print('logicd OK (protocol only)')

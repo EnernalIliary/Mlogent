@@ -1500,3 +1500,34 @@ tools/README「v0.8.1 起 F4 并入 F3」两行、报告 `out/takeover-20261024/
 
 真 provider + 规划 §4.4 三段 prompt（世界事实 / 规则摘要 / 任务与 JSON 契约），仍是离线可验：
 provider 走 `--jobs-provider` 的可换缝，测试用录制回放式假模型，不联网。
+
+## 58 · P4 第三刀：真 provider 接缝 + §4.4 三段 prompt
+
+玩家 m12288 的第 3 条（「然后做2」= 我上一轮列的真 provider + 三段 prompt）。
+
+### 58.1 新增与改动
+
+| 文件 | 改动 |
+| --- | --- |
+| `tools/mlogprovider.py`（新） | `build_prompt()` 三段 / `parse_reply()` / `HttpProvider` / `ScriptedProvider` / `load_script` / `Recorder` / `provider_from_args` |
+| `tools/logicd.py` | `--jobs-provider llm` + `--llm-url/--llm-model/--llm-key-env/--llm-timeout/--llm-replay/--llm-record`；缺参数 exit 2 |
+| `tools/jobqueue.py` | `_materialize()` 检查回复声明的 `needs_links`，越界即 `link-name-not-bound` ERR |
+| `tests/logicd/run_logicd_tests.py` | 新增 half D `test_provider()` 9 项 |
+| `tools/README.md` / `docs/Mlog辅助-规划.md` / `docs/断言表.md`（L2-45）/ `docs/验证记录.md` | 同步 |
+
+### 58.2 关键设计点（以后别改坏）
+
+- **三态必须让模型看见**：`links is None` → prompt 写 UNKNOWN，`[]` → 写 EMPTY，非空 → 逐条列 `name @ (x, y)`。
+  模棱两可会让模型自己编名字，正好撞上 v0.9.0 刚修的门禁。
+- **解析要宽容、校验要严**：围栏与散文都容忍（模型经常加），但 `code`/`template` 二选一、类型不对就 `ProviderError`。
+- **llm 是显式开关**：既无 `--llm-url` 也无 `--llm-replay` 时 `exit 2`，绝不静默用模板档冒充模型。
+- **录制/回放是测试基础设施**：`--llm-record` 存 JSONL，`--llm-replay` 回放 ⇒ 回归永远离线且确定。
+
+### 58.3 复跑
+
+`tests/logicd/run_logicd_tests.py --no-sim` → protocol 25 / jobs 12 / **provider 9**；
+全量 → write path 7（真 v160.7）；`gate.py --full` 16/16；`tools/kb.py build` 重建。
+
+### 58.4 下一刀候选
+
+①模组侧 provider 选择 + 面板显示「模板档/模型」 ②自由档 cost + 200 tick sim 复检 ③P5 多处理器事务写入与撤销。

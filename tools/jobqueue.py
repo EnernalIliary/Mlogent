@@ -366,6 +366,20 @@ class Queue:
         if isinstance(out.get('code'), str) and out['code'].strip():
             code = out['code']
             res = gate(code, links, ipt=ipt)
+            # the reply may also DECLARE which links it wants (section 4.3 needs_links);
+            # a name that is not in an authoritative table is a refusal, not a warning.
+            if links is not None:
+                have = L._link_names(links)
+                missing = [str(n) for n in (out.get('needs_links') or []) if str(n) not in have]
+                if missing:
+                    bad = {'sev': 'ERR', 'rid': 'link-name-not-bound', 'line': 0,
+                           'fatal': True,
+                           'msg': 'the reply needs link(s) this processor does not have: '
+                                  + ', '.join(missing)}
+                    res['findings'].append(bad)
+                    res['fatal'].append(bad)
+                    res['errors'] += 1
+                    res['ok'] = False
             payload = L.msch.build_logic_data(code, L._relative_links(links or [], job.get('origin')))
             res.update({'code': code,
                         'bytes_b64': base64.b64encode(payload).decode('ascii'),

@@ -61,6 +61,7 @@ if HERE not in sys.path:
 import mlogcheck as C          # noqa: E402
 import msch                    # noqa: E402
 import jobqueue                # noqa: E402  (imports us back lazily, one-way edge)
+import mlogprovider           # noqa: E402  (prompt / reply parsing / model call; offline at import)
 
 PROTOCOL = 1
 GAME = 'mindustry v160.7 (executor jar out/_server160.jar)'
@@ -1044,10 +1045,21 @@ def main(argv=None):
     ap.add_argument('--plan', metavar='TEXT', help='route one intent, print the JSON result, exit')
     ap.add_argument('--jobs-dir', metavar='DIR',
                     help='where job files live (default out/jobs, or $MLOG_JOBS_DIR)')
-    ap.add_argument('--jobs-provider', choices=('template', 'fake'), default='template',
-                    help='template = the offline intent router (default); fake = test table')
+    ap.add_argument('--jobs-provider', choices=('template', 'fake', 'llm'), default='template',
+                    help='template = the offline intent router (default); fake = test table; '
+                         'llm = a real model endpoint (or a recorded replay)')
     ap.add_argument('--fake-provider', metavar='FILE',
                     help='JSON table for --jobs-provider fake: {"<desc substring>": output}')
+    ap.add_argument('--llm-url', metavar='URL',
+                    help='OpenAI-compatible /chat/completions URL for --jobs-provider llm')
+    ap.add_argument('--llm-model', metavar='NAME', default='', help='model name to send, if any')
+    ap.add_argument('--llm-key-env', metavar='VAR', default='',
+                    help='env var holding the bearer token (never passed on the command line)')
+    ap.add_argument('--llm-timeout', type=int, default=60, help='model call timeout in seconds')
+    ap.add_argument('--llm-replay', metavar='FILE',
+                    help='replay recorded replies instead of calling a model (offline tests)')
+    ap.add_argument('--llm-record', metavar='FILE',
+                    help='append every {prompt, reply} to this JSONL file (real transcripts)')
     ap.add_argument('--jobs-drain', action='store_true',
                     help='run the queued jobs to completion, print them, exit')
     a = ap.parse_args(argv)
@@ -1059,7 +1071,11 @@ def main(argv=None):
     if a.jobs_provider == 'fake' and not a.fake_provider:
         print('--jobs-provider fake needs --fake-provider FILE')
         return 2
-    provider = jobqueue.load_fake_provider(a.fake_provider) if a.fake_provider else None
+    try:
+        provider = mlogprovider.provider_from_args(a)
+    except ValueError as exc:
+        print(str(exc))
+        return 2
     global JOBS
     JOBS = jobqueue.Queue(jobqueue.Store(a.jobs_dir), provider=provider)
     if a.jobs_drain:

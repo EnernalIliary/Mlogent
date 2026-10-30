@@ -208,6 +208,20 @@ done 时渲染代码并把按钮换成「写入/关闭」，rejected/failed/canc
 开关（默认 False，行为不变），`logicd.analyse()` 在 `links is not None` 时置 True，`jobqueue` 把 `null`（不知道）
 与 `[]`（确实没有）分开保留。零链接处理器上的 `sensor x container9 @copper` 现在必 `rejected`（L2-44）。
 
+**实际落地（P4 第三刀，2026-10-30）**：`tools/mlogprovider.py` 把 §4.4 的三段 prompt 与 §4.3 的回复契约做成可离线验的代码 ——
+`build_prompt(job, hint)`（世界事实 = 处理器坐标 + 快照摘要 + 附近方块统计 + 链接名白名单；`links is None` 写「UNKNOWN」，
+`links == []` 写「EMPTY」；规则摘要；任务 + JSON 契约，self-repair 时把上一轮 findings 逐条附上）、
+`parse_reply(text)`（只取第一个配平的 `{...}`，容忍围栏与散文，字段类型不对抛 `ProviderError`）、
+`HttpProvider`（OpenAI 兼容 `/chat/completions`，标准库 urllib，key 只从环境变量读，导入时不联网）、
+`ScriptedProvider` / `load_script`（回放录制回复，测试与回归全离线）、`Recorder`（`--llm-record` 追加 `{prompt, reply}` JSONL）。
+CLI：`--jobs-provider llm` + `--llm-url/--llm-model/--llm-key-env/--llm-timeout` 或 `--llm-replay`；两者都没有就 `exit 2`（不静默回落模板档）。
+`needs_links` 里出现白名单外的名字由 `jobqueue` 直接判 `link-name-not-bound` ERR 拒绝，不等分析器发现。
+验收：`tests/logicd/run_logicd_tests.py` 的 half D 共 **9 项**（三段 prompt、白名单三态、围栏/散文解析、垃圾回复拒绝、
+scripted 干净回复 → done、幻觉链接 → rejected、self-repair 第二轮 prompt 带 findings、`needs_links` 越界拒绝、
+CLI 无端点 exit 2、replay 文件回放、CLI `--jobs-drain` 用 replay 跑完一台作业）。
+**仍未落地**：真端点从未在本机联调（无网络/无 key，CI 里只走 replay）、自由档的 cost/sim 200 tick 复检、
+模组侧选择 provider 的界面（目前只能改 sidecar 命令行）、P5 的多处理器事务写入。
+
 ## 5. P5 · 多处理器写入 + 撤销落盘
 
 - 一个 job 可产出 N 段代码（每处理器一段），写入是**事务**：全部预检通过才逐台写，任一台失败回滚已写的。
@@ -260,7 +274,7 @@ done 时渲染代码并把按钮换成「写入/关闭」，rejected/failed/canc
 | v0.8.1 单格选中处理器 = AI 面板（F4 并入 F3） | 完成（v0.8.1） | `main.js` 的 `KEY_PANEL`（保留为别名）/ `processorAt()` / `selFinish()` 的 1×1 分支 / `api.maiPick` | ui smoke 的 `MAIPICK`·`MAIPICKEMPTY` 两行 + 四条源码红线（断言表 L2-43） |
 | v0.9.0 删掉 F4 热键 + 零链接门禁 | 完成（v0.9.0） | `main.js`（无 `KEY_PANEL` / `toggleAiPanel`）/ `mlogcheck.analyse(links_authoritative=)` / `logicd.analyse()` / `jobqueue._materialize()` / `linkListOrNull()` | ui smoke 反向红线 + `MAIJOBZERO`；`test_jobs()` 12 项（断言表 L2-43 / L2-44） |
 | v0.7.0 F2 全图处理器清单 | 完成（v0.7.0） | `main.js` 的 `KEY_LIST` / `scanProcessors()` / `listHead()` / `listRowLabel()` / `buildListTable()` / `showListPanel()` / `openListPanel()` / `jumpTo()`，控制台 `maiList`·`maiListRows`·`maiListPanel` | ui smoke 的 `MAISELF` 清单表格行 + `MAILIST`/`MAILISTROWS` 两行 + 五条源码红线（断言表 L2-40） |
-| P4 队列 + 模型 + 门禁 | 未开始 | — | — |
+| P4 队列 + 模型 + 门禁 | 完成（三刀：v0.8.0 / v0.8.1 / 本刀） | `tools/jobqueue.py`（状态机 + 双写落盘 + `FATAL_RIDS` 门禁）/ `tools/mlogprovider.py`（§4.4 三段 prompt + `parse_reply` + `HttpProvider` + 录制回放）/ `tools/logicd.py` 的 `/jobs` 三端点与 `--jobs-provider llm`；模组侧 `jobBody()`/`jobTick()`/`renderJob()`/`cancelJob()` | `test_jobs()` 12 项 + `test_provider()` 9 项（断言表 L2-41 / L2-44 / L2-45）；ui smoke 三路作业探针（干净 done / 门禁拒绝 / 零链接拒绝） |
 | P5 多处理器写入 + 撤销落盘 | 未开始 | — | — |
 
 P2 期间确认的第三条环境事实：**真 v160.7 的 Rhino 里 `String.prototype.split(正则)` 对带 `+` 量词的模式
