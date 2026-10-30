@@ -533,7 +533,16 @@ def _relative_links(links, origin):
 
 
 def analyse(code, links, ipt=2):
-    """Run the same analyzer the gate runs; return a JSON-ready dict."""
+    """Run the same analyzer the gate runs; return a JSON-ready dict.
+
+    links is None when the caller does not know the processor's link table (a
+    plain .mlog file), and [] when it knows the table is empty.  The mod reads
+    LogicBlock.links, so its [] is authoritative: a link-shaped name in a link
+    slot then really is unbound, and the gate must see it (v0.9.0; before this
+    the empty list was collapsed to None and every hallucinated link name on a
+    link-less processor slipped through).
+    """
+    names = _link_names(links) if links is not None else None
     lines = code.splitlines()
     # A label line is NOT a statement (LParser.java:117-125), so count slots with
     # the analyzer's own prepare() instead of counting non-blank lines.
@@ -542,13 +551,14 @@ def analyse(code, links, ipt=2):
     # text, so translate through prepare()'s own (line, code) pairs.
     srcline = {i: ln for i, (ln, _) in enumerate(stmts)}
     findings = []
-    for f in C.analyse(lines, links=_link_names(links) or None, ipt=ipt):
+    for f in C.analyse(lines, links=names, ipt=ipt,
+                       links_authoritative=links is not None):
         findings.append({'sev': f.sev, 'line': srcline.get(f.line, f.line + 1),
                          'stmt': f.line, 'rid': _rid(f), 'msg': f.msg})
     errors = sum(1 for f in findings if f['sev'] == 'ERR')
     warns = sum(1 for f in findings if f['sev'] == 'WARN')
     try:
-        cost = C.cost_report(stmts, links=_link_names(links) or None)
+        cost = C.cost_report(stmts, links=names)
     except Exception as exc:                       # cost model is advisory only
         cost = '  (cost model failed: %s)' % exc
     return {'ok': errors == 0, 'findings': findings, 'errors': errors, 'warns': warns,

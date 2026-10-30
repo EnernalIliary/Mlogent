@@ -167,6 +167,10 @@ def job_probe(port, bx, by):
         "print('MAIJOBWRITE:' + maiJobWrite(jClean, %d, %d));" % (bx, by),
         "var jRej = maiJobSyncAt(%d, %d, 'ui broken code', 25000);" % (bx, by),
         "print('MAIJOBREJ:' + jRej);",
+        # v0.9.0: this engine processor has no links at all, and a program that
+        # names a link anyway must still be refused (the v0.8.0 blind spot).
+        "var jZero = maiJobSyncAt(%d, %d, 'ui hallucinated link', 25000);" % (bx, by),
+        "print('MAIJOBZERO:' + jZero);",
     ]
 
 
@@ -434,8 +438,9 @@ def main():
     if shapes.get('ScrollPaneHasAdd', 'NO') == 'YES':
         problems.append('this engine DOES give ScrollPane an add() -- the v0.4.1 workaround '
                         'may be unnecessary, re-check')
-    if 'toggleAiPanel();' not in code_only:
-        problems.append('F4 does not open the AI panel (toggleAiPanel) -- m08925 asked for that')
+    # v0.9.0: the F4 hotkey is gone for good -- the only entry is a single F3 tap.
+    if 'KEY_PANEL' in code_only or 'toggleAiPanel' in code_only:
+        problems.append('the F4 hotkey is back (KEY_PANEL / toggleAiPanel) -- m12288 asked for it to be deleted')
 
     # v0.4.3: an HTTP callback cannot be waited for on the main thread.  httpJson
     # delivers it through Core.app.post, so a spin loop here always times out --
@@ -492,7 +497,8 @@ def main():
         fake = os.path.join(fdir, 'job_fake.json')
         with io.open(fake, 'w', encoding='utf-8') as fh:
             fh.write(json.dumps({'clean': {'code': 'set n 0\nop add n n 1\nprint n\nend'},
-                                 'broken': {'code': 'jump 99 always x 0\nend'}},
+                                 'broken': {'code': 'jump 99 always x 0\nend'},
+                                 'hallucinated link': {'code': 'sensor x container9 @copper\nend'}},
                                 ensure_ascii=False, indent=1))
         jdir = os.path.join(fdir, 'jobs')
         if os.path.isdir(jdir):
@@ -521,7 +527,8 @@ def main():
     # -written program is never allowed to carry a dangling link name.
     jres = {}
     for l in jtext.splitlines():
-        for key in ('MAIJOBSET', 'MAIJOBCLEAN', 'MAIJOBPROG', 'MAIJOBWRITE', 'MAIJOBREJ'):
+        for key in ('MAIJOBSET', 'MAIJOBCLEAN', 'MAIJOBPROG', 'MAIJOBWRITE', 'MAIJOBREJ',
+                    'MAIJOBZERO'):
             if l.startswith(key + ':'):
                 jres[key] = l[len(key) + 1:]
 
@@ -567,6 +574,15 @@ def main():
         if not fat:
             problems.append('rejected job findings carry no ERR line: %r'
                             % (rej.get('findings'),))
+    zero = job_of('MAIJOBZERO', 'maiJobSyncAt (hallucinated link, link-less processor)')
+    if zero:
+        if zero.get('state') != 'rejected':
+            problems.append('a processor with no links accepted a program naming container9 '
+                            '(state=%r) -- the v0.8.0 link blind spot is back'
+                            % (zero.get('state'),))
+        zrids = [f.get('rid') for f in (zero.get('findings') or [])]
+        if 'link-name-not-bound' not in zrids:
+            problems.append('the zero-link refusal lost its rule: %r' % (zrids,))
     for needle, why in (('function jobBody(', 'the job body builder is gone'),
                         ('function jobSubmit(', 'the async job submit is gone'),
                         ('function jobTick(', 'the 1s job poll is gone'),
@@ -811,6 +827,8 @@ def main():
             problems.append("v0.8.1: " + why)
     if "没有拖动" in code_only:
         problems.append("v0.8.1: the old no-drag hint is back -- a single tile must try the AI panel first")
+    if re.search(r'\["f4"\]', code_only):
+        problems.append("v0.9.0: f4 is bound again -- the hotkey must stay deleted")
 
     # ---- v0.4.7 review arrows: finding.line -> statements child -> pixel position
     arrows = None
@@ -927,6 +945,10 @@ def main():
     if rej:
         print('  job gate: %s after %s attempt(s), %d finding(s)'
               % (rej.get('state'), rej.get('attempts'), len(rej.get('findings') or [])))
+    if zero:
+        print('  job zero-link gate: %s, rule=%s (the processor links to nothing)'
+              % (zero.get('state'), ','.join(sorted({str(f.get('rid')) for f in
+                                                     (zero.get('findings') or [])}))))
     for l in lines:
         if l.startswith(('MAISELF:', 'MAIDIAG:')):
             print('  ' + l[:300])

@@ -28,10 +28,9 @@
 function __logicWriterMain(){
     "use strict";
 
-    var MOD_VERSION = "0.8.1";
+    var MOD_VERSION = "0.9.0";
     var URL_KEY     = "mlogauxiliary-url";
     var DEFAULT_URL = "http://127.0.0.1:8765";
-    var KEY_PANEL   = ["f4"];      // F4：开面板（F1/F5/F6/F8/F11/F12 与 F9/F10 已被占用）
     var KEY_REGION  = ["f7"];      // F7：扫鼠标周围 10 格，列出链接候选
     var KEY_SELECT  = ["f3"];      // F3：按住 = 鼠标左键拉框（v0.5.0；F8 是游戏控制台，F9/F10 也被占）
 var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下的空键只有 F2，F1/F5/F6/F8/F11/F12 是游戏自己的）
@@ -45,7 +44,7 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
     // 所有游戏对象访问都套 try：无头环境里只是返回 false，不会炸。
 
     var sidecarOk = null;
-    var panel = null;          // 模板块面板的单实例（v0.3.1 之前每次按 F4 都新建一个，能叠起来）
+    var panel = null;          // 模板块面板的单实例（v0.3.1 之前每开一次都新建一个，能叠起来）
     var settingsDone = false;
     var settingsErr = null;
     var settingsTries = 0;    // 见热键钩子：UI 晚于脚本建好时每 60 帧重试一次   // 注册失败时的原文，摊在诊断里，省得翻 last_log.txt
@@ -222,7 +221,7 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
             function(){ showReview(); }
         ], mk);
         section(t, "说明");
-        kv(t, "", "F4 = AI 辅助编程（描述意图 -> 生成 -> 预检 -> 写入）；原版逻辑编辑器底部会多一条「审查」状态栏。地址改完按回车保存。sidecar 不开也能进游戏，只是生成与模板不可用。", mk);
+        kv(t, "", "F3 = AI 辅助编程（单格选中处理器 -> 描述意图 -> 生成 -> 预检 -> 写入）；原版逻辑编辑器底部会多一条「审查」状态栏。地址改完按回车保存。sidecar 不开也能进游戏，只是生成与模板不可用。", mk);
     }
 
     // 区域面板的布线（v0.6.0）：框选松手之后不再只弹一段纯文本，而是把「区域摘要 +
@@ -248,7 +247,7 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
     }
 
     // ---------------------------------------------------------- 处理器清单（v0.7.0，F2）
-    // 全图扫一遍处理器，按「问题多的排前面」列出来，点一行就跳过去并开 F4 面板。
+    // 全图扫一遍处理器，按「问题多的排前面」列出来，点一行就跳过去并开 AI 面板。
     // 这三个只碰 table 的接口（不碰引擎类），所以 selfTest 能用假表数行数。
     function listHead(res){
         var errs = 0, warns = 0, i;
@@ -632,7 +631,7 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
         // 而 closeOnBack()（ESC / 返回键）也不会自动生效 —— Mindustry 的 BaseDialog
         // 是在构造里显式调（BaseDialog.java:70）。我们既不是 BaseDialog、又只调了
         // addCloseButton()，于是这个模态面板打开之后没有任何退出路径。现在三件一起做：
-        // 自加「关闭」按钮 + closeOnBack() + 再按一次 F4 关，并且只保留一个实例。
+        // 自加「关闭」按钮 + closeOnBack()，并且只保留一个实例。
 
         function panelShown(){
             try{ return panel !== null && panel.isShown(); }catch(e){ return false; }
@@ -1009,7 +1008,7 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
             }catch(e){ /* 每帧回调里绝不抛出去 */ }
         }
 
-        // ------------------------------------------ AI 辅助编程（F4）
+        // ------------------------------------------ AI 辅助编程（F3 单格选中）
         // 一句话 → sidecar POST /plan → 代码 + 预检 → 确认写入。
         // 现在是规则式意图路由（tools/logicd.py 的 INTENTS 表），模型的接入点只在
         // /plan 的实现里，模组这一侧不用改。
@@ -1018,11 +1017,6 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
 
         function aiShown(){
             try{ return aiPanel !== null && aiPanel.isShown(); }catch(e){ return false; }
-        }
-
-        function toggleAiPanel(){
-            if(aiShown()){ try{ aiPanel.hide(); }catch(e){ /* ignore */ } return; }
-            showAiPanel();
         }
 
         // Link coordinates travel as absolute tile positions (LogicLink.x/y), but the
@@ -1123,7 +1117,7 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
         }
 
         // ---------------------------------------------------------- 作业队列（v0.8.0 / P4 第二刀）
-        // F4 的「生成」不再直接 /plan，而是往 sidecar 的作业队列里投一个 job：
+        // AI 面板的「生成」不再直接 /plan，而是往 sidecar 的作业队列里投一个 job：
         // 作业会落盘、sidecar 崩了能续跑、过比分析器更严的门禁（link-name-not-bound
         // 从 WARN 提升成 ERR，见 tools/jobqueue.py 的 FATAL_RIDS）。
         // 游戏这边只做两件事：投递 + 每秒查一次状态；生成逻辑全在 sidecar。
@@ -1148,7 +1142,7 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
             if(snap === null){
                 snap = {schema: 1, cells: 0, truncated: false, grid: [], processors: []};
             }
-            return {job: {mode: "new", desc: String(desc), links: linkList(b), ipt: 2,
+            return {job: {mode: "new", desc: String(desc), links: linkListOrNull(b), ipt: 2,
                           origin: originOf(b), snapshot: snap}};
         }
 
@@ -1335,7 +1329,7 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
 
         // ---------------------------------------------------------- 区域面板（v0.6.0）
         // F3 松手之后：先落盘快照，再要 /region 的链接候选，最后开这个面板。
-        // 面板里的「生成」按钮带着该处理器的引用直接开 F4 的面板（showAiPanel(target)），
+        // 面板里的「生成」按钮带着该处理器的引用直接开 AI 面板（showAiPanel(target)），
         // 省掉「先把鼠标移到那个处理器上」这一步。
         function buildAt(x, y){
             var t = Vars.world.tile(x, y);
@@ -1345,7 +1339,7 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
             return b;
         }
 
-        // v0.8.1：单格选中处理器 = 开 AI 面板（F4 并入 F3）。
+        // v0.8.1：单格选中处理器 = 开 AI 面板（v0.9.0 起 F4 热键已删，只有这一条路）。
         function processorAt(x, y){
             var b = buildAt(x, y);
             return isProcessor(b) ? b : null;
@@ -1520,6 +1514,19 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
         // 返回 null 表示「不知道这个处理器的链接表」，返回 [] 表示「确实没有链接」。
         // 这两个含义在 quickcheck 里分开用（stats.linkKnown）：把「不知道」当成「没有」
         // 会让每一行链接槽里的名字都报 link-name-not-bound（v0.4.6 的假 WARN）。
+        // 返回 null 表示「不知道这个处理器的链接表」，返回 [] 表示「确实没有链接」。
+        // jobqueue 靠这个区分门禁口径：[] 是权威空表（幻觉链接名必须拦），null 是不知道（不判）。
+        function linkListOrNull(b){
+            if(b === null || b === undefined){ return null; }
+            try{
+                var out = [];
+                for(var i = 0; i < b.links.size; i++){
+                    var l = b.links.get(i);
+                    out.push({name: String(l.name), x: l.x, y: l.y});
+                }
+                return out;
+            }catch(e){ return null; }
+        }
         function linkNames(b){
             if(b === null || b === undefined){ return null; }
             var out = [];
@@ -1691,7 +1698,7 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
                 if(cs.length > 12){ out.push("  …还有 " + (cs.length - 12) + " 个"); }
             }
             out.push("");
-            out.push("确认后按 F4 用一句话生成，写入走 logic@config（configure）。");
+            out.push("确认后按住 F3 点一下处理器，用一句话生成，写入走 logic@config（configure）。");
             return out.join("\n");
         }
         function regionText(snap){
@@ -2023,8 +2030,8 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
         function selFinish(){
             var r = selRelease();
             if(r === null){ return null; }
-            // v0.8.1：单格 = 选中处理器（F4 并入 F3）。按住 F3 在处理器上点一下直接开 AI 面板，
-            // 拖出矩形才走区域快照；空格子单选给提示。F4 仍然能开同一个面板（老习惯入口）。
+            // v0.8.1：单格 = 选中处理器。按住 F3 在处理器上点一下直接开 AI 面板，
+            // 拖出矩形才走区域快照；空格子单选给提示。v0.9.0 起 F4 热键彻底删除。
             if(r.w === 1 && r.h === 1){
                 var one = processorAt(r.x1, r.y1);
                 if(one !== null){
@@ -2124,7 +2131,7 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
         }catch(e){ log("ClientLoadEvent hook failed: " + e); }
 
         // ---------------------------------------------------------- 热键
-        if(KEY_PANEL !== null){
+        {   // v0.9.0: the F4 hotkey is gone, so the update hook is unconditional
             Events.run(ET.Trigger.update, function(){
                 try{
                     reviewTick();   // 原版逻辑编辑器开着就顺手刷新那条审查栏
@@ -2138,12 +2145,6 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
                     }
                     if(Vars.state.isMenu()){ return; }
                     if(Vars.ui.chatfrag.shown()){ return; }
-                    var key = Packages.arc.input.KeyCode[KEY_PANEL[0]];
-                    if(Core.input.keyTap(key)){
-                        // 我们的面板开着 -> F4 关掉；别人的对话框开着 -> 别叠上去
-                        if(!aiShown() && !panelShown() && Core.scene !== null && Core.scene.hasDialog()){ return; }
-                        toggleAiPanel();
-                    }
                     if(KEY_REGION !== null && Core.input.keyTap(Packages.arc.input.KeyCode[KEY_REGION[0]])){
                         if(!aiShown() && !panelShown() && Core.scene !== null && Core.scene.hasDialog()){ return; }
                         var rb = targetBuild();

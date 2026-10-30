@@ -202,10 +202,11 @@ provider 是唯一接模型的缝：默认 {BT}template_provider{BT}（复用 §
 而是 `POST /jobs` 投作业 + 每秒 `GET /jobs?id=` 轮询（`JOB_POLL_MS = 1000`），
 done 时渲染代码并把按钮换成「写入/关闭」，rejected/failed/cancelled 时渲染 findings 与原因，
 面板上多一个「取消作业」（`DELETE /jobs?id=`）。「直接生成」保留给没有 `/jobs` 的旧 sidecar。
-**仍未落地**：真 provider 与 §4.4 三段 prompt、§4.3 自由档的 cost/sim 复检、P5 的多处理器事务写入。
-**新发现的盲区**：处理器**一个链接都没有**时模组发来的 `links` 是空数组，而 `mlogcheck`
-把空数组当「不知道」而不是「确实没有」，于是幻觉链接名在这种情况下拦不住；这一刀改用代码级 ERR
-（`jump-target-out-of-range`）验证拒绝路径，链接名那一档由 `test_jobs()` 的显式 links 覆盖。
+**仍未落地**：§4.3 自由档的 cost/sim 复检、P5 的多处理器事务写入。
+**盲区已修（v0.9.0）**：处理器**一个链接都没有**时模组发来的 `links` 是空数组，而 `mlogcheck` 原来把空数组
+当「不知道」而不是「确实没有」，幻觉链接名在这种情况下拦不住。现在 `mlogcheck.analyse()` 有 `links_authoritative`
+开关（默认 False，行为不变），`logicd.analyse()` 在 `links is not None` 时置 True，`jobqueue` 把 `null`（不知道）
+与 `[]`（确实没有）分开保留。零链接处理器上的 `sensor x container9 @copper` 现在必 `rejected`（L2-44）。
 
 ## 5. P5 · 多处理器写入 + 撤销落盘
 
@@ -257,6 +258,7 @@ done 时渲染代码并把按钮换成「写入/关闭」，rejected/failed/canc
 | P3 框选 + 快照（第一刀：只读） | 部分完成（v0.4.2） | `main.js` 的 `regionSnapshot()` / `regionText()` / `regionCandidatesText()` / F7 热键 / 控制台 `maiSnapshot`·`maiRegion`·`maiRegionAround`；`tools/logicd.py` 的 `POST /region`（链接候选 + 命名 + 距离判定） | `tests/mlogauxiliary/run_ui_smoke.py` 在真 v160.7 里造 container/switch 后快照出 6 格 1 处理器且 bounds 被 clamp；`tests/logicd/run_logicd_tests.py` 23 项协议 check（含合成快照的候选/编号/`used` 断言与 mschgen 全表零漂移） |
 | P3 框选 + 区域面板（第二刀：面板） | 完成（v0.6.0） | `main.js` 的 `buildRegionTable()` / `showRegionPanel()` / `buildAt()` / `showAiPanel(target)`，`dumpRegion()` 改成 snapshot→region→面板 串行；`MlogAuxiliary/README.md` 新增 v0.6.0 节 | `run_ui_smoke.py` 的 `MAISELF` 行（区域表格 8 行）+ 四条 v0.6.0 源码红线；`gate.py --full` 16/16 |
 | v0.8.1 单格选中处理器 = AI 面板（F4 并入 F3） | 完成（v0.8.1） | `main.js` 的 `KEY_PANEL`（保留为别名）/ `processorAt()` / `selFinish()` 的 1×1 分支 / `api.maiPick` | ui smoke 的 `MAIPICK`·`MAIPICKEMPTY` 两行 + 四条源码红线（断言表 L2-43） |
+| v0.9.0 删掉 F4 热键 + 零链接门禁 | 完成（v0.9.0） | `main.js`（无 `KEY_PANEL` / `toggleAiPanel`）/ `mlogcheck.analyse(links_authoritative=)` / `logicd.analyse()` / `jobqueue._materialize()` / `linkListOrNull()` | ui smoke 反向红线 + `MAIJOBZERO`；`test_jobs()` 12 项（断言表 L2-43 / L2-44） |
 | v0.7.0 F2 全图处理器清单 | 完成（v0.7.0） | `main.js` 的 `KEY_LIST` / `scanProcessors()` / `listHead()` / `listRowLabel()` / `buildListTable()` / `showListPanel()` / `openListPanel()` / `jumpTo()`，控制台 `maiList`·`maiListRows`·`maiListPanel` | ui smoke 的 `MAISELF` 清单表格行 + `MAILIST`/`MAILISTROWS` 两行 + 五条源码红线（断言表 L2-40） |
 | P4 队列 + 模型 + 门禁 | 未开始 | — | — |
 | P5 多处理器写入 + 撤销落盘 | 未开始 | — | — |

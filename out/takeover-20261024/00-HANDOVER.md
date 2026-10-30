@@ -1466,3 +1466,37 @@ F4 键保留为同一个 `toggleAiPanel()` 的别名。
 tools/README「v0.8.1 起 F4 并入 F3」两行、报告 `out/takeover-20261024/56-select-ai-panel.md`。
 
 **诚实缺口**：无头引擎无 `Vars.ui`，面板是否真的弹出仍需真机；空格子单点只提示不给快照（有意）。
+
+## 57 · v0.9.0：F4 热键删除 + 零链接门禁盲区修复
+
+玩家 m12288：「做1，直接整个去掉f4的热键，不用保留。然后做2」。
+
+### 57.1 改了什么
+
+| 文件 | 改动 |
+| --- | --- |
+| `MlogAuxiliary/scripts/main.js` | 删 `KEY_PANEL` / `toggleAiPanel()` / 6 行 `keyTap`；钩子外层变匿名块；`MOD_VERSION = 0.9.0`；新增 `linkListOrNull(b)` |
+| `MlogAuxiliary/mod.hjson` | version 0.9.0，描述改「按住 F3 点一下处理器打开」 |
+| `tools/mlogcheck.py` | `analyse(..., links_authoritative=False)`，只在权威时启用链接名判据 |
+| `tools/logicd.py` | `links is not None` 时传 `links_authoritative=True`，`names` 保留空列表 |
+| `tools/jobqueue.py` | `normalize()` 允许 `links: null`；`_materialize()` 不再 `or []` |
+| `tests/logicd/run_logicd_tests.py` | test_jobs 9 → 12 项 |
+| `tests/mlogauxiliary/run_ui_smoke.py` | F4 反向红线 + 第三路作业探针 `MAIJOBZERO` |
+| `docs/断言表.md` | L2-43 改写（F4 已删）、新增 L2-44 |
+| `docs/验证记录.md` / `docs/Mlog辅助-规划.md` / `tools/README.md` / `MlogAuxiliary/README.md` | 同步 |
+
+### 57.2 关键根因（别再踩）
+
+`logicd.analyse()` 原来 `_link_names(links) or None` ⇒ 权威空表 `[]` 被折成 `None` ⇒ `mlogcheck` 跳过链接名判据。
+修好 `mlogcheck` 与 `logicd` 之后测试仍红，真凶在 `jobqueue._materialize()` 的 `links = job.get('links') or []`——
+它又把 null 变回权威空表。**凡是「三态」（空表 / 未知 / 非空）在管道里传，每一跳都要显式保住第三态。**
+
+### 57.3 复跑
+
+`tests/logicd` protocol 25 / jobs 12 / write path 7；`tests/mlogauxiliary` EXIT=0；`tests/run_tests.py` 44/44；
+`gate.py --full` 16/16；`tools/kb.py build` 重建；zip 打包装机。
+
+### 57.4 下一刀
+
+真 provider + 规划 §4.4 三段 prompt（世界事实 / 规则摘要 / 任务与 JSON 契约），仍是离线可验：
+provider 走 `--jobs-provider` 的可换缝，测试用录制回放式假模型，不联网。

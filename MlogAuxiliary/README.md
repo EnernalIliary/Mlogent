@@ -1,4 +1,4 @@
-# MlogAuxiliary —— 游戏内Mlog辅助（P1 + P2 + 设置界面 + AI 面板 + 区域面板 + 作业队列，v0.8.1）
+# MlogAuxiliary —— 游戏内Mlog辅助（P1 + P2 + 设置界面 + AI 面板 + 区域面板 + 作业队列，v0.9.0）
 
 把「写 mlog」这件事从玩家手里拿走：**说意图，不写代码**。
 
@@ -354,6 +354,39 @@ Arc 的 `Table.cells` 是私有字段（`arc/scene/ui/layout/Table.java:35`）�
 2. 「没有链接」和「读不到链接表」必须分开：`linkNames()` 读不到时返回 `null`（不是 `[]`），`quickcheck.check()` 收到 `null` 就整段跳过链接槽判据，并在 `stats.linkKnown` 里记下来；审查栏统计行显示「链接 ?（读不到处理器）」而不是「链接 0」。
 
 真引擎对照探针（`out/_v47_probe.py`）：放处理器、用 `msch.build_logic_data` 写带两条链接的载荷，读回 `links.size=2`，把真链接名喂 `quickcheck.check` ⇒ 零命中；喂空数组 ⇒ 第 1、3 行各一条 WARN。所以快检逻辑本身没错，错的是喂进去的东西。
+
+## v0.9.0：F4 键彻底删除 —— 以及「处理器一个链接都没接」时门禁漏判的真凶
+
+v0.8.1 把 F4 并进 F3 之后，F4 只是留了个别名；这一版按玩家要求**整把删掉**：
+`KEY_PANEL` 常量、`toggleAiPanel()` 函数、update 钩子里那 6 行 `keyTap` 全部消失，
+钩子外层那个 `if(KEY_PANEL !== null){` 也退化成匿名块（不再有任何按键开关门）。
+现在开 AI 面板只有一条路：**按住 F3 在处理器上点一下**。ui smoke 里原来的正向红线
+（必须有 `toggleAiPanel();`）改成了**反向红线**：源码里再出现 `KEY_PANEL`、`toggleAiPanel`
+或字符串 `"f4"` 就判失败 —— 免得以后有人「顺手」把热键加回来。
+
+### 门禁漏判：空链接表被当成了「不知道」
+
+sidecar 的写入门禁靠 `link-name-not-bound` 拦幻觉链接名（`jobqueue.FATAL_RIDS`）。
+但这条规则在 `mlogcheck` 里是这么写的：只有 `links is not None` 才检查「这个名字在不在链接表里」。
+而 `logicd.analyse()` 原来把模组送来的 `links` 用 `_link_names(links) or None` 过了一道 ——
+**空列表被折成了 None**。于是「这台处理器一个链接都没接」（模组读到的权威空表 `[]`）和
+「模组读不到链接表」（`null`）在分析器眼里变成了同一件事，`sensor x container9 @copper`
+这种指名道姓要连 `container9` 的程序在零链接处理器上直接判干净、写进去。
+
+修法是把「权威空表」和「不知道」分开：
+
+- `mlogcheck.analyse(..., links_authoritative=False)`：新增开关，只影响「程序里有大量形似链接名的
+  变量、但一条链接都没声明」时的碎片启发式分支（`len(stmts) > 200` 那条），默认关，语料与 golden 行为不变。
+- `logicd.analyse()`：`links is not None` 时把 `links_authoritative=True` 传下去，同时 `names` 保留空列表本身。
+- `jobqueue`：`normalize()` 允许 `links` 为 `null`（表示「不知道」，门禁跳过链接名判据），
+  `_materialize()` 里**不再** `or []`（这一处把 null 又变回权威空表，是第一次改完测试仍红的真凶），
+  只有给 `msch` 造载荷时才 `links or []`。
+- 模组侧新增 `linkListOrNull(b)`：读得到链接表就发数组（可能是 `[]`），读不到才发 `null`。
+
+验收（三处，都跑在真 v160.7 引擎上）：作业队列契约测试从 9 项涨到 **12 项**（`links: []` 必 rejected、
+`links: null` 必 done、`gate()` 单元三连）；ui smoke 多一路 `MAIJOBZERO` —— 引擎里那台处理器**一个链接都没接**，
+假 provider 让它输出 `sensor x container9 @copper`，实测 `job zero-link gate: rejected, rule=link-name-not-bound`。
+`python -X utf8 tests/run_tests.py` 44/44（改 `mlogcheck` 后要先 `tools/sync_mlogagent.py --mirror all`）。
 
 ## v0.8.1：F4 并入 F3 —— 单格点一下处理器就开 AI 面板
 

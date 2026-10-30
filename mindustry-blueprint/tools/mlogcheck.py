@@ -837,7 +837,13 @@ def _guard_threshold(stmts: list[tuple[int, str]], var: str) -> float | None:
     return None
 
 
-def analyse(lines: list[str], links: list[str] | None = None, ipt: int = 2) -> list[Finding]:
+def analyse(lines: list[str], links: list[str] | None = None, ipt: int = 2,
+            links_authoritative: bool = False) -> list[Finding]:
+    # links=None means "no link table was supplied" (a plain .mlog file); links=[]
+    # means "the table is known and it is empty".  links_authoritative says the
+    # caller got that empty table from the processor itself (the mod reads
+    # LogicBlock.links), not from a blueprint cropped out of a larger base, so
+    # the fragment heuristic below must not demote a real unbound reference.
     # Labels are resolved by prepare(), the only place that knows a label is not
     # a statement. Resolving them again here used to map a label to its LINE
     # index while prepare() used the STATEMENT index, so every `jump idle` on a
@@ -1295,7 +1301,7 @@ def analyse(lines: list[str], links: list[str] | None = None, ipt: int = 2) -> l
                     # target block was left outside the copied region, not
                     # because the author asked for a link that never existed --
                     # still null at runtime, so INFO with honest wording.
-                    if not link_vars and len(stmts) > 200:
+                    if not links_authoritative and not link_vars and len(stmts) > 200:
                         out.append(Finding(
                             "INFO", orig + 1, c,
                             f"`{v}` is shaped like a block link, but this "

@@ -138,7 +138,7 @@ python tools/kb.py serve
 ```
 python tools/logicd.py                            # 127.0.0.1:8765（--port 0 = 随机端口，就绪行里打印）
 python tools/logicd.py --print-template patrol    # 不启服务，只打一个模板的代码
-python tests/logicd/run_logicd_tests.py           # 契约测试：协议 25 项 + 作业队列 9 项 + 真 v160.7 写入 7 项
+python tests/logicd/run_logicd_tests.py           # 契约测试：协议 25 项 + 作业队列 12 项 + 真 v160.7 写入 7 项
 python tests/logicd/run_logicd_tests.py --no-sim  # 只跑协议层（不需要 JRE）
 ```
 
@@ -176,6 +176,8 @@ attempts, findings[], code, explanation, assumptions[]}`，状态 `queued -> run
 **门禁比分析器更严**：`mlogcheck` 对「形似链接名但处理器没有这个链接」只给 WARN（人可能还没接完线），
 但作业是机器输出直接写进处理器，所以 `jobqueue.FATAL_RIDS = ('link-name-not-bound',)` 把这一条**提升为 ERR**：
 最多 3 次尝试（1 + 2 次 self-repair，第二次起把 findings 当提示回给 provider），仍不过就 `rejected` 且 `code == ""`——绝不写入。
+v0.9.0 起 `links` 的 `[]` 与 `null` 不再等价：`[]` 是**权威空表**（处理器确实没接任何链接，链接名判据照查），
+`null` 是「模组读不到链接表」（判据跳过）；模组侧用 `linkListOrNull()` 发这个区别，`jobqueue._materialize()` 原样保留。
 provider 是唯一接模型的缝：默认 `template`（就是上面的 `/plan` 意图路由，全离线可跑），测试用 `--jobs-provider fake --fake-provider FILE` 喂固定答案；
 模组侧（v0.8.0）已接：F4 面板投作业 + 每秒 `GET /jobs?id=` 轮询 + 完成/拒绝渲染 + 取消按钮，
 `--jobs-dir` 换队列目录（默认 `out/jobs`，或 `$MLOG_JOBS_DIR`），`--jobs-drain` 跑完就退（一次性批处理）。

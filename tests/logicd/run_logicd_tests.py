@@ -553,6 +553,23 @@ def test_jobs():
              'link-name-not-bound was not promoted to ERR for a job')
         checks += 1
 
+        # v0.9.0: an empty link table is authoritative, so the hallucinated name is
+        # caught even when the processor links to nothing (the v0.8.0 blind spot:
+        # [] was collapsed to None and the whole link check was skipped).
+        st, res = srv.post('/jobs', {'desc': '幻觉零链接', 'links': []})
+        zero = wait_job(srv, res['id'], ('rejected',))
+        need(any(f['rid'] == 'link-name-not-bound' for f in zero['findings']),
+             'a link-less processor let a hallucinated link name through: %r'
+             % (zero['findings'],))
+        need(zero['code'] == '', 'a rejected zero-link job still carries code')
+        checks += 1
+
+        # links=null means "unknown", and the link check is skipped on purpose
+        st, res = srv.post('/jobs', {'desc': '幻觉未知链接', 'links': None})
+        unknown = wait_job(srv, res['id'], ('done',))
+        need(unknown['code'].strip(), 'an unknown link table refused on its own')
+        checks += 1
+
         # self-repair: the first attempt is refused, the second one lands
         st, res = srv.post('/jobs', {'desc': '先坏后修好', 'links': JLINKS})
         fixed = wait_job(srv, res['id'], ('done',))
@@ -621,6 +638,20 @@ def test_jobs():
     need(g['ok'] is False and g['errors'] >= 1, 'gate accepted an unbound link: %r' % (g,))
     need(any(f.get('fatal') and f['sev'] == 'ERR' and f['rid'] == 'link-name-not-bound'
              for f in g['fatal']), 'gate did not promote link-name-not-bound: %r' % (g['fatal'],))
+    checks += 1
+
+    # v0.9.0: the empty table is authoritative, and a >200-statement fragment
+    # heuristic no longer demotes the hit to INFO when the caller knows the table
+    g0 = jobqueue.gate('sensor x container9 @copper\nend', [], ipt=2)
+    need(g0['ok'] is False and any(f.get('fatal') for f in g0['fatal']),
+         'gate accepted an unbound link on a link-less processor: %r' % (g0,))
+    g1 = jobqueue.gate('sensor x container9 @copper\nend', None, ipt=2)
+    need(g1['ok'] is True, 'gate refused when the link table is unknown: %r' % (g1,))
+    long_code = '\n'.join(['set a %d' % i for i in range(201)]
+                          + ['sensor x container9 @copper', 'end'])
+    g2 = jobqueue.gate(long_code, [], ipt=2)
+    need(any(f['rid'] == 'link-name-not-bound' for f in g2['fatal']),
+         'a long link-less program lost the link refusal: %r' % (g2['findings'][:3],))
     checks += 1
 
     shutil.rmtree(tmp, ignore_errors=True)

@@ -97,9 +97,12 @@ def normalize(body):
         snap = {}
     if not isinstance(snap, dict):
         raise ValueError('job.snapshot must be an object (main.js: maiSnapshot(x1,y1,x2,y2))')
-    links = body.get('links') or []
-    if not isinstance(links, list):
-        raise ValueError('job.links must be a list')
+    # null means "the mod could not read the link table" (unknown); [] means the
+    # table is known and empty, which is what the gate needs to catch a
+    # hallucinated link name on a processor that links to nothing.
+    links = body.get('links')
+    if links is not None and not isinstance(links, list):
+        raise ValueError('job.links must be a list, or null when the link table is unknown')
     origin = body.get('origin')
     if origin is not None:
         if not isinstance(origin, dict):
@@ -119,6 +122,9 @@ def normalize(body):
 
 def gate(code, links, ipt=2):
     """Analyze generated code and promote FATAL_RIDS to refusals.
+
+    links=[] is authoritative (the processor has no links), links=None is unknown
+    and skips the link check entirely -- logicd.analyse() keeps that distinction.
 
     Returns the same shape logicd.analyse() returns, plus 'fatal' -- the promoted
     findings, so the mod can tell "the model wrote a link it does not own" apart
@@ -353,12 +359,14 @@ class Queue:
     def _materialize(self, job, out):
         """Provider output -> {ok, code, findings, ...}; the anchored tier goes through compose."""
         L = _logicd()
-        links = job.get('links') or []
+        # keep None ("the mod could not read the table") apart from [] ("no links"):
+        # the gate treats the empty list as authoritative and skips None entirely.
+        links = job.get('links')
         ipt = job.get('ipt') or 2
         if isinstance(out.get('code'), str) and out['code'].strip():
             code = out['code']
             res = gate(code, links, ipt=ipt)
-            payload = L.msch.build_logic_data(code, L._relative_links(links, job.get('origin')))
+            payload = L.msch.build_logic_data(code, L._relative_links(links or [], job.get('origin')))
             res.update({'code': code,
                         'bytes_b64': base64.b64encode(payload).decode('ascii'),
                         'explanation': out.get('explanation') or '',
