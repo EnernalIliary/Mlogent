@@ -231,6 +231,18 @@ def main():
     if 'toggleAiPanel();' not in code_only:
         problems.append('F4 does not open the AI panel (toggleAiPanel) -- m08925 asked for that')
 
+    # v0.4.3: an HTTP callback cannot be waited for on the main thread.  httpJson
+    # delivers it through Core.app.post, so a spin loop here always times out --
+    # that is exactly why F7 showed sidecar unavailable with a literal pending.
+    if re.search('while[ ]*[(][ ]*[A-Za-z_]+[ ]*===[ ]*"pending"', code_only):
+        problems.append('main.js busy-waits for an HTTP callback: the callback is posted back to the main thread, so it never lands')
+    if re.search('while[ ]*[(][ ]*out[ ]*===[ ]*"[?]"', code_only):
+        problems.append('ping() busy-waits on /health -- same deadlock, use probeSidecar()')
+    if 'function regionAroundBox(' not in code_only:
+        problems.append('the region request is not async (regionAroundBox) -- F7 would hang')
+    if 'regionCandidatesText(rtext)' in code_only:
+        problems.append('F7 still treats maiRegion() as synchronous')
+
     # ---- P3 region snapshot, read back from the engine
     snap = None
     for l in text.splitlines():

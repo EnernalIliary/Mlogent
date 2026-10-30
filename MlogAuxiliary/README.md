@@ -52,11 +52,11 @@ v0.4.2 起多一个**只读**入口：**F7 把鼠标周围 10 格扫成区域快
 | 函数 | 作用 |
 | --- | --- |
 | `maiVersion()` | 模组版本 + sidecar 地址 |
-| `maiPing()` | 同步 GET `/health`（调试用，会卡一帧） |
+| `maiPing()` | 异步 GET `/health`，结果弹窗 + 写日志（返回「已发出…」） |
 | `maiSel()` | 报告鼠标下的方块是不是处理器、它现在有几行代码几个链接 |
 | `maiPanel()` | 打开面板 |
-| `maiCompose(template, paramsJson)` | 同步 compose，返回 JSON 文本（调试用） |
-| `maiApply(template, paramsJson)` | compose + 直接写进鼠标下的处理器（0 ERR 才写） |
+| `maiCompose(template, paramsJson)` | 异步 compose，结果弹窗并写日志（返回「已发出…」） |
+| `maiApply(template, paramsJson)` | 异步 compose + 直接写进鼠标下的处理器（0 ERR 才写，结果弹窗） |
 | `maiUndo()` | 撤销上一次写入（P1 是内存快照，重启游戏即失效） |
 | `maiCheck([code])` | 本地快检：不给参数就查鼠标下的处理器，给了就查这段代码 |
 | `maiScan()` | 全图扫描所有处理器跑本地快检，返回「N 个处理器 / 多少有命中 / 规则分布 / 耗时」 |
@@ -67,7 +67,7 @@ v0.4.2 起多一个**只读**入口：**F7 把鼠标周围 10 格扫成区域快
 | `maiReview()` | 纯文本版审查：原版编辑器里的代码 + 快检结论 + findings（不弹窗） |
 | `maiSnapshot(x1,y1,x2,y2)` | 区域快照 JSON 文本（tile 坐标，clamp 到地图内，上限 4096 格） |
 | `maiSnapshotText(...)` | 同一份快照的人读摘要 |
-| `maiRegion(x1,y1,x2,y2)` | 快照 + 同步 POST `/region`，返回 sidecar 原文（`<code>\n<json>`） |
+| `maiRegion(x1,y1,x2,y2)` | 异步 `POST /region`，回包解析后弹窗（返回「已发出…」） |
 | `maiRegionAround(r)` | 以鼠标下处理器为中心扫 `r` 格（F7 就是 `r=10`） |
 
 ## 设置界面（v0.4）
@@ -200,6 +200,36 @@ F7 弹的是纯文本（`Vars.ui.showText`），不引入新的对话框/布局 
 ### 边界
 
 只读、只回答「能连什么」，**没有**框选拖拽、没有队列、没有批量写入 —— 那些是 P3 后半段与 P4/P5。
+
+## v0.4.3：F7 为什么弹出「sidecar 不可用」——同步等待在主线程上永远拿不到结果
+
+v0.4.2 装进游戏后，F7 弹出的是一个空回复：
+
+```
+sidecar 不可用（ ）
+pending
+```
+
+不是 sidecar 没起来，是**等待方式根本不可能成功**：
+
+* `httpJson()` 把请求放到 daemon 线程，拿到结果后用 `Core.app.post(...)` 投递回调 ——
+  也就是说回调**只能在主线程空闲后**执行；
+* 控制台命令与热键分支都跑在**主线程**上，它们里面的 `while(got === "pending"){ waited += 50; }`
+  既没有真的 sleep，又占着主线程 —— 计时器瞬间走完，函数带着字面量 `"pending"` 返回，
+  于是 `regionCandidatesText()` 收到一段没有换行的文本：`code` 为空、`body` 是 `pending`。
+
+四个同步入口（`maiPing` / `maiCompose` / `maiApply` / `maiRegion`）全是这个形状，一个都没法用。
+
+**修法：全部改成异步。** 请求发出去就返回一句「已发出…（结果稍后弹窗）」，真正的处理放在回调里 ——
+回调本身就在主线程（`Core.app.post`），所以照样能调 `Vars.ui.showText`、能 `build.configure(bytes)`：
+F7 现在走 `regionAroundBox()`；`maiApply` 在回调里判断 0 ERR 再 `writeBuild()`。
+
+错误文案也换了：连不上时直接说「连不上 sidecar（地址），先在本机跑 python tools/logicd.py」，
+不再把空 code 印成一对空括号。`ping()` 这个同步探活函数整个删掉，探活统一走设置页的「连接测试」
+（`probeSidecar()`，本来就是异步的）。
+
+**这条现在有闸**：`run_ui_smoke.py` 的源码红线禁止 `while(x === "pending")` 与 `while(out === "?")`，
+并要求 `regionAroundBox(` 存在、`regionCandidatesText(rtext)` 不再出现。
 
 ## 接口契约（sidecar v1）
 

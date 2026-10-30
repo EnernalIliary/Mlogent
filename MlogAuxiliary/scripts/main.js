@@ -28,7 +28,7 @@
 function __logicWriterMain(){
     "use strict";
 
-    var MOD_VERSION = "0.4.2";
+    var MOD_VERSION = "0.4.3";
     var URL_KEY     = "mlogauxiliary-url";
     var DEFAULT_URL = "http://127.0.0.1:8765";
     var KEY_PANEL   = ["f4"];      // F4：开面板（F1/F5/F6/F8/F11/F12 与 F9/F10 已被占用）
@@ -781,14 +781,8 @@ function __logicWriterMain(){
             });
         }
 
-        function ping(){
-            var out = "?";
-            httpJson("GET", "/health", null, function(code, text){ out = code + " " + text; });
-            // 同步等待：仅调试用，最多 TIMEOUT_MS 后返回（正式路径不这么干）
-            var waited = 0;
-            while(out === "?" && waited < TIMEOUT_MS){ waited += 50; }
-            return "sidecar " + base + " -> " + out;
-        }
+        // 这里原本有个 ping() 用 busy-wait「同步」等 /health —— 在真引擎里永远拿不到结果
+        // （回调走 Core.app.post 投递回主线程，而调用方就在主线程上）。探活请用 probeSidecar()。
 
         // ---------------------------------------------------------- 本地快检（P2）
         // scripts/quickcheck.js 与 scripts/rules.generated.js 由上面的 require 取到。
@@ -913,7 +907,10 @@ function __logicWriterMain(){
             var body = nl < 0 ? s : s.substring(nl + 1);
             var res = parse(body);
             if(code !== "200" || res === null || res.ok !== true){
-                return "sidecar 不可用（" + code + "）\n" + body;
+                var why = (code === "" || code === "-1" || code === undefined)
+                    ? "连不上 sidecar（" + base + "）\n先在本机跑：python tools/logicd.py"
+                    : "sidecar 返回 " + code;
+                return why + "\n\n" + body;
             }
             var out = ["区域 " + res.bounds.x1 + "," + res.bounds.y1 + " - "
                        + res.bounds.x2 + "," + res.bounds.y2
@@ -955,36 +952,51 @@ function __logicWriterMain(){
         // ---------------------------------------------------------- 控制台接口
         var api = {
             maiVersion: function(){ return "mlog-auxiliary " + MOD_VERSION + "  sidecar=" + base; },
-            maiPing:    function(){ return ping(); },
+            maiPing:    function(){
+                httpJson("GET", "/health", null, function(code, text){
+                    var out = "sidecar " + base + " -> " + code + "\n" + String(text).substring(0, 300);
+                    print("[mai] " + out);
+                    if(Vars.ui !== null){ Vars.ui.showText("Mlog辅助 · 连接", out); }
+                });
+                return "已发出 health 请求（结果稍后弹窗）";
+            },
             maiSel:     function(){ return describe(targetBuild()); },
             maiPanel:   function(){ openPanel(); return "opened"; },
             maiCompose: function(template, paramsJson){
                 var params = {};
                 if(paramsJson){ var p = parse(String(paramsJson)); if(p){ params = p; } }
-                var got = "pending";
                 var b = targetBuild();
                 httpJson("POST", "/compose",
                          JSON.stringify({template: String(template), params: params,
                                          links: linkList(b), ipt: 2}),
-                         function(code, text){ got = code + "\n" + text; });
-                var waited = 0;
-                while(got === "pending" && waited < TIMEOUT_MS){ waited += 50; }
-                return got;
+                         function(code, text){
+                             var out = "compose " + code + "\n" + String(text).substring(0, 1500);
+                             print("[mai] " + out);
+                             if(Vars.ui !== null){ Vars.ui.showText("Mlog辅助 · compose", out); }
+                         });
+                return "已发出 compose 请求（结果稍后弹窗并写日志）";
             },
             maiApply:   function(template, paramsJson){
                 var b = targetBuild();
                 if(b === null){ return "鼠标下没有处理器"; }
                 var params = {};
                 if(paramsJson){ var p = parse(String(paramsJson)); if(p){ params = p; } }
-                var got = null;
                 httpJson("POST", "/compose",
                          JSON.stringify({template: String(template), params: params,
                                          links: linkList(b), ipt: 2}),
-                         function(code, text){ got = {code: code, res: parse(text)}; });
-                var waited = 0;
-                while(got === null && waited < TIMEOUT_MS * 2){ waited += 50; }
-                if(got === null){ return "sidecar 超时"; }
-                return writeBuild(b, got.res);
+                         function(code, text){
+                             var res = parse(text);
+                             if(code !== 200 || res === null){
+                                 if(Vars.ui !== null){ Vars.ui.showText("Mlog辅助",
+                                     "compose 失败（" + code + "）\n" + String(text).substring(0, 800)); }
+                                 return;
+                             }
+                             // 回调本身就在主线程（httpJson 用 Core.app.post），可以直接写方块
+                             var msg = writeBuild(b, res);
+                             print("[mai] " + msg);
+                             if(Vars.ui !== null){ Vars.ui.showText("Mlog辅助 · 写入", msg); }
+                         });
+                return "已发出 compose 请求（0 ERR 才写，结果稍后弹窗）";
             },
             maiUndo:    function(){ return undo(); },
             maiCheck:   function(code){
@@ -1041,13 +1053,18 @@ function __logicWriterMain(){
         api.maiSnapshotText = function(x1, y1, x2, y2){
             return regionText(regionSnapshot(x1, y1, x2, y2));
         };
-        api.maiRegion = function(x1, y1, x2, y2){
-            var got = "pending";
+        // 区域快照一律异步：回调由 httpJson 用 Core.app.post 投递回主线程，而控制台与热键
+        // 都跑在主线程 —— 在那里 busy-wait 只能等到超时（v0.4.2 的 F7 返回字面量 "pending"）。
+        function regionAroundBox(x1, y1, x2, y2){
             httpJson("POST", "/region", JSON.stringify({snapshot: regionSnapshot(x1, y1, x2, y2)}),
-                     function(code, text){ got = code + "\n" + text; });
-            var waited = 0;
-            while(got === "pending" && waited < TIMEOUT_MS * 3){ waited += 50; }
-            return got;
+                     function(code, text){
+                         if(Vars.ui === null){ return; }
+                         Vars.ui.showText("Mlog辅助 · 链接候选", regionCandidatesText(code + "\n" + text));
+                     });
+        }
+        api.maiRegion = function(x1, y1, x2, y2){
+            regionAroundBox(x1, y1, x2, y2);
+            return "已发出区域快照（结果稍后弹窗）";
         };
         api.maiRegionAround = function(r){
             var b = targetBuild();
@@ -1108,9 +1125,10 @@ function __logicWriterMain(){
                                              "鼠标下没有处理器：先把鼠标移到处理器上再按 F7");
                         }else{
                             var rr = 10;
-                            var rtext = api.maiRegion(rb.tile.x - rr, rb.tile.y - rr,
-                                                      rb.tile.x + rr, rb.tile.y + rr);
-                            Vars.ui.showText("Mlog辅助 · 链接候选", regionCandidatesText(rtext));
+                            // 异步：回调由 httpJson 经 Core.app.post 投递回主线程，
+                            // 在这里 busy-wait 只会等到超时（v0.4.2 就是这样弹「sidecar 不可用（）」）。
+                            regionAroundBox(rb.tile.x - rr, rb.tile.y - rr,
+                                            rb.tile.x + rr, rb.tile.y + rr);
                         }
                     }
                 }catch(e){ /* 每帧回调里绝不抛出去 */ }

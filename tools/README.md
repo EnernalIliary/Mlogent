@@ -155,6 +155,11 @@ P2–P5 的路线（框选 → 队列 → 模型 → 写入）在 `docs/Mlog辅�
 （`:736`）、`getLinkName`（`:123-135`）、`findLinkName`（`:331-360`）；`tools/mschgen.py:547` 的
 `link_name_for()` 是同一套规则，测试拿 `tools/block_sizes.json` 全表 446 个方块做零漂移比对。
 
+**所有 HTTP 入口都是异步的**（v0.4.3 修）：`httpJson()` 把结果用 `Core.app.post(...)` 投递回主线程，
+所以主线程上的「同步等待」永远等不到 —— 控制台命令与 F7 热键都跑在主线程，early 版本在这里 busy-wait，
+拿到的只是字面量 `pending`（症状：F7 弹出「sidecar 不可用（）」）。现在的写法是发出去就返回、处理放进回调；
+`run_ui_smoke.py` 的源码红线禁止 `while(x === "pending")` 这类自旋。
+
 ### 游戏内快检（P2）
 
 游戏里没有 Python，所以「这行指令存在吗 / 要更新版本吗 / 这个名字是链接吗」这类
