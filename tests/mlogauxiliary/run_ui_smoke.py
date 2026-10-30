@@ -337,6 +337,13 @@ def main():
                         'throws on finally bodies that contain try/catch')
     if 'try{ if(sock !== null){ sock.close(); } }catch(e1){}' not in code_only:
         problems.append('the socket transport lost its explicit socket close')
+    # v0.4.5: a refused socket is the everyday "sidecar isn't running" case, so the
+    # panel must translate it instead of pasting the Java stack, and a link name the
+    # code reads but nothing answers to must be named in the panel (p.missing).
+    if 'Connection refused' not in code_only:
+        problems.append('main.js stopped explaining a refused sidecar connection')
+    if 'p.missing' not in code_only:
+        problems.append('the region panel stopped reporting unbound link names (p.missing)')
     # ---- P3 region snapshot, read back from the engine
     snap = None
     for l in text.splitlines():

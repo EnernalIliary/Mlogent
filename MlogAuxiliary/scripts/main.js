@@ -28,7 +28,7 @@
 function __logicWriterMain(){
     "use strict";
 
-    var MOD_VERSION = "0.4.4";
+    var MOD_VERSION = "0.4.5";
     var URL_KEY     = "mlogauxiliary-url";
     var DEFAULT_URL = "http://127.0.0.1:8765";
     var KEY_PANEL   = ["f4"];      // F4：开面板（F1/F5/F6/F8/F11/F12 与 F9/F10 已被占用）
@@ -974,6 +974,31 @@ function __logicWriterMain(){
                     grid: grid, processors: procs};
         }
 
+        // Last non-empty line of a diagnostic, trimmed: the user needs one line
+        // of cause, not a Java stack (a refused socket used to be dumped whole).
+        function lastLine(t){
+            var parts = String(t === null || t === undefined ? "" : t).split("\n");
+            var s = "", i;
+            for(i = 0; i < parts.length; i++){
+                var q = parts[i];
+                while(q.length && (q.charAt(0) === " " || q.charAt(0) === "\t")){ q = q.substring(1); }
+                if(q.length){ s = q; }
+            }
+            return s.length > 200 ? s.substring(0, 200) + "…" : s;
+        }
+        function httpWhy(code, body){
+            var t = String(body === null || body === undefined ? "" : body);
+            if(code === "" || code === "-1" || code === -1 || code === undefined || code === null){
+                if(t.indexOf("Connection refused") >= 0){
+                    return "sidecar 没在跑（连接被拒绝，" + base + "）\n先在本机跑：python tools/logicd.py";
+                }
+                if(t.indexOf("timed out") >= 0 || t.indexOf("SocketTimeout") >= 0){
+                    return "sidecar 没回应（超时，" + base + "）\n确认 python tools/logicd.py 还在跑";
+                }
+                return "连不上 sidecar（" + base + "）\n先在本机跑：python tools/logicd.py";
+            }
+            return "sidecar 返回 " + code;
+        }
         function regionCandidatesText(raw){
             var s = String(raw === null || raw === undefined ? "" : raw);
             var nl = s.indexOf("\n");
@@ -981,10 +1006,10 @@ function __logicWriterMain(){
             var body = nl < 0 ? s : s.substring(nl + 1);
             var res = parse(body);
             if(code !== "200" || res === null || res.ok !== true){
-                var why = (code === "" || code === "-1" || code === undefined)
-                    ? "连不上 sidecar（" + base + "）\n先在本机跑：python tools/logicd.py"
-                    : "sidecar 返回 " + code;
-                return why + "\n\n" + body;
+                var why = httpWhy(code, body);
+                var diag = (code === "200" && res !== null && res.message)
+                    ? String(res.message) : lastLine(body);
+                return diag.length > 0 ? why + "\n\n" + diag : why;
             }
             var out = ["区域 " + res.bounds.x1 + "," + res.bounds.y1 + " - "
                        + res.bounds.x2 + "," + res.bounds.y2
@@ -997,6 +1022,12 @@ function __logicWriterMain(){
                 out.push("");
                 out.push("@" + p.x + "," + p.y + " " + p.block + "   链接 "
                          + p.links.length + "：" + (p.links.length ? p.links.join(", ") : "无"));
+                var ms = p.missing || [];
+                for(j = 0; j < ms.length; j++){
+                    out.push("  ⚠ " + ms[j].name + " 代码在用，但没绑上、也不在本区域候选里"
+                             + (ms[j].suggest ? "（同类可用 " + ms[j].suggest + "）"
+                                              : "（本区域没有同类方块）"));
+                }
                 var cs = p.candidates || [];
                 if(cs.length === 0){ out.push("  10 格内没有可连的方块"); }
                 for(j = 0; j < cs.length && j < 12; j++){

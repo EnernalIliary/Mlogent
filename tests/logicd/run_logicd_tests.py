@@ -256,6 +256,7 @@ def test_protocol():
                 {'x': 20, 'y': 10, 'block': 'container'},
                 {'x': 21, 'y': 10, 'block': 'switch'},
                 {'x': 40, 'y': 40, 'block': 'container'},
+                {'x': 15, 'y': 10, 'block': 'core-shard'},
             ],
             'processors': [
                 {'x': 10, 'y': 10, 'block': 'micro-processor',
@@ -278,6 +279,23 @@ def test_protocol():
         need('switch1' not in cand, 'a 1x1 switch at 11 tiles is out of range but was offered')
         need(procs[0]['used_unlinked'] == ['container1'],
              'used_unlinked: %r' % (procs[0]['used_unlinked'],))
+        # a name the code reads that nothing answers to: 'core' is never a link
+        # name (LogicBlock.getLinkName), so the panel must say so instead of
+        # showing a candidate list that silently omits it.
+        snap_m = json.loads(json.dumps(snap))
+        snap_m['processors'][0]['code'] = ('sensor n core @copper\n'
+                                           'printflush message1\nend')
+        st, res = srv.post('/region', {'snapshot': snap_m})
+        miss = res['processors'][0].get('missing') or []
+        need([m['name'] for m in miss] == ['core'], 'region missing: %r' % (miss,))
+        need(miss[0]['suggest'] == 'shard1',
+             'missing did not suggest the same-kind candidate: %r' % (miss[0],))
+        # a variable is not a link: the result slot never counts as a link name
+        snap_v = json.loads(json.dumps(snap))
+        snap_v['processors'][0]['code'] = 'set core 1\nprint core\nend'
+        st, res = srv.post('/region', {'snapshot': snap_v})
+        need((res['processors'][0].get('missing') or []) == [],
+             'a locally assigned variable was reported as an unbound link')
         # an existing link keeps its number: the next container becomes 2, not 1
         snap2 = json.loads(json.dumps(snap))
         snap2['processors'][0]['links'].append({'name': 'container1', 'x': 13, 'y': 10})

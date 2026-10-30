@@ -633,6 +633,58 @@ def _uses(code, name):
     return re.search(r'(?<![A-Za-z0-9_-])' + re.escape(name) + r'(?![A-Za-z0-9_])', code) is not None
 
 
+def _code_idents(code):
+    """Lower-case identifiers the code mentions -- possible link names."""
+    return set(re.findall(r'(?<![A-Za-z0-9_@-])([a-z][a-z0-9_-]*)', code))
+
+
+def _result_names(code):
+    """Names the code assigns itself (result slot = token 1 on every mlog line)."""
+    out = set()
+    for line in code.splitlines():
+        toks = line.split()
+        if len(toks) >= 2:
+            out.add(toks[1])
+    return out
+
+
+def _known_bases():
+    """Every link base name the game could hand out, from the block table."""
+    return {_link_base(b) for b in _block_sizes()}
+
+
+def _mlog_words():
+    """Instruction / subcommand / op words -- never a link reference."""
+    words = set()
+    # KEYWORDS / OTHER_KEYWORDS are deliberately absent: 'core' is a ulocate
+    # parameter there, and 'core' is exactly the word this check exists for.
+    for attr in ('OP_UNARY', 'OP_BINARY', 'OP_LEGACY'):
+        v = getattr(C, attr, None)
+        if isinstance(v, (set, frozenset, list, tuple)):
+            words.update(str(x).lower() for x in v)
+    specs = getattr(C, 'SPECS', None) or {}
+    try:
+        words.update(str(k).lower() for k in specs)
+    except TypeError:
+        pass
+    words.update({'true', 'false', 'null', 'end'})
+    return words
+
+
+def _linkish(name, known, blocks):
+    """Does this word look like a link name the game would hand out?
+
+    'core' is the case that matters: the game never hands out 'core' (getLinkName
+    turns core-shard into 'shard'), but that is exactly what people type.  So a
+    word qualifies when it is a base name or a prefix of a block name.
+    """
+    if name in known:
+        return True
+    if len(name) < 3:
+        return False
+    return any(b.startswith(name) for b in blocks)
+
+
 def region(req):
     """A region snapshot from the game -> per-processor link candidates.
 
@@ -702,10 +754,40 @@ def region(req):
                                    'x': item['x'], 'y': item['y'], 'dist': item['dist'],
                                    'used': _uses(code, name)})
         candidates.sort(key=lambda c: (not c['used'], c['dist'], c['name']))
+        # What the code reads but nothing answers to: not linked, and no candidate
+        # with that name in range.  This is the 'core is never a link name' case --
+        # the check that used to be silent (LogicBlock.getLinkName + findLinkName).
+        known = _known_bases()
+        blocks = set(sizes)
+        words = _mlog_words()
+        cand_names = {c['name'] for c in candidates}
+        results = _result_names(code)
+        # 'turret' is not a link just because 'turretX' (a radar result) is in the
+        # code: a word followed by an upper-case letter is that longer variable.
+        toks = set(code.split())
+        missing = []
+        for ident in sorted(_code_idents(code)):
+            if any(t.startswith(ident) and len(t) > len(ident) and t[len(ident)].isupper()
+                   for t in toks):
+                continue
+            if ident == 'air' or ident in words or ident in existing:
+                continue
+            if ident in cand_names or ident in results:
+                continue
+            base = ident.rstrip('0123456789') or ident
+            if not _linkish(base, known, blocks):
+                continue
+            sug = ''
+            for c in candidates:
+                if c['name'].rstrip('0123456789') == base or str(c['block']).startswith(base):
+                    sug = c['name']
+                    break
+            missing.append({'name': ident, 'base': base, 'suggest': sug})
         out_procs.append({'x': px, 'y': py, 'block': pblock, 'links': existing,
                           'statements': len(code.splitlines()),
                           'in_range': len(candidates),
                           'used_unlinked': [c['name'] for c in candidates if c['used']],
+                          'missing': missing,
                           'candidates': candidates})
     return {'ok': True, 'schema': 1, 'map': snap.get('map'),
             'world': snap.get('world'), 'bounds': snap.get('bounds'),

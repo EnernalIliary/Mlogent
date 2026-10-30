@@ -273,6 +273,28 @@ GET 200 且正文含 `MAISIDECAR-OK`、POST 200 且回显 `MAIPING`、死端口 
 另有四条源码红线：禁 `openConnection(`、要求 `new Packages.java.net.Socket()`、禁 `}finally{`、
 要求那句显式 `sock.close()`。
 
+## v0.4.5：F7 不再贴 Java 栈，并把「代码在用但没绑上」的链接名点出来
+
+v0.4.4 之后真机按 F7 看到的是：
+
+    连不上 sidecar（http://127.0.0.1:8765）
+    JavaException: java.net.ConnectException: Connection refused: getsockopt
+
+传输层其实已经好了 —— 是 sidecar 没在跑。可这句话对用户没有用，所以 v0.4.5 做了两件事：
+
+1. **三种失败分开说**（`main.js` 的 `httpWhy` + `lastLine`）：连接被拒绝 ⇒「sidecar 没在跑（连接被拒绝）」，超时 ⇒「sidecar 没回应（超时）」，其它 ⇒「连不上 sidecar」，各配一句启动命令；并且**只贴最后一行诊断**（超过 200 字截断），不再把 Java 栈整段糊上去。
+2. **F7 点出「代码用到、但既没绑定也不在候选里」的链接名**（`/region` 新增 `missing`）。这是 `core` 那个老问题的机器化：`getLinkName`（`LogicBlock.java:123-135`）把 `core-shard` 变成 `shard`，游戏永远不会交给你一个叫 `core` 的链接名，可代码里写 `core` 很自然。现在面板会显示：
+
+       ⚠ core 代码在用，但没绑上、也不在本区域候选里（同类可用 shard1）
+
+判据在 `tools/logicd.py`（`_linkish` / `_code_idents` / `_result_names`）：
+
+- 一个词要么是方块链接基名，要么是某个方块名的前缀（`core` → `core-shard`）；少于 3 个字母不算；
+- 排除 `@内容`（`@copper` 是物品不是链接）、指令名与 op 名（`mlogcheck.SPECS` / `OP_*`）、结果槽里的名字（每行 token 1）、以及 `turretX` 这类大写后缀变量（`turret` 不因为 `turretX` 出现就被当成链接）；
+- 同基名或同前缀的候选存在时给出替代建议。
+
+`missing` 只报告，**不改代码、不写文件**；写入仍然只走 `build.configure(logic@config)`。
+
 ## 接口契约（sidecar v1）
 
 
