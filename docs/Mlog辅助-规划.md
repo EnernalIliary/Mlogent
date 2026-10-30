@@ -236,6 +236,7 @@ self-repair：门禁返回 ERR 时，把 `findings`（行号 + rid + msg）作�
 | v0.4 AI 面板 + 编辑器审查栏 | 完成 | `MlogAuxiliary/scripts/main.js`（F4 AI 面板、`Vars.ui.logic` 审查栏、设置页分段重排、`maiAi`/`maiReview`）、`tools/logicd.py` 的 `POST /plan`（关键词意图路由 + 参数抽取） | `tests/logicd/` 21 项协议 check（6 条意图 + 2 条参数抽取 + 模糊意图拒绝 + 空意图 400）；`run_ui_smoke.py` 在真引擎里解析 14 个 Table/Cell 方法 + 四条源码红线（closeOnBack / 关闭按钮 / 审查栏注入 / F4 -> AI 面板） |
 | P3 框选 + 快照（第一刀：只读） | 部分完成（v0.4.2） | `main.js` 的 `regionSnapshot()` / `regionText()` / `regionCandidatesText()` / F7 热键 / 控制台 `maiSnapshot`·`maiRegion`·`maiRegionAround`；`tools/logicd.py` 的 `POST /region`（链接候选 + 命名 + 距离判定） | `tests/mlogauxiliary/run_ui_smoke.py` 在真 v160.7 里造 container/switch 后快照出 6 格 1 处理器且 bounds 被 clamp；`tests/logicd/run_logicd_tests.py` 23 项协议 check（含合成快照的候选/编号/`used` 断言与 mschgen 全表零漂移） |
 | P3 框选 + 区域面板（第二刀：面板） | 完成（v0.6.0） | `main.js` 的 `buildRegionTable()` / `showRegionPanel()` / `buildAt()` / `showAiPanel(target)`，`dumpRegion()` 改成 snapshot→region→面板 串行；`MlogAuxiliary/README.md` 新增 v0.6.0 节 | `run_ui_smoke.py` 的 `MAISELF` 行（区域表格 8 行）+ 四条 v0.6.0 源码红线；`gate.py --full` 16/16 |
+| v0.7.0 F2 全图处理器清单 | 完成（v0.7.0） | `main.js` 的 `KEY_LIST` / `scanProcessors()` / `listHead()` / `listRowLabel()` / `buildListTable()` / `showListPanel()` / `openListPanel()` / `jumpTo()`，控制台 `maiList`·`maiListRows`·`maiListPanel` | ui smoke 的 `MAISELF` 清单表格行 + `MAILIST`/`MAILISTROWS` 两行 + 五条源码红线（断言表 L2-40） |
 | P4 队列 + 模型 + 门禁 | 未开始 | — | — |
 | P5 多处理器写入 + 撤销落盘 | 未开始 | — | — |
 

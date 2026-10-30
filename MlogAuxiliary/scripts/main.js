@@ -28,12 +28,13 @@
 function __logicWriterMain(){
     "use strict";
 
-    var MOD_VERSION = "0.6.1";
+    var MOD_VERSION = "0.7.0";
     var URL_KEY     = "mlogauxiliary-url";
     var DEFAULT_URL = "http://127.0.0.1:8765";
     var KEY_PANEL   = ["f4"];      // F4：开面板（F1/F5/F6/F8/F11/F12 与 F9/F10 已被占用）
     var KEY_REGION  = ["f7"];      // F7：扫鼠标周围 10 格，列出链接候选
     var KEY_SELECT  = ["f3"];      // F3：按住 = 鼠标左键拉框（v0.5.0；F8 是游戏控制台，F9/F10 也被占）
+var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下的空键只有 F2，F1/F5/F6/F8/F11/F12 是游戏自己的）
     var TIMEOUT_MS  = 4000;        // 连接超时：sidecar 是本机的，慢就是没开
 
     function log(msg){ print("[mai] " + msg); }
@@ -246,6 +247,40 @@ function __logicWriterMain(){
         return t;
     }
 
+    // ---------------------------------------------------------- 处理器清单（v0.7.0，F2）
+    // 全图扫一遍处理器，按「问题多的排前面」列出来，点一行就跳过去并开 F4 面板。
+    // 这三个只碰 table 的接口（不碰引擎类），所以 selfTest 能用假表数行数。
+    function listHead(res){
+        var errs = 0, warns = 0, i;
+        for(i = 0; i < res.rows.length; i++){ errs += res.rows[i].err; warns += res.rows[i].warn; }
+        return "全图 " + res.rows.length + " 个处理器，ERR " + errs + " / WARN " + warns
+             + "，" + res.ms + " ms"
+             + (res.api === true ? "" : "（快检不可用：只列清单，不判问题）");
+    }
+
+    function listRowLabel(r){
+        var tail = "";
+        if(r.err > 0){ tail += "  ERR " + r.err; }
+        if(r.warn > 0){ tail += "  WARN " + r.warn; }
+        if(r.err === 0 && r.warn === 0){ tail = "  干净"; }
+        return "@" + r.x + "," + r.y + "  " + r.lines + " 行" + tail;
+    }
+
+    function buildListTable(t, res, head, pick){
+        var rows = res.rows || [], max = 24, i;
+        t.add(String(head)).left().row();
+        if(rows.length === 0){ t.add("这张图上没有处理器").left().row(); }
+        for(i = 0; i < rows.length && i < max; i++){
+            (function(row){
+                t.button(listRowLabel(row), function(){ pick(row.x, row.y); })
+                 .width(320).left().row();
+            })(rows[i]);
+        }
+        if(rows.length > max){ t.add("…还有 " + (rows.length - max) + " 个处理器").left().row(); }
+        return t;
+    }
+
+
     // 无 UI 环境下也能验证设置表格的布线：喂一张假表，数它被填了多少行/格。
     // 假表只实现真实页面用到的方法 —— 少实现一个，selfTest 立刻炸；
     // 同时把用到的名字记下来，供 run_ui_smoke 去真引擎里复核「有没有重载歧义」。
@@ -300,8 +335,15 @@ function __logicWriterMain(){
                                      {x: 5, y: 6, block: "micro-processor", links: []}]};
         try{ buildRegionTable(rg.table, fakeSnap, "区域 0,0 - 9,9 方块 4 处理器 2", "候选文本", function(){}); }
         catch(e){ return "区域表格布线失败：" + e; }
+        var ls = fakeTable();
+        var fakeList = {rows: [{x: 1, y: 2, lines: 4, err: 1, warn: 0, rules: "undefined-var"},
+                               {x: 5, y: 6, lines: 2, err: 0, warn: 2, rules: "printflush-clears-buffer"}],
+                        ms: 3, api: true};
+        try{ buildListTable(ls.table, fakeList, listHead(fakeList), function(){}); }
+        catch(e){ return "清单表格布线失败：" + e; }
         return "设置表格可建，填了 " + ft.count() + " 行/格；区域表格 " + rg.count()
-               + " 行；诊断 " + diagLines().length + " 行；用到的方法 " + ft.methods();
+               + " 行；清单表格 " + ls.count() + " 行；诊断 " + diagLines().length
+               + " 行；用到的方法 " + ft.methods();
     }
 
     // 设置分类的图标用原版逻辑徽标（图标字体里的 glyph，和 @editor.worldprocessors 那个按钮同一个）。
@@ -1117,6 +1159,99 @@ function __logicWriterMain(){
             return d;
         }
 
+        // ---------------------------------------------------------- 处理器清单：扫描 + 面板（v0.7.0）
+        // 只读：复用本地快检（quickApi）与 linkNames，不动任何方块。
+        // Groups.build 里既有处理器也有普通建筑，用 isProcessor() 的鸭子类型筛。
+        function scanProcessors(){
+            var rows = [], api = quickApi(), build = gameBuild();
+            var t0 = Packages.java.lang.System.currentTimeMillis();
+            try{
+                Groups.build.each(function(g){
+                    try{
+                        if(!isProcessor(g)){ return; }
+                        var src = String(g.code);
+                        var row = {x: g.tile.x, y: g.tile.y,
+                                   lines: src.length === 0 ? 0 : src.split("\n").length,
+                                   err: 0, warn: 0, links: 0, rules: ""};
+                        try{ row.links = g.links.size; }catch(e){ }
+                        if(api !== null){
+                            var res = api.q.check(api.r, src, linkNames(g), {build: build});
+                            var seen = {};
+                            for(var i = 0; i < res.findings.length; i++){
+                                var f = res.findings[i];
+                                if(f.sev === "ERR"){ row.err++; } else { row.warn++; }
+                                var k = String(f.rid || "?");
+                                if(seen[k] !== true){ seen[k] = true; row.rules += (row.rules === "" ? "" : ",") + k; }
+                            }
+                        }
+                        rows.push(row);
+                    }catch(e){ }
+                });
+            }catch(e){ }
+            rows.sort(function(a, b){
+                if(b.err !== a.err){ return b.err - a.err; }
+                if(b.warn !== a.warn){ return b.warn - a.warn; }
+                if(a.y !== b.y){ return a.y - b.y; }
+                return a.x - b.x;
+            });
+            return {rows: rows, ms: Packages.java.lang.System.currentTimeMillis() - t0,
+                    api: api !== null};
+        }
+
+        function jumpTo(x, y){
+            try{ Core.camera.position.set(x * 8 + 4, y * 8 + 4); }catch(e){ log("camera jump failed: " + e); }
+        }
+
+        function listText(){
+            var res = scanProcessors();
+            var out = [listHead(res)];
+            for(var i = 0; i < res.rows.length && i < 40; i++){
+                out.push("  " + listRowLabel(res.rows[i]));
+            }
+            if(res.rows.length > 40){ out.push("  …还有 " + (res.rows.length - 40) + " 个"); }
+            return out.join("\n");
+        }
+
+        function showListPanel(res){
+            var d = new Packages.arc.scene.ui.Dialog("Mlog辅助 · 处理器清单 v" + MOD_VERSION);
+            d.cont.defaults().pad(4).left();
+            // 同 showRegionPanel：pane() 交回来的是 ScrollPane（没有 add），自己造 host 给它托管。
+            var host = new Packages.arc.scene.ui.layout.Table();
+            host.defaults().pad(2).left();
+            buildListTable(host, res, listHead(res), function(x, y){
+                jumpTo(x, y);
+                var b = buildAt(x, y);
+                try{ d.hide(); }catch(e){ }
+                if(b === null){ hint("@" + x + "," + y + " 上已经没有处理器了"); return; }
+                showAiPanel(b);
+            });
+            try{
+                d.cont.pane(host).height(340).width(560);
+            }catch(e){
+                log("pane() overload unavailable in the list panel: " + e);
+                d.cont.add(host).growX();
+            }
+            d.buttons.defaults().pad(4);
+            d.buttons.button("复制清单", function(){
+                try{ Core.app.setClipboardText(listText()); hint("处理器清单已复制"); }
+                catch(e){ hint("复制失败：" + e); }
+            }).width(160);
+            d.buttons.button("关闭", function(){ d.hide(); }).width(120);
+            d.closeOnBack();
+            d.show();
+            return d;
+        }
+
+        function openListPanel(){
+            var res = scanProcessors();
+            try{ showListPanel(res); }
+            catch(e){
+                log("list panel failed, falling back to text: " + e);
+                popup("Mlog辅助 · 处理器清单", listText());
+            }
+            return res;
+        }
+
         // ---------------------------------------------------------- 动作
 
         function linkList(b){
@@ -1691,6 +1826,10 @@ function __logicWriterMain(){
         api.maiSelDraw = function(ax, ay, bx, by){ return JSON.stringify(selDrawArgs(selRect(ax, ay, bx, by))); };
         api.maiDump = function(x1, y1, x2, y2){ return dumpRegion(x1, y1, x2, y2); };
         api.maiSelRect = function(ax, ay, bx, by){ return JSON.stringify(selRect(ax, ay, bx, by)); };
+        // v0.7.0 F2 处理器清单：maiList 返回文本摘要（无 UI 也能验），maiListRows 返回 JSON 行。
+        api.maiList = function(){ return listText(); };
+        api.maiListRows = function(){ return JSON.stringify(scanProcessors().rows); };
+        api.maiListPanel = function(){ openListPanel(); return "opened"; };
 
         // 挂到脚本作用域（控制台里能直接敲），并读回自检
         var scope = Vars.mods.getScripts().scope;
@@ -1749,6 +1888,10 @@ function __logicWriterMain(){
                             regionAroundBox(rb.tile.x - rr, rb.tile.y - rr,
                                             rb.tile.x + rr, rb.tile.y + rr);
                         }
+                    }
+                    if(KEY_LIST !== null && Core.input.keyTap(Packages.arc.input.KeyCode[KEY_LIST[0]])){
+                        if(!aiShown() && !panelShown() && Core.scene !== null && Core.scene.hasDialog()){ return; }
+                        openListPanel();
                     }
                     // F3 = 鼠标左键：按住就拉框（起点=按下那一刻的鼠标格），松开就出快照。
                     // 没有「就绪」态、不需要点左键，也不弹任何窗（弹窗会抢鼠标）。

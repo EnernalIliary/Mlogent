@@ -238,6 +238,8 @@ def main():
         "print('MAISELF:' + maiSelfTest());",
         "print('MAIDIAG:' + maiDiag().replace(/\\n/g, ' | '));",
         "print('MAISET:' + maiSettings());",
+        "print('MAILIST:' + maiList().split('\\n')[0]);",
+        "print('MAILISTROWS:' + maiListRows());",
     ] + region_probe(srv) + select_probe(srv) + arrow_probe() + [
         "void 0;",
     ])
@@ -249,7 +251,7 @@ def main():
     text = '\n'.join(str(x) for x in out)
     lines = [l for l in text.splitlines()
              if '[mai]' in l or 'mlog-auxiliary' in l
-             or l.startswith(('MAISELF:', 'MAIDIAG:', 'MAISET:'))]
+             or l.startswith(('MAISELF:', 'MAIDIAG:', 'MAISET:', 'MAILIST:', 'MAILISTROWS:'))]
     joined = '\n'.join(lines)
 
     # ---- resolve every Table/Cell method the page actually uses, in the engine
@@ -336,10 +338,17 @@ def main():
         problems.append('maiSelfTest filled no rows')
     if '\u533a\u57df\u8868\u683c' not in joined:          # 区域表格
         problems.append('maiSelfTest did not build the region table')
+    if '\u6e05\u5355\u8868\u683c' not in joined:          # 清单表格 (v0.7.0)
+        problems.append('maiSelfTest did not build the processor list table')
     if '\u6570\u636e\u76ee\u5f55' not in joined or 'mods \u76ee\u5f55' not in joined:
         problems.append('maiDiag is missing a directory line')
     if 'MAISET:no ui' not in joined:
         problems.append('maiSettings should report "no ui" headless')
+    if 'MAILIST:\u5168\u56fe' not in joined:
+        problems.append('maiList did not report a whole-map summary: %r'
+                        % [l for l in lines if l.startswith('MAILIST:')][:1])
+    if 'MAILISTROWS:[' not in joined:
+        problems.append('maiListRows is not returning a JSON array')
     if not used:
         problems.append('maiSelfTest did not report which Table methods it used')
     if missing:
@@ -717,6 +726,17 @@ def main():
         problems.append('showAiPanel() no longer accepts an explicit target build')
     if '(r.x1 - 0.5) * 8' not in code_only or '(r.y1 - 0.5) * 8' not in code_only:
         problems.append('the highlight lost its half-tile offset -- Tile.worldx() is the tile centre')
+    # ---- v0.7.0 F2: whole-map processor list panel
+    if 'var KEY_LIST    = ["f2"];' not in code_only:
+        problems.append('F2 is no longer the processor list hotkey')
+    if 'function scanProcessors(' not in code_only or 'function buildListTable(' not in code_only:
+        problems.append('the processor list is gone (scanProcessors / buildListTable)')
+    if 'function showListPanel(' not in code_only or 'api.maiListPanel = function' not in code_only:
+        problems.append('the processor list panel is gone (showListPanel / maiListPanel)')
+    if 'Core.camera.position.set(x * 8 + 4, y * 8 + 4)' not in code_only:
+        problems.append('clicking a list row no longer jumps the camera to the processor')
+    if 'isProcessor(g)' not in code_only:
+        problems.append('the list scan stopped filtering by duck type (isProcessor)')
 
     if problems:
         print('FAIL ' + '; '.join(problems))

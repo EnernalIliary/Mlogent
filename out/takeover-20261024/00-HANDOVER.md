@@ -1381,3 +1381,23 @@ kb `{"chunks": 6060, "files": 63}`、zip **53,190 B** sha256 `51CA7315...D980CA`
 别去改代码。报告 `out/takeover-20261024/52-select-half-tile.md`。
 
 诚实缺口：半格按源码口径算，观感仍待真机确认。
+
+## §53 v0.7.0 F2 全图处理器清单
+
+用户「下一f」。P3 到 v0.6.1 后游戏内已有 F3 框选 / F4 面板 / F7 链接候选，但「哪台处理器有问题」
+仍要一台台挪鼠标；`maiScan()` 早就能一次扫全图，只是输出在控制台里。v0.7.0 把它做成面板。
+
+**键位**：F2 —— `Binding.java` 里 F1/F5/F6/F8/F11/F12 归游戏，F3/F4/F7 是模组的，F2 是唯一还空着的功能键。
+
+**实现**：`scanProcessors()`（`Groups.build.each` + `isProcessor()` 鸭子类型 → 每台 `api.q.check`，收
+`{x,y,lines,err,warn,links,rules}`，按 ERR→WARN→y→x 排序）、`listHead()`/`listRowLabel()`/`buildListTable()`（纯表格，
+selfTest 假表可数）、`showListPanel()`（Dialog + 自造 host 给 `pane()`，按钮「复制清单」/「关闭」）、
+点一行 `Core.camera.position.set(x*8+4, y*8+4)` + 关面板 + `showAiPanel(buildAt(x,y))`；退路 `popup()` 与
+`maiList`/`maiListRows`/`maiListPanel`。只读。
+
+**复跑**：node --check 通过（101,782 B）；ui smoke PASS（`MAISELF:…清单表格 6 行…`、`MAIDIAG 0.7.0`、
+`MAILIST:全图 0 个处理器`、`MAILISTROWS:[]`）；`gate.py --full` **16/16**（36.3s）；kb `{"chunks": 6061, "files": 63}`；
+zip **55,287 B** sha256 `21FCD283...6B30EB`；装机 5 文件逐字节 OK（main.js 153E99325CB15AF9）。
+
+**诚实缺口**：无头引擎 `Groups.build` 为空，「扫描+排序」只验到 0 处理器；相机跳转不可验。真机需玩家按一次 F2 对数。
+报告 `out/takeover-20261024/53-processor-list.md`；断言表 L2-40；规划 §9 新增一行。
