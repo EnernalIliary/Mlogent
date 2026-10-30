@@ -103,6 +103,9 @@ P3 **不接模型**：只把快照打印/落盘，用来验证「框选到底拿
 **实际落地（v0.4.8）**：拖拽矩形补上了，但热键换成 **F3** —— F7 已被「代码审查」占用，F8 是游戏控制台
 （`Mindustry-Source/core/src/mindustry/input/Binding.java:107`），F9/F10 也被占，f3 是空位。
 松手后先出区域摘要，再把快照 `POST /snapshot` 落盘到 `out/snapshots/`。**队列仍未做**（P4）。
+**实际落地（v0.5.0）**：F3 改成**按住式左键**——按下即开始拉框（起点=按下那一刻的鼠标格），
+松开即出快照，不再需要先“就绪”再点左键；高亮照抄原版选框（`Lines.stroke(2)` + `Pal.accentBack`/`Pal.accent`
+双描边 + 尺寸文本，无半透明填充，见 `Mindustry-Source/core/src/mindustry/input/InputHandler.java:1758-1795`）。
 
 ### 3.2 快照 schema（`snapshot v1`）
 

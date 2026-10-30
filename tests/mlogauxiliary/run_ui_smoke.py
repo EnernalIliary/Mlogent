@@ -63,12 +63,13 @@ def region_probe(srv):
 
 
 def select_probe(srv):
-    """v0.4.8: F3 drag-select -- the drag rectangle and the summary it produces.
+    """v0.5.0: F3 IS the left mouse button -- hold to drag, release to snapshot.
 
-    The mouse itself cannot be driven here, so the two halves that ARE the feature are
-    pinned directly: selRect() must normalise a backwards drag (bottom-right to top-left
-    is the same box), and dumpRegion() must summarise the box without needing a sidecar
-    (a headless engine has no Vars.ui, so the post is skipped instead of throwing).
+    The mouse cannot be driven here, so the state machine is pinned directly: selPress()
+    is the button going down (there is no arming step any more) and selRelease() is it
+    coming up. The highlight must use the vanilla rectangle recipe -- Lines.stroke(2) plus
+    a Pal.accentBack/Pal.accent double outline anchored at the box's LOWER-LEFT corner
+    (InputHandler.java:1758-1795) -- not a translucent fill, and not a centre anchor.
     """
     bx, by = srv.base
     return [
@@ -76,28 +77,35 @@ def select_probe(srv):
         "print('MAIRECT2:' + maiSelRect(%d, %d, %d, %d));" % (bx - 1, by - 1, bx + 4, by + 4),
         "print('MAIDUMP:' + JSON.stringify(maiDump(%d, %d, %d, %d)));"
         % (bx - 1, by - 1, bx + 4, by + 4),
-        # the highlight is one Draw.rect call; pin the overload by reflection instead of
-        # drawing (a headless engine has no GL context, so Draw.rect itself would throw)
+        # the highlight is Lines.rect(x,y,w,h) + Lines.stroke(2) + Draw.color(Color); pin
+        # those overloads by reflection (a headless engine has no GL context, so drawing
+        # itself would throw and the bug would hide in the catch).
+        "var DL = Packages.java.lang.Class.forName('arc.graphics.g2d.Lines');",
+        "var lm = DL.getMethods(), hasLRect = 'NO', hasStroke = 'NO';",
+        "for(var li = 0; li < lm.length; li++){",
+        "  var ln = String(lm[li].getName()), lp = lm[li].getParameterTypes();",
+        "  if(ln === 'rect' && lp.length === 4 && String(lp[0].getName()) === 'float'){ hasLRect = 'YES'; }",
+        "  if(ln === 'stroke' && lp.length === 1 && String(lp[0].getName()) === 'float'){ hasStroke = 'YES'; }",
+        "}",
         "var DD = Packages.java.lang.Class.forName('arc.graphics.g2d.Draw');",
-        "var dm = DD.getMethods(), hasRect = 'NO', hasAlpha = 'NO';",
+        "var dm = DD.getMethods(), hasCol = 'NO';",
         "for(var di = 0; di < dm.length; di++){",
         "  var dn = String(dm[di].getName()), dp = dm[di].getParameterTypes();",
-        "  if(dn === 'rect' && dp.length === 5 && String(dp[0].getName()) === 'arc.graphics.g2d.TextureRegion'){ hasRect = 'YES'; }",
-        "  if(dn === 'alpha' && dp.length === 1 && String(dp[0].getName()) === 'float'){ hasAlpha = 'YES'; }",
+        "  if(dn === 'color' && dp.length === 1 && String(dp[0].getName()) === 'arc.graphics.Color'){ hasCol = 'YES'; }",
         "}",
-        "print('MAIDRAWAPI:' + hasRect + ':' + hasAlpha + ':' + (Packages.mindustry.graphics.Pal.accent === null ? 'noaccent' : 'accent'));",
-        # v0.4.9: pressing F3 must only ARM. The drag then starts at the tile where the
-        # left button goes down -- not at the tile F3 was pressed on. Driving the state
-        # machine directly is the only way to see this without a mouse.
-        "print('MASELSELECT:' + maiSelect());",
-        "print('MASELARM:' + maiSelState());",
+        "print('MAIDRAWAPI:' + hasLRect + ':' + hasStroke + ':' + hasCol + ':' + (Packages.mindustry.graphics.Pal.accentBack === null ? 'noaccentback' : 'accentback'));",
+        # the size label needs the generated Fonts holder (mindustry.gen.Fonts.outline)
+        "var hasFont = 'NO';",
+        "try{ var FC = Packages.java.lang.Class.forName('mindustry.ui.Fonts'); var ff = FC.getField('outline'); if(ff !== null){ hasFont = 'YES'; } }catch(e1){ hasFont = 'NO'; }",
+        "print('MAIFONTAPI:' + hasFont);",
+        # v0.5.0: F3 down = button down (no arming), F3 up = button up
+        "print('MASELIDLE:' + maiSelState());",
         "print('MASELPRESS:' + maiSelPress(%d, %d));" % (bx + 5, by + 5),
+        "print('MASELDOWN:' + maiSelState());",
         "print('MASELMOVE:' + maiSelMove(%d, %d));" % (bx + 9, by + 7),
         "print('MASELREL:' + maiSelRelease());",
         "print('MASELEND:' + maiSelState());",
-        # Draw.rect(region,x,y,w,h) anchors at the CENTRE (Arc Draw.java:378 is
-        # batch.draw(region, x - w/2f, y - h/2f, ...)); passing the corner put the
-        # preview box up-left of the pointer, which read as "centred on the cursor".
+        # the highlight args are the box's LOWER-LEFT corner in world units (x8)
         "print('MASELDRAW:' + maiSelDraw(%d, %d, %d, %d));" % (bx + 5, by + 5, bx + 9, by + 7),
         # the hint must be showInfoFade (a Touchable.disabled label, UI.java:373), never
         # showText -- a Dialog eats the mouse and the drag never starts.
@@ -461,12 +469,29 @@ def main():
     # the popup blocked dragging), and the drag must be anchored at the mouse-down tile.
     for needle, why in (('function hint(', 'the non-blocking hint() is gone'),
                         ('function selPress(', 'selPress() is gone -- the drag has no press anchor'),
-                        ('function selDrawArgs(', 'selDrawArgs() is gone -- the centre anchor is lost'),
+                        ('function selDrawArgs(', 'selDrawArgs() is gone'),
                         ('api.maiSelPress = function', 'the selPress test hook is gone')):
         if needle not in code_only:
             problems.append('v0.4.9: ' + why)
     if 'popup("Mlog辅助 · 框选"' in code_only:
         problems.append('v0.4.9: F3 still pops a Dialog -- a Dialog takes the mouse and the drag never starts')
+    # v0.5.0: F3 is the left mouse button (user 2026-10-30: "f3就是鼠标左键"), and the
+    # highlight copies the vanilla rectangle recipe (InputHandler.java:1758-1795):
+    # Lines.stroke(2) + accentBack/accent double outline, anchored at the lower-left
+    # corner. No arming step, no translucent fill, no keyTap (that only fires on release).
+    for needle, why in (('var selHolding = false', 'the hold state is gone'),
+                        ('function drawSizeText(', 'the vanilla size label is gone'),
+                        ('L.stroke(2);', 'the 2px outline stroke is gone'),
+                        ('Pal.accentBack', 'the accentBack shadow line is gone'),
+                        ('Core.input.keyDown(selKey)', 'F3 is no longer read as a held button')):
+        if needle not in code_only:
+            problems.append('v0.5.0: ' + why)
+    for needle, why in (('selArmed', 'the arming step is back -- F3 must start the drag itself'),
+                        ('D.alpha(0.35)', 'the translucent fill is back -- vanilla is outline only'),
+                        ('keyTap(Packages.arc.input.KeyCode[KEY_SELECT',
+                         'F3 is read as a tap again -- it must be a held button')):
+        if needle in code_only:
+            problems.append('v0.5.0: ' + why)
     # ---- P3 region snapshot, read back from the engine
     snap = None
     for l in text.splitlines():
@@ -540,40 +565,35 @@ def main():
         for piece in ('区域 ', '处理器 1', 'micro-processor'):
             if piece not in dump:
                 problems.append('dump summary is missing %r: %r' % (piece, dump[:160]))
-    # the drag highlight is Draw.rect(TextureRegion,x,y,w,h) + Draw.alpha(); a wrong
-    # overload would only show up as a silent catch() in game, so pin it here.
-    draw_api = None
-    for l in text.splitlines():
-        if l.startswith('MAIDRAWAPI:'):
-            draw_api = l[len('MAIDRAWAPI:'):].split(':')
-    if draw_api is None:
-        problems.append('MAIDRAWAPI printed nothing')
-    elif draw_api[:2] != ['YES', 'YES']:
-        problems.append('Draw.rect(TextureRegion,x,y,w,h)/Draw.alpha(float) missing: %r'
-                        % (draw_api,))
-
-    # ---- v0.4.9: F3 only arms (no Dialog), and the drag is anchored at the mouse-down
-    # tile. v0.4.8 armed at the tile F3 was pressed on AND popped a Dialog, so the world
-    # never saw the click: the "box" that appeared was a 1x1 at the pointer.
+    # ---- v0.5.0: F3 IS the left button. Press starts the drag with no arming step,
+    # release ends it; the highlight is the vanilla outline anchored at the box corner.
     sel = {}
     for l in text.splitlines():
-        for key in ('MASELARM', 'MASELPRESS', 'MASELMOVE', 'MASELREL', 'MASELEND',
-                    'MASELDRAW', 'MAIHINTAPI'):
+        for key in ('MASELIDLE', 'MASELPRESS', 'MASELDOWN', 'MASELMOVE', 'MASELREL',
+                    'MASELEND', 'MASELDRAW', 'MAIDRAWAPI', 'MAIHINTAPI', 'MAIFONTAPI'):
             if l.startswith(key + ':'):
                 sel[key] = l[len(key) + 1:]
-    if 'MASELARM' not in sel:
-        problems.append('maiSelState printed nothing')
-    else:
+
+    def sel_state(key, label):
+        raw = sel.get(key)
+        if raw is None:
+            problems.append('%s printed nothing' % label)
+            return {}
         try:
-            st = json.loads(sel['MASELARM'])
+            return json.loads(raw)
         except Exception as exc:
-            problems.append('maiSelState returned bad JSON: %s' % exc)
-            st = {}
-        if st.get('armed') is not True or st.get('dragging') is not False:
-            problems.append('after F3 the select must be armed and not dragging: %r' % (st,))
+            problems.append('%s returned bad JSON: %s' % (label, exc))
+            return {}
+
+    idle = sel_state('MASELIDLE', 'maiSelState (before press)')
+    if idle.get('holding') is not False or idle.get('dragging') is not False:
+        problems.append('the select must start idle (holding/dragging false): %r' % (idle,))
     if sel.get('MASELPRESS') != 'true' or sel.get('MASELMOVE') != 'true':
-        problems.append('selPress/selMove refused while armed: %r %r'
+        problems.append('selPress/selMove refused a plain press: %r %r'
                         % (sel.get('MASELPRESS'), sel.get('MASELMOVE')))
+    down = sel_state('MASELDOWN', 'maiSelState (while held)')
+    if down.get('holding') is not True or down.get('dragging') is not True:
+        problems.append('pressing F3 must hold AND drag immediately: %r' % (down,))
     want_box = {'x1': bx + 5, 'y1': by + 5, 'x2': bx + 9, 'y2': by + 7, 'w': 5, 'h': 3}
     try:
         got_box = json.loads(sel.get('MASELREL') or '{}')
@@ -583,24 +603,27 @@ def main():
     if got_box != want_box:
         problems.append('the drag box is not anchored at the mouse-down tile: %r wanted %r'
                         % (got_box, want_box))
-    try:
-        end = json.loads(sel.get('MASELEND') or '{}')
-    except Exception as exc:
-        problems.append('maiSelState (after release) returned bad JSON: %s' % exc)
-        end = {}
-    if end.get('armed') is not False or end.get('dragging') is not False:
+    end = sel_state('MASELEND', 'maiSelState (after release)')
+    if end.get('holding') is not False or end.get('dragging') is not False:
         problems.append('releasing did not clear the select state: %r' % (end,))
-    # Draw.rect's x,y is the CENTRE of the quad (Arc Draw.java:378), so the args must be
-    # the box centre: a corner-anchored call drew the preview up-left of the pointer.
-    want_draw = {'x': (bx + 5 + 2.5) * 8, 'y': (by + 5 + 1.5) * 8, 'w': 40, 'h': 24}
+    # vanilla anchors the outline at the box's lower-left corner in world units (x8):
+    # Lines.rect(x, y, w, h) draws from (x, y) up-right, unlike Draw.rect's centre anchor.
+    want_draw = {'x': (bx + 5) * 8, 'y': (by + 5) * 8, 'w': 40, 'h': 24}
     try:
         got_draw = json.loads(sel.get('MASELDRAW') or '{}')
     except Exception as exc:
         problems.append('maiSelDraw returned bad JSON: %s' % exc)
         got_draw = {}
     if got_draw != want_draw:
-        problems.append('the highlight is not centre-anchored: %r wanted %r'
+        problems.append('the highlight is not corner-anchored: %r wanted %r'
                         % (got_draw, want_draw))
+    draw_api = (sel.get('MAIDRAWAPI') or '').split(':')
+    if draw_api[:3] != ['YES', 'YES', 'YES'] or len(draw_api) < 4 or draw_api[3] != 'accentback':
+        problems.append('Lines.rect(float,float,float,float)/Lines.stroke(float)/'
+                        'Draw.color(Color)/Pal.accentBack missing: %r' % (sel.get('MAIDRAWAPI'),))
+    if sel.get('MAIFONTAPI') != 'YES':
+        problems.append('mindustry.gen.Fonts.outline is missing -- the size label has no font: %r'
+                        % (sel.get('MAIFONTAPI'),))
     if sel.get('MAIHINTAPI') != 'YES':
         problems.append('UI.showInfoFade(String) is missing -- the non-blocking hint has no API: %r'
                         % (sel.get('MAIHINTAPI'),))

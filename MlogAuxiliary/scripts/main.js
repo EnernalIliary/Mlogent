@@ -28,12 +28,12 @@
 function __logicWriterMain(){
     "use strict";
 
-    var MOD_VERSION = "0.4.9";
+    var MOD_VERSION = "0.5.0";
     var URL_KEY     = "mlogauxiliary-url";
     var DEFAULT_URL = "http://127.0.0.1:8765";
     var KEY_PANEL   = ["f4"];      // F4：开面板（F1/F5/F6/F8/F11/F12 与 F9/F10 已被占用）
     var KEY_REGION  = ["f7"];      // F7：扫鼠标周围 10 格，列出链接候选
-    var KEY_SELECT  = ["f3"];      // F3：拖拽框选（v0.4.8；F8 是游戏控制台，F9/F10 也被占）
+    var KEY_SELECT  = ["f3"];      // F3：按住 = 鼠标左键拉框（v0.5.0；F8 是游戏控制台，F9/F10 也被占）
     var TIMEOUT_MS  = 4000;        // 连接超时：sidecar 是本机的，慢就是没开
 
     function log(msg){ print("[mai] " + msg); }
@@ -1431,9 +1431,13 @@ function __logicWriterMain(){
         // 以鼠标下的处理器为中心扫固定半径。F8 在游戏里是控制台
         // （Mindustry-Source/core/src/mindustry/input/Binding.java:107 console = KeyCode.f8），
         // F9/F10 也被占，所以框选另开一个空着的键：F3。
-        // 拖拽时的高亮画在世界坐标上（Events.run(Trigger.draw) + Draw.rect），不往场景树里塞元素：
+        // 拖拽时的高亮画在世界坐标上（Events.run(Trigger.draw) + Lines.rect），不往场景树里塞元素：
         // v0.4.1 那次崩溃就是自造结果区引起的，能画的地方就不建 UI。
-        var selArmed = false, selDragging = false;
+        // v0.5.0 起高亮照抄原版选框（InputHandler.drawSelection）：2px 双描边 + 尺寸文本，无填充。
+        // 状态机（纯函数，控制台/自检直接驱动）：**F3 就是鼠标左键**。
+        // 按住 F3 = 按下左键（起点 = 此刻鼠标格），移动鼠标改终点，松开 F3 = 抬起左键并出快照。
+        // 没有「就绪」这个中间态（v0.4.9 是「按 F3 就绪 + 按左键拖」，用户 2026-10-30 要的就是按下即拉框）。
+        var selHolding = false, selDragging = false;
         var selStartX = 0, selStartY = 0, selCurX = 0, selCurY = 0;
 
         // 屏幕 -> 格子。mouseWorldX/Y 已经过相机变换，tileWorld 再按 tilesize 取整。
@@ -1450,12 +1454,10 @@ function __logicWriterMain(){
             return {x1: x1, y1: y1, x2: x2, y2: y2, w: x2 - x1 + 1, h: y2 - y1 + 1};
         }
 
-        // 拖拽状态机（纯函数，控制台/自检都能直接驱动）：按 F3 只是「就绪」，
-        // 起点是**按下左键的那一刻**那一格，不是按 F3 的位置。
-        function selArm(){ selArmed = true; selDragging = false; }
-        function selCancel(){ selArmed = false; selDragging = false; }
+        // selPress = 按下左键，selRelease = 抬起左键。F3 的 keyDown/keyUp 边沿直接映射到这两个上。
         function selPress(x, y){
-            if(!selArmed){ return false; }
+            if(selDragging){ return false; }
+            selHolding = true;
             selDragging = true;
             selStartX = x; selStartY = y; selCurX = x; selCurY = y;
             return true;
@@ -1466,6 +1468,7 @@ function __logicWriterMain(){
             return true;
         }
         function selBox(){ return selRect(selStartX, selStartY, selCurX, selCurY); }
+        function selCancel(){ selHolding = false; selDragging = false; }
         function selRelease(){
             if(!selDragging){ return null; }
             var r = selBox();
@@ -1473,24 +1476,55 @@ function __logicWriterMain(){
             return r;
         }
 
-        // 高亮矩形的绘制参数。**Draw.rect(region,x,y,w,h) 的 x,y 是中心**，不是左上角：
-        // Arc-Source/arc-core/src/arc/graphics/g2d/Draw.java:378 是 `batch.draw(region, x - w/2f, y - h/2f, ...)`。
-        // 传左上角会把方框画到指针的左上、看着像「预览区中心在指针上」—— v0.4.8 第一版就是这么错的。
+        // 高亮参数照原版选框：**左下角 + 宽高**（Lines.rect(x,y,w,h)），不是中心点。
+        // 原版见 Mindustry-Source/core/src/mindustry/input/InputHandler.java:1758-1795 drawSelection()。
+        // tile -> world 是 ×tilesize（8）；result.x = x1*tilesize，宽 = 格数*tilesize。
         function selDrawArgs(r){
-            return {x: (r.x1 + r.w / 2) * 8, y: (r.y1 + r.h / 2) * 8, w: r.w * 8, h: r.h * 8};
+            return {x: r.x1 * 8, y: r.y1 * 8, w: r.w * 8, h: r.h * 8};
         }
 
+        // 原版选框没有半透明填充：Lines.stroke(2) 两道描边，
+        // 先 accentBack 画一条 y-1 的阴影，再 accent 画本体（InputHandler.java:1765-1770）。
         function drawSelection(){
             if(!selDragging){ return; }
             var r = selBox(), a = selDrawArgs(r);
             try{
                 var D = Packages.arc.graphics.g2d.Draw;
+                var L = Packages.arc.graphics.g2d.Lines;
+                L.stroke(2);
+                D.color(Pal.accentBack);
+                L.rect(a.x, a.y - 1, a.w, a.h);
                 D.color(Pal.accent);
-                D.alpha(0.35);
-                D.rect(Packages.mindustry.gen.Tex.whiteui, a.x, a.y, a.w, a.h);
-                D.alpha(1);
+                L.rect(a.x, a.y, a.w, a.h);
                 D.color();
             }catch(e){ /* 画不出来不影响选择本身 */ }
+            drawSizeText(r);
+        }
+
+        // 原版还在光标旁写「宽x高 (面积)」（InputHandler.java:1772-1794）：
+        // Fonts.outline + 1/camerascale 缩放 + Draw.z(Layer.endPixeled)，画完逐项还原。
+        // 字是附加品：任何一步抛异常只丢字，方框照画。
+        function drawSizeText(r){
+            try{
+                // Fonts 是 mindustry.ui.Fonts（不是 gen 包：out/_server160.jar 里只有
+                // mindustry/ui/Fonts.class，写错包名会被 catch 吞掉、字永远画不出来）。
+                var font = Packages.mindustry.ui.Fonts.outline;
+                if(font === null || font === undefined){ return; }
+                var D = Packages.arc.graphics.g2d.Draw;
+                var scale = 1;
+                try{ scale = Vars.renderer.camerascale; }catch(e0){ }
+                if(!(scale > 0)){ scale = 1; }
+                var z = D.z();
+                D.z(Packages.mindustry.core.Layer.endPixeled);
+                font.getData().setScale(1 / scale);
+                font.setColor(Pal.accent);
+                var off = 5 / scale * 8;
+                font.draw(r.w + "x" + r.h + " (" + (r.w * r.h) + ")",
+                          Core.input.mouseWorldX() + off, Core.input.mouseWorldY() + off);
+                font.setColor(Packages.arc.graphics.Color.white);
+                font.getData().setScale(1);
+                D.z(z);
+            }catch(e){ /* 字画不出来只丢字 */ }
         }
 
         function regionSummary(snap){
@@ -1554,22 +1588,21 @@ function __logicWriterMain(){
         function selFinish(){
             var r = selRelease();
             if(r === null){ return null; }
-            // 只点了一下（起点=终点）不算框选：v0.4.8 第一版在这里给出一个 1×1 的「预览区」，
-            // 它正好落在指针上，看起来就像「框选以鼠标为中心」。
+            // 只点了一下（起点=终点）不算框选：给提示，不落盘。
             if(r.w === 1 && r.h === 1){
-                hint("没有拖动：按住左键从一个角拖到另一个角");
+                hint("没有拖动：按住 F3 从一个角拖到另一个角，松开 F3 出快照");
                 return null;
             }
             return dumpRegion(r.x1, r.y1, r.x2, r.y2);
         }
 
+        // F3 是按住式的（=鼠标左键），所以 maiSelect 不再“就绪”，只给提示。
         api.maiSelect = function(){
-            selArm();
-            hint("框选就绪：按住左键拖出矩形，松手出快照；再按 F3 取消");
-            return "框选已就绪";
+            hint("框选：按住 F3 拖出矩形，松开 F3 出快照");
+            return "按住 F3 拖出矩形";
         };
         api.maiSelState = function(){
-            return JSON.stringify({armed: selArmed, dragging: selDragging,
+            return JSON.stringify({holding: selHolding, dragging: selDragging,
                                    startX: selStartX, startY: selStartY,
                                    curX: selCurX, curY: selCurY});
         };
@@ -1638,26 +1671,21 @@ function __logicWriterMain(){
                                             rb.tile.x + rr, rb.tile.y + rr);
                         }
                     }
-                    // F3 拖拽框选：按一次就绪 -> 按住左键拖 -> 松手出快照；再按一次取消。
-                    if(KEY_SELECT !== null && Core.input.keyTap(Packages.arc.input.KeyCode[KEY_SELECT[0]])){
-                        if(selArmed){
-                            selCancel();
-                            hint("框选已取消");
-                        }else if(Core.scene === null || !Core.scene.hasDialog()){
-                            // 只置就绪，不弹窗（弹窗会抢鼠标）；起点等按下左键再定。
-                            selArm();
-                            hint("框选就绪：按住左键拖出矩形，松手出快照；再按 F3 取消");
-                        }
-                    }
-                    if(selArmed){
-                        var smt = mouseTile();
-                        var sdown = Core.input.keyDown(Packages.arc.input.KeyCode.mouseLeft);
-                        if(!selDragging){
-                            // 起点取按下左键的那一格 —— 按 F3 时鼠标在哪完全不参与。
-                            if(sdown && smt !== null){ selPress(smt.x, smt.y); }
-                        }else{
-                            if(smt !== null){ selMove(smt.x, smt.y); }
-                            if(!sdown){ selFinish(); }
+                    // F3 = 鼠标左键：按住就拉框（起点=按下那一刻的鼠标格），松开就出快照。
+                    // 没有「就绪」态、不需要点左键，也不弹任何窗（弹窗会抢鼠标）。
+                    if(KEY_SELECT !== null){
+                        var selKey = Packages.arc.input.KeyCode[KEY_SELECT[0]];
+                        var selDown = Core.input.keyDown(selKey);
+                        if(selDown && !selHolding){
+                            if(Core.scene === null || !Core.scene.hasDialog()){
+                                var s0 = mouseTile();
+                                if(s0 !== null){ selPress(s0.x, s0.y); }
+                            }
+                        }else if(selDown && selDragging){
+                            var s1 = mouseTile();
+                            if(s1 !== null){ selMove(s1.x, s1.y); }
+                        }else if(!selDown && selHolding){
+                            selFinish();
                         }
                     }
                 }catch(e){ /* 每帧回调里绝不抛出去 */ }

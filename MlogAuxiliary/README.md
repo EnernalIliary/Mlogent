@@ -1,4 +1,4 @@
-# MlogAuxiliary —— 游戏内Mlog辅助（P1 + P2 + 设置界面 + AI 面板 + 区域快照，v0.4.2）
+# MlogAuxiliary —— 游戏内Mlog辅助（P1 + P2 + 设置界面 + AI 面板 + 区域快照，v0.5.0）
 
 把「写 mlog」这件事从玩家手里拿走：**说意图，不写代码**。
 
@@ -354,6 +354,30 @@ Arc 的 `Table.cells` 是私有字段（`arc/scene/ui/layout/Table.java:35`）�
 2. 「没有链接」和「读不到链接表」必须分开：`linkNames()` 读不到时返回 `null`（不是 `[]`），`quickcheck.check()` 收到 `null` 就整段跳过链接槽判据，并在 `stats.linkKnown` 里记下来；审查栏统计行显示「链接 ?（读不到处理器）」而不是「链接 0」。
 
 真引擎对照探针（`out/_v47_probe.py`）：放处理器、用 `msch.build_logic_data` 写带两条链接的载荷，读回 `links.size=2`，把真链接名喂 `quickcheck.check` ⇒ 零命中；喂空数组 ⇒ 第 1、3 行各一条 WARN。所以快检逻辑本身没错，错的是喂进去的东西。
+
+## v0.5.0：F3 就是鼠标左键，高亮改成原版选框样子
+
+用户原话（m11493）：「框选区域是ohno，尝试做成原版的矩形选框风格。而且我要的是按下快捷建后就直接拉矩形，相当于f3就是鼠标左键。」
+
+两件事：
+
+1. **F3 是按住式的左键，不再有「就绪」这个中间态。**
+   按住 F3 = 按下左键（起点 = 此刻鼠标格），移动鼠标改终点，**松开 F3 = 抬起左键并出快照**。
+   v0.4.9 的“按 F3 就绪 → 再按住左键拖”已经去掉：框选不再碰鼠标左键。
+2. **高亮照抄原版选框**（`InputHandler.java:1758-1795` `drawSelection`）：
+   `Lines.stroke(2)` 两次描边，先 `Pal.accentBack` 画一条 `y-1` 的阴影，再 `Pal.accent` 画本体，
+   坐标用**左下角 + 宽高**（`Lines.rect(x,y,w,h)`）；另外在光标旁写「宽x高 (面积)」
+   （`mindustry.ui.Fonts.outline` + `1/camerascale` 缩放 + `Draw.z(Layer.endPixeled)`，画完逐项还原）。
+   原版**没有半透明填充**，所以 v0.4.8/v0.4.9 那个 `Draw.alpha(0.35)` 的方块去掉了。
+
+顺带修掉一个潜在错误：`Fonts` 是 **`mindustry.ui.Fonts`**，不是 `mindustry.gen.Fonts`
+（`out/_server160.jar` 里只有 `mindustry/ui/Fonts.class`）—— 写错包名会被 `catch` 吞掉，字永远画不出来。
+
+测试：`tests/mlogauxiliary/run_ui_smoke.py` 的 `select_probe()` 直接驱动状态机
+（`maiSelPress` 就是按下、`maiSelRelease` 就是抬起，中间没有 arm），并用反射钉住
+`Lines.rect(float,float,float,float)` / `Lines.stroke(float)` / `Draw.color(Color)` / `Pal.accentBack` / `mindustry.ui.Fonts.outline`；
+源码红线：必须有 `L.stroke(2);`、`Pal.accentBack`、`function drawSizeText(`、`Core.input.keyDown(selKey)`，
+不得出现 `selArmed`、`D.alpha(0.35)`、`keyTap(Packages.arc.input.KeyCode[KEY_SELECT`。
 
 ## v0.4.9：修掉 F3 的两个手感 bug
 

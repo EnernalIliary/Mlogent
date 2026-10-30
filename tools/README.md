@@ -160,7 +160,7 @@ P2–P5 的路线（框选 → 队列 → 模型 → 写入）在 `docs/Mlog辅�
 （`:736`）、`getLinkName`（`:123-135`）、`findLinkName`（`:331-360`）；`tools/mschgen.py:547` 的
 `link_name_for()` 是同一套规则，测试拿 `tools/block_sizes.json` 全表 446 个方块做零漂移比对。
 
-`POST /snapshot` 是**落盘**入口（v0.4.8，F3 拖拽框选）：模组把 `regionSnapshot()` 的结果原样发来，
+`POST /snapshot` 是**落盘**入口（v0.4.8 起，F3 拖拽框选；v0.5.0 起 F3 是**按住式左键**，按下即拉框、松开即出快照）：模组把 `regionSnapshot()` 的结果原样发来，
 它校验 `schema == 1`、`bounds` 四个整数字段后写成 `out/snapshots/snap-<YYYYmmdd-HHMMSS>-<sha1 前 8>.json`
 （`indent=1, sort_keys=True`，同一份快照写两次会因时间戳不同得到两个文件，这是故意的：留时间线），
 返回 `{ok, path, bytes, bounds, cells, processors}`，`path` 是相对仓库根的正斜杠路径。
