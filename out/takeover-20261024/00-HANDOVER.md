@@ -1605,3 +1605,49 @@ in-process 探针 ok（message3 入选、单条 INFO）；同族全缺仍 ERR `t
 模组侧**一行未改**（`main.js` 没动、`mod.hjson` 不 bump、不重打 zip），因为替换在侧车 `compose()` 内部，
 面板拿到的还是同一条 `/compose` 响应。改过 `tools/logicd.py` 记得重启 sidecar（§59）。
 下一刀：①面板记住上次选中的 provider ②`rejected` 作业给「加消息块」可点提示 ③自由档 `needs_links` 也走同族兜底。
+
+## 61 · v0.10.0：撤销跨重启 —— 写入前把原代码落盘（P5 第一刀）
+
+P5（多处理器事务写入 + 撤销落盘，`docs/Mlog辅助-规划.md` §5）里第一件能独立做的事：撤销不再只活在内存里。
+
+### 61.1 症状
+
+写错了想回滚，可 `undoStack` 活在 Rhino 全局对象里，**关掉游戏就没了**；第二天开游戏，处理器上是坏代码，
+原来那份只能靠存档备份或手抄。
+
+### 61.2 改动
+
+| 文件 | 改动 |
+| --- | --- |
+| `MlogAuxiliary/scripts/main.js` | 102,341 → 108,228 B：新增 `UNDO_KEEP`/`undoRoot`/`linkPairs`/`snapshotText`/`undoFilesOf`/`undoFiles`/`saveUndoTo`/`saveUndo`/`undoFromDisk`/`undoInfo`；`writeBuild()` 写前落盘并把快照名塞进成功文案；`undo()` 两级；设置页多一行两个按钮；控制台 `maiUndo`/`maiUndoInfo`/`maiUndoProbe`；`selfTest()` 加序列化往返 |
+| `MlogAuxiliary/mod.hjson` | 0.9.1 → 0.10.0，description 末尾补撤销目录与控制台函数 |
+| `MlogAuxiliary/README.md` | 标题改 v0.10.0 + 新增整节「撤销能跨重启了」 |
+| `tests/mlogauxiliary/run_ui_smoke.py` | 新探针行 `MAIUNDO:`、过滤 tuple 加前缀、断言 `MAIUNDO:ok `、三条 v0.10.0 源码红线 |
+| `docs/Mlog辅助-规划.md` | §5 加「第一刀（v0.10.0，已落地）」小节；§9 P5 行 未开始 → 部分完成 |
+| `docs/断言表.md` / `docs/验证记录.md` | 新增 L2-46（撤销快照往返） |
+
+快照格式：`<dataDir>/mlogauxiliary/undo/<毫秒时间戳>_<x>_<y>.json` = `{schema,x,y,at,why,code,links[]}`，
+`why` 是 `write:<模板id>`，上限 40 份。**只还原 `b.code`**（模板的链接表来自处理器当前链接，
+回滚代码就够；链接表存下来是给第二刀与排查用的）。
+
+### 61.3 三个坑
+
+1. `Vars.dataDirectory` 是 Arc 的 **`Fi`**（`Arc-Source/arc-core/src/arc/files/Fi.java`），不是 `FileHandle`；
+   有 `child/writeString(String,boolean)/readString/list(suffix)/mkdirs/delete/deleteDirectory`，没有 `listFiles()`。
+2. `writeString(text, false)` 第二参数是 **append**：传 `true` 会把新快照接在旧内容后面，读回来是坏 JSON。
+3. `undoFromDisk()` 不能假设 `Vars.world.build(x,y)` 一定是处理器：拆掉的/换图后是空气，`b.code` 是 `undefined`，
+   必须跳过继续往前，否则一份坏快照锁死整个撤销。
+
+### 61.4 复跑
+
+`run_ui_smoke.py` EXIT=0（`MAIUNDO:ok 1793373825237_3_4.json`、`MAISELF` 含「撤销快照 ok」、表格方法 18 个全 OK_SKIN、
+假表 70 行/格、作业三路仍全过、`MAIDIAG:版本：0.10.0（游戏构建 160）`）；
+`gate.py --full` 首跑 15/16（kb stale）→ `kb.py build` `{chunks 6360, files 65}` → **16/16 in 37.4s**。
+
+### 61.5 边界与下一刀
+
+磁盘快照只回滚代码不回滚链接表；跨重启回滚只有引擎内探针、没有「关游戏再开」的真机手验；
+`saveUndo` 失败不阻断写入（撤销是安全网，不是写入前置）。
+下一刀（P5 剩余）：一个作业产出 N 段代码的事务写入 + 整体回滚、写前「处理器在你提交后被改过」的冲突提示 ——
+两者都要先扩 sidecar 作业契约（job → N 段代码）。另：候选③（自由档同族兜底）**已判定不做**（会削弱 v0.9.0 零链接门禁），
+候选①（面板记住 provider）**不存在**（provider 是 sidecar 启动参数，模组侧没有这个 UI）。

@@ -229,6 +229,21 @@ CLI 无端点 exit 2、replay 文件回放、CLI `--jobs-drain` 用 replay 跑�
 - 联机：写入走 `build.configure`（服务端执行），客户端只负责排队与提示；权限不足时明确报「无权限」。
 - 冲突：写入前重读处理器 code，与快照不一致 → 提示「处理器在你提交后被改过」，让你选覆盖或放弃。
 
+### 第一刀（v0.10.0，已落地）：撤销落盘
+
+只做上面第二条里与「撤销」有关的部分，而且**故意做得比规划更小**：
+
+- 目录是平的 `<dataDir>/mlogauxiliary/undo/<毫秒时间戳>_<x>_<y>.json`，不是 `<jobid>/` 子目录 ——
+  一个作业当前只写一台处理器（事务写入还没做），按作业分目录等于每个目录一个文件，反而更难找「最新一份」。
+  时间戳前缀让文件名排序 = 时间顺序，撤销永远取最新那份。
+- 每份快照存 `{schema, x, y, at, why, code, links[]}`（`why` 是 `write:<模板id>`，将来作业档会是 `job:<id>`）。
+- 只还原代码：模板生成的链接表来自处理器**当前**的链接，回滚 `b.code` 就够了（`updateCode`）；
+  链接表一并存下来是为了第二刀（事务写入时按快照逐字节还原）与人工排查。
+- 上限 40 份，写新的就删最旧的；处理器已被拆掉（`Vars.world.build(x,y)` 不是处理器）的快照跳过并继续往前。
+- 内存栈仍然优先（关游戏前撤销最快，也不需要落盘）；磁盘只是「关游戏之后」的兜底。
+
+**还没做**：一个作业产出多段代码时的事务写入与整体回滚、写前「处理器被改过」的冲突提示（都要先扩 sidecar 的作业契约）。
+
 ## 6. 风险表
 
 | 风险 | 对策 |
@@ -275,7 +290,7 @@ CLI 无端点 exit 2、replay 文件回放、CLI `--jobs-drain` 用 replay 跑�
 | v0.9.0 删掉 F4 热键 + 零链接门禁 | 完成（v0.9.0） | `main.js`（无 `KEY_PANEL` / `toggleAiPanel`）/ `mlogcheck.analyse(links_authoritative=)` / `logicd.analyse()` / `jobqueue._materialize()` / `linkListOrNull()` | ui smoke 反向红线 + `MAIJOBZERO`；`test_jobs()` 12 项（断言表 L2-43 / L2-44） |
 | v0.7.0 F2 全图处理器清单 | 完成（v0.7.0） | `main.js` 的 `KEY_LIST` / `scanProcessors()` / `listHead()` / `listRowLabel()` / `buildListTable()` / `showListPanel()` / `openListPanel()` / `jumpTo()`，控制台 `maiList`·`maiListRows`·`maiListPanel` | ui smoke 的 `MAISELF` 清单表格行 + `MAILIST`/`MAILISTROWS` 两行 + 五条源码红线（断言表 L2-40） |
 | P4 队列 + 模型 + 门禁 | 完成（三刀：v0.8.0 / v0.8.1 / 本刀） | `tools/jobqueue.py`（状态机 + 双写落盘 + `FATAL_RIDS` 门禁）/ `tools/mlogprovider.py`（§4.4 三段 prompt + `parse_reply` + `HttpProvider` + 录制回放）/ `tools/logicd.py` 的 `/jobs` 三端点与 `--jobs-provider llm`；模组侧 `jobBody()`/`jobTick()`/`renderJob()`/`cancelJob()` | `test_jobs()` 12 项 + `test_provider()` 9 项（断言表 L2-41 / L2-44 / L2-45）；ui smoke 三路作业探针（干净 done / 门禁拒绝 / 零链接拒绝） |
-| P5 多处理器写入 + 撤销落盘 | 未开始 | — | — |
+| P5 多处理器写入 + 撤销落盘 | 部分完成（第一刀 v0.10.0：撤销落盘；事务写入与冲突提示未做） | `MlogAuxiliary/scripts/main.js` 的 `undoRoot`/`snapshotText`/`saveUndoTo`/`undoFromDisk`/`undoInfo`、`writeBuild` 里记快照名、设置页「撤销上次写入」/「撤销快照」、控制台 `maiUndo`/`maiUndoInfo`/`maiUndoProbe` | ui smoke 的 `MAIUNDO` 行（真引擎里写快照→读回比对→删目录）+ `MAISELF` 的「撤销快照 ok」+ 三条 v0.10.0 源码红线（断言表 L2-46） |
 
 P2 期间确认的第三条环境事实：**真 v160.7 的 Rhino 里 `String.prototype.split(正则)` 对带 `+` 量词的模式
 等价于空匹配**（`"abc def".split(/\s+/)` → `["a","b","c","d","e","f"]`；`split(/ /)`、`split(/\s/)`、

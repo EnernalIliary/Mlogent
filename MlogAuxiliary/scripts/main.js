@@ -28,7 +28,7 @@
 function __logicWriterMain(){
     "use strict";
 
-    var MOD_VERSION = "0.9.0";
+    var MOD_VERSION = "0.10.0";
     var URL_KEY     = "mlogauxiliary-url";
     var DEFAULT_URL = "http://127.0.0.1:8765";
     var KEY_REGION  = ["f7"];      // F7：扫鼠标周围 10 格，列出链接候选
@@ -220,6 +220,10 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
             function(){ settingsDone = false; registerSettings(); },
             function(){ showReview(); }
         ], mk);
+        buttonRow(t, ["撤销上次写入", "撤销快照"], [
+            function(){ var r = undo(); if(Vars.ui !== null){ Vars.ui.showText("Mlog辅助 · 撤销", r); } },
+            function(){ if(Vars.ui !== null){ Vars.ui.showText("Mlog辅助 · 撤销", undoInfo()); } }
+        ], mk);
         section(t, "说明");
         kv(t, "", "F3 = AI 辅助编程（单格选中处理器 -> 描述意图 -> 生成 -> 预检 -> 写入）；原版逻辑编辑器底部会多一条「审查」状态栏。地址改完按回车保存。sidecar 不开也能进游戏，只是生成与模板不可用。", mk);
     }
@@ -340,9 +344,16 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
                         ms: 3, api: true};
         try{ buildListTable(ls.table, fakeList, listHead(fakeList), function(){}); }
         catch(e){ return "清单表格布线失败：" + e; }
+        var fakeB = {tile: {x: 3, y: 4}, code: "set n 0\nprint n\nend", links: {size: 0}};
+        var snapOk = "no";
+        try{
+            var back = parse(snapshotText(fakeB, "selftest"));
+            snapOk = (back !== null && back.x === 3 && back.y === 4 && back.code === fakeB.code) ? "ok" : "bad";
+        }catch(e){ snapOk = "fail"; }
+        if(snapOk !== "ok"){ return "撤销快照序列化失败：" + snapOk; }
         return "设置表格可建，填了 " + ft.count() + " 行/格；区域表格 " + rg.count()
                + " 行；清单表格 " + ls.count() + " 行；诊断 " + diagLines().length
-               + " 行；用到的方法 " + ft.methods();
+               + " 行；撤销快照 " + snapOk + "；用到的方法 " + ft.methods();
     }
 
     // 设置分类的图标用原版逻辑徽标（图标字体里的 glyph，和 @editor.worldprocessors 那个按钮同一个）。
@@ -546,6 +557,95 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
                    "  链接 " + b.links.size;
         }
 
+        // ------------------------------------------------- 撤销快照（P5 第一刀：落盘）
+        // 内存栈（undoStack）重启就没了，而「写错了想回滚」常常发生在第二天。
+        // 每次写入前把「坐标 + 原代码 + 链接表 + 时间」写成
+        // <dataDir>/mlogauxiliary/undo/<毫秒时间戳>_<x>_<y>.json —— 文件名可排序 = 时间顺序。
+        // 回滚只还原代码（写入从不动链接表），走 build.updateCode()，联机下仍然只是本地生效。
+        var UNDO_KEEP = 40;
+
+        function undoRoot(){
+            try{
+                var fi = Vars.dataDirectory.child("mlogauxiliary").child("undo");
+                if(!fi.exists()){ fi.mkdirs(); }
+                return fi;
+            }catch(e){ log("undo dir failed: " + e); return null; }
+        }
+
+        function linkPairs(b){
+            var out = [], ls = b && b.links, i;
+            try{
+                for(i = 0; i < ls.size; i++){
+                    var l = ls.get(i);
+                    out.push({name: String(l.name), x: l.x, y: l.y,
+                              block: (l.block && l.block.name) ? String(l.block.name) : ""});
+                }
+            }catch(e){ }
+            return out;
+        }
+
+        function snapshotText(b, why){
+            return JSON.stringify({schema: 1, x: b.tile.x, y: b.tile.y, at: Date.now(),
+                                   why: String(why || ""),
+                                   code: String(b.code), links: linkPairs(b)});
+        }
+
+        function undoFilesOf(root){
+            var out = [], names = [], files, i;
+            if(root === null){ return out; }
+            try{
+                files = root.list(".json");
+                for(i = 0; i < files.length; i++){ names.push(String(files[i].name())); }
+                names.sort();
+                names.reverse();                       // newest first
+                for(i = 0; i < names.length; i++){ out.push(root.child(names[i])); }
+            }catch(e){ log("undo list failed: " + e); }
+            return out;
+        }
+
+        function undoFiles(){ return undoFilesOf(undoRoot()); }
+
+        function saveUndoTo(root, b, why){
+            if(root === null){ return null; }
+            var name = Date.now() + "_" + b.tile.x + "_" + b.tile.y + ".json";
+            try{ root.child(name).writeString(snapshotText(b, why), false); }
+            catch(e){ log("undo save failed: " + e); return null; }
+            var files = undoFilesOf(root), i;
+            for(i = UNDO_KEEP; i < files.length; i++){ try{ files[i].delete(); }catch(e2){ } }
+            return name;
+        }
+
+        function saveUndo(b, why){ return saveUndoTo(undoRoot(), b, why); }
+
+        // 从磁盘上最新的一份快照回滚。处理器已经不存在（拆了 / 换图了）就跳过，继续往前找。
+        function undoFromDisk(){
+            var files = undoFiles(), i;
+            for(i = 0; i < files.length; i++){
+                var f = files[i], name = String(f.name()), parts = name.split("_");
+                if(parts.length < 3){ continue; }
+                var x = parseInt(parts[1], 10), y = parseInt(parts[2], 10);
+                if(isNaN(x) || isNaN(y)){ continue; }
+                var snap = null;
+                try{ snap = parse(f.readString("UTF-8")); }catch(e){ continue; }
+                if(!snap || typeof snap.code !== "string"){ continue; }
+                var b = null;
+                try{ b = Vars.world.build(x, y); }catch(e2){ b = null; }
+                if(b === null || b.code === undefined){ continue; }
+                try{
+                    b.updateCode(snap.code);
+                    try{ f.delete(); }catch(e3){ }
+                    return "已从磁盘快照回滚 @ " + x + "," + y + "（"
+                         + snap.code.split("\n").length + " 行，快照 " + name + "）";
+                }catch(e4){ return "回滚失败：" + e4; }
+            }
+            return "磁盘上没有可回滚的快照";
+        }
+
+        function undoInfo(){
+            var root = undoRoot();
+            return "撤销快照 " + undoFilesOf(root).length + " 份（目录 " + dirText(root) + "）";
+        }
+
         // ---------------------------------------------------------- 写入
         // 唯一的写入口。三道闸：0 ERR、目标存在、载荷由 sidecar 生成（模组不自己拼代码）。
 
@@ -556,7 +656,8 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
             }
             if(!res.bytes_b64){ return "拒绝写入：sidecar 没有返回载荷"; }
             try{
-                undoStack.push({b: b, code: String(b.code)});
+                var snapName = saveUndo(b, "write:" + String(res.template || "code"));
+                undoStack.push({b: b, code: String(b.code), snap: snapName});
                 if(undoStack.length > 20){ undoStack.shift(); }
                 b.configure(base64Bytes(res.bytes_b64));
                 return "已写入 " + (res.template || "") + "（" + res.statements + " 条语句，"
@@ -567,12 +668,15 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
         }
 
         function undo(){
-            if(!undoStack.length){ return "没有可撤销的写入"; }
-            var snap = undoStack.pop();
-            try{
-                snap.b.updateCode(snap.code);      // P1：仅本地回滚，联机下请重进地图
-                return "已回滚到上一版代码（" + String(snap.code).split("\n").length + " 行）";
-            }catch(e){ return "回滚失败：" + e; }
+            if(undoStack.length){
+                var snap = undoStack.pop();
+                try{
+                    snap.b.updateCode(snap.code);      // P1：仅本地回滚，联机下请重进地图
+                    if(snap.snap){ try{ undoRoot().child(snap.snap).delete(); }catch(e){ } }
+                    return "已回滚到上一版代码（" + String(snap.code).split("\n").length + " 行）";
+                }catch(e){ return "回滚失败：" + e; }
+            }
+            return undoFromDisk();
         }
 
         // ---------------------------------------------------------- 展示
@@ -1824,6 +1928,26 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
         api.maiPanel = function(){ openPanel(); return "opened"; };
         api.maiSettings = function(){ return registerSettings() ? "registered" : "no ui"; };
         api.maiSelfTest = function(){ return selfTest(); };
+        api.maiUndo = function(){ return undo(); };
+        api.maiUndoInfo = function(){ return undoInfo(); };
+        // 落盘路径的真引擎自检（ui smoke 用）：写一份假快照进 <dataDir>/mlogauxiliary/selftest，
+        // 读回来比对 x/y/code，然后删掉文件和目录 —— 只在测试里跑，正常游戏不碰这个目录。
+        api.maiUndoProbe = function(){
+            var root = null, made = false, name = null, out = "no-dir";
+            try{
+                root = Vars.dataDirectory.child("mlogauxiliary").child("selftest");
+                if(!root.exists()){ root.mkdirs(); made = true; }
+                var b = {tile: {x: 3, y: 4}, code: "set n 0\nprint n\nend", links: {size: 0}};
+                name = saveUndoTo(root, b, "selftest");
+                var back = parse(root.child(name).readString("UTF-8"));
+                var ok = (back !== null && back.x === 3 && back.y === 4 && back.code === b.code
+                          && back.links.length === 0);
+                root.child(name).delete();
+                if(made){ root.deleteDirectory(); }
+                out = ok ? ("ok " + name) : "bad";
+            }catch(e){ out = "fail " + e; }
+            return out;
+        };
         api.maiAi = function(){ showAiPanel(); return "opened"; };
         api.maiReview = function(){ return reviewText(); };
         // 测试钩子（tests/mlogauxiliary/run_ui_smoke.py 用）：喂一个假 statements

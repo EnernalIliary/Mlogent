@@ -295,6 +295,7 @@ def main():
         "print('MAISET:' + maiSettings());",
         "print('MAILIST:' + maiList().split('\\n')[0]);",
         "print('MAILISTROWS:' + maiListRows());",
+        "print('MAIUNDO:' + maiUndoProbe());",
     ] + region_probe(srv) + select_probe(srv) + arrow_probe() + [
         "void 0;",
     ])
@@ -306,7 +307,8 @@ def main():
     text = '\n'.join(str(x) for x in out)
     lines = [l for l in text.splitlines()
              if '[mai]' in l or 'mlog-auxiliary' in l
-             or l.startswith(('MAISELF:', 'MAIDIAG:', 'MAISET:', 'MAILIST:', 'MAILISTROWS:'))]
+             or l.startswith(('MAISELF:', 'MAIDIAG:', 'MAISET:', 'MAILIST:', 'MAILISTROWS:',
+                              'MAIUNDO:'))]
     joined = '\n'.join(lines)
 
     # ---- resolve every Table/Cell method the page actually uses, in the engine
@@ -404,6 +406,9 @@ def main():
                         % [l for l in lines if l.startswith('MAILIST:')][:1])
     if 'MAILISTROWS:[' not in joined:
         problems.append('maiListRows is not returning a JSON array')
+    if 'MAIUNDO:ok ' not in joined:
+        problems.append('v0.10.0: the undo snapshot did not round-trip through the real '
+                        'filesystem: %r' % [l for l in lines if l.startswith('MAIUNDO:')][:1])
     if not used:
         problems.append('maiSelfTest did not report which Table methods it used')
     if missing:
@@ -598,6 +603,14 @@ def main():
                          'the 404 no such endpoint branch is gone')):
         if needle not in code_only:
             problems.append('v0.9.1: ' + why)
+    for needle, why in (('function saveUndoTo(',
+                         'the on-disk undo snapshot writer is gone'),
+                        ('function undoFromDisk(',
+                         'the disk undo path is gone'),
+                        ('undoStack.push({b: b, code: String(b.code), snap: snapName})',
+                         'writeBuild no longer records the snapshot name')):
+        if needle not in code_only:
+            problems.append('v0.10.0: ' + why)
     if '"直接生成"' not in code_only:                 # 直接生成
         problems.append('v0.8.0: the /plan fallback button is gone -- an older sidecar '
                         'without /jobs would leave the panel unusable')
@@ -956,7 +969,7 @@ def main():
               % (zero.get('state'), ','.join(sorted({str(f.get('rid')) for f in
                                                      (zero.get('findings') or [])}))))
     for l in lines:
-        if l.startswith(('MAISELF:', 'MAIDIAG:')):
+        if l.startswith(('MAISELF:', 'MAIDIAG:', 'MAIUNDO:')):
             print('  ' + l[:300])
     return 0
 
