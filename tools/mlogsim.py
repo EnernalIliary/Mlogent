@@ -125,12 +125,19 @@ Java 21+ is required (the Steam jlink image lacks java.logging).
 v146 is kept for comparison only: it lacks `LogicBlock.readable`, so
 cross-processor `read` by name always yields null there.
 
+Child lifetime: the Java child goes into a Windows job object with
+KILL_ON_JOB_CLOSE, so however this process ends -- a gate timeout, Ctrl-C, a
+crash -- the kernel takes the server down with it. It used to survive (61 of
+them once starved the machine until every probe failed with "insufficient
+memory"). `--sweep-orphans` kills leftovers from older runs (only our jars,
+only when the parent is gone) and exits.
 Note: micro-processor runs 2 instructions/tick, logic-processor 8,
 hyper-processor 25. `--steps` counts *instructions*, not ticks.
 """
 from __future__ import annotations
 
 import argparse
+import atexit
 import json
 import os
 import queue
@@ -194,6 +201,148 @@ def _abs_path(p: str) -> str:
     return p
 
 
+# ------------------------------------------------------------- child lifetime
+# The Java child used to outlive its Python parent: when the parent was killed
+# (a gate timeout, Ctrl-C, a crashed probe) the JVM kept the pipe and stayed
+# resident. 61 of them once piled up and starved the box so badly that the whole
+# probes tier failed with "There is insufficient memory for the Java Runtime
+# Environment to continue". On Windows the fix is a job object with
+# KILL_ON_JOB_CLOSE: the job handle belongs to *this* process, so whenever this
+# process ends for any reason the kernel kills every child inside it. atexit is
+# the polite path; the job object is the one that survives a hard kill.
+_LIVE_SERVERS = []
+
+
+def _win_kill_with_parent(proc):
+    """Put a Windows child in a job that dies with this process; None elsewhere."""
+    if os.name != "nt":
+        return None
+    try:
+        import ctypes
+        from ctypes import wintypes
+
+        k32 = ctypes.WinDLL("kernel32", use_last_error=True)
+        k32.CreateJobObjectW.restype = ctypes.c_void_p
+        k32.CreateJobObjectW.argtypes = [ctypes.c_void_p, ctypes.c_wchar_p]
+        k32.SetInformationJobObject.argtypes = [ctypes.c_void_p, ctypes.c_int,
+                                                ctypes.c_void_p, wintypes.DWORD]
+        k32.AssignProcessToJobObject.argtypes = [ctypes.c_void_p, ctypes.c_void_p]
+        k32.CloseHandle.argtypes = [ctypes.c_void_p]
+
+        class _IO_COUNTERS(ctypes.Structure):
+            _fields_ = [("ReadOperationCount", ctypes.c_ulonglong),
+                        ("WriteOperationCount", ctypes.c_ulonglong),
+                        ("OtherOperationCount", ctypes.c_ulonglong),
+                        ("ReadTransferCount", ctypes.c_ulonglong),
+                        ("WriteTransferCount", ctypes.c_ulonglong),
+                        ("OtherTransferCount", ctypes.c_ulonglong)]
+
+        class _BASIC_LIMITS(ctypes.Structure):
+            _fields_ = [("PerProcessUserTimeLimit", ctypes.c_int64),
+                        ("PerJobUserTimeLimit", ctypes.c_int64),
+                        ("LimitFlags", wintypes.DWORD),
+                        ("MinimumWorkingSetSize", ctypes.c_size_t),
+                        ("MaximumWorkingSetSize", ctypes.c_size_t),
+                        ("ActiveProcessLimit", wintypes.DWORD),
+                        ("Affinity", ctypes.c_size_t),
+                        ("PriorityClass", wintypes.DWORD),
+                        ("SchedulingClass", wintypes.DWORD)]
+
+        class _EXTENDED_LIMITS(ctypes.Structure):
+            _fields_ = [("BasicLimitInformation", _BASIC_LIMITS),
+                        ("IoInfo", _IO_COUNTERS),
+                        ("ProcessMemoryLimit", ctypes.c_size_t),
+                        ("JobMemoryLimit", ctypes.c_size_t),
+                        ("PeakProcessMemoryUsed", ctypes.c_size_t),
+                        ("PeakJobMemoryUsed", ctypes.c_size_t)]
+
+        job = k32.CreateJobObjectW(None, None)
+        if not job:
+            return None
+        info = _EXTENDED_LIMITS()
+        info.BasicLimitInformation.LimitFlags = 0x2000  # KILL_ON_JOB_CLOSE
+        if not k32.SetInformationJobObject(job, 9, ctypes.byref(info), ctypes.sizeof(info)):
+            k32.CloseHandle(job)
+            return None
+        if not k32.AssignProcessToJobObject(job, ctypes.c_void_p(int(proc._handle))):
+            k32.CloseHandle(job)
+            return None
+        return job
+    except Exception:
+        return None
+
+
+def _close_live_servers():
+    for srv in list(_LIVE_SERVERS):
+        try:
+            srv.close()
+        except Exception:
+            pass
+
+
+atexit.register(_close_live_servers)
+
+
+# Any java.exe still running one of our jars whose parent is gone is a leftover
+# from a killed run. Only our jars count: the game itself also runs a java.exe.
+_JAR_MARKERS = ("_server160.jar", "_server159.jar", "_server146.jar", "jre21")
+
+
+def _ps_json(script):
+    exe = shutil.which("powershell") or "powershell"
+    out = subprocess.run([exe, "-NoProfile", "-NonInteractive", "-Command", script],
+                         capture_output=True, text=True, encoding="utf-8",
+                         errors="replace", timeout=180)
+    text = (out.stdout or "").strip()
+    return json.loads(text) if text else None
+
+
+def sweep_orphans(dry_run=False):
+    """Kill simulator JVMs whose Python parent no longer exists; return their pids."""
+    if os.name != "nt":
+        return []
+    try:
+        procs = _ps_json("Get-CimInstance Win32_Process | "
+                         "Select-Object ProcessId,ParentProcessId,Name,CommandLine | "
+                         "ConvertTo-Json -Compress -Depth 3")
+    except Exception:
+        return []
+    if not procs:
+        return []
+    if isinstance(procs, dict):
+        procs = [procs]
+    live = set()
+    for item in procs:
+        try:
+            live.add(int(item.get("ProcessId") or 0))
+        except (TypeError, ValueError):
+            pass
+    killed = []
+    for item in procs:
+        try:
+            pid = int(item.get("ProcessId") or 0)
+            ppid = int(item.get("ParentProcessId") or 0)
+        except (TypeError, ValueError):
+            continue
+        if pid <= 0 or str(item.get("Name") or "").lower() != "java.exe":
+            continue
+        cmd = str(item.get("CommandLine") or "")
+        if not any(mark in cmd for mark in _JAR_MARKERS):
+            continue
+        if ppid in live:
+            continue          # parent still alive: not an orphan (pid reuse reads as alive)
+        if dry_run:
+            killed.append(pid)
+            continue
+        try:
+            subprocess.run(["taskkill", "/PID", str(pid), "/F"],
+                           capture_output=True, timeout=30)
+            killed.append(pid)
+        except Exception:
+            pass
+    return killed
+
+
 class SimError(RuntimeError):
     pass
 
@@ -229,6 +378,9 @@ class Server:
             errors="replace",
             bufsize=1,
         )
+        self._job = _win_kill_with_parent(self.proc)
+        self._closed = False
+        _LIVE_SERVERS.append(self)
         self.lines: queue.Queue = queue.Queue()
         self.buffer: list[str] = []
         self.all: list[str] = []
@@ -388,11 +540,45 @@ class Server:
                 self.js(weather_js(wname, wint))
 
     def close(self):
+        """Shut the child down; safe to call twice and from atexit."""
+        if getattr(self, "_closed", False):
+            return
+        self._closed = True
         try:
-            self.send("exit")
-            self.proc.wait(timeout=15)
+            _LIVE_SERVERS.remove(self)
+        except ValueError:
+            pass
+        proc = self.proc
+        try:
+            if proc.poll() is None:
+                self.send("exit")
+                try:
+                    proc.wait(timeout=15)
+                except subprocess.TimeoutExpired:
+                    proc.kill()
+                    try:
+                        proc.wait(timeout=10)
+                    except subprocess.TimeoutExpired:
+                        pass
         except Exception:
-            self.proc.kill()
+            try:
+                proc.kill()
+            except Exception:
+                pass
+        finally:
+            for stream in (proc.stdin, proc.stdout):
+                try:
+                    stream.close()
+                except Exception:
+                    pass
+            job = getattr(self, "_job", None)
+            if job:
+                try:
+                    import ctypes
+                    ctypes.WinDLL("kernel32").CloseHandle(ctypes.c_void_p(job))
+                except Exception:
+                    pass
+                self._job = None
 
 
 LOAD_JS = r'''
@@ -1358,8 +1544,16 @@ def main(argv=None):
                     help="auto (default): for a .mlog, place a block for every name it "
                          "reads but never assigns (cell1 -> memory-cell, message1 -> message) "
                          "and wire it; off: leave them null as a plain .mlog would")
+    ap.add_argument("--sweep-orphans", action="store_true",
+                    help="kill simulator JVMs left behind by killed runs, then exit")
     ap.add_argument("--json", action="store_true")
     args = ap.parse_args(argv)
+
+    if args.sweep_orphans:
+        killed = sweep_orphans()
+        print("orphan sweep: %d stale JVM(s)%s" % (
+            len(killed), (" " + " ".join(str(p) for p in killed)) if killed else ""))
+        return 0
 
     ticks = args.ticks is not None
     steps = args.ticks if ticks else (args.steps if args.steps is not None else 200)

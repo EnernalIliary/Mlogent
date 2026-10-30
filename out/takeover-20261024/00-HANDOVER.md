@@ -1698,3 +1698,38 @@ P5 规划里「写入前重读 code，不一致 → 提示被改过」的模组�
 
 只覆盖单处理器一次写入。P5 剩下的主体是**多处理器事务写入**（一个作业 N 段代码、全过才写、任一台失败整体回滚），
 要先扩 sidecar 作业契约（`jobqueue` 的 job 从 `code` 改成 `codes[]`）。冲突检测只比代码文本、不比链接表。
+
+## §63 孤儿 JVM：子进程跟父进程一起死（2026-10-31）
+
+### 63.1 根因
+
+1. `tools/mlogsim.py` 原 `close()` 只有 `send("exit")` + `wait(15)`，超时 `kill()`；父进程先死就没人发这条命令。
+2. `tests/mlogauxiliary/run_ui_smoke.py` 的 `main()` **从不调用 `srv.close()`**（`srv = M.Server(...)` 在 :291，三个 return 都不收尾）⇒ 每跑一次泄漏一个 JVM。
+3. `tests/probes/run_probes.py:265-270` 有 try/finally + `close()`，但整轮被 gate 超时 / Ctrl-C 硬杀时 python 跑不到 finally；Windows 父进程被 TerminateProcess 不连带杀子进程。
+
+### 63.2 改动（5 文件 +238/−5）
+
+| 文件 | 改动 |
+|---|---|
+| `tools/mlogsim.py` | +200：`_win_kill_with_parent()`（Windows job object，`KILL_ON_JOB_CLOSE` = 0x2000，`SetInformationJobObject(job, 9, ...)`，句柄 restype/argtypes 都设成 `c_void_p`）、`_LIVE_SERVERS` + `atexit`、`sweep_orphans()`、`close()` 幂等重写（`_closed` + 发 exit + wait15 + kill + 关 stdin/stdout + CloseHandle）、CLI `--sweep-orphans`、docstring 一段 |
+| `tests/probes/run_probes.py` | +10：一轮跑完 `M.sweep_orphans()`，有残留就打印 `swept N stale JVM(s)` |
+| `tests/mlogauxiliary/run_ui_smoke.py` | +13/−3：`__main__` try/finally 调 `M._close_live_servers()` |
+| `tests/logicd/run_logicd_tests.py` | `wait_job` 超时 30 → 60 s（护栏，不改状态机） |
+| `tools/README.md` | +16：「子进程生命周期（孤儿 JVM）」整节 |
+
+`sweep_orphans()` 只认 `java.exe` 且命令行含 `_server160.jar`/`_server159.jar`/`_server146.jar`/`jre21`（游戏本体也跑 java.exe），且 **ppid 已死** 才杀 —— pid 复用会让死父看起来活着，宁可漏杀不误杀；拿不到 PowerShell 就返回 `[]`。
+
+### 63.3 证据
+
+- 硬杀父进程实验（`out/_jvm_test1.py`）：子 python 打印 `UP 72948` → `taskkill /PID <python> /F` → 3 秒后 `ParentProcessId` 为该 python 的 java.exe = `[]` → `RESULT PASS job object took the child down`。
+- 扫孤儿实验（`out/_jvm_test2.py`）：baseline `[73508, 5104]` → `--sweep-orphans` 打印 `orphan sweep: 2 stale JVM(s) 73508 5104` → `[]`。
+- 正常跑不泄漏（`out/_jvm_test3.py`）：`out/scenes/benches/processor-bench.msch --steps 20 --base 4,32` exit 0、`print: 8|88|88|8`，前后 java 计数 `[]`。
+
+### 63.4 复跑
+
+`tools/kb.py build` → `{chunks: 6421, files: 65}`；`gate.py --full` → **16/16 passed in 42.3s**（probes 29.4 s / logicd 17.9 s / ui 5.2 s），gate 前后 `java.exe` 计数都是 `[]`。
+首跑曾 `logicd FAIL`（`job … never reached ('rejected',)`，最后状态 `running`），单独跑 12/12、复跑全绿 ⇒ 判并行满载假超时。
+
+### 63.5 下一刀
+
+job object 是 Windows 专属（非 Windows 只剩 atexit，硬杀仍可能留孤儿，靠 `--sweep-orphans`）。回 P5 主体：多处理器事务写入（一个作业 N 段代码、全过才写、任一台失败整体回滚），要先扩 sidecar 作业契约（`jobqueue` 的 job 从 `code` 改成 `codes[]`）。

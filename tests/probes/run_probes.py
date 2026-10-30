@@ -308,6 +308,16 @@ def main(argv=None):
     else:
         rows = [run_one(pr, java, M) for pr in probes]
 
+    # A run killed by a gate timeout used to leave its JVM behind (61 of them once
+    # starved the box).  Server now puts every child in a kill-on-close job, so
+    # new leftovers should be impossible; this sweeps whatever older runs left.
+    try:
+        stale = M.sweep_orphans()
+    except Exception:
+        stale = []
+    if stale:
+        print('swept %d stale JVM(s): %s' % (len(stale), ' '.join(str(x) for x in stale)))
+
     passed, failed, skipped = [], [], []
     for kind, pid, why in rows:
         if kind == 'pass':

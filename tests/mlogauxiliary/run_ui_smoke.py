@@ -1009,4 +1009,15 @@ def main():
 
 
 if __name__ == '__main__':
-    sys.exit(main())
+    # this test used to leak one simulator JVM per run: it never called
+    # srv.close().  The close below is explicit rather than left to atexit so the
+    # child is gone before the process reports its exit code.
+    try:
+        rc = main()
+    finally:
+        try:
+            import mlogsim as M
+            M._close_live_servers()
+        except Exception:
+            pass
+    sys.exit(rc)

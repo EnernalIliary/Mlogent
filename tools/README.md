@@ -76,6 +76,22 @@ finally:
 - 自写 JS 驱动推进逻辑必须照 `mlogsim.py:854-869`（`itr_exec`）的写法：先 `obj.accumulator += obj.block.instructionsPerTick`，再 `while(obj.accumulator >= 1){ obj.executor.runOnce(); obj.accumulator -= 1; }`。**只调 `b.updateTile()` 不会推进指令流**（它只重建方块、把 team 拷进去），ipt 也不进累加器 —— 症状是「逻辑一条都没跑」的中断器计数始终为 0。
 - `LINK_ALIASES`（`mlogsim.py:980-995`）只有 cell / bank / message / switch / sorter / unloader / dome / projector / mender / router / junction / spectre / furnace / pad，**没有 `vault` / 容器别名**：要读容器库存（`sensor n vault1 @copper`）只能自己写 JS 摆方块再 `config`，别指望 `--links auto` 猜出 vault1。
 
+## 子进程生命周期（孤儿 JVM）
+
+`mlogsim.Server` 起的 Java 子进程过去会活过它的 Python 父进程：父进程被强杀（gate 超时、Ctrl-C、探针崩溃）时 Windows 不连带杀子进程，JVM 继续占着内存。曾经堆到 61 个，把机器压到 `There is insufficient memory for the Java Runtime Environment to continue`，`probes` 26 条全红。现在三道闸：
+
+1. **Windows job object**（`KILL_ON_JOB_CLOSE`）：`Server.__init__` 把子进程放进一个属于本进程的 job，本进程无论怎么结束（包括 `taskkill /F`）内核都会带走它；实测硬杀父进程后 3 秒内子进程消失。
+2. **atexit 兜底**：正常退出路径上 `_close_live_servers()` 逐个 `close()`。
+3. **`close()` 幂等**：置 `_closed`、发 `exit`、`wait(15)`，超时 `kill()`；finally 里关 `stdin`/`stdout` 并释放 job 句柄。
+
+残留清理只清我们自己的 jar（按命令行里的 `_server160.jar` / `jre21` 识别，游戏本体也跑 java.exe），且只清父进程已死的：
+
+```bash
+python tools/mlogsim.py --sweep-orphans     # orphan sweep: N stale JVM(s) 1234 5678
+```
+
+`tests/probes/run_probes.py` 跑完一轮扫一次；`tests/mlogauxiliary/run_ui_smoke.py` 退出前显式 `_close_live_servers()` —— 它以前从不 `srv.close()`，每跑一次泄漏一个 JVM。
+
 ## MCP 服务（`mlog_mcp.py`）
 
 把检查器和模拟器直接暴露成工具，模型不用记路径、不用拼 PowerShell：

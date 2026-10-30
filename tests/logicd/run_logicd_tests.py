@@ -511,7 +511,9 @@ JLINKS = [{'name': 'container1', 'x': 1, 'y': 2}, {'name': 'message1', 'x': 3, '
 JTERMINAL = ('done', 'rejected', 'failed', 'cancelled')
 
 
-def wait_job(srv, jid, want=JTERMINAL, timeout=30):
+def wait_job(srv, jid, want=JTERMINAL, timeout=60):
+    # 30 s once timed out during a full parallel gate (five heavy tiers at once) even
+    # though the fake provider answers in milliseconds; a real hang still fails here.
     deadline = time.time() + timeout
     job = None
     while time.time() < deadline:
