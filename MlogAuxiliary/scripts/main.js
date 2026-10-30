@@ -28,7 +28,7 @@
 function __logicWriterMain(){
     "use strict";
 
-    var MOD_VERSION = "0.8.0";
+    var MOD_VERSION = "0.8.1";
     var URL_KEY     = "mlogauxiliary-url";
     var DEFAULT_URL = "http://127.0.0.1:8765";
     var KEY_PANEL   = ["f4"];      // F4：开面板（F1/F5/F6/F8/F11/F12 与 F9/F10 已被占用）
@@ -1345,6 +1345,12 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
             return b;
         }
 
+        // v0.8.1：单格选中处理器 = 开 AI 面板（F4 并入 F3）。
+        function processorAt(x, y){
+            var b = buildAt(x, y);
+            return isProcessor(b) ? b : null;
+        }
+
         function showRegionPanel(snap, head, candText){
             var d = new Packages.arc.scene.ui.Dialog("Mlog辅助 · 区域 v" + MOD_VERSION);
             d.cont.defaults().pad(4).left();
@@ -2017,9 +2023,21 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
         function selFinish(){
             var r = selRelease();
             if(r === null){ return null; }
-            // 只点了一下（起点=终点）不算框选：给提示，不落盘。
+            // v0.8.1：单格 = 选中处理器（F4 并入 F3）。按住 F3 在处理器上点一下直接开 AI 面板，
+            // 拖出矩形才走区域快照；空格子单选给提示。F4 仍然能开同一个面板（老习惯入口）。
             if(r.w === 1 && r.h === 1){
-                hint("没有拖动：按住 F3 从一个角拖到另一个角，松开 F3 出快照");
+                var one = processorAt(r.x1, r.y1);
+                if(one !== null){
+                    try{
+                        showAiPanel(one);
+                        return "AI 面板：" + r.x1 + "," + r.y1;
+                    }catch(e){
+                        log("single-tile AI panel failed: " + e);
+                        hint("这一格的 AI 面板打不开：" + e);
+                        return null;
+                    }
+                }
+                hint("这一格没有处理器：单格按住 F3 选中处理器 = 开 AI 面板；拖出矩形 = 区域快照");
                 return null;
             }
             return dumpRegion(r.x1, r.y1, r.x2, r.y2);
@@ -2041,6 +2059,8 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
         api.maiSelDraw = function(ax, ay, bx, by){ return JSON.stringify(selDrawArgs(selRect(ax, ay, bx, by))); };
         api.maiDump = function(x1, y1, x2, y2){ return dumpRegion(x1, y1, x2, y2); };
         api.maiSelRect = function(ax, ay, bx, by){ return JSON.stringify(selRect(ax, ay, bx, by)); };
+        // v0.8.1：单格选中处理器 = 开 AI 面板；maiPick 把「这一格是不是处理器」暴露给无头测试。
+        api.maiPick = function(x, y){ var b = processorAt(x, y); return b === null ? "" : (x + "," + y); };
         // v0.7.0 F2 处理器清单：maiList 返回文本摘要（无 UI 也能验），maiListRows 返回 JSON 行。
         api.maiList = function(){ return listText(); };
         api.maiListRows = function(){ return JSON.stringify(scanProcessors().rows); };

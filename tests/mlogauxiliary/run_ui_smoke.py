@@ -117,6 +117,9 @@ def select_probe(srv):
         "  if(un === 'showInfoFade' && up.length === 1 && String(up[0].getName()) === 'java.lang.String'){ hasFade = 'YES'; }",
         "}",
         "print('MAIHINTAPI:' + hasFade);",
+        # v0.8.1：单格选中处理器 = 开 AI 面板（F4 并入 F3）
+        "print('MAIPICK:' + maiPick(%d, %d));" % (bx, by),
+        "print('MAIPICKEMPTY:' + maiPick(%d, %d));" % (bx + 1, by + 1),
     ]
 
 
@@ -729,7 +732,8 @@ def main():
     sel = {}
     for l in text.splitlines():
         for key in ('MASELIDLE', 'MASELPRESS', 'MASELDOWN', 'MASELMOVE', 'MASELREL',
-                    'MASELEND', 'MASELDRAW', 'MAIDRAWAPI', 'MAIHINTAPI', 'MAIFONTAPI'):
+                    'MASELEND', 'MASELDRAW', 'MAIDRAWAPI', 'MAIHINTAPI', 'MAIFONTAPI',
+                    'MAIPICK', 'MAIPICKEMPTY'):
             if l.startswith(key + ':'):
                 sel[key] = l[len(key) + 1:]
 
@@ -788,6 +792,25 @@ def main():
     if sel.get('MAIHINTAPI') != 'YES':
         problems.append('UI.showInfoFade(String) is missing -- the non-blocking hint has no API: %r'
                         % (sel.get('MAIHINTAPI'),))
+
+    # ---- v0.8.1: one tile on a processor IS the AI panel entry (F4 merged into F3).
+    # A drag still produces the region snapshot; a single empty tile only hints.
+    want_pick = "%d,%d" % (bx, by)
+    if sel.get("MAIPICK") != want_pick:
+        problems.append("a single tile on the processor must pick it: %r wanted %r"
+                        % (sel.get("MAIPICK"), want_pick))
+    if sel.get("MAIPICKEMPTY") != "":
+        problems.append("a non-processor building must not be picked: %r"
+                        % (sel.get("MAIPICKEMPTY"),))
+    for needle, why in (("function processorAt(", "the single-tile picker is gone"),
+                        ("showAiPanel(one);", "a single-tile pick no longer opens the AI panel"),
+                        ("var one = processorAt(r.x1, r.y1);",
+                         "selFinish() stopped asking the tile whether it is a processor"),
+                        ("api.maiPick = function", "the pick test hook is gone")):
+        if needle not in code_only:
+            problems.append("v0.8.1: " + why)
+    if "没有拖动" in code_only:
+        problems.append("v0.8.1: the old no-drag hint is back -- a single tile must try the AI panel first")
 
     # ---- v0.4.7 review arrows: finding.line -> statements child -> pixel position
     arrows = None

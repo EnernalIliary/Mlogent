@@ -1,4 +1,4 @@
-# MlogAuxiliary —— 游戏内Mlog辅助（P1 + P2 + 设置界面 + AI 面板 + 区域面板 + 作业队列，v0.8.0）
+# MlogAuxiliary —— 游戏内Mlog辅助（P1 + P2 + 设置界面 + AI 面板 + 区域面板 + 作业队列，v0.8.1）
 
 把「写 mlog」这件事从玩家手里拿走：**说意图，不写代码**。
 
@@ -355,6 +355,19 @@ Arc 的 `Table.cells` 是私有字段（`arc/scene/ui/layout/Table.java:35`）�
 
 真引擎对照探针（`out/_v47_probe.py`）：放处理器、用 `msch.build_logic_data` 写带两条链接的载荷，读回 `links.size=2`，把真链接名喂 `quickcheck.check` ⇒ 零命中；喂空数组 ⇒ 第 1、3 行各一条 WARN。所以快检逻辑本身没错，错的是喂进去的东西。
 
+## v0.8.1：F4 并入 F3 —— 单格点一下处理器就开 AI 面板
+
+原来 F4 是「开 AI 面板」的入口，F3 是「框选」的入口，两把键干两件事、还得先想起哪把是哪把。
+v0.8.1 把它们合成一把：**按住 F3 在处理器上点一下（不拖）= 开这台处理器的 AI 面板**，
+**按住 F3 拖出矩形 = 区域快照**（不变）。空格子单点给一句提示，不再假装「没有拖动」。
+
+- `processorAt(x, y)`：这一格是不是处理器（`buildAt()` + `isProcessor()`，鸭子类型判据）。
+- `selFinish()`：1×1 先问 `processorAt()`，是处理器就 `showAiPanel(one)`；不是才提示。
+- **F4 键仍然能用**（老习惯的键盘入口，走同一个 `toggleAiPanel()`），只是不再需要记它。
+- 控制台 `maiPick(x,y)`：这一格能选中处理器就返回 `"x,y"`，否则空串（无头测试用）。
+
+真引擎验的：`MAIPICK` 在处理器格子上返回坐标、在相邻的容器格子上返回空串；
+源码红线钉住 `processorAt(` / `showAiPanel(one);` / `var one = processorAt(r.x1, r.y1);` / `api.maiPick`。
 ## v0.8.0：生成走作业队列（可取消、有落盘、门禁更严）
 
 F4 面板原来点「生成」是直接 `POST /plan` —— 同步语义、不落盘、不能取消，而且分析器对

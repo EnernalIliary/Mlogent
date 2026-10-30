@@ -1449,3 +1449,20 @@ self-repair→attempts 2、running 时取消、列表/404/400 负控、模板档
 `out/takeover-20261024/55-job-queue-ui.md`。
 
 **诚实缺口**：面板关闭后不再观察作业、没有跨面板完成通知条、零链接门禁盲区。
+
+## §56 v0.8.1 F4 并入 F3 的单格选择
+
+**一句话**：按住 F3 在处理器上点一下（不拖）= 开这台处理器的 AI 面板，拖出矩形仍是区域快照；
+F4 键保留为同一个 `toggleAiPanel()` 的别名。
+
+**判据复用**：新增 `processorAt(x, y)` = `buildAt()`（`t.build` 是字段）+ `isProcessor()`（`executor`/`code` 鸭子类型），
+和 F2 清单、F7 候选同一套；`selFinish()` 的 1×1 分支先问它，是处理器才 `showAiPanel(one)`，
+不是就提示「这一格没有处理器」。旧文案「没有拖动：按住 F3 从一个角拖到另一个角」已删（它假设用户想拖）。
+
+**测试**：ui smoke 的 `select_probe()` 加 `MAIPICK`（处理器格 → `"x,y"`）与 `MAIPICKEMPTY`（相邻容器格 → 空串），
+四条源码红线 + 一条反红线（`"没有拖动"` 不得出现）。实测 PASS，`MAIDIAG:版本：0.8.1（游戏构建 160）`，EXIT=0。
+
+**文档**：MlogAuxiliary/README 标题 + v0.8.1 节、断言表 **L2-43**、验证记录同日一节、规划 §9 新增一行、
+tools/README「v0.8.1 起 F4 并入 F3」两行、报告 `out/takeover-20261024/56-select-ai-panel.md`。
+
+**诚实缺口**：无头引擎无 `Vars.ui`，面板是否真的弹出仍需真机；空格子单点只提示不给快照（有意）。
