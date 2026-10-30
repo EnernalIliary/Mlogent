@@ -138,7 +138,7 @@ python tools/kb.py serve
 ```
 python tools/logicd.py                            # 127.0.0.1:8765（--port 0 = 随机端口，就绪行里打印）
 python tools/logicd.py --print-template patrol    # 不启服务，只打一个模板的代码
-python tests/logicd/run_logicd_tests.py           # 契约测试：协议 23 项 + 真 v160.7 处理器写入 6 项
+python tests/logicd/run_logicd_tests.py           # 契约测试：协议 24 项 + 真 v160.7 处理器写入 7 项
 python tests/logicd/run_logicd_tests.py --no-sim  # 只跑协议层（不需要 JRE）
 ```
 
@@ -148,6 +148,11 @@ python tests/logicd/run_logicd_tests.py --no-sim  # 只跑协议层（不需要 
 `ok` 的语义是**没有 ERR**（ERR 一律拒绝写入）。设计、契约细节、分期与「已验证/未验证」
 边界写在 `docs/Mlog辅助-设计.md`，模组安装与操作写在 `MlogAuxiliary/README.md`，
 P2–P5 的路线（框选 → 队列 → 模型 → 写入）在 `docs/Mlog辅助-规划.md`。
+`POST /compose` 与 `POST /plan` 支持 `origin: {x, y}`（处理器的 tile 坐标，v0.4.6）：载荷里的链接坐标是
+**相对处理器**的（`LogicBlock.java:65-69` 的 `readCompressed(data, true)` → `:304-307` `x += tileX()`），
+而模组读到的 `LogicLink.x/y` 是绝对坐标（`:102`），所以带链接的请求必须把处理器位置一起发过来；
+`origin` 不是对象时返回 400，不传则原样透传（视作已经是相对坐标，老调用方不受影响）。
+
 `POST /region` 是给游戏内**区域快照**用的（v0.4.2，F7）：模组把鼠标周围一片区域读成
 `{grid[], processors[{x,y,block,code,links[]}]}` 交给它，它只回**每个处理器能连哪些方块、链接名该叫什么**
 （`candidates[{name,block,x,y,dist,used}]`），**不生成代码、不写文件**。距离与命名的依据全在游戏源码：

@@ -295,6 +295,37 @@ v0.4.4 之后真机按 F7 看到的是：
 
 `missing` 只报告，**不改代码、不写文件**；写入仍然只走 `build.configure(logic@config)`。
 
+## v0.4.6：链接坐标是相对处理器的——不告诉 sidecar 处理器在哪，链接表就写到空地上
+
+现象：v0.4.5 之后 F7 正常、面板能生成能写入，但写进去的程序一跑，`container1` / `message1` 这些链接全是 `null`，
+游戏不报任何错。
+
+根因：写入走的是 `LogicBlock.config(byte[].class, (build, data) -> build.readCompressed(data, true))`
+（`LogicBlock.java:65-69`），第二个参数 `relative = true`，`readCompressed` 里
+`if(relative){ x += tileX(); y += tileY(); }`（`:304-307`）—— 载荷里存的是**相对处理器**的偏移量；
+而模组 `linkList(b)` 读出来的 `LogicLink.x/y`（`:102`）是**绝对** tile 坐标。原样塞进
+`msch.build_logic_data()`，游戏就把绝对坐标当相对偏移又加了一次处理器坐标，整张链接表平移到地图另一边，
+落在空地块上：`link.valid = false`，运行时读 `null`，全程无报错。
+
+真 v160.7 实测（`out/_v46_probe2.py`）：处理器在 `(10,10)`、container 在 `(13,10)`。
+
+- 载荷写绝对 `(13,10)` ⇒ 回读 `container1@23,20->null`
+- 载荷写相对 `(3,0)` ⇒ 回读 `container1@13,10->container` ✓
+
+（这个 bug 一直没被测出来，是因为测试里处理器都放在 `(0,0)`，绝对坐标和相对偏移数值相同。）
+
+修法：
+
+1. `tools/logicd.py` 新增 `_relative_links(links, origin)`；`POST /compose` 与 `POST /plan` 接受
+   `origin: {x, y}`（处理器的 tile 坐标），把绝对坐标减成相对偏移再打包；`origin` 不是对象时返回 400；
+   返回体回显 `origin` 便于对账。
+2. `main.js` 新增 `originOf(b)`（`b.tile` 存在就给 `{x, y}`），`/plan` 与 `/compose` 两个请求体都带上。
+3. 测试加两条：带 origin 时 `msch.parse_logic(..., relative_to=...)` 必须还原出绝对坐标、裸 parse 得到相对偏移；
+   写入路径把目标处理器另放到 `base + (16,16)`（`(0,0)` 处绝对=相对，测不出这个 bug），四个链接方块就位后
+   回读 `name>block` 必须全部解析，**负控**是同一组绝对坐标不带 origin 再写一次、必须出现 `>null`。
+
+不传 `origin` 时行为不变（原样透传，视作已经是相对坐标），老的调用方不会被这次改动破坏。
+
 ## 接口契约（sidecar v1）
 
 

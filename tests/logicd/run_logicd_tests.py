@@ -164,6 +164,37 @@ def test_protocol():
                  'compose %s link table: %r' % (tid, [l.name for l in parsed.links]))
             checks += 1
 
+        # Link coordinates in the payload are RELATIVE to the processor
+        # (LogicBlock.config -> readCompressed(data, true), LogicBlock.java:304-307),
+        # while the mod reports absolute tile positions. /compose has to subtract the
+        # origin; before v0.4.6 it wrote absolute numbers and every link pointed at an
+        # empty tile (the game kept the entry, silently with valid=false).
+        abs_links = [{'name': 'container1', 'x': 30, 'y': 40},
+                     {'name': 'message1', 'x': 32, 'y': 40}]
+        st, res = srv.post('/compose', {'template': 'item-threshold',
+                                        'params': {'item': 'copper', 'threshold': 100},
+                                        'links': abs_links, 'origin': {'x': 10, 'y': 10}})
+        need(st == 200 and res['ok'] is True, 'compose with origin: %r' % (res.get('findings'),))
+        got = msch.parse_logic(base64.b64decode(res['bytes_b64']), relative_to=(10, 10))
+        need([(l.name, l.x, l.y) for l in got.links]
+             == [('container1', 30, 40), ('message1', 32, 40)],
+             'payload link coords are not relative to the origin: %r'
+             % ([(l.name, l.x, l.y) for l in got.links],))
+        raw = msch.parse_logic(base64.b64decode(res['bytes_b64']))
+        need([(l.x, l.y) for l in raw.links] == [(20, 30), (22, 30)],
+             'origin was not subtracted in the payload: %r' % ([(l.x, l.y) for l in raw.links],))
+        st, res = srv.post('/compose', {'template': 'item-threshold',
+                                        'params': {'item': 'copper', 'threshold': 100},
+                                        'links': [{'name': 'container1', 'x': 3, 'y': 4}]})
+        raw = msch.parse_logic(base64.b64decode(res['bytes_b64']))
+        need([(l.x, l.y) for l in raw.links] == [(3, 4)],
+             'origin-less compose moved the coordinates: %r' % ([(l.x, l.y) for l in raw.links],))
+        st, res = srv.post('/compose', {'template': 'item-threshold',
+                                        'params': {'item': 'copper', 'threshold': 100},
+                                        'links': abs_links, 'origin': 7})
+        need(st == 400 and res['ok'] is False, 'a non-object origin was accepted: %s' % st)
+        checks += 1
+
         st, res = srv.post('/compose', {'template': 'radar-fire', 'links': ['message1']})
         need(st == 200 and res['ok'] is False, 'compose with a missing link was accepted')
         rids = [f['rid'] for f in res['findings']]
@@ -327,7 +358,15 @@ if(b === null || b.executor === null){ print('NOPROC'); } else {
     b.configure(arr);
     var ins = b.executor.instructions;
     var cls = ins.length > 0 ? String(ins[0].getClass().getSimpleName()) : '-';
-    print('CFG\\tlen=' + ins.length + '\\tcodeok=' + (b.code === %s) + '\\tlinks=' + b.links.size + '\\tfirst=' + cls);
+    /* every link has to resolve to a building: a wrong coordinate is not an error
+       in the game, it just leaves link.valid = false and the name reads null. */
+    var W = Vars.world, res = [];
+    for(var i = 0; i < b.links.size; i++){
+        var l = b.links.get(i);
+        var bb = W.build(l.x, l.y);
+        res.push(l.name + '>' + (bb === null ? 'null' : String(bb.block.name)));
+    }
+    print('CFG\\tlen=' + ins.length + '\\tcodeok=' + (b.code === %s) + '\\tlinks=' + b.links.size + '\\tfirst=' + cls + '\\tresolved=' + res.join(','));
 }
 void 0
 """
@@ -353,13 +392,28 @@ def test_write_path(cap):
         # every template: the game's own assembler runs on each configure(), so a
         # template the game cannot parse would come back with len=0.
         M.run_mlog(srv, 'p', 'noop', steps=1, update='none', processor='auto')
+        # The processor has to sit away from (0,0): at the origin absolute and
+        # relative coordinates are the same number, which is exactly why v0.4.5's
+        # bug stayed invisible in this test.
+        bx, by = srv.base
+        px, py = bx + 16, by + 16
+        srv.js(M.place_js(px, py, 'micro-processor'))
+        # one real block per link name, at the absolute tile the mod would report
+        spots = [('container1', 1, 2, 'container'), ('message1', 3, 4, 'message'),
+                 ('turret1', 5, 6, 'repair-turret'), ('cell1', 7, 8, 'memory-cell')]
+        for _name, dx, dy, blk in spots:
+            srv.js(M.place_js(px + dx, py + dy, blk))
+        abs_links = [{'name': n, 'x': px + dx, 'y': py + dy} for n, dx, dy, _b in spots]
+        origin = {'x': px, 'y': py}
+        want_resolved = ','.join('%s>%s' % (n, b) for n, _dx, _dy, b in spots)
         # the same process the mod talks to, reached over HTTP -- no shortcut call
         # into compose() here, the bytes must travel the real path.
         srvd = Server()
         for tid in tids:
-            st, res = srvd.post('/compose', {'template': tid, 'params': {}, 'links': LINKS})
+            st, res = srvd.post('/compose', {'template': tid, 'params': {},
+                                             'links': abs_links, 'origin': origin})
             need(st == 200 and res['ok'], 'compose %s: %r' % (tid, res.get('findings')))
-            out = srv.js(JS % (srv.base[0], srv.base[1], res['bytes_b64'], json.dumps(res['code'])))
+            out = srv.js(JS % (px, py, res['bytes_b64'], json.dumps(res['code'])))
             lines = out if isinstance(out, list) else str(out).splitlines()
             line = next((str(l) for l in lines if str(l).startswith('CFG\t')), None)
             need(line is not None, 'write path %s: no CFG line (got %r)' % (tid, lines))
@@ -369,7 +423,23 @@ def test_write_path(cap):
                  '%s: the game compiled 0 instructions (it rejected the payload)' % tid)
             need(int(fields.get('links') or 0) == len(LINKS),
                  '%s: link table want %d got %s' % (tid, len(LINKS), fields.get('links')))
+            need(fields.get('resolved') == want_resolved,
+                 '%s: links do not resolve to the placed blocks: %r (want %r)'
+                 % (tid, fields.get('resolved'), want_resolved))
             checks += 1
+        # the regression itself: the same absolute coordinates WITHOUT the origin are
+        # what v0.4.5 sent, and they must not resolve -- if this ever passes, the
+        # relative-coordinate conversion has been lost again.
+        st, res = srvd.post('/compose', {'template': tids[0], 'params': {},
+                                         'links': abs_links})
+        out = srv.js(JS % (px, py, res['bytes_b64'], json.dumps(res['code'])))
+        lines = out if isinstance(out, list) else str(out).splitlines()
+        line = next((str(l) for l in lines if str(l).startswith('CFG\t')), None)
+        need(line is not None, 'no-origin probe: no CFG line')
+        fields = dict(kv.split('=', 1) for kv in line.split('\t')[1:] if '=' in kv)
+        need('>null' in (fields.get('resolved') or ''),
+             'absolute coords without an origin resolved anyway: %r' % (fields.get('resolved'),))
+        checks += 1
         return checks, 'ok'
     finally:
         if srvd is not None:

@@ -28,7 +28,7 @@
 function __logicWriterMain(){
     "use strict";
 
-    var MOD_VERSION = "0.4.5";
+    var MOD_VERSION = "0.4.6";
     var URL_KEY     = "mlogauxiliary-url";
     var DEFAULT_URL = "http://127.0.0.1:8765";
     var KEY_PANEL   = ["f4"];      // F4：开面板（F1/F5/F6/F8/F11/F12 与 F9/F10 已被占用）
@@ -752,8 +752,22 @@ function __logicWriterMain(){
             showAiPanel();
         }
 
+        // Link coordinates travel as absolute tile positions (LogicLink.x/y), but the
+        // byte[] payload stores them relative to the processor
+        // (LogicBlock.config -> readCompressed(data, true), LogicBlock.java:304-307).
+        // Omitting the origin silently wrote a link table pointing at empty tiles.
+        function originOf(b){
+            try{
+                if(b !== null && b !== undefined && b.tile){
+                    return {x: b.tile.x, y: b.tile.y};
+                }
+            }catch(e){ }
+            return null;
+        }
+
         function plan(intent, b, cb){
-            var req = {intent: String(intent), links: linkList(b), ipt: 2};
+            var req = {intent: String(intent), links: linkList(b), ipt: 2,
+                       origin: originOf(b)};
             httpJson("POST", "/plan", JSON.stringify(req), function(code, text){
                 var res = parse(text);
                 if(code !== 200 || !res || res === null){
@@ -844,7 +858,7 @@ function __logicWriterMain(){
 
         function compose(template, params, b){
             var body = JSON.stringify({template: template, params: params || {},
-                                       links: linkList(b), ipt: 2});
+                                       links: linkList(b), ipt: 2, origin: originOf(b)});
             httpJson("POST", "/compose", body, function(code, text){
                 var res = parse(text);
                 if(code !== 200 || res === null){

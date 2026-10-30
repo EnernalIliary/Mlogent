@@ -467,7 +467,8 @@ def plan(req):
         why = 'no template matched this intent -- say what the processor should do: patrol, watch an item, point a turret, count up, print on a timer, store a value'
         return {'ok': False, 'intent': intent, 'template': None, 'reason': why,
                 'candidates': [{'id': t.id, 'title': t.title} for t in TEMPLATES.values()]}
-    res = compose({'template': tid, 'params': params, 'links': links, 'ipt': ipt})
+    res = compose({'template': tid, 'params': params, 'links': links, 'ipt': ipt,
+                   'origin': req.get('origin')})
     res['intent'] = intent
     res['params'] = params
     res['reason'] = why
@@ -494,6 +495,30 @@ def _link_objects(links):
         if isinstance(link, dict):
             out.append(msch.LogicLink(str(link.get('name', '')), int(link.get('x', 0)),
                                       int(link.get('y', 0))))
+        else:
+            out.append(msch.LogicLink(str(link), 0, 0))
+    return out
+
+
+def _relative_links(links, origin):
+    """Payload link coordinates, relative to the processor tile.
+
+    LogicBlock.config(byte[]) -> readCompressed(data, true) adds the processor tile
+    back to every link coordinate (LogicBlock.java:304-307), so the byte[] payload
+    stores them RELATIVE. The mod reports absolute tile positions (LogicLink.x/y are
+    absolute), so subtract origin when the caller tells us where the processor is.
+    Without an origin the coordinates are passed through untouched (already relative).
+    """
+    ox = oy = None
+    if isinstance(origin, dict):
+        ox, oy = int(origin.get('x') or 0), int(origin.get('y') or 0)
+    out = []
+    for link in links or []:
+        if isinstance(link, dict):
+            x, y = int(link.get('x', 0) or 0), int(link.get('y', 0) or 0)
+            if ox is not None:
+                x, y = x - ox, y - oy
+            out.append(msch.LogicLink(str(link.get('name', '')), x, y))
         else:
             out.append(msch.LogicLink(str(link), 0, 0))
     return out
@@ -543,6 +568,9 @@ def compose(req):
     code = '\n'.join(lines)
     links = req.get('links') or []
     names = _link_names(links)
+    origin = req.get('origin')
+    if origin is not None and not isinstance(origin, dict):
+        raise ValueError('origin must be an object with x and y')
     # The template knows which links it writes into the code; a missing one is a
     # hard error here (the analyzer would also say so, but a template should name it).
     missing = [n for n in refs if n not in names]
@@ -555,11 +583,12 @@ def compose(req):
                    % (tid, ', '.join(missing))})
         res['errors'] += 1
         res['ok'] = False
-    payload = msch.build_logic_data(code, _link_objects(links))
+    payload = msch.build_logic_data(code, _relative_links(links, origin))
     return {'ok': res['ok'], 'template': tid, 'code': code,
             'findings': res['findings'], 'errors': res['errors'], 'warns': res['warns'],
             'statements': res['statements'], 'cost': res['cost'],
             'links': _link_names(links),
+            'origin': origin,
             'bytes_b64': base64.b64encode(payload).decode('ascii'),
             'bytes_len': len(payload)}
 

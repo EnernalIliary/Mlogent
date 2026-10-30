@@ -344,6 +344,15 @@ def main():
         problems.append('main.js stopped explaining a refused sidecar connection')
     if 'p.missing' not in code_only:
         problems.append('the region panel stopped reporting unbound link names (p.missing)')
+    # v0.4.6: the payload stores link coordinates relative to the processor
+    # (LogicBlock.java:304-307), so every request that carries links has to say where
+    # the processor is.  Without the origin the game keeps the link entries but none of
+    # them resolves (valid=false), which is silent at run time.
+    if 'function originOf(' not in code_only:
+        problems.append('main.js lost originOf() -- link coordinates would be written '
+                        'as absolute numbers into a relative payload')
+    if 'origin: originOf(b)' not in code_only:
+        problems.append('/plan or /compose stopped sending the processor origin')
     # ---- P3 region snapshot, read back from the engine
     snap = None
     for l in text.splitlines():
