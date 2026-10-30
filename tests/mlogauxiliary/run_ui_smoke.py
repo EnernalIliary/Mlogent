@@ -23,7 +23,8 @@ Why this exists: the first version of the console-function mount read scope.get(
 back, which throws "Cannot find function get" under the real engine -- main.js died
 after loading its rule table and the mod looked half-installed.
 """
-import io, json, os, re, sys
+import http.server, io, json, os, re, sys
+import threading
 
 sys.stdout.reconfigure(encoding='utf-8', errors='replace')
 
@@ -61,6 +62,51 @@ def region_probe(srv):
     ]
 
 
+ECHO_MARK = 'MAISIDECAR-OK'
+
+
+class _Echo(http.server.BaseHTTPRequestHandler):
+    """Answers like tools/logicd.py: JSON, Content-Length, HTTP/1.0 style close."""
+
+    def _reply(self, payload):
+        body = json.dumps(payload, ensure_ascii=False).encode('utf-8')
+        self.send_response(200)
+        self.send_header('Content-Type', 'application/json; charset=utf-8')
+        self.send_header('Content-Length', str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
+    def do_GET(self):
+        self._reply({'ok': True, 'mark': ECHO_MARK, 'method': 'GET', 'path': self.path})
+
+    def do_POST(self):
+        n = int(self.headers.get('Content-Length') or 0)
+        raw = self.rfile.read(n).decode('utf-8', 'replace') if n else ''
+        self._reply({'ok': True, 'mark': ECHO_MARK, 'method': 'POST', 'echo': raw})
+
+    def log_message(self, *args):
+        pass
+
+
+def echo_server():
+    """A real local HTTP server: the socket transport cannot be faked in JS."""
+    hs = http.server.ThreadingHTTPServer(('127.0.0.1', 0), _Echo)
+    threading.Thread(target=hs.serve_forever, daemon=True).start()
+    return hs, hs.server_address[1]
+
+
+def http_probe(port):
+    # One line per probe, and never echo the body of the dead-port case: the simulator's
+    # js() bridge raises SimError on any console line containing "Exception"/"Error:",
+    # which would look like a transport failure instead of the expected code -1.
+    return [
+        "var p1 = maiHttpRaw('GET', 'http://127.0.0.1:%d/health', null);" % port,
+        "print('MAIHTTP1:' + p1.split('\\n')[0] + ':' + (p1.indexOf('MAISIDECAR-OK') >= 0 ? 'MARK' : 'NOMARK'));",
+        "var p2 = maiHttpRaw('POST', 'http://127.0.0.1:%d/plan', 'MAIPING');" % port,
+        "print('MAIHTTP2:' + p2.split('\\n')[0] + ':' + (p2.indexOf('MAIPING') >= 0 ? 'ECHO' : 'NOECHO'));",
+        "var p3 = maiHttpRaw('GET', 'http://127.0.0.1:1/health', null);",
+        "print('MAIHTTP3:' + p3.split('\\n')[0]);",
+    ]
 def main():
     try:
         import mlogsim as M
@@ -243,6 +289,54 @@ def main():
     if 'regionCandidatesText(rtext)' in code_only:
         problems.append('F7 still treats maiRegion() as synchronous')
 
+    # ---- v0.4.4: the sidecar transport is a hand-rolled socket now.
+    # URL.openConnection() hands back sun.net.www.protocol.http.HttpURLConnection, which
+    # java.base does not export; Rhino binds members against the RUNTIME class (MemberBox),
+    # so setRequestMethod / getResponseCode / getInputStream all threw
+    # IllegalAccessException.  A JS-side fake socket would never catch that, so talk to a
+    # real local HTTP server -- and to a dead port, which must come back as code -1.
+    hs, hport = echo_server()
+    try:
+        try:
+            hout = srv.js(' '.join(http_probe(hport) + ['void 0;']))
+            htext = '\n'.join(str(x) for x in hout)
+        except Exception as exc:
+            htext = ''
+            problems.append('maiHttpRaw threw in the engine: %s' % str(exc)[-300:])
+        hres = {}
+        for k, code, flag in re.findall(r'MAIHTTP([123]):(-?\d+)(?::(MARK|NOMARK|ECHO|NOECHO))?', htext):
+            hres[k] = (int(code), flag)
+        for k, code, flag in (('1', 200, 'MARK'), ('2', 200, 'ECHO'), ('3', -1, '')):
+            got = hres.get(k)
+            if got is None:
+                problems.append('MAIHTTP%s printed nothing' % k)
+                continue
+            if got[0] != code:
+                problems.append('MAIHTTP%s code=%r wanted %r' % (k, got[0], code))
+            elif flag and got[1] != flag:
+                problems.append('MAIHTTP%s body flag=%r wanted %r' % (k, got[1], flag))
+    finally:
+        hs.shutdown()
+        hs.server_close()
+
+    # v0.4.4 red lines: the transport must stay a raw socket, and the settings category
+    # must show the vanilla logic badge (Icon.logic).
+    if 'openConnection(' in code_only:
+        problems.append('main.js calls URL.openConnection() again -- Rhino cannot call methods '
+                        'on sun.net.www.protocol.http.HttpURLConnection (IllegalAccessException)')
+    if 'new Packages.java.net.Socket()' not in code_only:
+        problems.append('the sidecar transport is no longer a raw java.net.Socket')
+    if 'Packages.mindustry.gen.Icon.logic' not in code_only:
+        problems.append('the settings category lost the vanilla logic badge (Icon.logic)')
+    # v0.4.4: try/finally with a nested try/catch inside the finally body makes the v160.7
+    # Rhino codegen die (ArrayIndexOutOfBoundsException "arraycopy ..." / "invalid bytecode"),
+    # and Scripts.runConsole hands that error back as a String, so the whole mod loads
+    # silently dead.  Keep the transport on try/catch + an explicit close.
+    if '}finally{' in code_only:
+        problems.append('main.js introduced try/finally again -- the v160.7 Rhino codegen '
+                        'throws on finally bodies that contain try/catch')
+    if 'try{ if(sock !== null){ sock.close(); } }catch(e1){}' not in code_only:
+        problems.append('the socket transport lost its explicit socket close')
     # ---- P3 region snapshot, read back from the engine
     snap = None
     for l in text.splitlines():

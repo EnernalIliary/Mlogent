@@ -28,7 +28,7 @@
 function __logicWriterMain(){
     "use strict";
 
-    var MOD_VERSION = "0.4.3";
+    var MOD_VERSION = "0.4.4";
     var URL_KEY     = "mlogauxiliary-url";
     var DEFAULT_URL = "http://127.0.0.1:8765";
     var KEY_PANEL   = ["f4"];      // F4：开面板（F1/F5/F6/F8/F11/F12 与 F9/F10 已被占用）
@@ -276,11 +276,27 @@ function __logicWriterMain(){
                + " 行；用到的方法 " + ft.methods();
     }
 
+    // 设置分类的图标用原版逻辑徽标（图标字体里的 glyph，和 @editor.worldprocessors 那个按钮同一个）。
+    // 它由 Icon 的静态初始化从 Fonts.def 造出来，个别环境可能还是 null —— 那时退回无图标写法，
+    // 不传 null 给 addCategory（String/Drawable 两个重载会挑不出来）。
+    function categoryIcon(){
+        try{
+            var ic = Packages.mindustry.gen.Icon.logic;
+            if(ic !== null && ic !== undefined){ return ic; }
+        }catch(e){ log("logic icon unavailable: " + e); }
+        return null;
+    }
+
     function registerSettings(){
         if(settingsDone){ return true; }
         try{
             if(Vars.ui === null || Vars.ui.settings === null){ return false; }
-            Vars.ui.settings.addCategory("Mlog辅助", function(t){ buildSettingsTable(t); });
+            var icon = categoryIcon();
+            if(icon !== null){
+                Vars.ui.settings.addCategory("Mlog辅助", icon, function(t){ buildSettingsTable(t); });
+            }else{
+                Vars.ui.settings.addCategory("Mlog辅助", function(t){ buildSettingsTable(t); });
+            }
             settingsDone = true;
             settingsErr = null;
             log("settings category registered");
@@ -330,37 +346,95 @@ function __logicWriterMain(){
         var undoStack = [];        // P1：内存快照，重启即失效（P3 落盘）
 
         // ---------------------------------------------------------- 传输层
-        // Rhino 里做 HTTP 会卡渲染线程，所以整段网络调用丢进守护线程，
-        // 结果用 Core.app.post 回到游戏线程再碰界面/世界。
-
-        function readAll(is){
-            var br = new Packages.java.io.BufferedReader(
-                new Packages.java.io.InputStreamReader(is, "UTF-8"));
+        // 不用 java.net.URL.openConnection()：它返回的是 sun.net.www.protocol.http.HttpURLConnection，
+        // 属于 java.base 不 export 的 JDK 内部类；Rhino 按运行期类做成员绑定（MemberBox），于是
+        // setRequestMethod / getResponseCode 这类被内部类覆写的方法一调就抛
+        //   IllegalAccessException: class rhino.MemberBox cannot access class
+        //   sun.net.www.protocol.http.HttpURLConnection (in module java.base)
+        // —— v0.4.3 真机实测。这里退回 java.net.Socket：请求行与头自己写，响应读到 EOF
+        // （请求带 Connection: close，python 的 BaseHTTPRequestHandler 是 HTTP/1.0，读完就关）。
+        // 只用公开类（Socket / InputStreamReader / StringBuilder），不再碰 JDK 内部类型。
+        
+        // "http://host:port/path" -> {host, port, path}，host 缺省 127.0.0.1、port 缺省 8765。
+        function endpoint(url){
+            var s = String(url);
+            var m = /^https?:\/\/([^\/:]+)(?::(\d+))?(\/[^\s]*)?$/.exec(s);
+            if(m === null){ return {host: "127.0.0.1", port: 8765, path: "/"}; }
+            var port = m[2] === undefined ? 80 : parseInt(m[2], 10);
+            if(!(port > 0 && port < 65536)){ port = 8765; }
+            return {host: m[1], port: port, path: m[3] === undefined ? "/" : m[3]};
+        }
+        
+        function readAllStr(rd){
             var sb = new Packages.java.lang.StringBuilder();
-            var line;
-            while((line = br.readLine()) !== null){ sb.append(line); sb.append("\n"); }
-            br.close();
+            var cbuf = Packages.java.lang.reflect.Array.newInstance(Packages.java.lang.Character.TYPE, 8192);
+            var n;
+            while((n = rd.read(cbuf, 0, 8192)) !== -1){
+                sb.append(new Packages.java.lang.String(cbuf, 0, n));
+            }
             return String(sb.toString());
         }
-
+        
+        // 同步原生请求：返回 {code, text, head}。code = -1 表示连不上/超时（text 里是原因）。
+        function httpRaw(method, url, body){
+            var ep = endpoint(url);
+            var sock = null;
+            var res = {code: -1, text: "", head: ""};
+            // 注意：这里刻意不用 try/finally —— 真 v160.7 的 Rhino 在 finally 里再嵌 try/catch
+            // 时会抛 ArrayIndexOutOfBoundsException(arraycopy ...)，脚本整段静默不执行。
+            // 收尾改成末尾独立的 try{ if(sock!==null){ sock.close(); } }catch(e1){}。
+            try{
+                sock = new Packages.java.net.Socket();
+                sock.connect(new Packages.java.net.InetSocketAddress(ep.host, ep.port), TIMEOUT_MS);
+                sock.setSoTimeout(TIMEOUT_MS * 4);
+                var payload = (body === null || body === undefined) ? null
+                    : new Packages.java.lang.String(String(body)).getBytes("UTF-8");
+                var head = method + " " + ep.path + " HTTP/1.1\r\n"
+                         + "Host: " + ep.host + ":" + ep.port + "\r\n"
+                         + "Connection: close\r\n"
+                         + "Accept: application/json\r\n";
+                if(payload !== null){
+                    head += "Content-Type: application/json\r\n"
+                          + "Content-Length: " + payload.length + "\r\n";
+                }
+                head += "\r\n";
+                var os = sock.getOutputStream();
+                os.write(new Packages.java.lang.String(head).getBytes("UTF-8"));
+                if(payload !== null){ os.write(payload); }
+                os.flush();
+        
+                var rd = new Packages.java.io.InputStreamReader(sock.getInputStream(), "UTF-8");
+                var raw = readAllStr(rd);
+                try{ rd.close(); }catch(e0){}
+                var idx = raw.indexOf("\r\n\r\n"), sepLen = 4;
+                if(idx < 0){ idx = raw.indexOf("\n\n"); sepLen = 2; }
+                var headPart = idx < 0 ? raw : raw.substring(0, idx);
+                var textPart = idx < 0 ? "" : raw.substring(idx + sepLen);
+                var code = -1;
+                // 这里原本写 /^HTTP\/1\.[01] (\d{3})/ —— 真 v160.7 的 Rhino 编译这一条正则时
+                // 直接抛 IllegalStateException: FAILED ASSERTION: invalid bytecode（正则字面量
+                // 的 codegen bug，和脚本内容无关），整个 main.js 静默不执行。改成字符串比对。
+                if(headPart.length >= 12 && headPart.substring(0, 5) === "HTTP/"){
+                    var sp = headPart.indexOf(" ");
+                    if(sp > 0){
+                        var num = parseInt(headPart.substring(sp + 1, sp + 4), 10);
+                        if(!isNaN(num)){ code = num; }
+                    }
+                }
+                res = {code: code, text: textPart, head: headPart};
+            }catch(e){
+                res = {code: -1, text: String(e), head: ""};
+            }
+            try{ if(sock !== null){ sock.close(); } }catch(e1){}
+            return res;
+        }
+        
         function httpJson(method, path, body, cb){
             Threads.daemon(function(){
                 var code = -1, text = "";
                 try{
-                    var con = new Packages.java.net.URL(base + path).openConnection();
-                    con.setConnectTimeout(TIMEOUT_MS);
-                    con.setReadTimeout(TIMEOUT_MS * 4);
-                    con.setRequestMethod(method);
-                    if(body !== null){
-                        con.setDoOutput(true);
-                        con.setRequestProperty("Content-Type", "application/json");
-                        var os = con.getOutputStream();
-                        os.write(new Packages.java.lang.String(body).getBytes("UTF-8"));
-                        os.close();
-                    }
-                    code = con.getResponseCode();
-                    var is = (code >= 400) ? con.getErrorStream() : con.getInputStream();
-                    text = is === null ? "" : readAll(is);
+                    var r = httpRaw(method, base + path, body);
+                    code = r.code; text = r.text;
                 }catch(e){
                     text = String(e);
                 }
@@ -952,6 +1026,9 @@ function __logicWriterMain(){
         // ---------------------------------------------------------- 控制台接口
         var api = {
             maiVersion: function(){ return "mlog-auxiliary " + MOD_VERSION + "  sidecar=" + base; },
+        // 调试/测试用：同步原生请求，返回 "<code>" + 换行 + 正文。会占住调用线程到超时，
+        // 只对 localhost 用；正式路径仍然是 httpJson + Core.app.post。
+        maiHttpRaw: function(method, url, body){ var r = httpRaw(method, String(url), body === undefined ? null : body); return r.code + "\n" + r.text; },
             maiPing:    function(){
                 httpJson("GET", "/health", null, function(code, text){
                     var out = "sidecar " + base + " -> " + code + "\n" + String(text).substring(0, 300);

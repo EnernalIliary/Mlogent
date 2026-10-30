@@ -69,6 +69,7 @@ v0.4.2 起多一个**只读**入口：**F7 把鼠标周围 10 格扫成区域快
 | `maiSnapshotText(...)` | 同一份快照的人读摘要 |
 | `maiRegion(x1,y1,x2,y2)` | 异步 `POST /region`，回包解析后弹窗（返回「已发出…」） |
 | `maiRegionAround(r)` | 以鼠标下处理器为中心扫 `r` 格（F7 就是 `r=10`） |
+| `maiHttpRaw(method,url,body)` | 调试用：同步发一个请求，返回 `code` 换行 `text`（v0.4.4 起走裸 socket，连不上回 `-1`） |
 
 ## 设置界面（v0.4）
 
@@ -81,6 +82,9 @@ v0.4 把这一页按用途分段（`── 运行环境 ──` 这样的标题�
 * **本地快检**：快检能否使用、规则表条数；
 * **sidecar**：地址（可直接改，回车即存进 `Core.settings` 的 `mlogauxiliary-url`）、连接测试（GET `/health`）、**复制诊断**到剪贴板；
 * **快捷动作**：AI 辅助编程 / 模板面板 / 快检鼠标下的处理器 / 打印诊断 / 重新注册分类 / 审查状态。
+
+分类图标用原版逻辑徽标 `Icon.logic`（`Vars.ui.settings.addCategory(name, Drawable, Cons)`，
+`SettingsMenuDialog.java:324`）：取不到图标（无头环境 `Core.atlas` 是 `null`）就退回纯文字重载（`:329`）。
 
 排版只用了在真 v160.7 里实测能解析的 `Table` / `Cell` 方法（`add` / `labelWrap` / `button` / `field` +
 `colspan` / `left` / `right` / `width` / `pad` / `padTop` / `padBottom` / `padRight` / `row`），
@@ -230,6 +234,44 @@ F7 现在走 `regionAroundBox()`；`maiApply` 在回调里判断 0 ERR 再 `writ
 
 **这条现在有闸**：`run_ui_smoke.py` 的源码红线禁止 `while(x === "pending")` 与 `while(out === "?")`，
 并要求 `regionAroundBox(` 存在、`regionCandidatesText(rtext)` 不再出现。
+
+
+## v0.4.4：传输层换成裸 socket（顺带挖出 Rhino 的两个 codegen bug）
+
+v0.4.3 修好等待方式之后，F7 换了新的报错，而且这回是完整的 Java 异常：
+
+```
+java.lang.IllegalAccessException: class rhino.MemberBox cannot access class
+sun.net.www.protocol.http.HttpURLConnection (in module java.base) because module java.base does not
+export sun.net.www.protocol.http to unnamed module
+```
+
+`java.net.URL.openConnection()` 交回来的对象是 `sun.net.www.protocol.http.HttpURLConnection` —— 
+`java.base` 的内部类，没有 export。Rhino 绑成员时用的是**运行期类**（`rhino.MemberBox`），
+于是 `setRequestMethod` / `getResponseCode` / `getInputStream` 这些被内部类覆写的方法一调就抛。
+
+**修法：自己用 `java.net.Socket` 写 HTTP/1.1。** 请求行 + `Host` + `Connection: close`，有 body 时加
+`Content-Type` / `Content-Length`（UTF-8 字节长度）；响应用 `InputStreamReader(..., "UTF-8")` 读到 EOF，
+按 `\r\n\r\n` 切头与正文，状态码用 `substring` + `parseInt` 解析。sidecar 是 `BaseHTTPRequestHandler`
+（`tools/logicd.py:717`），默认 `protocol_version = "HTTP/1.0"`，不 chunked 也不 keep-alive，读到 EOF 正好是正文尾。
+
+**改的时候踩到两条真 v160.7 的 Rhino 编译期 bug**（两条都让整段脚本静默不执行）：
+
+1. 状态行解析原本写 `/^HTTP\/1\.[01] (\d{3})/` —— Rhino 编译它时直接 `IllegalStateException: FAILED ASSERTION:
+   invalid bytecode`。同一个文件里 `endpoint()` 那条长正则却没事，只能逐段 bisect 才定位到。
+2. 收尾原本是 `try{ ... }finally{ try{ sock.close(); }catch(e1){} }` —— `finally` 体里再嵌 `try/catch`
+   会让 Rhino 抛 `ArrayIndexOutOfBoundsException: arraycopy: last source index N out of bounds for object array[M]`。
+   最小形是 `function t(){ try{ return 1; }finally{ try{ }catch(e){} } }`。现在改成 try/catch + 末尾独立的
+   `try{ if(sock !== null){ sock.close(); } }catch(e1){}`。
+
+**这两条最阴的地方是「静默」**：`Scripts.runConsole`（`Mindustry-Source/.../mod/Scripts.java:44-65`）
+`catch(Throwable)` 之后**把错误当返回值返回**，不抛也不打印，所以控制台上看起来脚本「加载成功」，
+实际一个函数都没定义。诊断时唯一的入口是把 `runConsole()` 的返回值打印出来。
+
+**这条现在有闸**：`run_ui_smoke.py` 起一个真的本地 `http.server`，用 `maiHttpRaw` 打三枪 —— 
+GET 200 且正文含 `MAISIDECAR-OK`、POST 200 且回显 `MAIPING`、死端口 `127.0.0.1:1` 必须回 `code -1`；
+另有四条源码红线：禁 `openConnection(`、要求 `new Packages.java.net.Socket()`、禁 `}finally{`、
+要求那句显式 `sock.close()`。
 
 ## 接口契约（sidecar v1）
 

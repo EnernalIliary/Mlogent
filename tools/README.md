@@ -160,6 +160,17 @@ P2–P5 的路线（框选 → 队列 → 模型 → 写入）在 `docs/Mlog辅�
 拿到的只是字面量 `pending`（症状：F7 弹出「sidecar 不可用（）」）。现在的写法是发出去就返回、处理放进回调；
 `run_ui_smoke.py` 的源码红线禁止 `while(x === "pending")` 这类自旋。
 
+**传输层是裸 socket**（v0.4.4 修）：不能用 `java.net.URL.openConnection()` —— 它交回的是内部类
+`sun.net.www.protocol.http.HttpURLConnection`，`java.base` 没 export，Rhino 按运行期类绑成员（`rhino.MemberBox`），
+`setRequestMethod` / `getResponseCode` / `getInputStream` 一律抛 `IllegalAccessException`。现在 `httpRaw()` 用
+`java.net.Socket` 手写 HTTP/1.1（`Connection: close` + 可选 `Content-Length`，响应读到 EOF；sidecar 是
+`BaseHTTPRequestHandler`，默认 HTTP/1.0，不 chunked 不 keep-alive）。控制台多了 `maiHttpRaw()` 方便在游戏里定位。
+
+**写 `MlogAuxiliary/scripts/main.js` 的两个禁区**（真 v160.7 的 Rhino 编译期 bug，都表现为「整段脚本静默不执行」，
+因为 `Scripts.runConsole` 把异常当返回值）：①`finally` 体里再嵌 `try/catch` ⇒ `arraycopy: last source index ...`；
+②某些正则字面量（实测 `/^HTTP\/1\.[01] (\d{3})/`）⇒ `FAILED ASSERTION: invalid bytecode`。两条都在
+`tests/mlogauxiliary/run_ui_smoke.py` 有源码红线（禁 `}finally{`、禁 `openConnection(`）。
+
 ### 游戏内快检（P2）
 
 游戏里没有 Python，所以「这行指令存在吗 / 要更新版本吗 / 这个名字是链接吗」这类
