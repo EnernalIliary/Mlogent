@@ -116,8 +116,15 @@ var MAI_QUICKCHECK = (function(){
                 if(isName(v)) declared[v] = 1;
             }
         }
+        // links === null 的意思是「调用方不知道这个处理器有哪些链接」，和「确实一个
+        // 链接都没有」是两件事。分不清的后果是真的：v0.4.6 的审查栏因为读不到
+        // LogicDialog.executor（包私有字段）而喂进来一个空数组，于是每一行链接槽里的
+        // 名字都被判成 link-name-not-bound -- 有链接也报「没链接」。
+        var linkKnown = (links !== null && links !== undefined);
         var linkSet = {};
-        for(i = 0; i < (links || []).length; i++) linkSet[String(links[i])] = 1;
+        if(linkKnown){
+            for(i = 0; i < links.length; i++) linkSet[String(links[i])] = 1;
+        }
 
         var floor = 0, users = [];
         // 第二遍：五条单行判据。
@@ -144,7 +151,7 @@ var MAI_QUICKCHECK = (function(){
                     msg: "version gate: uses " + mn + " -- needs build >= " + mb + ", you are on " + build + "; older builds replace the line with noop"});
             }
             var slots = rules.link[mn];
-            if(slots){
+            if(slots && linkKnown){
                 for(j = 0; j < slots.length; j++){
                     v = toks[slots[j]];
                     if(!isName(v) || linkSet[v] || declared[v]) continue;
@@ -166,7 +173,9 @@ var MAI_QUICKCHECK = (function(){
                 ticksPerPass: Math.ceil(stmts.length / ipt),
                 floor: floor,
                 floorUsers: users,
-                truncates: stmts.length > rules.maxInstr
+                truncates: stmts.length > rules.maxInstr,
+                linkKnown: linkKnown,           // false = 链接表未知，链接槽判据整段跳过
+                linkCount: linkKnown ? links.length : -1
             }
         };
     }

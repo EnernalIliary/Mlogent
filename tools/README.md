@@ -223,6 +223,22 @@ object ScrollPane` —— 而且 `clear()` 还在（`Group.java:357` 有 clear�
 所以崩在第二句。正确写法：自己造 `new Table()` 交给 `pane(host)`（Element 重载）托管，之后只往 host 里加东西；
 `run_ui_smoke.py` 现在会在真引擎里断言 ScrollPane 上没有 `add`，源码级拦 `.pane(function` 与 `.pane(...).get()`。
 
+**第四个坑是「读不到」被当成「没有」**（v0.4.7 修掉）：审查栏要拿处理器的链接名去喂快检，而链接表挂在
+`LogicDialog.executor` 上 —— 这个字段是**包私有**（真 v160.7 反射实测可见性 `executor:pkg`），Rhino 只暴露 public
+成员，所以 `L.executor` 读出来是 `undefined`，取 `.build` 抛 TypeError 被 `catch` 吞掉，`linkNames()` 退回空数组，
+快检就把每个链接槽都判成「没链接」（用户看到的就是「有链接也报无链接」）。现在 `logicExecutor()` 用
+`Class.forName("mindustry.logic.LogicDialog")` + `getDeclaredField("executor")` + `setAccessible(true)` 读，并且
+`linkNames()` 读不到时返回 `null`（不是 `[]`）：快检收到 `null` 整段跳过链接槽判据、`stats.linkKnown` 记成 false，
+统计行显示「链接 ?（读不到处理器）」。**空数组和「不知道」在数据流上必须分开**，否则「少报」会变成「瞎报」。
+
+审查行内箭头（v0.4.7）也是覆盖层：`Table.cells` 是私有字段（`Table.java:35`），插不进原版语句行，所以铺一张
+`Touchable.childrenOnly`（`arc/scene/event/Touchable.java`）的 Table 在 `LCanvas.statements` 的父容器上，箭头用
+`addChild` 手动摆位、`host.update()` 每帧按 `finding.line -> statements.getChildren().get(line-1)` 重算
+（`x = statements.x + e.x - 18` 优先进行左侧空白，`y = statements.y + e.y + h - 19 - 8` 取表头行中心，表头高 38）；
+`run_ui_smoke.py` 的 `arrow_probe()` 在真引擎里建 4 行假 statements + `pack()`，按公式逐箭头核位置/颜色/条数。
+顺带一个无头环境的坑：`Table.add(CharSequence)` 要 Label 样式（`Core.scene.getStyle`），无头时 `Core.scene` 是 null
+⇒ 测试里只能用 `Image` 当孩子，不能写 `t.add('x')`（这条和「设置页平铺」那节是同一个原因）。
+
 五条判据：未知指令 / 子命令拼错（整行变 NoopI）/ 版本门（`min_build` 大于当前 build）/
 链接名未绑定 / 语句数超 1000。**它只许少报，不许瞎报**：测试里用 `mlogcheck.analyse()`
 做单向包含验证 —— quickcheck 说是断链的行，全量检查必须也这么说。未赋值变量的槽位分级、

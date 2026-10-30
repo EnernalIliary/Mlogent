@@ -62,6 +62,47 @@ def region_probe(srv):
     ]
 
 
+def arrow_probe():
+    """v0.4.7: findings -> one arrow per line, glued to that line's StatementElem.
+
+    The mapping (finding.line -> statements child index -> pixel position) IS the feature,
+    and it rests on two engine facts a JS fake cannot pin: children come back in statement
+    order, and the header row of each StatementElem is 38 px tall (LCanvas.java:427-491).
+    The icon is passed in because a headless engine has no atlas (Icon.right is null), and
+    line 0 / line 9 must be skipped instead of throwing -- a stale finding after an edit
+    can point past the end of the code.
+    """
+    return [
+        "var arT = Packages.arc.scene.ui.layout.Table;",
+        "var arRoot = new arT();",
+        "var arSt = new arT();",
+        "arRoot.add(arSt).padLeft(40).padTop(12).growX();",
+        "var arKids = [];",
+        "for(var arI = 0; arI < 4; arI++){",
+        "  var arE = new arT();",
+        # no Label here: add(CharSequence) needs a Label style from Core.scene, which is
+        # null in a headless engine -- an Image child needs no style.
+        "  arE.add(new Packages.arc.scene.ui.Image(new Packages.arc.graphics.g2d.TextureRegion())).growX().height(38);",
+        "  arSt.add(arE).growX().height(60);",
+        "  if(arI < 3){ arSt.row(); }",
+        "  arKids.push(arE);",
+        "}",
+        "arRoot.pack();",
+        "print('MAIARST:' + arSt.x + ',' + arSt.y);",
+        "for(var arJ = 0; arJ < arKids.length; arJ++){",
+        "  print('MAIARROWKID:' + arJ + ':' + arKids[arJ].x + ',' + arKids[arJ].y + ',' + arKids[arJ].getHeight());",
+        "}",
+        "var arF = JSON.stringify([",
+        "{sev:'WARN', line:1, rid:'link-name-not-bound', msg:'one'},",
+        "{sev:'ERR', line:3, rid:'sensor-not-a-property', msg:'three-a'},",
+        "{sev:'INFO', line:3, rid:null, msg:'three-b'},",
+        "{sev:'WARN', line:9, rid:null, msg:'past the end'},",
+        "{sev:'WARN', line:0, rid:null, msg:'before the start'}",
+        "]);",
+        "var arDr = new Packages.arc.graphics.g2d.TextureRegion();",
+        "print('MAIARROWS:' + maiArrows(arSt, arF, arDr));",
+    ]
+
 ECHO_MARK = 'MAISIDECAR-OK'
 
 
@@ -140,7 +181,7 @@ def main():
         "print('MAISELF:' + maiSelfTest());",
         "print('MAIDIAG:' + maiDiag().replace(/\\n/g, ' | '));",
         "print('MAISET:' + maiSettings());",
-    ] + region_probe(srv) + [
+    ] + region_probe(srv) + arrow_probe() + [
         "void 0;",
     ])
     try:
@@ -387,6 +428,81 @@ def main():
         if snap.get('truncated') is not False:
             problems.append('region truncated flag: %r' % (snap.get('truncated'),))
 
+    # ---- v0.4.7 review arrows: finding.line -> statements child -> pixel position
+    arrows = None
+    ast = None
+    kids = {}
+    for l in text.splitlines():
+        if l.startswith('MAIARROWS:'):
+            arrows = l[len('MAIARROWS:'):].split()
+        elif l.startswith('MAIARST:'):
+            try:
+                ast = [float(x) for x in l[len('MAIARST:'):].split(',')]
+            except Exception:
+                ast = None
+        elif l.startswith('MAIARROWKID:'):
+            m = re.match(r'MAIARROWKID:(\d+):([-\d.]+),([-\d.]+),([-\d.]+)$', l)
+            if m:
+                kids[int(m.group(1))] = tuple(float(m.group(i)) for i in (2, 3, 4))
+    if arrows is None:
+        problems.append('maiArrows printed nothing')
+    else:
+        # 2 arrows (line 1 WARN, line 3 ERR+INFO -> ERR wins), and 0 / 9 are out of range
+        # "arrows N" is one token, so arrows[0] == 'arrows' and arrows[1] == str(N)
+        if arrows[:2] != ['arrows', '2'] or len(arrows) != 4:
+            problems.append('arrows: %r (wanted 2: line 1 and line 3; 0 and 9 must be skipped)' % (arrows,))
+        got = {}
+        for tok in arrows[2:]:
+            parts = tok.split(':')
+            if len(parts) != 5:   # line:x,y:SEV:items:v
+                problems.append('arrow token %r' % tok)
+                continue
+            xy = parts[1].split(',')
+            got[int(parts[0])] = (float(xy[0]), float(xy[1]), parts[2], int(parts[3]), parts[4])
+        if set(got) != {1, 3}:
+            problems.append('arrow lines %r, wanted {1, 3}' % (sorted(got),))
+        if 1 in got and got[1][2:4] != ('WARN', 1):
+            problems.append('line 1 arrow: %r, wanted WARN with 1 finding' % (got[1],))
+        if 3 in got and got[3][2:4] != ('ERR', 2):
+            problems.append('line 3 arrow: %r, wanted ERR (worst of ERR+INFO) with 2 findings' % (got[3],))
+        for line, v in got.items():
+            if v[4] != 'v':
+                problems.append('arrow on line %d is not visible' % line)
+            if ast is None or (line - 1) not in kids:
+                continue
+            kx, ky, kh = kids[line - 1]
+            want_x = ast[0] + kx - 16 - 2          # left gutter when there is room
+            if want_x < 2:
+                want_x = ast[0] + kx + 2
+            want_y = ast[1] + ky + kh - 19 - 8     # header row is 38 px tall
+            if abs(v[0] - round(want_x)) > 1 or abs(v[1] - round(want_y)) > 1:
+                problems.append('arrow on line %d at %r, wanted (%r, %r)' % (line, v[:2], round(want_x), round(want_y)))
+        if 1 in got and 3 in got and not got[1][1] > got[3][1]:
+            problems.append('arrow on line 1 is not above the one on line 3 -- children order is off')
+
+    # ---- v0.4.7: the review arrows, and the fake-WARN fix they came with.
+    # LogicDialog.executor is package-private (real v160.7 reflection: MAIFIELDS showed
+    # 'executor:pkg'), and Rhino only exposes public members -- so L.executor was
+    # undefined, linkNames() came back empty, and every link slot looked unbound.
+    # Read it through the reflective accessor instead of touching the field directly.
+    if 'function logicExecutor(' not in code_only:
+        problems.append('main.js lost logicExecutor() -- LogicDialog.executor is package-private; '
+                        'a direct read is undefined and every link slot looks unbound')
+    if re.search(r'(?<![A-Za-z_.])L[.]executor', code_only):
+        problems.append('main.js reads L.executor directly again -- Rhino cannot see a package-private field')
+    if 'setAccessible(true)' not in code_only:
+        problems.append('logicExecutor() no longer calls setAccessible(true)')
+    # linkNames() must distinguish "no links" ([]) from "cannot read them" (null):
+    # an empty array makes quickcheck report a WARN on every link slot.
+    if 'linkKnown' not in code_only:
+        problems.append('the review stopped telling "no links" apart from "cannot read the link table"')
+    if 'function syncArrows(' not in code_only or 'Touchable.childrenOnly' not in code_only:
+        problems.append('the in-line review arrows are gone (syncArrows / Touchable.childrenOnly)')
+    if 'function tapLine(' not in code_only:
+        problems.append('arrow taps are not wired through tapLine()')
+    if 'function layoutArrows(' not in code_only:
+        problems.append('arrows are no longer re-positioned every frame (layoutArrows)')
+
     if problems:
         print('FAIL ' + '; '.join(problems))
         print(joined[-1500:])
@@ -394,6 +510,8 @@ def main():
     print('ui smoke: main.js initialised in the real engine')
     if snap is not None:
         print('  region snapshot: %d cell(s), %d processor(s)' % (len(snap.get('grid') or []), len(snap.get('processors') or [])))
+    if arrows is not None:
+        print('  review arrows: ' + ' '.join(arrows[2:]))
     if shapes:
         print('  table methods resolved: ' + ' '.join(
             '%s=%s' % (m, shapes.get(m, '?')) for m in used))

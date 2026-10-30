@@ -143,6 +143,32 @@
   ]
  },
  {
+  "name": "links-unknown",
+  "code": "sensor n container1 @copper\nprint n\nprintflush message1\nend",
+  "links": null,
+  "build": 160,
+  "expect": [],
+  "statements": 4
+ },
+ {
+  "name": "links-unknown-vs-empty",
+  "code": "sensor n container1 @copper\nprintflush message1\nend",
+  "links": [],
+  "build": 160,
+  "expect": [
+   [
+    "WARN",
+    1,
+    "link-name-not-bound"
+   ],
+   [
+    "WARN",
+    2,
+    "link-name-not-bound"
+   ]
+  ]
+ },
+ {
   "name": "ulocate-bad-subcommand",
   "code": "ulocate locate core true @copper x y f b\nend",
   "links": [],

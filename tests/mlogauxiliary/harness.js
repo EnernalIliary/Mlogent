@@ -22,7 +22,12 @@ var out = {};
 cases.forEach(function(c){
     var code = c.code || "";
     if(c.repeat) code = new Array(c.repeat[1] + 1).join(c.repeat[0] + "\n");
-    var r = quickcheck.check(rules, code, c.links || [], {build: c.build || 0});
+    // links === null means "the caller could not read the link table" (the real case:
+    // LogicDialog.executor is package-private, so Rhino cannot reach build.links).
+    // quickcheck must then skip the link-slot rule instead of warning on every slot --
+    // an absent "links" key keeps the old meaning of "this processor has no links".
+    var links = (c.links === undefined) ? [] : c.links;
+    var r = quickcheck.check(rules, code, links, {build: c.build || 0});
     out[c.name] = {
         findings: r.findings.map(function(f){ return [f.sev, f.line, f.rid]; }),
         stats: r.stats

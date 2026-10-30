@@ -18,7 +18,11 @@ for(var i = 0; i < cases.length; i++){
     var c = cases[i];
     var code = c.code || "";
     if(c.repeat){ code = new Array(c.repeat[1] + 1).join(c.repeat[0] + "\n"); }
-    var r = MAI_QUICKCHECK.check(MAI_RULES, code, c.links || [], {build: c.build || 0});
+    // links === null means "the caller could not read the link table" (the real case:
+    // LogicDialog.executor is package-private) -- keep it null so both sides agree with
+    // harness.js, which passes null through the same way.
+    var links = (c.links === undefined) ? [] : c.links;
+    var r = MAI_QUICKCHECK.check(MAI_RULES, code, links, {build: c.build || 0});
     out[c.name] = {findings: r.findings.map(function(f){ return [f.sev, f.line, f.rid]; }), stats: r.stats};
 }
 out.__modules = {rulesVersion: MAI_RULES.v, instructions: Object.keys(MAI_RULES.instr).length,

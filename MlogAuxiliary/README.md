@@ -326,6 +326,35 @@ v0.4.4 之后真机按 F7 看到的是：
 
 不传 `origin` 时行为不变（原样透传，视作已经是相对坐标），老的调用方不会被这次改动破坏。
 
+## v0.4.7：审查栏的行内箭头 —— 以及「有链接也报无链接」的真凶
+
+用户要的交互是：哪一行有问题，就在那一行贴个箭头，点箭头看这一行的原因。
+
+### 为什么是覆盖层，不是往原版行里插一个格子
+
+Arc 的 `Table.cells` 是私有字段（`arc/scene/ui/layout/Table.java:35`），插不到行内 `addressLabel` 前面；追加到行尾又会被行内按钮挤。所以做成一个铺在 `LCanvas.statements` 父容器上的 Table：箭头是它的普通孩子（`addChild`，不是 cell），手动摆位，`host.update()` 每帧跟着布局重算。
+
+三条依据：
+
+* `LCanvas.statements` 是 public 字段（`LCanvas.java:32`），子元素按语句顺序排；每个 `StatementElem` 的表头行高 38（`LCanvas.java:427-491`）。
+* quickcheck 的 `finding.line` 是 1 起的语句序号（`quickcheck.js:97`），所以第 i 个孩子对应 `line = i + 1`。
+* 覆盖层用 `Touchable.childrenOnly`（`arc/scene/event/Touchable.java`）：空白处不拦鼠标，原版画布照常拖行、点按钮；只有箭头自己被命中（`Group.hit` 先测孩子，`Element.hit` 对非 enabled 返回 null）。
+
+箭头横向优先放进行左侧的空白（`statements.x + e.x - 18`），没有空白就压进行内左端（`+2`）；纵向取表头行中心。颜色 ERR 红（`Pal.remove`）/ WARN 橙（`Pal.lightOrange`）/ INFO 蓝（`Pal.accent`），同一行多条取最严重的那条，点开列出全部。
+
+无头引擎没有图集（`Icon.right` 是 null，`new Image(null)` 还会因为 4 个重载歧义直接抛），所以找不到图标时只少画箭头，审查栏与统计照常工作。
+
+### 「有链接也报无链接」的真凶：`LogicDialog.executor` 是包私有字段
+
+真 v160.7 反射实测：`LogicDialog` 的字段可见性是 `canvas:public, consumer:pkg, privileged:pkg, executor:pkg, globalsDialog:pkg, wasRows:pkg, wasPortrait:pkg, forceRestart:pkg`。Rhino 只暴露 public 成员，所以 `L.executor` 读出来是 `undefined`（不是 null），取 `.build` 抛 TypeError，被 try/catch 吞掉 → `linkNames()` 返回空数组 → 快检把每个链接槽里的名字都判成「没链接」。
+
+两处修：
+
+1. `logicExecutor()` 走反射：`Class.forName("mindustry.logic.LogicDialog")` → `getDeclaredField("executor")` → `setAccessible(true)` → `get(L)`，再读 public 的 `ex.build`（`LExecutor.build` 是 public，`LogicBlock$LogicBuild.links` 也是 public）。
+2. 「没有链接」和「读不到链接表」必须分开：`linkNames()` 读不到时返回 `null`（不是 `[]`），`quickcheck.check()` 收到 `null` 就整段跳过链接槽判据，并在 `stats.linkKnown` 里记下来；审查栏统计行显示「链接 ?（读不到处理器）」而不是「链接 0」。
+
+真引擎对照探针（`out/_v47_probe.py`）：放处理器、用 `msch.build_logic_data` 写带两条链接的载荷，读回 `links.size=2`，把真链接名喂 `quickcheck.check` ⇒ 零命中；喂空数组 ⇒ 第 1、3 行各一条 WARN。所以快检逻辑本身没错，错的是喂进去的东西。
+
 ## 接口契约（sidecar v1）
 
 

@@ -28,7 +28,7 @@
 function __logicWriterMain(){
     "use strict";
 
-    var MOD_VERSION = "0.4.6";
+    var MOD_VERSION = "0.4.7";
     var URL_KEY     = "mlogauxiliary-url";
     var DEFAULT_URL = "http://127.0.0.1:8765";
     var KEY_PANEL   = ["f4"];      // F4：开面板（F1/F5/F6/F8/F11/F12 与 F9/F10 已被占用）
@@ -641,16 +641,54 @@ function __logicWriterMain(){
 
         var reviewHost = null, reviewBar = null, reviewLast = "", reviewFrame = 0, reviewRes = null;
 
-        function reviewTargets(){
+        // LogicDialog.executor 是**包私有**字段（真 v160.7 反射实测：canvas 是 public，
+        // executor / privileged / consumer / wasRows 全是包私有），而 Rhino 只按 public
+        // 成员绑定 —— 写 L.executor 拿到的是 undefined，不是 null，于是 v0.4.6 及之前的
+        // 审查栏永远认为「没有处理器」，把链接表当成空表喂给 quickcheck。
+        // 唯一能读到它的路是反射：getDeclaredField + setAccessible（Mindustry 在
+        // classpath 上，没有模块系统挡着，实测 setAccessible 可用）。
+        var logicExecField = null, logicExecProbed = false;
+
+        function logicExecutor(){
             try{
                 var L = Vars.ui.logic;
-                if(L !== null && L !== undefined && L.executor !== null){ return L.executor.build; }
-            }catch(e){ /* ignore */ }
-            return null;
+                if(L === null || L === undefined){ return null; }
+                if(!logicExecProbed){
+                    logicExecProbed = true;
+                    try{
+                        var cls = Packages.java.lang.Class.forName("mindustry.logic.LogicDialog");
+                        var f = cls.getDeclaredField("executor");
+                        f.setAccessible(true);
+                        logicExecField = f;
+                    }catch(e){ log("LogicDialog.executor is not reachable: " + e); }
+                }
+                if(logicExecField === null){ return null; }
+                var ex = logicExecField.get(L);
+                return (ex === undefined) ? null : ex;
+            }catch(e){ return null; }
+        }
+
+        function reviewTargets(){
+            // LExecutor.build 是 public（v160.7 实测），所以拿到 executor 之后这一步直读即可。
+            var ex = logicExecutor();
+            if(ex === null){ return null; }
+            try{
+                var b = ex.build;
+                return (b === undefined) ? null : b;
+            }catch(e){ return null; }
         }
 
         function reviewCode(){
             try{ return String(Vars.ui.logic.canvas.save()); }catch(e){ return null; }
+        }
+
+        // 审查栏/详情里都要说清「链接表是数出来的还是不知道」——v0.4.6 的假 WARN 就是
+        // 因为把「不知道」当成了「一个链接都没有」。
+        function linkLine(res){
+            var st = (res === null || res === undefined) ? null : res.stats;
+            if(st === null || st === undefined){ return "链接 ?"; }
+            if(st.linkKnown === true){ return "链接 " + st.linkCount; }
+            return "链接 ?（读不到处理器）";
         }
 
         function reviewCount(res){
@@ -669,6 +707,8 @@ function __logicWriterMain(){
             reviewLast = code;
             var res = quickRun(code, reviewTargets());
             reviewRes = res;
+            // 审查栏重画之后把行内箭头也同步一遍（箭头贴在原版画布上，见下面的「行内箭头」段）
+            syncArrows(res, null, null);
             var c = reviewCount(res);
             reviewBar.clear();
             reviewBar.left();
@@ -681,7 +721,8 @@ function __logicWriterMain(){
                 if(c.info > 0){ reviewBar.add("INFO " + c.info).padRight(8); }
             }
             reviewBar.add("语句 " + res.stats.statements + " · 线性 " + res.stats.linearCost
-                          + " · ipt " + res.stats.ticksPerPass).padRight(16);
+                          + " · ipt " + res.stats.ticksPerPass
+                          + " · " + linkLine(res)).padRight(16);
             reviewBar.button("详情", function(){ showReview(); }).width(90);
             reviewBar.button("AI 辅助", function(){ showAiPanel(); }).width(120);
         }
@@ -710,6 +751,168 @@ function __logicWriterMain(){
             if(Vars.ui !== null){ Vars.ui.showText("Mlog辅助 · 审查", out.join("\n")); }
         }
 
+        // ------------------------------------------ 行内箭头（v0.4.7）
+        // 用户要的交互：哪一行有问题就在那一行贴个箭头，点箭头看这一行的原因。
+        //
+        // 为什么不做「往原版行里插一个 Cell」：Arc 的 Table.cells 是私有字段
+        // （arc/scene/ui/layout/Table.java:35），插不到 addressLabel 前面；追加到行尾
+        // 又会被行内按钮挤位置。所以改成覆盖层：一个铺在 statements 父容器里的 Table，
+        // 箭头是它的普通孩子（不是 cell），手动摆位、每帧跟着布局重算。
+        //
+        // 三个依据（真 v160.7 实测 / 源码）：
+        //  * LCanvas.statements 是 public 字段（LCanvas.java:32），子元素按语句顺序排，
+        //    每个 StatementElem 的第一行（表头）高 38（LCanvas.java:427-491）。
+        //  * quickcheck 的 finding.line 是 1 起的语句序号（quickcheck.js:97），
+        //    所以第 i 个孩子对应 line = i + 1。
+        //  * 覆盖层用 Touchable.childrenOnly：空白处不拦鼠标（原版画布要能拖行、点按钮），
+        //    只有箭头自己被命中（Group.hit 先测孩子，Element.hit 对非 enabled 返回 null）。
+        var ARROW = 16;                       // 箭头边长（像素）
+        var arrowHost = null, arrowParent = null, arrowRows = [], arrowByLine = {};
+        var arrowDraw;                        // undefined = 还没找过，null = 这个环境没有图标
+
+        function sevRank(sev){
+            if(sev === "ERR"){ return 0; }
+            if(sev === "WARN"){ return 1; }
+            return 2;
+        }
+
+        function sevColor(sev){
+            if(sev === "ERR"){ return Pal.remove; }
+            if(sev === "WARN"){ return Pal.lightOrange; }
+            return Pal.accent;
+        }
+
+        // 箭头图标：原版行内按钮用的是 Icon（v160.7 里 Icon 是「带静态 Drawable 字段的类」，
+        // 不是 v159.3 那个 enum）。无头引擎没有图集，Icon.right 是 null —— 那时返回 null，
+        // 审查栏照常工作，只是不画箭头。
+        function arrowDrawable(){
+            if(arrowDraw !== undefined){ return arrowDraw; }
+            arrowDraw = null;
+            try{
+                var d = Packages.mindustry.gen.Icon.right;
+                if(d !== null && d !== undefined){ arrowDraw = d; }
+            }catch(e){ /* ignore */ }
+            if(arrowDraw === null){ log("no Icon.right in this build -- review arrows stay off"); }
+            return arrowDraw;
+        }
+
+        function reviewStatements(){
+            try{
+                var L = Vars.ui.logic;
+                if(L === null || L === undefined){ return null; }
+                var s = L.canvas.statements;      // canvas 是 public（v160.7 反射实测）
+                return (s === undefined) ? null : s;
+            }catch(e){ return null; }
+        }
+
+        function arrowHostFor(statements){
+            var parent = null;
+            try{ parent = statements.parent; }catch(e){ return null; }
+            if(parent === null || parent === undefined){ return null; }
+            if(arrowHost !== null && arrowParent === parent){ return arrowHost; }
+            var host = new Packages.arc.scene.ui.layout.Table();
+            host.setFillParent(true);
+            host.touchable = Packages.arc.scene.event.Touchable.childrenOnly;
+            try{ parent.addChild(host); }catch(e){ return null; }
+            host.update(function(){ layoutArrows(); });
+            arrowHost = host;
+            arrowParent = parent;
+            return host;
+        }
+
+        // 第 i 个孩子 = 第 i+1 条语句；纵向取表头行的中心（表头在行顶，高 38）。
+        // statements 只给测试传（无头引擎没有真画布），真机由每帧 update 回调传空。
+        function layoutArrows(statements){
+            if(arrowHost === null || arrowRows.length === 0){ return; }
+            if(statements === null || statements === undefined){ statements = reviewStatements(); }
+            if(statements === null){ return; }
+            for(var i = 0; i < arrowRows.length; i++){
+                var r = arrowRows[i], e = r.elem, img = r.img;
+                try{
+                    if(e === null || e === undefined){ img.visible = false; continue; }
+                    img.visible = true;
+                    var x = statements.x + e.x - ARROW - 2;     // 优先放进行左侧的空白
+                    if(x < 2){ x = statements.x + e.x + 2; }     // 没空白就压进行内左端
+                    var y = statements.y + e.y + e.getHeight() - 19 - (ARROW / 2);
+                    img.setPosition(x, y);
+                }catch(err){ img.visible = false; }
+            }
+        }
+
+        function showLineReview(line){
+            var out = ["第 " + line + " 行"];
+            var by = arrowByLine[line];
+            if(by === undefined){
+                out.push("（这一行现在没有问题了）");
+            }else{
+                for(var i = 0; i < by.items.length; i++){
+                    var f = by.items[i];
+                    out.push(f.sev + " [" + (f.rid || "-") + "] " + f.msg);
+                }
+            }
+            print("[mai] " + out.join("\n"));
+            if(Vars.ui !== null){ Vars.ui.showText("Mlog辅助 · 第 " + line + " 行", out.join("\n")); }
+        }
+
+        // Rhino 里 var 是函数作用域，循环里直接闭包会全部指向最后一个值 —— 用工厂函数。
+        function tapLine(line){
+            return function(){ showLineReview(line); };
+        }
+
+        // 测试用：把箭头的颜色翻译回严重度（比较 Color 对象，不依赖 toString 格式）
+        function sevNameOf(img){
+            try{
+                if(img.color.equals(Pal.remove)){ return "ERR"; }
+                if(img.color.equals(Pal.lightOrange)){ return "WARN"; }
+                if(img.color.equals(Pal.accent)){ return "INFO"; }
+            }catch(e){ /* ignore */ }
+            return "?";
+        }
+
+        function clearArrows(){
+            if(arrowHost !== null){ try{ arrowHost.clearChildren(); }catch(e){ /* ignore */ } }
+            arrowRows = [];
+        }
+
+        // res.findings -> 每行一个箭头。statements / drawable 只给测试用，真机传 null。
+        function syncArrows(res, statements, drawableOverride){
+            if(statements === null || statements === undefined){ statements = reviewStatements(); }
+            if(statements === null){
+                clearArrows();
+                arrowByLine = {};
+                return 0;
+            }
+            var host = arrowHostFor(statements);
+            if(host === null){ return 0; }
+            var byLine = {}, lines = [], i;
+            var f = (res === null || res === undefined || res.findings === undefined) ? [] : res.findings;
+            for(i = 0; i < f.length; i++){
+                var ln = f[i].line;
+                if(byLine[ln] === undefined){ byLine[ln] = {sev: f[i].sev, items: []}; lines.push(ln); }
+                byLine[ln].items.push(f[i]);
+                if(sevRank(f[i].sev) < sevRank(byLine[ln].sev)){ byLine[ln].sev = f[i].sev; }
+            }
+            arrowByLine = byLine;
+            clearArrows();
+            var draw = (drawableOverride === null || drawableOverride === undefined) ? arrowDrawable() : drawableOverride;
+            if(draw === null || draw === undefined || lines.length === 0){ return 0; }
+            var kids = null;
+            try{ kids = statements.getChildren(); }catch(e){ return 0; }
+            for(i = 0; i < lines.length; i++){
+                var line = lines[i], idx = line - 1;
+                if(idx < 0 || idx >= kids.size){ continue; }
+                var elem = kids.get(idx), img = null;
+                try{ img = new Packages.arc.scene.ui.Image(draw); }catch(e){ continue; }
+                try{ img.setSize(ARROW, ARROW); }catch(e){ /* ignore */ }
+                try{ img.setColor(sevColor(byLine[line].sev)); }catch(e){ /* ignore */ }
+                try{ img.touchable = Packages.arc.scene.event.Touchable.enabled; }catch(e){ /* ignore */ }
+                try{ img.tapped(tapLine(line)); }catch(e){ /* ignore */ }
+                try{ host.addChild(img); }catch(e){ continue; }
+                arrowRows.push({elem: elem, img: img, line: line, items: byLine[line].items.length});
+            }
+            layoutArrows(statements);
+            return arrowRows.length;
+        }
         function injectReview(){
             try{
                 var L = Vars.ui.logic;
@@ -888,10 +1091,15 @@ function __logicWriterMain(){
             return {q: QUICK, r: RULES};
         }
 
+        // 返回 null 表示「不知道这个处理器的链接表」，返回 [] 表示「确实没有链接」。
+        // 这两个含义在 quickcheck 里分开用（stats.linkKnown）：把「不知道」当成「没有」
+        // 会让每一行链接槽里的名字都报 link-name-not-bound（v0.4.6 的假 WARN）。
         function linkNames(b){
+            if(b === null || b === undefined){ return null; }
             var out = [];
-            if(b === null || b === undefined){ return out; }
-            for(var i = 0; i < b.links.size; i++){ out.push(String(b.links.get(i).name)); }
+            try{
+                for(var i = 0; i < b.links.size; i++){ out.push(String(b.links.get(i).name)); }
+            }catch(e){ return null; }
             return out;
         }
 
@@ -914,7 +1122,11 @@ function __logicWriterMain(){
                  + " / WARN " + warn
                  + "    语句 " + st.statements
                  + "    版本地板 build " + st.floor
-                 + (st.truncates ? "    ⚠ 超过 1000 条会被截断" : "");
+                 + "    " + linkLine(res)
+                 + (st.truncates ? "    ⚠ 超过 1000 条会被截断" : "")
+                 + (st.linkKnown === false
+                    ? "\n（链接表未知：读不到 LogicDialog.executor，链接槽判据这一遍整段跳过 —— 宁可少报，不报假 WARN）"
+                    : "");
         }
 
         function quickLines(res){
@@ -1167,6 +1379,24 @@ function __logicWriterMain(){
         api.maiSelfTest = function(){ return selfTest(); };
         api.maiAi = function(){ showAiPanel(); return "opened"; };
         api.maiReview = function(){ return reviewText(); };
+        // 测试钩子（tests/mlogauxiliary/run_ui_smoke.py 用）：喂一个假 statements
+        // （每个孩子代表一条语句）+ 一组 findings，返回 "行号:x,y:颜色" 清单。
+        // 真机上没人调它，行内箭头走 refreshReview -> syncArrows。
+        api.maiArrows = function(statements, findingsJson, drawable){
+            var res = {findings: [], stats: null};
+            if(findingsJson){
+                var f = parse(String(findingsJson));
+                if(f !== null && f !== undefined){ res.findings = f; }
+            }
+            var n = syncArrows(res, statements, drawable);
+            var out = ["arrows " + n];
+            for(var i = 0; i < arrowRows.length; i++){
+                var r = arrowRows[i];
+                out.push(r.line + ":" + Math.round(r.img.x) + "," + Math.round(r.img.y)
+                         + ":" + sevNameOf(r.img) + ":" + r.items + ":" + (r.img.visible ? "v" : "h"));
+            }
+            return out.join(" ");
+        };
         // 区域快照的三个出口：JSON（给 sidecar / 剪贴板）、纯文本（控制台读）、
         // 以及直接 POST /region 拿链接候选。F7 框选等 UI 之后再接，这里先给控制台。
         api.maiSnapshot = function(x1, y1, x2, y2){
