@@ -509,6 +509,46 @@ def _link_objects(links):
     return out
 
 
+def _link_stem(name):
+    """message2 -> message. Link names are <blockname><ordinal> (LogicBlock.java:331-360)."""
+    m = re.match(r'^(.*?)(\d+)$', str(name))
+    return m.group(1) if m else str(name)
+
+
+def _nearest_link(name, links, origin):
+    """A bound link of the same block family as `name`, closest to the processor."""
+    base = _link_stem(name)
+    ox = oy = None
+    if isinstance(origin, dict):
+        try:
+            ox, oy = int(origin.get('x') or 0), int(origin.get('y') or 0)
+        except (TypeError, ValueError):
+            ox = oy = None
+    best, best_d = None, None
+    for link in links or []:
+        if isinstance(link, dict):
+            n = str(link.get('name') or '')
+            try:
+                x, y = int(link.get('x') or 0), int(link.get('y') or 0)
+            except (TypeError, ValueError):
+                x = y = 0
+        else:
+            n, x, y = str(link), 0, 0
+        if not n or _link_stem(n) != base:
+            continue
+        d = 0 if ox is None else (x - ox) ** 2 + (y - oy) ** 2
+        if best is None or d < best_d:
+            best, best_d = n, d
+    return best
+
+
+def _substitute_links(code, subs):
+    """Rewrite whole-word occurrences of a link name; message1 must not touch message10."""
+    out = code
+    for old, new in subs.items():
+        out = re.sub(r'(?<![A-Za-z0-9_-])' + re.escape(old) + r'(?![A-Za-z0-9_-])', lambda _m, n=new: n, out)
+    return out
+
 def _relative_links(links, origin):
     """Payload link coordinates, relative to the processor tile.
 
@@ -590,10 +630,28 @@ def compose(req):
     origin = req.get('origin')
     if origin is not None and not isinstance(origin, dict):
         raise ValueError('origin must be an object with x and y')
-    # The template knows which links it writes into the code; a missing one is a
-    # hard error here (the analyzer would also say so, but a template should name it).
-    missing = [n for n in refs if n not in names]
+    # A template names the links it writes into the code (e.g. message1), but a player's
+    # processor often holds message2 -- same block, different ordinal. Point the template
+    # at the nearest bound link of the same block family instead of refusing outright,
+    # and say so: silently printing into a different display would be worse than an INFO.
+    subs, subs_info = {}, []
+    for n in refs:
+        if n in names:
+            continue
+        alt = _nearest_link(n, links, origin)
+        if alt is not None:
+            subs[n] = alt
+            subs_info.append((n, alt))
+    if subs:
+        code = _substitute_links(code, subs)
+    # Anything still unbound is a hard error here: the analyzer would also say so, but a
+    # template should name the link it wanted.
+    missing = [n for n in refs if n not in names and n not in subs]
     res = analyse(code, links, ipt=int(req.get('ipt') or 2))
+    for old, new in subs_info:
+        res['findings'].insert(0, {
+            'sev': 'INFO', 'line': 0, 'rid': 'template-link-substituted',
+            'msg': 'template %r writes %s but this processor has no such link; used %s instead (nearest bound link of the same block)' % (tid, old, new)})
     if missing:
         res['findings'].insert(0, {
             'sev': 'ERR', 'line': 0, 'rid': 'template-needs-link',

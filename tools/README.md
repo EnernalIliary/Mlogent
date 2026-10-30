@@ -188,6 +188,10 @@ prompt 是规划 §4.4 的三段：**世界事实**（处理器坐标 + 快照�
 自由档 `{code, explanation, assumptions, needs_links}`）；self-repair 时把上一轮的 findings 逐条附在任务段后面。
 回复用 `parse_reply()` 解析：容忍 markdown 围栏和前后散文（只取第一个配平的 `{...}`），字段类型不对就抛 `ProviderError`、作业按失败重试；
 `needs_links` 里出现白名单外的名字，`jobqueue` 直接判 `link-name-not-bound` ERR 并拒绝——不等分析器发现。
+锚定档还有一个兜底（v0.9.2）：模板写进代码的链接名（如 `message1`）如果处理器上没有、但**同族**的链接在
+（`message2`、`display3`……），`compose()` 会按到处理器的距离挑最近的那个替换进去，并给一条
+`template-link-substituted` INFO 说明换成了谁——不是静默改，也不再直接 `template-needs-link` 拒绝。
+同族全都没有才报 ERR（判据在 `tools/logicd.py` 的 `_nearest_link()`，`message1` 不会误伤 `message10`）。
 模组侧（v0.8.0）已接：F4 面板投作业 + 每秒 `GET /jobs?id=` 轮询 + 完成/拒绝渲染 + 取消按钮，
 `--jobs-dir` 换队列目录（默认 `out/jobs`，或 `$MLOG_JOBS_DIR`），`--jobs-drain` 跑完就退（一次性批处理）。
 

@@ -1566,3 +1566,42 @@ provider 走 `--jobs-provider` 的可换缝，测试用录制回放式假模型�
 ### 59.5 下一刀候选
 
 ①面板记住上次的 provider ②多个 message 链接时按距离挑最近的 ③rejected 作业给「加消息块」可点提示。
+
+## 60 · v0.9.2：模板要的链接名不在，就换成同族最近的那个
+
+上一刀候选②。处理器上接的是 `message2`（多处理器共用一台显示时的常态），模板却写死 `printflush message1`，
+`compose()` 直接 `template-needs-link` ERR 拒绝——玩家白投一次作业。
+
+### 60.1 判据
+
+链接名 = `<方块名><序号>`（`LogicBlock.java:331-360`），`message1` 与 `message2` 是同一方块的**不同编号**，
+语义可换、只差连到谁。规则：模板 ref 未绑定 → 在同族（去尾部数字相同）且**已绑定**的链接里按到处理器的
+欧氏距离取最近替换；同族全无才维持原 ERR。
+
+### 60.2 改动
+
+| 文件 | 改动 |
+| --- | --- |
+| `tools/logicd.py` | 新增 `_link_stem()` / `_nearest_link()` / `_substitute_links()`；`compose()` 先算 subs 再判 missing，替换后重跑 `analyse()`，每条替换插一条 `INFO template-link-substituted`；payload 用替换后的 code |
+| `tests/logicd/run_logicd_tests.py` | 新增 compose 用例：container1 + message2@260 + message3@199 + origin 197 → ok、换成 message3、有 INFO rid |
+| `tools/README.md` | 锚定档兜底段（同族按距离替换、INFO 语义、`_nearest_link()`、`message1` 不误伤 `message10`） |
+
+判据细节：整词正则 `(?<![A-Za-z0-9_-])old(?![A-Za-z0-9_-])`；links 元素兼容 `{name,x,y}` 与裸字符串；
+无 origin 时距离全 0（取第一个）。
+
+### 60.3 坑：同名 helper 被覆盖
+
+第一版叫 `_link_base`，实测不生效——`tools/logicd.py:709` 早有一个 `_link_base(block)`（`getLinkName()` 语义），
+后定义覆盖先定义。改名 `_link_stem` 后正常。**往大文件插 helper 前先 grep 名字。**
+
+### 60.4 复跑
+
+in-process 探针 ok（message3 入选、单条 INFO）；同族全缺仍 ERR `template-needs-link` + WARN `link-name-not-bound`；
+`run_logicd_tests.py --no-sim` → protocol **26**（原 25）/ jobs 12 / provider 9，EXIT=0；
+`gate.py --full` 首跑 15/16（kb stale）→ `kb.py build` `{chunks 6359, files 65}` → **16/16 in 34.3s**。
+
+### 60.5 边界与下一刀
+
+模组侧**一行未改**（`main.js` 没动、`mod.hjson` 不 bump、不重打 zip），因为替换在侧车 `compose()` 内部，
+面板拿到的还是同一条 `/compose` 响应。改过 `tools/logicd.py` 记得重启 sidecar（§59）。
+下一刀：①面板记住上次选中的 provider ②`rejected` 作业给「加消息块」可点提示 ③自由档 `needs_links` 也走同族兜底。

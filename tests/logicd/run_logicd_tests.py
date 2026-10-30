@@ -212,6 +212,22 @@ def test_protocol():
         need('template-needs-link' in rids, 'missing-link findings: %r' % rids)
         checks += 1
 
+        # a processor that holds message2 instead of message1 is the common case; the
+        # template is pointed at the nearest bound link of the same block and says so,
+        # rather than refusing to print at all.
+        st, res = srv.post('/compose', {'template': 'item-threshold',
+                                        'params': {'item': 'copper', 'threshold': 120},
+                                        'links': [{'name': 'container1', 'x': 198, 'y': 190},
+                                                  {'name': 'message2', 'x': 260, 'y': 190},
+                                                  {'name': 'message3', 'x': 199, 'y': 190}],
+                                        'origin': {'x': 197, 'y': 190}})
+        need(st == 200 and res['ok'] is True, 'message2 instead of message1 was refused: %r'
+             % (res.get('findings'),))
+        need('message3' in res['code'] and 'message1' not in res['code'],
+             'nearest message link was not substituted: %r' % (res['code'],))
+        need(any(f['rid'] == 'template-link-substituted' for f in res['findings']),
+             'substitution was silent: %r' % (res['findings'],))
+        checks += 1
         st, res = srv.post('/compose', {'template': 'no-such-template'})
         need(st == 400 and res['ok'] is False, 'unknown template status %s' % st)
         st, res = srv.post('/compose', {'template': 'patrol', 'params': {'x1': 'abc'}, 'links': LINKS})
