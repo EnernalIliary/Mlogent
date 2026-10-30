@@ -179,6 +179,10 @@ def job_probe(port, bx, by):
         # names a link anyway must still be refused (the v0.8.0 blind spot).
         "var jZero = maiJobSyncAt(%d, %d, 'ui hallucinated link', 25000);" % (bx, by),
         "print('MAIJOBZERO:' + jZero);",
+        # v0.12.0: one batch over two processors -- written together, undone together,
+        # and a second target whose configure throws must roll the first one back.
+        "var wmA = maiJobSyncAt(%d, %d, 'ui clean code batch', 25000);" % (bx, by),
+        "print('MAIWRITEMANY:' + maiWriteManyProbe(wmA, %d, %d));" % (bx, by),
     ]
 
 
@@ -550,7 +554,7 @@ def main():
     for l in jtext.splitlines():
         for key in ('MAIJOBSET', 'MAIJOBCLEAN', 'MAIJOBPROG', 'MAIJOBWRITE', 'MAIJOBREJ',
                     'MAIJOBCONF', 'MAIJOBEDIT', 'MAIJOBEDIT2',
-                    'MAIJOBZERO'):
+                    'MAIJOBZERO', 'MAIWRITEMANY'):
             if l.startswith(key + ':'):
                 jres[key] = l[len(key) + 1:]
 
@@ -616,6 +620,9 @@ def main():
         zrids = [f.get('rid') for f in (zero.get('findings') or [])]
         if 'link-name-not-bound' not in zrids:
             problems.append('the zero-link refusal lost its rule: %r' % (zrids,))
+    wm = jres.get('MAIWRITEMANY') or ''
+    if not wm.startswith('ok '):
+        problems.append('v0.12.0: the transactional batch write probe failed: %r' % (wm[:260],))
     for needle, why in (('function jobBody(', 'the job body builder is gone'),
                         ('function jobSubmit(', 'the async job submit is gone'),
                         ('function jobTick(', 'the 1s job poll is gone'),
@@ -659,6 +666,16 @@ def main():
                          'the model list no longer comes from the sidecar (https needs it)')):
         if needle not in code_only:
             problems.append('v0.11.0: ' + why)
+    for needle, why in (('function writeMany(',
+                         'the transactional batch write is gone'),
+                        ('function undoBatchFromDisk(',
+                         'a batch undo no longer restores the whole batch'),
+                        ('batch: String(batch || "")',
+                         'an undo snapshot no longer records its batch'),
+                        ('api.maiWriteManyProbe = function',
+                         'the batch write probe is gone')):
+        if needle not in code_only:
+            problems.append('v0.12.0: ' + why)
     if '"直接生成"' not in code_only:                 # 直接生成
         problems.append('v0.8.0: the /plan fallback button is gone -- an older sidecar '
                         'without /jobs would leave the panel unusable')
@@ -1018,6 +1035,8 @@ def main():
                                                      (zero.get('findings') or [])}))))
     print('  job conflict gate: first write refused, second click overwrote (%s / %s)'
           % (edit1.split('|')[0].strip()[:40], edit2.split('|')[0].strip()[:40]))
+    if wm:
+        print('  batch write: ' + wm[:170])
     for l in lines:
         if l.startswith(('MAISELF:', 'MAIDIAG:', 'MAIUNDO:', 'MAICONFLICT:', 'MAILLM:')):
             print('  ' + l[:300])

@@ -1764,3 +1764,27 @@ zip **71,363 B sha256 28EE9764CD91068E3CA86F8F2E23C076B3B8ABF53BEBB91DAF487D6651
 **环境教训**：`Server.js()` 会把任何含 `Error:` / `Exception` 的输出行当引擎错误抛出 → catch 里**不要**
 `log("...: " + e)`，写死文案；run_code 的 JS 模板字面量装不了含反引号的 markdown → 先 `tools.write` 成片段文件，
 再用纯 ASCII 的 python 脚本（中文锚点用 `\u` 转义）读文件拼进去。
+
+## §65 v0.12.0：P5 第三刀上半 —— 事务写入（要么全写，要么全不写）
+
+**规划原本的做法被改了**：§5 说这一刀要扩 sidecar 作业契约（`code` → `codes[]`）。实际做成**模组侧 N 个作业协调**，
+每台处理器一个作业（各自的 links / snapshot / origin）—— 链接表、零链接门禁、self-repair 本来就是单台判据，
+一个 job 塞 N 段代码反而更难判。代价是 N 次投递；sidecar / jobqueue / `/jobs` 零改动。
+
+**改动**（`MlogAuxiliary/scripts/main.js` 120,137 → 127,985 字符，`node --check` 0，`+151/−4`）：
+- `MOD_VERSION` 0.12.0；`snapshotText(b, why, batch)` 多 `batch` 字段；`saveUndoTo(root, b, why, batch)` 透传。
+- 新增 `UNDO_BATCH` / `batchId()` / **`writeMany(items, why)`**：整批预检 → 整批冲突（有一台被改过就整批拒绝一次，
+  再调一次 = 确认覆盖）→ 整批落盘快照（同一个 batch）→ 逐台 `configure`，catch 里把已写的按快照 `updateCode` 回滚。
+- `undo()` / `undoFromDisk()` 支持整批：新增 `undoBatchFromDisk(batch, files)`，处理器已拆掉的跳过并删文件。
+- 控制台 `api.maiWriteManyProbe(aJson, x, y)`：真引擎现放第二台处理器（结束拆掉），验整批写 / 整批撤销 / 第二台抛错回滚第一台。
+
+**测试**：ui smoke 加 `MAIWRITEMANY` 探针 + 四条源码红线；`python -X utf8 tests/mlogauxiliary/run_ui_smoke.py` → EXIT=0，
+`MAIWRITEMANY:ok`、`MAIDIAG:版本：0.12.0`、摘要行 `batch write: ok 已写入 2 台（事务 …_b）：@0,0 @3,3 | 已回滚 2 台（…）`。
+
+**复跑**：KB `{chunks: 6461, files: 65}`；`gate.py --full` **16/16 in 48.2s**；
+zip **74,501 B sha256 54A9C528DEC1B89C5C34E5A0055293D90464705D67701048960AD54D654872E1**，装机 5 文件逐字节 OK。
+
+**边界**：这一刀只有核心与探针，**没有面板按钮**（多台一起投递要面板同时轮询 N 个作业，是下一刀）；
+`writeMany` 只吃已 done 的作业结果，不负责投递；回滚只还原代码不还原链接表；单台 `writeBuild` 路径未改。
+
+**下一刀**：①面板批量入口（P5 第三刀下半）②联机拒绝写入的「无权限」提示 ③冲突检测不比链接表 ④打包/安装即用（用户已定最后解决）。

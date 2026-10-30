@@ -257,6 +257,16 @@ CLI 无端点 exit 2、replay 文件回放、CLI `--jobs-drain` 用 replay 跑�
   端到端用例直接暴露：第一次写入没有拒绝）。
 
 
+### 第三刀上半（v0.12.0，已落地）：事务写入核心
+
+规划里「一个作业产出 N 段代码」这一条改成**模组侧用 N 个作业协调**，不扩 sidecar 的作业契约：
+
+- 每台处理器各投一个作业，链接表 / 门禁 / 修复循环天然按台独立（比一个作业塞 N 段代码更准）。
+- 写入是事务：整批预检 → 整批冲突检查 → 整批落盘快照（同一个 `batch`）→ 逐台 `configure`；
+  任一台抛错就把已写的按快照 `updateCode` 回滚。
+- 撤销按批次：快照 JSON 加 `batch` 字段，`undoBatchFromDisk()` 整批还原。
+- **还没做**：面板上的「批量投递 + 同时轮询 N 个作业」（下一刀）；权限不足的联机提示。
+
 ## 6. 风险表
 
 | 风险 | 对策 |
@@ -304,7 +314,7 @@ CLI 无端点 exit 2、replay 文件回放、CLI `--jobs-drain` 用 replay 跑�
 | v0.7.0 F2 全图处理器清单 | 完成（v0.7.0） | `main.js` 的 `KEY_LIST` / `scanProcessors()` / `listHead()` / `listRowLabel()` / `buildListTable()` / `showListPanel()` / `openListPanel()` / `jumpTo()`，控制台 `maiList`·`maiListRows`·`maiListPanel` | ui smoke 的 `MAISELF` 清单表格行 + `MAILIST`/`MAILISTROWS` 两行 + 五条源码红线（断言表 L2-40） |
 | P4 队列 + 模型 + 门禁 | 完成（三刀：v0.8.0 / v0.8.1 / 本刀） | `tools/jobqueue.py`（状态机 + 双写落盘 + `FATAL_RIDS` 门禁）/ `tools/mlogprovider.py`（§4.4 三段 prompt + `parse_reply` + `HttpProvider` + 录制回放）/ `tools/logicd.py` 的 `/jobs` 三端点与 `--jobs-provider llm`；模组侧 `jobBody()`/`jobTick()`/`renderJob()`/`cancelJob()` | `test_jobs()` 12 项 + `test_provider()` 9 项（断言表 L2-41 / L2-44 / L2-45）；ui smoke 三路作业探针（干净 done / 门禁拒绝 / 零链接拒绝） |
 | P4.5 模型档运行时配置 | 完成（v0.11.0） | `tools/logicd.py` 的 `LLM_STATE` + `GET /llm` / `POST /llm` / `POST /models`、`tools/mlogprovider.HttpProvider` 热替换；模组设置页「大模型」段（地址 / 密钥 / 模型 + 获取模型 / 启用模型档 / 回到模板档），密钥只回显尾巴 | `test_llm()` 6 项（假 OpenAI 端点：列表 / 换档 / 真作业 / 400 / 回模板）；ui smoke `MAILLM:ok` + 五条源码红线 |
-| P5 多处理器写入 + 撤销落盘 | 部分完成（第一刀 v0.10.0 撤销落盘 / 第二刀 v0.10.1 写前冲突检测；事务写入未做） | `MlogAuxiliary/scripts/main.js` 的 `undoRoot`/`snapshotText`/`saveUndoTo`/`undoFromDisk`/`undoInfo`、`writeBuild` 里记快照名、设置页「撤销上次写入」/「撤销快照」、控制台 `maiUndo`/`maiUndoInfo`/`maiUndoProbe` | ui smoke 的 `MAIUNDO` 行（真引擎里写快照→读回比对→删目录）+ `MAISELF` 的「撤销快照 ok」+ 三条 v0.10.0 源码红线（断言表 L2-46） |
+| P5 多处理器写入 + 撤销落盘 | 部分完成（第一刀 v0.10.0 撤销落盘 / 第二刀 v0.10.1 写前冲突检测 / 第三刀上半 v0.12.0 事务写入核心；面板批量入口未做） | `MlogAuxiliary/scripts/main.js` 的 `undoRoot`/`snapshotText`/`saveUndoTo`/`undoFromDisk`/`undoBatchFromDisk`/`undoInfo`、`writeBuild` 里记快照名、`writeMany`（整批预检 + 整批冲突 + 整批快照 + 逐台 configure + 失败回滚）、设置页「撤销上次写入」/「撤销快照」、控制台 `maiUndo`/`maiUndoInfo`/`maiUndoProbe`/`maiWriteManyProbe` | ui smoke 的 `MAIUNDO` 行（真引擎里写快照→读回比对→删目录）+ `MAIWRITEMANY` 行（真引擎两台处理器：整批写、整批撤销、第二台抛错回滚第一台）+ `MAISELF` 的「撤销快照 ok」+ 三条 v0.10.0 与四条 v0.12.0 源码红线（断言表 L2-46 / L2-48） |
 
 P2 期间确认的第三条环境事实：**真 v160.7 的 Rhino 里 `String.prototype.split(正则)` 对带 `+` 量词的模式
 等价于空匹配**（`"abc def".split(/\s+/)` → `["a","b","c","d","e","f"]`；`split(/ /)`、`split(/\s/)`、

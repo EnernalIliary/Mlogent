@@ -28,7 +28,7 @@
 function __logicWriterMain(){
     "use strict";
 
-    var MOD_VERSION = "0.11.0";
+    var MOD_VERSION = "0.12.0";
     var URL_KEY     = "mlogauxiliary-url";
     var DEFAULT_URL = "http://127.0.0.1:8765";
     // v0.11.0：设置页里填的模型档三件套。密钥只留在本机 Core.settings 与 sidecar 进程内存。
@@ -751,9 +751,10 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
             return out;
         }
 
-        function snapshotText(b, why){
+        function snapshotText(b, why, batch){
             return JSON.stringify({schema: 1, x: b.tile.x, y: b.tile.y, at: Date.now(),
                                    why: String(why || ""),
+                                   batch: String(batch || ""),
                                    code: String(b.code), links: linkPairs(b)});
         }
 
@@ -772,10 +773,10 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
 
         function undoFiles(){ return undoFilesOf(undoRoot()); }
 
-        function saveUndoTo(root, b, why){
+        function saveUndoTo(root, b, why, batch){
             if(root === null){ return null; }
             var name = Date.now() + "_" + b.tile.x + "_" + b.tile.y + ".json";
-            try{ root.child(name).writeString(snapshotText(b, why), false); }
+            try{ root.child(name).writeString(snapshotText(b, why, batch), false); }
             catch(e){ log("undo save failed: " + e); return null; }
             var files = undoFilesOf(root), i;
             for(i = UNDO_KEEP; i < files.length; i++){ try{ files[i].delete(); }catch(e2){ } }
@@ -795,6 +796,8 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
                 var snap = null;
                 try{ snap = parse(f.readString("UTF-8")); }catch(e){ continue; }
                 if(!snap || typeof snap.code !== "string"){ continue; }
+                // v0.12.0：带 batch 的快照是事务写入留下的，整批一起还原。
+                if(String(snap.batch || "").length > 0){ return undoBatchFromDisk(String(snap.batch), files); }
                 var b = null;
                 try{ b = Vars.world.build(x, y); }catch(e2){ b = null; }
                 if(b === null || b.code === undefined){ continue; }
@@ -806,6 +809,28 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
                 }catch(e4){ return "回滚失败：" + e4; }
             }
             return "磁盘上没有可回滚的快照";
+        }
+
+        // 整批还原：把同一个 batch 的快照全找出来，逐台 updateCode，全删掉。
+        function undoBatchFromDisk(batch, files){
+            var back = [], n = 0, i;
+            for(i = 0; i < files.length; i++){
+                var f = files[i], snap = null;
+                try{ snap = parse(f.readString("UTF-8")); }catch(e){ continue; }
+                if(!snap || String(snap.batch || "") !== batch){ continue; }
+                n++;
+                var b = null;
+                try{ b = Vars.world.build(snap.x, snap.y); }catch(e2){ b = null; }
+                if(b === null || b.code === undefined){ try{ f.delete(); }catch(e3){ } continue; }
+                try{
+                    b.updateCode(String(snap.code));
+                    back.push("@" + snap.x + "," + snap.y);
+                    try{ f.delete(); }catch(e4){ }
+                }catch(e5){ }
+            }
+            if(n === 0){ return "磁盘上没有可回滚的快照"; }
+            return "已按事务 " + batch + " 回滚 " + back.length + "/" + n + " 台"
+                 + (back.length > 0 ? "：" + back.join(" ") : "（处理器都不在了）");
         }
 
         function undoInfo(){
@@ -882,9 +907,94 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
             }
         }
 
+        // ------------------------------------------------ 事务写入（v0.12.0，P5 第三刀上半）
+        // 一句话发给一片处理器时，每台一个作业（链接表、门禁、修复循环各自独立），
+        // 但**写入是一次事务**：全部预检通过才逐台写；任一台写失败就把已经写过的按快照回滚，
+        // 不让存档停在一半新一半旧的状态。撤销也按批次整批还原（快照 JSON 带 batch 字段）。
+        // 为什么不用「一个作业产出 N 段代码」：那要扩 sidecar 的作业契约；而每台的链接名
+        // 本来就不一样，让队列按台各跑一遍反而更准（规划 §5 第三刀）。
+        var UNDO_BATCH = "";
+
+        function batchId(){
+            return String(Date.now()) + "_b";
+        }
+
+        function writeMany(items, why){
+            if(items === null || items === undefined || items.length === 0){ return "没有要写的处理器"; }
+            var i, it, bad = [], conflicts = [];
+            for(i = 0; i < items.length; i++){
+                it = items[i];
+                if(it === null || it === undefined || it.b === null || it.b === undefined || !it.b.tile){
+                    bad.push("第 " + (i + 1) + " 台：目标不存在");
+                    continue;
+                }
+                if(!it.res || it.res.ok !== true){
+                    bad.push("@" + procKey(it.b) + "：静态检查有 ERR");
+                    continue;
+                }
+                if(!it.res.bytes_b64){ bad.push("@" + procKey(it.b) + "：sidecar 没有返回载荷"); }
+            }
+            if(bad.length > 0){ return "拒绝写入（一台都没写）：" + bad.join("；"); }
+            // 冲突检查也是整批的：只要有一台被改过，整批先拒绝一次；再调一次 = 确认覆盖。
+            for(i = 0; i < items.length; i++){
+                var why2 = conflictReason(items[i].b);
+                if(why2 === null){ continue; }
+                var k = procKey(items[i].b);
+                if(JOB_FORCE[k] === true){ JOB_FORCE[k] = false; }
+                else{ JOB_FORCE[k] = true; conflicts.push("@" + k + " " + why2); }
+            }
+            if(conflicts.length > 0){
+                return "拒绝写入（一台都没写）：" + conflicts.join("；") + "；确认覆盖请再点一次";
+            }
+            // 先把每一台的原代码落盘（同一个 batch），再逐台 configure。
+            var batch = batchId(), snaps = [], written = [];
+            for(i = 0; i < items.length; i++){
+                var sn = saveUndoTo(undoRoot(), items[i].b, "batch:" + String(why || ""), batch);
+                snaps.push({b: items[i].b, code: String(items[i].b.code), snap: sn});
+            }
+            for(i = 0; i < items.length; i++){
+                it = items[i];
+                try{
+                    it.b.configure(base64Bytes(it.res.bytes_b64));
+                    written.push(it.b);
+                }catch(e){
+                    // configure 只吃载荷；回滚走 updateCode（快照里存的就是原代码）。
+                    var back = [], j;
+                    for(j = 0; j < written.length; j++){
+                        try{
+                            written[j].updateCode(String(snaps[j].code));
+                            back.push("@" + procKey(written[j]));
+                        }catch(e2){ }
+                    }
+                    try{ it.b.updateCode(String(snaps[i].code)); }catch(e3){ }
+                    return "写入失败（@" + procKey(it.b) + "：" + e + "）；已回滚 " + back.length + " 台"
+                         + (back.length > 0 ? "：" + back.join(" ") : "");
+                }
+            }
+            for(i = 0; i < items.length; i++){ forgetOrig(items[i].b); }
+            undoStack.push({many: snaps, batch: batch});
+            if(undoStack.length > 20){ undoStack.shift(); }
+            UNDO_BATCH = batch;
+            var names = [];
+            for(i = 0; i < items.length; i++){ names.push("@" + procKey(items[i].b)); }
+            return "已写入 " + items.length + " 台（事务 " + batch + "）：" + names.join(" ");
+        }
+
         function undo(){
             if(undoStack.length){
                 var snap = undoStack.pop();
+                if(snap.many){
+                    // v0.12.0：事务写入的撤销是整批的，一台都不能少。
+                    var back = [], i;
+                    for(i = 0; i < snap.many.length; i++){
+                        try{
+                            snap.many[i].b.updateCode(snap.many[i].code);
+                            if(snap.many[i].snap){ try{ undoRoot().child(snap.many[i].snap).delete(); }catch(e0){ } }
+                            back.push("@" + procKey(snap.many[i].b));
+                        }catch(e1){ }
+                    }
+                    return "已回滚 " + back.length + " 台（事务 " + String(snap.batch || "") + "）：" + back.join(" ");
+                }
                 try{
                     snap.b.updateCode(snap.code);      // P1：仅本地回滚，联机下请重进地图
                     if(snap.snap){ try{ undoRoot().child(snap.snap).delete(); }catch(e){ } }
@@ -2497,6 +2607,43 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
             return (blocked && forced && once && quiet) ? "ok"
                  : ("bad blocked=" + blocked + " forced=" + forced
                     + " once=" + once + " quiet=" + quiet);
+        };
+        // v0.12.0：事务写入的无头探针。现放一台真处理器（结束时拆掉），一次整批写、
+        // 一次整批撤销，再一次「第二台 configure 抛错」——三件事全对才返回 ok。
+        api.maiWriteManyProbe = function(aJson, x, y){
+            var b1 = buildAt(x, y);
+            if(b1 === null){ return "no processor at " + x + "," + y; }
+            var j1 = parse(String(aJson));
+            if(j1 === null || j1.code === undefined){ return "job json parse failed"; }
+            var r1 = jobAsPlan(j1);
+            if(r1.ok !== true){ return "the job is not done"; }
+            var W = Packages.mindustry.Vars.world, T = Packages.mindustry.game.Team.sharded;
+            var x2 = x + 3, y2 = y + 3;
+            if(x2 > W.width() - 2){ x2 = x - 3; }
+            if(y2 > W.height() - 2){ y2 = y - 3; }
+            var t2 = W.tile(x2, y2);
+            t2.setBlock(Packages.mindustry.Vars.content.block("air"), T);
+            t2.setBlock(Packages.mindustry.Vars.content.block("micro-processor"), T);
+            var b2 = buildAt(x2, y2);
+            if(b2 === null){ return "the second processor did not appear at " + x2 + "," + y2; }
+            var before1 = String(b1.code), before2 = String(b2.code);
+            var w = writeMany([{b: b1, res: r1}, {b: b2, res: r1}], "probe");
+            var wrote = String(b1.code) === String(j1.code) && String(b2.code) === String(j1.code);
+            var u = undo();
+            var undone = String(b1.code) === before1 && String(b2.code) === before2;
+            // 故意失败：第二台是假 build，configure 直接抛；第一台必须被回滚。
+            try{ delete JOB_ORIG[x2 + "," + y2]; }catch(e8){ }
+            var fake = {tile: {x: x2, y: y2}, code: "fake",
+                        configure: function(){ throw "boom"; },
+                        updateCode: function(c){ this.code = String(c); }};
+            var keep = String(b1.code);
+            var wf = writeMany([{b: b1, res: r1}, {b: fake, res: r1}], "probe-fail");
+            var rolled = String(b1.code) === keep && String(wf).indexOf("已回滚 1 台") >= 0;
+            try{ t2.setBlock(Packages.mindustry.Vars.content.block("air"), T); }catch(e0){ }
+            var ok = wrote && undone && rolled && String(w).indexOf("已写入 2 台") >= 0;
+            return ok ? ("ok " + w + " | " + u)
+                      : ("bad wrote=" + wrote + " undone=" + undone + " rolled=" + rolled
+                         + " w=" + w + " u=" + u + " wf=" + wf);
         };
         api.maiJobProgress = function(jobJson){ return jobProgressText(parse(String(jobJson))); };
         api.maiJobCancel = function(){ return cancelJob(); };
