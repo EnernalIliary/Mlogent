@@ -191,6 +191,13 @@ prompt 是规划 §4.4 的三段：**世界事实**（处理器坐标 + 快照�
 模组侧（v0.8.0）已接：F4 面板投作业 + 每秒 `GET /jobs?id=` 轮询 + 完成/拒绝渲染 + 取消按钮，
 `--jobs-dir` 换队列目录（默认 `out/jobs`，或 `$MLOG_JOBS_DIR`），`--jobs-drain` 跑完就退（一次性批处理）。
 
+**改过 `tools/logicd.py` 必须重启那个进程**（v0.9.1）：模组连的是**已经加载进内存**的 Python 进程，
+磁盘上改了代码它不知道。症状很一致：面板回「投递失败：no such endpoint: /jobs」，而 `GET /health` 依然是 200——
+老进程没有新路由，但健康检查从第一版就有。排查一行就够：
+`Get-CimInstance Win32_Process -Filter "Name='python.exe'"` 里命令行含 `logicd` 的那个进程，
+**启动时间早于改动时间**就是它；`Stop-Process -Id <pid> -Force` 后再 `python tools/logicd.py --port 8765`。
+模组侧（v0.9.1 起）`jobWhy()` 会把 `no such endpoint` 翻成「sidecar 进程是旧版本 → 关掉旧的再重新启动」，
+不再只把一句英文丢给玩家。
 **所有 HTTP 入口都是异步的**（v0.4.3 修）：`httpJson()` 把结果用 `Core.app.post(...)` 投递回主线程，
 所以主线程上的「同步等待」永远等不到 —— 控制台命令与 F7 热键都跑在主线程，early 版本在这里 busy-wait，
 拿到的只是字面量 `pending`（症状：F7 弹出「sidecar 不可用（）」）。现在的写法是发出去就返回、处理放进回调；

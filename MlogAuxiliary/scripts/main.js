@@ -1150,7 +1150,7 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
             httpJson("POST", "/jobs", JSON.stringify(jobBody(b, desc)), function(code, text){
                 var res = parse(text);
                 if(code !== 200 || res === null || res.ok !== true){
-                    cb(null, (res && res.error) ? String(res.error) : httpWhy(code, text));
+                    cb(null, jobWhy(code, text, res));
                     return;
                 }
                 cb(res, null);
@@ -1161,7 +1161,7 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
             httpJson("GET", "/jobs?id=" + String(id), null, function(code, text){
                 var res = parse(text);
                 if(code !== 200 || res === null || res.ok !== true || !res.job){
-                    cb(null, (res && res.error) ? String(res.error) : httpWhy(code, text));
+                    cb(null, jobWhy(code, text, res));
                     return;
                 }
                 cb(res.job, null);
@@ -1172,7 +1172,7 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
             httpJson("DELETE", "/jobs?id=" + String(id), null, function(code, text){
                 var res = parse(text);
                 if(code !== 200 || res === null || res.ok !== true){
-                    cb(null, (res && res.error) ? String(res.error) : httpWhy(code, text));
+                    cb(null, jobWhy(code, text, res));
                     return;
                 }
                 cb(res.job || null, null);
@@ -1657,6 +1657,20 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
                 return "连不上 sidecar（" + base + "）\n先在本机跑：python tools/logicd.py";
             }
             return "sidecar 返回 " + code;
+        }
+        // 侧车进程比模组旧时，/jobs 会回 404 no such endpoint -- 玩家看到这句不知道要干什么，
+        // 而唯一的解法就是重启那个 python 进程，所以直接把解法写进错误里。
+        function sidecarStaleHint(t){
+            var s = String(t === null || t === undefined ? "" : t);
+            if(s.indexOf("no such endpoint") < 0){ return null; }
+            return "sidecar 进程是旧版本，不认识这个接口（" + base + "）\n"
+                 + "关掉旧的 sidecar 进程再重新启动：python tools/logicd.py --port 8765\n"
+                 + "（改过 tools/logicd.py 之后必须重启，模组连的是内存里那份旧代码）";
+        }
+        function jobWhy(code, text, res){
+            var hint = sidecarStaleHint(text) || sidecarStaleHint(res && res.error);
+            if(hint !== null){ return hint; }
+            return (res && res.error) ? String(res.error) : httpWhy(code, text);
         }
         function regionCandidatesText(raw){
             var s = String(raw === null || raw === undefined ? "" : raw);

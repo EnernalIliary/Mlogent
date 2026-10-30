@@ -592,6 +592,12 @@ def main():
                         ('POST", "/jobs"', 'main.js no longer submits to /jobs')):
         if needle not in code_only:
             problems.append('v0.8.0: ' + why)
+    for needle, why in (('function sidecarStaleHint(',
+                         'the stale-sidecar hint helper is gone'),
+                        ('no such endpoint',
+                         'the 404 no such endpoint branch is gone')):
+        if needle not in code_only:
+            problems.append('v0.9.1: ' + why)
     if '"直接生成"' not in code_only:                 # 直接生成
         problems.append('v0.8.0: the /plan fallback button is gone -- an older sidecar '
                         'without /jobs would leave the panel unusable')

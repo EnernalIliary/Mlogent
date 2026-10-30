@@ -1,4 +1,4 @@
-# MlogAuxiliary —— 游戏内Mlog辅助（P1 + P2 + 设置界面 + AI 面板 + 区域面板 + 作业队列，v0.9.0）
+# MlogAuxiliary —— 游戏内Mlog辅助（P1 + P2 + 设置界面 + AI 面板 + 区域面板 + 作业队列，v0.9.1）
 
 把「写 mlog」这件事从玩家手里拿走：**说意图，不写代码**。
 
@@ -355,6 +355,29 @@ Arc 的 `Table.cells` 是私有字段（`arc/scene/ui/layout/Table.java:35`）�
 
 真引擎对照探针（`out/_v47_probe.py`）：放处理器、用 `msch.build_logic_data` 写带两条链接的载荷，读回 `links.size=2`，把真链接名喂 `quickcheck.check` ⇒ 零命中；喂空数组 ⇒ 第 1、3 行各一条 WARN。所以快检逻辑本身没错，错的是喂进去的东西。
 
+## v0.9.1：侧车进程太旧时，面板把「重启 sidecar」直接说出来
+
+**症状**：投递失败，面板上只有一行 `no such endpoint: /jobs`。
+
+**根因不在模组，而在进程**：模组连的是已经跑了几个小时的 `python tools/logicd.py`，
+那是一个 *在 /jobs 出现之前* 启动的进程 —— Python 把模块加载进内存之后，磁盘上再改代码它也不知道。
+所以同一个模组版本，重启侧车前是 404，重启后立刻正常。v0.9.1 只做一件事：把这个诊断变成面板上的一句话。
+
+**改动**（`scripts/main.js`）：
+
+- 新增 `sidecarStaleHint()` / `jobWhy()`：错误文本里出现 `no such endpoint` 时，换成
+  「sidecar 进程是旧版本，不认识这个接口 → 关掉旧进程再 `python tools/logicd.py --port 8765`」，
+  并点明「改过 `tools/logicd.py` 之后必须重启」。
+- 三个作业接口（`POST /jobs`、`GET /jobs?id=`、`DELETE /jobs?id=`）的错误回调统一走 `jobWhy()`，
+  其它错误（连接被拒/超时/sidecar 返回码）行为不变。
+
+**验证**：`tests/mlogauxiliary/run_ui_smoke.py` 新增源码红线（`function sidecarStaleHint(` 必须在、
+`no such endpoint` 分支必须在）；活体复验用的是真 sidecar：重启前 `GET /jobs` 404，
+重启后 `POST /jobs`（container1 + message1）→ `done`，1 次尝试、184 B 载荷、7 条语句、0 条 finding。
+
+**顺带确认的边界**：模板档要打印就必须有消息块链接。处理器只有 `container1` 没有 `message1` 时，
+作业会 `rejected` 并报 `template-needs-link`，文案里已经写明「代码里写的 message1，处理器没有这个链接」——
+这是对的：mlog 没有 printflush 的对象就什么都看不到，模板不应该凭空写一个不存在的链接。
 ## v0.9.0：F4 键彻底删除 —— 以及「处理器一个链接都没接」时门禁漏判的真凶
 
 v0.8.1 把 F4 并进 F3 之后，F4 只是留了个别名；这一版按玩家要求**整把删掉**：

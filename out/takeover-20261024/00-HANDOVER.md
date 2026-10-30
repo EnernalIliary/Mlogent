@@ -1531,3 +1531,38 @@ provider 走 `--jobs-provider` 的可换缝，测试用录制回放式假模型�
 ### 58.4 下一刀候选
 
 ①模组侧 provider 选择 + 面板显示「模板档/模型」 ②自由档 cost + 200 tick sim 复检 ③P5 多处理器事务写入与撤销。
+
+## 59 · v0.9.1：侧车进程太旧时，面板直接说「重启」
+
+玩家 m17617 截图：面板只有一行 `投递失败：no such endpoint: /jobs`，问这是否正常。
+
+### 59.1 结论
+
+不是模组 bug，是**进程里的旧代码**。跑着的 `tools/logicd.py` 是 18:18:18 启动的 PID 59920——
+那一刻仓库里还没有 `/jobs`（v0.8.0 才加）。Python 把模块读进内存后不再看磁盘，
+所以 `GET /health` 一直 200（这条从第一版就有），`GET /jobs` 却 404。
+重启（PID 61368，22:30:38）后 `GET /jobs` 立刻 200 `{ok:true, jobs:[], count:0}`。
+
+### 59.2 改动
+
+| 文件 | 改动 |
+| --- | --- |
+| `MlogAuxiliary/scripts/main.js` | 新增 `sidecarStaleHint()` / `jobWhy()`：错误文本含 `no such endpoint` 时换成「sidecar 进程是旧版本 → 关掉旧的再 `python tools/logicd.py --port 8765`」；三个作业接口错误回调统一走 `jobWhy()` |
+| `MlogAuxiliary/mod.hjson` / `MlogAuxiliary/README.md` | 版本 0.9.1 + 新增一节说明 |
+| `tests/mlogauxiliary/run_ui_smoke.py` | v0.9.1 源码红线：`function sidecarStaleHint(` 与 `no such endpoint` 必须在 |
+| `tools/README.md` | sidecar 节新增「改过 `tools/logicd.py` 必须重启」，含排查命令 |
+
+### 59.3 活体复验（不靠游戏，直接打 HTTP）
+
+- `POST /jobs`（container1 + message1，「容器里铜够 120 就打印」）→ `done`，attempts 1，7 语句，`bytes_b64` 184。
+- 只给 container1 → `rejected`，`template-needs-link`：模板要打印就必须有 printflush 对象，这是对的，文案已点名 message1。
+- 契约细节：`job id = sha1(snapshot+desc+mode)[:16]` 不含 links/origin ⇒ 换链接会幂等命中旧作业；`GET /jobs?id=` 回 `{ok, job}` 单个。
+
+### 59.4 复跑与打包
+
+`gate.py --full` 15/16 PASS + kb WARN（刚改过 tools/README.md）→ `tools/kb.py build` 后 `{chunks 6342, files 65}`；
+`run_ui_smoke.py` PASS；zip 62,455 B sha256 `46D131F2DB16743410A1EC631566F431188565868442DE7B397B052203B23BEA`，已装机 5 文件逐字节 OK。
+
+### 59.5 下一刀候选
+
+①面板记住上次的 provider ②多个 message 链接时按距离挑最近的 ③rejected 作业给「加消息块」可点提示。
