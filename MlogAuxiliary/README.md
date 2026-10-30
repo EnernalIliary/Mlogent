@@ -1,4 +1,4 @@
-# MlogAuxiliary —— 游戏内Mlog辅助（P1 + P2 + 设置界面 + AI 面板 + 区域面板，v0.6.0）
+# MlogAuxiliary —— 游戏内Mlog辅助（P1 + P2 + 设置界面 + AI 面板 + 区域面板，v0.6.1）
 
 把「写 mlog」这件事从玩家手里拿走：**说意图，不写代码**。
 
@@ -354,6 +354,24 @@ Arc 的 `Table.cells` 是私有字段（`arc/scene/ui/layout/Table.java:35`）�
 2. 「没有链接」和「读不到链接表」必须分开：`linkNames()` 读不到时返回 `null`（不是 `[]`），`quickcheck.check()` 收到 `null` 就整段跳过链接槽判据，并在 `stats.linkKnown` 里记下来；审查栏统计行显示「链接 ?（读不到处理器）」而不是「链接 0」。
 
 真引擎对照探针（`out/_v47_probe.py`）：放处理器、用 `msch.build_logic_data` 写带两条链接的载荷，读回 `links.size=2`，把真链接名喂 `quickcheck.check` ⇒ 零命中；喂空数组 ⇒ 第 1、3 行各一条 WARN。所以快检逻辑本身没错，错的是喂进去的东西。
+
+## v0.6.1：选框偏了半格 —— Tile.worldx() 是格子中心
+
+玩家实测（v0.5.0/v0.6.0）：「选框位置偏右上角越半格」。
+
+根因在坐标口径，不在画法：`Tile.worldx()` 返回的是 `x * tilesize`
+（`Mindustry-Source/core/src/mindustry/world/Tile.java:166-172`），也就是**格子中心**的世界坐标；
+格子 `(x1,y1)` 的左下角其实是 `(x1 - 0.5) * 8`。v0.5.0 直接把 `r.x1 * 8` 当左下角传给了
+`Lines.rect(x,y,w,h)`（它按左下角 + 宽高画），于是整框向右上各偏 4 px = 半格。
+
+原版也是先减半格的：`Placement.java:380-390`
+`drawResult.x = result.x * tilesize - block.size * scaling * tilesize / 2`（air：size 1、scaling 1 ⇒ 减 4）。
+
+修法一行：`selDrawArgs(r)` 改成
+`{x: (r.x1 - 0.5) * 8, y: (r.y1 - 0.5) * 8, w: r.w * 8, h: r.h * 8}`。
+
+测试：`MASELDRAW` 的期望值跟着改（`(bx+5)*8-4`），并新增源码红线
+`(r.x1 - 0.5) * 8` / `(r.y1 - 0.5) * 8` 必须同时出现 —— 少了半格就红。
 
 ## v0.6.0：框选之后有面板了 —— 候选链接 + 一键交给 AI
 

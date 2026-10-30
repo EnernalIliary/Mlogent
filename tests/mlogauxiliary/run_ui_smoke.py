@@ -610,7 +610,9 @@ def main():
         problems.append('releasing did not clear the select state: %r' % (end,))
     # vanilla anchors the outline at the box's lower-left corner in world units (x8):
     # Lines.rect(x, y, w, h) draws from (x, y) up-right, unlike Draw.rect's centre anchor.
-    want_draw = {'x': (bx + 5) * 8, 'y': (by + 5) * 8, 'w': 40, 'h': 24}
+    # Half a tile back: Tile.worldx() is x*tilesize, i.e. the tile's CENTRE (Tile.java:166-172),
+    # so the lower-left corner of tile x1 is (x1 - 0.5) * 8 -- exactly what Placement.java:380-390 does.
+    want_draw = {'x': (bx + 5) * 8 - 4, 'y': (by + 5) * 8 - 4, 'w': 40, 'h': 24}
     try:
         got_draw = json.loads(sel.get('MASELDRAW') or '{}')
     except Exception as exc:
@@ -713,6 +715,8 @@ def main():
         problems.append('the region panel lost its scrollable candidate text (labelWrap)')
     if 'function showAiPanel(target)' not in code_only:
         problems.append('showAiPanel() no longer accepts an explicit target build')
+    if '(r.x1 - 0.5) * 8' not in code_only or '(r.y1 - 0.5) * 8' not in code_only:
+        problems.append('the highlight lost its half-tile offset -- Tile.worldx() is the tile centre')
 
     if problems:
         print('FAIL ' + '; '.join(problems))

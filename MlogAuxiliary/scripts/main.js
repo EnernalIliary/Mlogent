@@ -28,7 +28,7 @@
 function __logicWriterMain(){
     "use strict";
 
-    var MOD_VERSION = "0.6.0";
+    var MOD_VERSION = "0.6.1";
     var URL_KEY     = "mlogauxiliary-url";
     var DEFAULT_URL = "http://127.0.0.1:8765";
     var KEY_PANEL   = ["f4"];      // F4：开面板（F1/F5/F6/F8/F11/F12 与 F9/F10 已被占用）
@@ -1547,9 +1547,12 @@ function __logicWriterMain(){
 
         // 高亮参数照原版选框：**左下角 + 宽高**（Lines.rect(x,y,w,h)），不是中心点。
         // 原版见 Mindustry-Source/core/src/mindustry/input/InputHandler.java:1758-1795 drawSelection()。
-        // tile -> world 是 ×tilesize（8）；result.x = x1*tilesize，宽 = 格数*tilesize。
+        // 还要再退半格：Tile.worldx() 返回 x*tilesize（Tile.java:166-172 —— 那是格子的**中心**），
+        // 所以格子 (x1,y1) 的左下角是 (x1-0.5)*8。原版也是这么算的：Placement.java:380-390
+        // drawResult.x = x*tilesize - block.size*scaling*tilesize/2（air：size 1、scaling 1 ⇒ 减 4）。
+        // v0.6.0 漏了这个半格，框整体偏右上角半个格子（用户实测）。
         function selDrawArgs(r){
-            return {x: r.x1 * 8, y: r.y1 * 8, w: r.w * 8, h: r.h * 8};
+            return {x: (r.x1 - 0.5) * 8, y: (r.y1 - 0.5) * 8, w: r.w * 8, h: r.h * 8};
         }
 
         // 原版选框没有半透明填充：Lines.stroke(2) 两道描边，
