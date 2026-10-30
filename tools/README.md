@@ -177,6 +177,7 @@ attempts, findings[], code, explanation, assumptions[]}`，状态 `queued -> run
 但作业是机器输出直接写进处理器，所以 `jobqueue.FATAL_RIDS = ('link-name-not-bound',)` 把这一条**提升为 ERR**：
 最多 3 次尝试（1 + 2 次 self-repair，第二次起把 findings 当提示回给 provider），仍不过就 `rejected` 且 `code == ""`——绝不写入。
 provider 是唯一接模型的缝：默认 `template`（就是上面的 `/plan` 意图路由，全离线可跑），测试用 `--jobs-provider fake --fake-provider FILE` 喂固定答案；
+模组侧（v0.8.0）已接：F4 面板投作业 + 每秒 `GET /jobs?id=` 轮询 + 完成/拒绝渲染 + 取消按钮，
 `--jobs-dir` 换队列目录（默认 `out/jobs`，或 `$MLOG_JOBS_DIR`），`--jobs-drain` 跑完就退（一次性批处理）。
 
 **所有 HTTP 入口都是异步的**（v0.4.3 修）：`httpJson()` 把结果用 `Core.app.post(...)` 投递回主线程，

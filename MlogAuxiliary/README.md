@@ -1,4 +1,4 @@
-# MlogAuxiliary —— 游戏内Mlog辅助（P1 + P2 + 设置界面 + AI 面板 + 区域面板，v0.7.0）
+# MlogAuxiliary —— 游戏内Mlog辅助（P1 + P2 + 设置界面 + AI 面板 + 区域面板 + 作业队列，v0.8.0）
 
 把「写 mlog」这件事从玩家手里拿走：**说意图，不写代码**。
 
@@ -354,6 +354,26 @@ Arc 的 `Table.cells` 是私有字段（`arc/scene/ui/layout/Table.java:35`）�
 2. 「没有链接」和「读不到链接表」必须分开：`linkNames()` 读不到时返回 `null`（不是 `[]`），`quickcheck.check()` 收到 `null` 就整段跳过链接槽判据，并在 `stats.linkKnown` 里记下来；审查栏统计行显示「链接 ?（读不到处理器）」而不是「链接 0」。
 
 真引擎对照探针（`out/_v47_probe.py`）：放处理器、用 `msch.build_logic_data` 写带两条链接的载荷，读回 `links.size=2`，把真链接名喂 `quickcheck.check` ⇒ 零命中；喂空数组 ⇒ 第 1、3 行各一条 WARN。所以快检逻辑本身没错，错的是喂进去的东西。
+
+## v0.8.0：生成走作业队列（可取消、有落盘、门禁更严）
+
+F4 面板原来点「生成」是直接 `POST /plan` —— 同步语义、不落盘、不能取消，而且分析器对
+`link-name-not-bound` 只给 WARN。v0.8.0 把它接到 P4 的作业队列上：
+
+- **投作业**：面板把「一句话 + 处理器链接表 + 相对坐标 + 13×13 框选快照」打包成 job，
+  `POST /jobs` 交给 sidecar（`jobBody()` / `jobSubmit()`）。
+- **每秒轮询**：`jobTick()` 挂在每帧钩子里，`JOB_POLL_MS = 1000`，查 `GET /jobs?id=`；
+  面板关掉就停止轮询（`aiJob = null`），不会漏掉也不会白耗。
+- **完成/拒绝都渲染**：`renderJob()` —— done 时列代码并把按钮换成「写入 / 关闭」；
+  rejected / failed / cancelled 时列 findings 与「被门禁拒绝」的原因（`jobProgressText()`）。
+- **取消**：面板上的「取消作业」走 `DELETE /jobs?id=`，正在跑的作业也会在检查点退出。
+- **保留退路**：「直接生成」按钮仍在（旧的 `/plan` 同步路径），老 sidecar 没有 `/jobs` 时面板照样能用。
+- **控制台入口**：`maiJob(desc)` / `maiJobSync(desc,ms)` / `maiJobSyncAt(x,y,desc,ms)` /
+  `maiJobWrite(json,x,y)` / `maiJobProgress(json)` / `maiJobCancel()` / `maiJobState()`。
+
+测试把这条链在**真 v160.7 引擎**里跑通（`tests/mlogauxiliary/run_ui_smoke.py` 起一个真
+`tools/logicd.py` + 假 provider）：干净作业 → `done`/attempts 1/60 字节载荷被写进处理器；
+坏代码作业 → `rejected`/attempts 3/带 ERR findings。
 
 ## v0.7.0：F2 —— 全图处理器清单
 

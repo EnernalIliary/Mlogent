@@ -1427,3 +1427,25 @@ self-repair→attempts 2、running 时取消、列表/404/400 负控、模板档
 断言表 **L2-41**、验证记录同日一节、报告 `out/takeover-20261024/54-jobs-queue.md`。
 
 **诚实缺口**：游戏内 1 s 轮询 + 完成提示 UI（= P4 第二刀）、真 provider 与 §4.4 三段 prompt、自由档 cost/sim 复检、单 worker 串行。
+
+## §55 v0.8.0 P4 第二刀：模组侧作业队列
+
+**改的是通道不是生成逻辑**：F4 面板「生成」从同步 `POST /plan` 换成 `POST /jobs` 投作业 +
+每秒 `GET /jobs?id=` 轮询（`JOB_POLL_MS = 1000`，面板关掉即停），done 时渲染代码并把按钮换成
+「写入/关闭」，rejected/failed/cancelled 时渲染 findings 与中文原因，面板多一个「取消作业」
+（`DELETE /jobs?id=`）。「直接生成」保留当老 sidecar 的退路；写入仍走 `jobAsPlan()` → `writeBuild()`，
+只认 `bytes_b64`，所以写入路径与 v0.7 同一份代码。
+
+**测试（真 v160.7 引擎 + 真 sidecar + 假 provider）**：`run_ui_smoke.py` 新增 `start_sidecar()` / `job_probe()`，
+干净作业 → `done` / attempts 1 / 60 字节载荷写进处理器；坏代码（`jump 99 always x 0`）→ `rejected` / attempts 3 / 带 ERR findings。
+输出 `job queue: done attempts=1, 60 byte payload written into the processor` /
+`job gate: rejected after 3 attempt(s), 1 finding(s)`，EXIT=0。
+
+**新发现的盲区**：处理器零链接时模组发来的 `links` 是空数组，`mlogcheck` 把空数组当「不知道」，
+幻觉链接名拦不住；本刀用代码级 ERR 验拒绝路径，链接名一档由 `test_jobs()` 的显式 links 覆盖。
+
+**文档**：MlogAuxiliary/README 标题 + v0.8.0 节、规划 §4「实际落地（P4 第二刀）」+ 盲区注记、
+断言表 **L2-42**、验证记录同日一节、tools/README `/jobs` 段补「模组侧已接」、报告
+`out/takeover-20261024/55-job-queue-ui.md`。
+
+**诚实缺口**：面板关闭后不再观察作业、没有跨面板完成通知条、零链接门禁盲区。

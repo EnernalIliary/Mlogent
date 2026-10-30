@@ -198,6 +198,15 @@ provider 是唯一接模型的缝：默认 {BT}template_provider{BT}（复用 §
 测试用 {BT}--jobs-provider fake{BT}。**未落地**：模组侧 1 s 轮询 {BT}GET /jobs{BT} 与完成提示（游戏内 UI 下一刀）、
 真 provider、prompt 三段（§4.4 的组装要等真 provider）、§4.3 自由档的 sim 200 tick 复检。
 
+**实际落地（P4 第二刀，2026-10-30）**：游戏侧接上了队列 —— F4 面板不再直接 `POST /plan`，
+而是 `POST /jobs` 投作业 + 每秒 `GET /jobs?id=` 轮询（`JOB_POLL_MS = 1000`），
+done 时渲染代码并把按钮换成「写入/关闭」，rejected/failed/cancelled 时渲染 findings 与原因，
+面板上多一个「取消作业」（`DELETE /jobs?id=`）。「直接生成」保留给没有 `/jobs` 的旧 sidecar。
+**仍未落地**：真 provider 与 §4.4 三段 prompt、§4.3 自由档的 cost/sim 复检、P5 的多处理器事务写入。
+**新发现的盲区**：处理器**一个链接都没有**时模组发来的 `links` 是空数组，而 `mlogcheck`
+把空数组当「不知道」而不是「确实没有」，于是幻觉链接名在这种情况下拦不住；这一刀改用代码级 ERR
+（`jump-target-out-of-range`）验证拒绝路径，链接名那一档由 `test_jobs()` 的显式 links 覆盖。
+
 ## 5. P5 · 多处理器写入 + 撤销落盘
 
 - 一个 job 可产出 N 段代码（每处理器一段），写入是**事务**：全部预检通过才逐台写，任一台失败回滚已写的。

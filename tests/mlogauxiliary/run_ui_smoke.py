@@ -23,8 +23,9 @@ Why this exists: the first version of the console-function mount read scope.get(
 back, which throws "Cannot find function get" under the real engine -- main.js died
 after loading its rule table and the mod looked half-installed.
 """
-import http.server, io, json, os, re, sys
+import http.server, io, json, os, re, shutil, socket, subprocess, sys, time
 import threading
+import urllib.request
 
 sys.stdout.reconfigure(encoding='utf-8', errors='replace')
 
@@ -116,6 +117,53 @@ def select_probe(srv):
         "  if(un === 'showInfoFade' && up.length === 1 && String(up[0].getName()) === 'java.lang.String'){ hasFade = 'YES'; }",
         "}",
         "print('MAIHINTAPI:' + hasFade);",
+    ]
+
+
+def free_port():
+    s = socket.socket()
+    s.bind(('127.0.0.1', 0))
+    p = s.getsockname()[1]
+    s.close()
+    return p
+
+
+def start_sidecar(fake_path, jobs_dir):
+    """A real tools/logicd.py with the offline fake provider.
+
+    The job queue is the only path where the mod, the sidecar, the gate and the game's
+    own processor writer meet, so it cannot be faked in JS: the probe below submits a
+    job, waits for it, writes the payload into the engine's processor and reads the
+    code back.
+    """
+    port = free_port()
+    proc = subprocess.Popen(
+        [sys.executable, '-X', 'utf8', os.path.join(ROOT, 'tools', 'logicd.py'),
+         '--port', str(port), '--jobs-dir', jobs_dir,
+         '--jobs-provider', 'fake', '--fake-provider', fake_path],
+        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    deadline = time.time() + 25
+    while time.time() < deadline:
+        try:
+            with urllib.request.urlopen('http://127.0.0.1:%d/health' % port, timeout=1) as r:
+                if r.status == 200:
+                    return proc, port
+        except Exception:
+            time.sleep(0.2)
+    proc.terminate()
+    raise RuntimeError('logicd did not come up on port %d' % port)
+
+
+def job_probe(port, bx, by):
+    """v0.8.0: one clean job and one rejected job, driven through the real queue."""
+    return [
+        "print('MAIJOBSET:' + maiSetBase('http://127.0.0.1:%d'));" % port,
+        "var jClean = maiJobSyncAt(%d, %d, 'ui clean code', 25000);" % (bx, by),
+        "print('MAIJOBCLEAN:' + jClean);",
+        "print('MAIJOBPROG:' + maiJobProgress(jClean));",
+        "print('MAIJOBWRITE:' + maiJobWrite(jClean, %d, %d));" % (bx, by),
+        "var jRej = maiJobSyncAt(%d, %d, 'ui broken code', 25000);" % (bx, by),
+        "print('MAIJOBREJ:' + jRej);",
     ]
 
 
@@ -428,6 +476,106 @@ def main():
         hs.shutdown()
         hs.server_close()
 
+    # ---- v0.8.0: the job queue end to end.  The mod submits a job, polls it, and writes
+    # the returned payload into the engine's own processor; a second job names a link that
+    # does not exist and must be rejected.  A real tools/logicd.py runs with the offline
+    # fake provider, so no model is involved and the run is deterministic.
+    jtext = ''
+    jsrv = None
+    try:
+        fdir = os.path.join(ROOT, 'out', '_lw_ui')
+        if not os.path.isdir(fdir):
+            os.makedirs(fdir)
+        fake = os.path.join(fdir, 'job_fake.json')
+        with io.open(fake, 'w', encoding='utf-8') as fh:
+            fh.write(json.dumps({'clean': {'code': 'set n 0\nop add n n 1\nprint n\nend'},
+                                 'broken': {'code': 'jump 99 always x 0\nend'}},
+                                ensure_ascii=False, indent=1))
+        jdir = os.path.join(fdir, 'jobs')
+        if os.path.isdir(jdir):
+            shutil.rmtree(jdir, ignore_errors=True)
+        jsrv, jport = start_sidecar(fake, jdir)
+        bx, by = srv.base
+        try:
+            jout = srv.js(' '.join(job_probe(jport, bx, by) + ['void 0;']))
+            jtext = '\n'.join(str(x) for x in jout)
+        except Exception as exc:
+            problems.append('job probe threw in the engine: %s' % str(exc)[-300:])
+    except Exception as exc:
+        problems.append('job sidecar failed to start: %s' % str(exc)[-300:])
+    finally:
+        if jsrv is not None:
+            try:
+                jsrv.terminate()
+                jsrv.wait(timeout=15)
+            except Exception:
+                pass
+
+    # ---- v0.8.0 job queue, end to end: real logicd (fake provider), real engine
+    # processor.  The clean job must land as done, its payload must be writable into the
+    # processor, and a job whose code names a link that does not exist must be rejected
+    # with link-name-not-bound raised to ERR (tools/jobqueue.py FATAL_RIDS) -- a machine
+    # -written program is never allowed to carry a dangling link name.
+    jres = {}
+    for l in jtext.splitlines():
+        for key in ('MAIJOBSET', 'MAIJOBCLEAN', 'MAIJOBPROG', 'MAIJOBWRITE', 'MAIJOBREJ'):
+            if l.startswith(key + ':'):
+                jres[key] = l[len(key) + 1:]
+
+    def job_of(key, label):
+        raw = jres.get(key)
+        if raw is None:
+            problems.append('%s printed nothing' % label)
+            return {}
+        try:
+            return json.loads(raw)
+        except Exception as exc:
+            problems.append('%s returned bad JSON: %s' % (label, exc))
+            return {}
+
+    if not jres.get('MAIJOBSET', '').startswith('http://127.0.0.1:'):
+        problems.append('maiSetBase did not take the test sidecar: %r' % (jres.get('MAIJOBSET'),))
+    clean = job_of('MAIJOBCLEAN', 'maiJobSyncAt (clean)')
+    if clean:
+        if clean.get('state') != 'done':
+            problems.append('clean job state=%r wanted done (%r)'
+                            % (clean.get('state'), clean.get('explanation')))
+        if int(clean.get('attempts') or 0) != 1:
+            problems.append('clean job attempts=%r wanted 1' % (clean.get('attempts'),))
+        if 'set n 0' not in str(clean.get('code')):
+            problems.append('clean job code: %r' % (str(clean.get('code'))[:120],))
+        if not clean.get('bytes_b64'):
+            problems.append('clean job has no payload: %r' % (clean.get('bytes_b64'),))
+    if '完成' not in (jres.get('MAIJOBPROG') or ''):      # 完成
+        problems.append('maiJobProgress did not report completion: %r' % (jres.get('MAIJOBPROG'),))
+    wr = jres.get('MAIJOBWRITE') or ''
+    if '已写入' not in wr or 'set n 0' not in wr:      # 已写入
+        problems.append('maiJobWrite did not write the job payload into the processor: %r' % (wr[:160],))
+    rej = job_of('MAIJOBREJ', 'maiJobSyncAt (broken code)')
+    if rej:
+        if rej.get('state') != 'rejected':
+            problems.append('broken-code job state=%r wanted rejected' % (rej.get('state'),))
+        if int(rej.get('attempts') or 0) != 3:
+            problems.append('broken-code job attempts=%r wanted 3 (1 + 2 repairs)'
+                            % (rej.get('attempts'),))
+        if str(rej.get('code') or '') != '':
+            problems.append('a rejected job still carries code: %r' % (str(rej.get('code'))[:120],))
+        fat = [f for f in (rej.get('findings') or []) if f.get('sev') == 'ERR']
+        if not fat:
+            problems.append('rejected job findings carry no ERR line: %r'
+                            % (rej.get('findings'),))
+    for needle, why in (('function jobBody(', 'the job body builder is gone'),
+                        ('function jobSubmit(', 'the async job submit is gone'),
+                        ('function jobTick(', 'the 1s job poll is gone'),
+                        ('jobTick();', 'the per-frame hook no longer polls jobs'),
+                        ('function renderJob(', 'the job result renderer is gone'),
+                        ('api.maiJobSyncAt = function', 'the job test hook is gone'),
+                        ('POST", "/jobs"', 'main.js no longer submits to /jobs')):
+        if needle not in code_only:
+            problems.append('v0.8.0: ' + why)
+    if '"直接生成"' not in code_only:                 # 直接生成
+        problems.append('v0.8.0: the /plan fallback button is gone -- an older sidecar '
+                        'without /jobs would leave the panel unusable')
     # v0.4.4 red lines: the transport must stay a raw socket, and the settings category
     # must show the vanilla logic badge (Icon.logic).
     if 'openConnection(' in code_only:
@@ -750,6 +898,12 @@ def main():
     if shapes:
         print('  table methods resolved: ' + ' '.join(
             '%s=%s' % (m, shapes.get(m, '?')) for m in used))
+    if clean:
+        print('  job queue: %s attempts=%s, %d byte payload written into the processor'
+              % (clean.get('state'), clean.get('attempts'), len(str(clean.get('bytes_b64') or ''))))
+    if rej:
+        print('  job gate: %s after %s attempt(s), %d finding(s)'
+              % (rej.get('state'), rej.get('attempts'), len(rej.get('findings') or [])))
     for l in lines:
         if l.startswith(('MAISELF:', 'MAIDIAG:')):
             print('  ' + l[:300])

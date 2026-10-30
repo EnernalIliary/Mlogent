@@ -28,7 +28,7 @@
 function __logicWriterMain(){
     "use strict";
 
-    var MOD_VERSION = "0.7.0";
+    var MOD_VERSION = "0.8.0";
     var URL_KEY     = "mlogauxiliary-url";
     var DEFAULT_URL = "http://127.0.0.1:8765";
     var KEY_PANEL   = ["f4"];      // F4：开面板（F1/F5/F6/F8/F11/F12 与 F9/F10 已被占用）
@@ -1107,15 +1107,230 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
                 d.cont.add(host).growX();
             }
             d.buttons.defaults().pad(4);
-            d.buttons.button("生成", function(){
+            // v0.8.0：默认走作业队列（落盘 + 更严的门禁 + 可取消）。
+            d.buttons.button("生成", function(){ startJob(b, host, d, intent); }).width(140);
+            // 直接生成 = 旧的 /plan 路径：sidecar 没有 /jobs（老版本）时的退路。
+            d.buttons.button("直接生成", function(){
                 host.clear();
                 host.add("正在请求 sidecar…").row();
                 plan(intent, b, function(res){ renderPlan(host, res, b, d); });
             }).width(140);
+            d.buttons.button("取消作业", function(){ hint(cancelJob()); }).width(120);
             d.buttons.button("关闭", function(){ d.hide(); }).width(140);
             d.closeOnBack();
             d.show();
             aiPanel = d;
+        }
+
+        // ---------------------------------------------------------- 作业队列（v0.8.0 / P4 第二刀）
+        // F4 的「生成」不再直接 /plan，而是往 sidecar 的作业队列里投一个 job：
+        // 作业会落盘、sidecar 崩了能续跑、过比分析器更严的门禁（link-name-not-bound
+        // 从 WARN 提升成 ERR，见 tools/jobqueue.py 的 FATAL_RIDS）。
+        // 游戏这边只做两件事：投递 + 每秒查一次状态；生成逻辑全在 sidecar。
+        // 契约：docs/Mlog辅助-规划.md §4.1；端点：POST /jobs、GET /jobs?id=、DELETE /jobs?id=。
+        var aiJob = null;                 // {id, b, desc, host, d, lastPoll, job}
+        var JOB_POLL_MS = 1000;
+        var JOB_TERMINAL = {done: 1, rejected: 1, failed: 1, cancelled: 1};
+
+        function isJobTerminal(state){
+            return JOB_TERMINAL[String(state)] === 1;
+        }
+
+        // job 的 snapshot 只是给 sidecar 存档/将来自由档用的世界事实；
+        // 处理器周围 13×13 足够，太大了会把整张图的格子塞进请求里。
+        function jobBody(b, desc){
+            var snap = null;
+            try{
+                if(b !== null && b !== undefined && b.tile){
+                    snap = regionSnapshot(b.tile.x - 6, b.tile.y - 6, b.tile.x + 6, b.tile.y + 6);
+                }
+            }catch(e){ snap = null; }
+            if(snap === null){
+                snap = {schema: 1, cells: 0, truncated: false, grid: [], processors: []};
+            }
+            return {job: {mode: "new", desc: String(desc), links: linkList(b), ipt: 2,
+                          origin: originOf(b), snapshot: snap}};
+        }
+
+        function jobSubmit(b, desc, cb){
+            httpJson("POST", "/jobs", JSON.stringify(jobBody(b, desc)), function(code, text){
+                var res = parse(text);
+                if(code !== 200 || res === null || res.ok !== true){
+                    cb(null, (res && res.error) ? String(res.error) : httpWhy(code, text));
+                    return;
+                }
+                cb(res, null);
+            });
+        }
+
+        function jobGet(id, cb){
+            httpJson("GET", "/jobs?id=" + String(id), null, function(code, text){
+                var res = parse(text);
+                if(code !== 200 || res === null || res.ok !== true || !res.job){
+                    cb(null, (res && res.error) ? String(res.error) : httpWhy(code, text));
+                    return;
+                }
+                cb(res.job, null);
+            });
+        }
+
+        function jobCancel(id, cb){
+            httpJson("DELETE", "/jobs?id=" + String(id), null, function(code, text){
+                var res = parse(text);
+                if(code !== 200 || res === null || res.ok !== true){
+                    cb(null, (res && res.error) ? String(res.error) : httpWhy(code, text));
+                    return;
+                }
+                cb(res.job || null, null);
+            });
+        }
+
+        function jobSevCounts(job){
+            var f = (job && job.findings) ? job.findings : [];
+            var c = {err: 0, warn: 0, info: 0, total: f.length};
+            for(var i = 0; i < f.length; i++){
+                var s = String(f[i].sev);
+                if(s === "ERR"){ c.err++; } else if(s === "WARN"){ c.warn++; } else { c.info++; }
+            }
+            return c;
+        }
+
+        // job -> /plan 那套渲染要的形状。writeBuild 只认 ok/bytes_b64/statements/bytes_len，
+        // renderPlan 还要 findings/template/reason，所以这里一次补齐。
+        function jobAsPlan(job){
+            var c = jobSevCounts(job);
+            return {ok: String(job.state) === "done",
+                    template: job.template || "",
+                    reason: job.explanation || "",
+                    findings: job.findings || [],
+                    code: job.code || "",
+                    statements: job.statements || 0,
+                    bytes_b64: job.bytes_b64 || "",
+                    bytes_len: job.bytes_len || 0,
+                    errors: c.err, warns: c.warn};
+        }
+
+        function jobProgressText(job){
+            if(job === null || job === undefined){ return "作业：查不到状态"; }
+            var st = String(job.state), a = job.attempts || 0, id = String(job.id || "?");
+            var c = jobSevCounts(job);
+            if(st === "queued"){ return "作业 " + id + "：排队中（第 " + a + " 次尝试）"; }
+            if(st === "running"){ return "作业 " + id + "：生成中（第 " + a + " 次尝试）"; }
+            if(st === "done"){
+                return "作业 " + id + "：完成（" + (job.statements || 0) + " 条语句，"
+                     + (job.bytes_len || 0) + " 字节，尝试 " + a + " 次）";
+            }
+            if(st === "rejected"){
+                return "作业 " + id + "：被门禁拒绝（尝试 " + a + " 次，ERR " + c.err + " 条）";
+            }
+            if(st === "cancelled"){ return "作业 " + id + "：已取消"; }
+            return "作业 " + id + "：" + st
+                 + (job.explanation ? "（" + String(job.explanation) + "）" : "");
+        }
+
+        function renderJob(host, job, b, d){
+            if(host === null || host === undefined || job === null || job === undefined){ return; }
+            host.clear();
+            host.add(jobProgressText(job)).row();
+            var st = String(job.state);
+            if(st === "done"){
+                var res = jobAsPlan(job), c = jobSevCounts(job);
+                host.add(c.err === 0 ? "预检：通过（0 条 ERR）" + (c.total ? "，另有 " + c.warn + " 条 WARN" : "")
+                                     : ("预检：ERR " + c.err + " / WARN " + c.warn)).row();
+                if(job.explanation){ host.add(String(job.explanation)).row(); }
+                var ls = job.findings || [];
+                for(var i = 0; i < ls.length && i < 6; i++){
+                    host.add("  " + ls[i].sev + " L" + ls[i].line + " " + ls[i].msg).row();
+                }
+                host.add("--- 代码（" + (job.statements || 0) + " 条语句，" + (job.bytes_len || 0) + " 字节）---").row();
+                var code = String(job.code || "").split("\n");
+                for(var k = 0; k < code.length && k < 40; k++){ host.add(code[k]).row(); }
+                if(code.length > 40){ host.add("… 共 " + code.length + " 行").row(); }
+                if(d !== null && d !== undefined){
+                    d.buttons.clearChildren();
+                    d.buttons.defaults().pad(4);
+                    d.buttons.button("写入", function(){ hint(writeBuild(b, res)); d.hide(); }).width(140);
+                    d.buttons.button("关闭", function(){ d.hide(); }).width(140);
+                }
+                return;
+            }
+            if(st === "rejected" || st === "failed" || st === "cancelled"){
+                var fs = job.findings || [];
+                for(var i2 = 0; i2 < fs.length && i2 < 6; i2++){
+                    host.add("  " + fs[i2].sev + " L" + fs[i2].line + " " + fs[i2].msg).row();
+                }
+                if(job.explanation){ host.add(String(job.explanation)).row(); }
+                return;
+            }
+            host.add("（每 " + (JOB_POLL_MS / 1000) + " 秒查一次状态，可以先去干别的）").row();
+        }
+
+        // 每帧调一次：只有「有作业 + 面板还开着 + 到点了」才发请求。
+        function jobTick(){
+            if(aiJob === null){ return; }
+            if(!aiShown()){ aiJob = null; return; }       // 面板关了就别轮询了
+            var now = Packages.java.lang.System.currentTimeMillis();
+            if(now - aiJob.lastPoll < JOB_POLL_MS){ return; }
+            aiJob.lastPoll = now;
+            var mine = aiJob;
+            jobGet(mine.id, function(job, why){
+                if(aiJob !== mine){ return; }             // 期间换了作业/取消了
+                if(job === null){ return; }               // 网络抖一下：下次再查
+                mine.job = job;
+                try{ renderJob(mine.host, job, mine.b, mine.d); }
+                catch(e){ log("renderJob failed: " + e); }
+                if(isJobTerminal(job.state)){ aiJob = null; }
+            });
+        }
+
+        function startJob(b, host, d, intent){
+            if(b === null || b === undefined){ host.add("鼠标下没有处理器").row(); return "没有目标处理器"; }
+            var desc = String(intent);
+            if(desc.length === 0){ host.add("先写一句要做什么").row(); return "描述是空的"; }
+            host.clear();
+            host.add("正在投递作业…").row();
+            jobSubmit(b, desc, function(res, why){
+                if(res === null){ host.clear(); host.add("投递失败：" + why).row(); return; }
+                aiJob = {id: String(res.id), b: b, desc: desc, host: host, d: d,
+                         lastPoll: 0, job: res.job || null};
+                try{ renderJob(host, res.job, b, d); }
+                catch(e){ log("renderJob failed: " + e); }
+            });
+            return "已投递";
+        }
+
+        function cancelJob(){
+            if(aiJob === null){ return "没有进行中的作业"; }
+            var mine = aiJob;
+            aiJob = null;
+            jobCancel(mine.id, function(job, why){
+                hint(why === null ? ("已取消作业 " + mine.id) : ("取消失败：" + why));
+            });
+            return "已请求取消 " + mine.id;
+        }
+
+        // 同步跑完一个作业：**只给控制台/自检用**（会阻塞当前线程）。
+        // 游戏内 UI 走的是上面那条异步路径 —— 主线程 busy-wait 永远等不到 Core.app.post 的回调。
+        function jobSync(b, desc, timeoutMs){
+            var t0 = Packages.java.lang.System.currentTimeMillis();
+            var limit = (timeoutMs > 0) ? timeoutMs : 20000;
+            var r1 = httpRaw("POST", base + "/jobs", JSON.stringify(jobBody(b, desc)));
+            var j1 = parse(r1.text);
+            if(r1.code !== 200 || j1 === null || j1.ok !== true){
+                return JSON.stringify({ok: false, code: r1.code, text: String(r1.text).substring(0, 300)});
+            }
+            var id = String(j1.id), job = j1.job || null, tries = 0;
+            while(tries < 400){
+                tries++;
+                if(job !== null && isJobTerminal(job.state)){ break; }
+                if(Packages.java.lang.System.currentTimeMillis() - t0 > limit){ break; }
+                try{ Packages.java.lang.Thread.sleep(50); }catch(e0){ }
+                var r2 = httpRaw("GET", base + "/jobs?id=" + id, null);
+                var j2 = parse(r2.text);
+                if(r2.code === 200 && j2 !== null && j2.ok === true && j2.job){ job = j2.job; }
+            }
+            if(job === null){ return JSON.stringify({ok: false, code: 0, text: "no job state"}); }
+            return JSON.stringify(job);
         }
 
         // ---------------------------------------------------------- 区域面板（v0.6.0）
@@ -1830,6 +2045,39 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
         api.maiList = function(){ return listText(); };
         api.maiListRows = function(){ return JSON.stringify(scanProcessors().rows); };
         api.maiListPanel = function(){ openListPanel(); return "opened"; };
+        // v0.8.0 作业队列：投递 / 查 / 取消 / 同步跑完（同步版只给控制台与自检）
+        api.maiSetBase = function(u){ base = String(u); return base; };
+        api.maiJob = function(desc){
+            var b = targetBuild();
+            if(b === null){ return "鼠标下没有处理器"; }
+            jobSubmit(b, String(desc), function(res, why){
+                hint(res === null ? ("投递失败：" + why) : ("作业 " + res.id + " 已投递"));
+            });
+            return "已投递作业";
+        };
+        api.maiJobSync = function(desc, timeoutMs){
+            var b = targetBuild();
+            if(b === null){ return JSON.stringify({ok: false, text: "no processor"}); }
+            return jobSync(b, String(desc), timeoutMs);
+        };
+        api.maiJobSyncAt = function(x, y, desc, timeoutMs){
+            var b = buildAt(x, y);
+            if(b === null){ return JSON.stringify({ok: false, text: "no processor at " + x + "," + y}); }
+            return jobSync(b, String(desc), timeoutMs);
+        };
+        api.maiJobWrite = function(jobJson, x, y){
+            var job = parse(String(jobJson));
+            if(job === null){ return "job json parse failed"; }
+            var b = buildAt(x, y);
+            if(b === null){ return "no processor at " + x + "," + y; }
+            var w = writeBuild(b, jobAsPlan(job));
+            return w + " | " + String(b.code).replace(/\n/g, " / ");
+        };
+        api.maiJobProgress = function(jobJson){ return jobProgressText(parse(String(jobJson))); };
+        api.maiJobCancel = function(){ return cancelJob(); };
+        api.maiJobState = function(){
+            return aiJob === null ? "" : JSON.stringify({id: aiJob.id, desc: aiJob.desc});
+        };
 
         // 挂到脚本作用域（控制台里能直接敲），并读回自检
         var scope = Vars.mods.getScripts().scope;
@@ -1860,6 +2108,7 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
             Events.run(ET.Trigger.update, function(){
                 try{
                     reviewTick();   // 原版逻辑编辑器开着就顺手刷新那条审查栏
+                    jobTick();      // v0.8.0：有作业在跑就每秒查一次状态
                     // 「设置 → Mlog辅助」这一栏只在 Vars.ui 建好之后能注册。脚本加载时
                     // UI 往往还没建（真机日志里是在 ClientLoadEvent 前），所以这里补一次
                     // 有界重试：每 60 帧试一次、最多 600 次（≈10 s @60fps），成功即停。
