@@ -243,6 +243,58 @@ def test_protocol():
         need(st == 400 and res['ok'] is False, 'plan with an empty intent status %s' % st)
         checks += 1
 
+
+        # /region: the in-game snapshot -> link candidates, numbered the way the game
+        # numbers them (LogicBlock.findLinkName).  Still read-only: the artifact the
+        # workflow ends on is logic@config, produced by /compose from the same links.
+        snap = {
+            'schema': 1, 'map': 'test', 'world': {'width': 200, 'height': 200},
+            'bounds': {'x1': 8, 'y1': 8, 'x2': 24, 'y2': 12}, 'truncated': False,
+            'grid': [
+                {'x': 10, 'y': 10, 'block': 'micro-processor'},
+                {'x': 13, 'y': 10, 'block': 'container'},
+                {'x': 20, 'y': 10, 'block': 'container'},
+                {'x': 21, 'y': 10, 'block': 'switch'},
+                {'x': 40, 'y': 40, 'block': 'container'},
+            ],
+            'processors': [
+                {'x': 10, 'y': 10, 'block': 'micro-processor',
+                 'code': 'sensor n container1 @copper\nprintflush message1\nend',
+                 'links': [{'name': 'message1', 'x': 11, 'y': 10}]},
+            ],
+        }
+        st, res = srv.post('/region', {'snapshot': snap})
+        need(st == 200 and res.get('ok') is True, 'region status %s: %r' % (st, res))
+        procs = res.get('processors') or []
+        need(len(procs) == 1, 'region processors: %r' % (procs,))
+        cand = {c['name']: c for c in procs[0]['candidates']}
+        need('container1' in cand, 'region candidates: %r' % (sorted(cand),))
+        need(cand['container1']['used'] is True, 'container1 was not marked as used by the code')
+        need(cand['container1']['x'] == 13 and cand['container1']['y'] == 10,
+             'container1 points at %r' % (cand['container1'],))
+        # range is the game's: 80 units + half the target block (LogicBlock.java:736),
+        # so a 2x2 container 10.5 tiles away is linkable while a 1x1 switch at 11 is not.
+        need('container2' in cand, 'a 2x2 container at 10.5 tiles should be linkable: %r' % (sorted(cand),))
+        need('switch1' not in cand, 'a 1x1 switch at 11 tiles is out of range but was offered')
+        need(procs[0]['used_unlinked'] == ['container1'],
+             'used_unlinked: %r' % (procs[0]['used_unlinked'],))
+        # an existing link keeps its number: the next container becomes 2, not 1
+        snap2 = json.loads(json.dumps(snap))
+        snap2['processors'][0]['links'].append({'name': 'container1', 'x': 13, 'y': 10})
+        st, res = srv.post('/region', {'snapshot': snap2})
+        names = sorted(c['name'] for c in res['processors'][0]['candidates'])
+        need('container2' in names and 'container1' not in names,
+             'numbering ignored an existing link name: %r' % (names,))
+        st, res = srv.post('/region', {'snapshot': 42})
+        need(st == 400 and res['ok'] is False, 'region with a non-object snapshot: %s' % st)
+        # link naming must stay in step with mschgen.link_name_for (getLinkName)
+        import logicd as LD
+        import mschgen as G
+        drift = [(b, G.link_name_for(b, 1), LD._link_base(b) + '1')
+                 for b in sorted(LD._block_sizes())
+                 if G.link_name_for(b, 1) != LD._link_base(b) + '1']
+        need(not drift, 'link naming drifted from mschgen.link_name_for: %r' % (drift[:5],))
+        checks += 1
         return cap, checks
     finally:
         srv.close()

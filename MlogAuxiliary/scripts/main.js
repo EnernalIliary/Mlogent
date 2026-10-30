@@ -28,10 +28,11 @@
 function __logicWriterMain(){
     "use strict";
 
-    var MOD_VERSION = "0.4.1";
+    var MOD_VERSION = "0.4.2";
     var URL_KEY     = "mlogauxiliary-url";
     var DEFAULT_URL = "http://127.0.0.1:8765";
     var KEY_PANEL   = ["f4"];      // F4：开面板（F1/F5/F6/F8/F11/F12 与 F9/F10 已被占用）
+    var KEY_REGION  = ["f7"];      // F7：扫鼠标周围 10 格，列出链接候选
     var TIMEOUT_MS  = 4000;        // 连接超时：sidecar 是本机的，慢就是没开
 
     function log(msg){ print("[mai] " + msg); }
@@ -843,6 +844,114 @@ function __logicWriterMain(){
             return out;
         }
 
+        // ---------------------------------------------------------- 区域快照（P3）
+        // 只读扫描：交出「方块表 + 处理器表」，sidecar 用它算链接候选。
+        // 终点仍是逻辑@config：候选 -> /plan 或 /compose -> bytes_b64 -> build.configure()，
+        // 和游戏自己的配置通道是同一份载荷（LogicBlock.compress；联机时服务端应用，
+        // LogicBlock.java:65-69），本地写入也是同一个调用，所以两条路不需要分开实现。
+        // 引擎坑（v160.7 实测）：tile.block() 是方法，tile.build 是字段。
+        var SNAP_MAX_CELLS = 4096;
+
+        // LogicBlock 是「方块」类，真正的建筑是它的内部类 LogicBuild（LogicBlock$LogicBuild），
+        // 所以 instanceof LogicBlock 永远为假（v160.7 实测）。跟 targetBuild() 一样用鸭子类型：
+        // executor + code 这两个字段只有逻辑建筑才有。
+        function isProcessor(bld){
+            try{
+                return bld !== null && bld !== undefined
+                       && bld.executor !== undefined && bld.code !== undefined;
+            }catch(e){ return false; }
+        }
+
+        function tileBlockName(tile, bld){
+            try{
+                if(bld !== null && bld !== undefined){ return String(bld.block.name); }
+                return String(tile.block().name);
+            }catch(e){ return "?"; }
+        }
+
+        function regionSnapshot(x1, y1, x2, y2){
+            var W = Vars.world;
+            var mapName = "?";
+            try{ mapName = String(Vars.state.map.name()); }catch(e){ }
+            x1 = Math.floor(x1); y1 = Math.floor(y1);
+            x2 = Math.floor(x2); y2 = Math.floor(y2);
+            if(x1 > x2){ var a = x1; x1 = x2; x2 = a; }
+            if(y1 > y2){ var b0 = y1; y1 = y2; y2 = b0; }
+            var maxX = W.width() - 1, maxY = W.height() - 1;
+            if(x1 < 0){ x1 = 0; }
+            if(y1 < 0){ y1 = 0; }
+            if(x2 > maxX){ x2 = maxX; }
+            if(y2 > maxY){ y2 = maxY; }
+            var grid = [], procs = [], truncated = false, x, y;
+            for(x = x1; x <= x2 && !truncated; x++){
+                for(y = y1; y <= y2; y++){
+                    var tile = W.tile(x, y);
+                    if(tile === null || tile === undefined){ continue; }
+                    var bld = tile.build;
+                    var name = tileBlockName(tile, bld);
+                    if(name === "air"){ continue; }
+                    if(grid.length >= SNAP_MAX_CELLS){ truncated = true; break; }
+                    grid.push({x: x, y: y, block: name});
+                    if(isProcessor(bld)){
+                        procs.push({x: x, y: y, block: name,
+                                    code: String(bld.code === null ? "" : bld.code),
+                                    links: linkList(bld)});
+                    }
+                }
+            }
+            return {schema: 1, mod: MOD_VERSION, build: gameBuild(), map: mapName,
+                    world: {width: W.width(), height: W.height()},
+                    bounds: {x1: x1, y1: y1, x2: x2, y2: y2},
+                    cells: grid.length, truncated: truncated,
+                    grid: grid, processors: procs};
+        }
+
+        function regionCandidatesText(raw){
+            var s = String(raw === null || raw === undefined ? "" : raw);
+            var nl = s.indexOf("\n");
+            var code = nl < 0 ? "" : s.substring(0, nl);
+            var body = nl < 0 ? s : s.substring(nl + 1);
+            var res = parse(body);
+            if(code !== "200" || res === null || res.ok !== true){
+                return "sidecar 不可用（" + code + "）\n" + body;
+            }
+            var out = ["区域 " + res.bounds.x1 + "," + res.bounds.y1 + " - "
+                       + res.bounds.x2 + "," + res.bounds.y2
+                       + "   方块 " + res.cells
+                       + (res.truncated ? "（已截断）" : "")];
+            var ps = res.processors || [], i, j;
+            if(ps.length === 0){ out.push("这个区域里没有处理器"); }
+            for(i = 0; i < ps.length; i++){
+                var p = ps[i];
+                out.push("");
+                out.push("@" + p.x + "," + p.y + " " + p.block + "   链接 "
+                         + p.links.length + "：" + (p.links.length ? p.links.join(", ") : "无"));
+                var cs = p.candidates || [];
+                if(cs.length === 0){ out.push("  10 格内没有可连的方块"); }
+                for(j = 0; j < cs.length && j < 12; j++){
+                    out.push("  " + cs[j].name + "  ←  " + cs[j].block
+                             + " @" + cs[j].x + "," + cs[j].y
+                             + "   " + cs[j].dist + " 格"
+                             + (cs[j].used ? "   [代码正在用]" : ""));
+                }
+                if(cs.length > 12){ out.push("  …还有 " + (cs.length - 12) + " 个"); }
+            }
+            out.push("");
+            out.push("确认后按 F4 用一句话生成，写入走 logic@config（configure）。");
+            return out.join("\n");
+        }
+        function regionText(snap){
+            var p = snap.processors, i;
+            var out = ["区域 " + snap.bounds.x1 + "," + snap.bounds.y1 + " - "
+                       + snap.bounds.x2 + "," + snap.bounds.y2
+                       + "   方块 " + snap.cells + (snap.truncated ? "（已截断）" : "")
+                       + "   处理器 " + p.length];
+            for(i = 0; i < p.length; i++){
+                out.push("  @" + p[i].x + "," + p[i].y + " " + p[i].block
+                         + "  链接 " + p[i].links.length);
+            }
+            return out.join("\n");
+        }
         // ---------------------------------------------------------- 控制台接口
         var api = {
             maiVersion: function(){ return "mlog-auxiliary " + MOD_VERSION + "  sidecar=" + base; },
@@ -924,6 +1033,28 @@ function __logicWriterMain(){
         api.maiSelfTest = function(){ return selfTest(); };
         api.maiAi = function(){ showAiPanel(); return "opened"; };
         api.maiReview = function(){ return reviewText(); };
+        // 区域快照的三个出口：JSON（给 sidecar / 剪贴板）、纯文本（控制台读）、
+        // 以及直接 POST /region 拿链接候选。F7 框选等 UI 之后再接，这里先给控制台。
+        api.maiSnapshot = function(x1, y1, x2, y2){
+            return JSON.stringify(regionSnapshot(x1, y1, x2, y2));
+        };
+        api.maiSnapshotText = function(x1, y1, x2, y2){
+            return regionText(regionSnapshot(x1, y1, x2, y2));
+        };
+        api.maiRegion = function(x1, y1, x2, y2){
+            var got = "pending";
+            httpJson("POST", "/region", JSON.stringify({snapshot: regionSnapshot(x1, y1, x2, y2)}),
+                     function(code, text){ got = code + "\n" + text; });
+            var waited = 0;
+            while(got === "pending" && waited < TIMEOUT_MS * 3){ waited += 50; }
+            return got;
+        };
+        api.maiRegionAround = function(r){
+            var b = targetBuild();
+            if(b === null){ return "鼠标下没有处理器"; }
+            var n = (r === undefined || r === null) ? 10 : Math.floor(r);
+            return api.maiRegion(b.tile.x - n, b.tile.y - n, b.tile.x + n, b.tile.y + n);
+        };
 
         // 挂到脚本作用域（控制台里能直接敲），并读回自检
         var scope = Vars.mods.getScripts().scope;
@@ -968,6 +1099,19 @@ function __logicWriterMain(){
                         // 我们的面板开着 -> F4 关掉；别人的对话框开着 -> 别叠上去
                         if(!aiShown() && !panelShown() && Core.scene !== null && Core.scene.hasDialog()){ return; }
                         toggleAiPanel();
+                    }
+                    if(KEY_REGION !== null && Core.input.keyTap(Packages.arc.input.KeyCode[KEY_REGION[0]])){
+                        if(!aiShown() && !panelShown() && Core.scene !== null && Core.scene.hasDialog()){ return; }
+                        var rb = targetBuild();
+                        if(rb === null){
+                            Vars.ui.showText("Mlog辅助 · 链接候选",
+                                             "鼠标下没有处理器：先把鼠标移到处理器上再按 F7");
+                        }else{
+                            var rr = 10;
+                            var rtext = api.maiRegion(rb.tile.x - rr, rb.tile.y - rr,
+                                                      rb.tile.x + rr, rb.tile.y + rr);
+                            Vars.ui.showText("Mlog辅助 · 链接候选", regionCandidatesText(rtext));
+                        }
                     }
                 }catch(e){ /* 每帧回调里绝不抛出去 */ }
             });

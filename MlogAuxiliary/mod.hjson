@@ -1,8 +1,8 @@
 name: "mlog-auxiliary"
 displayName: "Mlog辅助"
 author: "lliary"
-description: "游戏内写逻辑的入口：把鼠标指向处理器，按 F4 打开 AI 辅助面板，一句话说清要什么 -> 本地 sidecar（tools/logicd.py 的 /plan）选模板、填参数、生成 mlog 并做静态检查 -> 面板显示理由、findings 与成本 -> 预览代码 -> 确认后通过原版 config 通道（LogicBlock.config(byte[])）写进处理器；ERR 一律拒绝写入。原版逻辑编辑器底部自动挂一条审查栏（ERR/WARN 计数、语句数、ipt、详情）。游戏内另有本地快检（未知指令 / 拼错子命令 / 版本门 / 断链名 / 超 1000 条），sidecar 没开也能用。控制台：maiVersion() / maiPing() / maiSel() / maiPanel() / maiAi() / maiReview() / maiCompose / maiApply / maiUndo / maiCheck / maiScan / maiDiag / maiSelfTest / maiSettings。设置菜单里有「Mlog辅助」一栏（诊断 + 快捷动作）。"
-version: "0.4.1"
+description: "游戏内写逻辑的入口：把鼠标指向处理器，按 F4 打开 AI 辅助面板，一句话说清要什么 -> 本地 sidecar（tools/logicd.py 的 /plan）选模板、填参数、生成 mlog 并做静态检查 -> 面板显示理由、findings 与成本 -> 预览代码 -> 确认后通过原版 config 通道（LogicBlock.config(byte[])）写进处理器；ERR 一律拒绝写入。原版逻辑编辑器底部自动挂一条审查栏（ERR/WARN 计数、语句数、ipt、详情）。游戏内另有本地快检（未知指令 / 拼错子命令 / 版本门 / 断链名 / 超 1000 条），sidecar 没开也能用。控制台：maiVersion() / maiPing() / maiSel() / maiPanel() / maiAi() / maiReview() / maiCompose / maiApply / maiUndo / maiCheck / maiScan / maiDiag / maiSelfTest / maiSettings。设置菜单里有「Mlog辅助」一栏（诊断 + 快捷动作）；鼠标指向处理器按 F7 看周围 10 格的链接候选。控制台另有 maiSnapshot / maiSnapshotText / maiRegion / maiRegionAround。"
+version: "0.4.2"
 minGameVersion: "146"
 # hidden: true —— 自用模组：不上报给服务器（Mods.getModStrings 只收 !meta.hidden），
 # 联机不会被 "Incompatible mods" 踢；hidden 只跳过 loadContent()（不能注册新方块/单位），

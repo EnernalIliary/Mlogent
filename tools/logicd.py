@@ -23,6 +23,7 @@ Protocol (v1, JSON over HTTP, loopback only)
     GET  /capabilities  -> instructions, ops, templates, limits
     POST /analyze       {code, links:[name|{name,x,y}], ipt}      -> findings + cost
     POST /compose       {template, params, links, ipt}            -> code + findings + bytes_b64
+    POST /region        {snapshot}                                -> per-processor link candidates
     POST /plan          {intent, links, ipt}                       -> compose, plus which template matched and why
 
 Everything returns "ok": false when any finding is ERR: a write is refused, not
@@ -577,6 +578,140 @@ def capabilities():
             'limits': {'ipt_max': IPT_MAX, 'link_range_tiles': LINK_RANGE_TILES}}
 
 
+# ---------------------------------------------------------------- region
+
+#: LogicBlock.range = 8 * 10 world units (LogicBlock.java:49) and tilesize is 8,
+#: so a link is legal while centre distance <= 80 + other.size*4 (LogicBlock.java:736
+#: uses other.within(this, range + other.block.size*tilesize/2f)).
+TILESIZE = 8
+
+
+def _block_sizes():
+    try:
+        return json.load(open(os.path.join(HERE, 'block_sizes.json'), encoding='utf-8'))
+    except Exception:
+        return {}
+
+
+def _block_size(block, sizes):
+    try:
+        return max(1, int(sizes.get(block) or 1))
+    except Exception:
+        return 1
+
+
+def _link_base(block):
+    """LogicBlock.getLinkName() (LogicBlock.java:123-135).
+
+    The last '-' segment, unless that segment is 'large' or numeric -- then the
+    second-to-last one.  Kept in step with mschgen.link_name_for() by a test.
+    """
+    name = str(block)
+    if '-' in name:
+        parts = name.split('-')
+        last = parts[-1]
+        if len(parts) >= 2 and (last == 'large' or re.fullmatch(r'[0-9.]+', last)):
+            name = parts[-2]
+        else:
+            name = last
+    return name
+
+
+def _taken_numbers(names, base):
+    """findLinkName() (LogicBlock.java:331-360): numbers already used by base<n>."""
+    taken = set()
+    for n in names:
+        if n.startswith(base):
+            tail = n[len(base):]
+            if tail.isdigit():
+                taken.add(int(tail))
+    return taken
+
+
+def _uses(code, name):
+    """True when the code reads that exact identifier (container1 != container10)."""
+    return re.search(r'(?<![A-Za-z0-9_-])' + re.escape(name) + r'(?![A-Za-z0-9_])', code) is not None
+
+
+def region(req):
+    """A region snapshot from the game -> per-processor link candidates.
+
+    The snapshot is main.js regionSnapshot(): blocks come back by their internal
+    name, which is exactly what getLinkName() consumes.  Candidates are numbered
+    the way the game numbers a freshly linked block, so 'wire container1' in the
+    panel produces a name the processor will really see.
+
+    Nothing here writes: the caller feeds a chosen candidate into /plan or
+    /compose, and the payload that comes back is the game's own logic@config.
+    """
+    snap = req.get('snapshot')
+    if not isinstance(snap, dict):
+        raise ValueError('snapshot must be an object (main.js: maiSnapshot(x1,y1,x2,y2))')
+    grid = snap.get('grid') or []
+    procs = snap.get('processors') or []
+    if not isinstance(grid, list) or not isinstance(procs, list):
+        raise ValueError('snapshot.grid and snapshot.processors must be arrays')
+    sizes = _block_sizes()
+    out_procs = []
+    for p in procs:
+        if not isinstance(p, dict):
+            continue
+        px, py = int(p.get('x') or 0), int(p.get('y') or 0)
+        pblock = str(p.get('block') or '')
+        psize = _block_size(pblock, sizes)
+        code = str(p.get('code') or '')
+        raw_links = p.get('links') or []
+        existing = []
+        for link in raw_links:
+            if isinstance(link, dict):
+                existing.append(str(link.get('name') or ''))
+            else:
+                existing.append(str(link))
+        pcx = px * TILESIZE + psize * TILESIZE / 2.0
+        pcy = py * TILESIZE + psize * TILESIZE / 2.0
+        buckets = {}
+        for cell in grid:
+            if not isinstance(cell, dict):
+                continue
+            bx, by = int(cell.get('x') or 0), int(cell.get('y') or 0)
+            block = str(cell.get('block') or '')
+            if not block or block == 'air':
+                continue
+            if bx == px and by == py:
+                continue
+            bsize = _block_size(block, sizes)
+            bcx = bx * TILESIZE + bsize * TILESIZE / 2.0
+            bcy = by * TILESIZE + bsize * TILESIZE / 2.0
+            limit = 80.0 + bsize * TILESIZE / 2.0
+            dist = ((pcx - bcx) ** 2 + (pcy - bcy) ** 2) ** 0.5
+            if dist > limit:
+                continue
+            buckets.setdefault(_link_base(block), []).append(
+                {'block': block, 'x': bx, 'y': by, 'dist': round(dist / TILESIZE, 2)})
+        candidates = []
+        for base in sorted(buckets):
+            taken = _taken_numbers(existing, base)
+            items = sorted(buckets[base], key=lambda c: (c['dist'], c['x'], c['y']))
+            for item in items:
+                n = 1
+                while n in taken:
+                    n += 1
+                taken.add(n)
+                name = '%s%d' % (base, n)
+                candidates.append({'name': name, 'block': item['block'],
+                                   'x': item['x'], 'y': item['y'], 'dist': item['dist'],
+                                   'used': _uses(code, name)})
+        candidates.sort(key=lambda c: (not c['used'], c['dist'], c['name']))
+        out_procs.append({'x': px, 'y': py, 'block': pblock, 'links': existing,
+                          'statements': len(code.splitlines()),
+                          'in_range': len(candidates),
+                          'used_unlinked': [c['name'] for c in candidates if c['used']],
+                          'candidates': candidates})
+    return {'ok': True, 'schema': 1, 'map': snap.get('map'),
+            'world': snap.get('world'), 'bounds': snap.get('bounds'),
+            'cells': len(grid), 'truncated': bool(snap.get('truncated')),
+            'processors': out_procs}
+
 # ---------------------------------------------------------------- http
 
 class Handler(BaseHTTPRequestHandler):
@@ -631,6 +766,11 @@ class Handler(BaseHTTPRequestHandler):
             elif path == '/compose':
                 try:
                     self._send(200, compose(req))
+                except ValueError as exc:
+                    self._send(400, {'ok': False, 'error': str(exc)})
+            elif path == '/region':
+                try:
+                    self._send(200, region(req))
                 except ValueError as exc:
                     self._send(400, {'ok': False, 'error': str(exc)})
             elif path == '/plan':

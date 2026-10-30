@@ -138,16 +138,22 @@ python tools/kb.py serve
 ```
 python tools/logicd.py                            # 127.0.0.1:8765（--port 0 = 随机端口，就绪行里打印）
 python tools/logicd.py --print-template patrol    # 不启服务，只打一个模板的代码
-python tests/logicd/run_logicd_tests.py           # 契约测试：协议 13 项 + 真 v160.7 处理器写入 6 项
+python tests/logicd/run_logicd_tests.py           # 契约测试：协议 23 项 + 真 v160.7 处理器写入 6 项
 python tests/logicd/run_logicd_tests.py --no-sim  # 只跑协议层（不需要 JRE）
 ```
 
-接口五个：`GET /health`、`GET /capabilities`、`POST /analyze`、`POST /compose`、`POST /plan`
+接口六个：`GET /health`、`GET /capabilities`、`POST /analyze`、`POST /compose`、`POST /plan`、`POST /region`
 （一句话意图 -> 选模板 + 抽参数。**模型只有这一个接入点**：把 `_route()` 换成模型调用，返回形状不变，
 模组侧一行不用改，模型也就永远没办法把没检查过的 mlog 塞进存档）；
 `ok` 的语义是**没有 ERR**（ERR 一律拒绝写入）。设计、契约细节、分期与「已验证/未验证」
 边界写在 `docs/Mlog辅助-设计.md`，模组安装与操作写在 `MlogAuxiliary/README.md`，
 P2–P5 的路线（框选 → 队列 → 模型 → 写入）在 `docs/Mlog辅助-规划.md`。
+`POST /region` 是给游戏内**区域快照**用的（v0.4.2，F7）：模组把鼠标周围一片区域读成
+`{grid[], processors[{x,y,block,code,links[]}]}` 交给它，它只回**每个处理器能连哪些方块、链接名该叫什么**
+（`candidates[{name,block,x,y,dist,used}]`），**不生成代码、不写文件**。距离与命名的依据全在游戏源码：
+`LogicBlock.range = 8*10`（`LogicBlock.java:49`）、`other.within(this, range + other.block.size*tilesize/2f)`
+（`:736`）、`getLinkName`（`:123-135`）、`findLinkName`（`:331-360`）；`tools/mschgen.py:547` 的
+`link_name_for()` 是同一套规则，测试拿 `tools/block_sizes.json` 全表 446 个方块做零漂移比对。
 
 ### 游戏内快检（P2）
 
@@ -174,7 +180,7 @@ node 用的是 V8，14 个用例全绿也照样带着这个 bug 进游戏，所�
 `SettingsMenuDialog.java:329-330`；分类只在显示设置菜单时 rebuild，所以脚本加载时机不影响它出现）。
 这一栏直接列出：版本 / 游戏构建 / 快检模块是否加载（指令、op 版本门、链接槽各几条）/ sidecar 地址与上次探测结果 / 
 **数据目录与 mods 目录**，并给出「连接测试」「复制诊断」「AI 辅助编程」「模板面板」「快检鼠标下的处理器」「打印诊断」「重新注册分类」「审查状态」几组按钮。
-控制台还留了退路：`maiDiag()` / `maiSelfTest()`。
+控制台还留了退路：`maiDiag()` / `maiSelfTest()`。鼠标指向处理器按 **F7** 看周围 10 格的链接候选（v0.4.2）。
 
 **为什么需要第 5 条测试**：无头模拟器里 `Vars.ui` 是 null（`Vars.java:209/332`），真界面没法验，
 但**整段 main.js 的初始化**可以验 —— `run_ui_smoke.py` 按 `Mods.loadScripts` 的方式把 main.js 灌进真 v160.7 

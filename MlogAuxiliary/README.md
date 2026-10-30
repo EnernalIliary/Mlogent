@@ -1,4 +1,4 @@
-# MlogAuxiliary —— 游戏内Mlog辅助（P1 + P2 + 设置界面 + AI 面板，v0.4.1）
+# MlogAuxiliary —— 游戏内Mlog辅助（P1 + P2 + 设置界面 + AI 面板 + 区域快照，v0.4.2）
 
 把「写 mlog」这件事从玩家手里拿走：**说意图，不写代码**。
 
@@ -12,6 +12,8 @@ P1 做 **API 接入** 与 **写入通道**；P2 把**快检**搬进游戏（没�
 v0.3 起调试入口是**设置 → Mlog辅助**一栏，不再依赖控制台。
 v0.4 起有两个正面入口：**F4 的 AI 辅助面板**（一句话 -> sidecar 选模板并预检 -> 预览 -> 写入）
 与**原版逻辑编辑器底部的审查栏**（打开原版编辑器就自动挂上，代码一改就重算）。
+v0.4.2 起多一个**只读**入口：**F7 把鼠标周围 10 格扫成区域快照**，sidecar 算出每个处理器「还能连哪些方块、
+该叫什么链接名」，用文本弹窗列出来 —— 先看清楚，再决定要不要按 F4 写。
 
 生成层仍是确定性模板（模型只能选模板、填参数，不能直接产 mlog）；框选 + 队列是 P3/P4，路线见
 `docs/Mlog辅助-规划.md`。
@@ -63,6 +65,10 @@ v0.4 起有两个正面入口：**F4 的 AI 辅助面板**（一句话 -> sideca
 | `maiSettings()` | 再尝试注册设置分类；返回 `registered` 或 `no ui` |
 | `maiAi()` | 打开 AI 辅助面板（等同 F4） |
 | `maiReview()` | 纯文本版审查：原版编辑器里的代码 + 快检结论 + findings（不弹窗） |
+| `maiSnapshot(x1,y1,x2,y2)` | 区域快照 JSON 文本（tile 坐标，clamp 到地图内，上限 4096 格） |
+| `maiSnapshotText(...)` | 同一份快照的人读摘要 |
+| `maiRegion(x1,y1,x2,y2)` | 快照 + 同步 POST `/region`，返回 sidecar 原文（`<code>\n<json>`） |
+| `maiRegionAround(r)` | 以鼠标下处理器为中心扫 `r` 格（F7 就是 `r=10`） |
 
 ## 设置界面（v0.4）
 
@@ -146,6 +152,55 @@ rhino.EcmaError: TypeError: Cannot find function add in object ScrollPane. (main
 `.pane(function` 与 `.pane(...).get()`；页面上每个 Table/Cell 方法名仍然逐个拿到真引擎里解析
 （`margin` / `growX` / `height` / `color` / `image` 是这一版新用到的五个）。
 
+## v0.4.2：区域快照 + F7 链接候选（P3 第一刀）
+
+P3 原本是「框选 + 队列」，这一版只做**只读的那一半**：把鼠标周围一片区域读成快照，
+让 sidecar 算清楚「每个处理器还能连哪些方块、链接名该叫什么」，人看完再决定写什么。
+**它不写任何东西** —— 写入仍然只有 F4 面板那一条路（`build.configure(bytes)`）。
+
+### 快照里有什么
+
+把鼠标指向处理器按 **F7**（或控制台 `maiSnapshot(x1,y1,x2,y2)`）：
+
+```json
+{"schema":1,"mod":"0.4.2","build":160,"map":"...","world":{"width":...,"height":...},
+ "bounds":{"x1":...,"y1":...,"x2":...,"y2":...},"cells":6,"truncated":false,
+ "grid":[{"x":13,"y":10,"block":"container"}, ...],
+ "processors":[{"x":10,"y":10,"block":"micro-processor","code":"...",
+                "links":[{"name":"container1","x":13,"y":10}]}]}
+```
+
+* 坐标是 **tile 坐标**（`Vars.world.tile(x,y)` 那一套），空格子（`air`）不进 `grid`；
+* 框会先交换大小值再 **clamp 到地图内** —— 处理器在 `(0,0)` 时问 `-1,-1` 是常态，不 clamp 会读到 null tile；
+* 上限 `SNAP_MAX_CELLS = 4096`，超了置 `truncated:true` 并截断（prompt 装不下就不装）。
+
+### sidecar 算出来的链接候选
+
+`POST /region` 收这份快照，回答每个处理器「10 格内哪些方块能连、叫什么名」：
+
+* **距离**：`LogicBlock.range = 8*10` 世界单位（`LogicBlock.java:49`），判定是
+  `other.within(this, range + other.block.size*tilesize/2f)`（`LogicBlock.java:736`），tilesize=8
+  → 中心距上限 `80 + size*4`。所以 2x2 的 container 到 10.5 格仍可连，1x1 的 switch 到 11 格就不行。
+* **名字**：`LogicBlock.getLinkName`（`:123-135`，取方块名 `-` 的最后一段，末段是 `large` 或数字时取倒数第二段）
+  加 `findLinkName`（`:331-360`，已有 `base<n>` 就取已占数字，否则从 1 起找最小空号）。`tools/mschgen.py:547`
+  早就有同一套 `link_name_for()`，`tests/logicd/run_logicd_tests.py` 拿 `tools/block_sizes.json` 全表 446 个方块做零漂移比对。
+* 候选按「代码里正在用的排前面、再按距离」排，并标 `[代码正在用]`；每个处理器最多显示 12 个。
+
+F7 弹的是纯文本（`Vars.ui.showText`），不引入新的对话框/布局 —— v0.4.1 那次崩溃就是自造结果区引起的，
+这一版刻意不再碰 UI 树。
+
+### 引擎里踩到的两个坑（都写进了代码注释）
+
+1. **`LogicBlock` 是方块类，建筑是它的内部类 `LogicBlock$LogicBuild`** —— `bld instanceof LogicBlock`
+   恒为假，第一版快照的 `processors` 因此是空数组。判据改成鸭子类型（有 `executor` 且有 `code`），
+   与既有的 `targetBuild()` 一致。
+2. **`tile.block()` 是方法、`tile.build` 是字段** —— 写成 `tile.build()` 会得到
+   `TypeError: Cannot call property build in object stone:air:air[2,0]`。
+
+### 边界
+
+只读、只回答「能连什么」，**没有**框选拖拽、没有队列、没有批量写入 —— 那些是 P3 后半段与 P4/P5。
+
 ## 接口契约（sidecar v1）
 
 
@@ -156,6 +211,7 @@ rhino.EcmaError: TypeError: Cannot find function add in object ScrollPane. (main
 | POST | `/analyze` | `{code, links, ipt}` | `{ok, findings[{sev,line,stmt,rid,msg}], errors, warns, statements, cost}` |
 | POST | `/compose` | `{template, params, links, ipt}` | 同上 + `{template, code, links, bytes_b64, bytes_len}` |
 | POST | `/plan` | `{intent, links, ipt}` | `/compose` 的全部字段 + `{intent, params, reason}`；没命中时 `{ok:false, template:null, reason, candidates[]}` |
+| POST | `/region` | `{snapshot}` | `{ok, bounds, cells, truncated, processors[{x,y,block,links[],statements,in_range,used_unlinked,candidates[{name,block,x,y,dist,used}]}]}`；**不写文件、不生成代码** |
 
 * `ok` 的语义是 **没有 ERR**。有 ERR 时模组拒绝写入，WARN/INFO 照常写入但会列在面板上。
 * `findings[].line` 是代码里的行号（1 起），`stmt` 是指令槽位序号 —— 两者不同，因为标签行不是语句
@@ -191,9 +247,9 @@ node 侧永远发现不了 —— 所以本文件的分词、裁剪、标识符�
 
 * 撤销只在内存里，不落盘（P3：`<dataDir>/mlogauxiliary/undo/`）
 * 没有 diff 预览，整段替换（P3）
-* 没有框选/队列（P3/P4）
+* 框选只做到「读」：F7 扫的是鼠标周围固定 10 格（`maiRegionAround(r)` 可换半径），没有拖拽矩形、也没有队列
 * 自然语言已经能用，但只是**关键词路由**：`/plan` 的 `_route()` 是规则表，没接模型（P4）
-* 框选区域 + 排队 + 多处理器写入（P3/P4/P5）
+* 多处理器批量写入与撤销落盘（P5）：区域快照只回答「能连什么」，不生成代码
 * 真界面的**像素**没法机器验证（无头模拟器里 `Vars.ui` 是 null）：`run_ui_smoke.py` 只验到
   「main.js 整段初始化不抛错 + 设置表格能建到假 Table 上 + 页面用到的每个 Table 方法在真引擎里能解析」，
   按钮点下去的实际效果、这一栏在设置菜单里的位置与排版仍要人看

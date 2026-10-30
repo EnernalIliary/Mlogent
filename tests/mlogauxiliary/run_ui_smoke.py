@@ -23,7 +23,7 @@ Why this exists: the first version of the console-function mount read scope.get(
 back, which throws "Cannot find function get" under the real engine -- main.js died
 after loading its rule table and the mod looked half-installed.
 """
-import io, os, re, sys
+import io, json, os, re, sys
 
 sys.stdout.reconfigure(encoding='utf-8', errors='replace')
 
@@ -43,6 +43,22 @@ def preloaded(tmpdir):
     p = os.path.join(tmpdir, 'main_preloaded.js')
     io.open(p, 'w', encoding='utf-8', newline='\n').write(src)
     return p
+
+
+def region_probe(srv):
+    """P3: place a container and a vault next to the processor, then snapshot them.
+
+    The snapshot is the mod's own code path (maiSnapshot -> regionSnapshot), so this
+    pins the two engine facts that are easy to get wrong: tile.block() is a METHOD
+    while tile.build is a FIELD, and empty tiles must be skipped (their block name
+    is 'air').  A JS-side fake cannot catch either."""
+    bx, by = srv.base
+    return [
+        "var W = Packages.mindustry.Vars.world;",
+        "W.tile(%d, %d).setBlock(Packages.mindustry.Vars.content.block('container'));" % (bx + 2, by + 1),
+        "W.tile(%d, %d).setBlock(Packages.mindustry.Vars.content.block('switch'));" % (bx + 4, by + 1),
+        "print('MAISNAP:' + maiSnapshot(%d, %d, %d, %d));" % (bx - 1, by - 1, bx + 4, by + 4),
+    ]
 
 
 def main():
@@ -78,6 +94,7 @@ def main():
         "print('MAISELF:' + maiSelfTest());",
         "print('MAIDIAG:' + maiDiag().replace(/\\n/g, ' | '));",
         "print('MAISET:' + maiSettings());",
+    ] + region_probe(srv) + [
         "void 0;",
     ])
     try:
@@ -214,11 +231,47 @@ def main():
     if 'toggleAiPanel();' not in code_only:
         problems.append('F4 does not open the AI panel (toggleAiPanel) -- m08925 asked for that')
 
+    # ---- P3 region snapshot, read back from the engine
+    snap = None
+    for l in text.splitlines():
+        if l.startswith('MAISNAP:'):
+            try:
+                snap = json.loads(l[len('MAISNAP:'):])
+            except Exception as exc:
+                problems.append('maiSnapshot returned bad JSON: %s' % exc)
+    if snap is None:
+        problems.append('maiSnapshot printed nothing')
+    else:
+        bx, by = srv.base
+        names = sorted(str(c.get('block')) for c in snap.get('grid') or [])
+        # a 2x2 container is 4 tiles, the 1x1 switch is 1, the processor is 1:
+        # every other tile in the box is empty and its block name is 'air'.
+        want_names = ['container'] * 4 + ['micro-processor', 'switch']
+        if names != want_names:
+            problems.append('region grid is %r, wanted %r (empty tiles must be skipped)'
+                            % (names, want_names))
+        if snap.get('cells') != 6:
+            problems.append('region cells: %r' % (snap.get('cells'),))
+        procs = snap.get('processors') or []
+        if len(procs) != 1 or str(procs[0].get('code')) != 'noop':
+            problems.append('region processors: %r' % (procs,))
+        elif procs[0].get('x') != bx or procs[0].get('y') != by:
+            problems.append('region processor at %r, expected %r' % (procs[0], (bx, by)))
+        # the box is clamped to the map: a processor at 0,0 asks for -1,-1
+        want = {'x1': max(0, bx - 1), 'y1': max(0, by - 1),
+                'x2': bx + 4, 'y2': by + 4}
+        if snap.get('bounds') != want:
+            problems.append('region bounds: %r' % (snap.get('bounds'),))
+        if snap.get('truncated') is not False:
+            problems.append('region truncated flag: %r' % (snap.get('truncated'),))
+
     if problems:
         print('FAIL ' + '; '.join(problems))
         print(joined[-1500:])
         return 1
     print('ui smoke: main.js initialised in the real engine')
+    if snap is not None:
+        print('  region snapshot: %d cell(s), %d processor(s)' % (len(snap.get('grid') or []), len(snap.get('processors') or [])))
     if shapes:
         print('  table methods resolved: ' + ' '.join(
             '%s=%s' % (m, shapes.get(m, '?')) for m in used))

@@ -98,6 +98,8 @@ MAI_QUICKCHECK.check(rules, code, linkNames, {build: 160})
 
 `F7` 进入框选模式 → 拖拽出矩形（半透明高亮）→ 松手 → 弹出输入框写一句话 → 确认后生成快照并 dump。
 P3 **不接模型**：只把快照打印/落盘，用来验证「框选到底拿到了什么」。
+**实际落地（v0.4.2）**：先做只读的一半 —— F7 直接扫鼠标周围 10 格（`maiRegionAround(10)`），不做拖拽矩形；
+`/region` 只回链接候选，不生成代码。拖拽 + 落盘 + 队列仍未做。
 
 ### 3.2 快照 schema（`snapshot v1`）
 
@@ -113,6 +115,8 @@ P3 **不接模型**：只把快照打印/落盘，用来验证「框选到底拿
 | `units` | 区域单位计数（按类型）与所属队伍 | 巡逻/开火类逻辑需要 |
 | `enemies` | 区域内敌方单位/建筑计数 | |
 | `notes` | 生成时的告警（如「区域内没有处理器」） | |
+实际实现（v0.4.2）只填了 `bounds` / `world` / `map` / `grid` / `processors` 五段（外加 `schema`/`mod`/`build`/`cells`/`truncated`），
+`candidates` 由 sidecar `/region` 现算；`blocks` 计数、`items`/`liquids`/`units`/`enemies` 未实现。
 
 ### 3.3 复用
 
@@ -218,7 +222,7 @@ self-repair：门禁返回 ERR 时，把 `findings`（行号 + rid + msg）作�
 | v0.3 设置界面（P1.5） | 完成 | `MlogAuxiliary/scripts/main.js` 的「设置 → Mlog辅助」分类（版本/构建/快检模块/sidecar/两个目录 + 四个按钮）、`tests/mlogauxiliary/run_ui_smoke.py`、`gate.py` 的 `ui` 步 | main.js 整段在真 v160.7 脚本作用域里初始化；假 Table 上建出 26 行/格；无头 `maiSettings()` 返回 `no ui` 而不抛错 |
 | 设置界面（v0.3，额外做的调试入口） | 完成（v0.3.1 修掉重载歧义） | `MlogAuxiliary/scripts/main.js`、`tests/mlogauxiliary/run_ui_smoke.py` | 真引擎里 8 个 Table/Cell 调用形状全部解析 + 假表建出 27 行；诊断多一行 `设置分类：` |
 | v0.4 AI 面板 + 编辑器审查栏 | 完成 | `MlogAuxiliary/scripts/main.js`（F4 AI 面板、`Vars.ui.logic` 审查栏、设置页分段重排、`maiAi`/`maiReview`）、`tools/logicd.py` 的 `POST /plan`（关键词意图路由 + 参数抽取） | `tests/logicd/` 21 项协议 check（6 条意图 + 2 条参数抽取 + 模糊意图拒绝 + 空意图 400）；`run_ui_smoke.py` 在真引擎里解析 14 个 Table/Cell 方法 + 四条源码红线（closeOnBack / 关闭按钮 / 审查栏注入 / F4 -> AI 面板） |
-| P3 框选 + 快照 | 未开始 | — | — |
+| P3 框选 + 快照（第一刀：只读） | 部分完成（v0.4.2） | `main.js` 的 `regionSnapshot()` / `regionText()` / `regionCandidatesText()` / F7 热键 / 控制台 `maiSnapshot`·`maiRegion`·`maiRegionAround`；`tools/logicd.py` 的 `POST /region`（链接候选 + 命名 + 距离判定） | `tests/mlogauxiliary/run_ui_smoke.py` 在真 v160.7 里造 container/switch 后快照出 6 格 1 处理器且 bounds 被 clamp；`tests/logicd/run_logicd_tests.py` 23 项协议 check（含合成快照的候选/编号/`used` 断言与 mschgen 全表零漂移） |
 | P4 队列 + 模型 + 门禁 | 未开始 | — | — |
 | P5 多处理器写入 + 撤销落盘 | 未开始 | — | — |
 
