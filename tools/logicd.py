@@ -283,8 +283,58 @@ def _atoms(text):
     return _ATNAME.findall(text)
 
 
+_ZH_LINK = {
+    '容器': 'container', '仓库': 'vault', '核心': 'core', '内存': 'cell',
+    '电池': 'battery', '消息': 'message', '炮塔': 'turret', '炮': 'turret',
+    '显示器': 'display', '开关': 'switch',
+}
+
+
+_ITEM_ZH = {
+    '铜': 'copper', '铅': 'lead', '煤': 'coal', '钛': 'titanium', '硅': 'silicon',
+    '石墨': 'graphite', '钢化玻璃': 'metaglass', '爆炸物': 'blast-compound',
+    '合金': 'surge-alloy', '相织物': 'phase-fabric', '碳化物': 'carbide',
+    '裂变物质': 'fissile-matter', '铍': 'beryllium', '钨': 'tungsten',
+    '废料': 'scrap', '钍': 'thorium', '沙': 'sand', '冰': 'ice', '孢子荚': 'spore-pod',
+}
+
+
+def _match_item(text):
+    """First item mentioned in the sentence, English or Chinese.
+
+    Order: @atoms, then English words with a word boundary (so 'sand' does not
+    match 'thousand'), then the Chinese table.  None when nothing matches, so the
+    caller keeps the template default.
+    """
+    items = _content_items()
+    low = text.lower()
+    for a in _atoms(text):
+        name = a.lstrip('@')
+        if name in items:
+            return name
+    for name in items:
+        if re.search(r'\b' + re.escape(name.lower()) + r'\b', low):
+            return name
+    for zh, en in _ITEM_ZH.items():
+        if zh in text and en in items:
+            return en
+    return None
+
 def _pick_link(names, *subs):
+    """First link whose name contains one of the substrings.
+
+    Chinese substrings are translated to the English block names the game builds
+    link names from (LogicBlock.getLinkName takes the block name), so a Chinese
+    sentence can still pick the right link instead of silently falling back to
+    whatever came first.
+    """
+    want = []
     for sub in subs:
+        want.append(sub)
+        for zh, en in _ZH_LINK.items():
+            if zh in sub:
+                want.append(en)
+    for sub in want:
         for n in names:
             if sub in n.lower():
                 return n
@@ -329,16 +379,7 @@ def _params_item_threshold(text, names):
     message = _pick_link(names, 'message', 'msg')
     if message:
         p['message'] = message
-    item = None
-    atoms = _atoms(text)
-    if atoms:
-        item = atoms[0].lstrip('@')
-    if item is None:
-        low = text.lower()
-        for name in _content_items():
-            if name.lower() in low:
-                item = name
-                break
+    item = _match_item(text)
     if item:
         p['item'] = item
     nums = _numbers(text)

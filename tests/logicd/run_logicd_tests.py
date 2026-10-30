@@ -217,6 +217,23 @@ def test_protocol():
              and res['params'].get('container') == 'container1',
              'plan extracted item params: %r' % (res.get('params'),))
         checks += 1
+        # Chinese intents: the sentence is Chinese, the game speaks English.  Both the
+        # item name and the link kind have to survive the trip, or every Chinese
+        # sentence silently lands on the defaults and still looks like it worked.
+        st, res = srv.post('/plan', {'intent': '容器里铜够 100 就打印', 'links': LINKS})
+        need(st == 200 and res.get('template') == 'item-threshold',
+             'zh plan chose %r' % (res.get('template'),))
+        zp = res.get('params') or {}
+        need(zp.get('item') == 'copper' and zp.get('threshold') == 100
+             and zp.get('container') == 'container1', 'zh item params: %r' % (zp,))
+        st, res = srv.post('/plan', {'intent': '让 @flare 从 10 10 来回巡逻到 30 12', 'links': LINKS})
+        zp = res.get('params') or {}
+        need(res.get('template') == 'patrol' and zp.get('unit') == 'flare' and zp.get('x2') == 30,
+             'zh patrol: %r %r' % (res.get('template'), zp))
+        st, res = srv.post('/plan', {'intent': '每 2 秒报时一次', 'links': LINKS})
+        need(res.get('template') == 'timer-flush' and (res.get('params') or {}).get('seconds') == 2,
+             'zh timer: %r %r' % (res.get('template'), res.get('params')))
+        checks += 1
         # a vague sentence is refused with the menu, not guessed at
         st, res = srv.post('/plan', {'intent': 'make something nice', 'links': LINKS})
         need(st == 200 and res['ok'] is False and res.get('template') is None,
