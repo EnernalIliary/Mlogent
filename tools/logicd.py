@@ -24,6 +24,7 @@ Protocol (v1, JSON over HTTP, loopback only)
     POST /analyze       {code, links:[name|{name,x,y}], ipt}      -> findings + cost
     POST /compose       {template, params, links, ipt}            -> code + findings + bytes_b64
     POST /region        {snapshot}                                -> per-processor link candidates
+    POST /snapshot      {snapshot}                                -> writes out/snapshots/*.json, returns the path
     POST /plan          {intent, links, ipt}                       -> compose, plus which template matched and why
 
 Everything returns "ok": false when any finding is ERR: a write is refused, not
@@ -40,10 +41,12 @@ from __future__ import annotations
 
 import argparse
 import base64
+import hashlib
 import json
 import os
 import re
 import sys
+import time
 import traceback
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
@@ -714,6 +717,49 @@ def _linkish(name, known, blocks):
     return any(b.startswith(name) for b in blocks)
 
 
+SNAP_DIR = os.path.join(os.path.dirname(HERE), 'out', 'snapshots')
+
+
+def snapshot_dump(req):
+    """POST /snapshot -- keep one region snapshot on disk and say where it went.
+
+    F3 in the game drags a rectangle and posts what the box contained.  P3 is
+    deliberately model-free (docs/Mlog辅助-规划.md:100): the job of this endpoint is
+    to prove *what the box actually contained*, so the file is the evidence, not a
+    step towards code generation.
+    """
+    snap = req.get('snapshot')
+    if not isinstance(snap, dict):
+        raise ValueError('snapshot must be an object (main.js: maiSnapshot(x1,y1,x2,y2))')
+    try:
+        schema = int(snap.get('schema') or 0)
+    except (TypeError, ValueError):
+        raise ValueError('snapshot.schema must be 1')
+    if schema != 1:
+        raise ValueError('snapshot.schema must be 1')
+    bounds = snap.get('bounds')
+    if not isinstance(bounds, dict):
+        raise ValueError('snapshot.bounds must be an object with x1,y1,x2,y2')
+    for k in ('x1', 'y1', 'x2', 'y2'):
+        v = bounds.get(k)
+        if isinstance(v, bool) or not isinstance(v, int):
+            raise ValueError('snapshot.bounds.%s must be an integer' % k)
+    body = json.dumps(snap, ensure_ascii=False, indent=1, sort_keys=True)
+    data = body.encode('utf-8')
+    digest = hashlib.sha1(data).hexdigest()[:8]
+    stamp = time.strftime('%Y%m%d-%H%M%S')
+    os.makedirs(SNAP_DIR, exist_ok=True)
+    path = os.path.join(SNAP_DIR, 'snap-%s-%s.json' % (stamp, digest))
+    with open(path, 'wb') as fh:
+        fh.write(data)
+    return {'ok': True,
+            'path': os.path.relpath(path, os.path.dirname(HERE)).replace('\\', '/'),
+            'bytes': len(data),
+            'bounds': bounds,
+            'cells': int(snap.get('cells') or 0),
+            'processors': len(snap.get('processors') or [])}
+
+
 def region(req):
     """A region snapshot from the game -> per-processor link candidates.
 
@@ -882,6 +928,11 @@ class Handler(BaseHTTPRequestHandler):
             elif path == '/region':
                 try:
                     self._send(200, region(req))
+                except ValueError as exc:
+                    self._send(400, {'ok': False, 'error': str(exc)})
+            elif path == '/snapshot':
+                try:
+                    self._send(200, snapshot_dump(req))
                 except ValueError as exc:
                     self._send(400, {'ok': False, 'error': str(exc)})
             elif path == '/plan':

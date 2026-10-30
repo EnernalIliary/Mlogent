@@ -99,7 +99,10 @@ MAI_QUICKCHECK.check(rules, code, linkNames, {build: 160})
 `F7` 进入框选模式 → 拖拽出矩形（半透明高亮）→ 松手 → 弹出输入框写一句话 → 确认后生成快照并 dump。
 P3 **不接模型**：只把快照打印/落盘，用来验证「框选到底拿到了什么」。
 **实际落地（v0.4.2）**：先做只读的一半 —— F7 直接扫鼠标周围 10 格（`maiRegionAround(10)`），不做拖拽矩形；
-`/region` 只回链接候选，不生成代码。拖拽 + 落盘 + 队列仍未做。
+`/region` 只回链接候选，不生成代码。
+**实际落地（v0.4.8）**：拖拽矩形补上了，但热键换成 **F3** —— F7 已被「代码审查」占用，F8 是游戏控制台
+（`Mindustry-Source/core/src/mindustry/input/Binding.java:107`），F9/F10 也被占，f3 是空位。
+松手后先出区域摘要，再把快照 `POST /snapshot` 落盘到 `out/snapshots/`。**队列仍未做**（P4）。
 
 ### 3.2 快照 schema（`snapshot v1`）
 

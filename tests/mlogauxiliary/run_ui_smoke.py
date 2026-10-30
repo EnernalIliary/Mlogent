@@ -62,6 +62,33 @@ def region_probe(srv):
     ]
 
 
+def select_probe(srv):
+    """v0.4.8: F3 drag-select -- the drag rectangle and the summary it produces.
+
+    The mouse itself cannot be driven here, so the two halves that ARE the feature are
+    pinned directly: selRect() must normalise a backwards drag (bottom-right to top-left
+    is the same box), and dumpRegion() must summarise the box without needing a sidecar
+    (a headless engine has no Vars.ui, so the post is skipped instead of throwing).
+    """
+    bx, by = srv.base
+    return [
+        "print('MAIRECT:' + maiSelRect(%d, %d, %d, %d));" % (bx + 4, by + 4, bx - 1, by - 1),
+        "print('MAIRECT2:' + maiSelRect(%d, %d, %d, %d));" % (bx - 1, by - 1, bx + 4, by + 4),
+        "print('MAIDUMP:' + JSON.stringify(maiDump(%d, %d, %d, %d)));"
+        % (bx - 1, by - 1, bx + 4, by + 4),
+        # the highlight is one Draw.rect call; pin the overload by reflection instead of
+        # drawing (a headless engine has no GL context, so Draw.rect itself would throw)
+        "var DD = Packages.java.lang.Class.forName('arc.graphics.g2d.Draw');",
+        "var dm = DD.getMethods(), hasRect = 'NO', hasAlpha = 'NO';",
+        "for(var di = 0; di < dm.length; di++){",
+        "  var dn = String(dm[di].getName()), dp = dm[di].getParameterTypes();",
+        "  if(dn === 'rect' && dp.length === 5 && String(dp[0].getName()) === 'arc.graphics.g2d.TextureRegion'){ hasRect = 'YES'; }",
+        "  if(dn === 'alpha' && dp.length === 1 && String(dp[0].getName()) === 'float'){ hasAlpha = 'YES'; }",
+        "}",
+        "print('MAIDRAWAPI:' + hasRect + ':' + hasAlpha + ':' + (Packages.mindustry.graphics.Pal.accent === null ? 'noaccent' : 'accent'));",
+    ]
+
+
 def arrow_probe():
     """v0.4.7: findings -> one arrow per line, glued to that line's StatementElem.
 
@@ -181,7 +208,7 @@ def main():
         "print('MAISELF:' + maiSelfTest());",
         "print('MAIDIAG:' + maiDiag().replace(/\\n/g, ' | '));",
         "print('MAISET:' + maiSettings());",
-    ] + region_probe(srv) + arrow_probe() + [
+    ] + region_probe(srv) + select_probe(srv) + arrow_probe() + [
         "void 0;",
     ])
     try:
@@ -394,6 +421,20 @@ def main():
                         'as absolute numbers into a relative payload')
     if 'origin: originOf(b)' not in code_only:
         problems.append('/plan or /compose stopped sending the processor origin')
+    # v0.4.8: F3 drag-select.  F8 is the vanilla console (Binding.java:107
+    # console = KeyCode.f8) and F9/F10 are taken too, so the box lives on F3; the
+    # highlight is drawn in world space instead of becoming a scene element (v0.4.1
+    # crashed exactly by inventing a result area in the scene tree).
+    for needle, why in (('var KEY_SELECT  = ["f3"];', 'F3 is no longer the select key'),
+                        ('function selRect(', 'selRect() is gone -- drag normalisation lost'),
+                        ('function mouseTile(', 'mouseTile() is gone'),
+                        ('function drawSelection(', 'the drag highlight is gone'),
+                        ('Events.run(ET.Trigger.draw',
+                         'the drag highlight is no longer drawn in world space'),
+                        ('function dumpRegion(', 'dumpRegion() is gone'),
+                        ('api.maiSelRect = function', 'the selRect test hook is gone')):
+        if needle not in code_only:
+            problems.append('v0.4.8: ' + why)
     # ---- P3 region snapshot, read back from the engine
     snap = None
     for l in text.splitlines():
@@ -427,6 +468,57 @@ def main():
             problems.append('region bounds: %r' % (snap.get('bounds'),))
         if snap.get('truncated') is not False:
             problems.append('region truncated flag: %r' % (snap.get('truncated'),))
+
+    # ---- v0.4.8 F3 drag-select: a backwards drag is the same box, and the summary is
+    # produced without the sidecar (a headless engine has no Vars.ui, so the post is
+    # skipped rather than throwing inside a daemon thread).
+    bx, by = srv.base
+    rect = rect2 = dump = None
+    for l in text.splitlines():
+        if l.startswith('MAIRECT:'):
+            try:
+                rect = json.loads(l[len('MAIRECT:'):])
+            except Exception as exc:
+                problems.append('maiSelRect returned bad JSON: %s' % exc)
+        elif l.startswith('MAIRECT2:'):
+            try:
+                rect2 = json.loads(l[len('MAIRECT2:'):])
+            except Exception as exc:
+                problems.append('maiSelRect returned bad JSON: %s' % exc)
+        elif l.startswith('MAIDUMP:'):
+            try:
+                dump = json.loads(l[len('MAIDUMP:'):])
+            except Exception as exc:
+                problems.append('maiDump returned bad JSON: %s' % exc)
+    if rect is None or rect2 is None:
+        problems.append('maiSelRect printed nothing')
+    else:
+        if rect != rect2:
+            problems.append('a backwards drag gave a different box: %r vs %r' % (rect, rect2))
+        # selRect() only normalises the drag; clamping to the map is regionSnapshot()'s
+        # job (the probe drags to -1,-1 on purpose: a processor at 0,0 is the normal case).
+        want_box = {'x1': bx - 1, 'y1': by - 1, 'x2': bx + 4, 'y2': by + 4}
+        want_box['w'] = want_box['x2'] - want_box['x1'] + 1
+        want_box['h'] = want_box['y2'] - want_box['y1'] + 1
+        if rect != want_box:
+            problems.append('drag rect %r wanted %r' % (rect, want_box))
+    if dump is None:
+        problems.append('maiDump printed nothing')
+    else:
+        for piece in ('区域 ', '处理器 1', 'micro-processor'):
+            if piece not in dump:
+                problems.append('dump summary is missing %r: %r' % (piece, dump[:160]))
+    # the drag highlight is Draw.rect(TextureRegion,x,y,w,h) + Draw.alpha(); a wrong
+    # overload would only show up as a silent catch() in game, so pin it here.
+    draw_api = None
+    for l in text.splitlines():
+        if l.startswith('MAIDRAWAPI:'):
+            draw_api = l[len('MAIDRAWAPI:'):].split(':')
+    if draw_api is None:
+        problems.append('MAIDRAWAPI printed nothing')
+    elif draw_api[:2] != ['YES', 'YES']:
+        problems.append('Draw.rect(TextureRegion,x,y,w,h)/Draw.alpha(float) missing: %r'
+                        % (draw_api,))
 
     # ---- v0.4.7 review arrows: finding.line -> statements child -> pixel position
     arrows = None

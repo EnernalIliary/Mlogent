@@ -142,7 +142,7 @@ python tests/logicd/run_logicd_tests.py           # 契约测试：协议 24 项
 python tests/logicd/run_logicd_tests.py --no-sim  # 只跑协议层（不需要 JRE）
 ```
 
-接口六个：`GET /health`、`GET /capabilities`、`POST /analyze`、`POST /compose`、`POST /plan`、`POST /region`
+接口七个：`GET /health`、`GET /capabilities`、`POST /analyze`、`POST /compose`、`POST /plan`、`POST /region`、`POST /snapshot`
 （一句话意图 -> 选模板 + 抽参数。**模型只有这一个接入点**：把 `_route()` 换成模型调用，返回形状不变，
 模组侧一行不用改，模型也就永远没办法把没检查过的 mlog 塞进存档）；
 `ok` 的语义是**没有 ERR**（ERR 一律拒绝写入）。设计、契约细节、分期与「已验证/未验证」
@@ -159,6 +159,12 @@ P2–P5 的路线（框选 → 队列 → 模型 → 写入）在 `docs/Mlog辅�
 `LogicBlock.range = 8*10`（`LogicBlock.java:49`）、`other.within(this, range + other.block.size*tilesize/2f)`
 （`:736`）、`getLinkName`（`:123-135`）、`findLinkName`（`:331-360`）；`tools/mschgen.py:547` 的
 `link_name_for()` 是同一套规则，测试拿 `tools/block_sizes.json` 全表 446 个方块做零漂移比对。
+
+`POST /snapshot` 是**落盘**入口（v0.4.8，F3 拖拽框选）：模组把 `regionSnapshot()` 的结果原样发来，
+它校验 `schema == 1`、`bounds` 四个整数字段后写成 `out/snapshots/snap-<YYYYmmdd-HHMMSS>-<sha1 前 8>.json`
+（`indent=1, sort_keys=True`，同一份快照写两次会因时间戳不同得到两个文件，这是故意的：留时间线），
+返回 `{ok, path, bytes, bounds, cells, processors}`，`path` 是相对仓库根的正斜杠路径。
+校验失败一律 400（非对象 / `schema` 不是 1 / 没有 `bounds` / bound 是浮点）——**不落盘半成品**。
 
 **所有 HTTP 入口都是异步的**（v0.4.3 修）：`httpJson()` 把结果用 `Core.app.post(...)` 投递回主线程，
 所以主线程上的「同步等待」永远等不到 —— 控制台命令与 F7 热键都跑在主线程，early 版本在这里 busy-wait，

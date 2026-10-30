@@ -355,6 +355,24 @@ Arc 的 `Table.cells` 是私有字段（`arc/scene/ui/layout/Table.java:35`）�
 
 真引擎对照探针（`out/_v47_probe.py`）：放处理器、用 `msch.build_logic_data` 写带两条链接的载荷，读回 `links.size=2`，把真链接名喂 `quickcheck.check` ⇒ 零命中；喂空数组 ⇒ 第 1、3 行各一条 WARN。所以快检逻辑本身没错，错的是喂进去的东西。
 
+## v0.4.8：F3 拖拽框选 —— 框选矩形终于能自己画，快照直接落盘
+
+规划里 F7 一直是「框选矩形」（`docs/Mlog辅助-规划.md:99`），但 v0.4.2 只落地了只读的一半：
+以鼠标下的处理器为中心扫固定 10 格。v0.4.8 把拖拽补上，但**没有用 F7 也没有用 F8** ——
+游戏里 F8 是控制台（`Mindustry-Source/core/src/mindustry/input/Binding.java:107`
+`console = KeyBind.add("console", KeyCode.f8)`），F9/F10 也被占，所以框选落在 **F3**。
+
+用法：按 **F3** 进入就绪 → 按住左键拖出矩形（半透明高亮）→ 松手弹摘要。再按 F3 取消。
+
+- 高亮画在**世界坐标**里（`Events.run(ET.Trigger.draw)` + `Draw.rect(Tex.whiteui, …)`），
+  不往场景树里塞元素 —— v0.4.1 那次「点生成就崩」就是自造结果区引起的，能画的地方就不建 UI。
+- 松手先给区域摘要（方块数 / 处理器数 / 每个处理器的链接），**不依赖 sidecar**；
+  再把快照 JSON `POST /snapshot` 落盘成 `out/snapshots/snap-<时间>-<sha1 前 8>.json`，
+  弹窗里补一行「已落盘 <路径>（N B）」。sidecar 没起也能看摘要，只是不落盘。
+- `selRect()` 只做归一化（从右下往左上拖 = 同一个矩形），裁到地图边界仍由 `regionSnapshot()` 负责。
+- 无头引擎（`Vars.ui === null`）不发请求，只返回摘要 —— 自检不该连网络。
+- 控制台：`maiSelect()`（等同按 F3）、`maiDump(x1,y1,x2,y2)`（直接出摘要并落盘）、
+  `maiSelRect(ax,ay,bx,by)`（拖拽数学，测试钩子）。
 ## 接口契约（sidecar v1）
 
 

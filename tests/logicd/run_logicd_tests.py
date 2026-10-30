@@ -343,7 +343,29 @@ def test_protocol():
                  for b in sorted(LD._block_sizes())
                  if G.link_name_for(b, 1) != LD._link_base(b) + '1']
         need(not drift, 'link naming drifted from mschgen.link_name_for: %r' % (drift[:5],))
+        # F3 框选落盘（v0.4.8）：/snapshot 只做一件事 —— 把框到的东西留在盘上，好回答
+        # 「框选到底拿到了什么」（docs/Mlog辅助-规划.md:100）。它不生成代码，也不接受
+        # 任何「大概像快照」的东西：schema 与 bounds 是硬门槛。
+        st, res = srv.post('/snapshot', {'snapshot': snap})
+        need(st == 200 and res.get('ok') is True, 'snapshot status %s: %r' % (st, res))
+        need(res['bounds'] == snap['bounds'], 'snapshot bounds echoed: %r' % (res.get('bounds'),))
+        need(res['processors'] == 1, 'snapshot processors: %r' % (res.get('processors'),))
+        need(res['cells'] == 0, 'snapshot cells must come from the payload: %r' % (res.get('cells'),))
+        path = ROOT / res['path']
+        need(path.is_file(), 'snapshot file missing: %s' % path)
+        saved = json.loads(path.read_text(encoding='utf-8'))
+        need(saved == snap, 'the file on disk is not the snapshot that was posted')
+        need(res['bytes'] == path.stat().st_size, 'bytes does not match the file size')
+        path.unlink()   # out/ 是草稿区，但测试不该每次跑都留一份
+        for bad, why in (({'snapshot': 42}, 'a non-object snapshot'),
+                         ({'snapshot': dict(snap, schema=2)}, 'schema 2'),
+                         ({'snapshot': {k: v for k, v in snap.items() if k != 'bounds'}}, 'no bounds'),
+                         ({'snapshot': dict(snap, bounds={'x1': 1.5, 'y1': 0, 'x2': 1, 'y2': 1})},
+                          'a float bound')):
+            st, res = srv.post('/snapshot', bad)
+            need(st == 400 and res['ok'] is False, 'snapshot with %s: %s %r' % (why, st, res))
         checks += 1
+        checks += 1   # 上面这一段是独立的契约：/snapshot 的落盘与拒绝
         return cap, checks
     finally:
         srv.close()

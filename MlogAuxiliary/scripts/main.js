@@ -28,11 +28,12 @@
 function __logicWriterMain(){
     "use strict";
 
-    var MOD_VERSION = "0.4.7";
+    var MOD_VERSION = "0.4.8";
     var URL_KEY     = "mlogauxiliary-url";
     var DEFAULT_URL = "http://127.0.0.1:8765";
     var KEY_PANEL   = ["f4"];      // F4：开面板（F1/F5/F6/F8/F11/F12 与 F9/F10 已被占用）
     var KEY_REGION  = ["f7"];      // F7：扫鼠标周围 10 格，列出链接候选
+    var KEY_SELECT  = ["f3"];      // F3：拖拽框选（v0.4.8；F8 是游戏控制台，F9/F10 也被占）
     var TIMEOUT_MS  = 4000;        // 连接超时：sidecar 是本机的，慢就是没开
 
     function log(msg){ print("[mai] " + msg); }
@@ -1425,6 +1426,111 @@ function __logicWriterMain(){
             return api.maiRegion(b.tile.x - n, b.tile.y - n, b.tile.x + n, b.tile.y + n);
         };
 
+        // ---------------------------------------------------------- F3 拖拽框选（v0.4.8）
+        // 规划里 F7 本来就是「框选矩形」（docs/Mlog辅助-规划.md:99），v0.4.2 只做了只读的一半：
+        // 以鼠标下的处理器为中心扫固定半径。F8 在游戏里是控制台
+        // （Mindustry-Source/core/src/mindustry/input/Binding.java:107 console = KeyCode.f8），
+        // F9/F10 也被占，所以框选另开一个空着的键：F3。
+        // 拖拽时的高亮画在世界坐标上（Events.run(Trigger.draw) + Draw.rect），不往场景树里塞元素：
+        // v0.4.1 那次崩溃就是自造结果区引起的，能画的地方就不建 UI。
+        var selArmed = false, selDragging = false;
+        var selStartX = 0, selStartY = 0, selCurX = 0, selCurY = 0;
+
+        // 屏幕 -> 格子。mouseWorldX/Y 已经过相机变换，tileWorld 再按 tilesize 取整。
+        function mouseTile(){
+            var t = Vars.world.tileWorld(Core.input.mouseWorldX(), Core.input.mouseWorldY());
+            if(t === null || t === undefined){ return null; }
+            return {x: t.x, y: t.y};
+        }
+
+        // 拖拽方向不重要：左上到右下、右下到左上必须给出同一个矩形。
+        function selRect(ax, ay, bx, by){
+            var x1 = Math.min(ax, bx), y1 = Math.min(ay, by);
+            var x2 = Math.max(ax, bx), y2 = Math.max(ay, by);
+            return {x1: x1, y1: y1, x2: x2, y2: y2, w: x2 - x1 + 1, h: y2 - y1 + 1};
+        }
+
+        function drawSelection(){
+            if(!selDragging){ return; }
+            var r = selRect(selStartX, selStartY, selCurX, selCurY);
+            try{
+                var D = Packages.arc.graphics.g2d.Draw;
+                D.color(Pal.accent);
+                D.alpha(0.35);
+                D.rect(Packages.mindustry.gen.Tex.whiteui, r.x1 * 8, r.y1 * 8, r.w * 8, r.h * 8);
+                D.alpha(1);
+                D.color();
+            }catch(e){ /* 画不出来不影响选择本身 */ }
+        }
+
+        function regionSummary(snap){
+            var b = snap.bounds, out = [];
+            out.push("区域 " + b.x1 + "," + b.y1 + " - " + b.x2 + "," + b.y2
+                     + "   " + (b.x2 - b.x1 + 1) + "×" + (b.y2 - b.y1 + 1) + " 格");
+            out.push("方块 " + snap.cells + (snap.truncated ? "（已截断）" : "")
+                     + "   处理器 " + snap.processors.length + "   地图 " + snap.map);
+            var ps = snap.processors || [], i;
+            for(i = 0; i < ps.length; i++){
+                out.push("  @" + ps[i].x + "," + ps[i].y + " " + ps[i].block
+                         + "   链接 " + ps[i].links.length
+                         + (ps[i].links.length ? "：" + ps[i].links.join(", ") : ""));
+            }
+            return out.join("\n");
+        }
+
+        function popup(title, text){
+            if(Vars.ui === null || Vars.ui === undefined){ return; }
+            try{ Vars.ui.showText(title, String(text)); }catch(e){ }
+        }
+
+        // 松手之后走这里：先给区域摘要（不需要 sidecar），再把 JSON 交给 /snapshot 落盘。
+        function dumpRegion(x1, y1, x2, y2){
+            var snap = regionSnapshot(x1, y1, x2, y2);
+            var head = regionSummary(snap);
+            if(snap.processors.length === 0){
+                popup("Mlog辅助 · 区域快照", head + "\n\n这块区域里没有处理器。");
+                return head;
+            }
+            if(Vars.ui === null || Vars.ui === undefined){
+                // 无头引擎（自检/测试）既没有界面也没有 sidecar：只把摘要交回去，不发请求。
+                return head;
+            }
+            try{
+                httpJson("POST", "/snapshot", JSON.stringify({snapshot: snap}), function(code, text){
+                    var res = parse(text);
+                    var line;
+                    if(code === "200" && res !== null && res.ok === true){
+                        line = "已落盘 " + res.path + "（" + res.bytes + " B）";
+                    }else{
+                        line = "没能落盘：" + httpWhy(code, text);
+                    }
+                    popup("Mlog辅助 · 区域快照", head + "\n\n" + line);
+                });
+                return head + "\n（落盘结果稍后弹窗）";
+            }catch(e){
+                popup("Mlog辅助 · 区域快照", head + "\n\n没能落盘：" + e);
+                return head + "\n（落盘失败：" + e + "）";
+            }
+        }
+
+        function selFinish(){
+            var r = selRect(selStartX, selStartY, selCurX, selCurY);
+            selDragging = false;
+            selArmed = false;
+            return dumpRegion(r.x1, r.y1, r.x2, r.y2);
+        }
+
+        api.maiSelect = function(){
+            selArmed = true;
+            selDragging = false;
+            var mt = mouseTile();
+            if(mt !== null){ selStartX = mt.x; selStartY = mt.y; selCurX = mt.x; selCurY = mt.y; }
+            popup("Mlog辅助 · 框选", "按住左键拖出矩形，松手生成快照并落盘；再按 F3 取消。");
+            return "框选已就绪";
+        };
+        api.maiDump = function(x1, y1, x2, y2){ return dumpRegion(x1, y1, x2, y2); };
+        api.maiSelRect = function(ax, ay, bx, by){ return JSON.stringify(selRect(ax, ay, bx, by)); };
+
         // 挂到脚本作用域（控制台里能直接敲），并读回自检
         var scope = Vars.mods.getScripts().scope;
         var mounted = 0;
@@ -1483,9 +1589,41 @@ function __logicWriterMain(){
                                             rb.tile.x + rr, rb.tile.y + rr);
                         }
                     }
+                    // F3 拖拽框选：按一次就绪 -> 按住左键拖 -> 松手出快照；再按一次取消。
+                    if(KEY_SELECT !== null && Core.input.keyTap(Packages.arc.input.KeyCode[KEY_SELECT[0]])){
+                        if(selDragging || selArmed){
+                            selDragging = false;
+                            selArmed = false;
+                        }else if(Core.scene === null || !Core.scene.hasDialog()){
+                            var st = mouseTile();
+                            if(st === null){
+                                popup("Mlog辅助 · 框选", "鼠标不在世界内");
+                            }else{
+                                selArmed = true;
+                                selDragging = false;
+                                selStartX = st.x; selStartY = st.y; selCurX = st.x; selCurY = st.y;
+                                popup("Mlog辅助 · 框选", "按住左键拖出矩形，松手生成快照并落盘；再按 F3 取消。");
+                            }
+                        }
+                    }
+                    if(selArmed){
+                        var smt = mouseTile();
+                        if(smt !== null){ selCurX = smt.x; selCurY = smt.y; }
+                        var sdown = Core.input.keyDown(Packages.arc.input.KeyCode.mouseLeft);
+                        if(!selDragging && sdown){ selDragging = true; }
+                        else if(selDragging && !sdown){ selFinish(); }
+                    }
                 }catch(e){ /* 每帧回调里绝不抛出去 */ }
             });
         }
+
+        // 拖拽高亮：画在世界坐标系里，不碰场景树（画不出来也不影响选择本身）。
+        try{
+            Events.run(ET.Trigger.draw, function(){
+                try{ drawSelection(); }catch(e){ /* 每帧回调里绝不抛出去 */ }
+            });
+        }catch(e){ log("Trigger.draw hook failed: " + e); }
+
     }catch(e){
         print("[mai] init failed: " + e);
     }
