@@ -51,6 +51,8 @@ import re
 import sys
 import time
 import traceback
+import urllib.error
+import urllib.request
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlparse, parse_qs
 
@@ -945,6 +947,107 @@ def region(req):
 
 # ---------------------------------------------------------------- http
 
+# ---------------------------------------------------------------- model tier (v0.11.0)
+# 玩家在游戏里的设置页填地址 / 密钥 / 模型，运行期就能切到模型档，不用重启 sidecar。
+# 密钥只进不出：GET /llm 只回 key_set 与掩码尾巴，绝不回明文。
+LLM_STATE = {'kind': 'template', 'url': '', 'model': '', 'key': '', 'timeout': 60}
+
+
+def _mask_key(key):
+    s = str(key or '')
+    if not s:
+        return ''
+    if len(s) <= 4:
+        return '*' * len(s)
+    return '*' * 6 + s[-4:]
+
+
+def llm_state():
+    st = LLM_STATE
+    return {'ok': True, 'kind': st['kind'], 'url': st['url'], 'model': st['model'],
+            'key_set': bool(st['key']), 'key_hint': _mask_key(st['key']),
+            'timeout': int(st['timeout'] or 60)}
+
+
+def models_url(url):
+    """'.../v1/chat/completions' -> '.../v1/models'; anything else gets '/models'."""
+    u = str(url or '').strip()
+    if not u:
+        raise ValueError('model url is empty')
+    for tail in ('/chat/completions', '/completions', '/responses'):
+        if u.endswith(tail):
+            return u[:-len(tail)] + '/models'
+    u = u.rstrip('/')
+    if u.endswith('/models'):
+        return u
+    return u + '/models'
+
+
+def fetch_models(url, key='', timeout=20):
+    """Ask the endpoint what it serves. Runs on the sidecar so the mod never needs TLS."""
+    target = models_url(url)
+    req = urllib.request.Request(target, method='GET')
+    req.add_header('Accept', 'application/json')
+    if key:
+        req.add_header('Authorization', 'Bearer ' + str(key))
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            raw = resp.read().decode('utf-8', 'replace')
+    except urllib.error.HTTPError as exc:
+        raise ValueError('model list refused: HTTP %s %s' % (exc.code, exc.reason))
+    except urllib.error.URLError as exc:
+        raise ValueError('cannot reach the model endpoint: %s' % (exc.reason,))
+    except OSError as exc:
+        raise ValueError('model list request failed: %s' % (exc,))
+    try:
+        doc = json.loads(raw)
+    except ValueError:
+        raise ValueError('the model endpoint did not answer with JSON')
+    ids = []
+    data = doc.get('data') if isinstance(doc, dict) else doc
+    if isinstance(data, list):
+        for item in data:
+            mid = (item.get('id') or item.get('name')) if isinstance(item, dict) else item
+            if mid:
+                ids.append(str(mid))
+    elif isinstance(doc, dict) and isinstance(doc.get('models'), list):
+        for item in doc['models']:
+            mid = (item.get('id') or item.get('name')) if isinstance(item, dict) else item
+            if mid:
+                ids.append(str(mid))
+    out = sorted({s for s in ids if s})
+    return {'ok': True, 'url': target, 'models': out, 'count': len(out)}
+
+
+def apply_llm(req):
+    """POST /llm -- switch the running queue between the model tier and the template tier."""
+    kind = str(req.get('kind') or 'llm').strip().lower()
+    if kind in ('template', 'off', 'none', 'default'):
+        LLM_STATE['kind'] = 'template'
+        jobs_queue().provider = jobqueue.template_provider
+        return llm_state()
+    if kind not in ('llm', 'model'):
+        raise ValueError('kind must be llm or template')
+    url = str(req.get('url') or LLM_STATE['url'] or '').strip()
+    if not url:
+        raise ValueError('a model url is required (an OpenAI compatible /chat/completions)')
+    if not (url.startswith('http://') or url.startswith('https://')):
+        raise ValueError('the model url must start with http:// or https://')
+    model = str(req.get('model') if req.get('model') is not None else LLM_STATE['model']).strip()
+    key = str(req.get('key') if req.get('key') is not None else LLM_STATE['key'])
+    try:
+        timeout = int(req.get('timeout') or LLM_STATE['timeout'] or 60)
+    except (TypeError, ValueError):
+        raise ValueError('timeout must be a whole number of seconds')
+    if timeout < 5 or timeout > 600:
+        raise ValueError('timeout must be between 5 and 600 seconds')
+    LLM_STATE.update({'kind': 'llm', 'url': url, 'model': model, 'key': key,
+                      'timeout': timeout})
+    jobs_queue().provider = mlogprovider.HttpProvider(url, model=model, key=key,
+                                                      timeout=timeout)
+    return llm_state()
+
+
 class Handler(BaseHTTPRequestHandler):
     server_version = 'logicd/1'
 
@@ -986,6 +1089,8 @@ class Handler(BaseHTTPRequestHandler):
                     else:
                         jobs = jobs_queue().list(state)
                         self._send(200, {'ok': True, 'jobs': jobs, 'count': len(jobs)})
+            elif path == '/llm':
+                self._send(200, llm_state())
             else:
                 self._send(404, {'ok': False, 'error': 'no such endpoint: ' + path})
         except Exception as exc:
@@ -1032,6 +1137,22 @@ class Handler(BaseHTTPRequestHandler):
             elif path == '/plan':
                 try:
                     self._send(200, plan(req))
+                except ValueError as exc:
+                    self._send(400, {'ok': False, 'error': str(exc)})
+            elif path == '/llm':
+                try:
+                    self._send(200, apply_llm(req))
+                except ValueError as exc:
+                    self._send(400, {'ok': False, 'error': str(exc)})
+            elif path == '/models':
+                murl = str(req.get('url') or LLM_STATE['url'] or '')
+                mkey = req.get('key') if req.get('key') is not None else LLM_STATE['key']
+                try:
+                    mto = int(req.get('timeout') or 20)
+                except (TypeError, ValueError):
+                    mto = 20
+                try:
+                    self._send(200, fetch_models(murl, mkey, mto))
                 except ValueError as exc:
                     self._send(400, {'ok': False, 'error': str(exc)})
             elif path == '/jobs':
@@ -1134,6 +1255,10 @@ def main(argv=None):
     except ValueError as exc:
         print(str(exc))
         return 2
+    LLM_STATE.update({'kind': a.jobs_provider if a.jobs_provider in ('llm', 'fake') else 'template',
+                      'url': a.llm_url or '', 'model': a.llm_model or '',
+                      'key': (os.environ.get(a.llm_key_env) if a.llm_key_env else '') or '',
+                      'timeout': int(a.llm_timeout or 60)})
     global JOBS
     JOBS = jobqueue.Queue(jobqueue.Store(a.jobs_dir), provider=provider)
     if a.jobs_drain:

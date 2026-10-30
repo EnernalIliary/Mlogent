@@ -422,7 +422,9 @@ def template_provider(job, hint=None):
     res = L.plan({'intent': job['desc'], 'links': job.get('links') or [],
                   'ipt': job.get('ipt') or 2, 'origin': job.get('origin')})
     if not res.get('template'):
-        return {'error': res.get('reason') or 'no template matched this description'}
+        why = res.get('reason') or 'no template matched this description'
+        return {'error': why + ' | 当前是模板档，只能套固定样板；要自由描述，请在 设置 -> '
+                                'Mlog辅助 -> 大模型 里填地址/密钥/模型，再点「启用模型档」'}
     return {'template': res['template'], 'params': res.get('params') or {},
             'explanation': res.get('reason') or ('template %s' % res['template']),
             'assumptions': []}

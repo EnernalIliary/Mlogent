@@ -1,4 +1,4 @@
-# MlogAuxiliary —— 游戏内Mlog辅助（P1 + P2 + 设置界面 + AI 面板 + 区域面板 + 作业队列 + 撤销落盘，v0.10.1）
+# MlogAuxiliary —— 游戏内Mlog辅助（P1 + P2 + 设置界面 + AI 面板 + 区域面板 + 作业队列 + 撤销落盘 + 大模型设置，v0.11.0）
 
 把「写 mlog」这件事从玩家手里拿走：**说意图，不写代码**。
 
@@ -354,6 +354,38 @@ Arc 的 `Table.cells` 是私有字段（`arc/scene/ui/layout/Table.java:35`）�
 2. 「没有链接」和「读不到链接表」必须分开：`linkNames()` 读不到时返回 `null`（不是 `[]`），`quickcheck.check()` 收到 `null` 就整段跳过链接槽判据，并在 `stats.linkKnown` 里记下来；审查栏统计行显示「链接 ?（读不到处理器）」而不是「链接 0」。
 
 真引擎对照探针（`out/_v47_probe.py`）：放处理器、用 `msch.build_logic_data` 写带两条链接的载荷，读回 `links.size=2`，把真链接名喂 `quickcheck.check` ⇒ 零命中；喂空数组 ⇒ 第 1、3 行各一条 WARN。所以快检逻辑本身没错，错的是喂进去的东西。
+
+## v0.11.0：设置页里填模型地址 / 密钥 / 模型，点一下就换档
+
+**症状**：模型档其实早就能用（`--jobs-provider llm`），但只有命令行能开。玩家在游戏里
+套不上样板时只看到「no template matched」——不知道还有模型档，更没法填端点。
+
+**改动**（`scripts/main.js` + `tools/logicd.py` + `tools/jobqueue.py`）：
+
+- 设置 → Mlog辅助 新增「大模型」段：地址 / 密钥 / 模型三行输入 + 三个按钮。
+  值存在 `Core.settings`（键 `mlogauxiliary-llm-url` / `-llm-key` / `-llm-model`），
+  密钥那一行用 `TextField.setPasswordMode(true)` 打成圆点。
+- 「获取模型」→ `POST /models` 由 sidecar 代取模型列表（**模组自己打不了 https**：
+  传输层是裸 `java.net.Socket` 手写的明文 HTTP），拿到后弹一个可滚动列表点选。
+- 「启用模型档」→ `POST /llm {url, model, key}`：sidecar 在**进程内**把队列的 provider
+  换成 `mlogprovider.HttpProvider`，不用重启；「回到模板档」→ `POST /llm {kind: "template"}`。
+- 诊断里多一行「大模型：模型档 · <地址> · <模型> · 密钥 已填 ******1234」——
+  **只显示尾巴**，明文密钥不出现在面板、日志、任何响应里（`GET /llm` 也只回 `key_set`/`key_hint`）。
+- 模板档套不上样板时的报错后面追加一句中文：当前是模板档，去设置里填模型再点「启用模型档」。
+
+**验证**：
+
+1. `tests/logicd/run_logicd_tests.py` 新增 `llm: 6 check(s)`：起一个假 OpenAI 端点（`/v1/models`
+   回两条、`/v1/chat/completions` 回一段干净代码），验 `/models` 的 URL 推导与 Bearer 透传、
+   `/llm` 换档后密钥不回显、换档后**真作业**能走到 `done`、`ftp://` 被 400、`{kind: template}` 能回去。
+2. `tests/mlogauxiliary/run_ui_smoke.py` 新增 `MAILLM:ok`：真引擎里存三件套 → 状态文本显示模型、
+   **不含密钥明文也不含尾巴**、把「还没提交给 sidecar」说出来 → 原样恢复；另加五条源码红线
+   （`function llmText(`、`function showPickList(`、`setPasswordMode(true)`、`llmSave(LLM_KEY_KEY`、
+   `httpJson("POST", "/models"`）。
+
+**边界**：模型档的质量取决于端点和模型，模组不判断模型好坏；换档只影响之后的作业，
+已经在跑的作业用换档前的 provider 跑完。密钥存在游戏存档目录的 `settings.json` 里（明文，
+和原版所有设置一样）——要更严就别在共享机器上填。
 
 ## v0.10.1：投递作业之后处理器被改过 —— 第一次写入会被拒绝
 

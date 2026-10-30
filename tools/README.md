@@ -154,11 +154,11 @@ python tools/kb.py serve
 ```
 python tools/logicd.py                            # 127.0.0.1:8765（--port 0 = 随机端口，就绪行里打印）
 python tools/logicd.py --print-template patrol    # 不启服务，只打一个模板的代码
-python tests/logicd/run_logicd_tests.py           # 契约测试：协议 25 项 + 作业队列 12 项 + provider 9 项 + 真 v160.7 写入 7 项
+python tests/logicd/run_logicd_tests.py           # 契约测试：协议 26 项 + 作业队列 12 项 + provider 9 项 + 模型档 6 项 + 真 v160.7 写入 7 项
 python tests/logicd/run_logicd_tests.py --no-sim  # 只跑协议层（不需要 JRE）
 ```
 
-接口十个：`GET /health`、`GET /capabilities`、`POST /analyze`、`POST /compose`、`POST /plan`、`POST /region`、`POST /snapshot`，以及作业队列的三个 `POST /jobs` / `GET /jobs?id=|?state=` / `DELETE /jobs?id=`
+接口十三个：`GET /health`、`GET /capabilities`、`POST /analyze`、`POST /compose`、`POST /plan`、`POST /region`、`POST /snapshot`，作业队列的三个 `POST /jobs` / `GET /jobs?id=|?state=` / `DELETE /jobs?id=`，以及模型档的三个 `GET /llm` / `POST /llm` / `POST /models`
 （一句话意图 -> 选模板 + 抽参数。**模型只有这一个接入点**：把 `_route()` 换成模型调用，返回形状不变，
 模组侧一行不用改，模型也就永远没办法把没检查过的 mlog 塞进存档）；
 `ok` 的语义是**没有 ERR**（ERR 一律拒绝写入）。设计、契约细节、分期与「已验证/未验证」
@@ -210,6 +210,23 @@ prompt 是规划 §4.4 的三段：**世界事实**（处理器坐标 + 快照�
 同族全都没有才报 ERR（判据在 `tools/logicd.py` 的 `_nearest_link()`，`message1` 不会误伤 `message10`）。
 模组侧（v0.8.0）已接：F4 面板投作业 + 每秒 `GET /jobs?id=` 轮询 + 完成/拒绝渲染 + 取消按钮，
 `--jobs-dir` 换队列目录（默认 `out/jobs`，或 `$MLOG_JOBS_DIR`），`--jobs-drain` 跑完就退（一次性批处理）。
+
+
+**模型档可以在游戏里配**（v0.11.0）：设置 → Mlog辅助 → 大模型 里填 地址 / 密钥 / 模型，
+模组只把它们发给本机 sidecar，由 sidecar 在进程里把 `provider` 换成 `mlogprovider.HttpProvider` ——
+**不用重启 sidecar**，也不用改命令行。三个端点：
+
+- `GET /llm` → `{ok, kind: llm|template|fake, url, model, key_set, key_hint, timeout}`。
+  **密钥只进不出**：只回 `key_set` 与掩码尾巴（`******1234`），明文永不出现在任何响应里。
+- `POST /llm` body `{url, model, key, timeout}` 切到模型档（`url` 必须是 http(s)，否则 400；
+  `timeout` 5–600 秒）；body `{kind: "template"}` 切回离线模板档。
+- `POST /models` body `{url, key}` → `{ok, url, models: [id...], count}`：从
+  `/chat/completions` 推导出 `/models`（`/completions`、`/responses` 同理；已经是 `/models` 就原样），
+  GET 时带 `Authorization: Bearer`，解析 `data[].id|name` 或 `models[]`。
+  **必须由 sidecar 代取**：模组侧是裸 `java.net.Socket` 手写的 HTTP/1.1，只有明文 HTTP，没有 TLS。
+
+`--jobs-provider llm --llm-url ...` 仍然可用：启动时把命令行参数灌进同一份 `LLM_STATE`，
+游戏里再改就以游戏里为准。`GET /llm` 只反映**进程内存里**的档位，重启 sidecar 回到命令行参数。
 
 **改过 `tools/logicd.py` 必须重启那个进程**（v0.9.1）：模组连的是**已经加载进内存**的 Python 进程，
 磁盘上改了代码它不知道。症状很一致：面板回「投递失败：no such endpoint: /jobs」，而 `GET /health` 依然是 200——

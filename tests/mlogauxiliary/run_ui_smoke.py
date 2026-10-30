@@ -305,6 +305,7 @@ def main():
         "print('MAILISTROWS:' + maiListRows());",
         "print('MAIUNDO:' + maiUndoProbe());",
     "print('MAICONFLICT:' + maiConflictProbe());",
+    "print('MAILLM:' + maiLlmProbe());",
     ] + region_probe(srv) + select_probe(srv) + arrow_probe() + [
         "void 0;",
     ])
@@ -317,7 +318,7 @@ def main():
     lines = [l for l in text.splitlines()
              if '[mai]' in l or 'mlog-auxiliary' in l
              or l.startswith(('MAISELF:', 'MAIDIAG:', 'MAISET:', 'MAILIST:', 'MAILISTROWS:',
-                              'MAIUNDO:', 'MAICONFLICT:'))]
+                              'MAIUNDO:', 'MAICONFLICT:', 'MAILLM:'))]
     joined = '\n'.join(lines)
 
     # ---- resolve every Table/Cell method the page actually uses, in the engine
@@ -418,6 +419,9 @@ def main():
     if 'MAICONFLICT:ok' not in joined:
         problems.append('v0.10.1: the pre-write conflict gate is broken: %r'
                         % [l for l in lines if l.startswith('MAICONFLICT:')][:1])
+    if 'MAILLM:ok ' not in joined:
+        problems.append('v0.11.0: the model-tier settings probe failed: %r'
+                        % [l for l in lines if l.startswith('MAILLM:')][:1])
     if 'MAIUNDO:ok ' not in joined:
         problems.append('v0.10.0: the undo snapshot did not round-trip through the real '
                         'filesystem: %r' % [l for l in lines if l.startswith('MAIUNDO:')][:1])
@@ -643,6 +647,18 @@ def main():
                          'the conflict baseline is not the submit-time code')):
         if needle not in code_only:
             problems.append('v0.10.1: ' + why)
+    for needle, why in (('function llmText(',
+                         'the model-tier status text is gone'),
+                        ('function showPickList(',
+                         'the model picker is gone'),
+                        ('setPasswordMode(true)',
+                         'the api key field is not masked any more'),
+                        ('llmSave(LLM_KEY_KEY',
+                         'the api key is no longer persisted from the settings page'),
+                        ('httpJson("POST", "/models"',
+                         'the model list no longer comes from the sidecar (https needs it)')):
+        if needle not in code_only:
+            problems.append('v0.11.0: ' + why)
     if '"直接生成"' not in code_only:                 # 直接生成
         problems.append('v0.8.0: the /plan fallback button is gone -- an older sidecar '
                         'without /jobs would leave the panel unusable')
@@ -1003,7 +1019,7 @@ def main():
     print('  job conflict gate: first write refused, second click overwrote (%s / %s)'
           % (edit1.split('|')[0].strip()[:40], edit2.split('|')[0].strip()[:40]))
     for l in lines:
-        if l.startswith(('MAISELF:', 'MAIDIAG:', 'MAIUNDO:', 'MAICONFLICT:')):
+        if l.startswith(('MAISELF:', 'MAIDIAG:', 'MAIUNDO:', 'MAICONFLICT:', 'MAILLM:')):
             print('  ' + l[:300])
     return 0
 

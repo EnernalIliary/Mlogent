@@ -28,9 +28,13 @@
 function __logicWriterMain(){
     "use strict";
 
-    var MOD_VERSION = "0.10.1";
+    var MOD_VERSION = "0.11.0";
     var URL_KEY     = "mlogauxiliary-url";
     var DEFAULT_URL = "http://127.0.0.1:8765";
+    // v0.11.0：设置页里填的模型档三件套。密钥只留在本机 Core.settings 与 sidecar 进程内存。
+    var LLM_URL_KEY   = "mlogauxiliary-llm-url";
+    var LLM_KEY_KEY   = "mlogauxiliary-llm-key";
+    var LLM_MODEL_KEY = "mlogauxiliary-llm-model";
     var KEY_REGION  = ["f7"];      // F7：扫鼠标周围 10 格，列出链接候选
     var KEY_SELECT  = ["f3"];      // F3：按住 = 鼠标左键拉框（v0.5.0；F8 是游戏控制台，F9/F10 也被占）
 var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下的空键只有 F2，F1/F5/F6/F8/F11/F12 是游戏自己的）
@@ -73,6 +77,7 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
         }
         parts.push({k: "sidecar", v: base + "（"
                     + (sidecarOk === null ? "未探测" : (sidecarOk ? "上次可达" : "上次不可达")) + "）"});
+        parts.push({k: "大模型", v: llmText()});
         parts.push({k: "数据目录", v: dirText(Vars.dataDirectory)});
         parts.push({k: "mods 目录", v: dirText(Vars.modDirectory)});
         parts.push({k: "设置分类", v: settingsDone ? "已注册（设置 → Mlog辅助）"
@@ -207,6 +212,41 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
             function(){ probeSidecar(); },
             function(){ copyDiag(); }
         ], mk);
+        section(t, "大模型（模型档：说人话直接写逻辑）");
+        kv(t, "档位", llmText(), mk);
+        var lrow = mk();
+        lrow.margin(8).left();
+        lrow.add("地址").width(LABEL_W).left().color(Pal.gray);
+        lrow.field(llmUrl(), function(v){
+            llmSave(LLM_URL_KEY, String(v));
+            log("llm url = " + v);
+        }).width(300).left();
+        t.add(lrow).width(ROW_W).left().padTop(5).row();
+        var krow = mk();
+        krow.margin(8).left();
+        krow.add("密钥").width(LABEL_W).left().color(Pal.gray);
+        var kcell = krow.field(llmKey(), function(v){
+            llmSave(LLM_KEY_KEY, String(v));
+            log("llm key saved (" + String(v).length + " chars)");
+        }).width(300).left();
+        try{ kcell.get().setPasswordMode(true); }
+        catch(e){ log("password mode skipped (this table has no cell.get)"); }
+        t.add(krow).width(ROW_W).left().padTop(5).row();
+        var mrow = mk();
+        mrow.margin(8).left();
+        mrow.add("模型").width(LABEL_W).left().color(Pal.gray);
+        mrow.field(llmModel(), function(v){
+            llmSave(LLM_MODEL_KEY, String(v));
+            log("llm model = " + v);
+        }).width(300).left();
+        t.add(mrow).width(ROW_W).left().padTop(5).row();
+        buttonRow(t, ["获取模型", "启用模型档", "回到模板档"], [
+            function(){ showLlmModels(); },
+            function(){ llmEnable(); },
+            function(){ llmUseTemplate(); }
+        ], mk);
+        kv(t, "", "地址填 OpenAI 兼容的 /chat/completions（例：" + LLM_DEFAULT_URL
+           + "）。密钥只存在本机 Core.settings 与 sidecar 进程内存里，面板只显示尾巴；改完按回车保存。", mk);
         section(t, "快捷动作");
         buttonRow(t, ["AI 辅助编程", "模板面板"], [
             function(){ showAiPanel(); },
@@ -424,6 +464,133 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
     }catch(e){ log("legacy url migration skipped: " + e); }
 })();
         var undoStack = [];        // P1：内存快照，重启即失效（P3 落盘）
+
+        // ---------------------------------------------------------- 大模型（v0.11.0）
+        // 玩家在设置页填 地址 / 密钥 / 模型，模组只把它们发给本机 sidecar 的 POST /llm，
+        // sidecar 在进程里把 provider 换成模型档 —— 不用重启 sidecar。密钥只留在本机
+        // Core.settings 与 sidecar 内存里：面板、诊断、日志永远只显示尾巴。
+        var LLM_DEFAULT_URL = "https://api.deepseek.com/v1/chat/completions";
+        var llmState = {kind: "template", url: "", model: "", key_set: false, key_hint: "", timeout: 60};
+
+        function llmGet(key, dflt){
+            try{
+                var v = Core.settings.getString(key, dflt);
+                return (v === null || v === undefined) ? dflt : String(v);
+            }catch(e){ return dflt; }
+        }
+        function llmUrl(){ return llmGet(LLM_URL_KEY, ""); }
+        function llmModel(){ return llmGet(LLM_MODEL_KEY, ""); }
+        function llmKey(){ return llmGet(LLM_KEY_KEY, ""); }
+        function llmSave(key, v){
+            try{ Core.settings.put(key, String(v)); }
+            catch(e){ log("save " + key + " failed: " + e); }
+        }
+
+        function llmText(){
+            var tier = (llmState.kind === "llm") ? "模型档"
+                     : (llmState.kind === "fake" ? "回放档" : "模板档");
+            var url = llmState.url.length > 0 ? llmState.url : (llmUrl().length > 0 ? llmUrl() : "未填");
+            var model = llmState.model.length > 0 ? llmState.model
+                      : (llmModel().length > 0 ? llmModel() : "未填");
+            var key = llmState.key_set ? ("已填 " + String(llmState.key_hint))
+                    : (llmKey().length > 0 ? "已填（还没提交给 sidecar）" : "未填");
+            return tier + " · " + url + " · " + model + " · 密钥 " + key;
+        }
+
+        function llmNote(text){
+            if(Vars.ui !== null){ Vars.ui.showText("Mlog辅助 · 大模型", String(text)); }
+            else{ print("[mai] llm: " + text); }
+        }
+
+        function llmRefresh(cb){
+            httpJson("GET", "/llm", null, function(code, text){
+                var d = parse(text);
+                if(d !== null && d.ok === true){ llmState = d; }
+                if(cb){ cb(code, d, text); }
+            });
+        }
+
+        function llmApply(body, cb){
+            httpJson("POST", "/llm", body, function(code, text){
+                var d = parse(text);
+                if(d !== null && d.ok === true){ llmState = d; }
+                if(cb){ cb(code, d, text); }
+            });
+        }
+
+        // 「获取模型」：模组自己的裸 Socket 只走明文 HTTP，所以 https 端点必须由 sidecar 代取。
+        function llmFetchModels(cb){
+            var url = llmUrl();
+            if(url.length === 0){ cb(false, null, "先填模型地址（例如 " + LLM_DEFAULT_URL + "）"); return; }
+            httpJson("POST", "/models", JSON.stringify({url: url, key: llmKey()}), function(code, text){
+                var d = parse(text);
+                if(d === null){ cb(false, null, "sidecar 没回 JSON：" + jobWhy(code, text, null)); return; }
+                if(d.ok !== true){ cb(false, null, String(d.error || "取模型列表失败")); return; }
+                cb(true, d, "");
+            });
+        }
+
+        // 选模型：Dialog + cont.pane(host)，host 必须是真 Table
+        // （v0.4.1 的教训：pane() 交回来的是 ScrollPane，它没有 add）。
+        function showPickList(title, items, onPick){
+            var d = new Packages.arc.scene.ui.Dialog(String(title));
+            d.addCloseButton();
+            try{ d.closeOnBack(); }catch(e){}
+            var host = new Packages.arc.scene.ui.layout.Table();
+            try{ d.cont.pane(host).width(560).height(360); }
+            catch(e){ d.cont.add(host).growX(); }
+            var n = 0;
+            for(var i = 0; i < items.length && n < 80; i++){
+                (function(item){
+                    host.button(String(item), function(){
+                        try{ onPick(String(item)); }catch(e2){ log("pick failed: " + e2); }
+                        d.hide();
+                    }).growX().height(36).padBottom(3).row();
+                })(items[i]);
+                n++;
+            }
+            if(n === 0){ host.add("（端点没报任何模型，可以直接手填模型名）").left().row(); }
+            d.cont.row();
+            d.cont.button("关闭", function(){ d.hide(); }).height(40).width(120).padTop(8);
+            d.show();
+        }
+
+        function showLlmModels(){
+            log("asking the endpoint for its model list");
+            llmFetchModels(function(ok, doc, err){
+                if(!ok){ llmNote("取模型列表失败：" + err); return; }
+                var list = (doc && doc.models) || [];
+                showPickList("Mlog辅助 · 选择模型（" + list.length + "）", list, function(m){
+                    llmSave(LLM_MODEL_KEY, m);
+                    llmNote("模型已选：" + m + "\n再点「启用模型档」才会生效。");
+                });
+            });
+        }
+
+        function llmEnable(){
+            var url = llmUrl();
+            if(url.length === 0){ llmNote("先填模型地址（例如 " + LLM_DEFAULT_URL + "）"); return; }
+            llmApply(JSON.stringify({kind: "llm", url: url, model: llmModel(), key: llmKey()}),
+                function(code, d, text){
+                    if(d === null || d.ok !== true){
+                        llmNote("启用失败：" + ((d && d.error) ? String(d.error) : jobWhy(code, text, null)));
+                        return;
+                    }
+                    llmNote("已切到模型档：" + String(d.model || "(端点默认模型)")
+                        + "\n地址：" + String(d.url)
+                        + "\n现在描述意图会由大模型直接写逻辑。");
+                });
+        }
+
+        function llmUseTemplate(){
+            llmApply(JSON.stringify({kind: "template"}), function(code, d, text){
+                if(d === null || d.ok !== true){
+                    llmNote("切回模板档失败：" + ((d && d.error) ? String(d.error) : jobWhy(code, text, null)));
+                    return;
+                }
+                llmNote("已回到模板档（离线，只能套固定样板）。");
+            });
+        }
 
         // ---------------------------------------------------------- 传输层
         // 不用 java.net.URL.openConnection()：它返回的是 sun.net.www.protocol.http.HttpURLConnection，
@@ -1997,6 +2164,28 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
                 out = ok ? ("ok " + name) : "bad";
             }catch(e){ out = "fail " + e; }
             return out;
+        };
+        // 模型档设置的自检（ui smoke 用）：存三件套 -> 看 llmText 是否显示模型、
+        // 是否绝不显示密钥明文、是否把「还没提交」说出来 -> 原样恢复。
+        api.maiLlmProbe = function(){
+            try{
+                var prev = {u: llmGet(LLM_URL_KEY, ""), m: llmGet(LLM_MODEL_KEY, ""),
+                            k: llmGet(LLM_KEY_KEY, "")};
+                var boot = llmText();
+                if(boot.indexOf("模板档") < 0){ return "bad tier text: " + boot; }
+                llmSave(LLM_URL_KEY, "https://example.invalid/v1/chat/completions");
+                llmSave(LLM_MODEL_KEY, "m-probe");
+                llmSave(LLM_KEY_KEY, "sk-probe-9999");
+                var t = llmText();
+                if(t.indexOf("m-probe") < 0){ return "model not shown: " + t; }
+                if(t.indexOf("sk-probe") >= 0){ return "key leaked into the text: " + t; }
+                if(t.indexOf("9999") >= 0){ return "key tail leaked into the text: " + t; }
+                if(t.indexOf("还没提交") < 0){ return "pending key not called out: " + t; }
+                llmSave(LLM_URL_KEY, prev.u);
+                llmSave(LLM_MODEL_KEY, prev.m);
+                llmSave(LLM_KEY_KEY, prev.k);
+                return "ok " + t.length;
+            }catch(e){ return "fail " + e; }
         };
         api.maiAi = function(){ showAiPanel(); return "opened"; };
         api.maiReview = function(){ return reviewText(); };

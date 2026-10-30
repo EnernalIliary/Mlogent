@@ -38,6 +38,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import threading
 import time
 import urllib.error
 import urllib.request
@@ -825,6 +826,134 @@ def test_provider():
         shutil.rmtree(tmp, ignore_errors=True)
     return checks
 
+# ---------------------------------------------------------------- half A3: model tier
+
+class _StubEndpoint:
+    """A tiny OpenAI-ish endpoint: /v1/models lists two ids, chat answers a clean program."""
+
+    def __init__(self):
+        from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+        self.seen = []
+        outer = self
+
+        class H(BaseHTTPRequestHandler):
+            def log_message(self, *a):
+                pass
+
+            def do_GET(self):
+                outer.seen.append((self.path, self.headers.get('Authorization')))
+                if self.path == '/v1/models':
+                    body = json.dumps({'data': [{'id': 'm-b'}, {'id': 'm-a'}]}).encode()
+                    self.send_response(200)
+                else:
+                    body = b'{"error": "nope"}'
+                    self.send_response(401)
+                self.send_header('Content-Type', 'application/json')
+                self.send_header('Content-Length', str(len(body)))
+                self.end_headers()
+                self.wfile.write(body)
+
+            def do_POST(self):
+                n = int(self.headers.get('Content-Length') or 0)
+                raw = self.rfile.read(n) if n else b'{}'
+                outer.seen.append((self.path, self.headers.get('Authorization'), len(raw)))
+                content = json.dumps({'code': 'set n 0' + chr(10) + 'end'})
+                body = json.dumps({'choices': [{'message': {'content': content}}]}).encode()
+                self.send_response(200)
+                self.send_header('Content-Type', 'application/json')
+                self.send_header('Content-Length', str(len(body)))
+                self.end_headers()
+                self.wfile.write(body)
+
+        self.httpd = ThreadingHTTPServer(('127.0.0.1', 0), H)
+        self.port = self.httpd.server_address[1]
+        self.thread = threading.Thread(target=self.httpd.serve_forever, daemon=True)
+        self.thread.start()
+
+    @property
+    def chat_url(self):
+        return 'http://127.0.0.1:%d/v1/chat/completions' % self.port
+
+    @property
+    def models_url(self):
+        return 'http://127.0.0.1:%d/v1/models' % self.port
+
+    def close(self):
+        try:
+            self.httpd.shutdown()
+        except Exception:
+            pass
+
+
+def test_llm():
+    """The settings page fills url / key / model; the sidecar switches tier at runtime."""
+    checks = 0
+    stub = _StubEndpoint()
+    # a private queue dir: job ids are sha1(desc+snapshot+mode), so a shared out/jobs
+    # would hand this run a *previous* done job and the model would never be called
+    tmp = tempfile.mkdtemp(prefix='logicd-llm-')
+    srv = Server(['--jobs-dir', os.path.join(tmp, 'q')])
+    try:
+        # 1. boot state is the template tier, and the key is never echoed
+        code, doc = srv.get('/llm')
+        need(code == 200 and doc.get('ok') is True and doc.get('kind') == 'template',
+             'GET /llm did not report the template tier: %r' % (doc,))
+        need('key' not in doc and doc.get('key_set') is False,
+             'GET /llm leaked a key field: %r' % (doc,))
+        checks += 1
+
+        # 2. /models derives the list url from the chat url and forwards the key
+        code, doc = srv.post('/models', {'url': stub.chat_url, 'key': 'sk-stub-123456'})
+        need(code == 200 and doc.get('models') == ['m-a', 'm-b'],
+             'POST /models did not list the stub models: %r' % (doc,))
+        need(doc.get('url') == stub.models_url,
+             'POST /models derived the wrong url: %r' % (doc,))
+        need(stub.seen and stub.seen[0][1] == 'Bearer sk-stub-123456',
+             'POST /models did not forward the key: %r' % (stub.seen,))
+        checks += 1
+
+        # 3. switching to the model tier keeps the secret, reports only its tail
+        code, doc = srv.post('/llm', {'url': stub.chat_url, 'model': 'm-a',
+                                      'key': 'sk-secret-abcd', 'timeout': 45})
+        need(code == 200 and doc.get('kind') == 'llm' and doc.get('model') == 'm-a',
+             'POST /llm did not switch to the model tier: %r' % (doc,))
+        need(doc.get('key_set') is True and str(doc.get('key_hint', '')).endswith('abcd')
+             and 'sk-secret' not in json.dumps(doc),
+             'POST /llm echoed the key: %r' % (doc,))
+        checks += 1
+
+        # 4. the state survives a later GET (the panel re-reads it)
+        code, doc = srv.get('/llm')
+        need(doc.get('kind') == 'llm' and doc.get('url') == stub.chat_url
+             and doc.get('timeout') == 45,
+             'GET /llm lost the model tier state: %r' % (doc,))
+        checks += 1
+
+        # 5. a job now really goes through the model: the stub answers, the gate accepts
+        code, doc = srv.post('/jobs', {'job': {'desc': 'llm tier probe %d' % stub.port,
+                                               'links': [], 'ipt': 2}})
+        need(code == 200 and doc.get('ok') is True, 'the job was refused: %r' % (doc,))
+        got = wait_job(srv, doc['id'], want=('done',))
+        need(str(got.get('code') or '').startswith('set n 0') and got.get('bytes_b64'),
+             'the model tier job did not reach done with code: %r' % (got,))
+        need(any(s[0] == '/v1/chat/completions' for s in stub.seen),
+             'the queue never called the model endpoint: %r' % (stub.seen,))
+        checks += 1
+
+        # 6. junk urls and the way back are both explicit
+        code, doc = srv.post('/llm', {'url': 'ftp://nope'})
+        need(code == 400 and 'http' in str(doc.get('error', '')).lower(),
+             'POST /llm accepted a non-http url: %r %r' % (code, doc))
+        code, doc = srv.post('/llm', {'kind': 'template'})
+        need(code == 200 and doc.get('kind') == 'template',
+             'POST /llm kind=template did not go back: %r' % (doc,))
+        checks += 1
+    finally:
+        srv.close()
+        stub.close()
+    return checks
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(description='logicd contract tests')
     ap.add_argument('--no-sim', action='store_true', help='protocol half only (no JRE needed)')
@@ -855,6 +984,15 @@ def main(argv=None):
         return 1
     except Exception as exc:
         print('FAIL provider: %s: %s' % (type(exc).__name__, exc))
+        return 1
+    try:
+        n = test_llm()
+        print('llm: %d check(s) passed' % n)
+    except Fail as exc:
+        print('FAIL llm: %s' % exc)
+        return 1
+    except Exception as exc:
+        print('FAIL llm: %s: %s' % (type(exc).__name__, exc))
         return 1
     if a.no_sim:
         print('logicd OK (protocol only)')

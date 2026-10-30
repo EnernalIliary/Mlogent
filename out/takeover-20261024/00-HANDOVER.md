@@ -1733,3 +1733,34 @@ P5 规划里「写入前重读 code，不一致 → 提示被改过」的模组�
 ### 63.5 下一刀
 
 job object 是 Windows 专属（非 Windows 只剩 atexit，硬杀仍可能留孤儿，靠 `--sweep-orphans`）。回 P5 主体：多处理器事务写入（一个作业 N 段代码、全过才写、任一台失败整体回滚），要先扩 sidecar 作业契约（`jobqueue` 的 job 从 `code` 改成 `codes[]`）。
+
+## §64 v0.11.0：设置页里填模型地址 / 密钥 / 模型（2026-10-31）
+
+**结论**：模型档从「只有命令行能开」变成「游戏里填三行 + 点一下」。sidecar 三个新端点
+（`GET /llm` / `POST /llm` / `POST /models`），provider 在进程内热替换，**不用重启**。
+密钥只进不出：任何响应里只有 `key_set` 与掩码尾巴。
+
+**改动**（报告 `out/takeover-20261024/64-llm-settings.md`）：
+- `tools/logicd.py`：`LLM_STATE` + `_mask_key` / `llm_state` / `models_url` / `fetch_models` / `apply_llm`；
+  三条路由；main 里把命令行参数灌进 `LLM_STATE`。
+- `tools/jobqueue.py`：`template_provider()` 的报错追加中文指引（当前是模板档 → 去设置填模型）。
+- `MlogAuxiliary/scripts/main.js`：`MOD_VERSION 0.11.0`、三个 settings 键、`llmText/llmSave/llmRefresh/llmApply/`
+  `llmFetchModels/showPickList/showLlmModels/llmEnable/llmUseTemplate`、设置页「大模型」段、诊断一行、`maiLlmProbe()`。
+- `MlogAuxiliary/mod.hjson` 0.11.0 + description；README 新节；`tools/README.md` 接口十三个 + 模型档段落；
+  规划 §9 新增 P4.5 行。
+
+**测试**：`test_llm()` 6 项（假 OpenAI 端点）；ui smoke `MAILLM:ok` + 五条源码红线。
+**本轮抓到的真 flake**：job id 是 `sha1(snapshot+desc+mode)`，`test_llm()` 用固定 desc + 默认 `out/jobs`，
+第二次跑幂等命中上一轮的 done 作业 → provider 没被调用 → 只在「stub 见过 chat 端点」这条炸。
+修法：私有 `--jobs-dir`（mkdtemp）+ desc 带 `stub.port`。**任何用 `/jobs` 的测试都必须给私有队列目录**。
+
+**复跑**：logicd 测试 protocol 26 / jobs 12 / provider 9 / llm 6；ui smoke EXIT=0（`MAILLM:ok 82`、
+`MAISELF` 102 行、`MAIDIAG` 版本 0.11.0）；KB `{chunks: 6460, files: 65}`；`gate.py --full` **16/16 in 46.3s**；
+zip **71,363 B sha256 28EE9764CD91068E3CA86F8F2E23C076B3B8ABF53BEBB91DAF487D6651C69DD5**，装机 5 文件逐字节 OK。
+
+**下一刀候选**：①设置页加「清空密钥」按钮 ②模型列表加搜索框（>80 条会截断）③P5 剩余：多处理器事务写入
+（要先扩 sidecar 作业契约 `code` → `codes[]`）④模板档报错里带一个「去设置」的说明（现在只有文本）。
+
+**环境教训**：`Server.js()` 会把任何含 `Error:` / `Exception` 的输出行当引擎错误抛出 → catch 里**不要**
+`log("...: " + e)`，写死文案；run_code 的 JS 模板字面量装不了含反引号的 markdown → 先 `tools.write` 成片段文件，
+再用纯 ASCII 的 python 脚本（中文锚点用 `\u` 转义）读文件拼进去。
