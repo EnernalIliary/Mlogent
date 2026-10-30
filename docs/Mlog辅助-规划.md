@@ -107,6 +107,12 @@ P3 **不接模型**：只把快照打印/落盘，用来验证「框选到底拿
 松开即出快照，不再需要先“就绪”再点左键；高亮照抄原版选框（`Lines.stroke(2)` + `Pal.accentBack`/`Pal.accent`
 双描边 + 尺寸文本，无半透明填充，见 `Mindustry-Source/core/src/mindustry/input/InputHandler.java:1758-1795`）。
 
+**实际落地（v0.6.0）**：松手之后的出口从「落盘 + 纯文本弹窗」换成**区域面板** ——
+先 `POST /snapshot` 落盘、再 `POST /region` 拿候选，然后开可滚动对话框：区域摘要 + 落盘路径 +
+每个处理器的候选链接与「代码在用但没绑上」的告警；每个处理器一行「用 @x,y 生成」按钮，
+点了以该处理器为目标直接开 F4 面板（`showAiPanel(target)`）。面板建不出来回落到纯文本弹窗。
+**队列仍未做**（P4）。
+
 ### 3.2 快照 schema（`snapshot v1`）
 
 | 字段 | 内容 | 备注 |
@@ -229,6 +235,7 @@ self-repair：门禁返回 ERR 时，把 `findings`（行号 + rid + msg）作�
 | 设置界面（v0.3，额外做的调试入口） | 完成（v0.3.1 修掉重载歧义） | `MlogAuxiliary/scripts/main.js`、`tests/mlogauxiliary/run_ui_smoke.py` | 真引擎里 8 个 Table/Cell 调用形状全部解析 + 假表建出 27 行；诊断多一行 `设置分类：` |
 | v0.4 AI 面板 + 编辑器审查栏 | 完成 | `MlogAuxiliary/scripts/main.js`（F4 AI 面板、`Vars.ui.logic` 审查栏、设置页分段重排、`maiAi`/`maiReview`）、`tools/logicd.py` 的 `POST /plan`（关键词意图路由 + 参数抽取） | `tests/logicd/` 21 项协议 check（6 条意图 + 2 条参数抽取 + 模糊意图拒绝 + 空意图 400）；`run_ui_smoke.py` 在真引擎里解析 14 个 Table/Cell 方法 + 四条源码红线（closeOnBack / 关闭按钮 / 审查栏注入 / F4 -> AI 面板） |
 | P3 框选 + 快照（第一刀：只读） | 部分完成（v0.4.2） | `main.js` 的 `regionSnapshot()` / `regionText()` / `regionCandidatesText()` / F7 热键 / 控制台 `maiSnapshot`·`maiRegion`·`maiRegionAround`；`tools/logicd.py` 的 `POST /region`（链接候选 + 命名 + 距离判定） | `tests/mlogauxiliary/run_ui_smoke.py` 在真 v160.7 里造 container/switch 后快照出 6 格 1 处理器且 bounds 被 clamp；`tests/logicd/run_logicd_tests.py` 23 项协议 check（含合成快照的候选/编号/`used` 断言与 mschgen 全表零漂移） |
+| P3 框选 + 区域面板（第二刀：面板） | 完成（v0.6.0） | `main.js` 的 `buildRegionTable()` / `showRegionPanel()` / `buildAt()` / `showAiPanel(target)`，`dumpRegion()` 改成 snapshot→region→面板 串行；`MlogAuxiliary/README.md` 新增 v0.6.0 节 | `run_ui_smoke.py` 的 `MAISELF` 行（区域表格 8 行）+ 四条 v0.6.0 源码红线；`gate.py --full` 16/16 |
 | P4 队列 + 模型 + 门禁 | 未开始 | — | — |
 | P5 多处理器写入 + 撤销落盘 | 未开始 | — | — |
 

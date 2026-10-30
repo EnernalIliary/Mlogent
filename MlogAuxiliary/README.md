@@ -1,4 +1,4 @@
-# MlogAuxiliary —— 游戏内Mlog辅助（P1 + P2 + 设置界面 + AI 面板 + 区域快照，v0.5.0）
+# MlogAuxiliary —— 游戏内Mlog辅助（P1 + P2 + 设置界面 + AI 面板 + 区域面板，v0.6.0）
 
 把「写 mlog」这件事从玩家手里拿走：**说意图，不写代码**。
 
@@ -354,6 +354,27 @@ Arc 的 `Table.cells` 是私有字段（`arc/scene/ui/layout/Table.java:35`）�
 2. 「没有链接」和「读不到链接表」必须分开：`linkNames()` 读不到时返回 `null`（不是 `[]`），`quickcheck.check()` 收到 `null` 就整段跳过链接槽判据，并在 `stats.linkKnown` 里记下来；审查栏统计行显示「链接 ?（读不到处理器）」而不是「链接 0」。
 
 真引擎对照探针（`out/_v47_probe.py`）：放处理器、用 `msch.build_logic_data` 写带两条链接的载荷，读回 `links.size=2`，把真链接名喂 `quickcheck.check` ⇒ 零命中；喂空数组 ⇒ 第 1、3 行各一条 WARN。所以快检逻辑本身没错，错的是喂进去的东西。
+
+## v0.6.0：框选之后有面板了 —— 候选链接 + 一键交给 AI
+
+v0.5.0 的 F3 松手只做了一件事：把快照 POST 到 sidecar 落盘，然后弹一段纯文本说「已落盘 xxx.json」。
+对玩家来说这等于「框了半天，只得到一个文件路径」。v0.6.0 把松手之后的出口换成**区域面板**：
+
+- 顺序：`POST /snapshot`（落盘）→ `POST /region`（每个处理器 10 格内的可连方块与链接名）→ 开对话框。
+- 面板内容：区域摘要（bounds / 方块数 / 处理器数）+ 落盘路径 + 每个处理器的链接候选与
+  「代码在用但没绑上」的告警（复用 v0.4.5 的 `missing`）。
+- 每个处理器一行按钮「用 @x,y 生成」：点了直接开 F4 的 AI 面板，**并且以那个处理器为目标**
+  （`showAiPanel(target)` 新参数），不用再把鼠标挪过去。
+- 底部两个按钮：「复制快照 JSON」（`Core.app.setClipboardText`）、「关闭」。
+- 面板建不出来时（`pane()` 重载缺失等）回落到旧的纯文本弹窗，不会连候选都看不到。
+
+代码位置：`buildRegionTable()` 在脚本顶层（只碰 table 接口，能用假表在无 UI 环境数行数），
+`showRegionPanel()` / `buildAt()` 在引擎作用域里。`dumpRegion()` 从「一次请求 + popup」
+改成「两次请求串起来 + 面板」。
+
+测试：ui smoke 的 `maiSelfTest()` 现在多建一张区域表（假表 8 行），并新增四条源码红线
+（`buildRegionTable`/`showRegionPanel`、`buildAt`+`showAiPanel(b)`、`labelWrap(String(candText))`、
+`function showAiPanel(target)`）。无头引擎里 F3 那条路径本来就直接返回摘要、不发请求，所以面板只在真机上出现。
 
 ## v0.5.0：F3 就是鼠标左键，高亮改成原版选框样子
 

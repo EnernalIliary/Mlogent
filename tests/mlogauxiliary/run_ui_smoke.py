@@ -334,6 +334,8 @@ def main():
         problems.append('maiSelfTest did not build the settings table')
     if 'MAISELF:' in joined and '\u586b\u4e86 0 ' in joined:
         problems.append('maiSelfTest filled no rows')
+    if '\u533a\u57df\u8868\u683c' not in joined:          # 区域表格
+        problems.append('maiSelfTest did not build the region table')
     if '\u6570\u636e\u76ee\u5f55' not in joined or 'mods \u76ee\u5f55' not in joined:
         problems.append('maiDiag is missing a directory line')
     if 'MAISET:no ui' not in joined:
@@ -702,6 +704,15 @@ def main():
         problems.append('arrow taps are not wired through tapLine()')
     if 'function layoutArrows(' not in code_only:
         problems.append('arrows are no longer re-positioned every frame (layoutArrows)')
+    # ---- v0.6.0 the region panel: F3 -> dump + /region -> dialog with a per-processor button
+    if 'function buildRegionTable(' not in code_only or 'function showRegionPanel(' not in code_only:
+        problems.append('the region panel is gone (buildRegionTable / showRegionPanel)')
+    if 'function buildAt(' not in code_only or 'showAiPanel(b);' not in code_only:
+        problems.append('the region panel no longer hands a processor to the AI panel')
+    if 'labelWrap(String(candText))' not in code_only:
+        problems.append('the region panel lost its scrollable candidate text (labelWrap)')
+    if 'function showAiPanel(target)' not in code_only:
+        problems.append('showAiPanel() no longer accepts an explicit target build')
 
     if problems:
         print('FAIL ' + '; '.join(problems))

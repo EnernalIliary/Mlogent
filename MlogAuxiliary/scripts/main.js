@@ -28,7 +28,7 @@
 function __logicWriterMain(){
     "use strict";
 
-    var MOD_VERSION = "0.5.0";
+    var MOD_VERSION = "0.6.0";
     var URL_KEY     = "mlogauxiliary-url";
     var DEFAULT_URL = "http://127.0.0.1:8765";
     var KEY_PANEL   = ["f4"];      // F4：开面板（F1/F5/F6/F8/F11/F12 与 F9/F10 已被占用）
@@ -224,6 +224,28 @@ function __logicWriterMain(){
         kv(t, "", "F4 = AI 辅助编程（描述意图 -> 生成 -> 预检 -> 写入）；原版逻辑编辑器底部会多一条「审查」状态栏。地址改完按回车保存。sidecar 不开也能进游戏，只是生成与模板不可用。", mk);
     }
 
+    // 区域面板的布线（v0.6.0）：框选松手之后不再只弹一段纯文本，而是把「区域摘要 +
+    // 每个处理器的链接候选」放进可滚动的对话框，并且每个处理器给一个「生成」按钮。
+    // 这里只碰 table 的接口、不碰引擎类，所以能像设置页一样用假表在无 UI 环境里数行数。
+    function buildRegionTable(t, snap, head, candText, pick){
+        t.add(String(head)).left().row();
+        t.labelWrap(String(candText)).left().growX().row();
+        var ps = (snap && snap.processors) || [], i;
+        if(ps.length === 0){
+            t.add("（区域里没有处理器）").left().row();
+        }
+        for(i = 0; i < ps.length && i < 8; i++){
+            (function(p){
+                t.button("用 @" + p.x + "," + p.y + " 生成", function(){ pick(p.x, p.y); })
+                 .width(240).left().row();
+            })(ps[i]);
+        }
+        if(ps.length > 8){
+            t.add("…还有 " + (ps.length - 8) + " 个处理器").left().row();
+        }
+        return t;
+    }
+
     // 无 UI 环境下也能验证设置表格的布线：喂一张假表，数它被填了多少行/格。
     // 假表只实现真实页面用到的方法 —— 少实现一个，selfTest 立刻炸；
     // 同时把用到的名字记下来，供 run_ui_smoke 去真引擎里复核「有没有重载歧义」。
@@ -273,8 +295,13 @@ function __logicWriterMain(){
         var ft = fakeTable();
         try{ buildSettingsTable(ft.table, function(){ return ft.table; }); }
         catch(e){ return "设置表格布线失败：" + e; }
-        return "设置表格可建，填了 " + ft.count() + " 行/格；诊断 " + diagLines().length
-               + " 行；用到的方法 " + ft.methods();
+        var rg = fakeTable();
+        var fakeSnap = {processors: [{x: 1, y: 2, block: "micro-processor", links: []},
+                                     {x: 5, y: 6, block: "micro-processor", links: []}]};
+        try{ buildRegionTable(rg.table, fakeSnap, "区域 0,0 - 9,9 方块 4 处理器 2", "候选文本", function(){}); }
+        catch(e){ return "区域表格布线失败：" + e; }
+        return "设置表格可建，填了 " + ft.count() + " 行/格；区域表格 " + rg.count()
+               + " 行；诊断 " + diagLines().length + " 行；用到的方法 " + ft.methods();
     }
 
     // 设置分类的图标用原版逻辑徽标（图标字体里的 glyph，和 @editor.worldprocessors 那个按钮同一个）。
@@ -1016,9 +1043,10 @@ function __logicWriterMain(){
             d.buttons.button("关闭", function(){ d.hide(); }).width(140);
         }
 
-        function showAiPanel(){
+        // target 可选：区域面板里点「生成」时直接指定那个处理器，不必再把鼠标移过去。
+        function showAiPanel(target){
             if(aiShown()){ try{ aiPanel.toFront(); return; }catch(e){ /* ignore */ } }
-            var b = targetBuild();
+            var b = (target === undefined || target === null) ? targetBuild() : target;
             var d = new Packages.arc.scene.ui.Dialog("Mlog辅助 · AI 辅助编程 v" + MOD_VERSION);
             d.cont.defaults().pad(4).left();
             d.cont.add("目标：" + describe(b)).row();
@@ -1046,6 +1074,47 @@ function __logicWriterMain(){
             d.closeOnBack();
             d.show();
             aiPanel = d;
+        }
+
+        // ---------------------------------------------------------- 区域面板（v0.6.0）
+        // F3 松手之后：先落盘快照，再要 /region 的链接候选，最后开这个面板。
+        // 面板里的「生成」按钮带着该处理器的引用直接开 F4 的面板（showAiPanel(target)），
+        // 省掉「先把鼠标移到那个处理器上」这一步。
+        function buildAt(x, y){
+            var t = Vars.world.tile(x, y);
+            if(t === null || t === undefined){ return null; }
+            var b = t.build;                    // 字段，不是方法（t.build() 会报错）
+            if(b === null || b === undefined){ return null; }
+            return b;
+        }
+
+        function showRegionPanel(snap, head, candText){
+            var d = new Packages.arc.scene.ui.Dialog("Mlog辅助 · 区域 v" + MOD_VERSION);
+            d.cont.defaults().pad(4).left();
+            // 同 showAiPanel：pane() 交回来的是 ScrollPane（没有 add），所以自己造 host 给它托管。
+            var host = new Packages.arc.scene.ui.layout.Table();
+            host.defaults().pad(2).left();
+            buildRegionTable(host, snap, head, candText, function(x, y){
+                var b = buildAt(x, y);
+                if(b === null){ hint("@" + x + "," + y + " 上已经没有处理器了"); return; }
+                try{ d.hide(); }catch(e){ }
+                showAiPanel(b);
+            });
+            try{
+                d.cont.pane(host).height(320).width(620);
+            }catch(e){
+                log("pane() overload unavailable in the region panel: " + e);
+                d.cont.add(host).growX();
+            }
+            d.buttons.defaults().pad(4);
+            d.buttons.button("复制快照 JSON", function(){
+                try{ Core.app.setClipboardText(JSON.stringify(snap)); hint("快照 JSON 已复制"); }
+                catch(e){ hint("复制失败：" + e); }
+            }).width(180);
+            d.buttons.button("关闭", function(){ d.hide(); }).width(140);
+            d.closeOnBack();
+            d.show();
+            return d;
         }
 
         // ---------------------------------------------------------- 动作
@@ -1567,18 +1636,25 @@ function __logicWriterMain(){
                 // 无头引擎（自检/测试）既没有界面也没有 sidecar：只把摘要交回去，不发请求。
                 return head;
             }
+            // 两次请求串起来（都是本机回环，几十毫秒）：先落盘，再要链接候选，最后开面板。
+            // 顺序有意义：面板要同时显示「落盘到哪」和「候选链接」，缺一条就得等第二次回调。
             try{
                 httpJson("POST", "/snapshot", JSON.stringify({snapshot: snap}), function(code, text){
                     var res = parse(text);
-                    var line;
-                    if(code === "200" && res !== null && res.ok === true){
-                        line = "已落盘 " + res.path + "（" + res.bytes + " B）";
-                    }else{
-                        line = "没能落盘：" + httpWhy(code, text);
-                    }
-                    popup("Mlog辅助 · 区域快照", head + "\n\n" + line);
+                    var line = (code === "200" && res !== null && res.ok === true)
+                        ? "已落盘 " + res.path + "（" + res.bytes + " B）"
+                        : "没能落盘：" + httpWhy(code, text);
+                    httpJson("POST", "/region", JSON.stringify({snapshot: snap}), function(c2, t2){
+                        var body = head + "\n" + line;
+                        try{
+                            showRegionPanel(snap, body, regionCandidatesText(c2 + "\n" + t2));
+                        }catch(e){
+                            log("region panel failed, falling back to text: " + e);
+                            popup("Mlog辅助 · 区域快照", body + "\n\n" + regionCandidatesText(c2 + "\n" + t2));
+                        }
+                    });
                 });
-                return head + "\n（落盘结果稍后弹窗）";
+                return head + "\n（面板稍后弹出）";
             }catch(e){
                 popup("Mlog辅助 · 区域快照", head + "\n\n没能落盘：" + e);
                 return head + "\n（落盘失败：" + e + "）";
