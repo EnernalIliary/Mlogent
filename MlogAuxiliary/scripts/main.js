@@ -28,7 +28,7 @@
 function __logicWriterMain(){
     "use strict";
 
-    var MOD_VERSION = "0.4.0";
+    var MOD_VERSION = "0.4.1";
     var URL_KEY     = "mlogauxiliary-url";
     var DEFAULT_URL = "http://127.0.0.1:8765";
     var KEY_PANEL   = ["f4"];      // F4：开面板（F1/F5/F6/F8/F11/F12 与 F9/F10 已被占用）
@@ -130,16 +130,48 @@ function __logicWriterMain(){
     // 只用真引擎复核过的 Table / Cell 形状（tests/mlogauxiliary/run_ui_smoke.py）：
     // 一律平铺成「键 值 + 按钮」，绝不 t.table(fn)（v160.7 Rhino 里重载歧义），
     // 也不 t.scrollPane(fn) / t.textarea(fn)（Table 上根本没有这两个方法）。
-    var LABEL_W = 92, VALUE_W = 430;
+    // 原版风格的排版素材。分段标题 + 3px 强调线：BaseDialog 的标题就是这么画的
+    //   titleTable.image(Tex.whiteui, Pal.accent).growX().height(3f)   BaseDialog.java:25
+    // 行用灰底 Styles.grayPanel：原版 CheckSetting 用的同一个 Drawable（SettingsMenuDialog.java:825-827），
+    // 行宽/内边距也照它（minWidth 500、padTop 7 -> 这里 540 / 5，给中文留点余量）。
+    var LABEL_W = 128, VALUE_W = 390, ROW_W = 540;
+
+    // 造一行灰底容器。Styles/Tex 在无头环境里可能还没初始化（静态字段要 atlas），
+    // 所以一律 try：拿不到就用无背景的 Table，功能一样，只是不好看。
+    function realRow(){
+        try{ return new Packages.arc.scene.ui.layout.Table(Packages.mindustry.ui.Styles.grayPanel); }
+        catch(e){ return new Packages.arc.scene.ui.layout.Table(); }
+    }
 
     function section(t, title){
-        t.add("── " + title + " ──────────────").colspan(2).left().padTop(10).padBottom(2).row();
+        t.add(title).color(Pal.accent).left().padTop(12).padBottom(2).row();
+        try{
+            t.image(Packages.mindustry.gen.Tex.whiteui, Pal.accent).growX().height(3).padTop(2).padBottom(4).row();
+        }catch(e){
+            t.add("").height(4).row();
+        }
     }
 
-    function kv(t, k, v){
-        t.add(k).width(LABEL_W).right().padRight(8);
-        t.labelWrap(v).width(VALUE_W).left().row();
+    // mk 是行工厂：真机用 realRow()，selfTest 喂假表（无 UI 时真 Table 的 labelWrap 会 NPE）。
+    function kv(t, k, v, mk){
+        mk = mk || realRow;
+        var row = mk();
+        row.margin(8).left();
+        if(k.length > 0){ row.add(k).width(LABEL_W).left().color(Pal.gray); }
+        row.labelWrap(String(v)).width(VALUE_W).left();
+        t.add(row).width(ROW_W).left().padTop(5).row();
     }
+
+    function buttonRow(t, labels, handlers, mk){
+        mk = mk || realRow;
+        var row = mk();
+        row.margin(6).left();
+        for(var i = 0; i < labels.length; i++){
+            row.button(labels[i], handlers[i]).height(38).padRight(6);
+        }
+        t.add(row).width(ROW_W).left().padTop(5).row();
+    }
+
     function copyDiag(){
         try{
             Core.app.setClipboardText(diagText());
@@ -147,74 +179,84 @@ function __logicWriterMain(){
         }catch(e){ log("clipboard failed: " + e); }
     }
 
-    function buildSettingsTable(t){
+    function buildSettingsTable(t, mk){
+        mk = mk || realRow;
         t.defaults().pad(3).left();
-        kv(t, "", "Mlog辅助 " + MOD_VERSION + " · 把意图变成 mlog 写进处理器；写入走原版 config 通道，联机时由服务端执行");
+        kv(t, "", "Mlog辅助 " + MOD_VERSION + " · 说意图 -> 生成 mlog -> 预检 -> 写进处理器；写入走原版 config 通道，联机由服务端执行", mk);
         var parts = diagParts(), i;
         section(t, "运行环境");
         for(i = 0; i < parts.length; i++){
-            if(parts[i].k !== "快检模块" && parts[i].k !== "sidecar"){ kv(t, parts[i].k, parts[i].v); }
+            if(parts[i].k !== "快检模块" && parts[i].k !== "sidecar"){ kv(t, parts[i].k, parts[i].v, mk); }
         }
         section(t, "本地快检（离线也能用）");
         for(i = 0; i < parts.length; i++){
-            if(parts[i].k === "快检模块"){ kv(t, parts[i].k, parts[i].v); }
+            if(parts[i].k === "快检模块"){ kv(t, parts[i].k, parts[i].v, mk); }
         }
-        section(t, "sidecar（本机进程，关掉也不影响进游戏）");
-        t.add("地址").width(LABEL_W).right().padRight(8);
-        t.field(base, function(v){
+        section(t, "sidecar");
+        var srow = mk();
+        srow.margin(8).left();
+        srow.add("地址").width(LABEL_W).left().color(Pal.gray);
+        srow.field(base, function(v){
             var s = String(v);
             if(s.length > 0){ base = s; Core.settings.put(URL_KEY, s); log("sidecar = " + s); }
-        }).width(300).left().row();
-        t.add("操作").width(LABEL_W).right().padRight(8);
-        t.button("连接测试", function(){ probeSidecar(); }).width(110);
-        t.button("复制诊断", function(){ copyDiag(); }).width(110).row();
+        }).width(300).left();
+        t.add(srow).width(ROW_W).left().padTop(5).row();
+        buttonRow(t, ["连接测试", "复制诊断"], [
+            function(){ probeSidecar(); },
+            function(){ copyDiag(); }
+        ], mk);
         section(t, "快捷动作");
-        t.add("").width(LABEL_W);
-        t.button("AI 辅助编程", function(){ showAiPanel(); }).width(130);
-        t.button("模板面板", function(){ openPanel(); }).width(110).row();
-        t.add("").width(LABEL_W);
-        t.button("快检鼠标下的处理器", function(){ quickAimed(); }).width(190);
-        t.button("打印诊断", function(){
-            print("[mai] --- diag ---");
-            print(diagText());
-        }).width(110).row();
-        t.add("").width(LABEL_W);
-        t.button("重新注册分类", function(){ settingsDone = false; registerSettings(); }).width(150);
-        t.button("审查状态", function(){ showReview(); }).width(110).row();
+        buttonRow(t, ["AI 辅助编程", "模板面板"], [
+            function(){ showAiPanel(); },
+            function(){ openPanel(); }
+        ], mk);
+        buttonRow(t, ["快检鼠标下的处理器", "打印诊断"], [
+            function(){ quickAimed(); },
+            function(){ print("[mai] --- diag ---"); print(diagText()); }
+        ], mk);
+        buttonRow(t, ["重新注册分类", "审查状态"], [
+            function(){ settingsDone = false; registerSettings(); },
+            function(){ showReview(); }
+        ], mk);
         section(t, "说明");
-        kv(t, "", "F4 = AI 辅助编程（描述意图 → 生成 → 预检 → 写入）；原版逻辑编辑器底部会多一条「审查」状态栏。"
-                  + "地址改完按回车保存。sidecar 不开也能进游戏，只是生成与模板不可用。");
+        kv(t, "", "F4 = AI 辅助编程（描述意图 -> 生成 -> 预检 -> 写入）；原版逻辑编辑器底部会多一条「审查」状态栏。地址改完按回车保存。sidecar 不开也能进游戏，只是生成与模板不可用。", mk);
     }
-
 
     // 无 UI 环境下也能验证设置表格的布线：喂一张假表，数它被填了多少行/格。
     // 假表只实现真实页面用到的方法 —— 少实现一个，selfTest 立刻炸；
     // 同时把用到的名字记下来，供 run_ui_smoke 去真引擎里复核「有没有重载歧义」。
+    // 假表：无 UI 环境里真 Table 的 labelWrap/field 会 NPE（scene.getStyle 需要 skin），
+    // 所以 selfTest 用这个骨架跑一遍布线。它同时记下「用到了哪些 Table/Cell 方法」，
+    // 测试再把这些名字拿到真引擎里逐个解析 —— 重载歧义只有在真引擎里才暴露得出来。
+    // 一个对象同时当「表」和「格子」用：所有方法都返回自己，链式调用就一条路。
     function fakeTable(){
         var n = 0;
         var used = [];
         function hit(m){ used.push(m); }
-        var cell = {
-            pad: function(){ hit("pad"); return cell; },
-            padTop: function(){ hit("padTop"); return cell; },
-            padBottom: function(){ hit("padBottom"); return cell; },
-            padRight: function(){ hit("padRight"); return cell; },
-            left: function(){ hit("left"); return cell; },
-            right: function(){ hit("right"); return cell; },
-            width: function(){ hit("width"); return cell; },
-            colspan: function(){ hit("colspan"); return cell; },
-            row: function(){ n++; hit("row"); return cell; }
+        var node = {
+            pad: function(){ hit("pad"); return node; },
+            padTop: function(){ hit("padTop"); return node; },
+            padBottom: function(){ hit("padBottom"); return node; },
+            padRight: function(){ hit("padRight"); return node; },
+            left: function(){ hit("left"); return node; },
+            right: function(){ hit("right"); return node; },
+            width: function(){ hit("width"); return node; },
+            height: function(){ hit("height"); return node; },
+            growX: function(){ hit("growX"); return node; },
+            color: function(){ hit("color"); return node; },
+            colspan: function(){ hit("colspan"); return node; },
+            margin: function(){ hit("margin"); return node; },
+            defaults: function(){ hit("defaults"); return node; },
+            row: function(){ n++; hit("row"); return node; },
+            clear: function(){ hit("clear"); return node; },
+            add: function(){ n++; hit("add"); return node; },
+            image: function(){ n++; hit("image"); return node; },
+            label: function(){ n++; hit("label"); return node; },
+            labelWrap: function(){ n++; hit("labelWrap"); return node; },
+            field: function(v, f){ n++; hit("field"); return node; },
+            button: function(s, f){ n++; hit("button"); return node; }
         };
-        var t = {
-            defaults: function(){ hit("defaults"); return cell; },
-            add: function(){ n++; hit("add"); return cell; },
-            labelWrap: function(){ n++; hit("labelWrap"); return cell; },
-            label: function(){ n++; hit("label"); return cell; },
-            field: function(v, f){ n++; hit("field"); return cell; },
-            button: function(s, f){ n++; hit("button"); return cell; },
-            row: function(){ n++; hit("row"); return cell; }
-        };
-        return {table: t, count: function(){ return n; },
+        return {table: node, count: function(){ return n; },
                 methods: function(){
                     var out = [], seen = {};
                     for(var i = 0; i < used.length; i++){
@@ -227,7 +269,7 @@ function __logicWriterMain(){
 
     function selfTest(){
         var ft = fakeTable();
-        try{ buildSettingsTable(ft.table); }
+        try{ buildSettingsTable(ft.table, function(){ return ft.table; }); }
         catch(e){ return "设置表格布线失败：" + e; }
         return "设置表格可建，填了 " + ft.count() + " 行/格；诊断 " + diagLines().length
                + " 行；用到的方法 " + ft.methods();
@@ -472,10 +514,19 @@ function __logicWriterMain(){
             }
             if(qlines.length > qmax){ d.cont.add("  … 共 " + qlines.length + " 条（控制台 maiCheck() 看全）").left().row(); }
             d.cont.add("").row();
-            var pane = d.cont.pane(function(t){
-                t.defaults().pad(2).left();
-                t.add("正在读取模板…").row();
-            }).height(300).width(520).get();
+            // pane() 交回来的是 ScrollPane，不是 Table —— ScrollPane 上没有 add/clear/button。
+            // 所以自己造一张 Table 交给 pane(Element) 托管，之后只往这张 Table 里加东西。
+            // 这一条是 v0.4.0 点「生成」直接崩的根因（mlog-auxiliary/main.js:685，
+            // TypeError: Cannot find function add in object ScrollPane）。
+            var host = new Packages.arc.scene.ui.layout.Table();
+            host.defaults().pad(2).left();
+            host.add("正在读取模板…").row();
+            try{
+                d.cont.pane(host).height(300).width(520);
+            }catch(e){
+                log("pane() overload unavailable, falling back to a plain table: " + e);
+                d.cont.add(host).growX();
+            }
             d.buttons.defaults().pad(4);
             d.buttons.button("关闭", function(){ d.hide(); }).width(200);
             d.closeOnBack();
@@ -485,22 +536,22 @@ function __logicWriterMain(){
             httpJson("GET", "/capabilities", null, function(code, text){
                 var cap = parse(text);
                 if(code !== 200 || !cap || cap.ok !== true){
-                    pane.clear();
-                    pane.add("离线：sidecar 没响应（" + code + "）").row();
-                    pane.add("先在本机跑：python tools/logicd.py").row();
+                    host.clear();
+                    host.add("离线：sidecar 没响应（" + code + "）").row();
+                    host.add("先在本机跑：python tools/logicd.py").row();
                     return;
                 }
-                pane.clear();
-                pane.add("模板（点击 = 生成 + 预检）").row();
+                host.clear();
+                host.add("模板（点击 = 生成 + 预检）").row();
                 for(var i = 0; i < cap.templates.length; i++){
                     (function(tmpl){
-                        pane.button(tmpl.title, function(){
+                        host.button(tmpl.title, function(){
                             d.hide();
                             compose(tmpl.id, {}, b);
                         }).width(500).row();
                     })(cap.templates[i]);
                 }
-                pane.add("ipt 上限 " + cap.limits.ipt_max
+                host.add("ipt 上限 " + cap.limits.ipt_max
                        + "，链接半径 " + cap.limits.link_range_tiles + " 格").row();
             });
         }
@@ -642,16 +693,23 @@ function __logicWriterMain(){
             out.clear();
             if(!res || res.ok !== true){
                 out.add("没能生成：" + (res && res.reason ? res.reason : "sidecar 没给理由")).row();
-                if(res && res.templates){ out.add("可用模板：" + res.templates.join(" / ")).row(); }
+                var cand = res && res.candidates ? res.candidates : (res && res.templates ? res.templates : null);
+                if(cand !== null){
+                    var names = [];
+                    for(var i = 0; i < cand.length; i++){
+                        names.push(cand[i].title ? String(cand[i].title) : String(cand[i].id));
+                    }
+                    out.add("可用模板：" + names.join(" / ")).row();
+                }
                 return;
             }
             out.add("模板 " + res.template + " —— " + res.reason).row();
             var c = reviewCount(res);
             out.add(c.total === 0 ? "预检：通过（0 条）"
                     : ("预检：ERR " + c.err + " / WARN " + c.warn + " / INFO " + c.info)).row();
-            var ls = res.findings;
-            for(var i = 0; i < ls.length && i < 6; i++){
-                out.add("  " + ls[i].sev + " L" + ls[i].line + " " + ls[i].msg).row();
+            var ls = res.findings ? res.findings : [];
+            for(var i2 = 0; i2 < ls.length && i2 < 6; i2++){
+                out.add("  " + ls[i2].sev + " L" + ls[i2].line + " " + ls[i2].msg).row();
             }
             out.add("--- 代码（" + res.statements + " 条语句，" + res.bytes_len + " 字节）---").row();
             var code = String(res.code).split("\n");
@@ -674,16 +732,22 @@ function __logicWriterMain(){
             d.cont.add("描述这段逻辑要做什么，然后点「生成」：").padTop(6).row();
             var intent = "";
             d.cont.field("", function(v){ intent = String(v); }).width(560).row();
-            d.cont.add("例：巡逻，遇到敌人就开火 / 20% 物品以下给核心补货 / 每 2 秒打印一次计数").row();
-            var out = d.cont.pane(function(t){
-                t.defaults().pad(2).left();
-                t.add("（还没生成）").row();
-            }).height(300).width(580).get();
+            d.cont.add("例：巡逻，遇到敌人就开火 / 容器里铜够 250 就打印 / 每 2 秒打印一次计数").row();
+            // 同 openPanel：pane() 给的是 ScrollPane，必须自己造 Table 交给它托管。
+            var host = new Packages.arc.scene.ui.layout.Table();
+            host.defaults().pad(2).left();
+            host.add("（还没生成）").row();
+            try{
+                d.cont.pane(host).height(300).width(600);
+            }catch(e){
+                log("pane() overload unavailable, falling back to a plain table: " + e);
+                d.cont.add(host).growX();
+            }
             d.buttons.defaults().pad(4);
             d.buttons.button("生成", function(){
-                out.clear();
-                out.add("正在请求 sidecar…").row();
-                plan(intent, b, function(res){ renderPlan(out, res, b, d); });
+                host.clear();
+                host.add("正在请求 sidecar…").row();
+                plan(intent, b, function(res){ renderPlan(host, res, b, d); });
             }).width(140);
             d.buttons.button("关闭", function(){ d.hide(); }).width(140);
             d.closeOnBack();

@@ -124,6 +124,9 @@ def main():
         'right': "t.add('x').right();",
         'clear': 't.clear();',
         'color': "t.add('x').color(Packages.arc.graphics.Color.white);",
+        'margin': 't.margin(8);',
+        'growX': "t.add('x').growX();",
+        'height': "t.add('x').height(40);",
     }
     missing = [m for m in used if m not in SHELL]
     probe = [
@@ -142,6 +145,13 @@ def main():
                          " out.push('%s=' + r); })();" % (SHELL[m], m))
     # the console only echoes a trailing array literal without printing 'undefined',
     # and Server.js waits for that marker -- so print explicitly and end with void 0
+    # v0.4.1: Table.pane() hands back Cell<ScrollPane>, and Group has no public add()
+    # (Arc-Source/arc-core/src/arc/scene/Group.java -- addChild(Element) is the real API).
+    # That is exactly why v0.4.0 crashed on out.add() while out.clear() worked.
+    probe.append("(function(){ var sp;"
+                 " try { sp = new Packages.arc.scene.ui.ScrollPane(new T()); }"
+                 " catch(e){ sp = null; }"
+                 " out.push('ScrollPaneHasAdd=' + ((sp !== null && typeof sp.add === 'function') ? 'YES' : 'NO')); })();")
     probe.append("print('MAISHAPES: ' + out.join(' '));")
     probe.append("void 0;")
     shapes = {}
@@ -191,6 +201,16 @@ def main():
     if 'Vars.ui.logic' not in code_only or 'canvas.save()' not in code_only:
         problems.append('the review bar is not wired to the vanilla logic editor '
                         '(Vars.ui.logic / canvas.save) -- m08924 asked for that review')
+    # v0.4.1 crash: Table.pane(cons) gives you a ScrollPane, which has no add().
+    # Hand pane() a real Table instead -- that is what host = new Table() is for.
+    if re.search('[.]pane[(][ ]*function', code_only):
+        problems.append('main.js passes a builder to pane() -- that returns a ScrollPane, '
+                        'not a Table; build a Table and hand it to pane(host)')
+    if re.search('[.]pane[(][^;\n]*[.]get[(][)]', code_only):
+        problems.append('pane(...).get() is a ScrollPane, not a Table (v0.4.0 crashed on it)')
+    if shapes.get('ScrollPaneHasAdd', 'NO') == 'YES':
+        problems.append('this engine DOES give ScrollPane an add() -- the v0.4.1 workaround '
+                        'may be unnecessary, re-check')
     if 'toggleAiPanel();' not in code_only:
         problems.append('F4 does not open the AI panel (toggleAiPanel) -- m08925 asked for that')
 

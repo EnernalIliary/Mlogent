@@ -1,4 +1,4 @@
-# MlogAuxiliary —— 游戏内Mlog辅助（P1 + P2 + 设置界面 + AI 面板，v0.4.0）
+# MlogAuxiliary —— 游戏内Mlog辅助（P1 + P2 + 设置界面 + AI 面板，v0.4.1）
 
 把「写 mlog」这件事从玩家手里拿走：**说意图，不写代码**。
 
@@ -121,7 +121,33 @@ v0.4 把这一页按用途分段（`── 运行环境 ──` 这样的标题�
 身上 `row()` 之后 `add(bar).growX()`。`LogicDialog` 的构造里 `clearChildren()` 之后只有
 `add(canvas).grow()` / `row()` / `add(buttons).growX()` 三样（`LogicDialog.java:39-72`），
 所以这一行是它的第四行，原版按钮一个都不动。
+## v0.4.1：修掉「点生成就崩」+ 设置页按原版风格分隔
+
+**崩溃根因（真机日志定的）**：v0.4.0 用 `d.cont.pane(function(t){...}).get()` 当结果区，但 `Table.pane(Cons)`
+返回 `Cell<ScrollPane>`（Arc `Table.java:295/311`），`.get()` 拿到的是 ScrollPane。弹窗能开，一点「生成」就：
+
+```
+rhino.EcmaError: TypeError: Cannot find function add in object ScrollPane. (main.js#685)
+```
+
+因为 Group 有 `clear()`（`Group.java:357`）却没有公开的 `add`（真正的 API 是 `addChild(Element)`，`Group.java:251`），
+`out.clear()` 过得去、`out.add(...)` 当场抛错，而模态窗口又没有关闭按钮（`Dialog.addCloseButton()` 是空实现，
+`Dialog.java:453-455`），于是一路打到崩溃上报。
+
+修法：结果区自己造一张 `new Table()` 交给 `pane(host)` 托管（Element 重载），之后只往 host 里加东西；
+`pane()` 不可用时回落成 `d.cont.add(host).growX()`。AI 面板与模板面板两处都改了。
+
+**设置页改成原版的样子**：不再手画「── 标题 ──」，改用原版自己的两样东西 —— 分段标题下一条 accent 强调线
+（`titleImage = titleTable.image(Tex.whiteui, Pal.accent).growX().height(3f)`，`BaseDialog.java:25`），以及灰底行
+（`Styles.grayPanel`，原版设置项 `CheckSetting` 用的同一个 Drawable，`SettingsMenuDialog.java:824-846`）。
+行宽 540、内边距 8/5 也照它取。
+
+`pane()` 这个坑现在有三道闸：`run_ui_smoke.py` 在真引擎里断言 ScrollPane 上没有 `add`；源码级禁止
+`.pane(function` 与 `.pane(...).get()`；页面上每个 Table/Cell 方法名仍然逐个拿到真引擎里解析
+（`margin` / `growX` / `height` / `color` / `image` 是这一版新用到的五个）。
+
 ## 接口契约（sidecar v1）
+
 
 | 方法 | 路径 | 请求 | 响应 |
 | --- | --- | --- | --- |

@@ -173,7 +173,7 @@ node 用的是 V8，14 个用例全绿也照样带着这个 bug 进游戏，所�
 模组自己的调试入口不再是控制台命令，而是**设置 → Mlog辅助**一栏（`Vars.ui.settings.addCategory`，
 `SettingsMenuDialog.java:329-330`；分类只在显示设置菜单时 rebuild，所以脚本加载时机不影响它出现）。
 这一栏直接列出：版本 / 游戏构建 / 快检模块是否加载（指令、op 版本门、链接槽各几条）/ sidecar 地址与上次探测结果 / 
-**数据目录与 mods 目录**，并给出「连接测试」「打开面板」「快检鼠标下的处理器」「打印诊断到控制台」四个按钮。
+**数据目录与 mods 目录**，并给出「连接测试」「复制诊断」「AI 辅助编程」「模板面板」「快检鼠标下的处理器」「打印诊断」「重新注册分类」「审查状态」几组按钮。
 控制台还留了退路：`maiDiag()` / `maiSelfTest()`。
 
 **为什么需要第 5 条测试**：无头模拟器里 `Vars.ui` 是 null（`Vars.java:209/332`），真界面没法验，
@@ -189,6 +189,12 @@ node 用的是 V8，14 个用例全绿也照样带着这个 bug 进游戏，所�
 skin 为 null）。`run_ui_smoke.py` 也因此多了一道探针：`maiSelfTest()` 报出**页面实际用到的 Table/Cell 方法名**，
 测试拿这些名字去真引擎里逐个调用，`ambiguous` / `Cannot find function` 一律 FAIL；同时源码级拦
 `.table(function)` / `.scrollPane(function)`。改设置页布局先跑这条测试。
+
+**第三个坑是 `pane()` 交回来的不是 Table**（v0.4.1 修掉）：`Table.pane(Cons<Table>)` 返回 `Cell<ScrollPane>`
+（Arc `Table.java:295/311`），把 `.get()` 的返回值当表用，点按钮时就是 `TypeError: Cannot find function add in
+object ScrollPane` —— 而且 `clear()` 还在（`Group.java:357` 有 clear，add 是 `addChild(Element)`，`Group.java:251`），
+所以崩在第二句。正确写法：自己造 `new Table()` 交给 `pane(host)`（Element 重载）托管，之后只往 host 里加东西；
+`run_ui_smoke.py` 现在会在真引擎里断言 ScrollPane 上没有 `add`，源码级拦 `.pane(function` 与 `.pane(...).get()`。
 
 五条判据：未知指令 / 子命令拼错（整行变 NoopI）/ 版本门（`min_build` 大于当前 build）/
 链接名未绑定 / 语句数超 1000。**它只许少报，不许瞎报**：测试里用 `mlogcheck.analyse()`
