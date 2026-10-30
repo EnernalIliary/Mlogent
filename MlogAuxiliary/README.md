@@ -355,6 +355,24 @@ Arc 的 `Table.cells` 是私有字段（`arc/scene/ui/layout/Table.java:35`）�
 
 真引擎对照探针（`out/_v47_probe.py`）：放处理器、用 `msch.build_logic_data` 写带两条链接的载荷，读回 `links.size=2`，把真链接名喂 `quickcheck.check` ⇒ 零命中；喂空数组 ⇒ 第 1、3 行各一条 WARN。所以快检逻辑本身没错，错的是喂进去的东西。
 
+## v0.4.9：修掉 F3 的两个手感 bug
+
+v0.4.8 装进游戏后用户立刻报了两条，都是真 bug：
+
+1. **按 F3 弹出提示框，结果拖不动。** 提示用的是 `showText`（Dialog），而 Dialog 会吃掉鼠标
+   （`Core.scene.hasDialog()` 为真，世界收不到点击），于是「就绪提示」本身把框选废了。
+   现在改成 `showInfoFade`（`Mindustry-Source/core/src/mindustry/core/UI.java:373`，
+   `Touchable.disabled` 的淡出标签，不挡输入），而且**按 F3 只置就绪、什么都不弹**。
+2. **预览框的中心落在指针上。** `Draw.rect(region, x, y, w, h)` 的 x,y 是**中心**不是左上角
+   （`Arc-Source/arc-core/src/arc/graphics/g2d/Draw.java:378`：`batch.draw(region, x - w/2f, y - h/2f, …)`），
+   v0.4.8 传的是角点，框就被画到指针的左上。现在传 `(x1 + w/2) * 8` 这样的中心坐标。
+
+顺手改了一处语义：**拖拽起点取「按下左键的那一格」**，不是按 F3 的位置 —— 否则按完 F3
+鼠标还没动就已经有一个框，松手就是 1×1 的「以指针为中心」的小方块。只点一下不拖会提示
+「没有拖动」，不再落盘。
+
+控制台新增拖拽状态机的测试钩子：`maiSelState()`、`maiSelPress(x,y)`、`maiSelMove(x,y)`、
+`maiSelRelease()`、`maiSelDraw(x1,y1,x2,y2)`；断言见 L2-37。
 ## v0.4.8：F3 拖拽框选 —— 框选矩形终于能自己画，快照直接落盘
 
 规划里 F7 一直是「框选矩形」（`docs/Mlog辅助-规划.md:99`），但 v0.4.2 只落地了只读的一半：

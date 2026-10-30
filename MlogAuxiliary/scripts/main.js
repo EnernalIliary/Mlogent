@@ -28,7 +28,7 @@
 function __logicWriterMain(){
     "use strict";
 
-    var MOD_VERSION = "0.4.8";
+    var MOD_VERSION = "0.4.9";
     var URL_KEY     = "mlogauxiliary-url";
     var DEFAULT_URL = "http://127.0.0.1:8765";
     var KEY_PANEL   = ["f4"];      // F4：开面板（F1/F5/F6/F8/F11/F12 与 F9/F10 已被占用）
@@ -1450,14 +1450,44 @@ function __logicWriterMain(){
             return {x1: x1, y1: y1, x2: x2, y2: y2, w: x2 - x1 + 1, h: y2 - y1 + 1};
         }
 
+        // 拖拽状态机（纯函数，控制台/自检都能直接驱动）：按 F3 只是「就绪」，
+        // 起点是**按下左键的那一刻**那一格，不是按 F3 的位置。
+        function selArm(){ selArmed = true; selDragging = false; }
+        function selCancel(){ selArmed = false; selDragging = false; }
+        function selPress(x, y){
+            if(!selArmed){ return false; }
+            selDragging = true;
+            selStartX = x; selStartY = y; selCurX = x; selCurY = y;
+            return true;
+        }
+        function selMove(x, y){
+            if(!selDragging){ return false; }
+            selCurX = x; selCurY = y;
+            return true;
+        }
+        function selBox(){ return selRect(selStartX, selStartY, selCurX, selCurY); }
+        function selRelease(){
+            if(!selDragging){ return null; }
+            var r = selBox();
+            selCancel();
+            return r;
+        }
+
+        // 高亮矩形的绘制参数。**Draw.rect(region,x,y,w,h) 的 x,y 是中心**，不是左上角：
+        // Arc-Source/arc-core/src/arc/graphics/g2d/Draw.java:378 是 `batch.draw(region, x - w/2f, y - h/2f, ...)`。
+        // 传左上角会把方框画到指针的左上、看着像「预览区中心在指针上」—— v0.4.8 第一版就是这么错的。
+        function selDrawArgs(r){
+            return {x: (r.x1 + r.w / 2) * 8, y: (r.y1 + r.h / 2) * 8, w: r.w * 8, h: r.h * 8};
+        }
+
         function drawSelection(){
             if(!selDragging){ return; }
-            var r = selRect(selStartX, selStartY, selCurX, selCurY);
+            var r = selBox(), a = selDrawArgs(r);
             try{
                 var D = Packages.arc.graphics.g2d.Draw;
                 D.color(Pal.accent);
                 D.alpha(0.35);
-                D.rect(Packages.mindustry.gen.Tex.whiteui, r.x1 * 8, r.y1 * 8, r.w * 8, r.h * 8);
+                D.rect(Packages.mindustry.gen.Tex.whiteui, a.x, a.y, a.w, a.h);
                 D.alpha(1);
                 D.color();
             }catch(e){ /* 画不出来不影响选择本身 */ }
@@ -1481,6 +1511,14 @@ function __logicWriterMain(){
         function popup(title, text){
             if(Vars.ui === null || Vars.ui === undefined){ return; }
             try{ Vars.ui.showText(title, String(text)); }catch(e){ }
+        }
+
+        // 非阻塞提示。**框选绝不能用 showText**：Dialog 会把鼠标吃掉（Core.scene.hasDialog() 为真，
+        // 世界收不到点击），于是「按 F3 弹出提示」= 拖不动 —— 用户 2026-10-30 报的就是这个。
+        // showInfoFade 是 Touchable.disabled 的淡出标签（Mindustry-Source/core/src/mindustry/core/UI.java:373），不挡输入。
+        function hint(text){
+            if(Vars.ui === null || Vars.ui === undefined){ return; }
+            try{ Vars.ui.showInfoFade(String(text)); }catch(e){ }
         }
 
         // 松手之后走这里：先给区域摘要（不需要 sidecar），再把 JSON 交给 /snapshot 落盘。
@@ -1514,20 +1552,31 @@ function __logicWriterMain(){
         }
 
         function selFinish(){
-            var r = selRect(selStartX, selStartY, selCurX, selCurY);
-            selDragging = false;
-            selArmed = false;
+            var r = selRelease();
+            if(r === null){ return null; }
+            // 只点了一下（起点=终点）不算框选：v0.4.8 第一版在这里给出一个 1×1 的「预览区」，
+            // 它正好落在指针上，看起来就像「框选以鼠标为中心」。
+            if(r.w === 1 && r.h === 1){
+                hint("没有拖动：按住左键从一个角拖到另一个角");
+                return null;
+            }
             return dumpRegion(r.x1, r.y1, r.x2, r.y2);
         }
 
         api.maiSelect = function(){
-            selArmed = true;
-            selDragging = false;
-            var mt = mouseTile();
-            if(mt !== null){ selStartX = mt.x; selStartY = mt.y; selCurX = mt.x; selCurY = mt.y; }
-            popup("Mlog辅助 · 框选", "按住左键拖出矩形，松手生成快照并落盘；再按 F3 取消。");
+            selArm();
+            hint("框选就绪：按住左键拖出矩形，松手出快照；再按 F3 取消");
             return "框选已就绪";
         };
+        api.maiSelState = function(){
+            return JSON.stringify({armed: selArmed, dragging: selDragging,
+                                   startX: selStartX, startY: selStartY,
+                                   curX: selCurX, curY: selCurY});
+        };
+        api.maiSelPress = function(x, y){ return selPress(x, y); };
+        api.maiSelMove = function(x, y){ return selMove(x, y); };
+        api.maiSelRelease = function(){ var r = selRelease(); return r === null ? "" : JSON.stringify(r); };
+        api.maiSelDraw = function(ax, ay, bx, by){ return JSON.stringify(selDrawArgs(selRect(ax, ay, bx, by))); };
         api.maiDump = function(x1, y1, x2, y2){ return dumpRegion(x1, y1, x2, y2); };
         api.maiSelRect = function(ax, ay, bx, by){ return JSON.stringify(selRect(ax, ay, bx, by)); };
 
@@ -1591,27 +1640,25 @@ function __logicWriterMain(){
                     }
                     // F3 拖拽框选：按一次就绪 -> 按住左键拖 -> 松手出快照；再按一次取消。
                     if(KEY_SELECT !== null && Core.input.keyTap(Packages.arc.input.KeyCode[KEY_SELECT[0]])){
-                        if(selDragging || selArmed){
-                            selDragging = false;
-                            selArmed = false;
+                        if(selArmed){
+                            selCancel();
+                            hint("框选已取消");
                         }else if(Core.scene === null || !Core.scene.hasDialog()){
-                            var st = mouseTile();
-                            if(st === null){
-                                popup("Mlog辅助 · 框选", "鼠标不在世界内");
-                            }else{
-                                selArmed = true;
-                                selDragging = false;
-                                selStartX = st.x; selStartY = st.y; selCurX = st.x; selCurY = st.y;
-                                popup("Mlog辅助 · 框选", "按住左键拖出矩形，松手生成快照并落盘；再按 F3 取消。");
-                            }
+                            // 只置就绪，不弹窗（弹窗会抢鼠标）；起点等按下左键再定。
+                            selArm();
+                            hint("框选就绪：按住左键拖出矩形，松手出快照；再按 F3 取消");
                         }
                     }
                     if(selArmed){
                         var smt = mouseTile();
-                        if(smt !== null){ selCurX = smt.x; selCurY = smt.y; }
                         var sdown = Core.input.keyDown(Packages.arc.input.KeyCode.mouseLeft);
-                        if(!selDragging && sdown){ selDragging = true; }
-                        else if(selDragging && !sdown){ selFinish(); }
+                        if(!selDragging){
+                            // 起点取按下左键的那一格 —— 按 F3 时鼠标在哪完全不参与。
+                            if(sdown && smt !== null){ selPress(smt.x, smt.y); }
+                        }else{
+                            if(smt !== null){ selMove(smt.x, smt.y); }
+                            if(!sdown){ selFinish(); }
+                        }
                     }
                 }catch(e){ /* 每帧回调里绝不抛出去 */ }
             });

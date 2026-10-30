@@ -86,6 +86,28 @@ def select_probe(srv):
         "  if(dn === 'alpha' && dp.length === 1 && String(dp[0].getName()) === 'float'){ hasAlpha = 'YES'; }",
         "}",
         "print('MAIDRAWAPI:' + hasRect + ':' + hasAlpha + ':' + (Packages.mindustry.graphics.Pal.accent === null ? 'noaccent' : 'accent'));",
+        # v0.4.9: pressing F3 must only ARM. The drag then starts at the tile where the
+        # left button goes down -- not at the tile F3 was pressed on. Driving the state
+        # machine directly is the only way to see this without a mouse.
+        "print('MASELSELECT:' + maiSelect());",
+        "print('MASELARM:' + maiSelState());",
+        "print('MASELPRESS:' + maiSelPress(%d, %d));" % (bx + 5, by + 5),
+        "print('MASELMOVE:' + maiSelMove(%d, %d));" % (bx + 9, by + 7),
+        "print('MASELREL:' + maiSelRelease());",
+        "print('MASELEND:' + maiSelState());",
+        # Draw.rect(region,x,y,w,h) anchors at the CENTRE (Arc Draw.java:378 is
+        # batch.draw(region, x - w/2f, y - h/2f, ...)); passing the corner put the
+        # preview box up-left of the pointer, which read as "centred on the cursor".
+        "print('MASELDRAW:' + maiSelDraw(%d, %d, %d, %d));" % (bx + 5, by + 5, bx + 9, by + 7),
+        # the hint must be showInfoFade (a Touchable.disabled label, UI.java:373), never
+        # showText -- a Dialog eats the mouse and the drag never starts.
+        "var UF = Packages.java.lang.Class.forName('mindustry.core.UI');",
+        "var um = UF.getMethods(), hasFade = 'NO';",
+        "for(var ui = 0; ui < um.length; ui++){",
+        "  var un = String(um[ui].getName()), up = um[ui].getParameterTypes();",
+        "  if(un === 'showInfoFade' && up.length === 1 && String(up[0].getName()) === 'java.lang.String'){ hasFade = 'YES'; }",
+        "}",
+        "print('MAIHINTAPI:' + hasFade);",
     ]
 
 
@@ -435,6 +457,16 @@ def main():
                         ('api.maiSelRect = function', 'the selRect test hook is gone')):
         if needle not in code_only:
             problems.append('v0.4.8: ' + why)
+    # v0.4.9: F3 must not open a dialog (it ate the mouse: user reported 2026-10-30 that
+    # the popup blocked dragging), and the drag must be anchored at the mouse-down tile.
+    for needle, why in (('function hint(', 'the non-blocking hint() is gone'),
+                        ('function selPress(', 'selPress() is gone -- the drag has no press anchor'),
+                        ('function selDrawArgs(', 'selDrawArgs() is gone -- the centre anchor is lost'),
+                        ('api.maiSelPress = function', 'the selPress test hook is gone')):
+        if needle not in code_only:
+            problems.append('v0.4.9: ' + why)
+    if 'popup("Mlog辅助 · 框选"' in code_only:
+        problems.append('v0.4.9: F3 still pops a Dialog -- a Dialog takes the mouse and the drag never starts')
     # ---- P3 region snapshot, read back from the engine
     snap = None
     for l in text.splitlines():
@@ -519,6 +551,59 @@ def main():
     elif draw_api[:2] != ['YES', 'YES']:
         problems.append('Draw.rect(TextureRegion,x,y,w,h)/Draw.alpha(float) missing: %r'
                         % (draw_api,))
+
+    # ---- v0.4.9: F3 only arms (no Dialog), and the drag is anchored at the mouse-down
+    # tile. v0.4.8 armed at the tile F3 was pressed on AND popped a Dialog, so the world
+    # never saw the click: the "box" that appeared was a 1x1 at the pointer.
+    sel = {}
+    for l in text.splitlines():
+        for key in ('MASELARM', 'MASELPRESS', 'MASELMOVE', 'MASELREL', 'MASELEND',
+                    'MASELDRAW', 'MAIHINTAPI'):
+            if l.startswith(key + ':'):
+                sel[key] = l[len(key) + 1:]
+    if 'MASELARM' not in sel:
+        problems.append('maiSelState printed nothing')
+    else:
+        try:
+            st = json.loads(sel['MASELARM'])
+        except Exception as exc:
+            problems.append('maiSelState returned bad JSON: %s' % exc)
+            st = {}
+        if st.get('armed') is not True or st.get('dragging') is not False:
+            problems.append('after F3 the select must be armed and not dragging: %r' % (st,))
+    if sel.get('MASELPRESS') != 'true' or sel.get('MASELMOVE') != 'true':
+        problems.append('selPress/selMove refused while armed: %r %r'
+                        % (sel.get('MASELPRESS'), sel.get('MASELMOVE')))
+    want_box = {'x1': bx + 5, 'y1': by + 5, 'x2': bx + 9, 'y2': by + 7, 'w': 5, 'h': 3}
+    try:
+        got_box = json.loads(sel.get('MASELREL') or '{}')
+    except Exception as exc:
+        problems.append('maiSelRelease returned bad JSON: %s' % exc)
+        got_box = {}
+    if got_box != want_box:
+        problems.append('the drag box is not anchored at the mouse-down tile: %r wanted %r'
+                        % (got_box, want_box))
+    try:
+        end = json.loads(sel.get('MASELEND') or '{}')
+    except Exception as exc:
+        problems.append('maiSelState (after release) returned bad JSON: %s' % exc)
+        end = {}
+    if end.get('armed') is not False or end.get('dragging') is not False:
+        problems.append('releasing did not clear the select state: %r' % (end,))
+    # Draw.rect's x,y is the CENTRE of the quad (Arc Draw.java:378), so the args must be
+    # the box centre: a corner-anchored call drew the preview up-left of the pointer.
+    want_draw = {'x': (bx + 5 + 2.5) * 8, 'y': (by + 5 + 1.5) * 8, 'w': 40, 'h': 24}
+    try:
+        got_draw = json.loads(sel.get('MASELDRAW') or '{}')
+    except Exception as exc:
+        problems.append('maiSelDraw returned bad JSON: %s' % exc)
+        got_draw = {}
+    if got_draw != want_draw:
+        problems.append('the highlight is not centre-anchored: %r wanted %r'
+                        % (got_draw, want_draw))
+    if sel.get('MAIHINTAPI') != 'YES':
+        problems.append('UI.showInfoFade(String) is missing -- the non-blocking hint has no API: %r'
+                        % (sel.get('MAIHINTAPI'),))
 
     # ---- v0.4.7 review arrows: finding.line -> statements child -> pixel position
     arrows = None
