@@ -26,6 +26,9 @@ Protocol (v1, JSON over HTTP, loopback only)
     POST /region        {snapshot}                                -> per-processor link candidates
     POST /snapshot      {snapshot}                                -> writes out/snapshots/*.json, returns the path
     POST /plan          {intent, links, ipt}                       -> compose, plus which template matched and why
+    POST /jobs          {desc, mode, snapshot, links, ipt, origin}  -> queued job (id is sha1 of the body)
+    GET  /jobs?id=|?state=                                          -> one job / the unfinished ones
+    DELETE /jobs?id=                                                -> cancel (running is cancelled too)
 
 Everything returns "ok": false when any finding is ERR: a write is refused, not
 downgraded.  WARN/INFO are returned with the payload so the panel can show them
@@ -49,6 +52,7 @@ import sys
 import time
 import traceback
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from urllib.parse import urlparse, parse_qs
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 if HERE not in sys.path:
@@ -56,6 +60,7 @@ if HERE not in sys.path:
 
 import mlogcheck as C          # noqa: E402
 import msch                    # noqa: E402
+import jobqueue                # noqa: E402  (imports us back lazily, one-way edge)
 
 PROTOCOL = 1
 GAME = 'mindustry v160.7 (executor jar out/_server160.jar)'
@@ -885,6 +890,9 @@ class Handler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body)
 
+    def _query(self):
+        return {k: v[0] for k, v in parse_qs(urlparse(self.path).query).items()}
+
     def do_GET(self):
         path = self.path.split('?')[0]
         try:
@@ -892,6 +900,23 @@ class Handler(BaseHTTPRequestHandler):
                 self._send(200, {'ok': True, 'protocol': PROTOCOL})
             elif path == '/capabilities':
                 self._send(200, capabilities())
+            elif path == '/jobs':
+                q = self._query()
+                jid = q.get('id')
+                if jid:
+                    job = jobs_queue().get(jid)
+                    if job is None:
+                        self._send(404, {'ok': False, 'error': 'no such job: ' + jid})
+                    else:
+                        self._send(200, {'ok': True, 'job': job})
+                else:
+                    state = q.get('state') or None
+                    if state is not None and state not in jobqueue.STATES:
+                        self._send(400, {'ok': False,
+                                         'error': 'state must be one of ' + ', '.join(jobqueue.STATES)})
+                    else:
+                        jobs = jobs_queue().list(state)
+                        self._send(200, {'ok': True, 'jobs': jobs, 'count': len(jobs)})
             else:
                 self._send(404, {'ok': False, 'error': 'no such endpoint: ' + path})
         except Exception as exc:
@@ -940,10 +965,49 @@ class Handler(BaseHTTPRequestHandler):
                     self._send(200, plan(req))
                 except ValueError as exc:
                     self._send(400, {'ok': False, 'error': str(exc)})
+            elif path == '/jobs':
+                body = req.get('job') if isinstance(req.get('job'), dict) else req
+                try:
+                    job, created = jobs_queue().enqueue(body)
+                except ValueError as exc:
+                    self._send(400, {'ok': False, 'error': str(exc)})
+                else:
+                    self._send(200, {'ok': True, 'id': job['id'], 'state': job['state'],
+                                     'created': created, 'job': job})
             else:
                 self._send(404, {'ok': False, 'error': 'no such endpoint: ' + path})
         except Exception:
             self._send(500, {'ok': False, 'error': traceback.format_exc(limit=3)})
+
+    def do_DELETE(self):
+        path = self.path.split('?')[0]
+        try:
+            if path != '/jobs':
+                self._send(404, {'ok': False, 'error': 'no such endpoint: ' + path})
+                return
+            jid = self._query().get('id')
+            if not jid:
+                self._send(400, {'ok': False, 'error': 'DELETE /jobs needs ?id='})
+                return
+            job = jobs_queue().cancel(jid)
+            if job is None:
+                self._send(404, {'ok': False, 'error': 'no such job: ' + jid})
+            else:
+                self._send(200, {'ok': True, 'id': job['id'], 'state': job['state'],
+                                 'job': job})
+        except Exception:
+            self._send(500, {'ok': False, 'error': traceback.format_exc(limit=3)})
+
+
+#: one queue per process; main() may replace it (--jobs-provider / --jobs-dir)
+JOBS = None
+
+
+def jobs_queue():
+    global JOBS
+    if JOBS is None:
+        JOBS = jobqueue.Queue().start()
+    return JOBS
 
 
 def serve(host, port):
@@ -968,11 +1032,30 @@ def main(argv=None):
     ap.add_argument('--port', type=int, default=8765, help='0 = pick a free port')
     ap.add_argument('--print-template', metavar='ID', help='dump one template and exit')
     ap.add_argument('--plan', metavar='TEXT', help='route one intent, print the JSON result, exit')
+    ap.add_argument('--jobs-dir', metavar='DIR',
+                    help='where job files live (default out/jobs, or $MLOG_JOBS_DIR)')
+    ap.add_argument('--jobs-provider', choices=('template', 'fake'), default='template',
+                    help='template = the offline intent router (default); fake = test table')
+    ap.add_argument('--fake-provider', metavar='FILE',
+                    help='JSON table for --jobs-provider fake: {"<desc substring>": output}')
+    ap.add_argument('--jobs-drain', action='store_true',
+                    help='run the queued jobs to completion, print them, exit')
     a = ap.parse_args(argv)
     if a.plan:
         out = plan({'intent': a.plan})
         out.pop('bytes_b64', None)
         print(json.dumps(out, ensure_ascii=False, indent=2))
+        return 0
+    if a.jobs_provider == 'fake' and not a.fake_provider:
+        print('--jobs-provider fake needs --fake-provider FILE')
+        return 2
+    provider = jobqueue.load_fake_provider(a.fake_provider) if a.fake_provider else None
+    global JOBS
+    JOBS = jobqueue.Queue(jobqueue.Store(a.jobs_dir), provider=provider)
+    if a.jobs_drain:
+        JOBS.drain()
+        JOBS.stop()
+        print(json.dumps({'ok': True, 'jobs': JOBS.list(None)}, ensure_ascii=False, indent=1))
         return 0
     if a.print_template:
         t = TEMPLATES.get(a.print_template)
@@ -981,7 +1064,11 @@ def main(argv=None):
             return 2
         print(t.build({})[0] and '\n'.join(t.build({})[0]))
         return 0
-    serve(a.host, a.port)
+    JOBS.start()
+    try:
+        serve(a.host, a.port)
+    finally:
+        JOBS.stop()
     return 0
 
 

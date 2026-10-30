@@ -138,11 +138,11 @@ python tools/kb.py serve
 ```
 python tools/logicd.py                            # 127.0.0.1:8765（--port 0 = 随机端口，就绪行里打印）
 python tools/logicd.py --print-template patrol    # 不启服务，只打一个模板的代码
-python tests/logicd/run_logicd_tests.py           # 契约测试：协议 24 项 + 真 v160.7 处理器写入 7 项
+python tests/logicd/run_logicd_tests.py           # 契约测试：协议 25 项 + 作业队列 9 项 + 真 v160.7 写入 7 项
 python tests/logicd/run_logicd_tests.py --no-sim  # 只跑协议层（不需要 JRE）
 ```
 
-接口七个：`GET /health`、`GET /capabilities`、`POST /analyze`、`POST /compose`、`POST /plan`、`POST /region`、`POST /snapshot`
+接口十个：`GET /health`、`GET /capabilities`、`POST /analyze`、`POST /compose`、`POST /plan`、`POST /region`、`POST /snapshot`，以及作业队列的三个 `POST /jobs` / `GET /jobs?id=|?state=` / `DELETE /jobs?id=`
 （一句话意图 -> 选模板 + 抽参数。**模型只有这一个接入点**：把 `_route()` 换成模型调用，返回形状不变，
 模组侧一行不用改，模型也就永远没办法把没检查过的 mlog 塞进存档）；
 `ok` 的语义是**没有 ERR**（ERR 一律拒绝写入）。设计、契约细节、分期与「已验证/未验证」
@@ -165,6 +165,19 @@ P2–P5 的路线（框选 → 队列 → 模型 → 写入）在 `docs/Mlog辅�
 （`indent=1, sort_keys=True`，同一份快照写两次会因时间戳不同得到两个文件，这是故意的：留时间线），
 返回 `{ok, path, bytes, bounds, cells, processors}`，`path` 是相对仓库根的正斜杠路径。
 校验失败一律 400（非对象 / `schema` 不是 1 / 没有 `bounds` / bound 是浮点）——**不落盘半成品**。
+
+`POST /jobs` 是**作业队列**入口（P4 第一刀，`tools/jobqueue.py`）：模组把「一句话 + 框选快照」当作业发来，
+它入队、由 worker 生成代码、跑与门禁同一套分析，只有干净的程序才会进入 `done`。job 契约与状态机照
+`docs/Mlog辅助-规划.md` §4.1：`{id: sha1(snapshot+desc+mode)[:16], created, state, mode, desc, snapshot,
+attempts, findings[], code, explanation, assumptions[]}`，状态 `queued -> running -> done|rejected|failed|cancelled`；
+**每次跃迁先写 `<jobs-dir>/<id>.json`**（tmp + `os.replace`，重启时把残留的 `running` 放回 `queued` 且 attempts 保留 = 双写可续）。
+`POST /jobs` 同 body 二次提交幂等（回 `created: false`）；`GET /jobs?id=` 查一个、`?state=` 过滤（不带 state 只回未完成）；
+`DELETE /jobs?id=` 取消（running 也能取消，worker 在检查点退出）。
+**门禁比分析器更严**：`mlogcheck` 对「形似链接名但处理器没有这个链接」只给 WARN（人可能还没接完线），
+但作业是机器输出直接写进处理器，所以 `jobqueue.FATAL_RIDS = ('link-name-not-bound',)` 把这一条**提升为 ERR**：
+最多 3 次尝试（1 + 2 次 self-repair，第二次起把 findings 当提示回给 provider），仍不过就 `rejected` 且 `code == ""`——绝不写入。
+provider 是唯一接模型的缝：默认 `template`（就是上面的 `/plan` 意图路由，全离线可跑），测试用 `--jobs-provider fake --fake-provider FILE` 喂固定答案；
+`--jobs-dir` 换队列目录（默认 `out/jobs`，或 `$MLOG_JOBS_DIR`），`--jobs-drain` 跑完就退（一次性批处理）。
 
 **所有 HTTP 入口都是异步的**（v0.4.3 修）：`httpJson()` 把结果用 `Core.app.post(...)` 投递回主线程，
 所以主线程上的「同步等待」永远等不到 —— 控制台命令与 F7 热键都跑在主线程，early 版本在这里 busy-wait，
@@ -260,6 +273,7 @@ object ScrollPane` —— 而且 `clear()` 还在（`Group.java:357` 有 clear�
 
 1. **入口**：`mlog.py`（统一下发子命令）、`mlogagent.py`（`report` / `info` 一条命令跑完五层）、
    `logicd.py`（本地 sidecar：给游戏内模组 `MlogAuxiliary/` 提供 compose/analyze 的 HTTP 接口）、
+   `jobqueue.py`（P4 作业队列：状态机 + 双写落盘 + 写入门禁，provider 可换，默认走模板档）、
    `rules_export.py`（把 instr_semantics.json + mlogcheck 的链接槽表导出成游戏内快检用的 JS）。
 2. **分析层**：`mlogir.py`（解析/IR）、`mlogcheck.py`（静态检查）、`mlogval.py`（值域）、`mlogcross.py`（跨处理器）、`mlogpack.py`（打包配置）、`msch.py`/`mschgen.py`（蓝图容器）。
 3. **模拟器**：`mlogsim.py`（真执行器驱动）、`mlog_needs.py`（扫程序需要的地图/方块/单位/全局量）。

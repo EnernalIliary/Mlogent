@@ -33,8 +33,10 @@ import argparse
 import base64
 import json
 import pathlib
+import shutil
 import subprocess
 import sys
+import tempfile
 import time
 import urllib.error
 import urllib.request
@@ -64,9 +66,9 @@ def need(cond, msg):
 class Server:
     """logicd on an ephemeral port; the ready line carries the real one."""
 
-    def __init__(self):
+    def __init__(self, extra=()):
         self.proc = subprocess.Popen(
-            [sys.executable, str(ROOT / 'tools' / 'logicd.py'), '--port', '0'],
+            [sys.executable, str(ROOT / 'tools' / 'logicd.py'), '--port', '0'] + list(extra),
             stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, encoding='utf-8')
         self.port = None
         deadline = time.time() + 40
@@ -97,6 +99,14 @@ class Server:
                                      headers={'Content-Type': 'application/json'})
         try:
             with urllib.request.urlopen(req, timeout=120) as r:
+                return r.status, json.load(r)
+        except urllib.error.HTTPError as exc:
+            return exc.code, json.load(exc)
+
+    def delete(self, path):
+        req = urllib.request.Request(self.base + path, method='DELETE')
+        try:
+            with urllib.request.urlopen(req, timeout=30) as r:
                 return r.status, json.load(r)
         except urllib.error.HTTPError as exc:
             return exc.code, json.load(exc)
@@ -469,6 +479,154 @@ def test_write_path(cap):
         srv.close()
 
 
+# ---------------------------------------------------------------- half C
+
+FAKE = {
+    '好': {'code': 'sensor n container1 @copper\nprint n\nend', 'explanation': 'fake good'},
+    '幻觉': {'code': 'sensor x container9 @copper\nend', 'explanation': 'fake bad'},
+    '修好': [{'code': 'sensor x container9 @copper\nend'},
+             {'code': 'sensor n container1 @copper\nprint n\nend'}],
+    '慢': {'sleep': 2.0, 'code': 'noop\nend'},
+    '__default__': {'error': 'no fake response'},
+}
+
+JLINKS = [{'name': 'container1', 'x': 1, 'y': 2}, {'name': 'message1', 'x': 3, 'y': 4}]
+JTERMINAL = ('done', 'rejected', 'failed', 'cancelled')
+
+
+def wait_job(srv, jid, want=JTERMINAL, timeout=30):
+    deadline = time.time() + timeout
+    job = None
+    while time.time() < deadline:
+        st, res = srv.get('/jobs?id=' + jid)
+        need(st == 200 and res.get('ok'), 'GET /jobs?id=%s: %s %r' % (jid, st, res))
+        job = res['job']
+        if job['state'] in want:
+            return job
+        time.sleep(0.1)
+    raise Fail('job %s never reached %r (last state %r)' % (jid, want, (job or {}).get('state')))
+
+
+def test_jobs():
+    """P4 half: the queue state machine over HTTP (docs/Mlog辅助-规划.md section 4.5).
+
+    No JRE, no model: a fake provider answers from FAKE, so this half runs anywhere.
+    """
+    import jobqueue
+    checks = 0
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='logicd-jobs-', dir=str(ROOT / 'out')))
+    fake = tmp / 'fake.json'
+    fake.write_text(json.dumps(FAKE, ensure_ascii=False), encoding='utf-8')
+    qdir = tmp / 'queue'
+    srv = Server(['--jobs-dir', str(qdir), '--jobs-provider', 'fake',
+                  '--fake-provider', str(fake)])
+    try:
+        # a clean program -> done on the first attempt, and the job file is on disk
+        st, res = srv.post('/jobs', {'desc': '把铜打印出来（好）', 'links': JLINKS, 'ipt': 2})
+        need(st == 200 and res.get('ok') is True and res.get('created') is True,
+             'POST /jobs: %s %r' % (st, res))
+        jid = res['id']
+        need(len(jid) == 16 and all(c in '0123456789abcdef' for c in jid),
+             'job id is not sha1[:16]: %r' % (jid,))
+        job = wait_job(srv, jid, ('done',))
+        need(job['attempts'] == 1, 'clean job took %r attempt(s)' % (job['attempts'],))
+        need(job['code'].strip() and job.get('bytes_b64'),
+             'done job carries no code/payload: %r'
+             % ({k: job.get(k) for k in ('code', 'bytes_b64')},))
+        need((qdir / (jid + '.json')).is_file(), 'job was not written to %s' % qdir)
+        checks += 1
+
+        # the same body again is a no-op (section 4.2: id 冲突视为幂等)
+        st, again = srv.post('/jobs', {'desc': '把铜打印出来（好）', 'links': JLINKS, 'ipt': 2})
+        need(st == 200 and again['id'] == jid and again['created'] is False,
+             'POST /jobs twice was not idempotent: %r' % (again,))
+        checks += 1
+
+        # a hallucinated link name is a refusal, never a write
+        st, res = srv.post('/jobs', {'desc': '幻觉链接', 'links': JLINKS})
+        bad = wait_job(srv, res['id'], ('rejected',))
+        need(bad['code'] == '', 'a rejected job still carries code: %r' % (bad['code'],))
+        need(bad['attempts'] == 3, 'rejected after %r attempt(s), want 3' % (bad['attempts'],))
+        rids = [f['rid'] for f in bad['findings']]
+        need('link-name-not-bound' in rids, 'findings lost the rule: %r' % (rids,))
+        need(all(f['sev'] == 'ERR' for f in bad['findings'] if f['rid'] == 'link-name-not-bound'),
+             'link-name-not-bound was not promoted to ERR for a job')
+        checks += 1
+
+        # self-repair: the first attempt is refused, the second one lands
+        st, res = srv.post('/jobs', {'desc': '先坏后修好', 'links': JLINKS})
+        fixed = wait_job(srv, res['id'], ('done',))
+        need(fixed['attempts'] == 2, 'self-repair used %r attempt(s), want 2' % (fixed['attempts'],))
+        need(fixed['code'].strip(), 'self-repaired job has no code')
+        checks += 1
+
+        # cancel works while the job is running (the worker checks a checkpoint)
+        st, res = srv.post('/jobs', {'desc': '慢任务', 'links': JLINKS})
+        slow = res['id']
+        time.sleep(0.3)
+        st, c = srv.delete('/jobs?id=' + slow)
+        need(st == 200 and c.get('ok'), 'DELETE /jobs: %s %r' % (st, c))
+        gone = wait_job(srv, slow, ('cancelled',))
+        need(gone['state'] == 'cancelled', 'cancelled job came back as %r' % (gone['state'],))
+        checks += 1
+
+        # the listing endpoints and their negative controls
+        st, lst = srv.get('/jobs?state=done')
+        need(st == 200 and lst['count'] >= 2 and all(j['state'] == 'done' for j in lst['jobs']),
+             'GET /jobs?state=done: %s %r' % (st, lst.get('count')))
+        st, lst = srv.get('/jobs')
+        need(st == 200 and all(j['state'] not in JTERMINAL for j in lst['jobs']),
+             'GET /jobs leaked a finished job: %r' % ([j['state'] for j in lst['jobs']],))
+        st, _ = srv.get('/jobs?id=deadbeefdeadbeef')
+        need(st == 404, 'GET /jobs?id=<unknown> -> %s, want 404' % st)
+        st, _ = srv.get('/jobs?state=bogus')
+        need(st == 400, 'GET /jobs?state=bogus -> %s, want 400' % st)
+        st, _ = srv.post('/jobs', {'desc': ''})
+        need(st == 400, 'POST /jobs with an empty desc -> %s, want 400' % st)
+        checks += 1
+    finally:
+        srv.close()
+
+    # the default provider is the offline tier: the intent router picks a template,
+    # so a Chinese sentence becomes real mlog with no model in the loop at all
+    srv2 = Server(['--jobs-dir', str(tmp / 'queue2')])
+    try:
+        st, res = srv2.post('/jobs', {'desc': '容器里铜够 100 就打印', 'links': JLINKS, 'ipt': 2})
+        need(st == 200 and res.get('ok'), 'POST /jobs (template tier): %s %r' % (st, res))
+        auto = wait_job(srv2, res['id'], ('done',))
+        need(auto.get('template') == 'item-threshold',
+             'template tier picked %r, want item-threshold' % (auto.get('template'),))
+        need('sensor' in auto['code'] and 'container1' in auto['code'],
+             'template tier code looks wrong: %r' % (auto['code'],))
+        checks += 1
+    finally:
+        srv2.close()
+
+    # 双写可续: a job left in "running" by a crash is picked up again on startup
+    store = jobqueue.Store(str(tmp / 'resume'))
+    job = jobqueue.normalize({'desc': '把铜打印出来（好）', 'links': JLINKS, 'ipt': 2})
+    job['state'] = 'running'
+    job['attempts'] = 1
+    store.save(job)
+    q = jobqueue.Queue(store, provider=jobqueue.FakeProvider(
+        {'把铜': {'code': 'sensor n container1 @copper\nend'}}))
+    need(q.resumed == 1, 'resumed %r job(s), want 1' % (q.resumed,))
+    need(q.get(job['id'])['state'] == 'queued', 'a crashed running job was not requeued')
+    q.drain()
+    need(q.get(job['id'])['state'] == 'done', 'resumed job did not finish')
+    checks += 1
+
+    # the promotion itself, without the HTTP layer in the way
+    g = jobqueue.gate('sensor x container9 @copper\nend', ['container1'], ipt=2)
+    need(g['ok'] is False and g['errors'] >= 1, 'gate accepted an unbound link: %r' % (g,))
+    need(any(f.get('fatal') and f['sev'] == 'ERR' and f['rid'] == 'link-name-not-bound'
+             for f in g['fatal']), 'gate did not promote link-name-not-bound: %r' % (g['fatal'],))
+    checks += 1
+
+    shutil.rmtree(tmp, ignore_errors=True)
+    return checks
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(description='logicd contract tests')
     ap.add_argument('--no-sim', action='store_true', help='protocol half only (no JRE needed)')
@@ -481,6 +639,15 @@ def main(argv=None):
         return 1
     except Exception as exc:
         print('FAIL protocol: %s: %s' % (type(exc).__name__, exc))
+        return 1
+    try:
+        n = test_jobs()
+        print('jobs: %d check(s) passed' % n)
+    except Fail as exc:
+        print('FAIL jobs: %s' % exc)
+        return 1
+    except Exception as exc:
+        print('FAIL jobs: %s: %s' % (type(exc).__name__, exc))
         return 1
     if a.no_sim:
         print('logicd OK (protocol only)')

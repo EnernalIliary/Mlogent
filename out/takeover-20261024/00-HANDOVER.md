@@ -1401,3 +1401,29 @@ zip **55,287 B** sha256 `21FCD283...6B30EB`；装机 5 文件逐字节 OK（main
 
 **诚实缺口**：无头引擎 `Groups.build` 为空，「扫描+排序」只验到 0 处理器；相机跳转不可验。真机需玩家按一次 F2 对数。
 报告 `out/takeover-20261024/53-processor-list.md`；断言表 L2-40；规划 §9 新增一行。
+
+## §54 P4 第一刀：作业队列 + 写入门禁
+
+用户「测试均正常，继续下一步」。按规划 §9，P3 两刀、v0.7.0 F2 都已完成，下一段是 **P4**。
+P4 的三段里（队列 / 模型 / 门禁）先做**不需要模型的那部分**：模型留成 `provider` 函数，
+默认实现就是已有的 `/plan` 意图路由 ⇒ 整条链路离线可跑。
+
+**新文件 `tools/jobqueue.py`**：`job_id = sha1(snapshot+desc+mode)[:16]`、`normalize()/gate()/Store/Queue/template_provider/FakeProvider`。
+状态 `queued -> running -> done|rejected|failed|cancelled`，**每次跃迁先 tmp+fsync+os.replace 落盘**；
+`Queue.__init__` 把残留 `running` 改回 `queued`（attempts 保留）⇒ sidecar 崩了不丢；`POST /jobs` 同 body 幂等；
+`DELETE /jobs?id=` 取消（running 也走检查点退出）。最多 3 次尝试（1 + 2 次 self-repair，findings 当提示回喂）。
+
+**门禁严一档**：`mlogcheck` 对 `link-name-not-bound` 只给 WARN（人还没接完线是常态），
+但作业是机器输出直接进处理器 ⇒ `FATAL_RIDS = ('link-name-not-bound',)` 提升为 ERR；被拒作业 `code` 恒为空串。
+
+**logicd 新增三端点**：`POST /jobs`、`GET /jobs?id=|?state=`（不带 state 只回未完成）、`DELETE /jobs?id=`；
+CLI 新增 `--jobs-dir` / `--jobs-provider {template,fake}` / `--fake-provider FILE` / `--jobs-drain`。
+
+**测试**：`tests/logicd/run_logicd_tests.py` 的 `test_jobs()` 9 项（干净→done+payload+落盘、幂等、幻觉链接→rejected+attempts 3+code 空、
+self-repair→attempts 2、running 时取消、列表/404/400 负控、模板档 item-threshold、重启续跑、gate 单测）。
+复跑：`--no-sim` → protocol 25 / **jobs 9**；全量 → protocol 25 / jobs 9 / write path 7 / OK。
+
+**文档**：tools/README（接口十个 + 整段 `POST /jobs` + 文件分层补 jobqueue.py）、规划 §4「实际落地（P4 第一刀）」、
+断言表 **L2-41**、验证记录同日一节、报告 `out/takeover-20261024/54-jobs-queue.md`。
+
+**诚实缺口**：游戏内 1 s 轮询 + 完成提示 UI（= P4 第二刀）、真 provider 与 §4.4 三段 prompt、自由档 cost/sim 复检、单 worker 串行。

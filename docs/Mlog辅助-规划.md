@@ -187,6 +187,17 @@ self-repair：门禁返回 ERR 时，把 `findings`（行号 + rid + msg）作�
 - 假 provider 故意返回坏代码（幻觉链接名）→ 必须 `rejected` 且 findings 带 `link-name-not-bound`。
 - 真 provider 跑 5 个真实描述，成功率与 self-repair 次数记进报告（不写死期望值）。
 
+**实际落地（P4 第一刀，2026-10-30）**：队列、状态机、门禁先做出来，**不接模型** —— {BT}tools/jobqueue.py{BT}
+（{BT}normalize/job_id/gate/Store/Queue/template_provider/FakeProvider{BT}）+ {BT}logicd{BT} 三个端点
+（{BT}POST /jobs{BT}、{BT}GET /jobs?id=|?state={BT}、{BT}DELETE /jobs?id={BT}）。已落地：§4.1 的 job 契约与状态机、
+每次跃迁 tmp+{BT}os.replace{BT} 落盘、重启时 {BT}running -> queued{BT}（attempts 保留）、POST 幂等、
+running 也能取消（worker 检查点退出）、最多 3 次尝试（1 + 2 次 self-repair）。
+**门禁比分析器严一档**：{BT}link-name-not-bound{BT} 在 {BT}mlogcheck{BT} 里是 WARN（人还没接完线是常态），
+但机器写入必须拦，所以 {BT}FATAL_RIDS{BT} 把它提升为 ERR；{BT}rejected{BT} 的作业 {BT}code{BT} 恒为空串。
+provider 是唯一接模型的缝：默认 {BT}template_provider{BT}（复用 §3 之前的意图路由，离线可跑），
+测试用 {BT}--jobs-provider fake{BT}。**未落地**：模组侧 1 s 轮询 {BT}GET /jobs{BT} 与完成提示（游戏内 UI 下一刀）、
+真 provider、prompt 三段（§4.4 的组装要等真 provider）、§4.3 自由档的 sim 200 tick 复检。
+
 ## 5. P5 · 多处理器写入 + 撤销落盘
 
 - 一个 job 可产出 N 段代码（每处理器一段），写入是**事务**：全部预检通过才逐台写，任一台失败回滚已写的。
