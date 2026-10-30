@@ -1,4 +1,4 @@
-# MlogAuxiliary —— 游戏内Mlog辅助（P1 + P2 + 设置界面 + AI 面板 + 区域面板 + 作业队列 + 撤销落盘 + 大模型设置 + 事务写入，v0.12.0）
+# MlogAuxiliary —— 游戏内Mlog辅助（P1 + P2 + 设置界面 + AI 面板 + 区域面板 + 作业队列 + 撤销落盘 + 大模型设置 + 事务写入 + 端点自测，v0.12.1）
 
 把「写 mlog」这件事从玩家手里拿走：**说意图，不写代码**。
 
@@ -354,6 +354,51 @@ Arc 的 `Table.cells` 是私有字段（`arc/scene/ui/layout/Table.java:35`）�
 2. 「没有链接」和「读不到链接表」必须分开：`linkNames()` 读不到时返回 `null`（不是 `[]`），`quickcheck.check()` 收到 `null` 就整段跳过链接槽判据，并在 `stats.linkKnown` 里记下来；审查栏统计行显示「链接 ?（读不到处理器）」而不是「链接 0」。
 
 真引擎对照探针（`out/_v47_probe.py`）：放处理器、用 `msch.build_logic_data` 写带两条链接的载荷，读回 `links.size=2`，把真链接名喂 `quickcheck.check` ⇒ 零命中；喂空数组 ⇒ 第 1、3 行各一条 WARN。所以快检逻辑本身没错，错的是喂进去的东西。
+
+## v0.12.1：模型档自己会说话 —— 地址补全、端点自测、重启后自动重同步
+
+### 症状
+
+玩家填了地址与密钥，投递作业只拿到两句英文：先是
+`ERR L0 model endpoint unreachable: HTTP Error 404: Not Found`，换了地址之后又变成
+`ERR L0 empty reply`。两句都不指向真正的原因，玩家只能猜。
+
+### 三处改动
+
+1. **地址可以只填到 API base**。`tools/logicd.py` 新增 `completion_url(url)`：以
+   `/chat/completions`、`/completions`、`/responses` 结尾的原样放行，否则补上
+   `/chat/completions`。`POST /llm` 与 `POST /llm/probe` 都走它，所以填
+   `https://api.deepseek.com/v1` 也能直接用（原来会 404）。
+2. **设置页多了「测试端点」**（四个按钮：获取模型 / 测试端点 / 启用模型档 / 回到模板档）。
+   它 `POST /llm/probe`，sidecar 替模组发一次最小 chat 调用（`max_tokens` 128、
+   `temperature` 0），把 **HTTP 状态 / finish_reason / 回复长度 / message keys /
+   reasoning 长度 / 回复原文（≤800 字符）** 摊在面板上。于是：
+   - 404 → 地址形状错（现在也会自动补全）；
+   - `finish_reason=length` + content 空 → token 被截断；
+   - `reasoning_len>0` + content 空 → 模型把话都说在 reasoning 里；
+   - 401 → 密钥错。
+3. **sidecar 重启不再悄悄退回模板档**。配置只存在 sidecar 进程内存里，重启就没了，
+   玩家看到的是「找不到样板」。模组侧新增 `llmSync()`：载入时与每次开面板都
+   `GET /llm`，发现 `kind` 不是 `llm` 或模型名不一致，就用 `Core.settings` 里的三件套
+   `POST /llm` 推回去（日志 `llm tier re-synced from settings: <url>`）。
+
+顺带：`mlogprovider.HttpProvider` 的 `max_tokens` 默认 900 → **1600**（推理模型常常把
+900 全花在 reasoning 上），404 的错误文案补上「这个地址可能是 API base，不是
+/chat/completions」，空回复的错误文案带上 `finish_reason`、message keys 与 usage。
+
+### 验证
+
+`tests/logicd/run_logicd_tests.py`：`llm` 6 → **8** 项（base url 归一、满 URL 不被改写、
+`/llm/probe` 打到 stub 并带回回复原文），`provider` 9 → **11** 项（空回复必须带
+`finish_reason=length`、404 必须带 `/chat/completions` 提示）。`run_ui_smoke.py` 加
+v0.12.1 源码红线三条（`function llmSync(`、`function llmProbe(`、`"/llm/probe"`）。
+
+### 边界
+
+- 模组的裸 Socket 只有明文 HTTP，模型列表与自测都必须经 sidecar（https 由 Python 侧发）。
+- 密钥仍然只存在 `Core.settings` 与 sidecar 内存里，面板只显示尾巴。
+- 自动重同步只覆盖「模组里有、sidecar 里没有」这一个方向；在 sidecar 命令行里换档仍然
+  以模组设置为准（游戏里改过就是游戏里赢）。
 
 ## v0.12.0：一次写多台 —— 要么全写，要么全不写（事务写入核心）
 

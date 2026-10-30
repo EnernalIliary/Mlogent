@@ -822,6 +822,34 @@ def test_provider():
         need(drained['state'] == 'done' and drained['code'].startswith('set n 0'),
              'the CLI replay drain did not produce the scripted code: %r' % (drained,))
         checks += 1
+        # 10. a blank model reply says why it was blank -- the player saw only 'empty reply'
+        need(MP.HttpProvider('http://127.0.0.1:1/chat/completions').max_tokens == 1600,
+             'the provider still starves the model at the old max_tokens')
+        stub2 = _StubEndpoint()
+        try:
+            stub2.blank = True
+            got10 = MP.HttpProvider(stub2.chat_url, model='m-a', timeout=20)({'desc': 'blank',
+                                                                             'links': []})
+            msg10 = str(got10.get('error') or '')
+            need('empty message' in msg10, 'a blank reply was not called blank: %r' % (msg10,))
+            need('finish_reason=length' in msg10, 'a blank reply lost its diagnosis: %r' % (msg10,))
+            checks += 1
+        finally:
+            stub2.close()
+
+        # 11. a 404 says the url is probably the API base, not the full chat route
+        stub3 = _StubEndpoint()
+        try:
+            stub3.strict = True
+            got11 = MP.HttpProvider('http://127.0.0.1:%d/v1' % stub3.port, model='m-a',
+                                    timeout=20)({'desc': 'base url', 'links': []})
+            msg11 = str(got11.get('error') or '')
+            need('404' in msg11, 'a 404 was not reported as a 404: %r' % (msg11,))
+            need('/chat/completions' in msg11, 'a 404 lost its hint: %r' % (msg11,))
+            checks += 1
+        finally:
+            stub3.close()
+
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
     return checks
@@ -834,6 +862,8 @@ class _StubEndpoint:
     def __init__(self):
         from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
         self.seen = []
+        self.blank = False
+        self.strict = False
         outer = self
 
         class H(BaseHTTPRequestHandler):
@@ -857,8 +887,23 @@ class _StubEndpoint:
                 n = int(self.headers.get('Content-Length') or 0)
                 raw = self.rfile.read(n) if n else b'{}'
                 outer.seen.append((self.path, self.headers.get('Authorization'), len(raw)))
+                if outer.strict and self.path != '/v1/chat/completions':
+                    body = b'{"error": "no such route"}'
+                    self.send_response(404)
+                    self.send_header('Content-Type', 'application/json')
+                    self.send_header('Content-Length', str(len(body)))
+                    self.end_headers()
+                    self.wfile.write(body)
+                    return
                 content = json.dumps({'code': 'set n 0' + chr(10) + 'end'})
-                body = json.dumps({'choices': [{'message': {'content': content}}]}).encode()
+                if outer.blank:
+                    content = ''
+                    payload = {'choices': [{'message': {'content': content},
+                                            'finish_reason': 'length'}],
+                               'usage': {'prompt_tokens': 11, 'completion_tokens': 1600}}
+                else:
+                    payload = {'choices': [{'message': {'content': content}}]}
+                body = json.dumps(payload).encode()
                 self.send_response(200)
                 self.send_header('Content-Type', 'application/json')
                 self.send_header('Content-Length', str(len(body)))
@@ -948,6 +993,26 @@ def test_llm():
         need(code == 200 and doc.get('kind') == 'template',
              'POST /llm kind=template did not go back: %r' % (doc,))
         checks += 1
+        # 7. a url that stops at the API base is completed before the provider sees it
+        base = 'http://127.0.0.1:%d/v1' % stub.port
+        code, doc = srv.post('/llm', {'url': base, 'model': 'm-a'})
+        need(code == 200 and doc.get('url') == stub.chat_url,
+             'POST /llm did not complete a base url: %r' % (doc,))
+        code, doc = srv.post('/llm', {'url': stub.chat_url, 'model': 'm-a'})
+        need(code == 200 and doc.get('url') == stub.chat_url,
+             'POST /llm rewrote a full chat url: %r' % (doc,))
+        checks += 1
+
+        # 8. /llm/probe answers with the raw shape of one tiny call
+        code, doc = srv.post('/llm/probe', {'url': base, 'model': 'm-a'})
+        need(code == 200 and doc.get('ok') is True and doc.get('status') == 200,
+             'POST /llm/probe did not reach the stub: %r' % (doc,))
+        need(doc.get('url') == stub.chat_url,
+             'POST /llm/probe reported the wrong url: %r' % (doc,))
+        need('set n 0' in str(doc.get('content') or ''),
+             'POST /llm/probe lost the reply text: %r' % (doc,))
+        checks += 1
+
     finally:
         srv.close()
         stub.close()

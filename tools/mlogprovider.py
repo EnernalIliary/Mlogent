@@ -260,7 +260,7 @@ class Recorder:
 class HttpProvider:
     """OpenAI-compatible chat completion, stdlib only, no network at import."""
 
-    def __init__(self, url, model="", key="", timeout=60, temperature=0.2, max_tokens=900):
+    def __init__(self, url, model="", key="", timeout=60, temperature=0.2, max_tokens=1600):
         if not url:
             raise ValueError("HttpProvider needs a chat-completions URL")
         self.url = url
@@ -285,6 +285,19 @@ class HttpProvider:
         try:
             with urllib.request.urlopen(req, timeout=self.timeout) as resp:
                 raw = resp.read().decode("utf-8", "replace")
+        except urllib.error.HTTPError as exc:
+            hint = ""
+            if exc.code == 404:
+                hint = (" (a 404 usually means the url is the API base, not the full "
+                        "chat endpoint -- %s/chat/completions)" % self.url.rstrip("/"))
+            body = ""
+            try:
+                body = exc.read().decode("utf-8", "replace")[:300]
+            except Exception:
+                body = ""
+            return {"error": "model endpoint refused: HTTP %s %s%s%s"
+                             % (exc.code, exc.reason, hint,
+                                (" | " + body) if body.strip() else "")}
         except urllib.error.URLError as exc:
             return {"error": "model endpoint unreachable: %s" % exc}
         except OSError as exc:
@@ -295,11 +308,63 @@ class HttpProvider:
             return {"error": "model endpoint did not answer JSON"}
         text = _reply_text(doc)
         if text is None:
-            return {"error": "model endpoint answered without a message"}
+            return {"error": "model endpoint answered without a message" + _why_blank(doc)}
+        if not text.strip():
+            # An empty content is what a proxy or a token-starved model looks like; the
+            # bare 'empty reply' left players guessing, so say what came back instead.
+            alt = _alt_text(doc)
+            if alt:
+                try:
+                    return parse_reply(alt)
+                except ProviderError:
+                    pass
+            return {"error": "model endpoint answered with an empty message" + _why_blank(doc)}
         try:
             return parse_reply(text)
         except ProviderError as exc:
-            return {"error": str(exc)}
+            hint = _why_blank(doc)
+            return {"error": str(exc) + hint if hint else str(exc)}
+
+
+def _alt_text(doc):
+    """Some endpoints put the answer in reasoning_content instead of content."""
+    if isinstance(doc, dict):
+        choices = doc.get("choices")
+        c0 = choices[0] if isinstance(choices, list) and choices else None
+        if isinstance(c0, dict):
+            msg = c0.get("message")
+            if isinstance(msg, dict):
+                for key in ("reasoning_content", "reasoning"):
+                    v = msg.get(key)
+                    if isinstance(v, str) and v.strip():
+                        return v
+    return ""
+
+
+def _why_blank(doc):
+    """(finish_reason=length, usage=..., error=...) so a blank reply explains itself."""
+    bits = []
+    if isinstance(doc, dict):
+        choices = doc.get("choices")
+        c0 = choices[0] if isinstance(choices, list) and choices else None
+        if isinstance(c0, dict):
+            fr = c0.get("finish_reason")
+            if fr:
+                bits.append("finish_reason=%s" % fr)
+            msg = c0.get("message")
+            if isinstance(msg, dict):
+                keys = sorted([str(k) for k in msg.keys()])
+                if keys:
+                    bits.append("message keys=%s" % ",".join(keys))
+        usage = doc.get("usage")
+        if isinstance(usage, dict) and usage:
+            keep = {k: usage.get(k) for k in ("prompt_tokens", "completion_tokens")
+                    if k in usage}
+            if keep:
+                bits.append("usage=%s" % json.dumps(keep, sort_keys=True))
+        if doc.get("error"):
+            bits.append("error=%s" % str(doc.get("error"))[:200])
+    return (" (" + "; ".join(bits) + ")") if bits else ""
 
 
 def _reply_text(doc):

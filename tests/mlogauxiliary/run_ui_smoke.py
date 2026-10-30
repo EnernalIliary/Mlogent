@@ -666,6 +666,14 @@ def main():
                          'the model list no longer comes from the sidecar (https needs it)')):
         if needle not in code_only:
             problems.append('v0.11.0: ' + why)
+    for needle, why in (('function llmSync(',
+                         'the model tier no longer re-syncs after a sidecar restart'),
+                        ('function llmProbe(',
+                         'the model endpoint self-test button is gone'),
+                        ('"/llm/probe"',
+                         'the endpoint probe no longer goes through the sidecar')):
+        if needle not in code_only:
+            problems.append('v0.12.1: ' + why)
     for needle, why in (('function writeMany(',
                          'the transactional batch write is gone'),
                         ('function undoBatchFromDisk(',

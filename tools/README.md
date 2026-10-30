@@ -158,7 +158,7 @@ python tests/logicd/run_logicd_tests.py           # 契约测试：协议 26 项
 python tests/logicd/run_logicd_tests.py --no-sim  # 只跑协议层（不需要 JRE）
 ```
 
-接口十三个：`GET /health`、`GET /capabilities`、`POST /analyze`、`POST /compose`、`POST /plan`、`POST /region`、`POST /snapshot`，作业队列的三个 `POST /jobs` / `GET /jobs?id=|?state=` / `DELETE /jobs?id=`，以及模型档的三个 `GET /llm` / `POST /llm` / `POST /models`
+接口十四个：`GET /health`、`GET /capabilities`、`POST /analyze`、`POST /compose`、`POST /plan`、`POST /region`、`POST /snapshot`，作业队列的三个 `POST /jobs` / `GET /jobs?id=|?state=` / `DELETE /jobs?id=`，以及模型档的三个 `GET /llm` / `POST /llm` / `POST /models`
 （一句话意图 -> 选模板 + 抽参数。**模型只有这一个接入点**：把 `_route()` 换成模型调用，返回形状不变，
 模组侧一行不用改，模型也就永远没办法把没检查过的 mlog 塞进存档）；
 `ok` 的语义是**没有 ERR**（ERR 一律拒绝写入）。设计、契约细节、分期与「已验证/未验证」
@@ -224,6 +224,14 @@ prompt 是规划 §4.4 的三段：**世界事实**（处理器坐标 + 快照�
   `/chat/completions` 推导出 `/models`（`/completions`、`/responses` 同理；已经是 `/models` 就原样），
   GET 时带 `Authorization: Bearer`，解析 `data[].id|name` 或 `models[]`。
   **必须由 sidecar 代取**：模组侧是裸 `java.net.Socket` 手写的 HTTP/1.1，只有明文 HTTP，没有 TLS。
+
+- `POST /llm/probe` body `{url, model, key, timeout}`（缺省用现存配置）→ 一次最小 chat
+  调用，回 `{ok, url, model, status, error, raw, raw_len, finish_reason, content,
+  content_len, message_keys, reasoning_len, usage}`。**给玩家用的自测**：作业路径只会说
+  `empty reply` / `HTTP 404`，这个端点把端点到底回了什么摊开（v0.12.1）。
+  同一版起 `POST /llm` 与 `/llm/probe` 都会把「只填到 API base」的地址补成
+  `/chat/completions`（`completion_url()`），模组开面板时还会用 `Core.settings` 里的
+  设置把重启后丢失的模型档重新推给 sidecar。
 
 `--jobs-provider llm --llm-url ...` 仍然可用：启动时把命令行参数灌进同一份 `LLM_STATE`，
 游戏里再改就以游戏里为准。`GET /llm` 只反映**进程内存里**的档位，重启 sidecar 回到命令行参数。

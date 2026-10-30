@@ -1788,3 +1788,34 @@ zip **74,501 B sha256 54A9C528DEC1B89C5C34E5A0055293D90464705D67701048960AD54D65
 `writeMany` 只吃已 done 的作业结果，不负责投递；回滚只还原代码不还原链接表；单台 `writeBuild` 路径未改。
 
 **下一刀**：①面板批量入口（P5 第三刀下半）②联机拒绝写入的「无权限」提示 ③冲突检测不比链接表 ④打包/安装即用（用户已定最后解决）。
+
+## §66 v0.12.1：模型档报错说人话（地址补全 / 端点自测 / 重启后自动重同步）
+
+**症状**：玩家两张截图，`ERR L0 model endpoint unreachable: HTTP Error 404` 与
+`ERR L0 empty reply`，都不指向原因。
+
+**根因三条**：①`GET /llm` 显示 url 是 `https://api.deepseek.com/v1`（API base，
+`HttpProvider` 直接 POST 它 → 404），同一 key 经 `POST /models` 是通的（模型名合法）；
+②`empty reply` = 端点 200 但 content 空（推理模型吃光 `max_tokens 900` 或代理换路径）；
+③sidecar 模型档只在进程内存，重启静默退回模板档。
+
+**改动**：`tools/logicd.py` 加 `completion_url()`（base → `/chat/completions`）与
+`POST /llm/probe`（`probe_model()`：最小 chat 调用，回 status/finish_reason/
+content_len/reasoning_len/raw）；`tools/mlogprovider.py` `max_tokens` 900→1600、
+`HTTPError` 分支带 404 提示与 body、空回复带 `_why_blank()` 诊断、`_alt_text()`
+兜底 reasoning；`main.js` `MOD_VERSION 0.12.1`、四个按钮（多「测试端点」）、
+`llmProbe()`、`llmSync()`（载入与开面板时把 `Core.settings` 的模型档推回 sidecar）、
+`llmEnable()` 比对模型列表。
+
+**测试**：logicd `llm` 6→8、`provider` 9→11（stub 加 `blank`/`strict`）；
+ui smoke 加三条 v0.12.1 源码红线。实测 protocol 26 / jobs 12 / provider 11 / llm 8 EXIT=0，
+ui smoke EXIT=0（`MAIDIAG:版本：0.12.1`、103 行/格、`MAILLM:ok 82`）。
+
+**假失败**：连挂两次 `FAIL jobs: … never reached ('done',) (last state 'running')`，单独跑
+12 项全过、自建探针也对，第三次全绿 ⇒ 环境性偶发（同 §63 的并行满载假超时）。
+`jobqueue._run` 的 `_materialize` 调用无 try/except，真挂起要看 sidecar stdout。
+
+**文档**：`MlogAuxiliary/README.md` 标题 v0.12.1 + 新节；`tools/README.md`
+「接口十四个」+ `POST /llm/probe` 段；`docs/Mlog辅助-规划.md` P4.5 行补 v0.12.1。
+
+**下一刀**：面板批量入口（P5 第三刀下半）/ 联机无权限提示 / 打包安装即用（用户定最后解决）。

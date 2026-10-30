@@ -28,7 +28,7 @@
 function __logicWriterMain(){
     "use strict";
 
-    var MOD_VERSION = "0.12.0";
+    var MOD_VERSION = "0.12.1";
     var URL_KEY     = "mlogauxiliary-url";
     var DEFAULT_URL = "http://127.0.0.1:8765";
     // v0.11.0：设置页里填的模型档三件套。密钥只留在本机 Core.settings 与 sidecar 进程内存。
@@ -240,13 +240,15 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
             log("llm model = " + v);
         }).width(300).left();
         t.add(mrow).width(ROW_W).left().padTop(5).row();
-        buttonRow(t, ["获取模型", "启用模型档", "回到模板档"], [
+        buttonRow(t, ["获取模型", "测试端点", "启用模型档", "回到模板档"], [
             function(){ showLlmModels(); },
+            function(){ llmProbe(); },
             function(){ llmEnable(); },
             function(){ llmUseTemplate(); }
         ], mk);
         kv(t, "", "地址填 OpenAI 兼容的 /chat/completions（例：" + LLM_DEFAULT_URL
-           + "）。密钥只存在本机 Core.settings 与 sidecar 进程内存里，面板只显示尾巴；改完按回车保存。", mk);
+           + "）；只填到 /v1 也行，sidecar 会自动补 /chat/completions。密钥只存在本机 Core.settings 与 sidecar 进程内存里，"
+           + "面板只显示尾巴；改完按回车保存。sidecar 重启会忘记模型档，模组下次开面板时会自动重新同步。", mk);
         section(t, "快捷动作");
         buttonRow(t, ["AI 辅助编程", "模板面板"], [
             function(){ showAiPanel(); },
@@ -570,15 +572,27 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
         function llmEnable(){
             var url = llmUrl();
             if(url.length === 0){ llmNote("先填模型地址（例如 " + LLM_DEFAULT_URL + "）"); return; }
-            llmApply(JSON.stringify({kind: "llm", url: url, model: llmModel(), key: llmKey()}),
+            var want = llmModel();
+            llmApply(JSON.stringify({kind: "llm", url: url, model: want, key: llmKey()}),
                 function(code, d, text){
                     if(d === null || d.ok !== true){
                         llmNote("启用失败：" + ((d && d.error) ? String(d.error) : jobWhy(code, text, null)));
                         return;
                     }
-                    llmNote("已切到模型档：" + String(d.model || "(端点默认模型)")
+                    var head = "已切到模型档：" + String(d.model || "(端点默认模型)")
                         + "\n地址：" + String(d.url)
-                        + "\n现在描述意图会由大模型直接写逻辑。");
+                        + "\n现在描述意图会由大模型直接写逻辑。";
+                    // v0.12.1：模型名填错时端点大多不报错，只回一堆空回复，作业里只会看到 empty reply；
+                    // 所以启用时顺手拿一次端点列表比一比，对不上就当场说出来。
+                    llmFetchModels(function(ok, doc, err){
+                        var list = (ok && doc && doc.models) || [];
+                        if(ok && want.length > 0 && list.indexOf(want) < 0){
+                            llmNote(head + "\n注意：模型 " + want + " 不在端点列表里（端点有："
+                                + list.join(", ") + "）");
+                        }else{
+                            llmNote(head);
+                        }
+                    });
                 });
         }
 
@@ -603,6 +617,65 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
         // 只用公开类（Socket / InputStreamReader / StringBuilder），不再碰 JDK 内部类型。
         
         // "http://host:port/path" -> {host, port, path}，host 缺省 127.0.0.1、port 缺省 8765。
+        // ---------------------------------------------------------- 模型档自愈（v0.12.1）
+
+        // sidecar 重启会把它内存里的模型档配置忘干净（配置只在进程里），
+        // 结果玩家明明设置过，重启后却静悄悄退回模板档、报「没匹配到样板」。
+        // 模组的 Core.settings 才是源头，所以启动时与每次开面板都把设置再推一遍。
+        function llmSync(cb){
+            var url = llmUrl();
+            if(url.length === 0){ if(cb){ cb(false, "no url saved"); } return; }
+            var want = llmModel();
+            llmRefresh(function(code, d, text){
+                if(d === null || d.ok !== true){
+                    if(cb){ cb(false, "sidecar unreachable"); }
+                    return;
+                }
+                if(d.kind === "llm" && String(d.model || "") === want){
+                    if(cb){ cb(true, "already synced"); }
+                    return;
+                }
+                llmApply(JSON.stringify({kind: "llm", url: url, model: want, key: llmKey()}),
+                    function(c2, d2, t2){
+                        if(d2 !== null && d2.ok === true){
+                            log("llm tier re-synced from settings: " + String(d2.url));
+                            if(cb){ cb(true, "synced"); }
+                        }else if(cb){
+                            cb(false, (d2 && d2.error) ? String(d2.error) : jobWhy(c2, t2, null));
+                        }
+                    });
+            });
+        }
+
+        // 「测试端点」：直接问一次端点，把 HTTP 状态、finish_reason、回复长度都摊开。
+        // 作业路径只会说「empty reply」，玩家无从判断是地址错、模型名错还是被 token 截断。
+        function llmProbe(){
+            var url = llmUrl();
+            if(url.length === 0){ llmNote("先填模型地址（例如 " + LLM_DEFAULT_URL + "）"); return; }
+            llmNote("正在问端点……");
+            httpJson("POST", "/llm/probe",
+                JSON.stringify({url: url, model: llmModel(), key: llmKey()}),
+                function(code, text){
+                    var d = parse(text);
+                    if(d === null){ llmNote("sidecar 没回 JSON：" + jobWhy(code, text, null)); return; }
+                    if(d.ok !== true){ llmNote("测试失败：" + String(d.error || jobWhy(code, text, null))); return; }
+                    var lines = [];
+                    lines.push("地址：" + String(d.url));
+                    lines.push("HTTP " + String(d.status) + " · 模型 " + String(d.model || "(端点默认)"));
+                    if(d.error){ lines.push("错误：" + String(d.error)); }
+                    if(d.finish_reason !== undefined && d.finish_reason !== null){
+                        lines.push("finish_reason：" + String(d.finish_reason));
+                    }
+                    if(d.content_len !== undefined){ lines.push("回复长度：" + String(d.content_len) + " 字符"); }
+                    if(d.reasoning_len !== undefined){
+                        lines.push("只回了 reasoning（" + String(d.reasoning_len) + " 字符），content 是空的");
+                    }
+                    if(d.content){ lines.push("回复：" + String(d.content).slice(0, 160)); }
+                    else if(d.raw){ lines.push("原文：" + String(d.raw).slice(0, 200)); }
+                    llmNote(lines.join("\n"));
+                });
+        }
+
         function endpoint(url){
             var s = String(url);
             var m = /^https?:\/\/([^\/:]+)(?::(\d+))?(\/[^\s]*)?$/.exec(s);
@@ -1510,6 +1583,7 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
 
         // target 可选：区域面板里点「生成」时直接指定那个处理器，不必再把鼠标移过去。
         function showAiPanel(target){
+            try{ llmSync(); }catch(e){ log("llm sync skipped"); }
             if(aiShown()){ try{ aiPanel.toFront(); return; }catch(e){ /* ignore */ } }
             var b = (target === undefined || target === null) ? targetBuild() : target;
             var d = new Packages.arc.scene.ui.Dialog("Mlog辅助 · AI 辅助编程 v" + MOD_VERSION);
@@ -2652,6 +2726,8 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
         };
 
         // 挂到脚本作用域（控制台里能直接敲），并读回自检
+        // 载入时就试着把设置里的模型档推给 sidecar（重启过的 sidecar 会忘）。
+        try{ llmSync(); }catch(e){ log("llm sync skipped at load"); }
         var scope = Vars.mods.getScripts().scope;
         var mounted = 0;
         for(var k in api){
