@@ -165,6 +165,14 @@ def job_probe(port, bx, by):
         "print('MAIJOBCLEAN:' + jClean);",
         "print('MAIJOBPROG:' + maiJobProgress(jClean));",
         "print('MAIJOBWRITE:' + maiJobWrite(jClean, %d, %d));" % (bx, by),
+        # v0.10.1: the processor is edited AFTER the job is submitted -- the first write
+        # must be refused (and must not touch the code), the second click overwrites.
+        "var jConf = maiJobSyncAt(%d, %d, 'ui clean code conflict', 25000);" % (bx, by),
+        "print('MAIJOBCONF:' + jConf);",
+        "var cb = Packages.mindustry.Vars.world.build(%d, %d);" % (bx, by),
+        "cb.updateCode('set n 7' + String.fromCharCode(10) + 'end');",
+        "print('MAIJOBEDIT:' + maiJobWrite(jConf, %d, %d));" % (bx, by),
+        "print('MAIJOBEDIT2:' + maiJobWrite(jConf, %d, %d));" % (bx, by),
         "var jRej = maiJobSyncAt(%d, %d, 'ui broken code', 25000);" % (bx, by),
         "print('MAIJOBREJ:' + jRej);",
         # v0.9.0: this engine processor has no links at all, and a program that
@@ -296,6 +304,7 @@ def main():
         "print('MAILIST:' + maiList().split('\\n')[0]);",
         "print('MAILISTROWS:' + maiListRows());",
         "print('MAIUNDO:' + maiUndoProbe());",
+    "print('MAICONFLICT:' + maiConflictProbe());",
     ] + region_probe(srv) + select_probe(srv) + arrow_probe() + [
         "void 0;",
     ])
@@ -308,7 +317,7 @@ def main():
     lines = [l for l in text.splitlines()
              if '[mai]' in l or 'mlog-auxiliary' in l
              or l.startswith(('MAISELF:', 'MAIDIAG:', 'MAISET:', 'MAILIST:', 'MAILISTROWS:',
-                              'MAIUNDO:'))]
+                              'MAIUNDO:', 'MAICONFLICT:'))]
     joined = '\n'.join(lines)
 
     # ---- resolve every Table/Cell method the page actually uses, in the engine
@@ -406,6 +415,9 @@ def main():
                         % [l for l in lines if l.startswith('MAILIST:')][:1])
     if 'MAILISTROWS:[' not in joined:
         problems.append('maiListRows is not returning a JSON array')
+    if 'MAICONFLICT:ok' not in joined:
+        problems.append('v0.10.1: the pre-write conflict gate is broken: %r'
+                        % [l for l in lines if l.startswith('MAICONFLICT:')][:1])
     if 'MAIUNDO:ok ' not in joined:
         problems.append('v0.10.0: the undo snapshot did not round-trip through the real '
                         'filesystem: %r' % [l for l in lines if l.startswith('MAIUNDO:')][:1])
@@ -533,6 +545,7 @@ def main():
     jres = {}
     for l in jtext.splitlines():
         for key in ('MAIJOBSET', 'MAIJOBCLEAN', 'MAIJOBPROG', 'MAIJOBWRITE', 'MAIJOBREJ',
+                    'MAIJOBCONF', 'MAIJOBEDIT', 'MAIJOBEDIT2',
                     'MAIJOBZERO'):
             if l.startswith(key + ':'):
                 jres[key] = l[len(key) + 1:]
@@ -566,6 +579,17 @@ def main():
     wr = jres.get('MAIJOBWRITE') or ''
     if '已写入' not in wr or 'set n 0' not in wr:      # 已写入
         problems.append('maiJobWrite did not write the job payload into the processor: %r' % (wr[:160],))
+    edit1 = jres.get('MAIJOBEDIT') or ''
+    edit2 = jres.get('MAIJOBEDIT2') or ''
+    if '被改过' not in edit1 or '已写入' in edit1:      # 被改过
+        problems.append('v0.10.1: a job written onto an edited processor was not refused: %r'
+                        % (edit1[:200],))
+    if '已写入' not in edit2:                          # 已写入
+        problems.append('v0.10.1: the second click did not overwrite after the refusal: %r'
+                        % (edit2[:200],))
+    conf = job_of('MAIJOBCONF', 'maiJobSyncAt (conflict)')
+    if conf and conf.get('state') != 'done':
+        problems.append('conflict job state=%r wanted done' % (conf.get('state'),))
     rej = job_of('MAIJOBREJ', 'maiJobSyncAt (broken code)')
     if rej:
         if rej.get('state') != 'rejected':
@@ -611,6 +635,14 @@ def main():
                          'writeBuild no longer records the snapshot name')):
         if needle not in code_only:
             problems.append('v0.10.0: ' + why)
+    for needle, why in (('function conflictGate(',
+                         'the pre-write conflict gate is gone'),
+                        ('function rememberOrig(',
+                         'jobSubmit no longer records the code it saw at submit time'),
+                        ('JOB_ORIG[procKey(b)] = String(b.code)',
+                         'the conflict baseline is not the submit-time code')):
+        if needle not in code_only:
+            problems.append('v0.10.1: ' + why)
     if '"直接生成"' not in code_only:                 # 直接生成
         problems.append('v0.8.0: the /plan fallback button is gone -- an older sidecar '
                         'without /jobs would leave the panel unusable')
@@ -968,8 +1000,10 @@ def main():
         print('  job zero-link gate: %s, rule=%s (the processor links to nothing)'
               % (zero.get('state'), ','.join(sorted({str(f.get('rid')) for f in
                                                      (zero.get('findings') or [])}))))
+    print('  job conflict gate: first write refused, second click overwrote (%s / %s)'
+          % (edit1.split('|')[0].strip()[:40], edit2.split('|')[0].strip()[:40]))
     for l in lines:
-        if l.startswith(('MAISELF:', 'MAIDIAG:', 'MAIUNDO:')):
+        if l.startswith(('MAISELF:', 'MAIDIAG:', 'MAIUNDO:', 'MAICONFLICT:')):
             print('  ' + l[:300])
     return 0
 

@@ -1,4 +1,4 @@
-# MlogAuxiliary —— 游戏内Mlog辅助（P1 + P2 + 设置界面 + AI 面板 + 区域面板 + 作业队列 + 撤销落盘，v0.10.0）
+# MlogAuxiliary —— 游戏内Mlog辅助（P1 + P2 + 设置界面 + AI 面板 + 区域面板 + 作业队列 + 撤销落盘，v0.10.1）
 
 把「写 mlog」这件事从玩家手里拿走：**说意图，不写代码**。
 
@@ -354,6 +354,29 @@ Arc 的 `Table.cells` 是私有字段（`arc/scene/ui/layout/Table.java:35`）�
 2. 「没有链接」和「读不到链接表」必须分开：`linkNames()` 读不到时返回 `null`（不是 `[]`），`quickcheck.check()` 收到 `null` 就整段跳过链接槽判据，并在 `stats.linkKnown` 里记下来；审查栏统计行显示「链接 ?（读不到处理器）」而不是「链接 0」。
 
 真引擎对照探针（`out/_v47_probe.py`）：放处理器、用 `msch.build_logic_data` 写带两条链接的载荷，读回 `links.size=2`，把真链接名喂 `quickcheck.check` ⇒ 零命中；喂空数组 ⇒ 第 1、3 行各一条 WARN。所以快检逻辑本身没错，错的是喂进去的东西。
+
+## v0.10.1：投递作业之后处理器被改过 —— 第一次写入会被拒绝
+
+**症状**：作业是异步的（模型档可能要等几十秒）。等结果的时候顺手在原版编辑器里改了代码，
+面板上一点「写入」，作业结果把这段改动**静默覆盖**掉了。
+
+**改动**（`scripts/main.js`）：
+
+- 投递那一刻把处理器代码记成基线：`JOB_ORIG["x,y"] = String(b.code)`，两条投递路径都记
+  （`jobSubmit()` 与 `jobSync()` —— 后者是同步跑完的测试/控制台入口，一开始漏了，ui smoke 的端到端用例把它抓出来了）。
+- 写入前比对：不一致就**拒绝一次**，文案点明「提交时 N 行，现在 M 行」，并提示再点一次「写入」才算确认覆盖
+  （`JOB_FORCE` 只放行一次，第三次又会问）。
+- 写成功之后基线过期（`forgetOrig()`），不会误报下一次写入。
+- **不用对话框是有意的**：无头环境里 `Core.scene` 是 null，弹窗直接 NPE；
+  而「拒绝一次 + 再点一次」在真机与测试里走的是同一条路径，不用为测试造第二条代码路径。
+- 控制台新增 `maiConflictProbe()`：用假处理器（只有 tile 与 code）验冲突闸的三个分支，不碰存档、不写撤销快照。
+
+**验证**：`tests/mlogauxiliary/run_ui_smoke.py` 里两条 ——
+
+1. `MAICONFLICT:ok`：拒绝 → 放行一次 → 第三次又问 → 代码没动过就不问。
+2. 端到端（真 sidecar + 真 v160.7 处理器）：投递作业 → `updateCode` 改代码 → 第一次 `maiJobWrite` 返回
+   「被改过」且**处理器代码没被动**，第二次「已写入」。摘要行：
+   `job conflict gate: first write refused, second click overwrote`。
 
 ## v0.10.0：撤销能跨重启了 —— 写入前把原代码落盘（P5 第一刀）
 

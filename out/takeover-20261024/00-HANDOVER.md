@@ -1651,3 +1651,50 @@ P5（多处理器事务写入 + 撤销落盘，`docs/Mlog辅助-规划.md` §5�
 下一刀（P5 剩余）：一个作业产出 N 段代码的事务写入 + 整体回滚、写前「处理器在你提交后被改过」的冲突提示 ——
 两者都要先扩 sidecar 作业契约（job → N 段代码）。另：候选③（自由档同族兜底）**已判定不做**（会削弱 v0.9.0 零链接门禁），
 候选①（面板记住 provider）**不存在**（provider 是 sidecar 启动参数，模组侧没有这个 UI）。
+
+## 62 · v0.10.1：投递之后处理器被改过，第一次写入会被拒绝（P5 第二刀）
+
+P5 规划里「写入前重读 code，不一致 → 提示被改过」的模组侧一半。
+
+### 62.1 症状与判据
+
+作业是异步的（模型档可能几十秒），等结果时玩家改了代码，点「写入」会把改动静默覆盖。
+冲突基线不是撤销快照（v0.10.0 那份是写入前一刻拍的，拍完立刻写），而是**投递那一刻**的代码：
+`String(b.code) !== String(orig)` 即算被改过；字符串全等（含行尾空白）是保守选择。
+
+### 62.2 改动
+
+| 文件 | 改动 |
+| --- | --- |
+| `MlogAuxiliary/scripts/main.js` | `JOB_ORIG`/`JOB_FORCE`/`procKey`/`rememberOrig`/`forgetOrig`/`conflictReason`/`conflictGate`；`jobSubmit()` 与 `jobSync()` 两条投递路径都记基线；`writeBuild()` 加第三道闸；写成功后 `forgetOrig`；`api.maiConflictProbe()` |
+| `MlogAuxiliary/mod.hjson` | 0.10.0 → 0.10.1 + description 一句 |
+| `MlogAuxiliary/README.md` | 标题 v0.10.1 + 新增整节 |
+| `tests/mlogauxiliary/run_ui_smoke.py` | `MAICONFLICT` 探针 + 端到端冲突用例（投递→改码→第一次拒/第二次覆盖）+ 三条 v0.10.1 源码红线 + 摘要行 |
+| `docs/Mlog辅助-规划.md` | §5 加「第二刀（v0.10.1，已落地）」；§9 P5 行改「第一刀 + 第二刀」 |
+| `docs/断言表.md` / `docs/验证记录.md` | 新增 L2-47 |
+
+交互：**不用对话框**（无头 `Core.scene` 为 null 会 NPE），改成「拒绝一次 + 再点一次算确认」，
+`JOB_FORCE` 只放行一次（第三次又问）。
+
+### 62.3 坑
+
+1. `jobSync()` 是第二条投递路径（`httpRaw("POST","/jobs")` 自己拼，不走 `jobSubmit`），最初漏记基线 →
+   端到端用例第一次写入没被拒绝，直接暴露。
+2. 写成功后必须 `forgetOrig`，否则同一台处理器的下一次写入会误报冲突。
+
+### 62.4 复跑
+
+`run_ui_smoke.py` EXIT=0（`MAICONFLICT:ok`、`MAIUNDO:ok`、`MAIDIAG:版本：0.10.1`、作业三路全过、
+摘要行 `job conflict gate: first write refused, second click overwrote`）；`gate.py --full` 见 §62.5。
+
+### 62.5 环境发现：61 个残留 JVM 把 probes 档打红
+
+本轮 `gate.py --full` 首跑 `probes FAIL`（26 条全红，`insufficient memory for the Java Runtime Environment`）——
+`Get-Process java` 有 **61 个** `out/jre21 -jar out/_server160.jar` 残留（最早 20:17，每只 30-220 MB），
+可用内存只剩 1.4 GB。清掉后 probes 26/26、gate 16/16 in 47.5s。泄漏源未定位（连进程都没退），
+下一刀候选：`Server` 加 finally 兜底 + 收尾扫孤儿 JVM。
+
+### 62.6 边界与下一刀
+
+只覆盖单处理器一次写入。P5 剩下的主体是**多处理器事务写入**（一个作业 N 段代码、全过才写、任一台失败整体回滚），
+要先扩 sidecar 作业契约（`jobqueue` 的 job 从 `code` 改成 `codes[]`）。冲突检测只比代码文本、不比链接表。

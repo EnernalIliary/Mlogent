@@ -28,7 +28,7 @@
 function __logicWriterMain(){
     "use strict";
 
-    var MOD_VERSION = "0.10.0";
+    var MOD_VERSION = "0.10.1";
     var URL_KEY     = "mlogauxiliary-url";
     var DEFAULT_URL = "http://127.0.0.1:8765";
     var KEY_REGION  = ["f7"];      // F7：扫鼠标周围 10 格，列出链接候选
@@ -646,8 +646,53 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
             return "撤销快照 " + undoFilesOf(root).length + " 份（目录 " + dirText(root) + "）";
         }
 
+        // ------------------------------------------------ 写前冲突检测（v0.10.1）
+        // 作业是异步的：投递那一刻处理器上是 A，面板上点「写入」时可能已经是 B
+        // （等结果的时候顺手改了代码、或者另一台处理器写了同一格）。静默覆盖会吃掉这段改动，
+        // 所以写入前比对「投递作业那一刻的代码」：不一致就拒绝一次，再点一次「写入」才算确认覆盖。
+        // 不用对话框是有意的 —— 无头环境里 Core.scene 是 null，弹窗会直接 NPE，
+        // 而「拒绝一次 + 再点一次」在真机和测试里走的是同一条路径。
+
+        var JOB_ORIG  = {};       // "x,y" -> 投递作业那一刻的代码
+        var JOB_FORCE = {};       // "x,y" -> 已经拒绝过一次，下一次写入视为确认覆盖
+
+        function procKey(b){
+            try{ return String(b.tile.x) + "," + String(b.tile.y); }
+            catch(e){ return "?"; }
+        }
+
+        function rememberOrig(b){
+            try{ JOB_ORIG[procKey(b)] = String(b.code); JOB_FORCE[procKey(b)] = false; }
+            catch(e){ log("rememberOrig failed: " + e); }
+        }
+
+        function forgetOrig(b){
+            try{ delete JOB_ORIG[procKey(b)]; delete JOB_FORCE[procKey(b)]; }catch(e){ }
+        }
+
+        function conflictReason(b){
+            var k = procKey(b);
+            var orig = JOB_ORIG[k];
+            if(orig === undefined || orig === null){ return null; }
+            if(String(b.code) === String(orig)){ return null; }
+            return "处理器在你投递作业之后被改过（提交时 " + String(orig).split("\n").length
+                 + " 行，现在 " + String(b.code).split("\n").length + " 行）";
+        }
+
+        function conflictGate(b){
+            var why = conflictReason(b);
+            if(why === null){ return null; }
+            var k = procKey(b);
+            if(JOB_FORCE[k] === true){
+                JOB_FORCE[k] = false;          // 只放行一次
+                return null;
+            }
+            JOB_FORCE[k] = true;
+            return "拒绝写入：" + why + "；确认覆盖请再点一次「写入」";
+        }
+
         // ---------------------------------------------------------- 写入
-        // 唯一的写入口。三道闸：0 ERR、目标存在、载荷由 sidecar 生成（模组不自己拼代码）。
+        // 唯一的写入口。四道闸：0 ERR、目标存在、载荷由 sidecar 生成（模组不自己拼代码）、写前没被改过。
 
         function writeBuild(b, res){
             if(b === null){ return "没有目标处理器"; }
@@ -655,11 +700,14 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
                 return "拒绝写入：静态检查有 ERR（" + ((res && res.errors) || "?") + " 条）";
             }
             if(!res.bytes_b64){ return "拒绝写入：sidecar 没有返回载荷"; }
+            var blocked = conflictGate(b);
+            if(blocked !== null){ return blocked; }
             try{
                 var snapName = saveUndo(b, "write:" + String(res.template || "code"));
                 undoStack.push({b: b, code: String(b.code), snap: snapName});
                 if(undoStack.length > 20){ undoStack.shift(); }
                 b.configure(base64Bytes(res.bytes_b64));
+                forgetOrig(b);          // 写成功之后这次作业的基线就过期了
                 return "已写入 " + (res.template || "") + "（" + res.statements + " 条语句，"
                      + res.bytes_len + " 字节）";
             }catch(e){
@@ -1251,6 +1299,7 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
         }
 
         function jobSubmit(b, desc, cb){
+            rememberOrig(b);                 // v0.10.1：投递那一刻的代码就是冲突基线
             httpJson("POST", "/jobs", JSON.stringify(jobBody(b, desc)), function(code, text){
                 var res = parse(text);
                 if(code !== 200 || res === null || res.ok !== true){
@@ -1410,6 +1459,7 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
         // 同步跑完一个作业：**只给控制台/自检用**（会阻塞当前线程）。
         // 游戏内 UI 走的是上面那条异步路径 —— 主线程 busy-wait 永远等不到 Core.app.post 的回调。
         function jobSync(b, desc, timeoutMs){
+            rememberOrig(b);                 // v0.10.1：这条路径也是一次投递，基线同样要记
             var t0 = Packages.java.lang.System.currentTimeMillis();
             var limit = (timeoutMs > 0) ? timeoutMs : 20000;
             var r1 = httpRaw("POST", base + "/jobs", JSON.stringify(jobBody(b, desc)));
@@ -2237,6 +2287,27 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
             if(b === null){ return "no processor at " + x + "," + y; }
             var w = writeBuild(b, jobAsPlan(job));
             return w + " | " + String(b.code).replace(/\n/g, " / ");
+        };
+        // v0.10.1：写前冲突检测的无头探针。判定发生在 configure 之前，所以用假处理器
+        // （只有 tile 与 code）就够，不会碰到真存档、也不会写撤销快照。
+        api.maiConflictProbe = function(){
+            var b = {tile: {x: 3, y: 4}, code: "set n 1\nend"};
+            var k = procKey(b);
+            JOB_ORIG[k] = "set n 0\nend";
+            JOB_FORCE[k] = false;
+            var r1 = conflictGate(b);
+            var blocked = r1 !== null && String(r1).indexOf("被改过") >= 0
+                          && String(b.code) === "set n 1\nend";
+            var r2 = conflictGate(b);
+            var forced = r2 === null;                    // 第二次 = 确认覆盖
+            var r3 = conflictGate(b);
+            var once = r3 !== null;                      // 只放行一次，第三次又要问
+            JOB_ORIG[k] = String(b.code);
+            var quiet = conflictGate(b) === null;        // 代码没动过就不问
+            forgetOrig(b);
+            return (blocked && forced && once && quiet) ? "ok"
+                 : ("bad blocked=" + blocked + " forced=" + forced
+                    + " once=" + once + " quiet=" + quiet);
         };
         api.maiJobProgress = function(jobJson){ return jobProgressText(parse(String(jobJson))); };
         api.maiJobCancel = function(){ return cancelJob(); };
