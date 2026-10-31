@@ -341,7 +341,8 @@ class HttpProvider:
         text = _reply_text(doc)
         if text is None:
             return _with_reason(
-                {"error": "model endpoint answered without a message" + _why_blank(doc)}, doc)
+                {"error": "model endpoint answered without a message"
+                          + _why_blank(doc, budget)}, doc)
         if not text.strip():
             # An empty content is what a proxy or a token-starved model looks like; the
             # bare 'empty reply' left players guessing, so say what came back instead.
@@ -352,11 +353,12 @@ class HttpProvider:
                 except ProviderError:
                     pass
             return _with_reason(
-                {"error": "model endpoint answered with an empty message" + _why_blank(doc)}, doc)
+                {"error": "model endpoint answered with an empty message"
+                          + _why_blank(doc, budget)}, doc)
         try:
             return _with_reason(parse_reply(text), doc)
         except ProviderError as exc:
-            hint = _why_blank(doc)
+            hint = _why_blank(doc, budget)
             return _with_reason(
                 {"error": str(exc) + hint if hint else str(exc)}, doc)
 
@@ -419,9 +421,17 @@ def _alt_text(doc):
     return ""
 
 
-def _why_blank(doc):
-    """(finish_reason=length, usage=..., error=...) so a blank reply explains itself."""
+def _why_blank(doc, budget=None):
+    """(finish_reason=length, usage=..., error=...) so a blank reply explains itself.
+
+    v0.12.6: the budget is part of the explanation.  A truncated reply is not a
+    refusal -- the model ran out of room mid-thought -- and the job that records it
+    may still be retrying, so the message has to say which of the two happened
+    without anyone having to read the sidecar's source.
+    """
     bits = []
+    if budget:
+        bits.append("budget=%d tokens" % int(budget))
     if isinstance(doc, dict):
         choices = doc.get("choices")
         c0 = choices[0] if isinstance(choices, list) and choices else None
@@ -442,6 +452,8 @@ def _why_blank(doc):
                 bits.append("usage=%s" % json.dumps(keep, sort_keys=True))
         if doc.get("error"):
             bits.append("error=%s" % str(doc.get("error"))[:200])
+        if isinstance(c0, dict) and c0.get("finish_reason") == "length":
+            bits.append("the model ran out of room mid-thought, before it wrote an answer")
     return (" (" + "; ".join(bits) + ")") if bits else ""
 
 

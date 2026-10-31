@@ -950,6 +950,11 @@ def test_provider():
             msg10 = str(got10.get('error') or '')
             need('empty message' in msg10, 'a blank reply was not called blank: %r' % (msg10,))
             need('finish_reason=length' in msg10, 'a blank reply lost its diagnosis: %r' % (msg10,))
+            # v0.12.6: say which budget ran out, and that this is truncation, not refusal
+            need('budget=' in msg10,
+                 'a blank reply did not say which budget ran out: %r' % (msg10,))
+            need('ran out of room' in msg10,
+                 'a truncated reply did not say it was truncated: %r' % (msg10,))
             checks += 1
         finally:
             stub2.close()

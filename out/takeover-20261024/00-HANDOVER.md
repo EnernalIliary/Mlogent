@@ -1925,3 +1925,29 @@ ui smoke EXIT=0（`MAIDIAG:版本：0.12.1`、103 行/格、`MAILLM:ok 82`）。
   `test_jobs()` 15→16 项；断言表新增 L2-54 / L2-55。
 - **装机**：模组 0.12.5 需要重装 + 重启游戏，sidecar 需要重启（`/health` 的 `version` 应为 `0.12.5`）。
 - **下一刀**：①真机复测（框留存观感 / 徽标点得着 / 管理窗历史）②联机「无权限」提示 ③冲突检测比链接表 ④打包安装即用（最后）。
+
+## §71 mai v0.12.6：重试中的 findings 不是结论；角标贴住框的右下角（2026-10-31）
+
+报告全文：`out/takeover-20261024/71-v0126-retry-and-badge.md`。触发是玩家两条反馈：
+m01735「哦哦，成功了，但是在模型生成被截断的时候还有报错。」与 m01862「在矩形选框的作业提示框错位了。」
+
+- **重试 ≠ 失败**：`findings` 是「当前这次尝试的问题」的实时字段，作业没终态前随时会被下一次尝试覆盖。
+  真机 `out/jobs/ef8ff52c4b10a16a.json` 是 `done`/`attempts=2`，但玩家看到的是第一次被截断留下的
+  `ERR provider-error ... (finish_reason=length; usage={"completion_tokens": 1600, "prompt_tokens": 513})`。
+  模组侧加 `jobRetryHead()`（非终态 → `--- 上一次尝试的问题（第 N 次，还在重试）---`）与
+  `jobFindingLines()`（截断补一行人话），`renderJob()` 与 `renderManagerDetail()` 都走；
+  sidecar 侧 `_why_blank(doc, budget)` 把 `budget=16000 tokens` 与
+  `the model ran out of room mid-thought, before it wrote an answer` 写进消息本身。
+- **角标几何**：v0.12.5 的画字与点击区是两份几何，且 arc 的 `font.draw(text, x, y)` 里 **y 是基线、字往上涨**
+  （原版 `InputHandler` 的尺寸字画在 `mouseWorldY() + offset`，就是这个语义），于是字压在框底边内侧、
+  点击区却在框外——「错位」+「看得见点不着」。现在只有一份几何 `jobBadgeRect(a)`
+  （`bx = a.x + a.w - w - 4/scale`、`top = a.y - 4/scale`、基线 `top - 字高`、宽高用 `GlyphLayout` 真量），
+  `drawJobBadge()` 按它画、`jobBadge` 命中区按它收，并照原版 `font.setUseIntegerPositions(false)`
+  （不关的话 `1/camerascale` 的小数位置被量化，字会飘开框角）。
+- **验证**：ui smoke 新增 `MAIBADGERECT` 探针与四条几何断言
+  （`right == box.x+box.w-4/scale`、`top == box.y-4/scale`、`y+h == top`、`x+w == right`）
+  + 三条源码红线（`function jobBadgeRect(`、`font.setUseIntegerPositions(false)`、`api.maiBadgeRect = function`）；
+  `test_provider()` 第 10 项要求空白消息里出现 `budget=` 与 `ran out of room`。
+  结果：`protocol 26 / jobs 16 / provider 12 / llm 12`，ui smoke EXIT=0，`gate.py --full --kb-build` 16/16。
+- **装机**：模组 0.12.6 覆盖 `E:\Program Files (x86)\Steam\steamapps\common\Mindustry\saves\mods\MlogAuxiliary\`
+  后重启游戏；sidecar 也要重启（`/health` 的 `version` 应为 `0.12.6`，否则 `/jobs?all=1` 会被忽略）。

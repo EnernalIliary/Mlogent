@@ -317,6 +317,7 @@ def main():
     # v0.12.5: the retained selection box + corner badge state machine (no sidecar, no ui)
     "print('MAIJOBBOX0:' + maiJobBox());",
     "print('MAIJOBBOXPIN:' + maiJobBoxPin(JSON.stringify(['a','b']), JSON.stringify(['queued','running'])));",
+    "print('MAIBADGERECT:' + maiBadgeRect());",
     "print('MAIJOBBOXFIN:' + maiJobBoxPin(JSON.stringify(['a','b']), JSON.stringify(['done','rejected'])));",
     "print('MAIJOBBOXCLR:' + maiJobBoxClear());",
     "print('MAIJOBBOX3:' + maiJobBox());",
@@ -335,7 +336,8 @@ def main():
              or l.startswith(('MAISELF:', 'MAIDIAG:', 'MAISET:', 'MAILIST:', 'MAILISTROWS:',
                               'MAIUNDO:', 'MAICONFLICT:', 'MAILLM:',
                               'MAIJOBBOX0:', 'MAIJOBBOXPIN:', 'MAIJOBBOXFIN:',
-                              'MAIJOBBOXCLR:', 'MAIJOBBOX3:', 'MAIJOBMANAGER:'))]
+                              'MAIJOBBOXCLR:', 'MAIJOBBOX3:', 'MAIJOBMANAGER:',
+                              'MAIBADGERECT:'))]
     joined = '\n'.join(lines)
 
     # ---- resolve every Table/Cell method the page actually uses, in the engine
@@ -479,6 +481,27 @@ def main():
     if boxmark('MAIJOBBOX3:') != {'box': False}:
         problems.append('v0.12.5: the box came back after being cleared: %r'
                         % [l for l in lines if l.startswith('MAIJOBBOX3:')][:1])
+    badge = boxmark('MAIBADGERECT:')
+    if not isinstance(badge, dict) or badge.get('rect') is not True:
+        problems.append('v0.12.6: the corner badge has no geometry: %r'
+                        % [l for l in lines if l.startswith('MAIBADGERECT:')][:1])
+    else:
+        sc = float(badge.get('scale') or 1)
+        box = badge.get('box') or {}
+        right = float(box.get('x', 0)) + float(box.get('w', 0)) - 4 / sc
+        top = float(box.get('y', 0)) - 4 / sc
+        if abs(float(badge.get('right')) - right) > 1e-3:
+            problems.append('v0.12.6: the badge is not right-aligned to the box corner: '
+                            'right=%r wanted %r' % (badge.get('right'), right))
+        if abs(float(badge.get('top')) - top) > 1e-3:
+            problems.append('v0.12.6: the badge is not below the box bottom edge: '
+                            'top=%r wanted %r' % (badge.get('top'), top))
+        if abs((float(badge.get('y')) + float(badge.get('h'))) - float(badge.get('top'))) > 1e-3:
+            problems.append('v0.12.6: the badge baseline does not match its own top: %r' % (badge,))
+        if abs((float(badge.get('x')) + float(badge.get('w'))) - float(badge.get('right'))) > 1e-3:
+            problems.append('v0.12.6: the badge width disagrees with its right edge: %r' % (badge,))
+        if '\u751f\u6210\u4e2d' not in str(badge.get('text')):
+            problems.append('v0.12.6: the badge measured the wrong text: %r' % (badge.get('text'),))
     if 'MAIJOBMANAGER:no ui' not in joined:
         problems.append('v0.12.5: the job manager window should report "no ui" headless: %r'
                         % [l for l in lines if l.startswith('MAIJOBMANAGER:')][:1])
@@ -765,6 +788,23 @@ def main():
             problems.append('v0.12.5: ' + why)
     if 'return dumpRegion(r.x1, r.y1, r.x2, r.y2);' in code_only:
         problems.append('v0.12.5: F3 still opens the region snapshot panel on release')
+    for needle, why in (('function jobBadgeRect(',
+                         'the badge geometry is inlined again -- text and hit box will drift apart'),
+                        ('font.setUseIntegerPositions(false)',
+                         'the badge draws with integer positions -- at 1/camerascale the text '
+                         'snaps away from the box corner'),
+                        ('api.maiBadgeRect = function',
+                         'the badge geometry probe is gone')):
+        if needle not in code_only:
+            problems.append('v0.12.6: ' + why)
+    for needle, why in (('function jobRetryHead(',
+                         'a retrying job no longer labels its findings as the last attempt'),
+                        ('function jobFindingLines(',
+                         'the truncation gloss helper is gone'),
+                        ('上一次尝试的问题',
+                         'the retry header lost its wording')):
+        if needle not in code_only:
+            problems.append('v0.12.6: ' + why)
     if '"直接生成"' not in code_only:                 # 直接生成
         problems.append('v0.8.0: the /plan fallback button is gone -- an older sidecar '
                         'without /jobs would leave the panel unusable')
@@ -1126,7 +1166,8 @@ def main():
     if wm:
         print('  batch write: ' + wm[:170])
     for l in lines:
-        if l.startswith(('MAISELF:', 'MAIDIAG:', 'MAIUNDO:', 'MAICONFLICT:', 'MAILLM:')):
+        if l.startswith(('MAISELF:', 'MAIDIAG:', 'MAIUNDO:', 'MAICONFLICT:', 'MAILLM:',
+                        'MAIJOBBOX', 'MAIBADGERECT:', 'MAIJOBMANAGER:')):
             print('  ' + l[:300])
     return 0
 

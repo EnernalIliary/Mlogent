@@ -28,7 +28,7 @@
 function __logicWriterMain(){
     "use strict";
 
-    var MOD_VERSION = "0.12.5";
+    var MOD_VERSION = "0.12.6";
     var URL_KEY     = "mlogauxiliary-url";
     var DEFAULT_URL = "http://127.0.0.1:8765";
     // v0.11.0：设置页里填的模型档三件套。密钥只留在本机 Core.settings 与 sidecar 进程内存。
@@ -1733,6 +1733,30 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
                  + (job.explanation ? "（" + String(job.explanation) + "）" : "");
         }
 
+        // v0.12.6：作业还在跑的时候，findings 里躺着的是「上一次尝试」的问题，不是结论。
+        // 真机上截断那一下（模型把预算花在思考上）就被人当成「生成失败」——所以非终态的
+        // findings 必须挂一个「正在重试」的抬头，再补一句人话说明截断。
+        function jobFindingLines(job, maxLines){
+            var fs = job.findings || [], out = [], i, m, n = 0;
+            for(i = 0; i < fs.length && n < maxLines; i++){
+                m = String(fs[i].msg);
+                out.push(String(fs[i].sev) + " L" + fs[i].line + " " + m);
+                n++;
+                if(m.indexOf("finish_reason=length") >= 0 && n < maxLines){
+                    out.push("  （模型把回复预算用在思考上了，sidecar 会自动加大预算再试一次）");
+                    n++;
+                }
+            }
+            return out;
+        }
+
+        function jobRetryHead(job){
+            if(isJobTerminal(String(job.state))){ return ""; }
+            var fs = job.findings || [];
+            if(fs.length === 0){ return ""; }
+            return "--- 上一次尝试的问题（第 " + (job.attempts || 0) + " 次，还在重试）---";
+        }
+
         // v0.12.4：模型自己的思考过程现在跟着作业一起回来（sidecar 的 job.reasoning），
         // 面板直接摊开——推理模型想歪、或者把预算全花在想上时，光看 ERR 一行看不出为什么。
         // 端点不返回 reasoning_content 的话这里是空串，面板就什么都不加。
@@ -1794,6 +1818,12 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
                 }
                 if(job.explanation){ host.add(String(job.explanation)).row(); }
                 return;
+            }
+            var rh = jobRetryHead(job);
+            if(rh !== ""){
+                host.add(rh).row();
+                var rl = jobFindingLines(job, 4);
+                for(var ri = 0; ri < rl.length; ri++){ host.add("  " + rl[ri]).row(); }
             }
             host.add("（每 " + (JOB_POLL_MS / 1000) + " 秒查一次状态，可以先去干别的）").row();
         }
@@ -1931,45 +1961,56 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
             jobBoxFinishIfDone();
         }
 
-        // 徽标按世界坐标画在框的右下角；字按屏幕恒定大小画，所以宽度要用 GlyphLayout 量，
-        // 量不出来就按字数估（宁可点区大一点，也不要「看得见点不着」）。
-        function badgeTextWidth(font, text){
-            try{
-                var layout = new Packages.arc.graphics.g2d.GlyphLayout(font, text);
-                var w = layout.width;
-                if(w > 0){ return w; }
-            }catch(e0){ }
-            return text.length * 9;
+        // 徽标的位置和点击区必须是同一份几何：先算矩形，再按矩形画字、按矩形收点击。
+        // y 的语义照原版 InputHandler 画选区尺寸那一手（font.draw 的 y 是基线，字往上涨），
+        // 所以「贴在框底边外侧」= 基线在 (框底边 - 4 屏幕像素 - 字高)，不是基线压在框底边上。
+        // 宽度/字高都用 GlyphLayout 真量；量不出来才按字数估（宁可点区大一点，也不要看得见点不着）。
+        function jobBadgeRect(a){
+            var text = jobBadgeText();
+            if(text === ""){ return null; }
+            var scale = 1;
+            try{ scale = Vars.renderer.camerascale; }catch(e0){ }
+            if(!(scale > 0)){ scale = 1; }
+            // 无头引擎里 Fonts.outline 是 null（没有 UI），几何照样算得出来：按字数估宽，
+            // 这样自检能钉「角标贴没贴住框的角」，而不是只能等玩家截图。
+            var font = Packages.mindustry.ui.Fonts.outline;
+            var w = 0, hh = 13 / scale;
+            if(font !== null && font !== undefined){
+                font.getData().setScale(1 / scale);
+                try{
+                    var layout = new Packages.arc.graphics.g2d.GlyphLayout(font, text);
+                    if(layout.width > 0){ w = layout.width; }
+                    if(layout.height > 0){ hh = layout.height; }
+                }catch(e1){ }
+            }
+            if(!(w > 0)){ w = text.length * 9 / scale; }
+            var bx = a.x + a.w - w - 4 / scale;   // 右对齐：字右端离框右边 4 个屏幕像素
+            var top = a.y - 4 / scale;            // 字顶离框底边 4 个屏幕像素（整个字在框外）
+            return {text: text, x: bx, y: top - hh, w: w, h: hh,
+                    scale: scale, top: top, right: bx + w};
         }
 
         function drawJobBadge(r, a){
             try{
-                var text = jobBadgeText();
-                if(text === ""){ jobBadge = null; return; }
+                var m = jobBadgeRect(a);
+                if(m === null){ jobBadge = null; return; }
+                jobBadge = {x: m.x - 3 / m.scale, y: m.y - 3 / m.scale,
+                            w: m.w + 6 / m.scale, h: m.h + 6 / m.scale};
                 var font = Packages.mindustry.ui.Fonts.outline;
-                if(font === null || font === undefined){ jobBadge = null; return; }
+                if(font === null || font === undefined){ return; }
                 var D = Packages.arc.graphics.g2d.Draw;
-                var scale = 1;
-                try{ scale = Vars.renderer.camerascale; }catch(e0){ }
-                if(!(scale > 0)){ scale = 1; }
                 var z = D.z();
                 D.z(Packages.mindustry.core.Layer.endPixeled);
-                font.getData().setScale(1 / scale);
-                var w = badgeTextWidth(font, text), h = 13 / scale;
-                var bx = a.x + a.w - w - 4 / scale;      // 右对齐贴住框的右下角
-                var by = a.y - h - 8 / scale;            // 压在框底边外侧，不挡框里的格子
-                jobBadge = {x: bx - 3 / scale, y: by - 2 / scale,
-                            w: w + 6 / scale, h: h + 4 / scale};
-                try{
-                    var F = Packages.arc.graphics.g2d.Fill;
-                    D.color(Pal.accentBack);
-                    F.rect(jobBadge.x, jobBadge.y - 2 / scale, jobBadge.w, jobBadge.h + 2 / scale);
-                    D.color();
-                }catch(e2){ /* 底衬画不出来只丢底衬 */ }
+                font.getData().setScale(1 / m.scale);
+                // 原版画选区尺寸时也关掉整数对齐：开着的话 1/camerascale 的小数位置会被量化成整数，
+                // 字会整体飘开框的角——真机上看到的就是「错位」。
+                var ints = true;
+                try{ ints = font.usesIntegerPositions(); font.setUseIntegerPositions(false); }catch(e0){ }
                 font.setColor(Pal.accent);
-                font.draw(text, bx, by + h);
+                font.draw(m.text, m.x, m.y);
                 font.setColor(Packages.arc.graphics.Color.white);
                 font.getData().setScale(1);
+                try{ font.setUseIntegerPositions(ints); }catch(e1){ }
                 D.z(z);
             }catch(e){ jobBadge = null; }
         }
@@ -2106,12 +2147,17 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
                          + (whole > REASON_LINES * REASON_LINE ? "，只显示开头" : "") + "）---").row();
                 for(var ti = 0; ti < think.length; ti++){ host.add(think[ti]).row(); }
             }
+            var state = String(job.state);
+            var head = jobRetryHead(job);
+            if(head !== ""){ host.add(head).row(); }
             var fs = job.findings || [];
             for(var fi = 0; fi < fs.length && fi < 6; fi++){
                 host.add(String(fs[fi].sev) + " " + String(fs[fi].rid) + "  "
                          + String(fs[fi].msg)).row();
+                if(String(fs[fi].msg).indexOf("finish_reason=length") >= 0){
+                    host.add("  （模型把回复预算用在思考上了，sidecar 会自动加大预算再试一次）").row();
+                }
             }
-            var state = String(job.state);
             if(state === "done" && b !== null && b !== undefined && job.bytes_b64){
                 host.button("写入到 @" + b.tile.x + "," + b.tile.y, function(){
                     hint(writeBuild(b, jobAsPlan(job)));
@@ -3081,6 +3127,15 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
                                    linger: jobBox.termAt > 0, badge: jobBadgeText()});
         };
         api.maiJobBoxClear = function(){ jobBox = null; jobBadge = null; return "cleared"; };
+        // 自检口：角标矩形与框右下角的关系（无头引擎里 renderer 可能是 null，按 scale 1 算）。
+        api.maiBadgeRect = function(){
+            var a = selDrawArgs({x1: 1, y1: 1, x2: 6, y2: 6, w: 6, h: 6});
+            var m = jobBadgeRect(a);
+            if(m === null){ return JSON.stringify({rect: false}); }
+            return JSON.stringify({rect: true, scale: m.scale, box: a, right: m.right,
+                                   top: m.top, x: m.x, y: m.y, w: m.w, h: m.h,
+                                   text: m.text});
+        };
         // 自检口：不碰 sidecar 也能把「框留多久 / 徽标写什么」这套状态机跑一遍。
         api.maiJobBoxPin = function(idsJson, statesJson){
             var ids = parse(String(idsJson)) || [], states = parse(String(statesJson)) || [];

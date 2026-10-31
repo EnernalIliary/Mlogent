@@ -355,6 +355,24 @@ Arc 的 `Table.cells` 是私有字段（`arc/scene/ui/layout/Table.java:35`）�
 
 真引擎对照探针（`out/_v47_probe.py`）：放处理器、用 `msch.build_logic_data` 写带两条链接的载荷，读回 `links.size=2`，把真链接名喂 `quickcheck.check` ⇒ 零命中；喂空数组 ⇒ 第 1、3 行各一条 WARN。所以快检逻辑本身没错，错的是喂进去的东西。
 
+## v0.12.6：还在重试的时候，别把「上一次的问题」当成结论
+
+推理模型偶尔会把回复预算全花在思考上，然后一个字都没写出来（`finish_reason=length`）。这时候作业会**自己重试**
+（sidecar 把预算从 4096 加到 16000 再问一次），多数情况下第二次就成了——真机上那次 `attempts: 2` 就是这么来的。
+
+但重试期间作业的 `findings` 里躺着上一次的错误，作业管理窗照实渲染，于是玩家看到的是：
+
+```
+ERR provider-error model endpoint answered with an empty message (finish_reason=length; ...)
+```
+
+看着就是「生成失败」，其实还在跑。现在：
+
+- 非终态作业的 findings 一律抬一个抬头：`--- 上一次尝试的问题（第 2 次，还在重试）---`；
+- 消息里出现 `finish_reason=length` 时补一句人话：`（模型把回复预算用在思考上了，sidecar 会自动加大预算再试一次）`；
+- sidecar 侧同步把预算写进消息本身：`... (budget=16000 tokens; finish_reason=length; ...; the model ran out of room mid-thought, before it wrote an answer)`，
+  这样就算只在盘上的作业文件里看，也能分清「被截断」和「被拒绝」。
+
 ## v0.12.5：F3 只弹一个描述框，框留到作业做完，角标点开作业管理
 
 以前 F3 拖一个框松手，弹的是「区域快照」面板：框本身画完就消失，作业状态只挂在某一个 AI 面板里——
