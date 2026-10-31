@@ -2361,3 +2361,27 @@ llm 12 / write path 7 模板）。版本三处 0.14.3。
 装机前 8765 上残留 **0.14.7** 旧后端（pid 57340）已停，`install.ps1 -Silent` 装好（旧版 `MlogAuxiliary.bak-20261101-043054`）；
 工作区提交 **`a4cba92`**（13 files +400/−19），公开仓 `main` = **`3ec8bb8`** + tag `v0.15.1`，Release 两附件已传，
 CI run **41239699508** success。直连 GitHub 又断，走本机代理 `127.0.0.1:7890` 才推上去。
+
+## §89 v0.15.2：取消后控件消失 + 聊天真消息 + 样板库 8 选 3（2026-11-01）
+
+**触发**：用户 m08164 三条真机问题（+ m08187/m08216 两条格式澄清），并要求「蓝图方案先不用动」。
+
+**改动**
+- `MlogAuxiliary/scripts/main.js`：`jobWidgetCancel()` / `jobButtonsClick()` 取消分支补 `jobWidgetHide();`，
+  `drawSelection()` 早退分支补 `jobWidgetHide()`（bug1 根因：控件挂在 `ui.hudGroup`，没人摘就一直留着）；
+  `chatLine()` → `<MAI:logic:><状态>(x,y):详情`、新增 `chatPretty()`（`UI.formatIcons()`）、
+  `chatSay()` 在 `chatSendOn() && netActive()` 时 `Packages.mindustry.gen.Call.sendChatMessage(s)`（bug3）；
+  `MOD_VERSION = "0.15.2"`。
+- `tools/mlogprovider.py`：新增 `EXAMPLES`（8 条已验证样例）与 `_examples_for(desc, limit=3)`，
+  `build_prompt()` 换成「Program shapes … adapt one:」+ 3 条相关样例（bug2）。
+- `tools/logicd.py`：`SIDECAR_VERSION = '0.15.2'`。
+- 文档：`docs/Mlog辅助-蓝图方案.md` 增 §3.4（B5「详细」页续聊：反射取 `SchematicsDialog.info`、
+  每帧按 `title.getText()` 重挂按钮、上下文读 payload v2）+ §3.5（三种载体对比，payload 为权威）；
+  `docs/断言表.md` 增 L2-82、总数改 **141 条**（L1 31 / L2 82 / L3 6 / L4 4 / S 18，顺带修正 v0.15.1
+  漏改的 139→）；`docs/Mlog辅助-规划.md` 加 v0.15.2 行；`CHANGELOG.md` 加 0.15.2 四条；
+  `MlogAuxiliary/README.md` 更新聊天播报格式与样板说明；`MlogAuxiliary/mod.hjson` 版本 + description 两句。
+- 测试：`tests/logicd/run_logicd_tests.py` 的 `diag` 增到 7 checks（样板库三条断言）；
+  `tests/mlogauxiliary/run_ui_smoke.py` 的 `MAICHAT` 期望改成带尖括号的格式 + 两条新红线。
+
+**教训**：`code_only` 剥 `//` 注释 ⇒ 红线串不能带行尾注释；「控件挂在 hudGroup」这类生命周期问题，
+清数据（`jobBox = null`）与摘控件（`jobWidgetHide()`）必须成对，早退分支最容易漏。

@@ -60,7 +60,79 @@ payload 升 **schema v2**：`{"v":2,"c":[[line,stmt,text],…],"m":{"ws":"<工�
 - 为什么不用 sidecar 索引文件：蓝图会被复制、改名、上传创意工坊、删档 —— 外部索引一定与文件失联；签名在代码里就跟着蓝图走。这也是用户「推荐写入逻辑签名区」的判断依据。
 - 体积：meta 几十字节，zlib 后几十字节，对 `.msch` 无感。
 
-## 4. 分步与估时（2–3 人日）
+## 3.4 「详细」页里继续对话（B5，v0.15.2 追加）
+
+目标：玩家在原版蓝图页点某一行的「详细信息」后，看到的那一页底栏上多一个「继续对话」，
+点开就是这块蓝图的上下文（原来的提示词、所属工作区、上一次的作业），说一句就能改出新版本。
+
+**入口是活着的 Java 对象，不是我们能重写的方法。**
+- `SchematicsDialog` 第 33 行：`private SchematicInfoDialog info = new SchematicInfoDialog();`
+- 第 223-225 行：`public void showInfo(Schematic schematic){ info.show(schematic); }` —— 行内「详细信息」
+  按钮（第 161 行）直接调它，中间没有可插的钩子。
+- `SchematicInfoDialog.show(Schematic)`（第 770-830 行）每次进来先 `cont.clear()` 再
+  `buttons.clearChildren()`，然后挂三个按钮：`@back`、`@editor.export`、`@edit`。**它不保存当前是哪个
+  Schematic**，要自己认。
+
+好在 arc 的 `Dialog.cont`、`Dialog.buttons`、`Dialog.title` 都是 `public final`
+（`Arc-Source/arc-core/src/arc/scene/ui/Dialog.java:57-58`），所以只要拿到 `info` 这个实例，
+往里加按钮不需要反射整棵界面树。
+
+**拿实例（一次反射，之后全走公开字段）**
+
+```java
+var f = Packages.java.lang.Class.forName("mindustry.ui.dialogs.SchematicsDialog")
+    .getDeclaredField("info");
+f.setAccessible(true);
+SCHEM_INFO = f.get(Vars.ui.schematics);       // SchematicInfoDialog
+```
+
+**装饰（每帧一次轻量判断，250 ms 节流即可）**
+
+```
+if(SCHEM_INFO !== null && SCHEM_INFO.isShown()){
+    var key = String(SCHEM_INFO.title.getText());
+    if(SCHEM_KEY !== key){ SCHEM_KEY = key; 往 SCHEM_INFO.buttons 挂「继续对话」; }
+} else if(SCHEM_KEY !== null){ SCHEM_KEY = null; }
+```
+
+`title` 的文本是 `"[[schematic] <名字>"`（第 772 行 `"[[" + bundle + "] " + schem.name()`），
+所以取 `"] "` 之后那段当名字，再到 `Vars.schematics.all()` 里找 `name()` 相同的那张；
+同名多个时优先 `file.parent()` 等于 `Vars.schematics.schematicDirectory` 的（玩家自己的），否则取第一个。
+
+**取上下文**：遍历 `schem.tiles`，`t.block instanceof LogicBlock` 的那几个 `t.config` 就是代码字符串；
+`aigenerated.verify_text()` → payload v2 的 `m`（工作区名、原提示词、作业 id、蓝图名）。
+没有签名（老蓝图、手工蓝图、别的工具做的）就退化成「把这段代码当上一版，问一句要怎么改」。
+
+**续聊**：复用 v0.14.1 已有的 improve 链路 —— `jobSubmit(b, desc, cb, wsImprovePayload(...))`，
+`prevCode` 用蓝图里那段代码；工作区有 id 就带上，没有就传空（只做一次性的「基于这段代码改」）。
+
+**为什么不用替换 `showInfo`**：Rhino 拿到的 Java 实例是不可替换的 object（方法表在 Java 侧），
+没有「重写实例方法」这回事；重新实现一份详细页又会丢掉原版后续更新（尺寸、材料、图片、工坊信息）。
+
+**退化方案（保底可用）**：反射失败就退到 B2 的入口 —— 在 `Vars.ui.schematics.buttons`（底栏，
+第 65 行只建一次）挂「MAI 蓝图对话」，点开是自己排版的详情页（名字、尺寸、材料、代码预览、
+上下文、继续对话）。它不是「在详细页里」，但零反射、零风险。
+
+**风险与边界**
+- Java 21 对宿主 classpath 上的类（unnamed module）允许 `setAccessible`；但如果哪天游戏换成
+  模块化或 Sercan 加 SecurityManager，反射会抛 `InaccessibleObjectException` ⇒ 包 try/catch，
+  失败走退化方案，不能因为进不了详细页就整段功能崩。
+- 装饰是「每次弹窗加一次按钮」，`show()` 会 `buttons.clearChildren()`，所以必须每次重挂，
+  不能只挂一次。
+- 原版「编辑」按钮会把代码读进编辑器，玩家在那边改了就绕过了签名 —— 详情页显示的上下文可能
+  比代码新，读到 `verify_text()` 失败就当没有上下文，不要瞎猜。
+
+### 3.5 上下文放哪：两种载体
+
+| 载体 | 机读 | 人读 | 抗复制/改名 | 备注 |
+| --- | --- | --- | --- | --- |
+| 签名 payload v2（`m`） | ✅ | 要我们解析才看得到 | ✅ 跟着代码走 | 主载体；蓝图编译时 `#` 注释会被剥掉，所以只能进 base64 payload |
+| `tags["description"]`（原版详细页直接显示） | 半 | ✅ | ✅ | 只放一句摘要（工作区名 + 原提示词前 60 字）；玩家在「编辑」里会覆盖 |
+| 外部索引文件（sidecar 目录） | ✅ | ✗ | ✗ 复制/改名/工坊上传即失联 | 不用 |
+
+结论：**payload v2 是唯一权威，description 是给人看的一句摘要**，两边都写、读的时候以 payload 为准。
+
+## 4. 分步与估时（3–4 人日）
 
 | 步 | 内容 | 依赖 |
 | --- | --- | --- |
@@ -68,6 +140,7 @@ payload 升 **schema v2**：`{"v":2,"c":[[line,stmt,text],…],"m":{"ws":"<工�
 | B2 | 蓝图页「MAI 对话」按钮 + 蓝图列表 + 选中开 improve | B1 的列表读取代码 |
 | B3 | 签名 payload v2（Python 侧）+ mod 读取 | **item1 签名并入先落地**（同一个 `aigenerated.py`，避免打架） |
 | B4 | 真机验证 + 断言 L2-69/L2-70 + 报告 | B1–B3 |
+| B5 | 「详细」页「继续对话」（反射取 `info` + 每帧重挂按钮 + 按名字认蓝图 + 读 payload v2 上下文） | B3、B1 的列表读取 |
 
 ## 5. 不做 / 风险
 - **不** hook 原版蓝图页的行布局或行内按钮（`rebuildPane` 每次重建，注入必丢）。
