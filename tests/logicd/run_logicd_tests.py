@@ -650,6 +650,28 @@ def test_jobs():
         st, _ = srv.post('/jobs', {'desc': ''})
         need(st == 400, 'POST /jobs with an empty desc -> %s, want 400' % st)
         checks += 1
+
+        # v0.12.5: the manager window needs the opposite of GET /jobs -- what ran,
+        # newest first, and without dragging 12k of reasoning into a fifty-row list
+        st, hist = srv.get('/jobs?all=1&limit=3')
+        need(st == 200 and hist.get('all') is True and 0 < hist['count'] <= 3,
+             'GET /jobs?all=1: %s %r' % (st, hist.get('count')))
+        need(any(j['state'] in JTERMINAL for j in hist['jobs']),
+             'the history left the finished runs out: %r'
+             % ([j['state'] for j in hist['jobs']],))
+        created = [j.get('created') or 0 for j in hist['jobs']]
+        need(created == sorted(created, reverse=True),
+             'the history is not newest first: %r' % (created,))
+        need(all('reasoning' not in j and 'code' not in j and 'snapshot' not in j
+                 for j in hist['jobs']),
+             'a history row drags the whole job along: %r'
+             % (sorted(hist['jobs'][0]) if hist['jobs'] else [],))
+        st, one = srv.get('/jobs?id=' + jid)
+        need(st == 200 and 'code' in one['job'],
+             'GET /jobs?id= stopped returning the full record: %s' % st)
+        st, _ = srv.get('/jobs?all=1&limit=bogus')
+        need(st == 200, 'GET /jobs?all=1&limit=bogus -> %s, want a defaulted 200' % st)
+        checks += 1
     finally:
         srv.close()
 

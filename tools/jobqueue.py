@@ -329,6 +329,23 @@ class Queue:
             jobs = [j for j in jobs if j.get('state') not in TERMINAL]
         return sorted(jobs, key=lambda j: (j.get('created') or 0, j.get('id') or ''))
 
+    def history(self, limit=50, state=None):
+        """Every job the store knows, newest first -- finished ones included.
+
+        list() answers "what is in flight"; the job manager window in the mod
+        wants the opposite ("what happened, and how did it end"), so this one
+        keeps the terminal runs and sorts them newest first: a player looking
+        for the run they just started scrolls the top, not the bottom.
+        """
+        with self.lock:
+            jobs = [dict(j) for j in self.jobs.values()]
+        if state:
+            jobs = [j for j in jobs if j.get('state') == state]
+        jobs.sort(key=lambda j: (j.get('created') or 0, j.get('id') or ''), reverse=True)
+        if limit is not None and limit > 0:
+            jobs = jobs[:limit]
+        return jobs
+
     def cancel(self, jid):
         """Cancelling is allowed in every non-terminal state (section 4.2)."""
         with self.lock:

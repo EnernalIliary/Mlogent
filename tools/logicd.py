@@ -27,7 +27,8 @@ Protocol (v1, JSON over HTTP, loopback only)
     POST /snapshot      {snapshot}                                -> writes out/snapshots/*.json, returns the path
     POST /plan          {intent, links, ipt}                       -> compose, plus which template matched and why
     POST /jobs          {desc, mode, snapshot, links, ipt, origin}  -> queued job (id is sha1 of the body)
-    GET  /jobs?id=|?state=                                          -> one job / the unfinished ones
+    GET  /jobs?id=|?state=|?all=1&limit=N                           -> one job / the unfinished ones
+                                                                     / the newest N of every state
     DELETE /jobs?id=                                                -> cancel (running is cancelled too)
 
 Everything returns "ok": false when any finding is ERR: a write is refused, not
@@ -68,7 +69,7 @@ import mlogprovider           # noqa: E402  (prompt / reply parsing / model call
 PROTOCOL = 1
 # The sidecar is what gets restarted when a fix ships, and a stale process answers
 # /health with 200 all day, so let the answer say which build it is (v0.12.3).
-SIDECAR_VERSION = '0.12.4'
+SIDECAR_VERSION = '0.12.5'
 GAME = 'mindustry v160.7 (executor jar out/_server160.jar)'
 
 #: LogicBlock.instructionsPerTick is 1 by default and clamped to
@@ -1148,6 +1149,23 @@ def apply_llm(req):
     return llm_state()
 
 
+BRIEF_DROP = ('snapshot', 'code', 'bytes_b64', 'reasoning', 'links', 'assumptions')
+
+
+def job_brief(job):
+    """A job without the parts that make a listing heavy (v0.12.5).
+
+    The manager window lists up to fifty runs and re-reads the list every couple of
+    seconds; a row only needs state, sentence, findings and timings.  The full
+    record (reasoning, code, snapshot) stays one GET /jobs?id= away -- a rejected
+    reasoning-model run carries ~12k characters of thinking, which is pointless to
+    ship fifty times over loopback every second.
+    """
+    if not isinstance(job, dict):
+        return job
+    return {k: v for k, v in job.items() if k not in BRIEF_DROP}
+
+
 class Handler(BaseHTTPRequestHandler):
     server_version = 'logicd/%s' % SIDECAR_VERSION
 
@@ -1188,8 +1206,24 @@ class Handler(BaseHTTPRequestHandler):
                         self._send(400, {'ok': False,
                                          'error': 'state must be one of ' + ', '.join(jobqueue.STATES)})
                     else:
-                        jobs = jobs_queue().list(state)
-                        self._send(200, {'ok': True, 'jobs': jobs, 'count': len(jobs)})
+                        # v0.12.5: all=1 -> the job manager window's history, newest first.
+                        # The rows are brief (no reasoning/code/snapshot): see job_brief.
+                        want_all = str(q.get('all') or '').strip().lower() in ('1', 'true', 'yes')
+                        if want_all:
+                            try:
+                                limit = int(q.get('limit') or 50)
+                            except (TypeError, ValueError):
+                                limit = 50
+                            if limit < 1:
+                                limit = 50
+                            limit = min(limit, 200)
+                            jobs = [job_brief(j) for j in
+                                    jobs_queue().history(limit=limit, state=state)]
+                            self._send(200, {'ok': True, 'jobs': jobs,
+                                             'count': len(jobs), 'all': True})
+                        else:
+                            jobs = jobs_queue().list(state)
+                            self._send(200, {'ok': True, 'jobs': jobs, 'count': len(jobs)})
             elif path == '/llm':
                 self._send(200, llm_state())
             else:

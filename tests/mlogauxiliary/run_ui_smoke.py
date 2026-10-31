@@ -314,6 +314,13 @@ def main():
         "print('MAIUNDO:' + maiUndoProbe());",
     "print('MAICONFLICT:' + maiConflictProbe());",
     "print('MAILLM:' + maiLlmProbe());",
+    # v0.12.5: the retained selection box + corner badge state machine (no sidecar, no ui)
+    "print('MAIJOBBOX0:' + maiJobBox());",
+    "print('MAIJOBBOXPIN:' + maiJobBoxPin(JSON.stringify(['a','b']), JSON.stringify(['queued','running'])));",
+    "print('MAIJOBBOXFIN:' + maiJobBoxPin(JSON.stringify(['a','b']), JSON.stringify(['done','rejected'])));",
+    "print('MAIJOBBOXCLR:' + maiJobBoxClear());",
+    "print('MAIJOBBOX3:' + maiJobBox());",
+    "print('MAIJOBMANAGER:' + maiJobManager());",
     ] + region_probe(srv) + select_probe(srv) + arrow_probe() + [
         "void 0;",
     ])
@@ -326,7 +333,9 @@ def main():
     lines = [l for l in text.splitlines()
              if '[mai]' in l or 'mlog-auxiliary' in l
              or l.startswith(('MAISELF:', 'MAIDIAG:', 'MAISET:', 'MAILIST:', 'MAILISTROWS:',
-                              'MAIUNDO:', 'MAICONFLICT:', 'MAILLM:'))]
+                              'MAIUNDO:', 'MAICONFLICT:', 'MAILLM:',
+                              'MAIJOBBOX0:', 'MAIJOBBOXPIN:', 'MAIJOBBOXFIN:',
+                              'MAIJOBBOXCLR:', 'MAIJOBBOX3:', 'MAIJOBMANAGER:'))]
     joined = '\n'.join(lines)
 
     # ---- resolve every Table/Cell method the page actually uses, in the engine
@@ -433,6 +442,46 @@ def main():
     if 'MAIUNDO:ok ' not in joined:
         problems.append('v0.10.0: the undo snapshot did not round-trip through the real '
                         'filesystem: %r' % [l for l in lines if l.startswith('MAIUNDO:')][:1])
+
+    # v0.12.5: the F3 box now outlives the drag, so its state machine has to be pinned
+    # headless -- there is no camera, no mouse and no sidecar in this engine.
+    def boxmark(prefix):
+        got = [l[len(prefix):] for l in lines if l.startswith(prefix)]
+        if not got:
+            return None
+        try:
+            return json.loads(got[0])
+        except ValueError:
+            return None
+
+    if boxmark('MAIJOBBOX0:') != {'box': False}:
+        problems.append('v0.12.5: maiJobBox is not empty on a clean slate: %r'
+                        % [l for l in lines if l.startswith('MAIJOBBOX0:')][:1])
+    pinned = boxmark('MAIJOBBOXPIN:')
+    if (not isinstance(pinned, dict) or pinned.get('box') is not True
+            or pinned.get('total') != 2 or pinned.get('terminal') != 0
+            or pinned.get('linger') is not False):
+        problems.append('v0.12.5: an in-flight batch of two is not kept on screen: %r'
+                        % (pinned,))
+    elif '\u751f\u6210\u4e2d' not in str(pinned.get('badge')):
+        problems.append('v0.12.5: the badge of a running batch does not say so: %r'
+                        % (pinned.get('badge'),))
+    fin = boxmark('MAIJOBBOXFIN:')
+    if (not isinstance(fin, dict) or fin.get('terminal') != 2
+            or fin.get('done') != 1 or fin.get('failed') != 1
+            or fin.get('linger') is not True):
+        problems.append('v0.12.5: a finished batch is not marked finished: %r' % (fin,))
+    elif '1 \u6210 1 \u8d25' not in str(fin.get('badge')):
+        problems.append('v0.12.5: the badge does not count the verdicts: %r'
+                        % (fin.get('badge'),))
+    if 'MAIJOBBOXCLR:cleared' not in joined:
+        problems.append('v0.12.5: maiJobBoxClear did not clear the box')
+    if boxmark('MAIJOBBOX3:') != {'box': False}:
+        problems.append('v0.12.5: the box came back after being cleared: %r'
+                        % [l for l in lines if l.startswith('MAIJOBBOX3:')][:1])
+    if 'MAIJOBMANAGER:no ui' not in joined:
+        problems.append('v0.12.5: the job manager window should report "no ui" headless: %r'
+                        % [l for l in lines if l.startswith('MAIJOBMANAGER:')][:1])
     if not used:
         problems.append('maiSelfTest did not report which Table methods it used')
     if missing:
@@ -696,6 +745,26 @@ def main():
                          'the batch write probe is gone')):
         if needle not in code_only:
             problems.append('v0.12.0: ' + why)
+    for needle, why in (('function openQuickJob(',
+                         'F3 no longer opens the single description box'),
+                        ('return openQuickJob(r);',
+                         'selFinish stopped going through the description box'),
+                        ('function drawJobBadge(',
+                         'the running-job badge in the box corner is gone'),
+                        ('jobBox !== null && jobBox.r',
+                         'drawSelection stopped keeping the box after release'),
+                        ('function jobBoxTick(',
+                         'the retained box is no longer polled for job states'),
+                        ('function jobBadgeClick(',
+                         'the corner badge is not clickable any more'),
+                        ('function openJobManager(',
+                         'the unified job manager window is gone'),
+                        ('"/jobs?all=1&limit=',
+                         'the manager window no longer reads the job history')):
+        if needle not in code_only:
+            problems.append('v0.12.5: ' + why)
+    if 'return dumpRegion(r.x1, r.y1, r.x2, r.y2);' in code_only:
+        problems.append('v0.12.5: F3 still opens the region snapshot panel on release')
     if '"直接生成"' not in code_only:                 # 直接生成
         problems.append('v0.8.0: the /plan fallback button is gone -- an older sidecar '
                         'without /jobs would leave the panel unusable')
@@ -913,8 +982,10 @@ def main():
         problems.append('UI.showInfoFade(String) is missing -- the non-blocking hint has no API: %r'
                         % (sel.get('MAIHINTAPI'),))
 
-    # ---- v0.8.1: one tile on a processor IS the AI panel entry (F4 merged into F3).
-    # A drag still produces the region snapshot; a single empty tile only hints.
+    # ---- v0.8.1: one tile on a processor is still a *pick* (maiPick / processorAt stay).
+    # v0.12.5 moved the F3 release path to the description box, so the old
+    # "single tile opens showAiPanel directly" wiring is gone on purpose: it is pinned
+    # in the v0.12.5 block below instead.
     want_pick = "%d,%d" % (bx, by)
     if sel.get("MAIPICK") != want_pick:
         problems.append("a single tile on the processor must pick it: %r wanted %r"
@@ -923,9 +994,6 @@ def main():
         problems.append("a non-processor building must not be picked: %r"
                         % (sel.get("MAIPICKEMPTY"),))
     for needle, why in (("function processorAt(", "the single-tile picker is gone"),
-                        ("showAiPanel(one);", "a single-tile pick no longer opens the AI panel"),
-                        ("var one = processorAt(r.x1, r.y1);",
-                         "selFinish() stopped asking the tile whether it is a processor"),
                         ("api.maiPick = function", "the pick test hook is gone")):
         if needle not in code_only:
             problems.append("v0.8.1: " + why)

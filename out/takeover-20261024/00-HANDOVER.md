@@ -1909,3 +1909,19 @@ ui smoke EXIT=0（`MAIDIAG:版本：0.12.1`、103 行/格、`MAILLM:ok 82`）。
 - **装机**：模组已拷到 `E:\Program Files (x86)\Steam\steamapps\common\Mindustry\saves\mods\MlogAuxiliary\`
   （`main.js` + `mod.hjson`），sidecar 已重启；玩家需重启游戏 + 开一次面板（`llmSync` 推模型档）。
 - **下一刀**：等玩家真机复测（预算够不够 + 思考段显示效果）；之后回到 C（P5 面板批量入口 / 联机无权限提示）。
+
+## §70 mai + logicd v0.12.5：F3 只弹描述框，框留到作业做完，角标点开作业管理（2026-10-31）
+
+报告全文：`out/takeover-20261024/70-job-box.md`。触发是玩家 m01429 三条需求 + m01444 补充
+「f3后的窗口简化到只有一个描述框」。
+
+- **形态**：F3 松手只有 `openQuickJob(r)`（标题一行 + 一个输入框）；「生成」→ `startJobBatch()` 把框内每个处理器
+  各投一个作业（P5 批量入口，补上第三刀缺的下半）；`jobBox.r` 留到这批作业全部终态再多留 8 s
+  （`JOB_BOX_LINGER_MS`），右下角 `drawJobBadge()` 挂「作业 n/N · 生成中（点开看）」；`jobBadgeClick()` 世界坐标命中
+  → `openJobManager()`（本次框选 + `GET /jobs?all=1&limit=24` 历史，详情看思考/findings/代码/写入/取消）。
+- **sidecar**：`Queue.history()` + `/jobs` 的 `all` 参数 + `job_brief()`（剥 snapshot/code/bytes_b64/reasoning/links/assumptions），
+  `SIDECAR_VERSION = '0.12.5'`。
+- **验证**：ui smoke EXIT=0（六个 `MAIJOBBOX*`/`MAIJOBMANAGER` 探针 + 八条源码红线，且 `return dumpRegion(...)` 必须消失）；
+  `test_jobs()` 15→16 项；断言表新增 L2-54 / L2-55。
+- **装机**：模组 0.12.5 需要重装 + 重启游戏，sidecar 需要重启（`/health` 的 `version` 应为 `0.12.5`）。
+- **下一刀**：①真机复测（框留存观感 / 徽标点得着 / 管理窗历史）②联机「无权限」提示 ③冲突检测比链接表 ④打包安装即用（最后）。

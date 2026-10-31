@@ -28,7 +28,7 @@
 function __logicWriterMain(){
     "use strict";
 
-    var MOD_VERSION = "0.12.4";
+    var MOD_VERSION = "0.12.5";
     var URL_KEY     = "mlogauxiliary-url";
     var DEFAULT_URL = "http://127.0.0.1:8765";
     // v0.11.0：设置页里填的模型档三件套。密钥只留在本机 Core.settings 与 sidecar 进程内存。
@@ -1628,6 +1628,13 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
         var aiJob = null;                 // {id, b, desc, host, d, lastPoll, job}
         var JOB_POLL_MS = 1000;
         var JOB_TERMINAL = {done: 1, rejected: 1, failed: 1, cancelled: 1};
+        // v0.12.5: F3 松手之后框不立刻消失——它代表「这一批作业还在跑」，一直到这一批
+        // 全部终态再多留 8 秒，玩家才有机会点右下角的徽标看思考过程。
+        var jobBox = null;                // {r, ids, jobs, pend, started, termAt, lastPoll}
+        var jobBadge = null;              // 徽标在世界坐标里的点击区 {x, y, w, h}
+        var JOB_BOX_LINGER_MS = 8000;
+        // 管理窗的列表是异步拉回来的：点进详情之后，迟到的列表回调不能往详情页里塞行。
+        var managerSeq = 0;
 
         function isJobTerminal(state){
             return JOB_TERMINAL[String(state)] === 1;
@@ -1858,6 +1865,320 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
             }
             if(job === null){ return JSON.stringify({ok: false, code: 0, text: "no job state"}); }
             return JSON.stringify(job);
+        }
+
+
+        // ---------------------------------------------------------- 作业框 / 徽标 / 作业管理（v0.12.5）
+        // 用户 2026-10-31：框选区域在作业完成之前保留；正在进行的作业在框选区域右下角显示；
+        // 点击作业可以看详细思考过程；要一个统一的作业管理窗口；F3 之后的窗口只剩一个描述框。
+
+        function jobBoxState(){
+            if(jobBox === null){ return null; }
+            var ids = jobBox.ids || [], i, st, terminal = 0, ok = 0, failed = 0;
+            for(i = 0; i < ids.length; i++){
+                var j = jobBox.jobs[ids[i]];
+                st = (j === null || j === undefined) ? "queued" : String(j.state);
+                if(isJobTerminal(st)){
+                    terminal++;
+                    if(st === "done"){ ok++; } else { failed++; }
+                }
+            }
+            return {total: ids.length, terminal: terminal, done: ok, failed: failed,
+                    pending: (jobBox.pend || 0), finished: ids.length > 0 && terminal === ids.length};
+        }
+
+        function jobBadgeText(){
+            if(jobBox === null){ return ""; }
+            var s = jobBoxState();
+            if(s === null){ return ""; }
+            if(s.total === 0){ return (s.pending > 0) ? "投递中…" : ""; }
+            if(!s.finished){ return "作业 " + s.terminal + "/" + s.total + " · 生成中（点开看）"; }
+            if(s.failed === 0){ return "作业 " + s.total + "/" + s.total + " · 完成（点开看）"; }
+            return "作业 " + s.total + "/" + s.total + " · " + s.done + " 成 " + s.failed + " 败（点开看）";
+        }
+
+        function jobBoxFinishIfDone(){
+            if(jobBox === null){ return; }
+            var s = jobBoxState();
+            if(s !== null && s.finished && jobBox.termAt === 0){
+                jobBox.termAt = Packages.java.lang.System.currentTimeMillis();
+            }
+        }
+
+        function jobBoxTick(){
+            if(jobBox === null){ return; }
+            var now = Packages.java.lang.System.currentTimeMillis();
+            if(jobBox.termAt > 0){
+                if(now - jobBox.termAt > JOB_BOX_LINGER_MS){ jobBox = null; jobBadge = null; }
+                return;
+            }
+            if(now - (jobBox.lastPoll || 0) < JOB_POLL_MS){ return; }
+            jobBox.lastPoll = now;
+            var ids = jobBox.ids || [], i;
+            for(i = 0; i < ids.length; i++){
+                var jid = ids[i], known = jobBox.jobs[jid];
+                if(known !== null && known !== undefined && isJobTerminal(String(known.state))){ continue; }
+                (function(want){
+                    jobGet(want, function(job, why){
+                        if(jobBox === null){ return; }
+                        jobBox.jobs[want] = (job === null)
+                            ? {id: want, state: "failed", explanation: String(why)}
+                            : job;
+                        jobBoxFinishIfDone();
+                    });
+                })(jid);
+            }
+            jobBoxFinishIfDone();
+        }
+
+        // 徽标按世界坐标画在框的右下角；字按屏幕恒定大小画，所以宽度要用 GlyphLayout 量，
+        // 量不出来就按字数估（宁可点区大一点，也不要「看得见点不着」）。
+        function badgeTextWidth(font, text){
+            try{
+                var layout = new Packages.arc.graphics.g2d.GlyphLayout(font, text);
+                var w = layout.width;
+                if(w > 0){ return w; }
+            }catch(e0){ }
+            return text.length * 9;
+        }
+
+        function drawJobBadge(r, a){
+            try{
+                var text = jobBadgeText();
+                if(text === ""){ jobBadge = null; return; }
+                var font = Packages.mindustry.ui.Fonts.outline;
+                if(font === null || font === undefined){ jobBadge = null; return; }
+                var D = Packages.arc.graphics.g2d.Draw;
+                var scale = 1;
+                try{ scale = Vars.renderer.camerascale; }catch(e0){ }
+                if(!(scale > 0)){ scale = 1; }
+                var z = D.z();
+                D.z(Packages.mindustry.core.Layer.endPixeled);
+                font.getData().setScale(1 / scale);
+                var w = badgeTextWidth(font, text), h = 13 / scale;
+                var bx = a.x + a.w - w - 4 / scale;      // 右对齐贴住框的右下角
+                var by = a.y - h - 8 / scale;            // 压在框底边外侧，不挡框里的格子
+                jobBadge = {x: bx - 3 / scale, y: by - 2 / scale,
+                            w: w + 6 / scale, h: h + 4 / scale};
+                try{
+                    var F = Packages.arc.graphics.g2d.Fill;
+                    D.color(Pal.accentBack);
+                    F.rect(jobBadge.x, jobBadge.y - 2 / scale, jobBadge.w, jobBadge.h + 2 / scale);
+                    D.color();
+                }catch(e2){ /* 底衬画不出来只丢底衬 */ }
+                font.setColor(Pal.accent);
+                font.draw(text, bx, by + h);
+                font.setColor(Packages.arc.graphics.Color.white);
+                font.getData().setScale(1);
+                D.z(z);
+            }catch(e){ jobBadge = null; }
+        }
+
+        // 点徽标 = 开作业管理窗。世界坐标命中，和 drawJobBadge 写在同一个坐标系里。
+        // 注意：这一次点击世界也会收到（原版是「放方块」那条路），所以只在真有作业框时才抢，
+        // 且框是玩家自己刚画的那一块，通常不在放方块的节奏里。
+        function jobBadgeClick(){
+            if(jobBox === null || jobBadge === null || selDragging){ return false; }
+            if(!Core.input.keyTap(Packages.arc.input.KeyCode.mouseLeft)){ return false; }
+            var mx = Core.input.mouseWorldX(), my = Core.input.mouseWorldY();
+            if(mx < jobBadge.x || mx > jobBadge.x + jobBadge.w){ return false; }
+            if(my < jobBadge.y || my > jobBadge.y + jobBadge.h){ return false; }
+            try{
+                openJobManager();
+            }catch(e){
+                hint("作业窗口打不开：" + e);
+            }
+            return true;
+        }
+
+        // Rhino 的 String.prototype 不一定有 trim（v160.7 里 split 都能等价空匹配），自己来。
+        function trimText(s){
+            var t = String(s === null || s === undefined ? "" : s);
+            var a = 0, b = t.length;
+            while(a < b && t.charAt(a) <= " "){ a++; }
+            while(b > a && t.charAt(b - 1) <= " "){ b--; }
+            return t.substring(a, b);
+        }
+
+        function stateCn(state){
+            var s = String(state);
+            if(s === "queued"){ return "排队"; }
+            if(s === "running"){ return "生成中"; }
+            if(s === "done"){ return "完成"; }
+            if(s === "rejected"){ return "被拒"; }
+            if(s === "failed"){ return "失败"; }
+            if(s === "cancelled"){ return "已取消"; }
+            return s;
+        }
+
+        // 一个描述框 → 这块区域里每个处理器各投一个作业（P5 批量入口，v0.12.5）。
+        function startJobBatch(targets, desc, rect){
+            var box = {r: rect, ids: [], jobs: {}, pend: targets.length,
+                       started: Packages.java.lang.System.currentTimeMillis(),
+                       termAt: 0, lastPoll: 0};
+            jobBox = box;
+            jobBadge = null;
+            var failed = 0;
+            for(var i = 0; i < targets.length; i++){
+                (function(t){
+                    jobSubmit(t.b, desc, function(res, why){
+                        box.pend--;
+                        if(res === null || res.id === undefined || res.id === null){
+                            failed++;
+                            hint("投递失败（@" + t.x + "," + t.y + "）：" + String(why));
+                        }else{
+                            var jid = String(res.id);
+                            box.ids.push(jid);
+                            box.jobs[jid] = res.job ? res.job : {id: jid, state: "queued", desc: desc};
+                        }
+                        if(box.pend === 0){
+                            if(box.ids.length === 0){
+                                jobBox = null;
+                                hint("这批作业一个也没投出去：" + String(why));
+                            }else{
+                                hint("已投 " + box.ids.length + " 个作业：框右下角点开看进度");
+                            }
+                        }
+                        jobBoxFinishIfDone();
+                    });
+                })(targets[i]);
+            }
+            return "batch:" + targets.length;
+        }
+
+        // v0.12.5：F3 松手只弹这一个框（用户：f3 后的窗口简化到只有一个描述框）。
+        // 框住的处理器有几个就投几个作业；矩形留着，直到这一批全部终态。
+        function openQuickJob(r){
+            if(Vars.ui === null || Vars.ui === undefined){ return "no ui"; }
+            var targets = [], i, ps = [];
+            try{ ps = regionSnapshot(r.x1, r.y1, r.x2, r.y2).processors || []; }catch(e){ ps = []; }
+            for(i = 0; i < ps.length; i++){
+                var pb = processorAt(ps[i].x, ps[i].y);
+                if(pb !== null){ targets.push({b: pb, x: ps[i].x, y: ps[i].y}); }
+            }
+            if(targets.length === 0){
+                hint("这块区域里没有处理器：拖框要把处理器框进去（F2 看全图清单）");
+                return "no processor in region";
+            }
+            var desc = "";
+            var d = new Packages.arc.scene.ui.Dialog("Mlog辅助 · 描述 v" + MOD_VERSION);
+            d.cont.defaults().pad(6).left();
+            d.cont.add(targets.length === 1
+                        ? ("目标：@" + targets[0].x + "," + targets[0].y)
+                        : ("目标：区域里 " + targets.length + " 个处理器，每个处理器生成一段")).row();
+            d.cont.field("", function(v){ desc = String(v); }).width(520).row();
+            d.buttons.button("生成", function(){
+                var text = trimText(desc);
+                if(text.length === 0){ hint("先写一句描述：这段逻辑要做什么"); return; }
+                d.hide();
+                startJobBatch(targets, text, r);
+            }).width(120);
+            d.buttons.button("取消", function(){ d.hide(); }).width(120);
+            d.closeOnBack();
+            d.show();
+            return "quick job: " + targets.length + " processor(s)";
+        }
+
+        function lookupBuild(job){
+            try{
+                var o = job ? job.origin : null;
+                if(o === null || o === undefined){ return null; }
+                return processorAt(Number(o.x), Number(o.y));
+            }catch(e){ return null; }
+        }
+
+        function jobRowLabel(job){
+            var desc = String(job.desc || "");
+            if(desc.length > 20){ desc = desc.substring(0, 20) + "…"; }
+            return "#" + String(job.id) + "   " + stateCn(job.state) + "   " + desc;
+        }
+
+        function renderManagerDetail(host, d, job, b){
+            managerSeq++;                       // 作废还挂在路上的列表回调
+            try{ host.clear(); }catch(e){ return; }
+            host.add("作业 #" + String(job.id)
+                     + (job.retry_of ? ("（重跑自 " + String(job.retry_of) + "）") : "")).row();
+            host.add(jobProgressText(job)).row();
+            var think = jobReasoningLines(job, REASON_LINES, REASON_LINE);
+            if(think.length > 0){
+                var whole = jobReasoningText(job).length;
+                host.add("--- 模型思考（" + whole + " 字符"
+                         + (whole > REASON_LINES * REASON_LINE ? "，只显示开头" : "") + "）---").row();
+                for(var ti = 0; ti < think.length; ti++){ host.add(think[ti]).row(); }
+            }
+            var fs = job.findings || [];
+            for(var fi = 0; fi < fs.length && fi < 6; fi++){
+                host.add(String(fs[fi].sev) + " " + String(fs[fi].rid) + "  "
+                         + String(fs[fi].msg)).row();
+            }
+            var state = String(job.state);
+            if(state === "done" && b !== null && b !== undefined && job.bytes_b64){
+                host.button("写入到 @" + b.tile.x + "," + b.tile.y, function(){
+                    hint(writeBuild(b, jobAsPlan(job)));
+                    d.hide();
+                }).width(280).row();
+            }
+            if(!isJobTerminal(state)){
+                host.button("取消这个作业", function(){
+                    jobCancel(String(job.id), function(canceled, why){
+                        hint(canceled !== null ? ("已取消 " + String(job.id)) : ("取消失败：" + why));
+                        renderManager(host, d);
+                    });
+                }).width(280).row();
+            }
+            host.button("返回列表", function(){ renderManager(host, d); }).width(280).row();
+        }
+
+        function renderManager(host, d){
+            var seq = ++managerSeq;
+            try{ host.clear(); }catch(e){ return; }
+            var s = jobBoxState();
+            host.add("— 本次框选 —").row();
+            if(s !== null && jobBox !== null && s.total > 0){
+                var ids = jobBox.ids || [];
+                for(var i = 0; i < ids.length; i++){
+                    (function(jid){
+                        var job = jobBox.jobs[jid] || {id: jid, state: "queued", desc: ""};
+                        host.button(jobRowLabel(job), function(){
+                            renderManagerDetail(host, d, job, lookupBuild(job));
+                        }).width(560).row();
+                    })(ids[i]);
+                }
+            }else{
+                host.add("（框选一块区域，写一句描述，作业就出现在这里）").row();
+            }
+            host.add("— 全部作业（最近的 24 个）—").row();
+            httpJson("GET", "/jobs?all=1&limit=24", null, function(code, text){
+                if(seq !== managerSeq){ return; }
+                var res = parse(text);
+                if(code !== 200 || res === null || res.ok !== true){
+                    host.add("读不到作业列表：" + httpWhy(code, text)).row();
+                    return;
+                }
+                var rows = res.jobs || [];
+                if(rows.length === 0){ host.add("（sidecar 里还没有作业）").row(); return; }
+                for(var k = 0; k < rows.length; k++){
+                    (function(job){
+                        host.button(jobRowLabel(job), function(){
+                            renderManagerDetail(host, d, job, lookupBuild(job));
+                        }).width(560).row();
+                    })(rows[k]);
+                }
+            });
+        }
+
+        function openJobManager(){
+            if(Vars.ui === null || Vars.ui === undefined){ return "no ui"; }
+            var d = new Packages.arc.scene.ui.Dialog("Mlog辅助 · 作业管理 v" + MOD_VERSION);
+            d.cont.defaults().pad(4).left();
+            var host = new Packages.arc.scene.ui.layout.Table();
+            try{ d.cont.pane(host).height(320).width(600).row(); }catch(e){ d.cont.add(host).row(); }
+            d.buttons.button("刷新", function(){ renderManager(host, d); }).width(110);
+            d.buttons.button("关闭", function(){ d.hide(); }).width(110);
+            d.closeOnBack();
+            d.show();
+            renderManager(host, d);
+            return "job manager";
         }
 
         // ---------------------------------------------------------- 区域面板（v0.6.0）
@@ -2510,8 +2831,12 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
         // 原版选框没有半透明填充：Lines.stroke(2) 两道描边，
         // 先 accentBack 画一条 y-1 的阴影，再 accent 画本体（InputHandler.java:1765-1770）。
         function drawSelection(){
-            if(!selDragging){ return; }
-            var r = selBox(), a = selDrawArgs(r);
+            // v0.12.5: 拖拽时画实时框；松手之后 jobBox 还挂着就继续画它（直到这一批终态）。
+            var live = selDragging, r = null;
+            if(live){ r = selBox(); }
+            else if(jobBox !== null && jobBox.r){ r = jobBox.r; }
+            if(r === null){ jobBadge = null; return; }
+            var a = selDrawArgs(r);
             try{
                 var D = Packages.arc.graphics.g2d.Draw;
                 var L = Packages.arc.graphics.g2d.Lines;
@@ -2522,7 +2847,7 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
                 L.rect(a.x, a.y, a.w, a.h);
                 D.color();
             }catch(e){ /* 画不出来不影响选择本身 */ }
-            drawSizeText(r);
+            if(live){ drawSizeText(r); } else { drawJobBadge(r, a); }
         }
 
         // 原版还在光标旁写「宽x高 (面积)」（InputHandler.java:1772-1794）：
@@ -2619,24 +2944,16 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
         function selFinish(){
             var r = selRelease();
             if(r === null){ return null; }
-            // v0.8.1：单格 = 选中处理器。按住 F3 在处理器上点一下直接开 AI 面板，
-            // 拖出矩形才走区域快照；空格子单选给提示。v0.9.0 起 F4 热键彻底删除。
-            if(r.w === 1 && r.h === 1){
-                var one = processorAt(r.x1, r.y1);
-                if(one !== null){
-                    try{
-                        showAiPanel(one);
-                        return "AI 面板：" + r.x1 + "," + r.y1;
-                    }catch(e){
-                        log("single-tile AI panel failed: " + e);
-                        hint("这一格的 AI 面板打不开：" + e);
-                        return null;
-                    }
-                }
-                hint("这一格没有处理器：单格按住 F3 选中处理器 = 开 AI 面板；拖出矩形 = 区域快照");
+            // v0.12.5：松手只弹一个描述框（用户 2026-10-31：f3 后的窗口简化到只有一个描述框）。
+            // 框住的处理器有几个就投几个作业；矩形留到这一批全部终态（drawSelection 负责继续画）。
+            // 区域快照面板与 AI 面板还在，但只从控制台走（maiDump / maiAi），F3 不再弹它们。
+            try{
+                return openQuickJob(r);
+            }catch(e){
+                log("quick job dialog failed: " + e);
+                hint("描述框打不开：" + e);
                 return null;
             }
-            return dumpRegion(r.x1, r.y1, r.x2, r.y2);
         }
 
         // F3 是按住式的（=鼠标左键），所以 maiSelect 不再“就绪”，只给提示。
@@ -2754,6 +3071,32 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
         api.maiJobState = function(){
             return aiJob === null ? "" : JSON.stringify({id: aiJob.id, desc: aiJob.desc});
         };
+        // v0.12.5：作业框 / 徽标 / 作业管理窗
+        api.maiJobBox = function(){
+            var s = jobBoxState();
+            if(s === null){ return JSON.stringify({box: false}); }
+            return JSON.stringify({box: true, r: jobBox.r, ids: jobBox.ids,
+                                   total: s.total, terminal: s.terminal,
+                                   done: s.done, failed: s.failed,
+                                   linger: jobBox.termAt > 0, badge: jobBadgeText()});
+        };
+        api.maiJobBoxClear = function(){ jobBox = null; jobBadge = null; return "cleared"; };
+        // 自检口：不碰 sidecar 也能把「框留多久 / 徽标写什么」这套状态机跑一遍。
+        api.maiJobBoxPin = function(idsJson, statesJson){
+            var ids = parse(String(idsJson)) || [], states = parse(String(statesJson)) || [];
+            var box = {r: {x1: 1, y1: 1, x2: 6, y2: 6, w: 6, h: 6}, ids: [], jobs: {}, pend: 0,
+                       started: 0, termAt: 0, lastPoll: 0};
+            for(var i = 0; i < ids.length; i++){
+                var jid = String(ids[i]);
+                box.ids.push(jid);
+                box.jobs[jid] = {id: jid, state: String(states[i] || 'queued'), desc: 'x'};
+            }
+            jobBox = box;
+            jobBoxFinishIfDone();
+            return api.maiJobBox();
+        };
+        api.maiJobBadge = function(){ return jobBadgeText(); };
+        api.maiJobManager = function(){ return openJobManager(); };
 
         // 挂到脚本作用域（控制台里能直接敲），并读回自检
         // 载入时就试着把设置里的模型档推给 sidecar（重启过的 sidecar 会忘）。
@@ -2787,6 +3130,8 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
                 try{
                     reviewTick();   // 原版逻辑编辑器开着就顺手刷新那条审查栏
                     jobTick();      // v0.8.0：有作业在跑就每秒查一次状态
+                    jobBoxTick();   // v0.12.5：框选框里那一批作业的状态
+                    jobBadgeClick(); // v0.12.5：点框右下角的徽标 = 开作业管理窗
                     // 「设置 → Mlog辅助」这一栏只在 Vars.ui 建好之后能注册。脚本加载时
                     // UI 往往还没建（真机日志里是在 ClientLoadEvent 前），所以这里补一次
                     // 有界重试：每 60 帧试一次、最多 600 次（≈10 s @60fps），成功即停。

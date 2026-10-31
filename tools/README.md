@@ -190,6 +190,7 @@ attempts, findings[], code, explanation, assumptions[]}`，状态 `queued -> run
 `POST /jobs` 同 body 二次提交在**上一次还在飞**时幂等（回 `created: false`）；上一次已终态后同 body 起新跑
 `<id>-2`、`<id>-3`…（带 `retry_of` 指回首轮，v0.12.2）；`GET /jobs?id=` 查一个、`?state=` 过滤（不带 state 只回未完成）；
 **模型思考（v0.12.4）**：provider 回包里的 `reasoning_content` 会作为 `reasoning` 存进 job（上限 20000 字符），模组面板在状态行下面直接摊开——推理模型想歪或者把预算花在想上时，这是唯一能看出「为什么」的地方；
+**历史与在飞（v0.12.5）**：不带参数的 `GET /jobs` 只答在飞（queued/running），作业管理窗要的是「发生过什么」，所以加 `?all=1`（`limit` 默认 50、夹在 1..200）：`Queue.history()` 按 `(created, id)` 降序回全部作业，并用 `job_brief()` 剥掉 `snapshot`/`code`/`bytes_b64`/`reasoning`/`links`/`assumptions`（列表每秒拉一次，不能几十 KB 地拖）。`SIDECAR_VERSION` 随之是 `0.12.5`——改过 `tools/logicd.py` 记得重启那个进程，`GET /health` 的 `version` 是唯一能确认的方法；
 `DELETE /jobs?id=` 取消（running 也能取消，worker 在检查点退出）。
 **为什么要拆掉「一律幂等」（v0.12.2）**：`id` 是 `sha1(snapshot+desc+mode)[:16]`，内容寻址。把已终态的作业也当成
 「同 body 已答过」，等于让一条死在 `provider-error: empty reply` 的作业永久占住这句话——玩家把端点修好、原地再点一次
