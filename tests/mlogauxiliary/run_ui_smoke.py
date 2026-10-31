@@ -181,6 +181,10 @@ def job_probe(port, bx, by):
         "print('MAIJOBZERO:' + jZero);",
         # v0.12.0: one batch over two processors -- written together, undone together,
         # and a second target whose configure throws must roll the first one back.
+        # v0.12.4: the sidecar keeps the model's reasoning on the job and the panel
+        # prints it under the status line.  The fake provider has no reasoning, so hand
+        # the renderer a hand-made job that does (this is the UI half, not the transport).
+        "print('MAIJOBTHINK:' + maiJobReasoning('{\"id\":\"t1\",\"state\":\"done\",\"reasoning\":\"先想一想：玩家要的是打印铜的数量\"}'));",
         "var wmA = maiJobSyncAt(%d, %d, 'ui clean code batch', 25000);" % (bx, by),
         "print('MAIWRITEMANY:' + maiWriteManyProbe(wmA, %d, %d));" % (bx, by),
     ]
@@ -554,7 +558,7 @@ def main():
     for l in jtext.splitlines():
         for key in ('MAIJOBSET', 'MAIJOBCLEAN', 'MAIJOBPROG', 'MAIJOBWRITE', 'MAIJOBREJ',
                     'MAIJOBCONF', 'MAIJOBEDIT', 'MAIJOBEDIT2',
-                    'MAIJOBZERO', 'MAIWRITEMANY'):
+                    'MAIJOBZERO', 'MAIWRITEMANY', 'MAIJOBTHINK'):
             if l.startswith(key + ':'):
                 jres[key] = l[len(key) + 1:]
 
@@ -620,6 +624,10 @@ def main():
         zrids = [f.get('rid') for f in (zero.get('findings') or [])]
         if 'link-name-not-bound' not in zrids:
             problems.append('the zero-link refusal lost its rule: %r' % (zrids,))
+    think = jres.get('MAIJOBTHINK') or ''
+    if '先想一想' not in think:
+        problems.append('v0.12.4: maiJobReasoning lost the job thinking: %r'
+                        % (think[:160],))
     wm = jres.get('MAIWRITEMANY') or ''
     if not wm.startswith('ok '):
         problems.append('v0.12.0: the transactional batch write probe failed: %r' % (wm[:260],))
@@ -628,6 +636,10 @@ def main():
                         ('function jobTick(', 'the 1s job poll is gone'),
                         ('jobTick();', 'the per-frame hook no longer polls jobs'),
                         ('function renderJob(', 'the job result renderer is gone'),
+                        ('function jobReasoningLines(',
+                         'the model-thinking renderer is gone'),
+                        ('api.maiJobReasoning = function',
+                         'the reasoning test hook is gone'),
                         ('api.maiJobSyncAt = function', 'the job test hook is gone'),
                         ('POST", "/jobs"', 'main.js no longer submits to /jobs')):
         if needle not in code_only:

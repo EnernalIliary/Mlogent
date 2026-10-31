@@ -11,7 +11,7 @@ that already exists in logicd, so the whole state machine is exercised offline
 Contract (docs/Mlog辅助-规划.md section 4.1)
 -------------------------------------------
     {id: sha1(snapshot+desc+mode)[:16], created, state, mode, desc, snapshot,
-     attempts, findings[], code, explanation, assumptions[]}
+     attempts, findings[], code, explanation, assumptions[], reasoning}
 
     queued -> running -> done | rejected | failed | cancelled
 
@@ -41,6 +41,15 @@ machine output written straight into a processor, so an unbound link name is a
 broken write, not a hint.  FATAL_RIDS promotes exactly that rule to a refusal,
 and it is the one case docs/Mlog辅助-规划.md section 4.5 names as an acceptance
 test.
+
+Why 'reasoning' is part of the job (v0.12.4)
+--------------------------------------------
+A model that reasons spends most of its budget on reasoning_content before it
+writes the program, and when it runs out of budget -- or simply reasons itself
+into a corner -- the player sees only 'rejected' with no way to tell why.  So the
+thinking is kept on the job ('reasoning', the latest attempt's text) and the mod
+shows it in the panel: the answer to "why did it write that" is in there, and
+without it a refusal is indistinguishable from a model that ignored the request.
 """
 from __future__ import annotations
 
@@ -69,6 +78,10 @@ RETRY_MAX = 99
 #: so the write is now retried instead of giving up on the first collision.
 SAVE_TRIES = 6
 SAVE_WAIT = 0.03
+
+#: how much of a model's reasoning is kept on the job (the panel shows the head
+#: of it; a reasoning model can spend thousands of tokens before it writes a line)
+REASONING_MAX = 20000
 
 _WIN_CONTENDED = (5, 32, 33)
 
@@ -443,6 +456,11 @@ class Queue:
                 return
             if not isinstance(out, dict):
                 out = {'error': 'provider returned %r, want an object' % (out,)}
+            # keep the model's own thinking on the job, before the error branch: a
+            # refusal is exactly when the player wants to read what it was thinking.
+            think = out.get('reasoning')
+            if isinstance(think, str) and think.strip():
+                self._set(jid, reasoning=think[:REASONING_MAX])
             if out.get('error'):
                 hint = [{'sev': 'ERR', 'rid': 'provider-error', 'line': 0,
                          'msg': str(out['error'])}]

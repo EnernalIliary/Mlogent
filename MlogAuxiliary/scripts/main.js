@@ -28,7 +28,7 @@
 function __logicWriterMain(){
     "use strict";
 
-    var MOD_VERSION = "0.12.1";
+    var MOD_VERSION = "0.12.4";
     var URL_KEY     = "mlogauxiliary-url";
     var DEFAULT_URL = "http://127.0.0.1:8765";
     // v0.11.0：设置页里填的模型档三件套。密钥只留在本机 Core.settings 与 sidecar 进程内存。
@@ -1726,10 +1726,38 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
                  + (job.explanation ? "（" + String(job.explanation) + "）" : "");
         }
 
+        // v0.12.4：模型自己的思考过程现在跟着作业一起回来（sidecar 的 job.reasoning），
+        // 面板直接摊开——推理模型想歪、或者把预算全花在想上时，光看 ERR 一行看不出为什么。
+        // 端点不返回 reasoning_content 的话这里是空串，面板就什么都不加。
+        function jobReasoningText(job){
+            if(job === null || job === undefined){ return ""; }
+            var t = job.reasoning;
+            return (t === null || t === undefined) ? "" : String(t);
+        }
+
+        var REASON_LINE = 40, REASON_LINES = 16;
+
+        function jobReasoningLines(job, maxLines, perLine){
+            var t = jobReasoningText(job);
+            if(t.length === 0){ return []; }
+            var w = perLine || REASON_LINE, cap = (maxLines || REASON_LINES) * w;
+            var body = (t.length > cap) ? t.substring(0, cap) : t;
+            var out = [];
+            for(var i = 0; i < body.length; i += w){ out.push(body.substring(i, i + w)); }
+            return out;
+        }
+
         function renderJob(host, job, b, d){
             if(host === null || host === undefined || job === null || job === undefined){ return; }
             host.clear();
             host.add(jobProgressText(job)).row();
+            var think = jobReasoningLines(job, REASON_LINES, REASON_LINE);
+            if(think.length > 0){
+                var whole = jobReasoningText(job).length;
+                host.add("--- 模型思考（" + whole + " 字符"
+                         + (whole > REASON_LINES * REASON_LINE ? "，只显示开头" : "") + "）---").row();
+                for(var ti = 0; ti < think.length; ti++){ host.add(think[ti]).row(); }
+            }
             var st = String(job.state);
             if(st === "done"){
                 var res = jobAsPlan(job), c = jobSevCounts(job);
@@ -2720,6 +2748,8 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
                          + " w=" + w + " u=" + u + " wf=" + wf);
         };
         api.maiJobProgress = function(jobJson){ return jobProgressText(parse(String(jobJson))); };
+        // v0.12.4：作业里带回的模型思考原文（控制台/自检用；面板显示的是它的开头）。
+        api.maiJobReasoning = function(jobJson){ return jobReasoningText(parse(String(jobJson))); };
         api.maiJobCancel = function(){ return cancelJob(); };
         api.maiJobState = function(){
             return aiJob === null ? "" : JSON.stringify({id: aiJob.id, desc: aiJob.desc});

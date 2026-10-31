@@ -1892,3 +1892,20 @@ ui smoke EXIT=0（`MAIDIAG:版本：0.12.1`、103 行/格、`MAILLM:ok 82`）。
   会直接说明还差多少。
 - **边界**：模组版本仍是 0.12.1（面板版本号不会变，有意为之）；真端点联调只能在本机带 key 时做。
 - **下一刀**：①面板批量入口 ②联机「无权限」提示 ③冲突检测比链接表 ④打包安装即用（最后）。
+
+## §69 logicd + mai v0.12.4：模型思考过程跟着作业回来（v0.12.4，2026-10-31）
+
+报告全文：`out/takeover-20261024/69-model-thinking.md`。触发是玩家 m01106：
+「我说游戏内的模型思考过程。还有试图生成的报错信息没有变」。
+
+- **报错没变的根因**：sidecar 还是 15:50:51 起的旧进程（`/health` 当时不报 `version`，无从一眼看出）。
+  重启后 pid 51388、`version=0.12.4`。教训：v0.12.3 加的 `version` 是对的，但**改完 sidecar 必须重启**，
+  而重启这件事只有玩家能做（密钥在他手里）。
+- **新功能**：`HttpProvider._once()` 的每条返回路径经 `_with_reason()` 带上 `reasoning`（上限 12000），
+  `jobqueue._run()` 在 error 分支之前把它写进 `job['reasoning']`（上限 20000），模组 `renderJob()` 在状态行
+  下面摊开开头 16 行 × 40 字符；`api.maiJobReasoning(jobJson)` 取原文。
+- **测试**：`test_provider()` 12 项、`test_llm()` 12 项（假端点回包带 `reasoning_content`）、ui smoke 新增
+  `MAIJOBTHINK` + 2 条源码红线；`gate.py --full --kb-build` → 16/16 in 156.8s。
+- **装机**：模组已拷到 `E:\Program Files (x86)\Steam\steamapps\common\Mindustry\saves\mods\MlogAuxiliary\`
+  （`main.js` + `mod.hjson`），sidecar 已重启；玩家需重启游戏 + 开一次面板（`llmSync` 推模型档）。
+- **下一刀**：等玩家真机复测（预算够不够 + 思考段显示效果）；之后回到 C（P5 面板批量入口 / 联机无权限提示）。

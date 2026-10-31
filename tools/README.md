@@ -189,6 +189,7 @@ attempts, findings[], code, explanation, assumptions[]}`，状态 `queued -> run
 **每次跃迁先写 `<jobs-dir>/<id>.json`**（tmp + `os.replace`，重启时把残留的 `running` 放回 `queued` 且 attempts 保留 = 双写可续）。
 `POST /jobs` 同 body 二次提交在**上一次还在飞**时幂等（回 `created: false`）；上一次已终态后同 body 起新跑
 `<id>-2`、`<id>-3`…（带 `retry_of` 指回首轮，v0.12.2）；`GET /jobs?id=` 查一个、`?state=` 过滤（不带 state 只回未完成）；
+**模型思考（v0.12.4）**：provider 回包里的 `reasoning_content` 会作为 `reasoning` 存进 job（上限 20000 字符），模组面板在状态行下面直接摊开——推理模型想歪或者把预算花在想上时，这是唯一能看出「为什么」的地方；
 `DELETE /jobs?id=` 取消（running 也能取消，worker 在检查点退出）。
 **为什么要拆掉「一律幂等」（v0.12.2）**：`id` 是 `sha1(snapshot+desc+mode)[:16]`，内容寻址。把已终态的作业也当成
 「同 body 已答过」，等于让一条死在 `provider-error: empty reply` 的作业永久占住这句话——玩家把端点修好、原地再点一次

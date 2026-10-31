@@ -1,4 +1,4 @@
-# MlogAuxiliary —— 游戏内Mlog辅助（P1 + P2 + 设置界面 + AI 面板 + 区域面板 + 作业队列 + 撤销落盘 + 大模型设置 + 事务写入 + 端点自测，v0.12.1）
+# MlogAuxiliary —— 游戏内Mlog辅助（P1 + P2 + 设置界面 + AI 面板 + 区域面板 + 作业队列 + 撤销落盘 + 大模型设置 + 事务写入 + 端点自测 + 模型思考回显，v0.12.4）
 
 把「写 mlog」这件事从玩家手里拿走：**说意图，不写代码**。
 
@@ -354,6 +354,24 @@ Arc 的 `Table.cells` 是私有字段（`arc/scene/ui/layout/Table.java:35`）�
 2. 「没有链接」和「读不到链接表」必须分开：`linkNames()` 读不到时返回 `null`（不是 `[]`），`quickcheck.check()` 收到 `null` 就整段跳过链接槽判据，并在 `stats.linkKnown` 里记下来；审查栏统计行显示「链接 ?（读不到处理器）」而不是「链接 0」。
 
 真引擎对照探针（`out/_v47_probe.py`）：放处理器、用 `msch.build_logic_data` 写带两条链接的载荷，读回 `links.size=2`，把真链接名喂 `quickcheck.check` ⇒ 零命中；喂空数组 ⇒ 第 1、3 行各一条 WARN。所以快检逻辑本身没错，错的是喂进去的东西。
+
+## v0.12.4：模型在想什么，面板里直接看
+
+推理模型（`deepseek-flash` 之类）先写 `reasoning_content` 再写 `content`。以前点「生成」后只看到
+「作业 …：被门禁拒绝（尝试 3 次，ERR 1 条）」加一行 message —— 是模型想歪了、还是根本没照做，看不出来。
+
+现在 sidecar 把回复里的推理内容存进作业的 `reasoning` 字段，面板在状态行下面多一段：
+
+```
+作业 …：完成（4 条语句，60 字节，尝试 1 次）
+--- 模型思考（1832 字符，只显示开头）---
+（分段显示开头 16 行，每行 40 字符）
+```
+
+- 端点不返回推理内容时，**这一段整个不出现**（模板档、不支持推理的模型都是这样）。
+- 控制台 `maiJobReasoning(jobJson)` 取原文，`maiDiag()` 里的版本号变成 0.12.4。
+- 只有 sidecar 侧和这一段渲染是新的；作业状态机、门禁、写入通道都没动。
+- 源码红线两条：`function jobReasoningLines(`、`api.maiJobReasoning = function`。
 
 ## v0.12.1：模型档自己会说话 —— 地址补全、端点自测、重启后自动重同步
 

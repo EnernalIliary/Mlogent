@@ -260,6 +260,10 @@ class Recorder:
 DEFAULT_MAX_TOKENS = 4096
 TOKENS_CEILING = 16000
 
+#: how much of reasoning_content a reply carries back to the job (the panel shows
+#: a screenful of it; the point is to explain a refusal, not to archive a transcript)
+REASONING_MAX = 12000
+
 
 class HttpProvider:
     """OpenAI-compatible chat completion, stdlib only, no network at import."""
@@ -293,10 +297,10 @@ class HttpProvider:
             if not again.get("error"):
                 return again
             if "finish_reason=length" in (again.get("error") or ""):
-                return {"error": _budget_hint(again["error"], bigger)}
+                return _keep_reason({"error": _budget_hint(again["error"], bigger)}, again)
             return again
         if "finish_reason=length" in err:
-            return {"error": _budget_hint(err, self.max_tokens)}
+            return _keep_reason({"error": _budget_hint(err, self.max_tokens)}, out)
         return out
 
     def _once(self, prompt, budget, timeout):
@@ -336,22 +340,25 @@ class HttpProvider:
             return {"error": "model endpoint did not answer JSON"}
         text = _reply_text(doc)
         if text is None:
-            return {"error": "model endpoint answered without a message" + _why_blank(doc)}
+            return _with_reason(
+                {"error": "model endpoint answered without a message" + _why_blank(doc)}, doc)
         if not text.strip():
             # An empty content is what a proxy or a token-starved model looks like; the
             # bare 'empty reply' left players guessing, so say what came back instead.
             alt = _alt_text(doc)
             if alt:
                 try:
-                    return parse_reply(alt)
+                    return _with_reason(parse_reply(alt), doc)
                 except ProviderError:
                     pass
-            return {"error": "model endpoint answered with an empty message" + _why_blank(doc)}
+            return _with_reason(
+                {"error": "model endpoint answered with an empty message" + _why_blank(doc)}, doc)
         try:
-            return parse_reply(text)
+            return _with_reason(parse_reply(text), doc)
         except ProviderError as exc:
             hint = _why_blank(doc)
-            return {"error": str(exc) + hint if hint else str(exc)}
+            return _with_reason(
+                {"error": str(exc) + hint if hint else str(exc)}, doc)
 
 
 def _budget_hint(err, budget):
@@ -359,6 +366,42 @@ def _budget_hint(err, budget):
     return (err + " -- the %d-token budget ran out before an answer arrived (a reasoning "
                   "model spends it on reasoning_content first); raise it with "
                   "--llm-max-tokens, or use a model that does not reason" % budget)
+
+
+def _with_reason(res, doc):
+    """Carry the model's own thinking back with the reply (v0.12.4).
+
+    The panel shows it, so a refusal explains itself instead of leaving the player
+    with 'ERR model endpoint answered with an empty message'.  'reasoning' is the
+    endpoint's reasoning_content (or 'reasoning' on providers that name it that
+    way); a model that does not reason simply leaves the key out.
+    """
+    text = _reason_text(doc)
+    if text:
+        res["reasoning"] = text[:REASONING_MAX]
+    return res
+
+
+def _keep_reason(res, src):
+    """Rewriting a reply's error must not throw away the thinking that came with it."""
+    if isinstance(src, dict) and src.get("reasoning"):
+        res["reasoning"] = src["reasoning"]
+    return res
+
+
+def _reason_text(doc):
+    """The reasoning_content / reasoning text of an OpenAI-style reply, or ''."""
+    if isinstance(doc, dict):
+        choices = doc.get("choices")
+        c0 = choices[0] if isinstance(choices, list) and choices else None
+        if isinstance(c0, dict):
+            msg = c0.get("message")
+            if isinstance(msg, dict):
+                for key in ("reasoning_content", "reasoning"):
+                    v = msg.get(key)
+                    if isinstance(v, str) and v.strip():
+                        return v
+    return ""
 
 
 def _alt_text(doc):

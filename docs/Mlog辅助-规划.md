@@ -150,12 +150,19 @@ P3 **不接模型**：只把快照打印/落盘，用来验证「框选到底拿
   "id": "<sha1(snapshot+desc+mode)[:16]>",
   "created": 1792..., "state": "queued|running|done|rejected|failed|cancelled",
   "mode": "new|edit", "desc": "给这片区域做补给，每 5 秒检查一次核心物品",
-  "snapshot": { ... }, "attempts": 0, "findings": [], "code": "", "explanation": "", "assumptions": []
+  "snapshot": { ... }, "attempts": 0, "findings": [], "code": "", "explanation": "", "assumptions": [],
+  "reasoning": "<最近一次尝试里模型的 reasoning_content，v0.12.4>"
 }
 ```
 
 落盘 `<dataDir>/mlogauxiliary/queue/<id>.json`（模组写）+ `POST /jobs`（sidecar 收），双写保证 sidecar 崩了不丢。
 状态推进由 sidecar 负责，模组轮询 `GET /jobs`（1 s 间隔，面板关着也轮询，完成后弹提示）。
+
+**模型思考过程（v0.12.4）**：推理模型先写 `reasoning_content` 再写 `content`，玩家点「生成」后如果只看到
+`被门禁拒绝（ERR 1 条）` 加一行 message，是分不清「模型想歪了」还是「没照做」的。所以 sidecar 把回复里的
+推理内容摘成 `reasoning` 存进 job（`tools/mlogprovider.py` 的 `_reason_text()` / `_with_reason()`，
+上限 `REASONING_MAX = 12000`；`tools/jobqueue.py` 的 `_run()` 在 provider 返回后写入，上限 20000），
+模组 `renderJob()` 在状态行下面摊开开头 16 行 × 40 字符。端点不返回推理内容时这段不出现。
 
 ### 4.2 端点（在 P1 四端点之上加三个）
 
@@ -332,6 +339,7 @@ CLI `--llm-max-tokens`）、`POST /llm/probe` 的预算也从 128 提到 512 起
 | P4.5 模型档运行时配置 | 完成（v0.11.0） | `tools/logicd.py` 的 `LLM_STATE` + `GET /llm` / `POST /llm` / `POST /models`、`tools/mlogprovider.HttpProvider` 热替换；模组设置页「大模型」段（地址 / 密钥 / 模型 + 获取模型 / 启用模型档 / 回到模板档），密钥只回显尾巴 | `test_llm()` 11 项（假 OpenAI 端点：列表 / 换档 / 真作业 / 400 / 回模板 / v0.12.3 预算升档两次 / 一直截断时错误点名 `--llm-max-tokens` / `GET /llm` 回报预算与越界 400）；ui smoke `MAILLM:ok` + 五条源码红线 + v0.12.1 端点自测（`POST /llm/probe`）、API base 地址自动补全、重启后模组自动重同步 |
 | P5 多处理器写入 + 撤销落盘 | 部分完成（第一刀 v0.10.0 撤销落盘 / 第二刀 v0.10.1 写前冲突检测 / 第三刀上半 v0.12.0 事务写入核心；面板批量入口未做） | `MlogAuxiliary/scripts/main.js` 的 `undoRoot`/`snapshotText`/`saveUndoTo`/`undoFromDisk`/`undoBatchFromDisk`/`undoInfo`、`writeBuild` 里记快照名、`writeMany`（整批预检 + 整批冲突 + 整批快照 + 逐台 configure + 失败回滚）、设置页「撤销上次写入」/「撤销快照」、控制台 `maiUndo`/`maiUndoInfo`/`maiUndoProbe`/`maiWriteManyProbe` | ui smoke 的 `MAIUNDO` 行（真引擎里写快照→读回比对→删目录）+ `MAIWRITEMANY` 行（真引擎两台处理器：整批写、整批撤销、第二台抛错回滚第一台）+ `MAISELF` 的「撤销快照 ok」+ 三条 v0.10.0 与四条 v0.12.0 源码红线（断言表 L2-46 / L2-48） |
 | v0.12.2 重投不再回放旧结论（sidecar 侧，模组未变） | 完成（v0.12.2） | `tools/jobqueue.py` 的 `RETRY_MAX` / `_free_id()` / `enqueue()`（终态作业不再占着内容 id：同 body 重投 = `<id>-2`，带 `retry_of` 指回首轮）、`Store.save()` 的撞车重试（`SAVE_TRIES` / `SAVE_WAIT` / `_contended()` / `_replace()`）、`_loop()` 的 `_strand()`（写不下去的作业落 `failed`，不再永久 `running`） | `test_jobs()` 15 项（新增三项：终态后重投得 `<id>-2` 且 `retry_of` 指回首轮、文件已落盘；撞车两次的 save 第 3 次成功；running 阶段写失败的作业必须变成 `failed` 且带 `worker-error` finding） |
+| v0.12.4 模型思考过程回传（sidecar + 模组） | 完成（v0.12.4） | `tools/mlogprovider.py` 的 `REASONING_MAX = 12000` / `_with_reason()` / `_reason_text()` / `_keep_reason()`（升预算重试时也不丢思考）；`tools/jobqueue.py` 的 `REASONING_MAX = 20000` + `_run()` 存 `job['reasoning']`（error 分支同样保存）；`MlogAuxiliary/scripts/main.js` 的 `jobReasoningText()` / `jobReasoningLines()` / `REASONING_LINE = 40` / `REASONING_LINES = 16` + `renderJob()` 的思考段 + `api.maiJobReasoning`；`MOD_VERSION` / `mod.hjson` → 0.12.4 | `test_provider()` ⑫（脚本 provider 带 `reasoning` → 作业 done 且字段保留）、`test_llm()` ⑫（假端点回 `reasoning_content` → 走完 HTTP 的作业带 `reasoning` 且 ≤ 上限）、ui smoke `MAIJOBTHINK` 行 + 两条源码红线；真机要重装模组（拷到游戏 `saves/mods/MlogAuxiliary/`）+ 重启游戏 |
 | v0.12.3 推理模型的回复预算（sidecar 侧，模组未变） | 完成（v0.12.3） | `tools/mlogprovider.py` 的 `DEFAULT_MAX_TOKENS = 4096` / `TOKENS_CEILING = 16000` / `_once()` / `finish_reason=length` 自动升一档重试 / `_budget_hint()`；`tools/logicd.py` 的 `LLM_STATE['max_tokens']`、`POST /llm` 的 `max_tokens`（64..64000）、`GET /llm` 回报、`--llm-max-tokens`、`/llm/probe` 预算 128→512 起、`SIDECAR_VERSION` 与 `GET /health` 的 `version` | `test_llm()` 11 项 + `test_protocol()` 的版本检查（断言表 L2-51 / L2-52）；真机复测要玩家重启 sidecar 后重投同一句描述（v0.12.2 起会得到 `<id>-3`） |
 
 P2 期间确认的第三条环境事实：**真 v160.7 的 Rhino 里 `String.prototype.split(正则)` 对带 `+` 量词的模式

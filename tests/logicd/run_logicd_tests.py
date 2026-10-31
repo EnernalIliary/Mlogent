@@ -945,11 +945,31 @@ def test_provider():
         finally:
             stub3.close()
 
+        # 12. v0.12.4: whatever the model was thinking rides along with the reply
+        #     and is kept on the job, so the panel can show why it wrote that
+        prov6 = MP.ScriptedProvider([{'code': 'set n 0\nend',
+                                      'reasoning': 'first think, then write'}])
+        q7 = jobqueue.Queue(jobqueue.Store(os.path.join(tmp, 'q7')), provider=prov6)
+        j7, _ = q7.enqueue({'desc': 'scripted thinking', 'links': LINKS})
+        q7.drain()
+        got7 = q7.get(j7['id'])
+        need(got7['state'] == 'done' and 'first think' in str(got7.get('reasoning')),
+             'the thinking was not kept on the job: %r' % (got7.get('reasoning'),))
+        need(got7['findings'] == [] and got7['code'].startswith('set n 0'),
+             'a reply carrying reasoning broke the job: %r' % (got7,))
+        checks += 1
+
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
     return checks
 
 # ---------------------------------------------------------------- half A3: model tier
+
+#: what the stub puts in reasoning_content -- the panel shows this text (v0.12.4:
+#: a reasoning model thinks before it writes, so a refusal explains itself only if
+#: the thinking comes back with the job)
+STUB_THINK = 'think first: the player asked for one printed number'
+
 
 class _StubEndpoint:
     """A tiny OpenAI-ish endpoint: /v1/models lists two ids, chat answers a clean program."""
@@ -1007,7 +1027,8 @@ class _StubEndpoint:
                                             'finish_reason': 'length'}],
                                'usage': {'prompt_tokens': 11, 'completion_tokens': 1600}}
                 else:
-                    payload = {'choices': [{'message': {'content': content}}]}
+                    payload = {'choices': [{'message': {'content': content,
+                                                        'reasoning_content': STUB_THINK}}]}
                 body = json.dumps(payload).encode()
                 self.send_response(200)
                 self.send_header('Content-Type', 'application/json')
@@ -1153,6 +1174,19 @@ def test_llm():
              'a permanently truncated reply did not name the budget knob: %r' % (msg,))
         climbed = [q.get('max_tokens') for q in stub.posts]
         need(climbed[:2] == [500, 2000], 'the retry ladder did not climb: %r' % (climbed,))
+        checks += 1
+
+        # 12. v0.12.4: the panel shows what the model was thinking, so the
+        #     thinking has to come back over HTTP and land on the job
+        code, doc = srv.post('/jobs', {'job': {'desc': 'thinking probe %d' % stub.port,
+                                               'links': [], 'ipt': 2}})
+        need(code == 200 and doc.get('ok') is True,
+             'the thinking job was refused: %r' % (doc,))
+        got = wait_job(srv, doc['id'], want=('done',))
+        need(STUB_THINK in str(got.get('reasoning') or ''),
+             'the model thinking did not reach the job: %r' % (got.get('reasoning'),))
+        need(len(str(got.get('reasoning') or '')) <= MP.REASONING_MAX,
+             'the stored thinking is longer than the cap')
         checks += 1
 
         # 11. GET /llm reports the budget; an absurd one is refused
