@@ -2430,3 +2430,19 @@ CI run **41239699508** success。直连 GitHub 又断，走本机代理 `127.0.0
 - 文档：断言表 L2-84（143 条）、规划 v0.16.0 行、CHANGELOG `## 0.16.0`、README「存成蓝图」、蓝图方案 B1 标完成。
 - 关键依据：`Schematics.java:377`（`create` 带 `Stile.config`）、`:347`（`add` 只 showException）、`Schematic.name()` 读 tags、
   `_hash()` 只吃 author+body（所以 meta 不影响 id）。
+## §92 v0.16.1：蓝图页「MAI 对话」（B2）+ 「详细」页「继续对话」（B4）
+
+- 入口：`blueprintPageHook()` 挂 `Vars.ui.schematics.buttons`（`BP_PAGE_HOOKED` 守一次）；`blueprintInfoHook()` 反射
+  `mindustry.ui.dialogs.SchematicsDialog` 的私有字段 `info`，按 `info.title.getText()` 取蓝图名，并额外检查
+  `info.buttons.getChildren()` 是否被原版 `clearChildren()` 清空（同一张图连开两次的常态）。
+- 读上下文：`blueprintCtxOf(name)` → `Vars.schematics.all()` 同名 → 扫 `sc.tiles[i].config` 找 `aigenerated:` →
+  `sigMetaOf()` 解 payload v2 的 `m`（`ws/name/prompt/job`）。
+- **Rhino 硬约束**：字符类里带半角引号的正则（`/aigenerated:([^:"]+):…/`）在真机 codegen 抛
+  `IllegalStateException: FAILED ASSERTION: invalid bytecode`；改成手写扫描 + `sigInflate()`（`InflaterInputStream`，
+  `guard < 4096`）。二分证据：stub 函数体绿、只留正则仍报、字符类去引号即绿。
+- 提交：`mode:"improve"` + `workspace{…prevCode…}` POST `/jobs`，900 ms 轮询 `jobGet()`；写回覆写 `tl.config` →
+  `saveChanges()` → `blueprintCtxOf()` 回读；`sch.file` 为空则提示先存盘。
+- 验证：`node --check` 0；ui smoke EXIT=0（`MAISIGMETA`/`MAIBPTITLE`/`MAIBPCHAT` 三条探针）；`tests/run_tests.py` 46/46；
+  `tests/logicd/run_logicd_tests.py` logicd OK；断言表 **L2-85**（总 144）。
+- 版本三处 → 0.16.1（`main.js` `MOD_VERSION`、`MlogAuxiliary/mod.hjson`、`tools/logicd.py` `SIDECAR_VERSION`）。
+

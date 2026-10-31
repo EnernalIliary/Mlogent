@@ -137,10 +137,10 @@ if(SCHEM_INFO !== null && SCHEM_INFO.isShown()){
 | 步 | 内容 | 依赖 |
 | --- | --- | --- |
 | B1 | 选框 → 蓝图（原版 create/add + 命名 + 回读校验）+ 面板按钮 ✅ **v0.16.0 已完成** | 无 |
-| B2 | 蓝图页「MAI 对话」按钮 + 蓝图列表 + 选中开 improve | B1 的列表读取代码 |
-| B3 | 签名 payload v2（Python 侧）+ mod 读取 | **item1 签名并入先落地**（同一个 `aigenerated.py`，避免打架） |
-| B4 | 真机验证 + 断言 L2-69/L2-70 + 报告 | B1–B3 |
-| B5 | 「详细」页「继续对话」（反射取 `info` + 每帧重挂按钮 + 按名字认蓝图 + 读 payload v2 上下文） | B3、B1 的列表读取 |
+| B2 | ✅ **v0.16.1 已完成** 蓝图页「MAI 对话」按钮 + 蓝图列表 + 选中开 improve | B1 的列表读取代码 |
+| B3 | ✅ **v0.16.0 已完成** 签名 payload v2：Python 侧 `encode_comments(comments, meta)` / `decode_payload()` / `sign_text(meta=…)`，mod 侧 `sigMetaOf()` 手写扫描 + `sigInflate()` | **item1 签名并入先落地**（同一个 `aigenerated.py`，避免打架） |
+| B4 | ✅ **v0.16.1 已完成** 「详细」页「继续对话」+ 写回 + 断言 L2-85 | B1–B3 |
+| B5 | ✅ **v0.16.1 已完成**（与 B4 同一套实现：反射取 `info` + 标题变化或按钮被清空时重挂 + 按名字认蓝图 + 读 payload v2 上下文） | B3、B1 的列表读取 |
 
 ## 5. 不做 / 风险
 - **不** hook 原版蓝图页的行布局或行内按钮（`rebuildPane` 每次重建，注入必丢）。
