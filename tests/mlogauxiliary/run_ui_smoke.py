@@ -313,6 +313,11 @@ def main():
         "print('MAILISTROWS:' + maiListRows());",
         "print('MAIUNDO:' + maiUndoProbe());",
     "print('MAICONFLICT:' + maiConflictProbe());",
+    # v0.12.8: the conflict baseline now covers the link table, and a multiplayer write
+    # that the server drops has to say 无权限 instead of looking successful.
+    "print('MAILINKCONFLICT:' + maiLinkConflictProbe());",
+    "print('MAINET:' + maiNetProbe());",
+    "print('MAIWRITECHECK:' + maiWriteCheckProbe());",
     "print('MAILLM:' + maiLlmProbe());",
     # v0.12.5: the retained selection box + corner badge state machine (no sidecar, no ui)
     "print('MAIJOBBOX0:' + maiJobBox());",
@@ -339,6 +344,7 @@ def main():
              if '[mai]' in l or 'mlog-auxiliary' in l
              or l.startswith(('MAISELF:', 'MAIDIAG:', 'MAISET:', 'MAILIST:', 'MAILISTROWS:',
                               'MAIUNDO:', 'MAICONFLICT:', 'MAILLM:',
+                              'MAILINKCONFLICT:', 'MAINET:', 'MAIWRITECHECK:',
                               'MAIJOBBOX0:', 'MAIJOBBOXPIN:', 'MAIJOBBOXFIN:',
                               'MAIJOBBOXCLR:', 'MAIJOBBOX3:', 'MAIJOBMANAGER:',
                               'MAIJOBBOXPIN2:', 'MAIJOBBOXCLOSE:', 'MAIJOBBOX4:',
@@ -449,6 +455,18 @@ def main():
     if 'MAIUNDO:ok ' not in joined:
         problems.append('v0.10.0: the undo snapshot did not round-trip through the real '
                         'filesystem: %r' % [l for l in lines if l.startswith('MAIUNDO:')][:1])
+    # v0.12.8: the link table is part of the conflict baseline, and the multiplayer
+    # write path has to be able to say 无权限 (headless: net=false, so no extra gates).
+    if 'MAILINKCONFLICT:ok' not in joined:
+        problems.append('v0.12.8: the link-table conflict gate is broken: %r'
+                        % [l for l in lines if l.startswith('MAILINKCONFLICT:')][:1])
+    if 'MAINET:net=false admin=false player=null perm=null' not in joined:
+        problems.append('v0.12.8: the multiplayer probe is not headless-clean (single player '
+                        'must take no extra gate): %r'
+                        % [l for l in lines if l.startswith('MAINET:')][:1])
+    if 'MAIWRITECHECK:offline queue=0' not in joined:
+        problems.append('v0.12.8: the write-back check queue is not empty headless: %r'
+                        % [l for l in lines if l.startswith('MAIWRITECHECK:')][:1])
 
     # v0.12.5: the F3 box now outlives the drag, so its state machine has to be pinned
     # headless -- there is no camera, no mouse and no sidecar in this engine.
@@ -750,7 +768,7 @@ def main():
                          'the pre-write conflict gate is gone'),
                         ('function rememberOrig(',
                          'jobSubmit no longer records the code it saw at submit time'),
-                        ('JOB_ORIG[procKey(b)] = String(b.code)',
+                        ('JOB_ORIG[k] = String(b.code)',
                          'the conflict baseline is not the submit-time code')):
         if needle not in code_only:
             problems.append('v0.10.1: ' + why)
@@ -824,6 +842,26 @@ def main():
     if 'JOB_BOX_LINGER_MS' in code_only:
         problems.append('v0.12.7: the box still times itself out -- it has to wait for a '
                         'write or for the player to close it')
+    # v0.12.8: 冲突基线必须连链接表一起比；联机写入被服务端丢掉时必须报「无权限」。
+    for needle, why in (('function linkSig(',
+                         'the conflict baseline no longer covers the link table'),
+                        ('JOB_LINKS[k] = linkSig(b)',
+                         'the link table is no longer recorded when a job is submitted'),
+                        ('function permWhy(',
+                         'the multiplayer permission gate is gone -- a rejected write will '
+                         'look successful again'),
+                        ('function writeCheckTick(',
+                         'the write-back check is gone -- a dropped multiplayer write is silent'),
+                        ('armWriteCheck(items[i].b',
+                         'the batch write no longer arms the write-back check'),
+                        ('无权限',
+                         'the rejected-write message lost its 无权限 wording'),
+                        ('api.maiLinkConflictProbe = function',
+                         'the link-table conflict probe is gone'),
+                        ('api.maiNetProbe = function',
+                         'the multiplayer probe is gone')):
+        if needle not in code_only:
+            problems.append('v0.12.8: ' + why)
     for needle, why in (('function jobRetryHead(',                          'a retrying job no longer labels its findings as the last attempt'),
                         ('function jobFindingLines(',
                          'the truncation gloss helper is gone'),

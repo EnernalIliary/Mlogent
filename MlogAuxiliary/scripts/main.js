@@ -28,7 +28,7 @@
 function __logicWriterMain(){
     "use strict";
 
-    var MOD_VERSION = "0.12.7";
+    var MOD_VERSION = "0.12.8";
     var URL_KEY     = "mlogauxiliary-url";
     var DEFAULT_URL = "http://127.0.0.1:8765";
     // v0.11.0：设置页里填的模型档三件套。密钥只留在本机 Core.settings 与 sidecar 进程内存。
@@ -911,14 +911,18 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
             return "撤销快照 " + undoFilesOf(root).length + " 份（目录 " + dirText(root) + "）";
         }
 
-        // ------------------------------------------------ 写前冲突检测（v0.10.1）
+        // ------------------------------------------------ 写前冲突检测（v0.10.1 / v0.12.8）
         // 作业是异步的：投递那一刻处理器上是 A，面板上点「写入」时可能已经是 B
         // （等结果的时候顺手改了代码、或者另一台处理器写了同一格）。静默覆盖会吃掉这段改动，
         // 所以写入前比对「投递作业那一刻的代码」：不一致就拒绝一次，再点一次「写入」才算确认覆盖。
         // 不用对话框是有意的 —— 无头环境里 Core.scene 是 null，弹窗会直接 NPE，
         // 而「拒绝一次 + 再点一次」在真机和测试里走的是同一条路径。
+        // v0.12.8：基线不再只是代码文本，链接表一起比。等结果的那几十秒里拆/加一条链接，
+        // 生成代码里的链接名就全废了 —— 那时静默写入比覆盖掉代码更糟（规划 §5 的口径里
+        // 链接表本来就该一起拦）。
 
         var JOB_ORIG  = {};       // "x,y" -> 投递作业那一刻的代码
+        var JOB_LINKS = {};       // "x,y" -> 投递作业那一刻的链接表签名
         var JOB_FORCE = {};       // "x,y" -> 已经拒绝过一次，下一次写入视为确认覆盖
 
         function procKey(b){
@@ -926,22 +930,59 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
             catch(e){ return "?"; }
         }
 
+        // 链接表签名：名字 + 绝对坐标。把一条链接从一台方块换到另一台（同名不同位置）
+        // 对生成的代码是另一个事实，必须算改动。null = 不知道这个处理器的链接表
+        // （无头假处理器没有 links 字段），这时不判链接冲突。
+        function linkSig(b){
+            var l = linkListOrNull(b);
+            if(l === null){ return null; }
+            var parts = [];
+            for(var i = 0; i < l.length; i++){
+                parts.push(String(l[i].name) + "@" + String(l[i].x) + "," + String(l[i].y));
+            }
+            parts.sort();
+            return parts.join(" ");
+        }
+
+        function linkSigText(sig){
+            if(sig === null || sig === undefined || String(sig).length === 0){ return "空"; }
+            return String(sig).split(" ").join(", ");
+        }
+
         function rememberOrig(b){
-            try{ JOB_ORIG[procKey(b)] = String(b.code); JOB_FORCE[procKey(b)] = false; }
-            catch(e){ log("rememberOrig failed: " + e); }
+            try{
+                var k = procKey(b);
+                JOB_ORIG[k] = String(b.code);
+                JOB_LINKS[k] = linkSig(b);
+                JOB_FORCE[k] = false;
+            }catch(e){ log("rememberOrig failed: " + e); }
         }
 
         function forgetOrig(b){
-            try{ delete JOB_ORIG[procKey(b)]; delete JOB_FORCE[procKey(b)]; }catch(e){ }
+            try{
+                var k = procKey(b);
+                delete JOB_ORIG[k]; delete JOB_LINKS[k]; delete JOB_FORCE[k];
+            }catch(e){ }
         }
 
         function conflictReason(b){
             var k = procKey(b);
+            var parts = [];
             var orig = JOB_ORIG[k];
-            if(orig === undefined || orig === null){ return null; }
-            if(String(b.code) === String(orig)){ return null; }
-            return "处理器在你投递作业之后被改过（提交时 " + String(orig).split("\n").length
-                 + " 行，现在 " + String(b.code).split("\n").length + " 行）";
+            if(orig !== undefined && orig !== null && String(b.code) !== String(orig)){
+                parts.push("代码 " + String(orig).split("\n").length + " 行 → "
+                           + String(b.code).split("\n").length + " 行");
+            }
+            var olinks = JOB_LINKS[k];
+            if(olinks !== undefined && olinks !== null){
+                var nowLinks = linkSig(b);
+                if(nowLinks !== null && nowLinks !== olinks){
+                    parts.push("链接表 [" + linkSigText(olinks) + "] → ["
+                               + linkSigText(nowLinks) + "]");
+                }
+            }
+            if(parts.length === 0){ return null; }
+            return "处理器在你投递作业之后被改过（提交时 " + parts.join("；") + "）";
         }
 
         function conflictGate(b){
@@ -956,6 +997,112 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
             return "拒绝写入：" + why + "；确认覆盖请再点一次「写入」";
         }
 
+        // ------------------------------------------------ 联机写入（v0.12.8）
+        // 联机里 b.configure(bytes) 只是发一个 Call.tileConfig 给服务端，真正的写入由服务端做。
+        // 服务端两道闸（Mindustry-Source/core/src/mindustry/input/InputHandler.java:710-726）：
+        //   ① Units.canInteract(player, build) = build.interactable(player.team()) || rules.editor
+        //   ② netServer.admins.allowAction(player, ActionType.configure, ...)
+        // 拒了就发一个「撤销配置」包把客户端改回去（源码注释原话 "undo the config on the client"），
+        // 但**客户端收不到任何错误** —— 看起来写成功了，其实存档里没变。这就是「无权限」要专门报的原因。
+        // 所以这里做两层：判得了的（队伍不对）当场拒绝并说「无权限」；
+        // 判不了的（服务端权限等级/规则）在写完一两秒后回读代码，没生效就报「无权限」。
+
+        function netClient(){
+            try{ return Vars.net !== null && Vars.net !== undefined && Vars.net.client() === true; }
+            catch(e){ return false; }
+        }
+
+        function localPlayer(){
+            try{ if(Vars.player === null || Vars.player === undefined){ return null; } return Vars.player; }
+            catch(e){ return null; }
+        }
+
+        function isAdmin(){
+            var p = localPlayer();
+            try{ return p !== null && p.admin === true; }catch(e){ return false; }
+        }
+
+        // 服务端第一道闸的客户端复刻。返回 null = 放行（或判不了，让服务端说话）。
+        function permWhy(b){
+            if(!netClient()){ return null; }
+            var p = localPlayer();
+            if(p === null){ return null; }                 // 还没拿到玩家：不猜
+            var ok = true;
+            try{ ok = b.interactable(p.team()) === true || Vars.state.rules.editor === true; }
+            catch(e){ return null; }                       // 判不了就当放行
+            if(ok){ return null; }
+            var mine = "", theirs = "";
+            try{ mine = String(p.team()); }catch(e1){ }
+            try{ theirs = String(b.team); }catch(e2){ }
+            return "无权限：这块处理器属于 " + theirs + "，你在 " + mine
+                 + "；联机里服务端只接受本方队伍（或编辑器规则）的写入，这次一台都没写";
+        }
+
+        // 写后回读：联机里唯一能确认「服务端到底写没写」的办法。客户端会先把 configure
+        // 应用上去，被拒时服务端的撤销包把它改回来 —— 隔一两秒回读代码就分得清。
+        // 无头引擎里 Vars.net 是 null，armWriteCheck 直接不排，writeCheckTick 空转。
+        var WRITE_CHECK = [];
+        var WRITE_CHECK_WAIT_MS = 1500;
+        var WRITE_CHECK_TRIES = 3;
+
+        function normCode(s){
+            var t = String(s === null || s === undefined ? "" : s).replace(/\r/g, "");
+            while(t.length > 0){
+                var c = t.charAt(t.length - 1);
+                if(c === " " || c === "\n" || c === "\t"){ t = t.substring(0, t.length - 1); }
+                else{ break; }
+            }
+            return t;
+        }
+
+        // 期望落地的代码：sidecar 返回的 code 就是载荷解码出来的文本
+        // （LogicBlock.readCompressed 用同一个 charset 解 byte[]，updateCode 原样存进 code）。
+        // 没有 code 字段就不核验 —— 宁可不报，也不误报。
+        function wantCode(res){
+            if(res === null || res === undefined){ return null; }
+            if(res.code !== undefined && res.code !== null && String(res.code).length > 0){
+                return String(res.code);
+            }
+            return null;
+        }
+
+        function armWriteCheck(b, want, label){
+            if(!netClient()){ return; }
+            var w = normCode(want);
+            if(w.length === 0){ return; }
+            if(WRITE_CHECK.length >= 16){ WRITE_CHECK.shift(); }
+            var now = Packages.java.lang.System.currentTimeMillis();
+            WRITE_CHECK.push({b: b, want: w, at: now + WRITE_CHECK_WAIT_MS, tries: 0,
+                              label: String(label || ("@" + b.tile.x + "," + b.tile.y))});
+        }
+
+        // 每帧一次：到点回读，代码对上了就销案，连续三次对不上才报「无权限」。
+        function writeCheckTick(){
+            if(WRITE_CHECK.length === 0){ return; }
+            var now = Packages.java.lang.System.currentTimeMillis();
+            var keep = [], i;
+            for(i = 0; i < WRITE_CHECK.length; i++){
+                var w = WRITE_CHECK[i];
+                if(now < w.at){ keep.push(w); continue; }
+                var gone = false;
+                try{ gone = (w.b === null || w.b.tile === null || w.b.tile.build !== w.b); }
+                catch(e){ gone = true; }
+                if(gone){ continue; }                            // 方块没了：不归这里管
+                var got = "";
+                try{ got = String(w.b.code); }catch(e2){ got = ""; }
+                if(normCode(got) === w.want){ continue; }         // 服务端收下了
+                w.tries++;
+                if(w.tries >= WRITE_CHECK_TRIES){
+                    hint("无权限：" + w.label + " 的写入没生效（服务端没有接受）。"
+                         + "联机里逻辑块由服务端执行，需要房主/管理员给权限，或改本方队伍的处理器。");
+                    continue;
+                }
+                w.at = now + WRITE_CHECK_WAIT_MS;
+                keep.push(w);
+            }
+            WRITE_CHECK = keep;
+        }
+
         // ---------------------------------------------------------- 写入
         // 唯一的写入口。四道闸：0 ERR、目标存在、载荷由 sidecar 生成（模组不自己拼代码）、写前没被改过。
 
@@ -965,6 +1112,8 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
                 return "拒绝写入：静态检查有 ERR（" + ((res && res.errors) || "?") + " 条）";
             }
             if(!res.bytes_b64){ return "拒绝写入：sidecar 没有返回载荷"; }
+            var noPerm = permWhy(b);
+            if(noPerm !== null){ return noPerm; }
             var blocked = conflictGate(b);
             if(blocked !== null){ return blocked; }
             try{
@@ -974,6 +1123,7 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
                 b.configure(base64Bytes(res.bytes_b64));
                 forgetOrig(b);          // 写成功之后这次作业的基线就过期了
                 jobBoxWritten(b);       // v0.12.7：写入成功 = 这块框选的活干完了，框才消失
+                armWriteCheck(b, wantCode(res), null);   // v0.12.8：联机里回读一次，确认服务端真收下了
                 return "已写入 " + (res.template || "") + "（" + res.statements + " 条语句，"
                      + res.bytes_len + " 字节）";
             }catch(e){
@@ -1006,7 +1156,9 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
                     bad.push("@" + procKey(it.b) + "：静态检查有 ERR");
                     continue;
                 }
-                if(!it.res.bytes_b64){ bad.push("@" + procKey(it.b) + "：sidecar 没有返回载荷"); }
+                if(!it.res.bytes_b64){ bad.push("@" + procKey(it.b) + "：sidecar 没有返回载荷"); continue; }
+                var np = permWhy(it.b);
+                if(np !== null){ bad.push("@" + procKey(it.b) + " " + np); }
             }
             if(bad.length > 0){ return "拒绝写入（一台都没写）：" + bad.join("；"); }
             // 冲突检查也是整批的：只要有一台被改过，整批先拒绝一次；再调一次 = 确认覆盖。
@@ -1046,6 +1198,7 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
                 }
             }
             for(i = 0; i < items.length; i++){ forgetOrig(items[i].b); }
+            for(i = 0; i < items.length; i++){ armWriteCheck(items[i].b, wantCode(items[i].res), null); }
             undoStack.push({many: snaps, batch: batch});
             if(undoStack.length > 20){ undoStack.shift(); }
             UNDO_BATCH = batch;
@@ -3102,6 +3255,64 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
                  : ("bad blocked=" + blocked + " forced=" + forced
                     + " once=" + once + " quiet=" + quiet);
         };
+        // v0.12.8：链接表冲突的无头探针。假处理器带一个假 links（size + get），
+        // 覆盖四件事：没动过不问 / 拆掉一条要拦 / 拒绝一次后放行 / 同名换位置也算改。
+        api.maiLinkConflictProbe = function(){
+            function fakeLinks(list){
+                return {size: list.length, get: function(i){ return list[i]; }};
+            }
+            var l1 = [{name: "conveyor1", x: 10, y: 4}, {name: "core1", x: 1, y: 4}];
+            var b = {tile: {x: 3, y: 4}, code: "set n 1\nend", links: fakeLinks(l1)};
+            rememberOrig(b);
+            var quiet = conflictReason(b) === null;
+            b.links = fakeLinks([{name: "conveyor1", x: 10, y: 4}]);      // 拆掉一条
+            var r1 = conflictReason(b);
+            var caught = r1 !== null && String(r1).indexOf("链接表") >= 0;
+            var g1 = conflictGate(b);
+            var g2 = conflictGate(b);
+            var once = g1 !== null && g2 === null;                        // 拒绝一次、再点放行
+            b.links = fakeLinks(l1);
+            var again = conflictReason(b) === null;                       // 改回原样就不问
+            b.links = fakeLinks([{name: "conveyor1", x: 11, y: 4}]);      // 同名不同位置也算改
+            var moved = String(conflictReason(b)).indexOf("链接表") >= 0;
+            b.code = "set n 2\nend";
+            var bothWhy = String(conflictReason(b));
+            var both = bothWhy.indexOf("代码") >= 0 && bothWhy.indexOf("链接表") >= 0;
+            forgetOrig(b);
+            var cleared = conflictReason(b) === null;
+            return (quiet && caught && once && again && moved && both && cleared) ? "ok"
+                 : ("bad quiet=" + quiet + " caught=" + caught + " once=" + once
+                    + " again=" + again + " moved=" + moved + " both=" + both
+                    + " cleared=" + cleared);
+        };
+        // v0.12.8：联机判定的无头探针。无头引擎里 Vars.net 是 null、Vars.player 也是 null，
+        // 期望 net=false admin=false perm=null —— 单机路径一个闸都不该多。
+        api.maiNetProbe = function(){
+            var b = {tile: {x: 3, y: 4}, code: ""};
+            var np = permWhy(b);
+            return "net=" + netClient() + " admin=" + isAdmin()
+                 + " player=" + (localPlayer() === null ? "null" : "some")
+                 + " perm=" + String(np);
+        };
+        // v0.12.8：写后回读的队列探针（不碰 Vars.net）：塞一条必然对不上的，
+        // 走三次 tick 之后应该自己出队（真机里这一步是弹「无权限」）。
+        api.maiWriteCheckProbe = function(){
+            var b = {tile: {x: 3, y: 4, build: null}, code: "set n 0\nend"};
+            b.tile.build = b;
+            if(!netClient()){
+                writeCheckTick();
+                return "offline queue=" + WRITE_CHECK.length;
+            }
+            armWriteCheck(b, "set n 1\nend", "probe");
+            var n0 = WRITE_CHECK.length;
+            WRITE_CHECK[WRITE_CHECK.length - 1].at = 0;      // 立刻到点
+            for(var i = 0; i < WRITE_CHECK_TRIES + 1; i++){
+                writeCheckTick();
+                if(WRITE_CHECK.length > 0){ WRITE_CHECK[0].at = 0; }
+            }
+            return (n0 === 1 && WRITE_CHECK.length === 0) ? "ok" : ("bad queued=" + n0);
+        };
+
         // v0.12.0：事务写入的无头探针。现放一台真处理器（结束时拆掉），一次整批写、
         // 一次整批撤销，再一次「第二台 configure 抛错」——三件事全对才返回 ok。
         api.maiWriteManyProbe = function(aJson, x, y){
@@ -3217,6 +3428,7 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
                     reviewTick();   // 原版逻辑编辑器开着就顺手刷新那条审查栏
                     jobTick();      // v0.8.0：有作业在跑就每秒查一次状态
                     jobBoxTick();   // v0.12.5：框选框里那一批作业的状态
+                    writeCheckTick(); // v0.12.8：联机里回读写过的处理器，确认服务端真收下了
                     jobBadgeClick(); // v0.12.5：点框右下角的徽标 = 开作业管理窗
                     // 「设置 → Mlog辅助」这一栏只在 Vars.ui 建好之后能注册。脚本加载时
                     // UI 往往还没建（真机日志里是在 ClientLoadEvent 前），所以这里补一次

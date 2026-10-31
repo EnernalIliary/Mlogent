@@ -1968,3 +1968,27 @@ m01735「哦哦，成功了，但是在模型生成被截断的时候还有报�
   `gate.py --full --kb-build` 16/16；logicd 未改（protocol 26 / jobs 16 / provider 12 / llm 12）。
 - **装机**：模组 0.12.7 覆盖到 `E:\Program Files (x86)\Steam\steamapps\common\Mindustry\saves\mods\MlogAuxiliary\`
   后重启游戏；sidecar 仍是 0.12.6（这版没改 sidecar）。
+
+## §73 mai v0.12.8：冲突检测连链接表一起比 + 联机「无权限」提示（2026-10-31）
+
+报告全文：`out/takeover-20261024/73-v0128-perm-and-links.md`。触发是用户 m02047「按你的顺序」
+（①联机无权限 + ②冲突比链接表 → ③快照补全 → ④打包）。只改模组，sidecar 仍是 0.12.6。
+
+- **冲突基线扩到链接表**：新增 `JOB_LINKS` / `linkSig(b)`（`linkListOrNull` → `名字@x,y` 排序签名，
+  null = 不知道不判）/ `linkSigText()`；`rememberOrig()` 记代码 + 链接表两张表，`forgetOrig()` 一起清，
+  `conflictReason()` 报「代码 N 行 → M 行」和/或「链接表 [..] → [..]」。理由：模型写的链接名是按
+  **投递那一刻**的链接表生成的，链接表变了「代码没变」也会写进一份链接名全红的程序。
+- **联机权限（计划书 §5 遗留项）**：真源码取证——`BuildingComp.java:388-392` 的 `configure()` 只发
+  `Call.tileConfig`；`InputHandler.java:705-729` 服务端两道闸 `Units.canInteract` +
+  `admins.allowAction(… configure …)`，被拒只发撤销包（注释 `undo the config on the client`）⇒
+  **客户端拿不到错误**。模组两层：`permWhy(b)` 复刻队伍闸（队伍不对整批一台都不写，消息以「无权限：」
+  开头，单机不进）；`armWriteCheck()` / `writeCheckTick()` 写完 1.5 s 回读 `b.code` 与 `wantCode(res)`
+  比，连续 3 次对不上才 `hint()` 报「无权限：… 的写入没生效（服务端没有接受）」，方块没了销案。
+- **验证**：`node --check` 0；ui smoke EXIT=0（新增 `MAILINKCONFLICT:ok` /
+  `MAINET:net=false admin=false player=null perm=null` / `MAIWRITECHECK:offline queue=0` 三行 +
+  八条源码红线，旧红线 `JOB_ORIG[procKey(b)] = String(b.code)` 跟着 `rememberOrig` 重构改成
+  `JOB_ORIG[k] = String(b.code)`）；`gate.py` 11/11、`gate.py --full --kb-build` 16/16 in 45.9s。
+  断言表新增 L2-58 / L2-59（现 **118 条**：L1 31 / L2 59 / L3 6 / L4 4 / S 18）。
+- **装机**：模组 0.12.8 覆盖 `E:\Program Files (x86)\Steam\steamapps\common\Mindustry\saves\mods\MlogAuxiliary\`
+  后重启游戏；sidecar 不用重启（这版没改 sidecar，仍是 0.12.6）。
+- **没做**：真联机未实测（要开服）；下一步是快照补全 `blocks`/`items`/`liquids`/`units`/`enemies`。
