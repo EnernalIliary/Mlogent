@@ -2311,3 +2311,27 @@ llm 12 / write path 7 模板）。版本三处 0.14.3。
   `tests/logicd/run_logicd_tests.py` `logicd OK`；ui smoke EXIT=0；门禁 17/17。
 - 坑：`tools/aigenerated.py` 的 `sign` 子命令没有 `-o`（只有 `post` 有），就地改文件；
   动过 `tools/*.py` 就要 `sync_mlogagent.py --mirror all` 再 `--global`，否则门禁 mirror/global 两处红。
+
+## §87 v0.15.0：失败可诊断 + 侧车并发 + 运行环境自证
+
+用户 m07441 提「打磨一下本体」，我给 A/B/C/D/E 六组问题清单，m07485 批准顺序后本轮做完 **A1+A2+B1+C1+C2+A3**（A4/D1/D2/D3 留 v0.15.1）。
+
+- **A1 失败分类**（`tools/mlogprovider.py`）：七类 `transport/http-status/bad-json/empty/truncated/unparsable/config`；
+  只有 `transport`+`empty` 重试（0.8/2.0/4.0 s 退避，`RETRY_TOTAL=3`），截断单独翻预算（`TRUNC_TOTAL=4`，×4 token、×3 超时），
+  401/403/404 `fatal=True` 立即失败；`_fail()` 在 `doc` 是 `finish_reason=length` 时把类别改写成 `truncated`（不改写旧测试就红）。
+- **A2 作业诊断**（`tools/mlogprovider.py` + `tools/jobqueue.py`）：`_diag()`/`_usage()`、`Queue._record_attempt()` 写
+  `job.attempt_log[{n,ms,provider,url,model,budget,finish_reason,prompt_tokens,completion_tokens,total_tokens,reply_chars,attempt,http_status,kind,error}]`
+  （`ATTEMPT_LOG_MAX=8`）+ `job.diag/model/provider`，finding 带 `kind`；`PROVIDER_EXHAUSTED=('empty','transport')` 第二次同类失败收手并 `_exhausted_text()`。
+- **B1 并发**（`tools/jobqueue.py` + `tools/logicd.py`）：`Queue(workers=N)`、`_claim()` 在同一临界区置 `claimed`（防重复执行）、
+  残留 `running|claimed` 复位 `queued`；`--jobs-workers` 默认 3。
+- **C1+C2 sidecar 自证**：`/health` 加 `pid/port/exe`、`POST /ping`、`POST /shutdown`、`--idle-exit` 看门狗（无人 ping 且无在跑作业就退）；
+  模组 `--port 0 --idle-exit 45` + 从 `sidecar.log` 读回端口（`sidecarLogPort`）+ `sidecarPing/sidecarOurs/sidecarVersionMismatch/sidecarRetire`，
+  自己的旧版本自动退役，别人的只提示不动（`state="stale"`）。
+- **A3 面板**：`JOB_WHY` 七条中文映射 + `jobWhyLines/jobEvidenceLines/jobLastAttempt/jobAttemptLine`；done 打「模型：…」「第 N 次调用：…」，
+  失败打「为什么：…」与 `--- 诊断 ---`；探针 `api.maiJobDiagProbe` → `MAIJOBPANELDIAG:ok why=N ev=N …`。
+
+验证：`tests/run_tests.py` 46/46；`run_logicd_tests.py` 新增 `diag`(5)/`life`(3) 段全绿；ui smoke EXIT=0；打包测试 11/11；门禁 **17/17 in 159.9s**；断言表 L2-76..L2-80（**139 条**）；报告 `87-v0150-diag.md`。
+
+坑（详见报告 4 节）：补丁锚点撞上 `ScriptedProvider.__call__` 把 `HttpProvider` 整类删掉（`git checkout` 还原 + 先定位 `class HttpProvider:`）；
+一行的 `python -c` 把 CRLF 测试文件改成 LF（`git diff --stat` 才看得出，`git show | python -` 在 PowerShell 里会假报 CRLF）；
+`Queue.enqueue()` 返回 `(job, created)`；红线不能带行尾注释；红线锚点 grep 不到时脚本不写盘但 smoke 仍 EXIT=0。
