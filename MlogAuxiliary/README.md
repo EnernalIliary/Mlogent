@@ -355,6 +355,34 @@ Arc 的 `Table.cells` 是私有字段（`arc/scene/ui/layout/Table.java:35`）�
 
 真引擎对照探针（`out/_v47_probe.py`）：放处理器、用 `msch.build_logic_data` 写带两条链接的载荷，读回 `links.size=2`，把真链接名喂 `quickcheck.check` ⇒ 零命中；喂空数组 ⇒ 第 1、3 行各一条 WARN。所以快检逻辑本身没错，错的是喂进去的东西。
 
+## v0.13.1：装完就没有第三步了 —— 后端随包，模组自己把它拉起来
+
+v0.13.0 的包能装，但装完还得双击 `启动逻辑后端.bat`、留一个黑窗口，源码检出还要玩家自己装 Python 3。
+这一版把这件事去掉：
+
+1. 包里多了 `mod/MlogAuxiliary/sidecar/bin/logicd.exe`（PyInstaller 打的独立程序，不需要 Python）；
+2. 第一次按 F3（或打开面板）时，模组先探 `http://127.0.0.1:8765/health`，探不到就自己把那个 exe 拉起来，
+   然后每 400 ms 轮询一次，屏幕上先出现「正在启动 sidecar …」、就绪后出现「sidecar 已就绪」；
+3. 端口跟着设置页里的地址走（地址写 `http://127.0.0.1:9000` 就用 9000 拉起），不用改脚本。
+
+`启动逻辑后端.bat` 还留着，但只在「想手动看后端日志」或「这是没有 exe 的源码检出」时用 ——
+它优先跑随包的 exe，没有 exe 才退回 `python sidecar/logicd.py`。
+
+四个不显眼但关键的细节（都是「看起来成功」的那一类）：
+
+- **只能 onedir，不能 onefile。** onefile 会先把自己解包到 `%TEMP%` 再执行，这台机器上的策略直接拦成
+  `[PYI-xxxx:ERROR] Could not create temporary directory!`（换个 `%TEMP%` 下的目录也一样，只有工作区内能跑）。
+  所以包里是 `bin/logicd.exe` + `bin/_internal/`，一共 100 个文件、约 2.2 MB。
+- **拉起进程必须用 `ProcessBuilder` 的字符串数组**，不能用 `Runtime.exec` 的单个命令行字符串 ——
+  后者按空格切，而 `saves\mods` 常常就在 `Program Files (x86)` 下面。
+- **子进程输出必须重定向到 `sidecar.log`。** 没人读的 stdout 管道攒满 64 KB 后，后端会卡死在写日志上，
+  看起来像「后端随机卡住」。日志就在 `sidecar/bin/sidecar.log`。
+- **找不到 exe 时必须安静退回。** 源码检出里本来没有 exe，这时只提示「先在仓库里跑 `python tools/logicd.py`」，
+  不能抛异常 —— 同一帧里的其它钩子会被一起弄死。
+
+自检口：`maiSidecarProbe()`（无头 ui smoke 的 `MAISIDECAR` 就是它）；断言表 L2-64。
+sidecar 版本同步升到 0.13.1（冻结分支要认 `sys._MEIPASS` 与可执行文件所在目录，作业与快照的落盘根目录也跟着走）。
+
 ## v0.13.0：打包安装即用（双击 `安装.bat`，不再手拷两个文件夹）
 
 以前「安装」是两处手拷：`MlogAuxiliary/` 进 `saves/mods`，再从仓库里开一个 `python tools/logicd.py` 窗口。

@@ -60,6 +60,18 @@ TOOLS = ROOT / 'tools'
 MOD = ROOT / 'MlogAuxiliary'
 PACKAGING = ROOT / 'packaging'
 DIST = ROOT / 'out' / '_dist'
+EXE_CACHE = ROOT / 'out' / '_exe'
+
+#: v0.13.1: the sidecar also ships as a PyInstaller onedir build, so the player
+#: needs no Python.  Everything sidecar-shaped lives under the *mod* folder --
+#: the mod finds it through `Vars.mods.getMod("mlog-auxiliary").root`, and
+#: uninstalling the mod takes the backend with it.
+SIDE = 'mod/MlogAuxiliary/sidecar/'
+#: onedir, not onefile: onefile unpacks itself into %TEMP% and *executes* from
+#: there, which Windows Defender's ASR rules block on locked-down machines
+#: ("Could not create temporary directory!" from the bootloader).  onedir never
+#: touches %TEMP%.
+EXE_SUB = 'bin'
 
 # data files the sidecar loads by name; discovered from the sources, not listed
 _JSON_RE = re.compile(r"""["']([A-Za-z0-9_]+\.json)["']""")
@@ -142,19 +154,74 @@ def sidecar_rules() -> list[Path]:
 
 
 def layout() -> list[tuple[str, Path]]:
-    """(path inside the package, source file) for every shipped file."""
+    """(path inside the package, source file) for every shipped file.
+
+    The exe tree is not here: it does not exist until `build_exe()` runs, so
+    `build()` appends those rows after copying.  Keep the two lists merged
+    wherever "every shipped file" matters (`VERSION.txt`, verify step 6).
+    """
     rows: list[tuple[str, Path]] = []
     for rel in ('mod.hjson', 'README.md', 'scripts/main.js'):
         rows.append(('mod/MlogAuxiliary/' + rel, MOD / rel))
     for name in sidecar_modules():
-        rows.append(('sidecar/' + name + '.py', TOOLS / (name + '.py')))
+        rows.append((SIDE + name + '.py', TOOLS / (name + '.py')))
     for p in sidecar_data():
-        rows.append(('sidecar/' + p.name, p))
+        rows.append((SIDE + p.name, p))
     for p in sidecar_rules():
-        rows.append(('sidecar/rules/' + p.name, p))
+        rows.append((SIDE + 'rules/' + p.name, p))
     for p in sorted(PACKAGING.iterdir()):
         if p.is_file():
             rows.append((p.name, p))
+    return rows
+
+
+def exe_sources() -> list[Path]:
+    """Every file the frozen exe is built from (newest mtime decides rebuilds)."""
+    out = [TOOLS / (name + '.py') for name in sidecar_modules()]
+    out += sidecar_data() + sidecar_rules()
+    return out
+
+
+def pyinstaller_cmd() -> list[str]:
+    """The interpreter + PyInstaller entry point, or a RuntimeError."""
+    try:
+        import PyInstaller  # noqa: F401
+    except ImportError:
+        raise RuntimeError('PyInstaller is not installed (pip install pyinstaller)')
+    return [sys.executable, '-m', 'PyInstaller']
+
+
+def build_exe(dest: Path, quiet: bool = False) -> list[tuple[str, Path]]:
+    """Build (or reuse) the onedir exe and copy it into `dest`; returns its rows."""
+    exe = EXE_CACHE / 'dist' / 'logicd' / 'logicd.exe'
+    srcs = exe_sources()
+    stale = (not exe.is_file()) or exe.stat().st_mtime < max(p.stat().st_mtime for p in srcs)
+    if stale:
+        cmd = pyinstaller_cmd() + [
+            '--onedir', '--noconfirm', '--name', 'logicd',
+            '--distpath', str(EXE_CACHE / 'dist'),
+            '--workpath', str(EXE_CACHE / 'build'),
+            '--specpath', str(EXE_CACHE),
+        ]
+        for p in sidecar_data():
+            cmd += ['--add-data', '%s;.' % p]
+        cmd += ['--add-data', '%s;rules' % (ROOT / 'rules')]
+        cmd.append(str(TOOLS / 'logicd.py'))
+        if not quiet:
+            print('building sidecar/logicd.exe (PyInstaller onedir) ...')
+        proc = subprocess.run(cmd, capture_output=True, text=True,
+                              encoding='utf-8', errors='replace')
+        if proc.returncode != 0 or not exe.is_file():
+            raise RuntimeError('PyInstaller failed: %s'
+                               % ((proc.stdout or '') + (proc.stderr or ''))[-1200:])
+    built = EXE_CACHE / 'dist' / 'logicd'
+    if dest.exists():
+        shutil.rmtree(dest)
+    shutil.copytree(built, dest)
+    rows = []
+    for p in sorted(dest.rglob('*')):
+        if p.is_file():
+            rows.append((SIDE + EXE_SUB + '/' + str(p.relative_to(dest)).replace('\\', '/'), p))
     return rows
 
 
@@ -175,7 +242,7 @@ def version_txt(rows: list[tuple[str, Path]]) -> bytes:
 
 
 def build(out_dir: Path | None = None, make_zip: bool = True,
-          quiet: bool = False) -> dict:
+          make_exe: bool = True, quiet: bool = False) -> dict:
     """Write the package tree (and zip) and return a summary dict."""
     ver = mod_version()
     name = 'MAI-' + ver
@@ -189,6 +256,8 @@ def build(out_dir: Path | None = None, make_zip: bool = True,
         dst = tree / rel
         dst.parent.mkdir(parents=True, exist_ok=True)
         shutil.copyfile(src, dst)
+    if make_exe:
+        rows = rows + build_exe(tree / SIDE / EXE_SUB, quiet=quiet)
     (tree / 'VERSION.txt').write_bytes(version_txt(rows))
     files = sorted(str(p.relative_to(tree)).replace('\\', '/') for p in tree.rglob('*')
                    if p.is_file())
@@ -250,10 +319,26 @@ def post_json(port: int, path: str, body: dict,
         return exc.code, json.loads(exc.read().decode('utf-8') or '{}')
 
 
-def start_sidecar(tree: Path, port: int, timeout: float = 25.0):
-    """Start sidecar/logicd.py from the extracted package; wait for its ready line."""
-    proc = subprocess.Popen([sys.executable, str(tree / 'sidecar' / 'logicd.py'),
-                             '--port', str(port)],
+def sidecar_entry(tree: Path) -> tuple[list[str], str]:
+    """The command that starts the packaged sidecar, and a label for it.
+
+    The exe is what players run; the `.py` copy stays in the package as the
+    escape hatch for a machine where the exe is blocked, so prefer the exe and
+    fall back only when it is missing.
+    """
+    exe = tree / SIDE / EXE_SUB / 'logicd.exe'
+    if exe.is_file():
+        return [str(exe)], 'exe'
+    py = tree / SIDE / 'logicd.py'
+    if py.is_file():
+        return [sys.executable, str(py)], 'py'
+    raise RuntimeError('the package has neither %s nor %s' % (exe, py))
+
+
+def start_sidecar(tree: Path, port: int, timeout: float = 40.0):
+    """Start the packaged sidecar; wait for its ready line.  Returns (proc, banner, kind)."""
+    cmd, kind = sidecar_entry(tree)
+    proc = subprocess.Popen(cmd + ['--port', str(port)],
                             cwd=str(tree), stdout=subprocess.PIPE,
                             stderr=subprocess.STDOUT, text=True,
                             encoding='utf-8', errors='replace')
@@ -268,7 +353,7 @@ def start_sidecar(tree: Path, port: int, timeout: float = 25.0):
             continue
         seen.append(line)
         if 'listening on' in line:
-            return proc, ''.join(seen)
+            return proc, ''.join(seen), kind
     proc.kill()
     raise RuntimeError('sidecar did not become ready in %.0fs: %r'
                        % (timeout, ''.join(seen)[-800:]))
@@ -301,27 +386,39 @@ def verify(tree: Path | None = None, keep: bool = False) -> dict:
         notes: list[str] = []
 
         # 1. the sidecar closure is complete inside the package
-        present = {p.name for p in (tree / 'sidecar').glob('*.py')}
+        side_dir = tree / SIDE
+        present = {p.name for p in side_dir.glob('*.py')}
         for name in sidecar_modules():
             if name + '.py' not in present:
-                problems.append('sidecar/%s.py missing from the package' % name)
+                problems.append(SIDE + '%s.py missing from the package' % name)
         # every local import in every shipped module must be shipped too
-        shipped = {p.stem for p in (tree / 'sidecar').glob('*.py')}
+        shipped = {p.stem for p in side_dir.glob('*.py')}
         local_all = {p.stem for p in TOOLS.glob('*.py')}
         for name in sidecar_modules():
-            src = (tree / 'sidecar' / (name + '.py')).read_text(encoding='utf-8')
+            src = (side_dir / (name + '.py')).read_text(encoding='utf-8')
             for mod in local_imports(src):
                 if mod in local_all and mod not in shipped:
-                    problems.append('sidecar/%s.py imports %s, which is not shipped'
+                    problems.append(SIDE + '%s.py imports %s, which is not shipped'
                                     % (name, mod))
         # 2. data files and rules
         for p in sidecar_data():
-            if not (tree / 'sidecar' / p.name).is_file():
-                problems.append('sidecar/%s missing (opened by name at runtime)' % p.name)
-        rules_shipped = list((tree / 'sidecar' / 'rules').glob('*.json'))
+            if not (side_dir / p.name).is_file():
+                problems.append(SIDE + '%s missing (opened by name at runtime)' % p.name)
+        rules_shipped = list((side_dir / 'rules').glob('*.json'))
         if len(rules_shipped) != len(sidecar_rules()):
-            problems.append('sidecar/rules has %d file(s), repo has %d'
+            problems.append(SIDE + 'rules has %d file(s), repo has %d'
                             % (len(rules_shipped), len(sidecar_rules())))
+        # 2b. the frozen exe is there and is a real onedir build
+        exe = side_dir / EXE_SUB / 'logicd.exe'
+        if not exe.is_file():
+            problems.append(SIDE + EXE_SUB + '/logicd.exe missing (players run this)')
+        elif exe.stat().st_size < 1_000_000:
+            problems.append(SIDE + EXE_SUB + '/logicd.exe is only %d B -- not a build'
+                            % exe.stat().st_size)
+        elif not (side_dir / EXE_SUB / '_internal').is_dir():
+            problems.append(SIDE + EXE_SUB + '/_internal missing (onedir, not onefile)')
+        else:
+            notes.append('frozen exe %.1f MB' % (exe.stat().st_size / 1e6))
 
         # 3. the mod bytes are exactly the repo bytes
         for rel in ('mod.hjson', 'scripts/main.js'):
@@ -332,7 +429,8 @@ def verify(tree: Path | None = None, keep: bool = False) -> dict:
 
         # 4. the packaged sidecar actually serves
         port = free_port()
-        proc, banner = start_sidecar(tree, port)
+        proc, banner, kind = start_sidecar(tree, port)
+        notes.append('started the packaged sidecar via the %s' % kind)
         try:
             st, health = http_get(port, '/health')
             if st != 200 or not health.get('ok'):
@@ -400,6 +498,14 @@ def verify(tree: Path | None = None, keep: bool = False) -> dict:
         for rel, _src in layout():
             if rel not in listed:
                 problems.append('VERSION.txt does not list %s' % rel)
+        # the exe tree is not in layout() (it is generated), so check it apart
+        exe_root = side_dir / EXE_SUB
+        if exe_root.is_dir():
+            for p in exe_root.rglob('*'):
+                if p.is_file():
+                    rel = SIDE + EXE_SUB + '/' + str(p.relative_to(exe_root)).replace('\\', '/')
+                    if rel not in listed:
+                        problems.append('VERSION.txt does not list %s' % rel)
         if 'MAI ' + mod_version() not in vt:
             problems.append('VERSION.txt does not say "MAI %s"' % mod_version())
 
@@ -414,6 +520,8 @@ def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description='build (and verify) the MAI package')
     ap.add_argument('--out', help='output directory (default out/_dist)')
     ap.add_argument('--no-zip', action='store_true', help='write the tree only')
+    ap.add_argument('--no-exe', action='store_true',
+                    help='skip the frozen sidecar/logicd.exe (dev-only package)')
     ap.add_argument('--verify', action='store_true',
                     help='build into a temp dir and prove it runs (sidecar + installer)')
     ap.add_argument('--keep', action='store_true', help='with --verify, keep the temp tree')
@@ -427,7 +535,7 @@ def main(argv: list[str] | None = None) -> int:
         print('verify: ' + ('PASS' if res['ok'] else 'FAIL'))
         return 0 if res['ok'] else 1
     info = build(out_dir=Path(args.out) if args.out else None,
-                 make_zip=not args.no_zip)
+                 make_zip=not args.no_zip, make_exe=not args.no_exe)
     return 0
 
 

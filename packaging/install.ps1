@@ -107,10 +107,10 @@ if ($bad.Count -gt 0) {
 
 Write-Host ('[ok] MAI ' + $modVer + ' installed to ' + $dest) -ForegroundColor Green
 if ($bak -ne '') { Write-Host ('     previous copy moved to ' + $bak) }
-Write-Host ('     sidecar in this package is ' + $sideVer + ' (start it with 启动逻辑后端.bat)')
+Write-Host ('     sidecar ' + $sideVer + ' is bundled in sidecar\bin\logicd.exe -- the mod starts it by itself')
 Write-Host ''
 Write-Host 'next:'
-Write-Host '  1) double-click 启动逻辑后端.bat and keep the window open'
-Write-Host '  2) restart Mindustry'
-Write-Host '  3) in game: settings -> 逻辑写入 -- fill endpoint / key / model, click 测试连接'
-Write-Host '  4) in game: press F3, select processors, describe, confirm'
+Write-Host '  1) restart Mindustry (mods load at startup)'
+Write-Host '  2) in game: settings -> 逻辑写入 -- fill endpoint / key / model, click 测试连接'
+Write-Host '  3) in game: press F3, select processors, describe, confirm'
+Write-Host '     (the first F3 also starts the bundled sidecar: "正在启动 sidecar ..." -> "sidecar 已就绪")'

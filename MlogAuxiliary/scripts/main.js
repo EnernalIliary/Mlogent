@@ -28,7 +28,7 @@
 function __logicWriterMain(){
     "use strict";
 
-    var MOD_VERSION = "0.13.0";
+    var MOD_VERSION = "0.13.1";
     var URL_KEY     = "mlogauxiliary-url";
     var DEFAULT_URL = "http://127.0.0.1:8765";
     // v0.11.0：设置页里填的模型档三件套。密钥只留在本机 Core.settings 与 sidecar 进程内存。
@@ -102,6 +102,120 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
                                 : ("不可达（" + code + "）：" + base + "\n先在本机跑：python tools/logicd.py");
             if(Vars.ui !== null){ Vars.ui.showText("Mlog辅助 · 连接", msg); }
         });
+    }
+
+    // ------------------------------------------------- 自动拉起 sidecar（v0.13.1）
+    // 装了包之后玩家不该再开命令行窗口。F3 一按（或打开面板），模组先探一次 /health：
+    // 探不到就把包里的 sidecar/bin/logicd.exe 拉起来 —— 那是 PyInstaller 打的 onedir
+    // 构建，不需要玩家装 Python —— 然后每 400 ms 轮询到它开口。
+    // 找不到 exe 时（在源码树里跑、或者玩家删了 bin）退回原样：只提示「先开 sidecar」。
+    // 为什么要轮询而不是等进程输出：ProcessBuilder 的输出被重定向到 sidecar.log 了，
+    // 模组读不到管道；而 sidecar 的 ready 行写在它自己的 stdout 上。
+    var SIDE = {state: "idle", tries: 0, at: 0, why: "", exe: ""};
+
+    function sidecarExe(){
+        try{
+            var m = Vars.mods.getMod("mlog-auxiliary");
+            if(m === null || m === undefined){ return null; }
+            var f = m.root.child("sidecar").child("bin").child("logicd.exe");
+            return (f !== null && f.exists()) ? f : null;
+        }catch(e){ log("sidecarExe: " + e); return null; }
+    }
+
+    function sidecarDir(){
+        try{
+            var m = Vars.mods.getMod("mlog-auxiliary");
+            if(m === null || m === undefined){ return null; }
+            var f = m.root.child("sidecar").child("bin");
+            return (f !== null && f.exists()) ? f : null;
+        }catch(e){ return null; }
+    }
+
+    function sidecarPort(){
+        try{ return endpoint(base).port; }
+        catch(e){ return 8765; }
+    }
+
+    // 用 ProcessBuilder 而不是 Runtime.exec：exec 只能给一个命令行字符串，路径里的空格
+    // （saves/mods 常常在 "Program Files (x86)" 下面）会被它按空格切开；数组形式没这个问题。
+    // 输出必须重定向到文件 —— 子进程的 stdout 管道没人读，攒满 64 KB 后它会卡死。
+    function sidecarSpawn(exe, dir){
+        try{
+            var arr = Packages.java.lang.reflect.Array.newInstance(Packages.java.lang.String, 3);
+            arr[0] = String(exe.absolutePath());
+            arr[1] = "--port";
+            arr[2] = String(sidecarPort());
+            var pb = new Packages.java.lang.ProcessBuilder(arr);
+            pb.directory(new Packages.java.io.File(String(dir.absolutePath())));
+            pb.redirectErrorStream(true);
+            pb.redirectOutput(new Packages.java.io.File(String(dir.absolutePath()), "sidecar.log"));
+            var p = pb.start();
+            SIDE.exe = String(exe.absolutePath());
+            log("sidecar spawned: " + SIDE.exe);
+            return p;
+        }catch(e){
+            log("sidecarSpawn failed: " + e);
+            SIDE.why = String(e);
+            return null;
+        }
+    }
+
+    // 每帧便宜地看一眼：只在 starting 状态才真的发请求。
+    function sidecarTick(){
+        if(SIDE.state !== "starting"){ return; }
+        var now = Date.now();
+        if(SIDE.at > 0 && (now - SIDE.at) < 400){ return; }
+        SIDE.at = now;
+        SIDE.tries++;
+        var tries = SIDE.tries;
+        httpJson("GET", "/health", null, function(code, text){
+            if(code === 200){
+                sidecarOk = true;
+                SIDE.state = "up";
+                log("sidecar is up after " + tries + " probe(s)");
+                hint("sidecar 已就绪：" + base);
+            }else if(tries >= 25){
+                SIDE.state = "failed";
+                hint("sidecar 起不来（25 次探测都失败）。日志：" + SIDE.exe + " 同目录的 sidecar.log");
+            }
+        });
+    }
+
+    // 幂等：已经在 starting 就不重复拉；已经在跑就不管。
+    function ensureSidecar(quiet){
+        if(SIDE.state === "starting"){ return; }
+        if(SIDE.state === "up" && sidecarOk === true){ return; }
+        httpJson("GET", "/health", null, function(code, text){
+            if(code === 200){
+                sidecarOk = true; SIDE.state = "up"; return;
+            }
+            var exe = sidecarExe();
+            var dir = sidecarDir();
+            if(exe === null || dir === null){
+                SIDE.state = "noexe";
+                if(quiet !== true){
+                    hint("连不上 sidecar（" + base + "），这个安装里也没有 sidecar/bin/logicd.exe。"
+                         + "源码树里请先跑 python tools/logicd.py；装包版请重新双击 安装.bat。");
+                }
+                return;
+            }
+            var p = sidecarSpawn(exe, dir);
+            if(p === null){
+                SIDE.state = "failed";
+                if(quiet !== true){ hint("sidecar 启动失败：" + SIDE.why); }
+                return;
+            }
+            SIDE.state = "starting"; SIDE.tries = 0; SIDE.at = 0;
+            if(quiet !== true){ hint("正在启动 sidecar …"); }
+        });
+    }
+
+    function sidecarStateText(){
+        if(SIDE.state === "up"){ return "已就绪"; }
+        if(SIDE.state === "starting"){ return "正在启动（探测 " + SIDE.tries + " 次）"; }
+        if(SIDE.state === "noexe"){ return "没有随包的 logicd.exe"; }
+        if(SIDE.state === "failed"){ return "启动失败"; }
+        return "未尝试";
     }
 
     function isLogicBuild(b){
@@ -1307,6 +1421,7 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
 
         function openPanel(){
             if(panelShown()){ try{ panel.toFront(); return; }catch(e){ /* ignore */ } }
+            ensureSidecar();   // v0.13.1：装包版里后端是模组自己拉起来的
             var b = targetBuild();
             var d = new Packages.arc.scene.ui.Dialog("Mlog辅助 v" + MOD_VERSION);
             d.cont.defaults().pad(4);
@@ -1819,6 +1934,11 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
         }
 
         function jobSubmit(b, desc, cb){
+            ensureSidecar(true);             // v0.13.1：装包版里后端是模组自己拉起来的
+            if(SIDE.state === "starting"){
+                cb(null, "sidecar 正在启动（第一次启动要几秒），稍等一下再投一次");
+                return;
+            }
             rememberOrig(b);                 // v0.10.1：投递那一刻的代码就是冲突基线
             httpJson("POST", "/jobs", JSON.stringify(jobBody(b, desc)), function(code, text){
                 var res = parse(text);
@@ -3611,6 +3731,24 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
                  + " start=" + a + " cancel=" + d;
         };
 
+        // v0.13.1：自动拉起 sidecar 的无头探针。无头环境里 Vars.mods 有、exe 没有，
+        // 所以只验同步的那部分：路径解析与端口解析不炸、找不到 exe 时 exe/dir 一起为 null。
+        // 状态机本身是异步的（httpJson 的回调里才落 noexe），不在这里断言。
+        api.maiSidecarProbe = function(){
+            var exe = sidecarExe();
+            var dir = sidecarDir();
+            var port = sidecarPort();
+            var before = SIDE.state;
+            ensureSidecar(true);            // 找不到 exe 应安静地落到 noexe，不该抛
+            var after = SIDE.state;
+            var ok = before === "idle"
+                  && (exe === null ? dir === null : dir !== null)
+                  && typeof port === "number" && port > 0;
+            return (ok ? "ok" : "bad") + " exe=" + (exe === null ? "none" : "yes")
+                 + " dir=" + (dir === null ? "none" : "yes")
+                 + " port=" + port + " state=" + before + "->" + after;
+        };
+
         // v0.12.0：事务写入的无头探针。现放一台真处理器（结束时拆掉），一次整批写、
         // 一次整批撤销，再一次「第二台 configure 抛错」——三件事全对才返回 ok。
         api.maiWriteManyProbe = function(aJson, x, y){
@@ -3727,6 +3865,7 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
                     jobTick();      // v0.8.0：有作业在跑就每秒查一次状态
                     jobBoxTick();   // v0.12.5：框选框里那一批作业的状态
                     writeCheckTick(); // v0.12.8：联机里回读写过的处理器，确认服务端真收下了
+                    sidecarTick();  // v0.13.1：自己拉起来的 sidecar 要等它开口
                     jobBadgeClick(); // v0.12.5：点框右下角的徽标 = 开作业管理窗
                     // 「设置 → Mlog辅助」这一栏只在 Vars.ui 建好之后能注册。脚本加载时
                     // UI 往往还没建（真机日志里是在 ClientLoadEvent 前），所以这里补一次

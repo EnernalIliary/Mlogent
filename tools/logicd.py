@@ -57,7 +57,20 @@ import urllib.request
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlparse, parse_qs
 
-HERE = os.path.dirname(os.path.abspath(__file__))
+#: v0.13.1: the shipped package runs this as a PyInstaller one-file exe
+#: (`sidecar/logicd.exe`), so the two roots split.  Read-only data (the *.json
+#: tables and rules/) is unpacked into ``sys._MEIPASS``, which is a temp dir that
+#: is deleted on exit; job files and snapshots have to live next to the exe.
+FROZEN = bool(getattr(sys, 'frozen', False))
+if FROZEN:
+    HERE = getattr(sys, '_MEIPASS', os.path.dirname(os.path.abspath(sys.executable)))
+    WROOT = os.path.dirname(os.path.abspath(sys.executable))
+    # jobqueue computes its default from its own __file__ (also inside the temp
+    # dir when frozen), so pin the writable side through the env var it reads.
+    os.environ.setdefault('MLOG_JOBS_DIR', os.path.join(WROOT, 'out', 'jobs'))
+else:
+    HERE = os.path.dirname(os.path.abspath(__file__))
+    WROOT = os.path.dirname(HERE)
 if HERE not in sys.path:
     sys.path.insert(0, HERE)
 
@@ -69,7 +82,7 @@ import mlogprovider           # noqa: E402  (prompt / reply parsing / model call
 PROTOCOL = 1
 # The sidecar is what gets restarted when a fix ships, and a stale process answers
 # /health with 200 all day, so let the answer say which build it is (v0.12.3).
-SIDECAR_VERSION = '0.12.9'
+SIDECAR_VERSION = '0.13.1'
 GAME = 'mindustry v160.7 (executor jar out/_server160.jar)'
 
 #: LogicBlock.instructionsPerTick is 1 by default and clamped to
@@ -797,7 +810,7 @@ def _linkish(name, known, blocks):
     return any(b.startswith(name) for b in blocks)
 
 
-SNAP_DIR = os.path.join(os.path.dirname(HERE), 'out', 'snapshots')
+SNAP_DIR = os.path.join(WROOT, 'out', 'snapshots')
 
 
 def snapshot_dump(req):
@@ -833,7 +846,7 @@ def snapshot_dump(req):
     with open(path, 'wb') as fh:
         fh.write(data)
     return {'ok': True,
-            'path': os.path.relpath(path, os.path.dirname(HERE)).replace('\\', '/'),
+            'path': os.path.relpath(path, WROOT).replace('\\', '/'),
             'bytes': len(data),
             'bounds': bounds,
             'cells': int(snap.get('cells') or 0),

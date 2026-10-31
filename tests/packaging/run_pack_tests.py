@@ -56,13 +56,13 @@ def main() -> int:
                  info.get('zip_bytes') or 0))
 
         # ---- 1. closure + data files -------------------------------------
-        shipped = {p.stem for p in (tree / 'sidecar').glob('*.py')}
+        shipped = {p.stem for p in (tree / P.SIDE).glob('*.py')}
         local_all = {p.stem for p in P.TOOLS.glob('*.py')}
         for name in P.sidecar_modules():
             if name not in shipped:
                 problems.append('sidecar/%s.py is imported but not shipped' % name)
                 continue
-            src = (tree / 'sidecar' / (name + '.py')).read_text(encoding='utf-8')
+            src = (tree / P.SIDE / (name + '.py')).read_text(encoding='utf-8')
             for mod in P.local_imports(src):
                 if mod in local_all and mod not in shipped:
                     problems.append('sidecar/%s.py imports %s, which is not shipped'
@@ -70,9 +70,39 @@ def main() -> int:
         notes.append('sidecar closure: %d module(s) + %d data file(s) + %d rule(s)'
                      % (len(shipped), len(P.sidecar_data()), len(P.sidecar_rules())))
         for p in P.sidecar_data():
-            if not (tree / 'sidecar' / p.name).is_file():
+            if not (tree / P.SIDE / p.name).is_file():
                 problems.append('sidecar/%s is opened by name at runtime but missing' % p.name)
         print('PACK:closure %s' % ','.join(sorted(shipped)))
+
+        # ---- 1b. the frozen sidecar is in the package --------------------
+        # This is what makes the package "install and play": the mod spawns
+        # sidecar/bin/logicd.exe itself, so the player needs no Python and no
+        # console window.  A missing exe is not fatal for a dev checkout, but
+        # the shipped package must have it -- otherwise the whole point is lost.
+        exe = tree / P.SIDE / P.EXE_SUB / 'logicd.exe'
+        if not exe.is_file():
+            problems.append('%s%s/logicd.exe missing from the package'
+                            % (P.SIDE, P.EXE_SUB))
+        elif exe.stat().st_size < 1_000_000:
+            problems.append('%s%s/logicd.exe is %d B -- not a frozen build'
+                            % (P.SIDE, P.EXE_SUB, exe.stat().st_size))
+        elif not (tree / P.SIDE / P.EXE_SUB / '_internal').is_dir():
+            problems.append('%s%s/_internal missing -- onefile builds unpack to %%TEMP%%, '
+                            'which is blocked on the machines this ships to'
+                            % (P.SIDE, P.EXE_SUB))
+        else:
+            n_exe = len([q for q in (tree / P.SIDE / P.EXE_SUB).rglob('*') if q.is_file()])
+            notes.append('frozen sidecar: %.1f MB exe, %d file(s) in %s%s/'
+                         % (exe.stat().st_size / 1e6, n_exe, P.SIDE, P.EXE_SUB))
+            print('PACK:exe %d B files=%d' % (exe.stat().st_size, n_exe))
+
+        # ---- 1c. the launcher bat prefers the exe ------------------------
+        bat = (tree / '启动逻辑后端.bat').read_bytes().decode('ascii', 'replace')
+        if r'sidecar\bin\logicd.exe' not in bat:
+            problems.append('启动逻辑后端.bat does not look for the bundled logicd.exe')
+        if 'goto run_exe' not in bat:
+            problems.append('启动逻辑后端.bat has no exe branch')
+        print('PACK:launcher-bat %s' % ('exe-first' if 'goto run_exe' in bat else 'python-only'))
 
         # ---- 2. mod bytes are the repo bytes -----------------------------
         for rel in ('mod.hjson', 'README.md', 'scripts/main.js'):
@@ -86,6 +116,14 @@ def main() -> int:
         for rel, _src in P.layout():
             if rel not in listed:
                 problems.append('VERSION.txt does not list %s' % rel)
+        exe_root = tree / P.SIDE / P.EXE_SUB
+        if exe_root.is_dir():
+            for q in exe_root.rglob('*'):
+                if q.is_file():
+                    rel = P.SIDE + P.EXE_SUB + '/' + str(q.relative_to(exe_root)).replace('\\', '/')
+                    if rel not in listed:
+                        problems.append('VERSION.txt does not list %s' % rel)
+                        break
         if ('MAI ' + P.mod_version()) not in vt or ('sidecar ' + P.sidecar_version()) not in vt:
             problems.append('VERSION.txt does not name both versions')
         print('PACK:version MAI=%s sidecar=%s hashes=%d'
@@ -93,8 +131,11 @@ def main() -> int:
 
         # ---- 4. the packaged sidecar serves ------------------------------
         port = P.free_port()
-        proc, banner = P.start_sidecar(tree, port)
+        proc, banner, kind = P.start_sidecar(tree, port)
         try:
+            if kind != 'exe':
+                problems.append('the packaged sidecar started via %r, not the frozen exe'
+                                % kind)
             st, health = P.http_get(port, '/health')
             if st != 200 or health.get('version') != P.sidecar_version():
                 problems.append('/health from the package answered %s %r (want version %s)'

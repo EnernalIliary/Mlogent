@@ -329,6 +329,7 @@ def main():
     "print('MAIWRITECHECK:' + maiWriteCheckProbe());",
     # v0.13.0: the job status lines that go to the chat box (format only; no ui, no net)
     "print('MAICHAT:' + maiChatProbe());",
+                    "print('MAISIDECAR:' + maiSidecarProbe());",
     "print('MAILLM:' + maiLlmProbe());",
     # v0.12.5: the retained selection box + corner badge state machine (no sidecar, no ui)
     "print('MAIJOBBOX0:' + maiJobBox());",
@@ -355,7 +356,7 @@ def main():
              if '[mai]' in l or 'mlog-auxiliary' in l
              or l.startswith(('MAISELF:', 'MAIDIAG:', 'MAISET:', 'MAILIST:', 'MAILISTROWS:',
                               'MAIUNDO:', 'MAICONFLICT:', 'MAILLM:',
-                              'MAILINKCONFLICT:', 'MAINET:', 'MAIWRITECHECK:', 'MAICHAT:',
+                              'MAILINKCONFLICT:', 'MAINET:', 'MAIWRITECHECK:', 'MAICHAT:', 'MAISIDECAR:',
                               'MAIJOBBOX0:', 'MAIJOBBOXPIN:', 'MAIJOBBOXFIN:',
                               'MAIJOBBOXCLR:', 'MAIJOBBOX3:', 'MAIJOBMANAGER:',
                               'MAIJOBBOXPIN2:', 'MAIJOBBOXCLOSE:', 'MAIJOBBOX4:',
@@ -489,6 +490,19 @@ def main():
     elif ' Cancelled (1,2)' not in joined:
         problems.append('v0.13.0: an empty detail must not leave a dangling colon: %r'
                         % [l for l in lines if l.startswith('MAICHAT:')][:1])
+
+    # v0.13.1: the package ships a frozen logicd.exe and the mod spawns it itself, so
+    # the player needs neither Python nor a console window.  Headless there is no exe
+    # next to the mod, so the state machine must fall back quietly to noexe instead of
+    # throwing (a throw here would also kill every later probe in the same run).
+    if 'MAISIDECAR:ok' not in joined:
+        problems.append('v0.13.1: the sidecar autostart state machine is broken headless '
+                        '(want MAISIDECAR:ok ... state=idle->noexe): %r'
+                        % [l for l in lines if l.startswith('MAISIDECAR:')][:1])
+    elif ' exe=none' not in joined:
+        problems.append('v0.13.1: a dev checkout has no sidecar/bin/logicd.exe, so the probe '
+                        'must report exe=none: %r'
+                        % [l for l in lines if l.startswith('MAISIDECAR:')][:1])
 
     # v0.12.5: the F3 box now outlives the drag, so its state machine has to be pinned
     # headless -- there is no camera, no mouse and no sidecar in this engine.
@@ -923,7 +937,22 @@ def main():
                          'a finished batch job is no longer announced'),
                         ('if(isJobTerminal(job.state)){ jobChatDone(job); aiJob = null; }',
                          'a finished single job is no longer announced'),
-                        ('api.maiChatProbe = function',
+                        # v0.13.1: the autostart has to be more than a helper nobody calls
+    ('function ensureSidecar(',
+     'the mod must be able to start the packaged sidecar itself'),
+    ('function sidecarTick(',
+     'the spawn needs a poll loop -- ProcessBuilder output goes to sidecar.log'),
+    ('new Packages.java.lang.ProcessBuilder(arr)',
+     'Runtime.exec splits paths on spaces; "Program Files (x86)" would break it'),
+    ('pb.redirectOutput(new Packages.java.io.File(',
+     'an unread pipe blocks the child once it has written 64 KB'),
+    ('ensureSidecar();',
+     'opening the panel must try to start the sidecar'),
+    ('sidecarTick();',
+     'the update hook must drive the poll loop'),
+    ('api.maiSidecarProbe = function',
+     'headless probe for the autostart state machine'),
+    ('api.maiChatProbe = function',
                          'the chat format probe is gone')):
         if needle not in code_only:
             problems.append('v0.13.0: ' + why)
@@ -1321,7 +1350,7 @@ def main():
         print('  batch write: ' + wm[:170])
     for l in lines:
         if l.startswith(('MAISELF:', 'MAIDIAG:', 'MAIUNDO:', 'MAICONFLICT:', 'MAILLM:',
-                        'MAICHAT:', 'MAIJOBBOX', 'MAIBADGERECT:', 'MAIJOBMANAGER:')):
+                        'MAICHAT:', 'MAISIDECAR:', 'MAIJOBBOX', 'MAIBADGERECT:', 'MAIJOBMANAGER:')):
             print('  ' + l[:300])
     return 0
 

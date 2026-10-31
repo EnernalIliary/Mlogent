@@ -2066,3 +2066,33 @@ m01735「哦哦，成功了，但是在模型生成被截断的时候还有报�
   `main.js` sha256 `515CFBD0…F2E4` 与仓库一致；测试产生的两个 `.bak-*` 已删。
 - 没做：非 Steam 版的真机验证、Steam 库以外路径的自动探测、`停止逻辑后端.bat` 按端口过滤（它杀所有
   `logicd.py` 进程，故本轮只做源码断言没真跑）。
+## §77 v0.13.1 后端随包 + 模组自己拉起（2026-10-31）
+
+用户 m03139「能做即装即用吗」→ 给三档方案后选 A：打 exe + 模组自己拉后端；另要一份 JS 移植评估书（选 C 的后半）。
+
+- 目标：把 v0.13.0 的「第三步」（双击 `启动逻辑后端.bat` 留窗口 / 源码检出要装 Python）去掉，玩家侧零依赖。
+- `tools/package.py`：`EXE_SUB = 'bin'`、`exe_sources()`（mtime 判定是否重建）、`pyinstaller_cmd()`、
+  `build_exe()`（PyInstaller **onedir**，缓存在 `out/_exe/`）、`sidecar_entry()`（优先 `bin/logicd.exe`）、
+  `start_sidecar()` 返回 `(proc, banner, kind)`、`verify()` 增加「exe 存在且 >1 MB、`_internal` 在、必须由 exe 启动」、
+  `main()` 增加 `--no-exe`。
+- `tools/logicd.py`：`FROZEN = getattr(sys, 'frozen', False)` 分支（`HERE = sys._MEIPASS`、
+  `WROOT = dirname(sys.executable)`、`MLOG_JOBS_DIR` 默认 `WROOT/out/jobs`）、`SIDECAR_VERSION = '0.13.1'`、
+  `SNAP_DIR = WROOT/out/snapshots`、`'path'` 相对 `WROOT`。数据表与 `rules/` 靠 `--add-data` 放进 `_MEIPASS`，`rule_ids.py` 不用改。
+- `MlogAuxiliary/scripts/main.js`（0.13.1）：`SIDE` 状态机 + `sidecarExe()` / `sidecarDir()` / `sidecarPort()` /
+  `sidecarSpawn()`（`ProcessBuilder` 字符串数组 + `redirectErrorStream` + `redirectOutput(sidecar.log)`）/
+  `sidecarTick()`（400 ms 轮询，25 次失败才提示）/ `ensureSidecar()`（`openPanel()` 与 `jobSubmit()` 各调一次，
+  `starting` 时 `jobSubmit` 直接回「稍等再投一次」不落作业）/ `sidecarStateText()` / `api.maiSidecarProbe`。
+- `packaging/启动逻辑后端.bat`：改成 exe 优先（`goto run_exe`），没有 exe 才退回 `python sidecar/logicd.py`；
+  `packaging/使用说明.md` 从三步变两步，故障表补 `sidecar.log` 位置。
+- 三个坑：①**onefile 在这台机器上被策略拦住**（`[PYI-xxxx:ERROR] Could not create temporary directory!`，
+  换 `%TEMP%` 子目录也一样）⇒ 只能 onedir；②`Runtime.exec` 按空格切路径，`Program Files (x86)` 必炸
+  ⇒ `ProcessBuilder` 数组；③不重定向输出的子进程攒满 64 KB 管道会卡死 ⇒ 重定向到 `sidecar.log`。
+- 修掉一处编辑残留：`sidecarExe()` 里 `getMod("mods." === "" ? "" : "mlog-auxiliary")` → `getMod("mlog-auxiliary")`。
+- 测试：`tests/packaging/run_pack_tests.py` 加 exe/launcher-bat/exe-kind 断言（10 组全绿）；
+  `tests/mlogauxiliary/run_ui_smoke.py` 加 `MAISIDECAR` 探针与七条红线（红线不能带行尾注释 —— `code_only` 已剥注释）。
+- 结果：包 163 文件 / 18,518,357 B，zip 8,379,571 B；`--verify` PASS；ui smoke EXIT=0；`gate.py --full --kb-build` 17/17。
+- 同时交付 `docs/Mlog辅助-JS移植评估.md`（3,000–3,500 行 JS / 14–20 人日 / 六个真风险 / 三档方案 / 六阶段路线），
+  规划 §8 把「把 sidecar 整体搬进 Rhino」写成明确不做并链接该评估书。
+- 没做：模组在真游戏里拉起 exe 的链路未实测（无头里没有 exe，只验了 `noexe` 退回）；`停止逻辑后端.bat` 仍只做源码断言；
+  `_internal` 体积未裁剪（zip 8.4 MB 是带运行时的必然代价）。
+
