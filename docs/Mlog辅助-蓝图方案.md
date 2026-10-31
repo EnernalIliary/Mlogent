@@ -136,7 +136,7 @@ if(SCHEM_INFO !== null && SCHEM_INFO.isShown()){
 
 | 步 | 内容 | 依赖 |
 | --- | --- | --- |
-| B1 | 选框 → 蓝图（原版 create/add + 命名 + 回读校验）+ 面板按钮 | 无 |
+| B1 | 选框 → 蓝图（原版 create/add + 命名 + 回读校验）+ 面板按钮 ✅ **v0.16.0 已完成** | 无 |
 | B2 | 蓝图页「MAI 对话」按钮 + 蓝图列表 + 选中开 improve | B1 的列表读取代码 |
 | B3 | 签名 payload v2（Python 侧）+ mod 读取 | **item1 签名并入先落地**（同一个 `aigenerated.py`，避免打架） |
 | B4 | 真机验证 + 断言 L2-69/L2-70 + 报告 | B1–B3 |

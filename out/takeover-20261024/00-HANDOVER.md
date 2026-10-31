@@ -2417,3 +2417,16 @@ CI run **41239699508** success。直连 GitHub 又断，走本机代理 `127.0.0
 
 **教训**：「已就绪」只代表探测那一刻成功；心跳失败必须马上有可见后果（这次 45 s 自退 + 界面不动 = 长期脱节）。
 装机脚本保留旧版时必须离开 mods，改个名字不算离开。
+
+## §91 v0.16.0：框选存成原版蓝图（B1）+ 签名 payload v2（B3）
+
+- `MlogAuxiliary/scripts/main.js`：新增 `blueprintHasName()`、`blueprintSaveBox(r, name, cb)`、`blueprintSaveBoxAsk(ws)`；
+  作业管理窗底栏加「存成蓝图」，工作区详情加「存成蓝图」；探针 `maiBlueprintSaveProbe`。
+- `tools/aigenerated.py`：`PAYLOAD_V = 2`、`META_KEYS`、`_meta_text()`、`meta_of_job()`、`encode_comments(comments, meta=None)`、
+  `decode_payload()`、`decode_meta()`；`sign_text(..., meta=None)` 与 `restore_text()` 相应改。
+- `tools/jobqueue.py`：`_materialize(job, out, job_id)`，签发时传 `meta=aigenerated.meta_of_job(job)`。
+- `tests/mlogauxiliary/run_ui_smoke.py`：`MAIBP` 探针 + 五条红线（create / `tags.put("name")` / `add` / 回读 / 函数存在）。
+- `tests/logicd/run_logicd_tests.py`：`test_improve` 的 echo 断言先剥 payload 再比文本，并断言签名里能解出 `ws`。
+- 文档：断言表 L2-84（143 条）、规划 v0.16.0 行、CHANGELOG `## 0.16.0`、README「存成蓝图」、蓝图方案 B1 标完成。
+- 关键依据：`Schematics.java:377`（`create` 带 `Stile.config`）、`:347`（`add` 只 showException）、`Schematic.name()` 读 tags、
+  `_hash()` 只吃 author+body（所以 meta 不影响 id）。
