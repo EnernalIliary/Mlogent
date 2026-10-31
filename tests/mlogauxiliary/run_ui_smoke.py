@@ -327,6 +327,8 @@ def main():
     "print('MAILINKCONFLICT:' + maiLinkConflictProbe());",
     "print('MAINET:' + maiNetProbe());",
     "print('MAIWRITECHECK:' + maiWriteCheckProbe());",
+    # v0.13.0: the job status lines that go to the chat box (format only; no ui, no net)
+    "print('MAICHAT:' + maiChatProbe());",
     "print('MAILLM:' + maiLlmProbe());",
     # v0.12.5: the retained selection box + corner badge state machine (no sidecar, no ui)
     "print('MAIJOBBOX0:' + maiJobBox());",
@@ -353,7 +355,7 @@ def main():
              if '[mai]' in l or 'mlog-auxiliary' in l
              or l.startswith(('MAISELF:', 'MAIDIAG:', 'MAISET:', 'MAILIST:', 'MAILISTROWS:',
                               'MAIUNDO:', 'MAICONFLICT:', 'MAILLM:',
-                              'MAILINKCONFLICT:', 'MAINET:', 'MAIWRITECHECK:',
+                              'MAILINKCONFLICT:', 'MAINET:', 'MAIWRITECHECK:', 'MAICHAT:',
                               'MAIJOBBOX0:', 'MAIJOBBOXPIN:', 'MAIJOBBOXFIN:',
                               'MAIJOBBOXCLR:', 'MAIJOBBOX3:', 'MAIJOBMANAGER:',
                               'MAIJOBBOXPIN2:', 'MAIJOBBOXCLOSE:', 'MAIJOBBOX4:',
@@ -476,6 +478,17 @@ def main():
     if 'MAIWRITECHECK:offline queue=0' not in joined:
         problems.append('v0.12.8: the write-back check queue is not empty headless: %r'
                         % [l for l in lines if l.startswith('MAIWRITECHECK:')][:1])
+    # v0.13.0: MAI + logic icon + status + (x,y) + ": info" -- the user asked for that shape
+    # on both the start and the finish of a job.  Format only: headless has no chat box.
+    if 'MAICHAT:ok' not in joined:
+        problems.append('v0.13.0: the chat status line lost its shape (want MAI<icon> Status '
+                        '(x,y): info): %r' % [l for l in lines if l.startswith('MAICHAT:')][:1])
+    elif ' Generating (12,34): \u7ed9\u6838\u5fc3\u8865\u94dc' not in joined:
+        problems.append('v0.13.0: the Generating line is not "MAI<icon> Generating (x,y): info": '
+                        '%r' % [l for l in lines if l.startswith('MAICHAT:')][:1])
+    elif ' Cancelled (1,2)' not in joined:
+        problems.append('v0.13.0: an empty detail must not leave a dangling colon: %r'
+                        % [l for l in lines if l.startswith('MAICHAT:')][:1])
 
     # v0.12.5: the F3 box now outlives the drag, so its state machine has to be pinned
     # headless -- there is no camera, no mouse and no sidecar in this engine.
@@ -891,6 +904,29 @@ def main():
                          'the snapshot dropped the new blocks/items/liquids/stores sections')):
         if needle not in code_only:
             problems.append('v0.12.9: ' + why)
+    # v0.13.0: 作业启用/完成必须播报到聊天框，格式 MAI<逻辑徽标> Status (x,y): info。
+    # 图标只能走 UI.formatIcons(":logic:")（聊天框用 Fonts.def 画真 glyph，不认 [logic] 标签）。
+    for needle, why in (('function chatLine(',
+                         'the chat status line builder is gone'),
+                        ('function chatSay(',
+                         'nothing posts job status to the chat box any more'),
+                        ('ui.chatfrag.addMessage(s)',
+                         'the chat box is no longer written to'),
+                        ('Packages.mindustry.core.UI.formatIcons(":logic:")',
+                         'the logic icon is no longer resolved to a real glyph -- the chat box '
+                         'draws with Fonts.def and does not understand [logic] tags'),
+                        ('jobChatStart(b, String(res.id), desc)',
+                         'submitting a single job no longer announces Generating'),
+                        ('jobChatStart(t.b, jid, desc)',
+                         'a batch submit no longer announces Generating per processor'),
+                        ('jobChatDone(jobBox.jobs[want])',
+                         'a finished batch job is no longer announced'),
+                        ('if(isJobTerminal(job.state)){ jobChatDone(job); aiJob = null; }',
+                         'a finished single job is no longer announced'),
+                        ('api.maiChatProbe = function',
+                         'the chat format probe is gone')):
+        if needle not in code_only:
+            problems.append('v0.13.0: ' + why)
     for needle, why in (('function jobRetryHead(',                          'a retrying job no longer labels its findings as the last attempt'),
                         ('function jobFindingLines(',
                          'the truncation gloss helper is gone'),
@@ -1285,7 +1321,7 @@ def main():
         print('  batch write: ' + wm[:170])
     for l in lines:
         if l.startswith(('MAISELF:', 'MAIDIAG:', 'MAIUNDO:', 'MAICONFLICT:', 'MAILLM:',
-                        'MAIJOBBOX', 'MAIBADGERECT:', 'MAIJOBMANAGER:')):
+                        'MAICHAT:', 'MAIJOBBOX', 'MAIBADGERECT:', 'MAIJOBMANAGER:')):
             print('  ' + l[:300])
     return 0
 

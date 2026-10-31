@@ -2024,3 +2024,25 @@ m01735「哦哦，成功了，但是在模型生成被截断的时候还有报�
 - **没做**：真机未验（无头没有本地玩家 ⇒ `enemies` 恒 0 的分支被覆盖，有玩家时的敌方分支只有代码审）；
   `stores` 超 16 台只记前 16 条（总量仍是全的）；单位的血量/朝向没记。下一步 = m02047 清单第 ④ 项
   **打包安装即用**。
+
+## §75 v0.13.0 作业启用/完成播报到聊天框
+
+- **需求**（用户 2026-10-31 20:14 原话）：「在启用和完成的时候把状态发送到聊天框。格式是：
+  `<MAI（逻辑徽标）><工作状态（如Generating）>（坐标）:(其它信息)`」。
+- **三条引擎事实**（决定写法，详见 `out/takeover-20261024/75-v0130-chat-status.md`）：
+  ①聊天框画字用 `Fonts.def`（`ChatFragment.java:48`），图标必须走 `UI.formatIcons(":logic:")`
+  （`UI.java:746`，原版发送时也这么干，`ChatFragment.java:230`），写 `[logic]` 不认；
+  ②`ChatFragment` 可见性 = `net.active() && ui.hudfrag.shown`，单机每帧 `clearMessages()`
+  ⇒ 播报要按 `net.active()` 选通道，单机退回 `hint()`；
+  ③`addMessage(String)`（`ChatFragment.java:311-319`）只插本地列表，不广播。
+- **改动**（只动模组）：`MlogAuxiliary/scripts/main.js` 的 `netActive()` / `CHAT_DONE` / `chatIcon()` /
+  `chatLine(status,x,y,info)`（固定 `MAI<徽标> <状态> (x,y): <信息>`，信息空不留冒号）/ `chatSay(text)`
+  （联机进 `ui.chatfrag.addMessage`，否则 `hint`）/ `chatTrim()` / `chatXY()` / `jobChatStart()` /
+  `jobChatDone()`（终态按作业 id 去重）；播报点四处：`startJob`、`startJobBatch`、`jobTick`、`jobBoxTick`；
+  新自检口 `api.maiChatProbe()`。`MlogAuxiliary/mod.hjson` → 0.13.0。
+- **验证**：`node --check` 0；ui smoke EXIT=0，`MAICHAT:ok icon=yes start=MAI<glyph> Generating (12,34):
+  给核心补铜（job 3f2a1b9c） cancel=MAI<glyph> Cancelled (1,2)`（无头里 `UI.formatIcons` 也能换出真 glyph
+  `\ue80e`）；两条格式断言 + 九条源码红线；`gate.py --full --kb-build` 16/16。断言表新增 L2-62
+  （现 **121 条**：L1 31 / L2 62 / L3 6 / L4 4 / S 18）；规划 §9 加 v0.13.0 行；README 加「## v0.13.0」节。
+- **没做**：真联机未实测（无头 `Vars.net` 为 null ⇒ 走 `hint()` 回退分支，聊天框分支只有代码审 + 格式单测）；
+  播报不广播（`addMessage` 只写本地）；聊天颜色 / 条数上限没碰。

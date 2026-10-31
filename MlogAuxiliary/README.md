@@ -355,6 +355,36 @@ Arc 的 `Table.cells` 是私有字段（`arc/scene/ui/layout/Table.java:35`）�
 
 真引擎对照探针（`out/_v47_probe.py`）：放处理器、用 `msch.build_logic_data` 写带两条链接的载荷，读回 `links.size=2`，把真链接名喂 `quickcheck.check` ⇒ 零命中；喂空数组 ⇒ 第 1、3 行各一条 WARN。所以快检逻辑本身没错，错的是喂进去的东西。
 
+## v0.13.0：作业启用和完成时，状态直接进聊天框
+
+以前作业跑到哪一步只能盯着面板或框右下角的徽标。现在投递成功和作业终态都会往聊天框塞一行，格式固定成
+
+```
+MAI<逻辑徽标> <状态> (x,y): <其它信息>
+```
+
+真机上长这样（`<逻辑徽标>` 是那个逻辑方块图标）：
+
+```
+MAI[logic] Generating (12,34): 给核心补铜（job 3f2a1b9c）
+MAI[logic] Done (12,34): code · 12 条语句 · 240 字节 · 0 ERR
+MAI[logic] Failed (12,34): 模型没写出可用代码
+```
+
+状态词：`Generating`（投递成功那一刻）、`Done` / `Rejected` / `Failed` / `Cancelled`（终态）。
+`Done` 后面跟模板名、语句数、字节数、ERR 计数；失败跟模型给的原因（截 60 字）；信息为空就不留冒号。
+
+三个引擎事实决定了写法：
+
+1. 聊天框画字用的是 `Fonts.def`，图标必须是真 glyph。`UI.formatIcons(":logic:")` 会把 `:name:` 换成 `Iconc`
+   里的字符（原版发送聊天时自己也这么干），所以不能写 `[logic]` —— 那是 Label 的标签语法，聊天框不认。
+2. 原版 `ChatFragment` 的可见性是 `net.active() && ui.hudfrag.shown`，单机会话里聊天记录每帧被清空。
+   所以播报按 `net.active()` 选通道：联机会话进聊天框，单机 / 无头退回原来的淡出提示，状态不会凭空消失。
+3. `addMessage(String)` 只往本地 `messages` 里插一行，不广播、不过网 —— 播报是给自己看的日志，不会刷别人的屏。
+
+终态按作业 id 去重（`CHAT_DONE`），单作业面板轮询和批量框轮询同时看到同一个作业也只报一次。
+自检口：`maiChatProbe()`（无头 ui smoke 的 `MAICHAT` 就是它）；断言表 L2-62。
+
 ## v0.12.9：区域快照不只说「有几台处理器」，还说「这里有什么」
 
 框选之后送给模型的区域快照，以前只有方块格子（`grid`）和处理器（`processors`）——模型能数出「这片区域有 4 个

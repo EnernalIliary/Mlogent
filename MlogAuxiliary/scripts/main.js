@@ -28,7 +28,7 @@
 function __logicWriterMain(){
     "use strict";
 
-    var MOD_VERSION = "0.12.9";
+    var MOD_VERSION = "0.13.0";
     var URL_KEY     = "mlogauxiliary-url";
     var DEFAULT_URL = "http://127.0.0.1:8765";
     // v0.11.0：设置页里填的模型档三件套。密钥只留在本机 Core.settings 与 sidecar 进程内存。
@@ -1022,6 +1022,13 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
             try{ return p !== null && p.admin === true; }catch(e){ return false; }
         }
 
+        // v0.13.0：原版 ChatFragment 的可见性就是 net.active() && hudfrag.shown
+        // （ChatFragment.java:50-60），单机会话里聊天记录每帧都被清掉 —— 播报要据此选通道。
+        function netActive(){
+            try{ return Vars.net !== null && Vars.net !== undefined && Vars.net.active() === true; }
+            catch(e){ return false; }
+        }
+
         // 服务端第一道闸的客户端复刻。返回 null = 放行（或判不了，让服务端说话）。
         function permWhy(b){
             if(!netClient()){ return null; }
@@ -1997,7 +2004,7 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
                 mine.job = job;
                 try{ renderJob(mine.host, job, mine.b, mine.d); }
                 catch(e){ log("renderJob failed: " + e); }
-                if(isJobTerminal(job.state)){ aiJob = null; }
+                if(isJobTerminal(job.state)){ jobChatDone(job); aiJob = null; }
             });
         }
 
@@ -2011,6 +2018,7 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
                 if(res === null){ host.clear(); host.add("投递失败：" + why).row(); return; }
                 aiJob = {id: String(res.id), b: b, desc: desc, host: host, d: d,
                          lastPoll: 0, job: res.job || null};
+                jobChatStart(b, String(res.id), desc);   // v0.13.0：启用即播报
                 try{ renderJob(host, res.job, b, d); }
                 catch(e){ log("renderJob failed: " + e); }
             });
@@ -2133,6 +2141,7 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
                         jobBox.jobs[want] = (job === null)
                             ? {id: want, state: "failed", explanation: String(why)}
                             : job;
+                        jobChatDone(jobBox.jobs[want]);   // v0.13.0：完成即播报（同一作业只报一次）
                         jobBoxFinishIfDone();
                     });
                 })(jid);
@@ -2233,6 +2242,115 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
             return s;
         }
 
+        // ---------------------------------------------------------- 聊天框播报（v0.13.0）
+        // 用户 2026-10-31：作业「启用」和「完成」的时候把状态发到聊天框，格式
+        //   MAI<逻辑徽标> Generating (12,34): 给核心补铜（job 3f2a1b9c）
+        // 聊天框画字用的是 Fonts.def，图标必须是真 glyph：UI.formatIcons(":logic:")
+        // 会把 :name: 换成 Iconc 里的字符（和设置分类那个 Icon.logic 同源），
+        // 所以不要写 "[logic]" —— 那只是标签语法，聊天框不认。
+        var CHAT_DONE = {};        // 作业 id -> 终态已经播报过（一个作业只报一次）
+        var CHAT_ICON = null;      // 逻辑徽标字符；拿不到就是空串（照样播报，只是没图标）
+
+        function chatIcon(){
+            if(CHAT_ICON !== null){ return CHAT_ICON; }
+            CHAT_ICON = "";
+            try{
+                var s = String(Packages.mindustry.core.UI.formatIcons(":logic:"));
+                if(s.length > 0 && s !== ":logic:"){ CHAT_ICON = s; }
+            }catch(e){ log("chat icon unavailable: " + e); }
+            return CHAT_ICON;
+        }
+
+        // 格式固定成 MAI<图标> <状态> (x,y): <其它信息>；信息为空就不留冒号。
+        function chatLine(status, x, y, info){
+            var tail = (info === null || info === undefined || String(info) === "") ? "" : (": " + String(info));
+            return "MAI" + chatIcon() + " " + String(status) + " (" + String(x) + "," + String(y) + ")" + tail;
+        }
+
+        // 联机会话发聊天框；单机（没有聊天框）或无头（Vars.ui 为 null）退回既有的淡出提示，
+        // 状态不因为「没有聊天框」就消失。返回走了哪条通道，自检用得上。
+        function chatSay(text){
+            var s = String(text);
+            try{ log("[chat] " + s); }catch(e){ }
+            if(netActive()){
+                var ui = Vars.ui;
+                if(ui !== null && ui !== undefined){
+                    try{
+                        if(ui.chatfrag !== null && ui.chatfrag !== undefined){
+                            ui.chatfrag.addMessage(s);
+                            return "chat";
+                        }
+                    }catch(e){ log("chatSay failed: " + e); }
+                }
+            }
+            hint(s);
+            return "hint";
+        }
+
+        function chatTrim(s, max){
+            var v = String(s === null || s === undefined ? "" : s);
+            if(v.length > max){ v = v.substring(0, max) + "…"; }
+            return v;
+        }
+
+        function chatXY(b){
+            try{
+                if(b !== null && b !== undefined && b.tile !== null && b.tile !== undefined){
+                    return {x: b.tile.x, y: b.tile.y};
+                }
+            }catch(e){ }
+            return {x: "?", y: "?"};
+        }
+
+        // 启用：投递成功那一刻播报（真正的模型调用紧跟着开始）。
+        function jobChatStart(b, id, desc){
+            var p = chatXY(b);
+            var d = chatTrim(desc, 24);
+            var info = (d.length > 0 ? d : "（没写描述）") + "（job " + String(id) + "）";
+            chatSay(chatLine("Generating", p.x, p.y, info));
+        }
+
+        // 完成：终态只播报一次（jobTick 和 jobBoxTick 可能同时看到同一个作业）。
+        function jobChatDone(job){
+            if(job === null || job === undefined){ return; }
+            var st = String(job.state);
+            if(!isJobTerminal(st)){ return; }
+            var id = (job.id === undefined || job.id === null) ? "" : String(job.id);
+            if(id.length > 0){
+                if(CHAT_DONE[id] === true){ return; }
+                CHAT_DONE[id] = true;
+            }
+            var x = "?", y = "?";
+            try{
+                var o = job.origin;
+                if(o !== null && o !== undefined && o.x !== undefined){ x = o.x; y = o.y; }
+            }catch(e){ }
+            if(x === "?"){
+                var lb = lookupBuild(job);
+                var q = chatXY(lb);
+                if(q.x !== "?"){ x = q.x; y = q.y; }
+            }
+            var status, info;
+            if(st === "done"){
+                status = "Done";
+                var c = jobSevCounts(job), tpl = String(job.template || "");
+                info = (tpl.length > 0 ? tpl + " · " : "") + String(job.statements || 0) + " 条语句 · "
+                     + String(job.bytes_len || 0) + " 字节 · " + (c.err === 0 ? "0 ERR" : ("ERR " + c.err));
+            }else if(st === "rejected"){
+                status = "Rejected";
+                var c2 = jobSevCounts(job);
+                info = "静态检查有 ERR（" + c2.err + " 条）";
+            }else if(st === "cancelled"){
+                status = "Cancelled";
+                info = "已取消";
+            }else{
+                status = "Failed";
+                info = chatTrim(String(job.explanation || ""), 60);
+                if(String(info) === ""){ info = "没有说明"; }
+            }
+            chatSay(chatLine(status, x, y, info));
+        }
+
         // 一个描述框 → 这块区域里每个处理器各投一个作业（P5 批量入口，v0.12.5）。
         function startJobBatch(targets, desc, rect){
             var box = {r: rect, ids: [], jobs: {}, pend: targets.length,
@@ -2252,6 +2370,7 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
                             var jid = String(res.id);
                             box.ids.push(jid);
                             box.jobs[jid] = res.job ? res.job : {id: jid, state: "queued", desc: desc};
+                            jobChatStart(t.b, jid, desc);     // v0.13.0：启用即播报
                         }
                         if(box.pend === 0){
                             if(box.ids.length === 0){
@@ -3475,6 +3594,21 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
                 if(WRITE_CHECK.length > 0){ WRITE_CHECK[0].at = 0; }
             }
             return (n0 === 1 && WRITE_CHECK.length === 0) ? "ok" : ("bad queued=" + n0);
+        };
+        // v0.13.0：聊天播报的无头探针。只验行格式（不碰 Vars.ui / 聊天框）：
+        // 三条状态 + 空信息不留冒号 + 前缀必须是 MAI。
+        api.maiChatProbe = function(){
+            var a = chatLine("Generating", 12, 34, "给核心补铜（job 3f2a1b9c）");
+            var b2 = chatLine("Done", 12, 34, "code · 12 条语句 · 240 字节 · 0 ERR");
+            var c = chatLine("Failed", 12, 34, "模型没写出可用代码");
+            var d = chatLine("Cancelled", 1, 2, "");
+            var ok = a.indexOf(" Generating (12,34): 给核心补铜（job 3f2a1b9c）") >= 0
+                  && b2.indexOf(" Done (12,34): code · 12 条语句 · 240 字节 · 0 ERR") >= 0
+                  && c.indexOf(" Failed (12,34): 模型没写出可用代码") >= 0
+                  && d === ("MAI" + chatIcon() + " Cancelled (1,2)")
+                  && a.indexOf("MAI") === 0;
+            return (ok ? "ok" : "bad") + " icon=" + (chatIcon() === "" ? "none" : "yes")
+                 + " start=" + a + " cancel=" + d;
         };
 
         // v0.12.0：事务写入的无头探针。现放一台真处理器（结束时拆掉），一次整批写、
