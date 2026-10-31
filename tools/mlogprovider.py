@@ -257,10 +257,15 @@ class Recorder:
         return out
 
 
+DEFAULT_MAX_TOKENS = 4096
+TOKENS_CEILING = 16000
+
+
 class HttpProvider:
     """OpenAI-compatible chat completion, stdlib only, no network at import."""
 
-    def __init__(self, url, model="", key="", timeout=60, temperature=0.2, max_tokens=1600):
+    def __init__(self, url, model="", key="", timeout=60, temperature=0.2,
+                 max_tokens=DEFAULT_MAX_TOKENS, ceiling=TOKENS_CEILING):
         if not url:
             raise ValueError("HttpProvider needs a chat-completions URL")
         self.url = url
@@ -268,13 +273,36 @@ class HttpProvider:
         self.key = key
         self.timeout = timeout
         self.temperature = temperature
-        self.max_tokens = max_tokens
+        self.max_tokens = int(max_tokens or DEFAULT_MAX_TOKENS)
+        self.ceiling = max(self.max_tokens, int(ceiling or TOKENS_CEILING))
 
     def __call__(self, job, hint=None):
         prompt = build_prompt(job, hint)
+        out = self._once(prompt, self.max_tokens, self.timeout)
+        # A reasoning model spends the budget on reasoning_content *before* it writes
+        # anything, so a tight max_tokens shows up as 'empty message, finish_reason=length'
+        # rather than as a short answer (v0.12.3, measured: 502 prompt tokens, 1600
+        # completion tokens, content empty, reasoning_content full).  max_tokens is only a
+        # ceiling, so retrying once with a much larger one costs nothing when the first
+        # attempt was stopped by the ceiling and not by the model finishing.
+        err = out.get("error") or ""
+        if "finish_reason=length" in err and self.max_tokens < self.ceiling:
+            bigger = min(self.ceiling, self.max_tokens * 4)
+            wider = min(600, max(self.timeout, 30) * 3)
+            again = self._once(prompt, bigger, wider)
+            if not again.get("error"):
+                return again
+            if "finish_reason=length" in (again.get("error") or ""):
+                return {"error": _budget_hint(again["error"], bigger)}
+            return again
+        if "finish_reason=length" in err:
+            return {"error": _budget_hint(err, self.max_tokens)}
+        return out
+
+    def _once(self, prompt, budget, timeout):
         body = {"messages": [{"role": "user", "content": prompt}],
                 "temperature": self.temperature,
-                "max_tokens": self.max_tokens}
+                "max_tokens": budget}
         if self.model:
             body["model"] = self.model
         data = json.dumps(body).encode("utf-8")
@@ -283,7 +311,7 @@ class HttpProvider:
         if self.key:
             req.add_header("Authorization", "Bearer " + self.key)
         try:
-            with urllib.request.urlopen(req, timeout=self.timeout) as resp:
+            with urllib.request.urlopen(req, timeout=timeout) as resp:
                 raw = resp.read().decode("utf-8", "replace")
         except urllib.error.HTTPError as exc:
             hint = ""
@@ -324,6 +352,13 @@ class HttpProvider:
         except ProviderError as exc:
             hint = _why_blank(doc)
             return {"error": str(exc) + hint if hint else str(exc)}
+
+
+def _budget_hint(err, budget):
+    """Say what to change when the ceiling -- not the model -- ended the reply."""
+    return (err + " -- the %d-token budget ran out before an answer arrived (a reasoning "
+                  "model spends it on reasoning_content first); raise it with "
+                  "--llm-max-tokens, or use a model that does not reason" % budget)
 
 
 def _alt_text(doc):
@@ -400,7 +435,9 @@ def provider_from_args(args):
     elif getattr(args, "llm_url", None):
         key = os.environ.get(args.llm_key_env) if getattr(args, "llm_key_env", None) else ""
         inner = HttpProvider(args.llm_url, model=getattr(args, "llm_model", "") or "",
-                             key=key or "", timeout=getattr(args, "llm_timeout", 60))
+                             key=key or "", timeout=getattr(args, "llm_timeout", 60),
+                             max_tokens=getattr(args, "llm_max_tokens", DEFAULT_MAX_TOKENS)
+                             or DEFAULT_MAX_TOKENS)
     else:
         raise ValueError("--jobs-provider llm needs --llm-url or --llm-replay")
     if getattr(args, "llm_record", None):

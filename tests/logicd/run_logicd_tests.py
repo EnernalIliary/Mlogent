@@ -136,6 +136,10 @@ def test_protocol():
         st, health = srv.get('/health')
         need(st == 200 and health.get('ok') is True, 'health: %r' % (health,))
         need(health.get('protocol') == 1, 'health protocol: %r' % (health,))
+        # a stale process answers 200 too, so /health has to name the build it came from
+        ver = health.get('version')
+        need(isinstance(ver, str) and ver.count('.') == 2,
+             '/health does not say which sidecar build answered: %r' % (health,))
         checks += 1
 
         st, cap = srv.get('/capabilities')
@@ -913,8 +917,9 @@ def test_provider():
              'the CLI replay drain did not produce the scripted code: %r' % (drained,))
         checks += 1
         # 10. a blank model reply says why it was blank -- the player saw only 'empty reply'
-        need(MP.HttpProvider('http://127.0.0.1:1/chat/completions').max_tokens == 1600,
-             'the provider still starves the model at the old max_tokens')
+        need(MP.HttpProvider('http://127.0.0.1:1/chat/completions').max_tokens
+             == MP.DEFAULT_MAX_TOKENS >= 4096,
+             'the provider budget is too small for a reasoning model to answer')
         stub2 = _StubEndpoint()
         try:
             stub2.blank = True
@@ -952,6 +957,8 @@ class _StubEndpoint:
     def __init__(self):
         from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
         self.seen = []
+        self.posts = []
+        self.truncate = 0          # answer this many replies with finish_reason=length
         self.blank = False
         self.strict = False
         outer = self
@@ -985,8 +992,16 @@ class _StubEndpoint:
                     self.end_headers()
                     self.wfile.write(body)
                     return
+                try:
+                    outer.posts.append(json.loads(raw.decode('utf-8')))
+                except ValueError:
+                    outer.posts.append({})
                 content = json.dumps({'code': 'set n 0' + chr(10) + 'end'})
-                if outer.blank:
+                cut = False
+                if outer.truncate > 0:
+                    outer.truncate -= 1
+                    cut = True
+                if outer.blank or cut:
                     content = ''
                     payload = {'choices': [{'message': {'content': content},
                                             'finish_reason': 'length'}],
@@ -1022,6 +1037,7 @@ class _StubEndpoint:
 
 def test_llm():
     """The settings page fills url / key / model; the sidecar switches tier at runtime."""
+    import mlogprovider as MP
     checks = 0
     stub = _StubEndpoint()
     # a private queue dir: job ids are sha1(desc+snapshot+mode), so a shared out/jobs
@@ -1101,6 +1117,50 @@ def test_llm():
              'POST /llm/probe reported the wrong url: %r' % (doc,))
         need('set n 0' in str(doc.get('content') or ''),
              'POST /llm/probe lost the reply text: %r' % (doc,))
+        checks += 1
+
+        # 9. v0.12.3: a reasoning model spends the budget on reasoning_content before it
+        #    writes anything, so a tight max_tokens came back as an empty message with
+        #    finish_reason=length (measured on the real player job: 502 prompt tokens,
+        #    1600 completion tokens, content empty).  The provider must widen the budget
+        #    once and keep the job alive instead of failing it.
+        code, doc = srv.post('/llm', {'url': stub.chat_url, 'model': 'm-a',
+                                      'max_tokens': 800, 'timeout': 20})
+        need(code == 200 and doc.get('max_tokens') == 800,
+             'POST /llm did not take a max_tokens budget: %r' % (doc,))
+        stub.posts.clear()
+        stub.truncate = 1
+        code, doc = srv.post('/jobs', {'job': {'desc': 'budget probe %d' % stub.port,
+                                               'links': [], 'ipt': 2}})
+        need(code == 200 and doc.get('ok') is True,
+             'the budget job was refused: %r' % (doc,))
+        got = wait_job(srv, doc['id'], want=('done',))
+        need(str(got.get('code') or '').startswith('set n 0'),
+             'a truncated first reply was not retried into a done job: %r' % (got,))
+        budgets = [q.get('max_tokens') for q in stub.posts]
+        need(budgets[:2] == [800, 3200],
+             'the retry did not widen the budget: %r' % (budgets,))
+        checks += 1
+
+        # 10. when even the widened budget is not enough, the error names the knob
+        stub.truncate = 99
+        stub.posts.clear()
+        never = MP.HttpProvider(stub.chat_url, model='m-a', timeout=20, max_tokens=500)
+        out = never({'desc': 'never answers %d' % stub.port, 'links': [], 'ipt': 2})
+        stub.truncate = 0
+        msg = str(out.get('error') or '')
+        need('finish_reason=length' in msg and '--llm-max-tokens' in msg,
+             'a permanently truncated reply did not name the budget knob: %r' % (msg,))
+        climbed = [q.get('max_tokens') for q in stub.posts]
+        need(climbed[:2] == [500, 2000], 'the retry ladder did not climb: %r' % (climbed,))
+        checks += 1
+
+        # 11. GET /llm reports the budget; an absurd one is refused
+        code, doc = srv.get('/llm')
+        need(doc.get('max_tokens') == 800,
+             'GET /llm does not report max_tokens: %r' % (doc,))
+        code, doc = srv.post('/llm', {'url': stub.chat_url, 'max_tokens': 10})
+        need(code == 400, 'POST /llm took an absurd max_tokens: %r %r' % (code, doc))
         checks += 1
 
     finally:

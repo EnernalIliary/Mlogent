@@ -204,7 +204,7 @@ v0.9.0 起 `links` 的 `[]` 与 `null` 不再等价：`[]` 是**权威空表**�
 `null` 是「模组读不到链接表」（判据跳过）；模组侧用 `linkListOrNull()` 发这个区别，`jobqueue._materialize()` 原样保留。
 provider 是唯一接模型的缝（P4 第三刀，`tools/mlogprovider.py`）：默认 `template`（就是上面的 `/plan` 意图路由，全离线可跑）；
 `--jobs-provider fake --fake-provider FILE` 喂固定答案；`--jobs-provider llm` 才是真模型，两种入口：
-`--llm-url URL [--llm-model NAME] [--llm-key-env VAR] [--llm-timeout N]` 走 OpenAI 兼容的 `/chat/completions`（只用标准库，
+`--llm-url URL [--llm-model NAME] [--llm-key-env VAR] [--llm-timeout N] [--llm-max-tokens N]` 走 OpenAI 兼容的 `/chat/completions`（只用标准库，
 key 从环境变量读、绝不出现在命令行），或 `--llm-replay FILE` 回放录制好的回复（离线测试/回归都走这条）。
 `--llm-record FILE` 会把每次的 `{prompt, reply}` 追加成 JSONL，真跑一次就得到可回放的脚本。
 prompt 是规划 §4.4 的三段：**世界事实**（处理器坐标 + 快照摘要 + 附近方块 + 链接名白名单，`links: null` 写「UNKNOWN」、`[]` 写「EMPTY」）、
@@ -224,10 +224,10 @@ prompt 是规划 §4.4 的三段：**世界事实**（处理器坐标 + 快照�
 模组只把它们发给本机 sidecar，由 sidecar 在进程里把 `provider` 换成 `mlogprovider.HttpProvider` ——
 **不用重启 sidecar**，也不用改命令行。三个端点：
 
-- `GET /llm` → `{ok, kind: llm|template|fake, url, model, key_set, key_hint, timeout}`。
+- `GET /llm` → `{ok, kind: llm|template|fake, url, model, key_set, key_hint, timeout, max_tokens}`。
   **密钥只进不出**：只回 `key_set` 与掩码尾巴（`******1234`），明文永不出现在任何响应里。
-- `POST /llm` body `{url, model, key, timeout}` 切到模型档（`url` 必须是 http(s)，否则 400；
-  `timeout` 5–600 秒）；body `{kind: "template"}` 切回离线模板档。
+- `POST /llm` body `{url, model, key, timeout, max_tokens}` 切到模型档（`url` 必须是 http(s)，否则 400；
+  `timeout` 5–600 秒；`max_tokens` 64–64000，缺省沿用当前值）；body `{kind: "template"}` 切回离线模板档。
 - `POST /models` body `{url, key}` → `{ok, url, models: [id...], count}`：从
   `/chat/completions` 推导出 `/models`（`/completions`、`/responses` 同理；已经是 `/models` 就原样），
   GET 时带 `Authorization: Bearer`，解析 `data[].id|name` 或 `models[]`。
@@ -241,12 +241,20 @@ prompt 是规划 §4.4 的三段：**世界事实**（处理器坐标 + 快照�
   `/chat/completions`（`completion_url()`），模组开面板时还会用 `Core.settings` 里的
   设置把重启后丢失的模型档重新推给 sidecar。
 
+**回复预算（v0.12.3）**：推理模型先把 `reasoning_content` 想满、再写 `content`，两者共用 `max_tokens`，
+预算偏小时回复不是短而是**空的**（真机取证：`finish_reason=length`、`completion_tokens` 正好 1600、`prompt_tokens` 502、
+`content` 空、`reasoning_content` 满）。所以默认预算 4096（上限不是目标，写完就停）、
+`HttpProvider` 见到 `finish_reason=length` 就自动升一档重试一次（×4、封顶 16000、超时同档放宽），
+仍然不够就把 `--llm-max-tokens` 写进错误里；`/llm/probe` 的预算也从 128 提到 512 起 ——
+128 对推理模型连一个 JSON 都写不完，自测会给你假阴性。
+
 `--jobs-provider llm --llm-url ...` 仍然可用：启动时把命令行参数灌进同一份 `LLM_STATE`，
 游戏里再改就以游戏里为准。`GET /llm` 只反映**进程内存里**的档位，重启 sidecar 回到命令行参数。
 
 **改过 `tools/logicd.py` 必须重启那个进程**（v0.9.1）：模组连的是**已经加载进内存**的 Python 进程，
 磁盘上改了代码它不知道。症状很一致：面板回「投递失败：no such endpoint: /jobs」，而 `GET /health` 依然是 200——
-老进程没有新路由，但健康检查从第一版就有。排查一行就够：
+老进程没有新路由，但健康检查从第一版就有。**v0.12.3 起 `GET /health` 直接回 `{ok, protocol, version}`**，
+一眼就能看出跑的是不是新进程（不再需要比对启动时间）。排查一行就够：
 `Get-CimInstance Win32_Process -Filter "Name='python.exe'"` 里命令行含 `logicd` 的那个进程，
 **启动时间早于改动时间**就是它；`Stop-Process -Id <pid> -Force` 后再 `python tools/logicd.py --port 8765`。
 模组侧（v0.9.1 起）`jobWhy()` 会把 `no such endpoint` 翻成「sidecar 进程是旧版本 → 关掉旧的再重新启动」，

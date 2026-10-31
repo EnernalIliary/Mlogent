@@ -220,13 +220,23 @@ done 时渲染代码并把按钮换成「写入/关闭」，rejected/failed/canc
 `parse_reply(text)`（只取第一个配平的 `{...}`，容忍围栏与散文，字段类型不对抛 `ProviderError`）、
 `HttpProvider`（OpenAI 兼容 `/chat/completions`，标准库 urllib，key 只从环境变量读，导入时不联网）、
 `ScriptedProvider` / `load_script`（回放录制回复，测试与回归全离线）、`Recorder`（`--llm-record` 追加 `{prompt, reply}` JSONL）。
-CLI：`--jobs-provider llm` + `--llm-url/--llm-model/--llm-key-env/--llm-timeout` 或 `--llm-replay`；两者都没有就 `exit 2`（不静默回落模板档）。
+CLI：`--jobs-provider llm` + `--llm-url/--llm-model/--llm-key-env/--llm-timeout/--llm-max-tokens` 或 `--llm-replay`；两者都没有就 `exit 2`（不静默回落模板档）。
 `needs_links` 里出现白名单外的名字由 `jobqueue` 直接判 `link-name-not-bound` ERR 拒绝，不等分析器发现。
 验收：`tests/logicd/run_logicd_tests.py` 的 half D 共 **9 项**（三段 prompt、白名单三态、围栏/散文解析、垃圾回复拒绝、
 scripted 干净回复 → done、幻觉链接 → rejected、self-repair 第二轮 prompt 带 findings、`needs_links` 越界拒绝、
 CLI 无端点 exit 2、replay 文件回放、CLI `--jobs-drain` 用 replay 跑完一台作业）。
 **仍未落地**：真端点从未在本机联调（无网络/无 key，CI 里只走 replay）、自由档的 cost/sim 200 tick 复检、
 模组侧选择 provider 的界面（目前只能改 sidecar 命令行）、P5 的多处理器事务写入。
+
+**回复预算（v0.12.3，真机回归驱动）**：现在的模型档多半是推理模型（先写 `reasoning_content`、再写 `content`），
+两者**共用** `max_tokens`。预算偏小时回复不是「短」，而是**空的**：真机作业 `f122e54f918974ff-2` 的 finding 是
+`model endpoint answered with an empty message (finish_reason=length; message keys=content,reasoning_content,role;
+usage={"completion_tokens": 1600, "prompt_tokens": 502})` —— prompt 只有 502 token，1600 全花在思考上。
+所以 `DEFAULT_MAX_TOKENS` 提到 4096（上限不是目标，模型写完就停）、`HttpProvider` 见到
+`finish_reason=length` 自动升一档重试一次（×4，封顶 16000，超时同档放宽），仍不够就把
+`--llm-max-tokens` 写进错误里；预算可在设置页/端点里改（`POST /llm {max_tokens}`、`GET /llm` 回报、
+CLI `--llm-max-tokens`）、`POST /llm/probe` 的预算也从 128 提到 512 起（128 对推理模型连一个 JSON 都写不完，
+自测会假阴性）。`GET /health` 同时开始回报 `version`，一眼看出跑的是不是新进程（L2-51 / L2-52）。
 
 ## 5. P5 · 多处理器写入 + 撤销落盘
 
@@ -319,9 +329,10 @@ CLI 无端点 exit 2、replay 文件回放、CLI `--jobs-drain` 用 replay 跑�
 | v0.9.0 删掉 F4 热键 + 零链接门禁 | 完成（v0.9.0） | `main.js`（无 `KEY_PANEL` / `toggleAiPanel`）/ `mlogcheck.analyse(links_authoritative=)` / `logicd.analyse()` / `jobqueue._materialize()` / `linkListOrNull()` | ui smoke 反向红线 + `MAIJOBZERO`；`test_jobs()` 15 项（断言表 L2-43 / L2-44） |
 | v0.7.0 F2 全图处理器清单 | 完成（v0.7.0） | `main.js` 的 `KEY_LIST` / `scanProcessors()` / `listHead()` / `listRowLabel()` / `buildListTable()` / `showListPanel()` / `openListPanel()` / `jumpTo()`，控制台 `maiList`·`maiListRows`·`maiListPanel` | ui smoke 的 `MAISELF` 清单表格行 + `MAILIST`/`MAILISTROWS` 两行 + 五条源码红线（断言表 L2-40） |
 | P4 队列 + 模型 + 门禁 | 完成（三刀：v0.8.0 / v0.8.1 / 本刀） | `tools/jobqueue.py`（状态机 + 双写落盘 + `FATAL_RIDS` 门禁）/ `tools/mlogprovider.py`（§4.4 三段 prompt + `parse_reply` + `HttpProvider` + 录制回放）/ `tools/logicd.py` 的 `/jobs` 三端点与 `--jobs-provider llm`；模组侧 `jobBody()`/`jobTick()`/`renderJob()`/`cancelJob()` | `test_jobs()` 15 项 + `test_provider()` 9 项（断言表 L2-41 / L2-44 / L2-45）；ui smoke 三路作业探针（干净 done / 门禁拒绝 / 零链接拒绝） |
-| P4.5 模型档运行时配置 | 完成（v0.11.0） | `tools/logicd.py` 的 `LLM_STATE` + `GET /llm` / `POST /llm` / `POST /models`、`tools/mlogprovider.HttpProvider` 热替换；模组设置页「大模型」段（地址 / 密钥 / 模型 + 获取模型 / 启用模型档 / 回到模板档），密钥只回显尾巴 | `test_llm()` 6 项（假 OpenAI 端点：列表 / 换档 / 真作业 / 400 / 回模板）；ui smoke `MAILLM:ok` + 五条源码红线 + v0.12.1 端点自测（`POST /llm/probe`）、API base 地址自动补全、重启后模组自动重同步 |
+| P4.5 模型档运行时配置 | 完成（v0.11.0） | `tools/logicd.py` 的 `LLM_STATE` + `GET /llm` / `POST /llm` / `POST /models`、`tools/mlogprovider.HttpProvider` 热替换；模组设置页「大模型」段（地址 / 密钥 / 模型 + 获取模型 / 启用模型档 / 回到模板档），密钥只回显尾巴 | `test_llm()` 11 项（假 OpenAI 端点：列表 / 换档 / 真作业 / 400 / 回模板 / v0.12.3 预算升档两次 / 一直截断时错误点名 `--llm-max-tokens` / `GET /llm` 回报预算与越界 400）；ui smoke `MAILLM:ok` + 五条源码红线 + v0.12.1 端点自测（`POST /llm/probe`）、API base 地址自动补全、重启后模组自动重同步 |
 | P5 多处理器写入 + 撤销落盘 | 部分完成（第一刀 v0.10.0 撤销落盘 / 第二刀 v0.10.1 写前冲突检测 / 第三刀上半 v0.12.0 事务写入核心；面板批量入口未做） | `MlogAuxiliary/scripts/main.js` 的 `undoRoot`/`snapshotText`/`saveUndoTo`/`undoFromDisk`/`undoBatchFromDisk`/`undoInfo`、`writeBuild` 里记快照名、`writeMany`（整批预检 + 整批冲突 + 整批快照 + 逐台 configure + 失败回滚）、设置页「撤销上次写入」/「撤销快照」、控制台 `maiUndo`/`maiUndoInfo`/`maiUndoProbe`/`maiWriteManyProbe` | ui smoke 的 `MAIUNDO` 行（真引擎里写快照→读回比对→删目录）+ `MAIWRITEMANY` 行（真引擎两台处理器：整批写、整批撤销、第二台抛错回滚第一台）+ `MAISELF` 的「撤销快照 ok」+ 三条 v0.10.0 与四条 v0.12.0 源码红线（断言表 L2-46 / L2-48） |
 | v0.12.2 重投不再回放旧结论（sidecar 侧，模组未变） | 完成（v0.12.2） | `tools/jobqueue.py` 的 `RETRY_MAX` / `_free_id()` / `enqueue()`（终态作业不再占着内容 id：同 body 重投 = `<id>-2`，带 `retry_of` 指回首轮）、`Store.save()` 的撞车重试（`SAVE_TRIES` / `SAVE_WAIT` / `_contended()` / `_replace()`）、`_loop()` 的 `_strand()`（写不下去的作业落 `failed`，不再永久 `running`） | `test_jobs()` 15 项（新增三项：终态后重投得 `<id>-2` 且 `retry_of` 指回首轮、文件已落盘；撞车两次的 save 第 3 次成功；running 阶段写失败的作业必须变成 `failed` 且带 `worker-error` finding） |
+| v0.12.3 推理模型的回复预算（sidecar 侧，模组未变） | 完成（v0.12.3） | `tools/mlogprovider.py` 的 `DEFAULT_MAX_TOKENS = 4096` / `TOKENS_CEILING = 16000` / `_once()` / `finish_reason=length` 自动升一档重试 / `_budget_hint()`；`tools/logicd.py` 的 `LLM_STATE['max_tokens']`、`POST /llm` 的 `max_tokens`（64..64000）、`GET /llm` 回报、`--llm-max-tokens`、`/llm/probe` 预算 128→512 起、`SIDECAR_VERSION` 与 `GET /health` 的 `version` | `test_llm()` 11 项 + `test_protocol()` 的版本检查（断言表 L2-51 / L2-52）；真机复测要玩家重启 sidecar 后重投同一句描述（v0.12.2 起会得到 `<id>-3`） |
 
 P2 期间确认的第三条环境事实：**真 v160.7 的 Rhino 里 `String.prototype.split(正则)` 对带 `+` 量词的模式
 等价于空匹配**（`"abc def".split(/\s+/)` → `["a","b","c","d","e","f"]`；`split(/ /)`、`split(/\s/)`、

@@ -66,6 +66,9 @@ import jobqueue                # noqa: E402  (imports us back lazily, one-way ed
 import mlogprovider           # noqa: E402  (prompt / reply parsing / model call; offline at import)
 
 PROTOCOL = 1
+# The sidecar is what gets restarted when a fix ships, and a stale process answers
+# /health with 200 all day, so let the answer say which build it is (v0.12.3).
+SIDECAR_VERSION = '0.12.3'
 GAME = 'mindustry v160.7 (executor jar out/_server160.jar)'
 
 #: LogicBlock.instructionsPerTick is 1 by default and clamped to
@@ -950,7 +953,8 @@ def region(req):
 # ---------------------------------------------------------------- model tier (v0.11.0)
 # 玩家在游戏里的设置页填地址 / 密钥 / 模型，运行期就能切到模型档，不用重启 sidecar。
 # 密钥只进不出：GET /llm 只回 key_set 与掩码尾巴，绝不回明文。
-LLM_STATE = {'kind': 'template', 'url': '', 'model': '', 'key': '', 'timeout': 60}
+LLM_STATE = {'kind': 'template', 'url': '', 'model': '', 'key': '', 'timeout': 60,
+             'max_tokens': mlogprovider.DEFAULT_MAX_TOKENS}
 
 
 def _mask_key(key):
@@ -966,7 +970,8 @@ def llm_state():
     st = LLM_STATE
     return {'ok': True, 'kind': st['kind'], 'url': st['url'], 'model': st['model'],
             'key_set': bool(st['key']), 'key_hint': _mask_key(st['key']),
-            'timeout': int(st['timeout'] or 60)}
+            'timeout': int(st['timeout'] or 60),
+            'max_tokens': int(st.get('max_tokens') or mlogprovider.DEFAULT_MAX_TOKENS)}
 
 
 def models_url(url):
@@ -1015,7 +1020,8 @@ def probe_model(req):
         timeout = 60
     body = {'messages': [{'role': 'user',
                           'content': 'Reply with exactly this JSON and nothing else: {"ok": true}'}],
-            'temperature': 0, 'max_tokens': 128}
+            'temperature': 0, 'max_tokens': max(512, int(LLM_STATE.get('max_tokens')
+                                                              or 512) // 4)}
     if model:
         body['model'] = model
     out = {'ok': True, 'url': url, 'model': model, 'status': 0}
@@ -1127,15 +1133,23 @@ def apply_llm(req):
         raise ValueError('timeout must be a whole number of seconds')
     if timeout < 5 or timeout > 600:
         raise ValueError('timeout must be between 5 and 600 seconds')
+    try:
+        max_tokens = int(req.get('max_tokens') or LLM_STATE.get('max_tokens')
+                         or mlogprovider.DEFAULT_MAX_TOKENS)
+    except (TypeError, ValueError):
+        raise ValueError('max_tokens must be a whole number')
+    if max_tokens < 64 or max_tokens > 64000:
+        raise ValueError('max_tokens must be between 64 and 64000')
     LLM_STATE.update({'kind': 'llm', 'url': url, 'model': model, 'key': key,
-                      'timeout': timeout})
+                      'timeout': timeout, 'max_tokens': max_tokens})
     jobs_queue().provider = mlogprovider.HttpProvider(url, model=model, key=key,
-                                                      timeout=timeout)
+                                                      timeout=timeout,
+                                                      max_tokens=max_tokens)
     return llm_state()
 
 
 class Handler(BaseHTTPRequestHandler):
-    server_version = 'logicd/1'
+    server_version = 'logicd/%s' % SIDECAR_VERSION
 
     def log_message(self, fmt, *args):        # keep stdout clean for the ready line
         pass
@@ -1155,7 +1169,8 @@ class Handler(BaseHTTPRequestHandler):
         path = self.path.split('?')[0]
         try:
             if path == '/health':
-                self._send(200, {'ok': True, 'protocol': PROTOCOL})
+                self._send(200, {'ok': True, 'protocol': PROTOCOL,
+                                 'version': SIDECAR_VERSION})
             elif path == '/capabilities':
                 self._send(200, capabilities())
             elif path == '/jobs':
@@ -1326,6 +1341,10 @@ def main(argv=None):
     ap.add_argument('--llm-key-env', metavar='VAR', default='',
                     help='env var holding the bearer token (never passed on the command line)')
     ap.add_argument('--llm-timeout', type=int, default=60, help='model call timeout in seconds')
+    ap.add_argument('--llm-max-tokens', type=int, default=mlogprovider.DEFAULT_MAX_TOKENS,
+                    help='reply budget per call; a reasoning model spends it on '
+                         'reasoning_content before it writes anything (default %d)'
+                         % mlogprovider.DEFAULT_MAX_TOKENS)
     ap.add_argument('--llm-replay', metavar='FILE',
                     help='replay recorded replies instead of calling a model (offline tests)')
     ap.add_argument('--llm-record', metavar='FILE',
@@ -1349,7 +1368,8 @@ def main(argv=None):
     LLM_STATE.update({'kind': a.jobs_provider if a.jobs_provider in ('llm', 'fake') else 'template',
                       'url': a.llm_url or '', 'model': a.llm_model or '',
                       'key': (os.environ.get(a.llm_key_env) if a.llm_key_env else '') or '',
-                      'timeout': int(a.llm_timeout or 60)})
+                      'timeout': int(a.llm_timeout or 60),
+                      'max_tokens': int(a.llm_max_tokens or mlogprovider.DEFAULT_MAX_TOKENS)})
     global JOBS
     JOBS = jobqueue.Queue(jobqueue.Store(a.jobs_dir), provider=provider)
     if a.jobs_drain:

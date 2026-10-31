@@ -1869,3 +1869,26 @@ ui smoke EXIT=0（`MAIDIAG:版本：0.12.1`、103 行/格、`MAILLM:ok 82`）。
 
 **下一刀**：①面板批量入口（P5 第三刀下半）②联机拒绝写入的「无权限」提示 ③冲突检测只比代码文本、不比链接表
 ④打包/安装即用（用户已定最后解决）。
+
+## §68 logicd v0.12.3：推理模型把回复预算想光了（空回复 → 升档重试 + 诊断）
+
+- **症状**：v0.12.2 的 `<id>-2` 修复生效（玩家重启后重投确实换了 id），但作业仍 `rejected`；
+  真机作业 `f122e54f918974ff-2` 的 finding 写明 `finish_reason=length; message keys=content,reasoning_content,role;
+  usage={"completion_tokens": 1600, "prompt_tokens": 502}`，`content` 是空串。
+- **根因**：`deepseek-flash` 是推理模型，`reasoning_content` 与 `content` **共用** `max_tokens`；
+  旧的 `max_tokens=1600` 全被思考吃掉（prompt 只 502 token，不是 prompt 太大）。
+- **改动**（`tools/mlogprovider.py` + `tools/logicd.py`，模组未动）：`DEFAULT_MAX_TOKENS = 4096`、
+  `TOKENS_CEILING = 16000`；`HttpProvider.__call__` 见 `finish_reason=length` 自动升一档重试一次
+  （×4、封顶 16000、超时同档 60→180 s）；`_budget_hint()` 把 `--llm-max-tokens` 写进错误；
+  `LLM_STATE['max_tokens']` + `GET /llm` 回报 + `POST /llm` 接受（64..64000）+ CLI `--llm-max-tokens`；
+  `/llm/probe` 预算 128 → `max(512, max_tokens//4)`；新增 `SIDECAR_VERSION = '0.12.3'` 与
+  `GET /health` 的 `version`（老进程回 200 且没有 version，一眼可辨）。
+- **测试**：`test_llm()` 8 → 11 项（⑨预算生效且阶梯 `[800, 3200]`、⑩一直截断时错误点名
+  `--llm-max-tokens` 且阶梯 `[500, 2000]`、⑪`GET /llm` 回报预算 + 越界 400）；`test_protocol()` 断言
+  `/health.version` 形状；`test_provider()` 默认预算断言改成 `== DEFAULT_MAX_TOKENS >= 4096`。
+- **复跑**：`tests/logicd/run_logicd_tests.py --no-sim` → protocol 26 / jobs 15 / provider 11 / llm 11，EXIT=0。
+- **真机复测未做**（本机无 key）：需要玩家重启 sidecar，`GET /health` 看到 `version: 0.12.3` 后重投同一句描述
+  （id 会是 `-3`）。若仍空回复，把 `--llm-max-tokens 8192` 传给 sidecar，finding 里的 `completion_tokens`
+  会直接说明还差多少。
+- **边界**：模组版本仍是 0.12.1（面板版本号不会变，有意为之）；真端点联调只能在本机带 key 时做。
+- **下一刀**：①面板批量入口 ②联机「无权限」提示 ③冲突检测比链接表 ④打包安装即用（最后）。
