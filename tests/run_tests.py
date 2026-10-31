@@ -368,13 +368,16 @@ def digest_aigenerated() -> dict:
         out["verify_forced"], _ = run("verify", str(p))
         out["strip"], _ = run("strip", str(p))
 
-        # placement: reuse the compare slot of an existing unconditional jump
+        # placement: reuse the compare slot of an existing unconditional jump.
+        # v0.14.2: the `end` behind such a jump can never run, so signing drops it
+        # (mlogcheck would report it as an unreachable statement) -- the token line
+        # is therefore the LAST line now, and no `end` survives.
         j = Path(d) / "slot.mlog"
         j.write_text("set x 1\njump 27 always 0\nend\n", "utf-8", newline="\n")
         out["slot_sign"], _ = run("sign", str(j))
         sl = j.read_text(encoding="utf-8").splitlines()
-        out["slot_line"] = sl[-2]
-        out["slot_end_kept"] = sl[-1].strip() == "end"
+        out["slot_line"] = sl[-1]
+        out["slot_end_kept"] = any(l.strip() == "end" for l in sl)
         # placement: no end -> append terminal jump 0
         t = Path(d) / "term.mlog"
         t.write_text("set x 1\nprint x\n", "utf-8", newline="\n")

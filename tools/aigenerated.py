@@ -12,6 +12,17 @@ fourth and last operand; `always` never reads it):
 
     jump 27 always 0 "aigenerated:猪猪鱼:1f02465d9e75"
 
+A bare `jump <n> always` (no value operand) gets one spelled out as `0` first,
+because `always` never reads it either:
+
+    jump 27 always 0 "aigenerated:猪猪鱼:1f02465d9e75"
+
+Either way the `end` that used to follow such a jump is dropped: an
+unconditional jump never falls through, so that `end` could not run and
+`mlogcheck` reports it as an unreachable statement (v0.13.2 rule
+`unreachable-statement`).  Signing therefore never adds a statement and never
+leaves a dead one behind.
+
 Otherwise the closing `end` becomes
 
     jump 0 always 0 "aigenerated:猪猪鱼:1f02465d9e75"
@@ -19,10 +30,12 @@ Otherwise the closing `end` becomes
 `end` means "next instruction reads 0"; `jump 0 always` does the same thing, so
 the program behaves identically.  The token sits in a declared `JumpStatement`
 operand that `always` never reads, so the game's own `LAssembler.read` /
-`LAssembler.write` round-trip re-emits it verbatim.  A surplus token after
-`end`, `set` or `op` is *not* used: `LogicIO.write` drops everything past the
-declared arity (measured on v160.7, see mlog工作笔记).  A program with no `end`
-gets one appended by the canonical form, then the same replacement applies.
+`LAssembler.write` round-trip re-emits it verbatim (measured on v160.7 with the
+four-operand form, no `end`: `b.code` comes back byte-identical).  A surplus
+token after `end`, `set` or `op` is *not* used: `LogicIO.write` drops everything
+past the declared arity (measured on v160.7, see mlog工作笔记).  A program with
+no `end` gets one appended by the canonical form, then the same replacement
+applies.
 
 Why not a comment?
 -----------------
@@ -44,12 +57,16 @@ import argparse
 import base64
 import hashlib
 import json
+import os
 import re
 import sys
 import zlib
 from pathlib import Path
 
 DEFAULT_AUTHOR = "猪猪鱼"
+# the sidecar (tools/logicd.py, tools/jobqueue.py) signs with this one; the
+# environment override exists so a build can attribute a different author
+SIGN_AUTHOR = os.environ.get("MAI_SIGN_AUTHOR") or DEFAULT_AUTHOR
 SIG_LINE = 'jump 0 always 0 "aigenerated:{author}:{pid}{payload}"'
 # addr/value are not captured: author/id/payload stay at groups 1/2/3
 SIG_RE = re.compile(
@@ -190,13 +207,50 @@ def sign_text(text: str, author: str = DEFAULT_AUTHOR, force: bool = False,
     """Return (signed_text, id).  Raises SignError if it would change an id.
 
     Comments are moved into the signature string (base64 payload), so the
-    delivered code carries them without occupying lines.
+    delivered code carries them without occupying lines: no `#` line survives in
+    the signed text (the game's assembler drops them, and `b.code` is rebuilt from
+    the assembled program, so a kept one would look like a write that never
+    landed).  The id still hashes the canonical body, comments included.
     """
     hits = _find(text)
     body = _body(text)
-    if not body:
+    # an already-signed program whose body is nothing but the signature is fine to
+    # re-sign (its canonical body is ""); only a text with nothing in it at all is
+    # refused, because there would be no statement to attach the token to
+    if not body and not hits:
         raise SignError("no statement to attach the signature to")
     author = re.sub(r'[:"]', "", author).strip() or DEFAULT_AUTHOR
+    # the body always ends with `end`; when the statement just before it is an
+    # unconditional jump the token goes into that jump's value slot instead, and
+    # the `end` behind it is dropped (see the comment further down).  The id has
+    # to hash the body `verify_text` will rebuild from the signed text, so a
+    # `jump <n> always` tail is spelled out as `jump <n> always 0` first.
+    lines = body.rstrip("\n").split("\n") if body else [""]
+    # comments travel in the signature payload, never as lines of the delivered
+    # code: the game's assembler drops `#` lines, and `b.code` -- which the mod
+    # compares with the job's code character by character -- is rebuilt from the
+    # assembled program, so a kept comment line would read as "the write did not
+    # land".  The canonical body still carries them, which is what the id hashes.
+    lines = [l for l in lines if not l.strip().startswith("#")]
+    idx = len(lines) - 2
+    while idx >= 0 and not lines[idx].strip():
+        idx -= 1
+    slot = None
+    if idx >= 0:
+        m = re.match(r'^(jump\s+(\S+)\s+always)\s+(\S+)\s*$', lines[idx].strip())
+        if m and m.group(2) != "0":
+            slot = f"{m.group(1)} {m.group(3)}"
+        elif m is None:
+            m = re.match(r'^(jump\s+(\S+)\s+always)\s*$', lines[idx].strip())
+            if m and m.group(2) != "0":
+                slot = f"{m.group(1)} 0"
+                lines[idx] = slot
+                body = "\n".join(lines) + "\n"
+    if idx < 0:
+        # a program of nothing but `end` has no statement to hang the token on:
+        # the signed text is the terminal jump alone, and verify_text() rebuilds
+        # "" from it, so "" is what the id hashes (re-signing stays idempotent)
+        body = ""
     pid = _hash(author, body)[:12]
     if hits:
         old_id, old_author = hits[0].group(2), hits[0].group(1)
@@ -219,16 +273,12 @@ def sign_text(text: str, author: str = DEFAULT_AUTHOR, force: bool = False,
     enc = encode_comments(cs)
     payload = f":{enc}" if enc else ""
     sig = f'"aigenerated:{author}:{pid}{payload}"'
-    lines = body.rstrip("\n").split("\n")
-    # the body always ends with `end`; if the statement just before it is an
-    # unconditional jump, put the token in that jump's compare slot instead
-    idx = len(lines) - 2
-    while idx >= 0 and (not lines[idx].strip() or lines[idx].strip().startswith("#")):
-        idx -= 1
-    m = (re.match(r'^(jump\s+(\S+)\s+always)\s+(\S+)\s*$', lines[idx].strip())
-         if idx >= 0 else None)
-    if m and m.group(2) != "0":
-        lines[idx] = f"{m.group(1)} {m.group(3)} {sig}"
+    if slot is not None:
+        lines[idx] = f"{slot} {sig}"
+        # an unconditional jump never falls through: the `end` behind it can
+        # never run, and mlogcheck reports exactly that as an unreachable
+        # statement, so the signed text stops at the jump
+        lines.pop()
     else:
         lines[-1] = f"jump 0 always 0 {sig}"
     return "\n".join(lines) + "\n", pid

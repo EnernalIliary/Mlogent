@@ -2169,3 +2169,46 @@ ui smoke 成功路径的展示白名单不含 `MAIJOBPANEL:`/`MAIWORKSPACE:`，�
 `GET /jobs?all=1` 的行现在带 `workspace`（单行最多 5–6 KB），暂不剥字段。
 
 报告：`out/takeover-20261024/80-v0141-workspace-ui.md`；断言表 L2-67。
+
+## §81 v0.14.2 写入后框不消失 + 框角两按钮 + 签名并入生成流程（2026-10-31）
+
+承接用户 m04549 的四条：①「AI签名和挂载消失了，修复一下。」（m04559 澄清「挂载 = 签名行之后的 token」，
+m04600「好像工作流没有过签名流程，并入一下吧。」）②蓝图文件保存方案 + 蓝图页直接开始对话（只出方案）
+③「工作区不应该在写入之后就直接消失。」④「作业区的点开看和右键关文案应该替换成不会autoscale的两个按钮(查看、取消)。」
+本轮做 ①③④，②按用户要求只写方案（`docs/Mlog辅助-蓝图方案.md`）。
+
+**item3（模组）**：`jobBoxWritten(b)` 不再 `closeJobBox()`，只 `jobBox.written = (jobBox.written || 0) + 1`；
+`jobBadgeText()` 去掉「（点开看 · 右键关）」散文、写入后追加「已写入 N 台」。框留到玩家主动关
+（徽标右键 / 管理窗「关闭框选框」）或工作区被归档/释放。
+
+**item4（模组）**：旧的三件套（`jobBadgeText`/`jobBadgeRect`/`drawJobBadge`/`jobBadgeClick`，文字当热区）换成新段
+「作业框按钮（v0.14.2）」：`JOB_BTN_H=18`/`JOB_BTN_PAD=9`/`JOB_BTN_GAP=6`/`JOB_BTN_EDGE=4`、
+`jobTextMeasure()`、`jobButtonLayout(a)`（从框右下角往左排：取消贴右缘、查看在左）、`drawJobButtons(r, a)`
+（`Fill.rect` 底 + `Lines.rect` 边 + 字）、`jobButtonsClick()`（左键：取消=`closeJobBox`，查看=`openJobManager`）。
+全部**屏幕空间即时绘制**（`Core.camera.project` 得像素、固定 `1/camerascale` 换算、`font.setUseIntegerPositions(false)`），
+绕开 arc autoscale 与 stage 坐标换算（`Arc-Source` 里没有 `Stage.java`）。`api.maiBadgeRect` 改回报按钮几何；
+`MOD_VERSION`/`mod.hjson` → 0.14.2。实测 `MAIBADGERECT`：`box{x:4,y:4,w:48,h:48}` / `status{y:-13,h:13}` /
+`cancel{x:12,y:-35,w:36,h:18}` / `view{x:-30,...}`（取消右缘 12+36=48=框右缘，两钮间距 6 px，都在框外）。
+
+**item1（sidecar，teammate `sidecar-sign` 实现 + Lead 复验）**：`tools/jobqueue.py:_materialize()` 与
+`tools/logicd.py:compose()` 改成「先 `aigenerated.sign_text()` → 再门禁/分析 → 再 `build_logic_data()`」，
+作业 JSON 与 `/compose` 回复多一个 `sig`（12 hex），`SignError` 变 `rid=sign-error` 的 ERR finding；
+`SIGN_AUTHOR = aigenerated.SIGN_AUTHOR`（`MAI_SIGN_AUTHOR` 可覆盖）；`SIDECAR_VERSION='0.14.2'`。
+**关键副产物**：`sign_text()` 的放置规则必须改 —— 6 个内置模板里 5 个以 2 操作数 `jump loop always` 结尾，
+旧规则（补 `end` 再把 `end` 换成签名跳）会让签名行落在死循环之后 ⇒ `mlogcheck` 报 `unreachable-statement`、
+面板每份产物多一条假警告、`run_logicd_tests.py` 的 `need(not res['findings'])` 必红。新规则：末条是无条件跳转 ⇒
+token 进它的 value 槽并删掉后面那个死 `end`（`jump loop always 0 "sig"`），裸 2 操作数先补 `0`；
+pid 对 `verify_text()` 会重建的 body 取哈希 ⇒ 既有 id 全部不变。`#` 注释只活在 payload 里、不进交付文本
+（游戏汇编丢注释行，`b.code` 由汇编结果重建，留着会被 `armWriteCheck()` 误判成「无权限」）。
+
+**机器验证**：`node --check` 0；`python tests/mlogauxiliary/run_ui_smoke.py` EXIT=0；`python tests/run_tests.py` 46/46
+（`slot_end_kept: true→false`）；`python tests/logicd/run_logicd_tests.py` 全绿（protocol 26 / jobs 16 / provider 12 /
+improve 8 / llm 12，含 **write path 7 模板**把 `/compose` 的 `bytes_b64` 真灌进 v160.7 处理器再回读 `b.code === code`）；
+`out/_v142_tpl_sign.py` 6 模板签名前后行数/findings 不变且 token 恰好 1 个；`out/_v142_verify_sign.py` 三种边界
+（2 操作数跳尾、`end`-only 可重签、既有 `写满停*.mlog` 重签逐字节不变）。
+
+**踩坑**：①ui smoke 的 `code_only` 剥 `//` 注释 ⇒ 红线串不能带行尾注释，且必须与代码别名一致（`F.rect` 不是 `Fill.rect`）
+②`sign_text()` 在「body 以无条件跳转结尾」时补 `end` 会自己造出 unreachable，必须改成写进 value 槽
+③真机 `b.code` 是汇编结果、不含 `#` 注释 ⇒ 签名 payload 之外的注释不能出现在交付文本里。
+
+报告：`out/takeover-20261024/81-v0142-sign-buttons.md`；断言表 L2-68 / L2-69；蓝图方案 `docs/Mlog辅助-蓝图方案.md`。

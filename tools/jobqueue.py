@@ -12,7 +12,8 @@ Contract (docs/Mlog辅助-规划.md section 4.1)
 -------------------------------------------
     {id: sha1(snapshot+desc+mode)[:16], created, state, mode, desc, snapshot,
      attempts, findings[], code, explanation, assumptions[], reasoning,
-     workspace}                      # v0.14.0, only for mode='improve'
+     workspace,                      # v0.14.0, only for mode='improve'
+     sig}                            # v0.14.2, the @aigenerated id (see below)
 
     queued -> running -> done | rejected | failed | cancelled
 
@@ -51,6 +52,18 @@ into a corner -- the player sees only 'rejected' with no way to tell why.  So th
 thinking is kept on the job ('reasoning', the latest attempt's text) and the mod
 shows it in the panel: the answer to "why did it write that" is in there, and
 without it a refusal is indistinguishable from a model that ignored the request.
+
+Why the code is signed before it is gated (v0.14.2)
+---------------------------------------------------
+The mod writes `job['code']` into the processor and then reads `b.code` back to
+check it got there (main.js armWriteCheck compares the two character by
+character).  A signature added after the job was stored would therefore read as
+"no permission"; adding it before means the job's code IS the program, and the
+`@aigenerated` token rides along invisibly (a `jump ... always ...` compare slot
+that `always` never reads, see aigenerated.py).  The gate and the compiler run on
+the signed text, so the findings describe exactly what gets written, and a model
+that hands back the previous version of an 'improve' job is re-signed with
+force=True instead of tripping over the old token.
 """
 from __future__ import annotations
 
@@ -61,6 +74,8 @@ import os
 import threading
 import time
 import traceback
+
+import aigenerated               # noqa: E402  (tools/ is on sys.path next to this file)
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
@@ -114,6 +129,12 @@ TERMINAL = ('done', 'rejected', 'failed', 'cancelled')
 
 #: analyzer WARNs that a machine write must not accept (see the module docstring)
 FATAL_RIDS = ('link-name-not-bound',)
+
+#: the author stamped on every program this queue writes into a processor.
+#: The hidden `@aigenerated` signature rides along in the code the mod writes,
+#: so the job's `code` and the processor's `b.code` stay byte-identical
+#: (armWriteCheck compares them) while the attribution travels with the program.
+SIGN_AUTHOR = aigenerated.SIGN_AUTHOR
 
 DEFAULT_DIR = os.path.join(ROOT, 'out', 'jobs')
 
@@ -586,6 +607,7 @@ class Queue:
                       template=res.get('template'), params=res.get('params') or {})
             if res['ok']:
                 self._set(jid, state='done', code=res['code'],
+                          sig=res.get('sig') or '',
                           bytes_b64=res.get('bytes_b64') or '',
                           statements=res.get('statements') or 0,
                           finished=int(time.time() * 1000))
@@ -601,6 +623,21 @@ class Queue:
         ipt = job.get('ipt') or 2
         if isinstance(out.get('code'), str) and out['code'].strip():
             code = out['code']
+            # sign first (v0.14.2): the mod writes job['code'] and then reads
+            # b.code back, so the signed text -- not the raw reply -- has to be
+            # what the job holds, what the gate reads and what gets compiled.
+            # force=True: an 'improve' reply often still carries the previous
+            # version's token, which must be replaced, not rejected.
+            try:
+                code, sig = aigenerated.sign_text(code, SIGN_AUTHOR, force=True)
+            except aigenerated.SignError as exc:
+                res = gate(code, links, ipt=ipt)
+                res['findings'] = [{'sev': 'ERR', 'rid': 'sign-error', 'line': 0,
+                                    'msg': 'the reply could not be signed: %s' % exc}]
+                res['ok'] = False
+                res['errors'] = 1
+                res['code'] = ''
+                return res
             res = gate(code, links, ipt=ipt)
             # the reply may also DECLARE which links it wants (section 4.3 needs_links);
             # a name that is not in an authoritative table is a refusal, not a warning.
@@ -618,6 +655,7 @@ class Queue:
                     res['ok'] = False
             payload = L.msch.build_logic_data(code, L._relative_links(links or [], job.get('origin')))
             res.update({'code': code,
+                        'sig': sig,
                         'bytes_b64': base64.b64encode(payload).decode('ascii'),
                         'explanation': out.get('explanation') or '',
                         'assumptions': out.get('assumptions') or []})

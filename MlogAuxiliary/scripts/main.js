@@ -28,7 +28,7 @@
 function __logicWriterMain(){
     "use strict";
 
-    var MOD_VERSION = "0.14.1";
+    var MOD_VERSION = "0.14.2";
     var URL_KEY     = "mlogauxiliary-url";
     var DEFAULT_URL = "http://127.0.0.1:8765";
     // v0.11.0：设置页里填的模型档三件套。密钥只留在本机 Core.settings 与 sidecar 进程内存。
@@ -2582,10 +2582,15 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
             if(jobBox === null){ return ""; }
             var s = jobBoxState();
             if(s === null){ return ""; }
+            var written = jobBox.written || 0;
             if(s.total === 0){ return (s.pending > 0) ? "投递中…" : ""; }
-            if(!s.finished){ return "作业 " + s.terminal + "/" + s.total + " · 生成中（点开看 · 右键关）"; }
-            if(s.failed === 0){ return "作业 " + s.total + "/" + s.total + " · 完成（点开看 · 右键关）"; }
-            return "作业 " + s.total + "/" + s.total + " · " + s.done + " 成 " + s.failed + " 败（点开看 · 右键关）";
+            if(!s.finished){ return "作业 " + s.terminal + "/" + s.total + " · 生成中"; }
+            if(written > 0){
+                return "作业 " + s.total + "/" + s.total + " · 已写入"
+                       + (written > 1 ? " " + written + " 台" : "");
+            }
+            if(s.failed === 0){ return "作业 " + s.total + "/" + s.total + " · 完成"; }
+            return "作业 " + s.total + "/" + s.total + " · " + s.done + " 成 " + s.failed + " 败";
         }
 
         function jobBoxFinishIfDone(){
@@ -2614,12 +2619,12 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
             }catch(e){ return false; }
         }
 
-        // 写入成功 → 这块框选的活干完了，框才可以消失。
+        // v0.14.2：写入成功不再把框（和工作区）一起抹掉 —— 框留着、工作区留着，玩家点「取消」才收。
+        // 这里只记一笔「写了几台」，徽标状态行据此改口。
         function jobBoxWritten(b){
             if(jobBox === null){ return; }
             if(!jobBoxContainsBuild(b)){ return; }
-            jobBox = null;
-            jobBadge = null;
+            jobBox.written = (jobBox.written || 0) + 1;
         }
 
         function jobBoxTick(){
@@ -2650,77 +2655,133 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
             jobBoxFinishIfDone();
         }
 
-        // 徽标的位置和点击区必须是同一份几何：先算矩形，再按矩形画字、按矩形收点击。
-        // y 的语义照原版 InputHandler 画选区尺寸那一手（font.draw 的 y 是基线，字往上涨），
-        // 所以「贴在框底边外侧」= 基线在 (框底边 - 4 屏幕像素 - 字高)，不是基线压在框底边上。
-        // 宽度/字高都用 GlyphLayout 真量；量不出来才按字数估（宁可点区大一点，也不要看得见点不着）。
-        function jobBadgeRect(a){
+        // v0.14.2：作业框的操作区 —— 状态一行 + 两个固定像素尺寸的按钮（查看 / 取消）。
+        // 原来那行「（点开看 · 右键关）」是画在世界坐标里的说明字：随镜头缩放会变形，也没有
+        // 可点的边界。现在按钮的像素尺寸固定（JOB_BTN_H 屏幕像素高），世界坐标只按
+        // 1/camerascale 换算，画面与命中区共用同一份几何（jobButtonLayout）。
+        var JOB_BTN_H = 18;      // 按钮高（屏幕像素）
+        var JOB_BTN_PAD = 9;     // 按钮左右内边距（屏幕像素）
+        var JOB_BTN_GAP = 6;     // 两个按钮之间（屏幕像素）
+        var JOB_BTN_EDGE = 4;    // 按钮行离框右边 / 底边（屏幕像素）
+
+        // 量一段字：优先 GlyphLayout 真量，量不出来按字数估（宁可点区大一点，也不要看得见点不着）。
+        function jobTextMeasure(font, text, unit){
+            var w = 0, hh = 13 * unit;
+            if(font !== null && font !== undefined){
+                try{
+                    font.getData().setScale(unit);
+                    var layout = new Packages.arc.graphics.g2d.GlyphLayout(font, text);
+                    if(layout.width > 0){ w = layout.width; }
+                    if(layout.height > 0){ hh = layout.height; }
+                }catch(e){ }
+            }
+            if(!(w > 0)){ w = text.length * 9 * unit; }
+            return {w: w, h: hh};
+        }
+
+        // 状态行 + 两个按钮的全部几何（世界坐标）。画和点都只认这一份。
+        // 排版：右对齐贴在框右下角外侧，从上到下是「状态行」再「按钮行」，取消在最右、查看在左。
+        function jobButtonLayout(a){
             var text = jobBadgeText();
             if(text === ""){ return null; }
             var scale = 1;
             try{ scale = Vars.renderer.camerascale; }catch(e0){ }
             if(!(scale > 0)){ scale = 1; }
-            // 无头引擎里 Fonts.outline 是 null（没有 UI），几何照样算得出来：按字数估宽，
-            // 这样自检能钉「角标贴没贴住框的角」，而不是只能等玩家截图。
+            var unit = 1 / scale;
             var font = Packages.mindustry.ui.Fonts.outline;
-            var w = 0, hh = 13 / scale;
-            if(font !== null && font !== undefined){
-                font.getData().setScale(1 / scale);
-                try{
-                    var layout = new Packages.arc.graphics.g2d.GlyphLayout(font, text);
-                    if(layout.width > 0){ w = layout.width; }
-                    if(layout.height > 0){ hh = layout.height; }
-                }catch(e1){ }
+            var st = jobTextMeasure(font, text, unit);
+            var h = JOB_BTN_H * unit, pad = JOB_BTN_PAD * unit, gap = JOB_BTN_GAP * unit;
+            var right = a.x + a.w - JOB_BTN_EDGE * unit;      // 按钮行右端
+            var statusTop = a.y - JOB_BTN_EDGE * unit;        // 状态行顶端（整行在框外）
+            var statusY = statusTop - st.h;                   // 状态行基线（font.draw 的 y 是基线）
+            var btnTop = statusY - JOB_BTN_EDGE * unit;       // 按钮行顶端
+            var btnY = btnTop - h;
+            var defs = [{id: "cancel", label: "取消"}, {id: "view", label: "查看"}];
+            var out = [], i, x = right;
+            for(i = 0; i < defs.length; i++){
+                var tm = jobTextMeasure(font, defs[i].label, unit);
+                var w = tm.w + 2 * pad;
+                x = x - w;
+                out.push({id: defs[i].id, label: defs[i].label,
+                          x: x, y: btnY, w: w, h: h, tw: tm.w, th: tm.h});
+                x = x - gap;
             }
-            if(!(w > 0)){ w = text.length * 9 / scale; }
-            var bx = a.x + a.w - w - 4 / scale;   // 右对齐：字右端离框右边 4 个屏幕像素
-            var top = a.y - 4 / scale;            // 字顶离框底边 4 个屏幕像素（整个字在框外）
-            return {text: text, x: bx, y: top - hh, w: w, h: hh,
-                    scale: scale, top: top, right: bx + w};
+            return {text: text, scale: scale, unit: unit, box: a,
+                    status: {text: text, x: right - st.w, y: statusY, w: st.w, h: st.h},
+                    buttons: out, top: statusTop, right: right, h: h, btnTop: btnTop};
         }
 
-        function drawJobBadge(r, a){
+        function drawJobButtons(r, a){
             try{
-                var m = jobBadgeRect(a);
+                var m = jobButtonLayout(a);
                 if(m === null){ jobBadge = null; return; }
-                jobBadge = {x: m.x - 3 / m.scale, y: m.y - 3 / m.scale,
-                            w: m.w + 6 / m.scale, h: m.h + 6 / m.scale};
                 var font = Packages.mindustry.ui.Fonts.outline;
-                if(font === null || font === undefined){ return; }
                 var D = Packages.arc.graphics.g2d.Draw;
+                var L = Packages.arc.graphics.g2d.Lines;
+                var F = Packages.arc.graphics.g2d.Fill;
                 var z = D.z();
                 D.z(Packages.mindustry.core.Layer.endPixeled);
-                font.getData().setScale(1 / m.scale);
-                // 原版画选区尺寸时也关掉整数对齐：开着的话 1/camerascale 的小数位置会被量化成整数，
-                // 字会整体飘开框的角——真机上看到的就是「错位」。
-                var ints = true;
-                try{ ints = font.usesIntegerPositions(); font.setUseIntegerPositions(false); }catch(e0){ }
-                font.setColor(Pal.accent);
-                font.draw(m.text, m.x, m.y);
-                font.setColor(Packages.arc.graphics.Color.white);
-                font.getData().setScale(1);
-                try{ font.setUseIntegerPositions(ints); }catch(e1){ }
+                var mx = 0, my = 0, hasMouse = true;
+                try{ mx = Core.input.mouseWorldX(); my = Core.input.mouseWorldY(); }catch(e0){ hasMouse = false; }
+                var i, b, hot;
+                for(i = 0; i < m.buttons.length; i++){
+                    b = m.buttons[i];
+                    hot = hasMouse && mx >= b.x && mx <= b.x + b.w && my >= b.y && my <= b.y + b.h;
+                    D.color(Pal.accentBack);
+                    D.alpha(hot ? 0.7 : 0.4);
+                    F.rect(b.x, b.y, b.w, b.h);
+                    D.alpha(1);
+                    L.stroke(hot ? 2 : 1);
+                    D.color(Pal.accent);
+                    L.rect(b.x, b.y, b.w, b.h);
+                }
+                D.color();
+                if(font !== null && font !== undefined){
+                    // 原版画选区尺寸时也关掉整数对齐：开着的话 1/camerascale 的小数位置会被
+                    // 量化成整数，字会整体飘开框的角——真机上看到的就是「错位」。
+                    var ints = true;
+                    try{ ints = font.usesIntegerPositions(); font.setUseIntegerPositions(false); }catch(e1){ }
+                    font.getData().setScale(m.unit);
+                    font.setColor(Pal.accent);
+                    font.draw(m.status.text, m.status.x, m.status.y);
+                    for(i = 0; i < m.buttons.length; i++){
+                        b = m.buttons[i];
+                        font.draw(b.label, b.x + (b.w - b.tw) / 2,
+                                  b.y + (b.h - b.th) / 2 + b.th * 0.78);
+                    }
+                    font.setColor(Packages.arc.graphics.Color.white);
+                    font.getData().setScale(1);
+                    try{ font.setUseIntegerPositions(ints); }catch(e2){ }
+                }
                 D.z(z);
+                jobBadge = {buttons: m.buttons, scale: m.scale, top: m.top, right: m.right};
             }catch(e){ jobBadge = null; }
         }
 
-        // 点徽标 = 开作业管理窗。世界坐标命中，和 drawJobBadge 写在同一个坐标系里。
-        // 注意：这一次点击世界也会收到（原版是「放方块」那条路），所以只在真有作业框时才抢，
-        // 且框是玩家自己刚画的那一块，通常不在放方块的节奏里。
-        function jobBadgeClick(){
+        // 点「查看」= 开作业管理窗；点「取消」= 关掉这个框选框（工作区留着，只是不画框了）。
+        // 世界坐标命中，和 drawJobButtons 用的是同一份 jobButtonLayout 几何。
+        function jobButtonsClick(){
             if(jobBox === null || jobBadge === null || selDragging){ return false; }
             var right = Core.input.keyTap(Packages.arc.input.KeyCode.mouseRight);
             if(!right && !Core.input.keyTap(Packages.arc.input.KeyCode.mouseLeft)){ return false; }
             var mx = Core.input.mouseWorldX(), my = Core.input.mouseWorldY();
-            if(mx < jobBadge.x || mx > jobBadge.x + jobBadge.w){ return false; }
-            if(my < jobBadge.y || my > jobBadge.y + jobBadge.h){ return false; }
-            if(right){ hint(closeJobBox("框选框已关掉（右键徽标）")); return true; }
-            try{
-                openJobManager();
-            }catch(e){
-                hint("作业窗口打不开：" + e);
+            var bs = jobBadge.buttons || [], i, b;
+            for(i = 0; i < bs.length; i++){
+                b = bs[i];
+                if(mx < b.x || mx > b.x + b.w){ continue; }
+                if(my < b.y || my > b.y + b.h){ continue; }
+                if(b.id === "cancel" || right){
+                    hint(closeJobBox(b.id === "cancel" ? "框选框已关掉（取消按钮）" : "框选框已关掉（右键）"));
+                    return true;
+                }
+                try{
+                    openJobManager();
+                }catch(e){
+                    hint("作业窗口打不开：" + e);
+                }
+                return true;
             }
-            return true;
+            return false;
         }
 
         // Rhino 的 String.prototype 不一定有 trim（v160.7 里 split 都能等价空匹配），自己来。
@@ -4207,7 +4268,7 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
                 L.rect(a.x, a.y, a.w, a.h);
                 D.color();
             }catch(e){ /* 画不出来不影响选择本身 */ }
-            if(live){ drawSizeText(r); } else { drawJobBadge(r, a); }
+            if(live){ drawSizeText(r); } else { drawJobButtons(r, a); }
         }
 
         // 原版还在光标旁写「宽x高 (面积)」（InputHandler.java:1772-1794）：
@@ -4587,19 +4648,20 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
             return JSON.stringify({box: true, r: jobBox.r, ws: jobBox.ws || null, ids: jobBox.ids,
                                    total: s.total, terminal: s.terminal,
                                    done: s.done, failed: s.failed,
-                                   linger: jobBox.termAt > 0, badge: jobBadgeText()});
+                                   linger: jobBox.termAt > 0, written: (jobBox.written || 0),
+                                   badge: jobBadgeText()});
         };
         api.maiJobBoxClear = function(){ jobBox = null; jobBadge = null; return "cleared"; };
         // v0.12.7：框只该在「写入」或「主动关」时消失 —— 这个口子就是「主动关」。
         api.maiJobBoxClose = function(){ return closeJobBox("closed"); };
-        // 自检口：角标矩形与框右下角的关系（无头引擎里 renderer 可能是 null，按 scale 1 算）。
+        // 自检口：状态行 + 两个按钮的几何与框右下角的关系（无头引擎里 renderer 可能是 null，按 scale 1 算）。
         api.maiBadgeRect = function(){
             var a = selDrawArgs({x1: 1, y1: 1, x2: 6, y2: 6, w: 6, h: 6});
-            var m = jobBadgeRect(a);
+            var m = jobButtonLayout(a);
             if(m === null){ return JSON.stringify({rect: false}); }
-            return JSON.stringify({rect: true, scale: m.scale, box: a, right: m.right,
-                                   top: m.top, x: m.x, y: m.y, w: m.w, h: m.h,
-                                   text: m.text});
+            return JSON.stringify({rect: true, scale: m.scale, box: a, right: m.right, top: m.top,
+                                   status: m.status, buttons: m.buttons, text: m.text,
+                                   x: m.status.x, y: m.status.y, w: m.status.w, h: m.status.h});
         };
         // 自检口：不碰 sidecar 也能把「框留多久 / 徽标写什么」这套状态机跑一遍。
         api.maiJobBoxPin = function(idsJson, statesJson){
@@ -4719,7 +4781,7 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
                     jobBoxTick();   // v0.12.5：框选框里那一批作业的状态
                     writeCheckTick(); // v0.12.8：联机里回读写过的处理器，确认服务端真收下了
                     sidecarTick();  // v0.13.1：自己拉起来的 sidecar 要等它开口
-                    jobBadgeClick(); // v0.12.5：点框右下角的徽标 = 开作业管理窗
+                    jobButtonsClick(); // v0.14.2：框右下角的「查看 / 取消」两个按钮
                     // 「设置 → Mlog辅助」这一栏只在 Vars.ui 建好之后能注册。脚本加载时
                     // UI 往往还没建（真机日志里是在 ClientLoadEvent 前），所以这里补一次
                     // 有界重试：每 60 帧试一次、最多 600 次（≈10 s @60fps），成功即停。

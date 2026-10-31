@@ -78,12 +78,18 @@ import mlogcheck as C          # noqa: E402
 import msch                    # noqa: E402
 import jobqueue                # noqa: E402  (imports us back lazily, one-way edge)
 import mlogprovider           # noqa: E402  (prompt / reply parsing / model call; offline at import)
+import aigenerated             # noqa: E402  (the hidden @aigenerated signature)
 
 PROTOCOL = 1
 # The sidecar is what gets restarted when a fix ships, and a stale process answers
 # /health with 200 all day, so let the answer say which build it is (v0.12.3).
-SIDECAR_VERSION = '0.14.0'
+SIDECAR_VERSION = '0.14.2'
 GAME = 'mindustry v160.7 (executor jar out/_server160.jar)'
+
+#: v0.14.2: every program this sidecar hands out is signed before it is analyzed
+#: and compiled, so the bytes the mod writes carry the attribution and the job's
+#: `code` is byte-identical to the processor's `b.code` (main.js armWriteCheck).
+SIGN_AUTHOR = aigenerated.SIGN_AUTHOR
 
 #: LogicBlock.instructionsPerTick is 1 by default and clamped to
 #: maxInstructionsPerTick = 40 (LogicBlock.java:46,48,826) -- the panel shows the
@@ -658,6 +664,11 @@ def compose(req):
             subs_info.append((n, alt))
     if subs:
         code = _substitute_links(code, subs)
+    # v0.14.2: sign before analyzing, so the findings, the statement count and the
+    # compiled payload all describe the text that actually gets written.  The
+    # signature only touches the tail (the token rides in an unconditional jump's
+    # value slot and the dead `end` behind it is dropped), so no line moves.
+    code, sig = aigenerated.sign_text(code, SIGN_AUTHOR, force=True)
     # Anything still unbound is a hard error here: the analyzer would also say so, but a
     # template should name the link it wanted.
     missing = [n for n in refs if n not in names and n not in subs]
@@ -675,7 +686,7 @@ def compose(req):
         res['errors'] += 1
         res['ok'] = False
     payload = msch.build_logic_data(code, _relative_links(links, origin))
-    return {'ok': res['ok'], 'template': tid, 'code': code,
+    return {'ok': res['ok'], 'template': tid, 'code': code, 'sig': sig,
             'findings': res['findings'], 'errors': res['errors'], 'warns': res['warns'],
             'statements': res['statements'], 'cost': res['cost'],
             'links': _link_names(links),

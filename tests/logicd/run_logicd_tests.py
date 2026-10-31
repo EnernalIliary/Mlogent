@@ -36,6 +36,7 @@ import io
 import json
 import os
 import pathlib
+import re
 import shutil
 import subprocess
 import sys
@@ -168,6 +169,7 @@ def test_protocol():
         need('undefined-var-read' in rids, 'ERR findings: %r' % rids)
         checks += 1
 
+        import aigenerated
         import msch
         for tid in tids:
             st, res = srv.post('/compose', {'template': tid, 'params': {}, 'links': LINKS})
@@ -180,6 +182,16 @@ def test_protocol():
                  'compose %s bytes decode to a different code' % tid)
             need([l.name for l in parsed.links] == [l['name'] for l in LINKS],
                  'compose %s link table: %r' % (tid, [l.name for l in parsed.links]))
+            # v0.14.2: what /compose hands out is signed, so the mod can write it
+            # and read it back unchanged (armWriteCheck compares b.code verbatim)
+            need(re.match(r'^[0-9a-f]{12}$', res.get('sig') or ''),
+                 'compose %s: sig is not a 12-hex id: %r' % (tid, res.get('sig')))
+            need(res['code'].count('"aigenerated:') == 1,
+                 'compose %s: %d @aigenerated token(s) in the code, want 1'
+                 % (tid, res['code'].count('"aigenerated:')))
+            need(aigenerated.verify_text(res['code']) == [],
+                 'compose %s: the signature does not verify: %r'
+                 % (tid, aigenerated.verify_text(res['code'])))
             checks += 1
 
         # Link coordinates in the payload are RELATIVE to the processor
@@ -538,6 +550,7 @@ def test_jobs():
 
     No JRE, no model: a fake provider answers from FAKE, so this half runs anywhere.
     """
+    import aigenerated
     import jobqueue
     checks = 0
     tmp = pathlib.Path(tempfile.mkdtemp(prefix='logicd-jobs-', dir=str(ROOT / 'out')))
@@ -560,6 +573,18 @@ def test_jobs():
              'done job carries no code/payload: %r'
              % ({k: job.get(k) for k in ('code', 'bytes_b64')},))
         need((qdir / (jid + '.json')).is_file(), 'job was not written to %s' % qdir)
+        # v0.14.2: the queue signs before it gates, so the job's code IS the program
+        # the mod writes -- and the mod compares it with b.code character by
+        # character, so the token has to be in the job, not added at write time.
+        need(job['code'].count('"aigenerated:') == 1,
+             'a done job carries %d @aigenerated token(s), want 1: %r'
+             % (job['code'].count('"aigenerated:'), job['code']))
+        need(aigenerated.verify_text(job['code']) == [],
+             'the job code does not verify: %r' % (aigenerated.verify_text(job['code']),))
+        need(re.match(r'^[0-9a-f]{12}$', job.get('sig') or ''),
+             'a done job has no 12-hex sig: %r' % (job.get('sig'),))
+        need(job['sig'] == aigenerated.sign_text(job['code'], jobqueue.SIGN_AUTHOR)[1],
+             'job sig %r is not the id of the code it wrote' % (job['sig'],))
         checks += 1
 
         # section 4.2: the same body is a no-op while that job is still in flight
@@ -686,6 +711,13 @@ def test_jobs():
              'template tier picked %r, want item-threshold' % (auto.get('template'),))
         need('sensor' in auto['code'] and 'container1' in auto['code'],
              'template tier code looks wrong: %r' % (auto['code'],))
+        # the template tier goes through compose(), which signs too -- a job that
+        # reaches a processor must never be the one unsigned path
+        need(auto['code'].count('"aigenerated:') == 1
+             and aigenerated.verify_text(auto['code']) == []
+             and re.match(r'^[0-9a-f]{12}$', auto.get('sig') or ''),
+             'the template tier wrote an unsigned program: sig=%r code=%r'
+             % (auto.get('sig'), auto['code']))
         checks += 1
     finally:
         srv2.close()
@@ -1156,6 +1188,37 @@ def test_improve():
     finally:
         srv.close()
         shutil.rmtree(tmp, ignore_errors=True)
+
+    # 8. v0.14.2: prevCode is signed now, so an improve reply that echoes the
+    #    previous version comes back with the OLD token still in it -- re-signing
+    #    has to replace it (force=True) instead of raising SignError, which would
+    #    turn every "keep it as it is" answer into a failed job
+    import aigenerated
+    prev_signed, prev_sig = aigenerated.sign_text(prev, jobqueue.SIGN_AUTHOR)
+    need(aigenerated.verify_text(prev_signed) == [],
+         'the previous version is not signed: %r' % (aigenerated.verify_text(prev_signed),))
+    echo_tmp = pathlib.Path(tempfile.mkdtemp(prefix='logicd-echo-', dir=str(ROOT / 'out')))
+    try:
+        echo_job = jobqueue.normalize(dict(body, workspace=dict(ws, prevCode=prev_signed)))
+        q = jobqueue.Queue(jobqueue.Store(str(echo_tmp / 'queue')),
+                           provider=jobqueue.FakeProvider(
+                               {'把铜': {'code': prev_signed,
+                                        'explanation': 'echoed the previous version'}}))
+        q.enqueue(echo_job)
+        q.drain()
+        echoed = q.get(echo_job['id'])
+        need(echoed['state'] == 'done',
+             'a reply that echoes the signed previous version did not land: %r'
+             % ({k: echoed.get(k) for k in ('state', 'findings', 'explanation')},))
+        need(not any(f.get('rid') == 'sign-error' for f in echoed['findings']),
+             're-signing the echoed version reported a sign-error: %r'
+             % (echoed['findings'],))
+        need(echoed['code'] == prev_signed and echoed.get('sig') == prev_sig,
+             're-signing the echoed version did not reproduce the same program: '
+             'sig %r -> %r' % (prev_sig, echoed.get('sig')))
+        checks += 1
+    finally:
+        shutil.rmtree(echo_tmp, ignore_errors=True)
 
     return checks
 

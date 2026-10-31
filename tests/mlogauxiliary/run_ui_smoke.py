@@ -601,6 +601,30 @@ def main():
             problems.append('v0.12.6: the badge width disagrees with its right edge: %r' % (badge,))
         if '\u751f\u6210\u4e2d' not in str(badge.get('text')):
             problems.append('v0.12.6: the badge measured the wrong text: %r' % (badge.get('text'),))
+        # v0.14.2: 文案换成两个固定像素尺寸的按钮（取消在最右、查看在左），都在框外、互不重叠。
+        btns = badge.get('buttons')
+        if not isinstance(btns, list) or [str(b.get('id')) for b in btns] != ['cancel', 'view']:
+            problems.append('v0.14.2: the box has no 查看/取消 buttons: %r' % (btns,))
+        else:
+            cancel, view = btns[0], btns[1]
+            if abs(float(cancel.get('h', 0)) * sc - 18) > 1e-3:
+                problems.append('v0.14.2: the buttons do not keep a fixed 18px height: %r'
+                                % (float(cancel.get('h', 0)) * sc,))
+            if abs((float(cancel.get('x')) + float(cancel.get('w'))) - right) > 1e-3:
+                problems.append('v0.14.2: the 取消 button is not flush with the box right edge: '
+                                'right=%r wanted %r'
+                                % (float(cancel.get('x')) + float(cancel.get('w')), right))
+            gap = float(view.get('x')) + float(view.get('w')) - float(cancel.get('x'))
+            if abs(gap + 6 / sc) > 1e-3:
+                problems.append('v0.14.2: the two buttons do not keep a 6px gap: %r' % (gap,))
+            for b in btns:
+                if float(b.get('y')) + float(b.get('h')) > float(box.get('y', 0)) + 1e-9:
+                    problems.append('v0.14.2: a box button overlaps the selection box: %r' % (b,))
+                if float(b.get('w', 0)) <= 0 or float(b.get('h', 0)) <= 0:
+                    problems.append('v0.14.2: a box button has no size: %r' % (b,))
+        if '\u70b9\u5f00\u770b' in str(badge.get('text')) or '\u53f3\u952e\u5173' in str(badge.get('text')):
+            problems.append('v0.14.2: the badge still carries the old prose: %r'
+                            % (badge.get('text'),))
     if 'MAIJOBMANAGER:no ui' not in joined:
         problems.append('v0.12.5: the job manager window should report "no ui" headless: %r'
                         % [l for l in lines if l.startswith('MAIJOBMANAGER:')][:1])
@@ -871,14 +895,14 @@ def main():
                          'F3 no longer opens the single description box'),
                         ('return openQuickJob(r);',
                          'selFinish stopped going through the description box'),
-                        ('function drawJobBadge(',
-                         'the running-job badge in the box corner is gone'),
+                        ('function drawJobButtons(',
+                         'the running-job buttons in the box corner are gone'),
                         ('jobBox !== null && jobBox.r',
                          'drawSelection stopped keeping the box after release'),
                         ('function jobBoxTick(',
                          'the retained box is no longer polled for job states'),
-                        ('function jobBadgeClick(',
-                         'the corner badge is not clickable any more'),
+                        ('function jobButtonsClick(',
+                         'the corner buttons are not clickable any more'),
                         ('function openJobManager(',
                          'the unified job manager window is gone'),
                         ('"/jobs?all=1&limit=',
@@ -887,8 +911,8 @@ def main():
             problems.append('v0.12.5: ' + why)
     if 'return dumpRegion(r.x1, r.y1, r.x2, r.y2);' in code_only:
         problems.append('v0.12.5: F3 still opens the region snapshot panel on release')
-    for needle, why in (('function jobBadgeRect(',
-                         'the badge geometry is inlined again -- text and hit box will drift apart'),
+    for needle, why in (('function jobButtonLayout(',
+                         'the button geometry is inlined again -- text and hit box will drift apart'),
                         ('font.setUseIntegerPositions(false)',
                          'the badge draws with integer positions -- at 1/camerascale the text '
                          'snaps away from the box corner'),
@@ -899,7 +923,7 @@ def main():
     for needle, why in (('function closeJobBox(',
                          'the box can no longer be closed on purpose'),
                         ('jobBoxWritten(b)',
-                         'a successful write no longer clears the selection box'),
+                         'a successful write no longer tells the box it was written'),
                         ('api.maiJobBoxClose = function',
                          'the explicit-close probe is gone')):
         if needle not in code_only:
@@ -907,6 +931,20 @@ def main():
     if 'JOB_BOX_LINGER_MS' in code_only:
         problems.append('v0.12.7: the box still times itself out -- it has to wait for a '
                         'write or for the player to close it')
+    # v0.14.2: 作业框的操作区是两个固定像素尺寸的按钮；写入成功不再把框（和工作区）抹掉。
+    for needle, why in (('var JOB_BTN_H = 18',
+                         'the box buttons lost their fixed pixel height'),
+                        ('F.rect(b.x, b.y, b.w, b.h)',
+                         'the box buttons have no background any more'),
+                        ('jobBox.written = (jobBox.written || 0) + 1',
+                         'a successful write no longer keeps the box on screen'),
+                        ('jobButtonsClick();',
+                         'the update loop no longer listens for the box buttons')):
+        if needle not in code_only:
+            problems.append('v0.14.2: ' + why)
+    if 'jobBox = null;\n            jobBadge = null;' in code_only.split('function jobBoxWritten')[1][:400]:
+        problems.append('v0.14.2: a write still wipes the selection box and its workspace')
+
     # v0.12.8: 冲突基线必须连链接表一起比；联机写入被服务端丢掉时必须报「无权限」。
     for needle, why in (('function linkSig(',
                          'the conflict baseline no longer covers the link table'),

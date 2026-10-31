@@ -178,4 +178,4 @@ F3 框选松手
   `job_id()` 只在 improve 时把 prevCode 计入 blob）；导入导出往返（导入换新 id，不覆盖）。
 
 **实施记录**：W1 → v0.14.0（提交 `5df6ece`）；W2+W3+W4 → v0.14.1（模组侧 `main.js` + sidecar 侧
-`tools/jobqueue.py`/`tools/mlogprovider.py`/`tools/logicd.py`，`SIDECAR_VERSION='0.14.0'`）。W5（sidecar 索引）仍可选、未做。
+`tools/jobqueue.py`/`tools/mlogprovider.py`/`tools/logicd.py`，`SIDECAR_VERSION='0.14.0'`）；v0.14.2 修掉 W1/W2 在 UI 层被抹掉的一半（写入成功不再 `closeJobBox()`，框角换成「查看 / 取消」两个固定像素按钮，`jobBox.written` 计数），并把 `@aigenerated` 签名并入 sidecar 的写入口（作业 `code` 就是写进处理器的那份，带 `sig`）。W5（sidecar 索引）仍可选、未做。
