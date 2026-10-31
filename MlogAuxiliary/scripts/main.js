@@ -28,7 +28,7 @@
 function __logicWriterMain(){
     "use strict";
 
-    var MOD_VERSION = "0.14.2";
+    var MOD_VERSION = "0.14.3";
     var URL_KEY     = "mlogauxiliary-url";
     var DEFAULT_URL = "http://127.0.0.1:8765";
     // v0.11.0：设置页里填的模型档三件套。密钥只留在本机 Core.settings 与 sidecar 进程内存。
@@ -68,20 +68,20 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
     // 诊断数据只算一次，两个出口共用：设置页（键值两列对齐）与控制台/剪贴板（纯文本）。
     function diagParts(){
         var parts = [];
-        parts.push({k: "版本", v: MOD_VERSION + "（游戏构建 " + gameBuild() + "）"});
+        parts.push({k: "版本", v: MOD_VERSION + "（构建 " + gameBuild() + "）"});
         if(RULES === null){
-            parts.push({k: "快检模块", v: "没加载（scripts/rules.generated.js 或 scripts/quickcheck.js 缺失）"});
+            parts.push({k: "快检", v: "未加载（缺 rules.generated.js 或 quickcheck.js）"});
         }else{
-            parts.push({k: "快检模块", v: "已加载 · 指令 " + countKeys(RULES.instr) + " 条 / op 版本门 "
+            parts.push({k: "快检", v: "已加载 · 指令 " + countKeys(RULES.instr) + " 条 / 版本门 "
                        + countKeys(RULES.ops) + " 条 / 链接槽 " + countKeys(RULES.link) + " 条"});
         }
         parts.push({k: "sidecar", v: base + "（"
-                    + (sidecarOk === null ? "未探测" : (sidecarOk ? "上次可达" : "上次不可达")) + "）"});
+                    + (sidecarOk === null ? "未探测" : (sidecarOk ? "可达" : "不可达")) + "）"});
         parts.push({k: "大模型", v: llmText()});
         parts.push({k: "数据目录", v: dirText(Vars.dataDirectory)});
         parts.push({k: "mods 目录", v: dirText(Vars.modDirectory)});
-        parts.push({k: "设置分类", v: settingsDone ? "已注册（设置 → Mlog辅助）"
-                    : (settingsErr === null ? "还没注册（Vars.ui 未就绪）" : "注册失败：" + settingsErr)});
+        parts.push({k: "设置项", v: settingsDone ? "已注册（设置 → Mlog辅助）"
+                    : (settingsErr === null ? "未注册（Vars.ui 未就绪）" : "注册失败：" + settingsErr)});
         return parts;
     }
 
@@ -99,7 +99,7 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
             var body = String(text).substring(0, 200);
             log("health " + code + " " + body.substring(0, 100));
             var msg = sidecarOk ? ("可达：" + base + "\n" + body)
-                                : ("不可达（" + code + "）：" + base + "\n先在本机跑：python tools/logicd.py");
+                                : ("不可达（" + code + "）：" + base + "\n先启动 sidecar：python tools/logicd.py");
             if(Vars.ui !== null){ Vars.ui.showText("Mlog辅助 · 连接", msg); }
         });
     }
@@ -176,7 +176,7 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
                 hint("sidecar 已就绪：" + base);
             }else if(tries >= 25){
                 SIDE.state = "failed";
-                hint("sidecar 起不来（25 次探测都失败）。日志：" + SIDE.exe + " 同目录的 sidecar.log");
+                hint("sidecar 启动失败（25 次探测无响应），日志见 sidecar.log");
             }
         });
     }
@@ -194,8 +194,8 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
             if(exe === null || dir === null){
                 SIDE.state = "noexe";
                 if(quiet !== true){
-                    hint("连不上 sidecar（" + base + "），这个安装里也没有 sidecar/bin/logicd.exe。"
-                         + "源码树里请先跑 python tools/logicd.py；装包版请重新双击 安装.bat。");
+                    hint("连不上 sidecar（" + base + "），安装里也没有 sidecar/bin/logicd.exe。源码树先跑 "
+                         + "python tools/logicd.py，装包版重新双击 安装.bat。");
                 }
                 return;
             }
@@ -206,14 +206,14 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
                 return;
             }
             SIDE.state = "starting"; SIDE.tries = 0; SIDE.at = 0;
-            if(quiet !== true){ hint("正在启动 sidecar …"); }
+            if(quiet !== true){ hint("正在启动 sidecar…"); }
         });
     }
 
     function sidecarStateText(){
         if(SIDE.state === "up"){ return "已就绪"; }
-        if(SIDE.state === "starting"){ return "正在启动（探测 " + SIDE.tries + " 次）"; }
-        if(SIDE.state === "noexe"){ return "没有随包的 logicd.exe"; }
+        if(SIDE.state === "starting"){ return "启动中（探测 " + SIDE.tries + " 次）"; }
+        if(SIDE.state === "noexe"){ return "缺少 logicd.exe"; }
         if(SIDE.state === "failed"){ return "启动失败"; }
         return "未尝试";
     }
@@ -235,7 +235,7 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
         var b = aimedBuild();
         if(b === null || Vars.ui === null){
             if(Vars.ui !== null){
-                Vars.ui.showText("Mlog辅助 · 快检", "先把鼠标指向一个处理器，再点这个按钮");
+                Vars.ui.showText("Mlog辅助 · 快检", "先把光标指向处理器");
             }
             return;
         }
@@ -296,22 +296,22 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
     function copyDiag(){
         try{
             Core.app.setClipboardText(diagText());
-            if(Vars.ui !== null){ Vars.ui.showText("Mlog辅助 · 诊断", "诊断已复制到剪贴板。"); }
+            if(Vars.ui !== null){ Vars.ui.showText("Mlog辅助 · 诊断", "诊断已复制。"); }
         }catch(e){ log("clipboard failed: " + e); }
     }
 
     function buildSettingsTable(t, mk){
         mk = mk || realRow;
         t.defaults().pad(3).left();
-        kv(t, "", "Mlog辅助 " + MOD_VERSION + " · 说意图 -> 生成 mlog -> 预检 -> 写进处理器；写入走原版 config 通道，联机由服务端执行", mk);
+        kv(t, "", "Mlog辅助 " + MOD_VERSION + " · 说一句要什么 → 生成 → 预检 → 写入；写入走原版 config 通道，联机由服务端执行", mk);
         var parts = diagParts(), i;
         section(t, "运行环境");
         for(i = 0; i < parts.length; i++){
-            if(parts[i].k !== "快检模块" && parts[i].k !== "sidecar"){ kv(t, parts[i].k, parts[i].v, mk); }
+            if(parts[i].k !== "快检" && parts[i].k !== "sidecar"){ kv(t, parts[i].k, parts[i].v, mk); }
         }
-        section(t, "本地快检（离线也能用）");
+        section(t, "本地快检");
         for(i = 0; i < parts.length; i++){
-            if(parts[i].k === "快检模块"){ kv(t, parts[i].k, parts[i].v, mk); }
+            if(parts[i].k === "快检"){ kv(t, parts[i].k, parts[i].v, mk); }
         }
         section(t, "sidecar");
         var srow = mk();
@@ -326,7 +326,7 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
             function(){ probeSidecar(); },
             function(){ copyDiag(); }
         ], mk);
-        section(t, "大模型（模型档：说人话直接写逻辑）");
+        section(t, "大模型（启用后由模型直接写逻辑）");
         kv(t, "档位", llmText(), mk);
         var lrow = mk();
         lrow.margin(8).left();
@@ -361,14 +361,14 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
             function(){ llmUseTemplate(); }
         ], mk);
         kv(t, "", "地址填 OpenAI 兼容的 /chat/completions（例：" + LLM_DEFAULT_URL
-           + "）；只填到 /v1 也行，sidecar 会自动补 /chat/completions。密钥只存在本机 Core.settings 与 sidecar 进程内存里，"
-           + "面板只显示尾巴；改完按回车保存。sidecar 重启会忘记模型档，模组下次开面板时会自动重新同步。", mk);
+           + "），只填到 /v1 也可以，sidecar 会自动补全。密钥只存于本机 Core.settings 与 sidecar 内存，"
+           + "面板只显示末段；改完回车保存。sidecar 重启后模组会自动重新同步模型档。", mk);
         section(t, "快捷动作");
         buttonRow(t, ["AI 辅助编程", "模板面板"], [
             function(){ showAiPanel(); },
             function(){ openPanel(); }
         ], mk);
-        buttonRow(t, ["快检鼠标下的处理器", "打印诊断"], [
+        buttonRow(t, ["快检光标下的处理器", "打印诊断"], [
             function(){ quickAimed(); },
             function(){ print("[mai] --- diag ---"); print(diagText()); }
         ], mk);
@@ -381,7 +381,7 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
             function(){ if(Vars.ui !== null){ Vars.ui.showText("Mlog辅助 · 撤销", undoInfo()); } }
         ], mk);
         section(t, "说明");
-        kv(t, "", "F3 = AI 辅助编程（单格选中处理器 -> 描述意图 -> 生成 -> 预检 -> 写入）；原版逻辑编辑器底部会多一条「审查」状态栏。地址改完按回车保存。sidecar 不开也能进游戏，只是生成与模板不可用。", mk);
+        kv(t, "", "F3：指向处理器，描述意图 → 生成 → 预检 → 写入；原版逻辑编辑器底部会多一条「审查」栏。sidecar 未运行时仍可进游戏，只是生成与模板不可用。", mk);
     }
 
     // 区域面板的布线（v0.6.0）：框选松手之后不再只弹一段纯文本，而是把「区域摘要 +
@@ -414,7 +414,7 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
         for(i = 0; i < res.rows.length; i++){ errs += res.rows[i].err; warns += res.rows[i].warn; }
         return "全图 " + res.rows.length + " 个处理器，ERR " + errs + " / WARN " + warns
              + "，" + res.ms + " ms"
-             + (res.api === true ? "" : "（快检不可用：只列清单，不判问题）");
+             + (res.api === true ? "" : "（快检不可用，只列清单）");
     }
 
     function listRowLabel(r){
@@ -609,7 +609,7 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
             var model = llmState.model.length > 0 ? llmState.model
                       : (llmModel().length > 0 ? llmModel() : "未填");
             var key = llmState.key_set ? ("已填 " + String(llmState.key_hint))
-                    : (llmKey().length > 0 ? "已填（还没提交给 sidecar）" : "未填");
+                    : (llmKey().length > 0 ? "已填（未同步）" : "未填");
             return tier + " · " + url + " · " + model + " · 密钥 " + key;
         }
 
@@ -665,7 +665,7 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
                 })(items[i]);
                 n++;
             }
-            if(n === 0){ host.add("（端点没报任何模型，可以直接手填模型名）").left().row(); }
+            if(n === 0){ host.add("（端点没有返回模型，可手填模型名）").left().row(); }
             d.cont.row();
             d.cont.button("关闭", function(){ d.hide(); }).height(40).width(120).padTop(8);
             d.show();
@@ -678,7 +678,7 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
                 var list = (doc && doc.models) || [];
                 showPickList("Mlog辅助 · 选择模型（" + list.length + "）", list, function(m){
                     llmSave(LLM_MODEL_KEY, m);
-                    llmNote("模型已选：" + m + "\n再点「启用模型档」才会生效。");
+                    llmNote("模型已选：" + m + "\n点「启用模型档」后生效。");
                 });
             });
         }
@@ -693,15 +693,15 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
                         llmNote("启用失败：" + ((d && d.error) ? String(d.error) : jobWhy(code, text, null)));
                         return;
                     }
-                    var head = "已切到模型档：" + String(d.model || "(端点默认模型)")
+                    var head = "已切到模型档：" + String(d.model || "(端点默认)")
                         + "\n地址：" + String(d.url)
-                        + "\n现在描述意图会由大模型直接写逻辑。";
+                        + "\n此后描述意图由模型直接写逻辑。";
                     // v0.12.1：模型名填错时端点大多不报错，只回一堆空回复，作业里只会看到 empty reply；
                     // 所以启用时顺手拿一次端点列表比一比，对不上就当场说出来。
                     llmFetchModels(function(ok, doc, err){
                         var list = (ok && doc && doc.models) || [];
                         if(ok && want.length > 0 && list.indexOf(want) < 0){
-                            llmNote(head + "\n注意：模型 " + want + " 不在端点列表里（端点有："
+                            llmNote(head + "\n注意：模型 " + want + " 不在端点列表（现有："
                                 + list.join(", ") + "）");
                         }else{
                             llmNote(head);
@@ -716,7 +716,7 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
                     llmNote("切回模板档失败：" + ((d && d.error) ? String(d.error) : jobWhy(code, text, null)));
                     return;
                 }
-                llmNote("已回到模板档（离线，只能套固定样板）。");
+                llmNote("已回到模板档（离线，仅固定样板）。");
             });
         }
 
@@ -766,7 +766,7 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
         function llmProbe(){
             var url = llmUrl();
             if(url.length === 0){ llmNote("先填模型地址（例如 " + LLM_DEFAULT_URL + "）"); return; }
-            llmNote("正在问端点……");
+            llmNote("正在测试端点…");
             httpJson("POST", "/llm/probe",
                 JSON.stringify({url: url, model: llmModel(), key: llmKey()}),
                 function(code, text){
@@ -782,7 +782,7 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
                     }
                     if(d.content_len !== undefined){ lines.push("回复长度：" + String(d.content_len) + " 字符"); }
                     if(d.reasoning_len !== undefined){
-                        lines.push("只回了 reasoning（" + String(d.reasoning_len) + " 字符），content 是空的");
+                        lines.push("仅返回 reasoning（" + String(d.reasoning_len) + " 字符），content 为空");
                     }
                     if(d.content){ lines.push("回复：" + String(d.content).slice(0, 160)); }
                     else if(d.raw){ lines.push("原文：" + String(d.raw).slice(0, 200)); }
@@ -905,7 +905,7 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
         }
 
         function describe(b){
-            if(b === null){ return "鼠标下没有处理器"; }
+            if(b === null){ return "光标下没有处理器"; }
             return "处理器 @ " + b.tile.x + "," + b.tile.y +
                    "  代码 " + String(b.code).split("\n").length + " 行" +
                    "  链接 " + b.links.size;
@@ -1326,19 +1326,19 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
 
         function wsArchive(id){
             var ws = wsLoad(id);
-            if(ws === null){ return "没有这个工作区"; }
+            if(ws === null){ return "工作区不存在"; }
             ws.state = "archived";
             ws.archivedAt = wsStamp();
-            if(wsSave(ws) === null){ return "归档失败：写不进磁盘"; }
+            if(wsSave(ws) === null){ return "归档失败：无法写入磁盘"; }
             return "已归档工作区「" + String(ws.name) + "」";
         }
 
         function wsRestore(id){
             var ws = wsLoad(id);
-            if(ws === null){ return "没有这个工作区"; }
+            if(ws === null){ return "工作区不存在"; }
             ws.state = "active";
             ws.archivedAt = 0;
-            if(wsSave(ws) === null){ return "恢复失败：写不进磁盘"; }
+            if(wsSave(ws) === null){ return "恢复失败：无法写入磁盘"; }
             return "已恢复工作区「" + String(ws.name) + "」";
         }
 
@@ -1346,9 +1346,9 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
         function wsRelease(id){
             var key = String(id);
             var ws = wsLoad(key);
-            if(ws === null){ return "没有这个工作区"; }
+            if(ws === null){ return "工作区不存在"; }
             var nm = String(ws.name);
-            if(!wsDeleteFile(key)){ return "释放失败：文件删不掉"; }
+            if(!wsDeleteFile(key)){ return "释放失败：无法删除文件"; }
             delete wsCache[key];
             if(wsCurrent === key){ wsCurrent = null; }
             return "已释放工作区「" + nm + "」（上下文不再留存）";
@@ -1434,7 +1434,7 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
                 }
             }
             if(parts.length === 0){ return null; }
-            return "处理器在你投递作业之后被改过（提交时 " + parts.join("；") + "）";
+            return "处理器在投递后已被改动（提交时 " + parts.join("；") + "）";
         }
 
         function conflictGate(b){
@@ -1446,7 +1446,7 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
                 return null;
             }
             JOB_FORCE[k] = true;
-            return "拒绝写入：" + why + "；确认覆盖请再点一次「写入」";
+            return "拒绝写入：" + why + "；再点一次「写入」以覆盖";
         }
 
         // ------------------------------------------------ 联机写入（v0.12.8）
@@ -1493,8 +1493,8 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
             var mine = "", theirs = "";
             try{ mine = String(p.team()); }catch(e1){ }
             try{ theirs = String(b.team); }catch(e2){ }
-            return "无权限：这块处理器属于 " + theirs + "，你在 " + mine
-                 + "；联机里服务端只接受本方队伍（或编辑器规则）的写入，这次一台都没写";
+            return "无权限：处理器属于 " + theirs + "，你在 " + mine
+                 + "；联机只接受本方队伍（或编辑器规则）的写入，本次未写入任何一台";
         }
 
         // 写后回读：联机里唯一能确认「服务端到底写没写」的办法。客户端会先把 configure
@@ -1552,8 +1552,8 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
                 if(normCode(got) === w.want){ continue; }         // 服务端收下了
                 w.tries++;
                 if(w.tries >= WRITE_CHECK_TRIES){
-                    hint("无权限：" + w.label + " 的写入没生效（服务端没有接受）。"
-                         + "联机里逻辑块由服务端执行，需要房主/管理员给权限，或改本方队伍的处理器。");
+                    hint("无权限：" + w.label + " 的写入未生效（服务端未接受）。"
+                         + "联机逻辑块由服务端执行，需房主或管理员授权。");
                     continue;
                 }
                 w.at = now + WRITE_CHECK_WAIT_MS;
@@ -1570,7 +1570,7 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
             if(!res || res.ok !== true){
                 return "拒绝写入：静态检查有 ERR（" + ((res && res.errors) || "?") + " 条）";
             }
-            if(!res.bytes_b64){ return "拒绝写入：sidecar 没有返回载荷"; }
+            if(!res.bytes_b64){ return "拒绝写入：sidecar 未返回载荷"; }
             var noPerm = permWhy(b);
             if(noPerm !== null){ return noPerm; }
             var blocked = conflictGate(b);
@@ -1616,11 +1616,11 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
                     bad.push("@" + procKey(it.b) + "：静态检查有 ERR");
                     continue;
                 }
-                if(!it.res.bytes_b64){ bad.push("@" + procKey(it.b) + "：sidecar 没有返回载荷"); continue; }
+                if(!it.res.bytes_b64){ bad.push("@" + procKey(it.b) + "：sidecar 未返回载荷"); continue; }
                 var np = permWhy(it.b);
                 if(np !== null){ bad.push("@" + procKey(it.b) + " " + np); }
             }
-            if(bad.length > 0){ return "拒绝写入（一台都没写）：" + bad.join("；"); }
+            if(bad.length > 0){ return "拒绝写入（未写入任何一台）：" + bad.join("；"); }
             // 冲突检查也是整批的：只要有一台被改过，整批先拒绝一次；再调一次 = 确认覆盖。
             for(i = 0; i < items.length; i++){
                 var why2 = conflictReason(items[i].b);
@@ -1630,7 +1630,7 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
                 else{ JOB_FORCE[k] = true; conflicts.push("@" + k + " " + why2); }
             }
             if(conflicts.length > 0){
-                return "拒绝写入（一台都没写）：" + conflicts.join("；") + "；确认覆盖请再点一次";
+                return "拒绝写入（未写入任何一台）：" + conflicts.join("；") + "；再点一次以覆盖";
             }
             // 先把每一台的原代码落盘（同一个 batch），再逐台 configure。
             var batch = batchId(), snaps = [], written = [];
@@ -1707,7 +1707,7 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
             lines.push(res.code);
             if(res.findings && res.findings.length){
                 lines.push("");
-                lines.push("--- findings ---");
+                lines.push("--- 问题 ---");
                 for(var i = 0; i < res.findings.length; i++){
                     var f = res.findings[i];
                     lines.push("L" + f.line + " " + f.sev + " [" + (f.rid || "-") + "] " + f.msg);
@@ -1774,7 +1774,7 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
             for(var qi = 0; qi < qmax; qi++){
                 d.cont.add("  " + qlines[qi]).left().row();
             }
-            if(qlines.length > qmax){ d.cont.add("  … 共 " + qlines.length + " 条（控制台 maiCheck() 看全）").left().row(); }
+            if(qlines.length > qmax){ d.cont.add("  … 共 " + qlines.length + " 条（控制台 maiCheck() 查看全部）").left().row(); }
             d.cont.add("").row();
             // pane() 交回来的是 ScrollPane，不是 Table —— ScrollPane 上没有 add/clear/button。
             // 所以自己造一张 Table 交给 pane(Element) 托管，之后只往这张 Table 里加东西。
@@ -1800,8 +1800,8 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
                 var cap = parse(text);
                 if(code !== 200 || !cap || cap.ok !== true){
                     host.clear();
-                    host.add("离线：sidecar 没响应（" + code + "）").row();
-                    host.add("先在本机跑：python tools/logicd.py").row();
+                    host.add("离线：sidecar 无响应（" + code + "）").row();
+                    host.add("先启动 sidecar：python tools/logicd.py").row();
                     return;
                 }
                 host.clear();
@@ -1921,7 +1921,7 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
             var code = reviewCode();
             if(code === null && b !== null){ code = String(b.code); }
             var res = quickRun(code === null ? "" : code, b);
-            if(res.missing){ return "本地快检不可用（quickcheck.js 没加载）"; }
+            if(res.missing){ return "本地快检不可用（quickcheck.js 未加载）"; }
             var out = [quickSummary(res)];
             var ls = quickLines(res);
             for(var i = 0; i < ls.length; i++){ out.push(ls[i]); }
@@ -2167,7 +2167,7 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
         function renderPlan(out, res, b, d){
             out.clear();
             if(!res || res.ok !== true){
-                out.add("没能生成：" + (res && res.reason ? res.reason : "sidecar 没给理由")).row();
+                out.add("没能生成：" + (res && res.reason ? res.reason : "sidecar 未给出理由")).row();
                 var cand = res && res.candidates ? res.candidates : (res && res.templates ? res.templates : null);
                 if(cand !== null){
                     var names = [];
@@ -2282,7 +2282,7 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
         function jobSubmit(b, desc, cb, wsInfo){
             ensureSidecar(true);             // v0.13.1：装包版里后端是模组自己拉起来的
             if(SIDE.state === "starting"){
-                cb(null, "sidecar 正在启动（第一次启动要几秒），稍等一下再投一次");
+                cb(null, "sidecar 正在启动（首次需几秒），稍后再投");
                 return;
             }
             rememberOrig(b);                 // v0.10.1：投递那一刻的代码就是冲突基线
@@ -2371,7 +2371,7 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
                 out.push(String(fs[i].sev) + " L" + fs[i].line + " " + m);
                 n++;
                 if(m.indexOf("finish_reason=length") >= 0 && n < maxLines){
-                    out.push("  （模型把回复预算用在思考上了，sidecar 会自动加大预算再试一次）");
+                    out.push("  （模型把预算用在思考上，sidecar 会自动加大预算重试）");
                     n++;
                 }
             }
@@ -2449,12 +2449,12 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
                 }
                 var as = jobAssumptionLines(job, 4, 88);
                 if(as.length > 0){
-                    host.add("--- 模型假定的前提（它替你想的，错了就是逻辑不对的源头）---").row();
+                    host.add("--- 模型假定的前提（错了就是逻辑不对的源头）---").row();
                     for(var ai = 0; ai < as.length; ai++){ host.add("  · " + as[ai]).row(); }
                 }
                 var costRows = jobCostLines(job, 8);
                 if(costRows.length > 0){
-                    host.add("--- 成本（含 UNREACHABLE：永远执行不到的语句）---").row();
+                    host.add("--- 成本（UNREACHABLE = 永远执行不到的语句）---").row();
                     for(var ci = 0; ci < costRows.length; ci++){ host.add(costRows[ci]).row(); }
                 }
                 host.add("--- 代码（" + (job.statements || 0) + " 条语句，" + (job.bytes_len || 0) + " 字节）---").row();
@@ -2483,7 +2483,7 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
                 var rl = jobFindingLines(job, 4);
                 for(var ri = 0; ri < rl.length; ri++){ host.add("  " + rl[ri]).row(); }
             }
-            host.add("（每 " + (JOB_POLL_MS / 1000) + " 秒查一次状态，可以先去干别的）").row();
+            host.add("（每 " + (JOB_POLL_MS / 1000) + " 秒查一次，可先做别的）").row();
         }
 
         // 每帧调一次：只有「有作业 + 面板还开着 + 到点了」才发请求。
@@ -2505,7 +2505,7 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
         }
 
         function startJob(b, host, d, intent){
-            if(b === null || b === undefined){ host.add("鼠标下没有处理器").row(); return "没有目标处理器"; }
+            if(b === null || b === undefined){ host.add("光标下没有处理器").row(); return "没有目标处理器"; }
             var desc = String(intent);
             if(desc.length === 0){ host.add("先写一句要做什么").row(); return "描述是空的"; }
             var ws = wsTouchHere(b, desc);   // v0.14.0：这台已经在某个工作区里就挂靠过去
@@ -2943,8 +2943,8 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
                                 jobBox = null;
                                 hint("这批作业一个也没投出去：" + String(why));
                             }else{
-                                hint("已投 " + box.ids.length + " 个作业：框右下角点开看进度；写入成功后框才消失（右键徽标可主动关）"
-                                     + (ws === null ? "" : "；工作区「" + String(ws.name) + "」已保存，继续框这块会复用"));
+                                hint("已投 " + box.ids.length + " 个作业：点框右下角看进度；写入成功后框才消失（右键徽标关闭）"
+                                     + (ws === null ? "" : "；工作区「" + String(ws.name) + "」已保存，继续框选会复用"));
                             }
                         }
                         jobBoxFinishIfDone();
@@ -2965,7 +2965,7 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
                 if(pb !== null){ targets.push({b: pb, x: ps[i].x, y: ps[i].y}); }
             }
             if(targets.length === 0){
-                hint("这块区域里没有处理器：拖框要把处理器框进去（F2 看全图清单）");
+                hint("区域里没有处理器：拖框要把处理器框进去（F2 看全图清单）");
                 return "no processor in region";
             }
             var desc = "";
@@ -2974,7 +2974,7 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
                 + (wsHit === null ? "" : " · 工作区「" + String(wsHit.name) + "」"));
             d.cont.defaults().pad(6).left();
             if(wsHit !== null){
-                d.cont.add("这块框选复用已有工作区：写完不消失，可以继续改进；归档 / 释放见作业管理窗").row();
+                d.cont.add("复用已有工作区：写完不消失，可继续改进；归档 / 释放见作业管理窗").row();
             }
             d.cont.add(targets.length === 1
                         ? ("目标：@" + targets[0].x + "," + targets[0].y)
@@ -3039,7 +3039,7 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
                 host.add(String(fs[fi].sev) + " " + String(fs[fi].rid) + "  "
                          + String(fs[fi].msg)).row();
                 if(String(fs[fi].msg).indexOf("finish_reason=length") >= 0){
-                    host.add("  （模型把回复预算用在思考上了，sidecar 会自动加大预算再试一次）").row();
+                    host.add("  （模型把预算用在思考上，sidecar 会自动加大预算重试）").row();
                 }
             }
             if(state === "done" && b !== null && b !== undefined && job.bytes_b64){
@@ -3077,7 +3077,7 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
             }else{
                 host.add("（框选一块区域，写一句描述，作业就出现在这里）").row();
             }
-            host.add("— 全部作业（最近的 24 个）—").row();
+            host.add("— 全部作业（最近 24 个）—").row();
             httpJson("GET", "/jobs?all=1&limit=24", null, function(code, text){
                 if(seq !== managerSeq){ return; }
                 var res = parse(text);
@@ -3086,7 +3086,7 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
                     return;
                 }
                 var rows = res.jobs || [];
-                if(rows.length === 0){ host.add("（sidecar 里还没有作业）").row(); return; }
+                if(rows.length === 0){ host.add("（sidecar 还没有作业）").row(); return; }
                 for(var k = 0; k < rows.length; k++){
                     (function(job){
                         host.button(jobRowLabel(job), function(){
@@ -3171,7 +3171,7 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
         // 故意不给 ids —— jobBoxState() 会因为 total === 0 不画徽标，也不会去轮询空作业。
         function wsRestoreBox(id){
             var ws = wsLoad(String(id));
-            if(ws === null){ return "没有这个工作区"; }
+            if(ws === null){ return "工作区不存在"; }
             var b = ws.bounds || {};
             jobBox = {r: {x1: Number(b.x1), y1: Number(b.y1), x2: Number(b.x2), y2: Number(b.y2)},
                       ws: String(ws.id), ids: [], jobs: {}, pend: 0,
@@ -3179,17 +3179,17 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
                       termAt: 0, lastPoll: 0};
             jobBadge = null;
             wsCurrent = String(ws.id);
-            return "已恢复工作区「" + String(ws.name) + "」的选框（右键徽标或点「关闭框选框」可关掉）";
+            return "已恢复工作区「" + String(ws.name) + "」的选框（右键徽标或「关闭框选框」关闭）";
         }
 
         function wsRename(id, name){
             var ws = wsLoad(String(id));
-            if(ws === null){ return "没有这个工作区"; }
+            if(ws === null){ return "工作区不存在"; }
             var nm = String(name || "").replace(/[\r\n\t]/g, " ").replace(/^\s+|\s+$/g, "");
             if(nm.length === 0){ return "名字不能是空的"; }
             if(nm.length > 40){ nm = nm.substring(0, 40); }
             ws.name = nm;
-            if(wsSave(ws) === null){ return "改名失败：写不进磁盘"; }
+            if(wsSave(ws) === null){ return "改名失败：无法写入磁盘"; }
             return "已改名为「" + nm + "」";
         }
 
@@ -3202,7 +3202,7 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
 
         function wsExportToDisk(id){
             var ws = wsLoad(String(id));
-            if(ws === null){ return "没有这个工作区"; }
+            if(ws === null){ return "工作区不存在"; }
             var text = wsExportText(id);
             if(text === ""){ return "导出失败：JSON 序列化失败"; }
             var root = wsRoot();
@@ -3274,7 +3274,7 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
         // 「继续改进」：这个工作区里每一台写过代码的处理器，各投一单 mode=improve。
         function wsImproveBatch(id, desc){
             var ws = wsLoad(String(id));
-            if(ws === null){ return "没有这个工作区"; }
+            if(ws === null){ return "工作区不存在"; }
             var list = ws.procs || [], targets = [], i;
             for(i = 0; i < list.length; i++){
                 var r = list[i];
@@ -3283,7 +3283,7 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
                 if(b === null){ continue; }
                 targets.push({b: b, x: Number(r.x), y: Number(r.y)});
             }
-            if(targets.length === 0){ return "这个工作区里没有写过代码的处理器，先投一单新的"; }
+            if(targets.length === 0){ return "工作区里没有写过代码的处理器，先新建一单"; }
             var text = String(desc || "");
             if(text.replace(/\s/g, "").length === 0){ text = "在上一版的基础上继续改进"; }
             startJobBatch(targets, text, ws.bounds, true);
@@ -3341,7 +3341,7 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
                 })(String(rows[i].id));
                 shown++;
             }
-            if(shown === 0){ host.add("（框一块区域投一单作业，这里就会出现一个工作区）").row(); }
+            if(shown === 0){ host.add("（框选区域并投递作业后，这里会出现一个工作区）").row(); }
             host.add("— 已归档 —").row();
             var arc = 0;
             for(i = 0; i < rows.length; i++){
@@ -3397,11 +3397,11 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
             var w = Math.max(1, Number(sch.width || 1)), h = Math.max(1, Number(sch.height || 1));
             var r = {x1: cx, y1: cy, x2: cx + w - 1, y2: cy + h - 1};
             var ws = wsNew(r, String(sch.name));
-            if(ws === null){ return "建工作区失败：写不进磁盘"; }
+            if(ws === null){ return "创建工作区失败：无法写入磁盘"; }
             ws.notes = "来自蓝图「" + String(sch.name) + "」(" + String(w) + "×" + String(h) + ")";
             wsSave(ws);
             wsCurrent = String(ws.id);
-            return "已从蓝图「" + String(sch.name) + "」建了工作区（" + String(w) + "×" + String(h) + "）";
+            return "已从蓝图「" + String(sch.name) + "」创建工作区（" + String(w) + "×" + String(h) + "）";
         }
 
         function renderBlueprintPicker(host, d){
@@ -3475,8 +3475,8 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
                 d.cont.add(host).growX();
             }
             d.buttons.defaults().pad(4);
-            d.buttons.button("复制快照 JSON", function(){
-                try{ Core.app.setClipboardText(JSON.stringify(snap)); hint("快照 JSON 已复制"); }
+            d.buttons.button("复制快照", function(){
+                try{ Core.app.setClipboardText(JSON.stringify(snap)); hint("快照已复制"); }
                 catch(e){ hint("复制失败：" + e); }
             }).width(180);
             d.buttons.button("关闭", function(){ d.hide(); }).width(140);
@@ -3656,7 +3656,7 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
         }
 
         function quickSummary(res){
-            if(res.missing){ return "本地快检：不可用（quickcheck.js 没加载）"; }
+            if(res.missing){ return "本地快检：不可用（quickcheck.js 未加载）"; }
             var err = 0, warn = 0, i;
             for(i = 0; i < res.findings.length; i++){
                 if(res.findings[i].sev === "ERR"){ err++; } else { warn++; }
@@ -3669,7 +3669,7 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
                  + "    " + linkLine(res)
                  + (st.truncates ? "    ⚠ 超过 1000 条会被截断" : "")
                  + (st.linkKnown === false
-                    ? "\n（链接表未知：读不到 LogicDialog.executor，链接槽判据这一遍整段跳过 —— 宁可少报，不报假 WARN）"
+                    ? "\n（链接表未知：读不到 LogicDialog.executor，本次跳过链接槽判据）"
                     : "");
         }
 
@@ -3917,12 +3917,12 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
             var t = String(body === null || body === undefined ? "" : body);
             if(code === "" || code === "-1" || code === -1 || code === undefined || code === null){
                 if(t.indexOf("Connection refused") >= 0){
-                    return "sidecar 没在跑（连接被拒绝，" + base + "）\n先在本机跑：python tools/logicd.py";
+                    return "sidecar 未运行（连接被拒绝，" + base + "）\n先启动 sidecar：python tools/logicd.py";
                 }
                 if(t.indexOf("timed out") >= 0 || t.indexOf("SocketTimeout") >= 0){
-                    return "sidecar 没回应（超时，" + base + "）\n确认 python tools/logicd.py 还在跑";
+                    return "sidecar 没回应（超时，" + base + "）\n确认 python tools/logicd.py 仍在运行";
                 }
-                return "连不上 sidecar（" + base + "）\n先在本机跑：python tools/logicd.py";
+                return "连不上 sidecar（" + base + "）\n先启动 sidecar：python tools/logicd.py";
             }
             return "sidecar 返回 " + code;
         }
@@ -3931,9 +3931,9 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
         function sidecarStaleHint(t){
             var s = String(t === null || t === undefined ? "" : t);
             if(s.indexOf("no such endpoint") < 0){ return null; }
-            return "sidecar 进程是旧版本，不认识这个接口（" + base + "）\n"
+            return "sidecar 是旧版本，不认识这个接口（" + base + "）\n"
                  + "关掉旧的 sidecar 进程再重新启动：python tools/logicd.py --port 8765\n"
-                 + "（改过 tools/logicd.py 之后必须重启，模组连的是内存里那份旧代码）";
+                 + "（改过 tools/logicd.py 后必须重启，模组连的是内存里的旧代码）";
         }
         function jobWhy(code, text, res){
             var hint = sidecarStaleHint(text) || sidecarStaleHint(res && res.error);
@@ -3965,7 +3965,7 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
                          + p.links.length + "：" + (p.links.length ? p.links.join(", ") : "无"));
                 var ms = p.missing || [];
                 for(j = 0; j < ms.length; j++){
-                    out.push("  ⚠ " + ms[j].name + " 代码在用，但没绑上、也不在本区域候选里"
+                    out.push("  ⚠ " + ms[j].name + " 代码在用，但没绑上，也不在候选里"
                              + (ms[j].suggest ? "（同类可用 " + ms[j].suggest + "）"
                                               : "（本区域没有同类方块）"));
                 }
@@ -3980,7 +3980,7 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
                 if(cs.length > 12){ out.push("  …还有 " + (cs.length - 12) + " 个"); }
             }
             out.push("");
-            out.push("确认后按住 F3 点一下处理器，用一句话生成，写入走 logic@config（configure）。");
+            out.push("按住 F3 点一下处理器，用一句话生成，写入走 logic@config（configure）。");
             return out.join("\n");
         }
         function regionText(snap){
@@ -4034,7 +4034,7 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
             },
             maiApply:   function(template, paramsJson){
                 var b = targetBuild();
-                if(b === null){ return "鼠标下没有处理器"; }
+                if(b === null){ return "光标下没有处理器"; }
                 var params = {};
                 if(paramsJson){ var p = parse(String(paramsJson)); if(p){ params = p; } }
                 httpJson("POST", "/compose",
@@ -4134,7 +4134,7 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
                 if(t.indexOf("m-probe") < 0){ return "model not shown: " + t; }
                 if(t.indexOf("sk-probe") >= 0){ return "key leaked into the text: " + t; }
                 if(t.indexOf("9999") >= 0){ return "key tail leaked into the text: " + t; }
-                if(t.indexOf("还没提交") < 0){ return "pending key not called out: " + t; }
+                if(t.indexOf("未同步") < 0){ return "pending key not called out: " + t; }
                 llmSave(LLM_URL_KEY, prev.u);
                 llmSave(LLM_MODEL_KEY, prev.m);
                 llmSave(LLM_KEY_KEY, prev.k);
@@ -4184,7 +4184,7 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
         };
         api.maiRegionAround = function(r){
             var b = targetBuild();
-            if(b === null){ return "鼠标下没有处理器"; }
+            if(b === null){ return "光标下没有处理器"; }
             var n = (r === undefined || r === null) ? 10 : Math.floor(r);
             return api.maiRegion(b.tile.x - n, b.tile.y - n, b.tile.x + n, b.tile.y + n);
         };
@@ -4330,7 +4330,7 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
             var snap = regionSnapshot(x1, y1, x2, y2);
             var head = regionSummary(snap);
             if(snap.processors.length === 0){
-                popup("Mlog辅助 · 区域快照", head + "\n\n这块区域里没有处理器。");
+                popup("Mlog辅助 · 区域快照", head + "\n\n区域里没有处理器。");
                 return head;
             }
             if(Vars.ui === null || Vars.ui === undefined){
@@ -4344,7 +4344,7 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
                     var res = parse(text);
                     var line = (code === "200" && res !== null && res.ok === true)
                         ? "已落盘 " + res.path + "（" + res.bytes + " B）"
-                        : "没能落盘：" + httpWhy(code, text);
+                        : "落盘失败：" + httpWhy(code, text);
                     httpJson("POST", "/region", JSON.stringify({snapshot: snap}), function(c2, t2){
                         var body = head + "\n" + line;
                         try{
@@ -4357,7 +4357,7 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
                 });
                 return head + "\n（面板稍后弹出）";
             }catch(e){
-                popup("Mlog辅助 · 区域快照", head + "\n\n没能落盘：" + e);
+                popup("Mlog辅助 · 区域快照", head + "\n\n落盘失败：" + e);
                 return head + "\n（落盘失败：" + e + "）";
             }
         }
@@ -4379,7 +4379,7 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
 
         // F3 是按住式的（=鼠标左键），所以 maiSelect 不再“就绪”，只给提示。
         api.maiSelect = function(){
-            hint("框选：按住 F3 拖出矩形，松开 F3 出快照");
+            hint("框选：按住 F3 拖出矩形，松开即出快照");
             return "按住 F3 拖出矩形";
         };
         api.maiSelState = function(){
@@ -4403,7 +4403,7 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
         api.maiSetBase = function(u){ base = String(u); return base; };
         api.maiJob = function(desc){
             var b = targetBuild();
-            if(b === null){ return "鼠标下没有处理器"; }
+            if(b === null){ return "光标下没有处理器"; }
             jobSubmit(b, String(desc), function(res, why){
                 hint(res === null ? ("投递失败：" + why) : ("作业 " + res.id + " 已投递"));
             });
@@ -4435,7 +4435,7 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
             JOB_ORIG[k] = "set n 0\nend";
             JOB_FORCE[k] = false;
             var r1 = conflictGate(b);
-            var blocked = r1 !== null && String(r1).indexOf("被改过") >= 0
+            var blocked = r1 !== null && String(r1).indexOf("已被改动") >= 0
                           && String(b.code) === "set n 1\nend";
             var r2 = conflictGate(b);
             var forced = r2 === null;                    // 第二次 = 确认覆盖
@@ -4737,7 +4737,7 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
                 var bp = blueprintList(4);
                 if(bp === null || bp.length === undefined){ notes.push("blueprint"); }
                 if(wsFromBlueprintName("绝对没有这个蓝图").indexOf("找不到") < 0){ notes.push("blueprint-miss"); }
-                if(wsImproveBatch("没有这个工作区", "") !== "没有这个工作区"){ notes.push("improve-miss"); }
+                if(wsImproveBatch("没有这个工作区", "") !== "工作区不存在"){ notes.push("improve-miss"); }
             }catch(e){
                 notes.push("throw:" + e);
             }
@@ -4796,7 +4796,7 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
                         var rb = targetBuild();
                         if(rb === null){
                             Vars.ui.showText("Mlog辅助 · 链接候选",
-                                             "鼠标下没有处理器：先把鼠标移到处理器上再按 F7");
+                                             "光标下没有处理器：先把光标移到处理器上再按 F7");
                         }else{
                             var rr = 10;
                             // 异步：回调由 httpJson 经 Core.app.post 投递回主线程，

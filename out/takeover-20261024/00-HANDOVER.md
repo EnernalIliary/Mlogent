@@ -2212,3 +2212,25 @@ improve 8 / llm 12，含 **write path 7 模板**把 `/compose` 的 `bytes_b64` �
 ③真机 `b.code` 是汇编结果、不含 `#` 注释 ⇒ 签名 payload 之外的注释不能出现在交付文本里。
 
 报告：`out/takeover-20261024/81-v0142-sign-buttons.md`；断言表 L2-68 / L2-69；蓝图方案 `docs/Mlog辅助-蓝图方案.md`。
+
+## §82 v0.14.3 游戏内文案统一
+
+用户 m04981：「我测试，你你把游戏内文案洗一遍，简洁大方，标准是DP-AtomicStatesAssets.zip的文案。」
+
+标准取自 `DP-AtomicStatesAssets.zip` 的 `content/blocks/*.json`：`description` 一句话直陈机制、无口语、无「你/我」、
+无感叹号、括号全角、句末「。」。做法：`MlogAuxiliary/scripts/main.js` 里 609 条含 CJK 的字面量按区块分 10 批成对替换
+（`out/_copy_b1.py`…`_copy_b10.py`，每对断言 `count`），术语统一（处理器/作业/工作区/框选/写入/预检/审查/模型档/
+模板档/sidecar/蓝图），`->`→`→`、`鼠标下`→`光标下`、`写不进磁盘`→`无法写入磁盘`、`没有这个工作区`→`工作区不存在`、
+`还没提交`→`未同步`、`sidecar 没在跑`→`sidecar 未运行`；设置页两段长说明与 `--- 模型假定的前提` / `--- 成本` 抬头压短；
+`mod.hjson` 的 description 从约 4000 字版本编年史压到 375 字六句。
+
+**本版最容易踩的坑**：文案被自检断言引用——`api.maiLlmProbe` 查「还没提交」（改「未同步」）、`api.maiConflictProbe`
+查「被改过」（改「已被改动」）、`api.maiWorkspace2Probe` 的 `wsImproveBatch` 期望串（改「工作区不存在」）、
+`tests/mlogauxiliary/run_ui_smoke.py` 的两条红线（「被改过」/「UNREACHABLE：永远执行不到的语句」），以及该文件
+`MAIWS2` 分支里写错的 `fail(...)`（本文件没有 `fail`，一旦触发就是 NameError，改成 `problems.append`）。
+
+**机器验证**：`node --check` 0；ui smoke EXIT=0（`MAIWS2:ok`、`MAILLM:ok 72`、`MAICONFLICT:ok`、`MAIBADGERECT` 几何不变）；
+`tests/run_tests.py` 46/46；`tests/logicd/run_logicd_tests.py` 全绿（protocol 26 / jobs 16 / provider 12 / improve 8 /
+llm 12 / write path 7 模板）。版本三处 0.14.3。
+
+报告：`out/takeover-20261024/82-v0143-copy.md`；断言表 L2-70（总 129 条：L1 31 / L2 70 / L3 6 / L4 4 / S 18）。

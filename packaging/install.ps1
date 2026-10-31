@@ -111,6 +111,6 @@ Write-Host ('     sidecar ' + $sideVer + ' is bundled in sidecar\bin\logicd.exe 
 Write-Host ''
 Write-Host 'next:'
 Write-Host '  1) restart Mindustry (mods load at startup)'
-Write-Host '  2) in game: settings -> 逻辑写入 -- fill endpoint / key / model, click 测试连接'
+Write-Host '  2) in game: settings -> Mlog辅助 -- fill endpoint / key / model, click 测试连接'
 Write-Host '  3) in game: press F3, select processors, describe, confirm'
-Write-Host '     (the first F3 also starts the bundled sidecar: "正在启动 sidecar ..." -> "sidecar 已就绪")'
+Write-Host '     (the first F3 also starts the bundled sidecar: "正在启动 sidecar…" -> "sidecar 已就绪")'

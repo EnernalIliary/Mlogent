@@ -525,9 +525,9 @@ def main():
                         % [l for l in lines if l.startswith('MAIWORKSPACE:')][:1])
 
     if 'MAIWS2:ok' not in joined:
-        fail('v0.14.1: the workspace dialog helpers are broken '
-             '(want MAIWS2:ok): %r'
-             % [l for l in lines if l.startswith('MAIWS2:')][:1])
+        problems.append('v0.14.1: the workspace dialog helpers are broken '
+                        '(want MAIWS2:ok): %r'
+                        % [l for l in lines if l.startswith('MAIWS2:')][:1])
     if 'MAIJOBPANEL:ok' not in joined:
         problems.append('v0.13.2: the job view does not show assumptions + cost '
                         '(want MAIJOBPANEL:ok assumptions=2 cost=3): %r'
@@ -788,7 +788,7 @@ def main():
         problems.append('maiJobWrite did not write the job payload into the processor: %r' % (wr[:160],))
     edit1 = jres.get('MAIJOBEDIT') or ''
     edit2 = jres.get('MAIJOBEDIT2') or ''
-    if '被改过' not in edit1 or '已写入' in edit1:      # 被改过
+    if '已被改动' not in edit1 or '已写入' in edit1:    # 处理器在投递后已被改动
         problems.append('v0.10.1: a job written onto an edited processor was not refused: %r'
                         % (edit1[:200],))
     if '已写入' not in edit2:                          # 已写入
@@ -1029,7 +1029,7 @@ def main():
                          'the job view stopped showing the cost report'),
                         ('api.maiJobPanelProbe = function',
                          'headless probe for assumptions + cost'),
-                        ('UNREACHABLE：永远执行不到的语句',
+                        ('UNREACHABLE = 永远执行不到的语句',
                          'the cost block no longer says what UNREACHABLE means')):
         if needle not in code_only:
             problems.append('v0.13.2: ' + why)
