@@ -2,8 +2,10 @@
 import sys, os, glob, json, zlib, struct
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import msch
+import os
 
-SCHEM = r"C:\Users\lliary\AppData\Roaming\Mindustry\schematics"
+SCHEM = os.environ.get("MLOG_SCHEM") or os.path.join(
+    os.environ.get("APPDATA") or os.path.expanduser("~"), "Mindustry", "schematics")
 
 # 1) look at raw tag bytes for a file with emoji-ish labels
 p = os.path.join(SCHEM, "开关.msch")

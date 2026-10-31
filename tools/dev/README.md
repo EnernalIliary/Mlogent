@@ -9,3 +9,10 @@
 - 不要从这里 import，也不要把它当接口；稳定实现都在 `tools/` 顶层。
 - 语料分析脚本在 `tools/corpus/`，不在本目录：`_sweep_saves.py`、`_sweep_analyse.py`、`_label_programs.py`、`_err_table.py` 等。
 - 目录内容默认被 `.gitignore` 忽略；要保留某个脚本请 `git add -f`。
+
+## 源码拓荒脚本（从 tools/ 顶层移入）
+
+`block_ids_from_source.py`、`blocks_from_source.py`、`content_names_from_source.py`、
+`items_from_source.py`、`units_from_source.py`、`sensor_from_source.py`、
+`sensor_attrs_from_jar.py`、`classdump.py`、`fix_skill_links.py` —— 说明见
+`tools/README.md` 的「tools/dev/」一节。产品链路不 import 它们。

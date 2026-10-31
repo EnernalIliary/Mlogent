@@ -9,6 +9,7 @@ import sys
 import zipfile
 
 sys.path.insert(0, __file__.rsplit("\\", 1)[0])
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "dev"))  # classdump 已归到 tools/dev
 from classdump import parse  # noqa: E402
 
 

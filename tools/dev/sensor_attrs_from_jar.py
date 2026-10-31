@@ -36,6 +36,8 @@ LEGACY_ADDED = ("enabled", "color")
 
 import sensor_from_source as SFS  # noqa: E402  DESC / TARGET live here (one home)
 
+sys.path.insert(0, str(__import__("pathlib").Path(__file__).resolve().parent.parent))  # tools/：兄弟模块
+
 TARGET = SFS.TARGET
 
 

@@ -52,3 +52,4 @@ out/caime_scan*.txt
 
 # temporary probe scripts (archived, not tracked)
 /out/_archive/
+out/_publish/

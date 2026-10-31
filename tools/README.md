@@ -375,7 +375,7 @@ object ScrollPane` —— 而且 `clear()` 还在（`Group.java:357` 有 clear�
    python tools/corpus/crawl_maps.py --search 逻辑 --search 塔防 --want 20
                                                 # 站点抓 .msav -> logic-corpus/_maps/（--list-only 只刷 id）
    python tools/corpus/extract_maps.py          # 读存档 + 去重 -> logic-corpus/_maps_procs/<sha>.mlog
-   python tools/corpus/fetch_repo_tarball.py --repo owner/name --dest C:/Users/lliary/mlog-corpus --prefix anon
+   python tools/corpus/fetch_repo_tarball.py --repo owner/name --dest D:/mlog-corpus --prefix anon
                                                 # 大仓库：codeload tar.gz + Python tarfile -> <dest>/<prefix>-flat/ + _index.json
    python tools/corpus/classify_schematics.py [--src <别的目录>] [--dest <语料根>]
                                                 # 解码 + 去重 -> <dest>/_procs/<sha>.mlog + _meta.json
@@ -392,7 +392,7 @@ object ScrollPane` —— 而且 `clear()` 还在（`Group.java:357` 有 clear�
     python tools/corpus/precision_sheet.py --corpus logic-corpus --procs _procs --label blueprint
                                                  # 判读表：每条规则 6 条样本 + 机器旁证（名字出现次数 / 是否赋值 /
                                                  # 是否本蓝图链接名），判读栏留空交人填；--verdicts 回填 TP/FP/mixed
-    python tools/corpus/precision_sheet.py --corpus C:/Users/lliary/mlog-corpus/anon-corpus \
+    python tools/corpus/precision_sheet.py --corpus D:/mlog-corpus/anon-corpus \
         --procs _procs --label anon --stride 8 --jobs 12   # 4 万程序抽样 5.5k，67 s
    python tools/mlog_needs.py <doc>/_procs --brief --no-detail --stride 10
                                                  # 世界符号清单（传感器/单位/方块/全局量）；大语料必须 --no-detail
@@ -401,7 +401,7 @@ object ScrollPane` —— 而且 `clear()` 还在（`Group.java:357` 有 clear�
    `logic-corpus/` 已 gitignore（可随时重抓）；三条命令都把蓝图/存档里声明的链接名传进
    `mlogcheck.analyse(links=...)`，所以 `link-name-not-bound` 这类规则在外部语料上才有意义。
    `map_site.download()` 的 `dest` 必须是 `Path`（传 `str` 报 `AttributeError`）。
-   上万文件 / 上百 MB 的仓库放在**工作区外**（如 `C:/Users/lliary/mlog-corpus`），别塞进 OneDrive 目录；
+   上万文件 / 上百 MB 的仓库放在**工作区外**（如 `D:/mlog-corpus`），别塞进 OneDrive 目录；
    这类仓库的**文件名多为中文，Windows 自带 `tar.exe` 会按 CP936 解码 UTF-8 文件名**（`核心入冷` → `鏍稿績鍏ュ喎`），
    不同名字撞成同一文件、只落一半且互相覆盖——必须用 Python `tarfile` 解包；
    `git clone --depth 1` 对大包也不稳（`RPC failed; curl 28 Recv failure: Connection was reset`）。
@@ -468,3 +468,24 @@ object ScrollPane` —— 而且 `clear()` 还在（`Group.java:357` 有 clear�
 - 新写的一次性脚本先放 `tools/dev/`；成体系的语料分析放 `tools/corpus/`；稳定并有人引用后再提到顶层。
 - 提到顶层的门槛：`tests/run_tests.py` 有 golden 用例，或文档里有命令引用。
 - 顶层不放大文件、不放大图；截图/日志/导出物放 `out/`。
+
+## tools/dev/ —— 拓荒脚本（产品运行不需要）
+
+`tools/dev/` 放的是一次性脚本与实验脚本，跑它们通常要先反编译游戏源码树（`Mindustry-Source/`、
+`Arc-Source/`）或拿到 `out/_server160.jar`。产品链路（`mlog.py` / `mlogsim.py` / `mlogcheck.py` /
+`msch.py` / `jobqueue.py` / `logicd.py`）**不 import 它们**，删掉不影响任何测试与门禁。
+
+| 脚本 | 干什么 | 依赖 |
+|---|---|---|
+| `block_ids_from_source.py` | 从 `Block.java` 抽方块 id 表 | 反编译源码树 |
+| `blocks_from_source.py` | 抽方块尺寸 / 分类 | 反编译源码树 |
+| `content_names_from_source.py` | 抽内容名（物品/液体/单位） | 反编译源码树 |
+| `items_from_source.py` | 抽物品 id 与颜色 | 反编译源码树 |
+| `units_from_source.py` | 抽单位属性表 | 反编译源码树 |
+| `sensor_from_source.py` | 抽 `sensor` 可读字段清单（`sensor_attrs_from_jar.py` 的 DESC/TARGET 表在这里） | 反编译源码树 |
+| `sensor_attrs_from_jar.py` | 直接读 jar 里的类字段，产出 sensor 属性表 | `out/_server160.jar` |
+| `classdump.py` | 极简 class 文件解析（`tools/find_field_consts.py`、`tools/corpus/scan_mod_blocks.py` 会借它） | 反编译产物 |
+| `fix_skill_links.py` | 修 skill 文档里的相对链接 | 无 |
+
+其余 `tools/dev/_*.py` 是当次排查用的临时脚本，随时可删。
+
