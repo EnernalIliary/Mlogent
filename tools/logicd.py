@@ -69,7 +69,7 @@ import mlogprovider           # noqa: E402  (prompt / reply parsing / model call
 PROTOCOL = 1
 # The sidecar is what gets restarted when a fix ships, and a stale process answers
 # /health with 200 all day, so let the answer say which build it is (v0.12.3).
-SIDECAR_VERSION = '0.12.6'
+SIDECAR_VERSION = '0.12.9'
 GAME = 'mindustry v160.7 (executor jar out/_server160.jar)'
 
 #: LogicBlock.instructionsPerTick is 1 by default and clamped to

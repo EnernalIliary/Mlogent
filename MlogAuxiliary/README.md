@@ -355,6 +355,38 @@ Arc 的 `Table.cells` 是私有字段（`arc/scene/ui/layout/Table.java:35`）�
 
 真引擎对照探针（`out/_v47_probe.py`）：放处理器、用 `msch.build_logic_data` 写带两条链接的载荷，读回 `links.size=2`，把真链接名喂 `quickcheck.check` ⇒ 零命中；喂空数组 ⇒ 第 1、3 行各一条 WARN。所以快检逻辑本身没错，错的是喂进去的东西。
 
+## v0.12.9：区域快照不只说「有几台处理器」，还说「这里有什么」
+
+框选之后送给模型的区域快照，以前只有方块格子（`grid`）和处理器（`processors`）——模型能数出「这片区域有 4 个
+容器」，但看不见容器里有没有铜，也不知道边上停着一队敌方单位。补给类、巡逻类、开火类的描述就全靠猜。
+
+现在快照多带五段：
+
+- `blocks`：按格计数（container 2x2 算 4 格）；
+- `items` / `liquids`：区域里的存量。**按建筑身份去重**——一个 2x2 容器在四个格子上是同一个建筑，
+  所以 100 铜只算一次 100，不会变成 400；
+- `stores`：每台有库存的建筑一条明细（坐标 / 方块 / 队伍 / 物品 / 液体），最多 16 条；
+- `units`：单位总数 + 按类型 + 按队伍（单位不在方块网格里，走 `Groups.unit` 再按 `u.x / Vars.tilesize`
+  落 tile 筛边界）；
+- `enemies`：敌方单位与敌方建筑计数（单机也分得清队伍；无头 / 没有本地玩家时两个计数都是 0，
+  并带一句 `note` 说明「enemy 在这里没有意义」）。
+
+面板里那行区域摘要跟着多一行「方块 N 种 物品 … 液体 … 单位 …（敌方单位 …，敌方建筑 …）」；sidecar 侧
+`tools/mlogprovider.py` 的 `snapshot_facts()` 把这四类事实写成世界事实喂给模型：
+
+```
+items stored in the area: copper 100, lead 12.5
+liquids stored in the area: water 3
+units in the area: 2 (dagger x2; teams: sharded 2)
+enemies in the area: 1 unit(s) flare x1, 1 enemy building(s)
+```
+
+自检口：`maiSnapshot(x1, y1, x2, y2)`（无头 ui smoke 的 `MAISNAP` 就是它）；断言表 L2-60 / L2-61。
+
+顺带记一个引擎坑：`Groups.unit` 是 `EntityGroup`，它把继承来的 `Seq.get` 挡住了——`Groups.unit.get` 在
+v160.7 上是 `undefined`，而 `size` 又是方法不是字段。所以单位计数先 `rawSeq()` 拿底层 Seq、`seqSize()` 两种
+都试；按 `seq.get(i)` 直接写会一次都不循环，单位数静默变 0。
+
 ## v0.12.8：等作业时改了链接拦得住；联机里被服务端拒掉会明说「无权限」
 
 两件事，都在「写入」这一步。

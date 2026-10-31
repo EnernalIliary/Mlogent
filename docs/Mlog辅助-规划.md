@@ -127,8 +127,8 @@ P3 **不接模型**：只把快照打印/落盘，用来验证「框选到底拿
 | `units` | 区域单位计数（按类型）与所属队伍 | 巡逻/开火类逻辑需要 |
 | `enemies` | 区域内敌方单位/建筑计数 | |
 | `notes` | 生成时的告警（如「区域内没有处理器」） | |
-实际实现（v0.4.2）只填了 `bounds` / `world` / `map` / `grid` / `processors` 五段（外加 `schema`/`mod`/`build`/`cells`/`truncated`），
-`candidates` 由 sidecar `/region` 现算；`blocks` 计数、`items`/`liquids`/`units`/`enemies` 未实现。
+实际实现：v0.4.2 只填了 `bounds` / `world` / `map` / `grid` / `processors` 五段（外加 `schema`/`mod`/`build`/`cells`/`truncated`），
+`candidates` 由 sidecar `/region` 现算；**v0.12.9 补齐了剩下的**：`blocks`（按格计数）、`items` / `liquids`（按建筑身份去重，2x2 容器只算一次）、`stores`（每台有库存的建筑一条，最多 16 条）、`units:{total,types,teams}`（走 `Groups.unit`，按 `u.x / Vars.tilesize` 落 tile 筛边界）、`enemies:{units,blocks,types}`（无本地玩家时两个计数恒 0 并带 `note` 说明）。sidecar 的 `snapshot_facts()` 把这四类事实写成世界事实喂给模型（断言表 L2-60 / L2-61）。
 
 ### 3.3 复用
 
@@ -346,6 +346,7 @@ CLI `--llm-max-tokens`）、`POST /llm/probe` 的预算也从 128 提到 512 起
 | v0.12.6 重试中的 findings 不是结论 + 截断用人话说明（sidecar + 模组） | 完成（v0.12.6） | `MlogAuxiliary/scripts/main.js` 的 `jobRetryHead()` / `jobFindingLines()`（`renderJob()` 运行分支、`renderManagerDetail()` 都走）；`tools/mlogprovider.py` 的 `_why_blank(doc, budget=None)`（`budget=N tokens` + `the model ran out of room mid-thought`）；`SIDECAR_VERSION = '0.12.6'` | ui smoke 三条源码红线 + `test_provider()` 第 10 项两条断言（断言表 L2-56） |
 | v0.12.7 框选框只在写入或主动关闭后消失（模组） | 完成（v0.12.7） | `MlogAuxiliary/scripts/main.js` 删掉 `JOB_BOX_LINGER_MS`（`jobBoxTick()` 终态后只停止轮询、不再清框）；`closeJobBox()` / `jobBoxContainsBuild()` / `jobBoxWritten(b)`（`writeBuild()` 写成功后清框）；作业管理窗「关闭框选框」按钮 + 徽标右键关闭 + 徽标文案「右键关」；`api.maiJobBoxClose` 自检口。ui smoke 三个新探针 + 反向红线。断言表 L2-57 |
 | v0.12.8 冲突检测比链接表 + 联机「无权限」提示（模组） | 完成（v0.12.8） | `MlogAuxiliary/scripts/main.js` 的 `JOB_LINKS` / `linkSig()` / `linkSigText()`（`rememberOrig()` 同时记代码与链接表签名，`conflictReason()` 两条都报，`forgetOrig()` 三表一起清）；`netClient()` / `localPlayer()` / `isAdmin()` / `permWhy()`（复刻服务端 `Units.canInteract` 那道闸，队伍不对整批一台都不写）；`WRITE_CHECK` / `WRITE_CHECK_WAIT_MS = 1500` / `WRITE_CHECK_TRIES = 3` / `normCode()` / `wantCode()` / `armWriteCheck()` / `writeCheckTick()`（写完 1.5 s 回读 `b.code`，连续 3 次对不上才 `hint()` 报「无权限：… 的写入没生效（服务端没有接受）」）；`writeBuild()` / `writeMany()` 各接一层；update 钩子里 `writeCheckTick()`；自检口 `api.maiLinkConflictProbe` / `api.maiNetProbe` / `api.maiWriteCheckProbe` | ui smoke 三个新探针（`MAILINKCONFLICT:ok` / `MAINET:net=false admin=false player=null perm=null` / `MAIWRITECHECK:offline queue=0`）+ 八条源码红线（断言表 L2-58 / L2-59）；真联机要开服，本轮未实测 |
+| v0.12.9 区域快照补全（模组 + sidecar） | 完成（v0.12.9） | `MlogAuxiliary/scripts/main.js` 的 `stockOf()` / `seqSize()` / `unitStats()` / `addInto()` / `countKeys()` / `stockText()` + `SNAP_MAX_STORES`（`regionSnapshot()` 多出 `blocks` / `items` / `liquids` / `stores` / `units` / `enemies`，`regionText()` 多一行「方块 N 种 物品 … 液体 … 单位 …」）；`tools/mlogprovider.py` 的 `snapshot_facts()` 重写 + `_num()` / `_top()`（优先用模组给的 `blocks`，没有才从 `grid` 回退数）；`tests/mlogauxiliary/run_ui_smoke.py` 的 `region_probe()` 往 2x2 容器塞 100 铜 + 插一个 dagger、`tests/logicd/run_logicd_tests.py` 的 `test_provider()` 加五条 | ui smoke 的 `MAISNAP` 断言 items 100（不是 400）/ blocks / stores 1 条 / units / enemies 全对 + 5 条源码红线；provider 12 项；断言表 L2-60 / L2-61 |
 | v0.12.3 推理模型的回复预算（sidecar 侧，模组未变） | 完成（v0.12.3） | `tools/mlogprovider.py` 的 `DEFAULT_MAX_TOKENS = 4096` / `TOKENS_CEILING = 16000` / `_once()` / `finish_reason=length` 自动升一档重试 / `_budget_hint()`；`tools/logicd.py` 的 `LLM_STATE['max_tokens']`、`POST /llm` 的 `max_tokens`（64..64000）、`GET /llm` 回报、`--llm-max-tokens`、`/llm/probe` 预算 128→512 起、`SIDECAR_VERSION` 与 `GET /health` 的 `version` | `test_llm()` 11 项 + `test_protocol()` 的版本检查（断言表 L2-51 / L2-52）；真机复测要玩家重启 sidecar 后重投同一句描述（v0.12.2 起会得到 `<id>-3`） |
 
 P2 期间确认的第三条环境事实：**真 v160.7 的 Rhino 里 `String.prototype.split(正则)` 对带 `+` 量词的模式

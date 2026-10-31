@@ -59,6 +59,15 @@ def region_probe(srv):
         "var W = Packages.mindustry.Vars.world;",
         "W.tile(%d, %d).setBlock(Packages.mindustry.Vars.content.block('container'));" % (bx + 2, by + 1),
         "W.tile(%d, %d).setBlock(Packages.mindustry.Vars.content.block('switch'));" % (bx + 4, by + 1),
+        # v0.12.9: stock lives on the BUILDING, not the tile.  A 2x2 container is one
+        # building on four tiles, so 100 copper must come back as 100, not 400.
+        "var cb = W.tile(%d, %d).build;" % (bx + 2, by + 1),
+        "cb.items.add(Packages.mindustry.content.Items.copper, 100);",
+        # and a unit: units are not in the tile grid at all, they come from Groups.unit
+        # and are filtered by tile position (world pixels / Vars.tilesize).
+        "var u = Packages.mindustry.content.UnitTypes.dagger.create(Packages.mindustry.game.Team.sharded);",
+        "u.x = (%d + 0.5) * 8; u.y = (%d + 0.5) * 8;" % (bx + 3, by + 2),
+        "Packages.mindustry.gen.Groups.unit.add(u);",
         "print('MAISNAP:' + maiSnapshot(%d, %d, %d, %d));" % (bx - 1, by - 1, bx + 4, by + 4),
     ]
 
@@ -348,7 +357,7 @@ def main():
                               'MAIJOBBOX0:', 'MAIJOBBOXPIN:', 'MAIJOBBOXFIN:',
                               'MAIJOBBOXCLR:', 'MAIJOBBOX3:', 'MAIJOBMANAGER:',
                               'MAIJOBBOXPIN2:', 'MAIJOBBOXCLOSE:', 'MAIJOBBOX4:',
-                              'MAIBADGERECT:'))]
+                              'MAIBADGERECT:', 'MAIDBG:'))]
     joined = '\n'.join(lines)
 
     # ---- resolve every Table/Cell method the page actually uses, in the engine
@@ -862,6 +871,26 @@ def main():
                          'the multiplayer probe is gone')):
         if needle not in code_only:
             problems.append('v0.12.8: ' + why)
+    # v0.12.9: a region snapshot has to say what else is in the area, and the stock has to
+    # be counted per BUILDING (a 2x2 container is one building on four tiles).
+    for needle, why in (('function stockOf(',
+                         'the snapshot no longer reads stock off the building'),
+                        ('function seqSize(',
+                         'the Seq size trap is back -- Groups.unit.size is a METHOD in v160.7 '
+                         '(EntityGroup re-declares size()), so i < seq.size never runs'),
+                        ('seenIds[bid] !== true',
+                         'stock is counted per tile again -- a 2x2 container would count 4x'),
+                        ('Packages.mindustry.gen.Groups.unit',
+                         'units are no longer read from Groups.unit (they are not in the grid)'),
+                        ('typeof seq.rawSeq === "function"',
+                         'the rawSeq() path is gone -- Groups.unit.get is undefined on the real '
+                         'engine (EntityGroup hides Seq.get), so plain get(i) counts zero units'),
+                        ('function unitStats(',
+                         'the unit/enemy summary is gone'),
+                        ('blocks: blocks, items: items, liquids: liquids, stores: stores',
+                         'the snapshot dropped the new blocks/items/liquids/stores sections')):
+        if needle not in code_only:
+            problems.append('v0.12.9: ' + why)
     for needle, why in (('function jobRetryHead(',                          'a retrying job no longer labels its findings as the last attempt'),
                         ('function jobFindingLines(',
                          'the truncation gloss helper is gone'),
@@ -980,6 +1009,31 @@ def main():
             problems.append('region bounds: %r' % (snap.get('bounds'),))
         if snap.get('truncated') is not False:
             problems.append('region truncated flag: %r' % (snap.get('truncated'),))
+        # ---- v0.12.9: the snapshot now says what ELSE is in the area -- block counts,
+        # stock, units, enemies -- and the stock must be per BUILDING, not per tile.
+        blocks = snap.get('blocks') or {}
+        if blocks.get('container') != 4 or blocks.get('micro-processor') != 1:
+            problems.append('v0.12.9: snapshot block counts: %r' % (blocks,))
+        if (snap.get('items') or {}).get('copper') != 100:
+            problems.append('v0.12.9: a 2x2 container must count its 100 copper ONCE '
+                            '(stock is per building, not per tile), got %r'
+                            % (snap.get('items'),))
+        stores = snap.get('stores') or []
+        if len(stores) != 1:
+            problems.append('v0.12.9: stores must hold one entry per building, got %r'
+                            % (stores,))
+        elif str(stores[0].get('block')) != 'container' or stores[0].get('x') != bx + 2:
+            problems.append('v0.12.9: the store entry is at the wrong building: %r'
+                            % (stores[0],))
+        units = snap.get('units') or {}
+        if units.get('total') != 1 or (units.get('types') or {}).get('dagger') != 1:
+            problems.append('v0.12.9: snapshot units: %r' % (units,))
+        if (units.get('teams') or {}).get('sharded') != 1:
+            problems.append('v0.12.9: the unit team is not recorded: %r' % (units,))
+        enemies = snap.get('enemies') or {}
+        if enemies.get('units') != 0 or enemies.get('blocks') != 0:
+            problems.append('v0.12.9: a headless engine has no local player, so "enemy" has '
+                            'no meaning and both counts must be 0: %r' % (enemies,))
 
     # ---- v0.4.8 F3 drag-select: a backwards drag is the same box, and the summary is
     # produced without the sidecar (a headless engine has no Vars.ui, so the post is

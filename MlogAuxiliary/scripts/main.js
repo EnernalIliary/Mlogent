@@ -28,7 +28,7 @@
 function __logicWriterMain(){
     "use strict";
 
-    var MOD_VERSION = "0.12.8";
+    var MOD_VERSION = "0.12.9";
     var URL_KEY     = "mlogauxiliary-url";
     var DEFAULT_URL = "http://127.0.0.1:8765";
     // v0.11.0：设置页里填的模型档三件套。密钥只留在本机 Core.settings 与 sidecar 进程内存。
@@ -2678,6 +2678,123 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
             }catch(e){ return "?"; }
         }
 
+        // ------------------------------------------------------- v0.12.9 快照补全
+        // 「这片区域有什么」不能只有方块名。引擎事实（v160.7）：库存挂在建筑上 ——
+        // bld.items 是 ItemModule、bld.liquids 是 LiquidModule，没有这两样的建筑上它们是 null；
+        // 一个 2x2 方块在四个格子上是同一个建筑（同一个 bld），所以库存/队伍必须按建筑身份去重，
+        // 而 grid / blocks 是按格计数 —— 两者别混（container 2x2 = grid 4 格、stores 1 条）。
+        var SNAP_MAX_STORES = 16;
+
+        // 引擎坑（v160.7 实测，2026-10-31）：arc 的 Seq 既有 public int size 字段、也有 size()
+        // 方法；普通 Seq 上 Rhino 取到的是字段（数字），但 EntityGroup 自己又声明了一遍
+        // size()（mindustry/entities/EntityGroup.class），子类方法把继承来的字段挡住了 ——
+        // 于是 Groups.unit.size 是个函数。写成 i < seq.size 会永远不成立（循环一次都不跑，
+        // 单位数静默变 0），所以统一走这里：先当数字，不行再当函数调。
+        function seqSize(seq){
+            if(seq === null || seq === undefined){ return 0; }
+            var v = 0;
+            try{ v = seq.size; }catch(e){ v = 0; }
+            if(typeof v === "number"){ return v; }
+            try{ v = seq.size(); }catch(e){ v = 0; }
+            return typeof v === "number" ? v : 0;
+        }
+
+        function stockOf(mod, seq){
+            // mod: ItemModule / LiquidModule（可能 null）；seq: 内容表（Vars.content.items() 等）
+            var out = {}, total = 0, i;
+            if(mod === null || mod === undefined || seq === null || seq === undefined){
+                return {v: out, n: 0};
+            }
+            var n = seqSize(seq);
+            for(i = 0; i < n; i++){
+                var c = seq.get(i), v = 0;
+                try{ v = Number(mod.get(c)); }catch(e){ v = 0; }
+                if(!(v > 0)){ continue; }
+                out[String(c.name)] = Math.round(v * 100) / 100;
+                total += v;
+            }
+            return {v: out, n: total};
+        }
+
+        function addInto(dst, src){
+            for(var k in src){
+                if(!Object.prototype.hasOwnProperty.call(src, k)){ continue; }
+                dst[k] = (dst[k] || 0) + src[k];
+            }
+        }
+
+        function countKeys(o){
+            var n = 0;
+            for(var k in o){ if(Object.prototype.hasOwnProperty.call(o, k)){ n++; } }
+            return n;
+        }
+
+        function stockText(o, max){
+            var parts = [], n = 0, k;
+            for(k in o){
+                if(!Object.prototype.hasOwnProperty.call(o, k)){ continue; }
+                n++;
+                if(n <= max){ parts.push(k + " " + o[k]); }
+            }
+            if(n > max){ parts.push("…还有 " + (n - max) + " 种"); }
+            return n === 0 ? "无" : parts.join("、");
+        }
+
+        // 单位不在方块网格里，得走 Groups.unit 再按 tile 落点筛。坐标是世界像素，
+        // 除以 Vars.tilesize（8）才是 tile 坐标。
+        // 引擎坑（v160.7 实测，2026-10-31）：Groups.unit 是 EntityGroup，它把继承来的
+        // Seq.get 挡住了 —— typeof Groups.unit.get 是 undefined（`Cannot find function get`），
+        // 而 Groups.unit.each / rawSeq() 都在。所以先拿 rawSeq() 的底层 Seq 按索引走，
+        // 拿不到再退回 each 回调；两条路都留，因为哪条能用取决于引擎版本。
+        function unitStats(x1, y1, x2, y2, myTeam){
+            var res = {total: 0, types: {}, teams: {}, enemies: 0, enemyTypes: {}};
+            var seq = null;
+            try{ seq = Packages.mindustry.gen.Groups.unit; }catch(e){ return res; }
+            if(seq === null || seq === undefined){ return res; }
+            var ts = 8;
+            try{ ts = Number(Vars.tilesize); }catch(e){ ts = 8; }
+            if(!(ts > 0)){ ts = 8; }
+
+            function count1(u){
+                if(u === null || u === undefined){ return; }
+                var ux = 0, uy = 0, tn = "?", tm = "?";
+                try{ ux = Math.floor(Number(u.x) / ts); uy = Math.floor(Number(u.y) / ts); }
+                catch(e){ return; }
+                if(ux < x1 || ux > x2 || uy < y1 || uy > y2){ return; }
+                try{ tn = String(u.type.name); }catch(e){ }
+                try{ tm = String(u.team.name); }catch(e){ }
+                res.total += 1;
+                res.types[tn] = (res.types[tn] || 0) + 1;
+                res.teams[tm] = (res.teams[tm] || 0) + 1;
+                if(myTeam !== null && tm !== myTeam){
+                    res.enemies += 1;
+                    res.enemyTypes[tn] = (res.enemyTypes[tn] || 0) + 1;
+                }
+            }
+
+            var list = seq;
+            try{
+                if(typeof seq.rawSeq === "function"){
+                    var raw = seq.rawSeq();
+                    if(raw !== null && raw !== undefined){ list = raw; }
+                }
+            }catch(e){ list = seq; }
+
+            var getter = null;
+            try{ getter = list.get; }catch(e){ getter = null; }
+            if(typeof getter === "function"){
+                var n = seqSize(list);
+                for(var i = 0; i < n; i++){
+                    var u = null;
+                    try{ u = list.get(i); }catch(e){ u = null; }
+                    count1(u);
+                }
+                return res;
+            }
+            try{ list.each(function(u){ count1(u); }); }catch(e){ }
+            return res;
+        }
+
         function regionSnapshot(x1, y1, x2, y2){
             var W = Vars.world;
             var mapName = "?";
@@ -2692,6 +2809,16 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
             if(x2 > maxX){ x2 = maxX; }
             if(y2 > maxY){ y2 = maxY; }
             var grid = [], procs = [], truncated = false, x, y;
+            // v0.12.9：方块计数 / 库存 / 单位 / 敌方
+            var blocks = {}, items = {}, liquids = {}, stores = [], seenIds = {}, enemyBlocks = 0;
+            var itemsSeq = null, liquidsSeq = null;
+            try{ itemsSeq = Vars.content.items(); }catch(e){ itemsSeq = null; }
+            try{ liquidsSeq = Vars.content.liquids(); }catch(e){ liquidsSeq = null; }
+            var myTeam = null;
+            try{
+                var pl = localPlayer();
+                if(pl !== null && pl !== undefined){ myTeam = String(pl.team().name); }
+            }catch(e){ myTeam = null; }
             for(x = x1; x <= x2 && !truncated; x++){
                 for(y = y1; y <= y2; y++){
                     var tile = W.tile(x, y);
@@ -2701,18 +2828,48 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
                     if(name === "air"){ continue; }
                     if(grid.length >= SNAP_MAX_CELLS){ truncated = true; break; }
                     grid.push({x: x, y: y, block: name});
+                    blocks[name] = (blocks[name] || 0) + 1;
                     if(isProcessor(bld)){
                         procs.push({x: x, y: y, block: name,
                                     code: String(bld.code === null ? "" : bld.code),
                                     links: linkList(bld)});
                     }
+                    if(bld !== null && bld !== undefined){
+                        // 同一个建筑在它占的每个格子上都出现一次：库存只算一遍。
+                        var bid = null;
+                        try{ bid = String(bld.id); }catch(e){ bid = null; }
+                        if(bid === null || bid === "undefined"){ bid = "t" + x + "," + y; }
+                        if(seenIds[bid] !== true){
+                            seenIds[bid] = true;
+                            var tname = "?";
+                            try{ tname = String(bld.team.name); }catch(e){ }
+                            if(myTeam !== null && tname !== myTeam){ enemyBlocks += 1; }
+                            var si = stockOf(bld.items, itemsSeq);
+                            var sl = stockOf(bld.liquids, liquidsSeq);
+                            addInto(items, si.v);
+                            addInto(liquids, sl.v);
+                            if((countKeys(si.v) > 0 || countKeys(sl.v) > 0)
+                               && stores.length < SNAP_MAX_STORES){
+                                stores.push({x: x, y: y, block: name, team: tname,
+                                             items: si.v, liquids: sl.v});
+                            }
+                        }
+                    }
                 }
+            }
+            var us = unitStats(x1, y1, x2, y2, myTeam);
+            var enemies = {units: us.enemies, blocks: enemyBlocks, types: us.enemyTypes};
+            if(myTeam === null){
+                enemies.note = "no local player, so 'enemy' has no meaning here; both counts are 0";
             }
             return {schema: 1, mod: MOD_VERSION, build: gameBuild(), map: mapName,
                     world: {width: W.width(), height: W.height()},
                     bounds: {x1: x1, y1: y1, x2: x2, y2: y2},
                     cells: grid.length, truncated: truncated,
-                    grid: grid, processors: procs};
+                    grid: grid, processors: procs,
+                    blocks: blocks, items: items, liquids: liquids, stores: stores,
+                    units: {total: us.total, types: us.types, teams: us.teams},
+                    enemies: enemies};
         }
 
         // Last non-empty line of a diagnostic, trimmed: the user needs one line
@@ -2803,6 +2960,13 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
                        + snap.bounds.x2 + "," + snap.bounds.y2
                        + "   方块 " + snap.cells + (snap.truncated ? "（已截断）" : "")
                        + "   处理器 " + p.length];
+            // v0.12.9：区域里还有什么（库存 / 单位 / 敌人），一行说清
+            var un = snap.units || {total: 0}, en = snap.enemies || {units: 0, blocks: 0};
+            out.push("  方块 " + countKeys(snap.blocks || {}) + " 种"
+                     + "   物品 " + stockText(snap.items || {}, 6)
+                     + "   液体 " + stockText(snap.liquids || {}, 4)
+                     + "   单位 " + un.total + "（敌方单位 " + en.units
+                     + "，敌方建筑 " + en.blocks + "）");
             for(i = 0; i < p.length; i++){
                 out.push("  @" + p[i].x + "," + p[i].y + " " + p[i].block
                          + "  链接 " + p[i].links.length);

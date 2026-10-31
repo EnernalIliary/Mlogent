@@ -1992,3 +1992,35 @@ m01735「哦哦，成功了，但是在模型生成被截断的时候还有报�
 - **装机**：模组 0.12.8 覆盖 `E:\Program Files (x86)\Steam\steamapps\common\Mindustry\saves\mods\MlogAuxiliary\`
   后重启游戏；sidecar 不用重启（这版没改 sidecar，仍是 0.12.6）。
 - **没做**：真联机未实测（要开服）；下一步是快照补全 `blocks`/`items`/`liquids`/`units`/`enemies`。
+
+## §74 v0.12.9 区域快照补全（库存 / 单位 / 敌方）
+
+- **起点**：规划 §3.2 的 schema 表从 v0.4.2 起就有 `blocks`/`items`/`liquids`/`units`/`enemies`
+  四段，实现只填了五段（`docs/Mlog辅助-规划.md:130-131` 自己写着「未实现」）。用户 m02326「继续」
+  ⇒ 按 m02047 批准的清单做第 ③ 项。报告：`out/takeover-20261024/74-v0129-snapshot.md`。
+- **模组**（`MlogAuxiliary/scripts/main.js`，0.12.9）：`regionSnapshot()` 多出 `blocks`（按格计数）/
+  `items` / `liquids`（**按建筑身份 `String(bld.id)` 去重**：2x2 容器在四个格子上是同一个 `bld`，
+  100 铜必须还是 100）/ `stores`（每台有库存的建筑一条，上限 `SNAP_MAX_STORES = 16`）/
+  `units:{total,types,teams}`（走 `Groups.unit`，按 `Math.floor(u.x / Vars.tilesize)` 落 tile 筛）/
+  `enemies:{units,blocks,types}`（无本地玩家时两个计数恒 0 并带 `note`）；`regionText()` 多一行摘要。
+  助手：`seqSize()` / `stockOf()` / `addInto()` / `countKeys()` / `stockText()` / `unitStats()`。
+- **引擎坑（本轮踩了两次，写进断言表 L2-61）**：`Groups.unit` 是 `EntityGroup`，它把继承来的
+  `Seq.get` 挡住了（v160.7 实测 `typeof Groups.unit.get === "undefined"`，真调用报
+  `Cannot find function get`），而 `each` / `rawSeq()` 都在；同时它自己声明了 `size ()I`，
+  把 `Seq` 的 `public int size` 字段挡住 ⇒ `Groups.unit.size` 是**函数**。两条一起踩就是
+  `for(i = 0; i < seq.size; i++)` 一次都不跑、单位数静默变 0。修法：`seqSize()` 两种都试，
+  `unitStats()` 先 `rawSeq()` 按索引走、`get` 不是函数就退回 `each(fn)`。
+- **sidecar**（`tools/mlogprovider.py`）：`snapshot_facts()` 重写，优先用模组给的 `blocks`（没有才从
+  `grid` 回退数），新增四行世界事实 `items stored in the area:` / `liquids stored in the area:` /
+  `units in the area: 2 (dagger x2; teams: sharded 2)` / `enemies in the area: 1 unit(s) flare x1,
+  1 enemy building(s)`；助手 `_num()` / `_top()`。`tools/logicd.py` 的 `SIDECAR_VERSION` → 0.12.9
+  （**这版 sidecar 改了，玩家要重启 sidecar**）。
+- **验证**：`node --check` 0；ui smoke EXIT=0（`MAISNAP` 六条 v0.12.9 断言：container 2x2 里 100 铜
+  只能算 100 / `blocks.container == 4` / `stores` 恰好 1 条且坐标对 / `units.total == 1` 且
+  `types.dagger == 1` / `teams.sharded == 1` / `enemies` 两个计数都是 0，另加七条源码红线）；
+  logicd tests 全绿（provider 12 项，五条新断言）；`gate.py` 10/11（kb WARN，正常）、
+  `gate.py --full --kb-build` 16/16。断言表新增 L2-60 / L2-61（现 **120 条**：
+  L1 31 / L2 61 / L3 6 / L4 4 / S 18）。
+- **没做**：真机未验（无头没有本地玩家 ⇒ `enemies` 恒 0 的分支被覆盖，有玩家时的敌方分支只有代码审）；
+  `stores` 超 16 台只记前 16 条（总量仍是全的）；单位的血量/朝向没记。下一步 = m02047 清单第 ④ 项
+  **打包安装即用**。

@@ -829,6 +829,23 @@ def test_provider():
          'an unknown link table is not called out')
     need('link whitelist: EMPTY' in MP.build_prompt(dict(job, links=[])),
          'an authoritative empty table is not called out')
+    # v0.12.9: the snapshot carries stock / units / enemies now, and the model has to see
+    # them; a mod-provided block count must win over the old grid fallback.
+    snap2 = dict(snap, blocks={'container': 4, 'micro-processor': 1},
+                 items={'copper': 100, 'lead': 12.5}, liquids={'water': 3},
+                 units={'total': 2, 'types': {'dagger': 2}, 'teams': {'sharded': 2}},
+                 enemies={'units': 1, 'blocks': 1, 'types': {'flare': 1}})
+    p3 = MP.build_prompt(dict(job, snapshot=snap2))
+    need('container x4' in p3,
+         'v0.12.9: the mod block counts are ignored: %r' % p3[:700])
+    need('items stored in the area: copper 100, lead 12.5' in p3,
+         'v0.12.9: the item stock never reaches the prompt: %r' % p3[:900])
+    need('liquids stored in the area: water 3' in p3,
+         'v0.12.9: the liquid stock never reaches the prompt')
+    need('units in the area: 2 (dagger x2; teams: sharded 2)' in p3,
+         'v0.12.9: the unit counts never reach the prompt')
+    need('enemies in the area: 1 unit(s) flare x1, 1 enemy building(s)' in p3,
+         'v0.12.9: the enemy counts never reach the prompt')
     checks += 1
 
     # 2. parse_reply tolerates fences and prose, and refuses junk

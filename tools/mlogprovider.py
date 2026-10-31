@@ -41,6 +41,22 @@ def _link_names(links):
     return out
 
 
+def _num(v):
+    """120.0 -> '120', 12.5 -> '12.5' (a stock is a number, not a float repr)."""
+    try:
+        f = float(v)
+    except (TypeError, ValueError):
+        return str(v)
+    if abs(f - int(f)) < 1e-9:
+        return str(int(f))
+    return ("%.2f" % f).rstrip("0").rstrip(".")
+
+
+def _top(d, n):
+    """Biggest first, name as the tiebreak, so the prompt is stable across runs."""
+    return sorted(d.items(), key=lambda kv: (-float(kv[1]), str(kv[0])))[:n]
+
+
 def snapshot_facts(snap):
     """One short block of world facts out of a region snapshot (never the whole grid)."""
     if not isinstance(snap, dict):
@@ -52,16 +68,43 @@ def snapshot_facts(snap):
                                                      b.get("y1"), b.get("y2")))
     rows.append("cells in snapshot: %s (truncated: %s)" % (snap.get("cells"),
                                                           bool(snap.get("truncated"))))
-    grid = snap.get("grid") or []
-    blocks = {}
-    for c in grid:
-        if isinstance(c, dict):
-            k = str(c.get("block") or "air")
-            if k != "air":
-                blocks[k] = blocks.get(k, 0) + 1
+    # v0.12.9: the mod now sends block counts itself (tile counts, empty tiles skipped).
+    # Older snapshots only have the grid, so keep the fallback.
+    blocks = snap.get("blocks")
+    if not isinstance(blocks, dict) or not blocks:
+        blocks = {}
+        for c in snap.get("grid") or []:
+            if isinstance(c, dict):
+                k = str(c.get("block") or "air")
+                if k != "air":
+                    blocks[k] = blocks.get(k, 0) + 1
     if blocks:
-        top = sorted(blocks.items(), key=lambda kv: (-kv[1], kv[0]))[:8]
-        rows.append("blocks nearby: " + ", ".join("%s x%d" % kv for kv in top))
+        top = _top(blocks, 8)
+        rows.append("blocks nearby: " + ", ".join("%s x%s" % (k, _num(v)) for k, v in top))
+    items = snap.get("items")
+    if isinstance(items, dict) and items:
+        rows.append("items stored in the area: "
+                    + ", ".join("%s %s" % (k, _num(v)) for k, v in _top(items, 8)))
+    liquids = snap.get("liquids")
+    if isinstance(liquids, dict) and liquids:
+        rows.append("liquids stored in the area: "
+                    + ", ".join("%s %s" % (k, _num(v)) for k, v in _top(liquids, 4)))
+    units = snap.get("units")
+    if isinstance(units, dict) and units.get("total"):
+        types = units.get("types") if isinstance(units.get("types"), dict) else {}
+        teams = units.get("teams") if isinstance(units.get("teams"), dict) else {}
+        rows.append("units in the area: %s (%s; teams: %s)" % (
+            _num(units.get("total")),
+            ", ".join("%s x%s" % (k, _num(v)) for k, v in _top(types, 6)) or "?",
+            ", ".join("%s %s" % (k, _num(v)) for k, v in _top(teams, 4)) or "?"))
+    enemies = snap.get("enemies")
+    if isinstance(enemies, dict) and (enemies.get("units") or enemies.get("blocks")):
+        types = enemies.get("types") if isinstance(enemies.get("types"), dict) else {}
+        rows.append("enemies in the area: %s unit(s)%s, %s enemy building(s)" % (
+            _num(enemies.get("units")),
+            (" " + ", ".join("%s x%s" % (k, _num(v)) for k, v in _top(types, 4)))
+            if types else "",
+            _num(enemies.get("blocks"))))
     procs = snap.get("processors") or []
     if procs:
         rows.append("other processors in the snapshot: %d" % len(procs))
