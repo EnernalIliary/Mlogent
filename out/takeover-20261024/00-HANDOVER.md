@@ -2109,3 +2109,26 @@ m01735「哦哦，成功了，但是在模型生成被截断的时候还有报�
 - 测试基础设施坑：`mlogsim.Server.js()` 用 `' '.join(script.splitlines())` 送脚本，真实换行会被拼成空格；
   要在 JS 字符串里送换行，Python 源码必须写 `\n`（值 = 反斜杠 + n，再由 Rhino 解析）。
 - 详见 `out/takeover-20261024/78-v0132-unreachable.md`；断言表 L2-65；README「## v0.13.2」。
+## §79 v0.14.0 W1：一个选框就是一个工作区（数据层）
+
+**需求**：用户 m03632「相当于每个选框就是一个工作区快照。即使写完一次逻辑也不会让工作区消失，保留上下文，可以选择归档或释放」；
+m03723「先完成两个小功能吧。然后规划一下工作区快照再继续」；m03985「我同意按照你的做」。
+规划稿 `docs/Mlog辅助-工作区快照-规划.md` 分 W1–W5，本轮只做 W1（数据层），**纯模组侧、sidecar 不动（仍 0.13.2）**。
+
+**数据模型**：`Vars.dataDirectory/mlogauxiliary/workspaces/<id>.json`，字段 `schema/mod/id/name/state/map/world/bounds/created/updated/procs[]/jobs[]/archivedAt`；
+`procs[]` 每台一行 `{k,x,y,block,desc,links,code,accepted,history}`；上限 `WS_KEEP=200` / `WS_HISTORY=20` / `WS_JOBS=50`，按 `updated` 淘汰。
+复用判定 `wsFindActive(rect)`：选框**中心**落在 active 工作区 `bounds` 内且 `map` 相同，命中则 bounds 取并集（`wsAttach`）。
+
+**改动**（`MlogAuxiliary/scripts/main.js`，现 4,366 行）：新段 30 个 `ws*` 函数；钩子 `startJobBatch`（`wsAttach` + `wsRecordJob` + 提示）、
+`jobBoxTick`（`wsRecordTerminal`）、`startJob`（`wsTouchHere` + `wsRecordJob`）、`writeBuild`（`wsAccepted`）、`writeMany`（逐台 `wsAccepted`）、
+`openQuickJob`（标题带工作区名）、`api.maiJobBox`（加 `ws`）；新口子 `api.maiWorkspaceList/Archive/Restore/Release/Current`；
+自检口 `api.maiWorkspaceProbe()`（内存表跑十一件事，返回 `ok dir=no|yes mem=yes`）；版本三处 0.14.0。
+
+**踩坑**：探针最初写在工作区段（:1290），早于 `var api = {`（:3594）⇒ 加载即 TypeError；已移到 `api.maiJobCancel` 之前（现 :4184）。
+ui smoke 成功路径的展示白名单不含 `MAIJOBPANEL:`/`MAIWORKSPACE:`，导致断言通过却看不到证据——已补进白名单（`tests/mlogauxiliary/run_ui_smoke.py` 末尾）。
+
+**验证**：`node --check` 0；ui smoke EXIT=0 且可见 `MAIDIAG:版本：0.14.0`、`MAIWORKSPACE:ok dir=yes mem=yes`、`MAIJOBBOX*` 的 JSON 出现 `"ws":null`。
+
+**没做**：界面（W2）、`mode:"improve"`（W3，`jobqueue.normalize()` 只认白名单字段）、跨地图迁移。
+
+报告：`out/takeover-20261024/79-v0140-workspace-w1.md`；断言表 L2-66。

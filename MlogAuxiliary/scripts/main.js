@@ -28,7 +28,7 @@
 function __logicWriterMain(){
     "use strict";
 
-    var MOD_VERSION = "0.13.2";
+    var MOD_VERSION = "0.14.0";
     var URL_KEY     = "mlogauxiliary-url";
     var DEFAULT_URL = "http://127.0.0.1:8765";
     // v0.11.0：设置页里填的模型档三件套。密钥只留在本机 Core.settings 与 sidecar 进程内存。
@@ -1025,6 +1025,338 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
             return "撤销快照 " + undoFilesOf(root).length + " 份（目录 " + dirText(root) + "）";
         }
 
+        // ------------------------------------------------ 工作区快照（v0.14.0，W1 数据层）
+        // 用户 m03632：「相当于每个选框就是一个工作区快照。即使写完一次逻辑也不会让工作区消失，
+        // 保留上下文，可以选择归档或释放工作区，释放工作区就不再留存上下文。」
+        // 落盘：<dataDirectory>/mlogauxiliary/workspaces/<id>.json（和 undo 快照同级，跟着存档走）。
+        // 存的是**上下文**不是世界快照：bounds + 地图 + 每台处理器的描述/链接表/最后写进去的代码/投递历史；
+        // 世界快照仍在投递时现算（regionSnapshot），所以工作区文件不会随方块变动而膨胀。
+        // 归属判定（用户 m03985 批准）：选框中心落在某个 active 工作区的 bounds 内、且地图一致 ⇒ 复用。
+        // 读写走 wsReadText / wsWriteText / wsDeleteFile 三个原语：无头模拟器里 Vars.dataDirectory
+        // 可能是 null（mlogsim 不调 Vars.loadSettings），探针把它们换成内存表，逻辑照样能验。
+        var WS_SCHEMA = 1;
+        var WS_KEEP = 200;      // 工作区文件上限，超出按「最近更新」从旧到新释放
+        var WS_HISTORY = 20;    // 每台处理器保留几次投递历史
+        var WS_JOBS = 50;       // 每个工作区保留多少个作业 id
+        var wsCache = {};       // id -> 已解析的工作区对象
+        var wsCurrent = null;   // 当前框选挂靠的工作区 id
+        var wsMem = null;       // 探针用内存表（非 null 时不碰磁盘）
+        var wsSeq = 0;
+
+        function wsStamp(){
+            try{ return Packages.java.lang.System.currentTimeMillis(); }catch(e){ return 0; }
+        }
+
+        function wsRoot(){
+            try{
+                var fi = Vars.dataDirectory.child("mlogauxiliary").child("workspaces");
+                if(!fi.exists()){ fi.mkdirs(); }
+                return fi;
+            }catch(e){ log("workspace dir failed: " + e); return null; }
+        }
+
+        function wsFileOf(id){
+            var root = wsRoot();
+            if(root === null){ return null; }
+            try{ return root.child(String(id) + ".json"); }catch(e){ return null; }
+        }
+
+        function wsReadText(id){
+            var key = String(id);
+            if(wsMem !== null){ return (wsMem[key] === undefined) ? null : String(wsMem[key]); }
+            var f = wsFileOf(key);
+            if(f === null){ return null; }
+            try{ return f.exists() ? String(f.readString("UTF-8")) : null; }
+            catch(e){ log("workspace read failed: " + e); return null; }
+        }
+
+        function wsWriteText(id, text){
+            var key = String(id);
+            if(wsMem !== null){ wsMem[key] = String(text); return true; }
+            var f = wsFileOf(key);
+            if(f === null){ return false; }
+            try{ f.writeString(String(text), false); return true; }
+            catch(e){ log("workspace write failed: " + e); return false; }
+        }
+
+        function wsDeleteFile(id){
+            var key = String(id);
+            if(wsMem !== null){ delete wsMem[key]; return true; }
+            var f = wsFileOf(key);
+            if(f === null){ return false; }
+            try{ if(f.exists()){ f.delete(); } return true; }
+            catch(e){ log("workspace delete failed: " + e); return false; }
+        }
+
+        function wsFileNames(){
+            var out = [], key;
+            if(wsMem !== null){
+                for(key in wsMem){ if(wsMem.hasOwnProperty(key)){ out.push(String(key) + ".json"); } }
+                return out;
+            }
+            var root = wsRoot(), files = null, i;
+            if(root === null){ return out; }
+            try{ files = root.list(".json"); }catch(e){ files = null; }
+            if(files === null){ return out; }
+            for(i = 0; i < files.length; i++){ out.push(String(files[i].name())); }
+            return out;
+        }
+
+        function wsParseText(text){
+            if(text === null || text === undefined){ return null; }
+            var obj = null;
+            try{ obj = parse(String(text)); }catch(e){ obj = null; }
+            if(obj === null || obj === undefined || typeof obj !== "object"){ return null; }
+            return obj;
+        }
+
+        function wsLoad(id){
+            var key = String(id);
+            if(wsCache[key] !== undefined && wsCache[key] !== null){ return wsCache[key]; }
+            var obj = wsParseText(wsReadText(key));
+            if(obj === null || obj.id === undefined){ return null; }
+            if(obj.procs === undefined || obj.procs === null){ obj.procs = []; }
+            if(obj.jobs === undefined || obj.jobs === null){ obj.jobs = []; }
+            if(obj.state === undefined || obj.state === null){ obj.state = "active"; }
+            wsCache[key] = obj;
+            return obj;
+        }
+
+        function wsSave(ws){
+            if(ws === null || ws === undefined || ws.id === undefined){ return null; }
+            var key = String(ws.id);
+            ws.schema = WS_SCHEMA;
+            ws.mod = MOD_VERSION;
+            ws.updated = wsStamp();
+            if(!wsWriteText(key, JSON.stringify(ws))){ return null; }
+            wsCache[key] = ws;
+            wsPrune();
+            return ws;
+        }
+
+        function wsList(){
+            var names = wsFileNames(), out = [], i;
+            for(i = 0; i < names.length; i++){
+                var nm = String(names[i]);
+                var id = nm.substring(0, nm.length - 5);
+                var obj = wsLoad(id);
+                if(obj === null){ continue; }
+                out.push({id: String(obj.id), name: String(obj.name || obj.id),
+                          state: String(obj.state || "active"), map: String(obj.map || "?"),
+                          bounds: obj.bounds || null, updated: Number(obj.updated || 0),
+                          procs: (obj.procs || []).length, jobs: (obj.jobs || []).length});
+            }
+            out.sort(function(a, b){ return b.updated - a.updated; });
+            return out;
+        }
+
+        function wsPrune(){
+            var names = wsFileNames();
+            if(names.length <= WS_KEEP){ return; }
+            var rows = wsList(), i;
+            for(i = WS_KEEP; i < rows.length; i++){
+                wsDeleteFile(rows[i].id);
+                delete wsCache[String(rows[i].id)];
+            }
+            log("workspace prune: released " + String(rows.length - WS_KEEP) + " old workspace(s)");
+        }
+
+        function wsCenter(r){
+            return {x: Math.floor((Number(r.x1) + Number(r.x2)) / 2),
+                    y: Math.floor((Number(r.y1) + Number(r.y2)) / 2)};
+        }
+
+        function wsNameFor(r){
+            var c = wsCenter(r);
+            return "区域 (" + c.x + "," + c.y + ")";
+        }
+
+        function wsNew(r, name){
+            wsSeq++;
+            var id = "ws" + String(wsStamp()) + "_" + String(wsSeq);
+            var map = "?";
+            try{ map = String(mapName); }catch(e){ map = "?"; }
+            var ws = {schema: WS_SCHEMA, mod: MOD_VERSION, id: id,
+                      name: String(name || ("工作区 " + id)), state: "active", map: map,
+                      world: null, bounds: {x1: Number(r.x1), y1: Number(r.y1),
+                                            x2: Number(r.x2), y2: Number(r.y2)},
+                      created: wsStamp(), updated: wsStamp(), notes: "",
+                      procs: [], jobs: [], archivedAt: 0};
+            try{ ws.world = {width: Vars.world.width(), height: Vars.world.height()}; }catch(e){ ws.world = null; }
+            wsCurrent = id;
+            return ws;
+        }
+
+        // 按 id 找 active 工作区：选框中心落在 bounds 内 + 地图一致（用户 m03985 批准的判定口径）。
+        function wsFindActive(r){
+            if(r === null || r === undefined){ return null; }
+            var c = wsCenter(r), map = "?";
+            try{ map = String(mapName); }catch(e){ map = "?"; }
+            var rows = wsList(), i;
+            for(i = 0; i < rows.length; i++){
+                var row = rows[i];
+                if(String(row.state) !== "active"){ continue; }
+                if(String(row.map) !== map){ continue; }
+                var b = row.bounds;
+                if(b === null || b === undefined){ continue; }
+                if(c.x >= Number(b.x1) && c.x <= Number(b.x2)
+                   && c.y >= Number(b.y1) && c.y <= Number(b.y2)){
+                    return String(row.id);
+                }
+            }
+            return null;
+        }
+
+        function wsProcOf(ws, b){
+            var k = procKey(b), list = ws.procs || [], i;
+            for(i = 0; i < list.length; i++){
+                if(String(list[i].k) === k){ return list[i]; }
+            }
+            return null;
+        }
+
+        function wsTouchProc(ws, b, desc){
+            if(ws === null || ws === undefined || b === null || b === undefined){ return null; }
+            var k = procKey(b), row = wsProcOf(ws, b);
+            if(row === null){
+                var bn = "?";
+                try{ bn = String(b.block.name); }catch(e){ bn = "?"; }
+                row = {k: k, x: b.tile.x, y: b.tile.y, block: bn, desc: "", links: null,
+                       code: "", accepted: 0, history: []};
+                ws.procs.push(row);
+            }
+            var d = String(desc || "");
+            if(d.length > 0){ row.desc = d; }
+            row.links = linkSig(b);
+            try{ row.code = String(b.code); }catch(e){ }
+            return row;
+        }
+
+        // F3 批量路径：复用中心落在框内的工作区，否则新建一个（这块框选从此有了身份）。
+        function wsAttach(r, targets, desc){
+            var id = wsFindActive(r);
+            var ws = (id === null) ? wsNew(r, wsNameFor(r)) : wsLoad(id);
+            if(ws === null){ return null; }
+            if(id !== null){
+                // 复用的时候把框扩成并集：同一个工作区覆盖的范围只增不减
+                var b = ws.bounds || {};
+                ws.bounds = {x1: Math.min(Number(b.x1), Number(r.x1)),
+                             y1: Math.min(Number(b.y1), Number(r.y1)),
+                             x2: Math.max(Number(b.x2), Number(r.x2)),
+                             y2: Math.max(Number(b.y2), Number(r.y2))};
+            }
+            for(var i = 0; i < (targets || []).length; i++){ wsTouchProc(ws, targets[i].b, desc); }
+            wsSave(ws);
+            wsCurrent = String(ws.id);
+            return ws;
+        }
+
+        // 单台路径（AI 面板）：只有这台处理器已经落在某个 active 工作区里才挂靠，不凭空造工作区。
+        function wsTouchHere(b, desc){
+            if(b === null || b === undefined){ return null; }
+            var r = null;
+            try{ r = {x1: b.tile.x, y1: b.tile.y, x2: b.tile.x, y2: b.tile.y}; }catch(e){ return null; }
+            var id = wsFindActive(r);
+            if(id === null){ return null; }
+            var ws = wsLoad(id);
+            if(ws === null){ return null; }
+            wsTouchProc(ws, b, desc);
+            wsSave(ws);
+            wsCurrent = String(ws.id);
+            return ws;
+        }
+
+        // 写入成功：把「这台处理器现在跑的就是这段代码」记进工作区（按 procKey 找行，找不到就跳过）。
+        function wsAccepted(b, res){
+            try{
+                if(b === null || b === undefined || res === null || res === undefined){ return; }
+                var k = procKey(b), rows = wsList(), i, j;
+                for(i = 0; i < rows.length; i++){
+                    var ws = wsLoad(rows[i].id);
+                    if(ws === null){ continue; }
+                    var list = ws.procs || [];
+                    for(j = 0; j < list.length; j++){
+                        if(String(list[j].k) !== k){ continue; }
+                        var row = list[j];
+                        row.code = String(b.code);
+                        row.accepted = Number(row.accepted || 0) + 1;
+                        row.links = linkSig(b);
+                        var hist = row.history || [];
+                        hist.push({t: wsStamp(), template: String(res.template || "code"),
+                                   statements: Number(res.statements || 0),
+                                   bytes: Number(res.bytes_len || 0)});
+                        while(hist.length > WS_HISTORY){ hist.shift(); }
+                        row.history = hist;
+                        wsSave(ws);
+                        return;
+                    }
+                }
+            }catch(e){ log("workspace accepted failed: " + e); }
+        }
+
+        function wsRecordJob(ws, jid, desc){
+            if(ws === null || ws === undefined || jid === null || jid === undefined){ return; }
+            try{
+                ws.jobs.push({id: String(jid), desc: String(desc || ""), at: wsStamp(), state: ""});
+                while(ws.jobs.length > WS_JOBS){ ws.jobs.shift(); }
+                wsSave(ws);
+            }catch(e){ log("workspace job failed: " + e); }
+        }
+
+        function wsRecordTerminal(ws, job){
+            if(ws === null || ws === undefined || job === null || job === undefined){ return; }
+            try{
+                var list = ws.jobs || [], i;
+                for(i = 0; i < list.length; i++){
+                    if(String(list[i].id) !== String(job.id)){ continue; }
+                    list[i].state = String(job.state || "");
+                    list[i].template = String(job.template || "");
+                    list[i].statements = Number(job.statements || 0);
+                    wsSave(ws);
+                    return;
+                }
+            }catch(e){ log("workspace terminal failed: " + e); }
+        }
+
+        function wsArchive(id){
+            var ws = wsLoad(id);
+            if(ws === null){ return "没有这个工作区"; }
+            ws.state = "archived";
+            ws.archivedAt = wsStamp();
+            if(wsSave(ws) === null){ return "归档失败：写不进磁盘"; }
+            return "已归档工作区「" + String(ws.name) + "」";
+        }
+
+        function wsRestore(id){
+            var ws = wsLoad(id);
+            if(ws === null){ return "没有这个工作区"; }
+            ws.state = "active";
+            ws.archivedAt = 0;
+            if(wsSave(ws) === null){ return "恢复失败：写不进磁盘"; }
+            return "已恢复工作区「" + String(ws.name) + "」";
+        }
+
+        // 释放 = 删文件 + 忘掉缓存：用户要的「不再留存上下文」就是这一条。
+        function wsRelease(id){
+            var key = String(id);
+            var ws = wsLoad(key);
+            if(ws === null){ return "没有这个工作区"; }
+            var nm = String(ws.name);
+            if(!wsDeleteFile(key)){ return "释放失败：文件删不掉"; }
+            delete wsCache[key];
+            if(wsCurrent === key){ wsCurrent = null; }
+            return "已释放工作区「" + nm + "」（上下文不再留存）";
+        }
+
+        function wsStateText(ws){
+            if(ws === null || ws === undefined){ return "没有工作区"; }
+            var st = String(ws.state || "active");
+            var cn = (st === "active") ? "进行中" : ((st === "archived") ? "已归档" : st);
+            return "「" + String(ws.name) + "」" + cn + " · "
+                 + String((ws.procs || []).length) + " 台处理器 · "
+                 + String((ws.jobs || []).length) + " 个作业";
+        }
+
         // ------------------------------------------------ 写前冲突检测（v0.10.1 / v0.12.8）
         // 作业是异步的：投递那一刻处理器上是 A，面板上点「写入」时可能已经是 B
         // （等结果的时候顺手改了代码、或者另一台处理器写了同一格）。静默覆盖会吃掉这段改动，
@@ -1244,6 +1576,7 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
                 b.configure(base64Bytes(res.bytes_b64));
                 forgetOrig(b);          // 写成功之后这次作业的基线就过期了
                 jobBoxWritten(b);       // v0.12.7：写入成功 = 这块框选的活干完了，框才消失
+                wsAccepted(b, res);     // v0.14.0：工作区记下「这台现在跑的就是这段」
                 armWriteCheck(b, wantCode(res), null);   // v0.12.8：联机里回读一次，确认服务端真收下了
                 return "已写入 " + (res.template || "") + "（" + res.statements + " 条语句，"
                      + res.bytes_len + " 字节）";
@@ -1319,6 +1652,7 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
                 }
             }
             for(i = 0; i < items.length; i++){ forgetOrig(items[i].b); }
+            for(i = 0; i < items.length; i++){ wsAccepted(items[i].b, items[i].res); }   // v0.14.0：工作区回写
             for(i = 0; i < items.length; i++){ armWriteCheck(items[i].b, wantCode(items[i].res), null); }
             undoStack.push({many: snaps, batch: batch});
             if(undoStack.length > 20){ undoStack.shift(); }
@@ -2162,6 +2496,7 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
             if(b === null || b === undefined){ host.add("鼠标下没有处理器").row(); return "没有目标处理器"; }
             var desc = String(intent);
             if(desc.length === 0){ host.add("先写一句要做什么").row(); return "描述是空的"; }
+            var ws = wsTouchHere(b, desc);   // v0.14.0：这台已经在某个工作区里就挂靠过去
             host.clear();
             host.add("正在投递作业…").row();
             jobSubmit(b, desc, function(res, why){
@@ -2169,6 +2504,7 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
                 aiJob = {id: String(res.id), b: b, desc: desc, host: host, d: d,
                          lastPoll: 0, job: res.job || null};
                 jobChatStart(b, String(res.id), desc);   // v0.13.0：启用即播报
+                wsRecordJob(ws, String(res.id), desc);   // v0.14.0
                 try{ renderJob(host, res.job, b, d); }
                 catch(e){ log("renderJob failed: " + e); }
             });
@@ -2292,6 +2628,9 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
                             ? {id: want, state: "failed", explanation: String(why)}
                             : job;
                         jobChatDone(jobBox.jobs[want]);   // v0.13.0：完成即播报（同一作业只报一次）
+                        if(jobBox.ws !== null && jobBox.ws !== undefined){   // v0.14.0：终态记回工作区
+                            wsRecordTerminal(wsLoad(jobBox.ws), jobBox.jobs[want]);
+                        }
                         jobBoxFinishIfDone();
                     });
                 })(jid);
@@ -2503,7 +2842,9 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
 
         // 一个描述框 → 这块区域里每个处理器各投一个作业（P5 批量入口，v0.12.5）。
         function startJobBatch(targets, desc, rect){
-            var box = {r: rect, ids: [], jobs: {}, pend: targets.length,
+            var ws = wsAttach(rect, targets, desc);        // v0.14.0：这块框选 = 一个工作区快照
+            var box = {r: rect, ws: (ws === null ? null : String(ws.id)),
+                       ids: [], jobs: {}, pend: targets.length,
                        started: Packages.java.lang.System.currentTimeMillis(),
                        termAt: 0, lastPoll: 0};
             jobBox = box;
@@ -2521,13 +2862,15 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
                             box.ids.push(jid);
                             box.jobs[jid] = res.job ? res.job : {id: jid, state: "queued", desc: desc};
                             jobChatStart(t.b, jid, desc);     // v0.13.0：启用即播报
+                            wsRecordJob(ws, jid, desc);       // v0.14.0：工作区记住这次投递
                         }
                         if(box.pend === 0){
                             if(box.ids.length === 0){
                                 jobBox = null;
                                 hint("这批作业一个也没投出去：" + String(why));
                             }else{
-                                hint("已投 " + box.ids.length + " 个作业：框右下角点开看进度；写入成功后框才消失（右键徽标可主动关）");
+                                hint("已投 " + box.ids.length + " 个作业：框右下角点开看进度；写入成功后框才消失（右键徽标可主动关）"
+                                     + (ws === null ? "" : "；工作区「" + String(ws.name) + "」已保存，继续框这块会复用"));
                             }
                         }
                         jobBoxFinishIfDone();
@@ -2552,8 +2895,13 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
                 return "no processor in region";
             }
             var desc = "";
-            var d = new Packages.arc.scene.ui.Dialog("Mlog辅助 · 描述 v" + MOD_VERSION);
+            var wsId = wsFindActive(r), wsHit = (wsId === null) ? null : wsLoad(wsId);   // v0.14.0
+            var d = new Packages.arc.scene.ui.Dialog("Mlog辅助 · 描述 v" + MOD_VERSION
+                + (wsHit === null ? "" : " · 工作区「" + String(wsHit.name) + "」"));
             d.cont.defaults().pad(6).left();
+            if(wsHit !== null){
+                d.cont.add("这块框选复用已有工作区：写完不消失，可以继续改进；归档 / 释放见作业管理窗").row();
+            }
             d.cont.add(targets.length === 1
                         ? ("目标：@" + targets[0].x + "," + targets[0].y)
                         : ("目标：区域里 " + targets.length + " 个处理器，每个处理器生成一段")).row();
@@ -3830,7 +4178,54 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
                          + " first=" + as[0])
                       : ("bad assumptions=" + as.length + " cost=" + co.length);
         };
+        // v0.14.0：工作区数据层的无头探针。无头模拟器里 Vars.dataDirectory 可能是 null，
+        // 所以把三个存储原语换成内存表，验的是「逻辑」而不是磁盘：
+        // 落盘/读回、复用判定（中心在框内 + 地图一致）、归档后不复用、恢复、释放后文件真的没了。
+        api.maiWorkspaceProbe = function(){
+            var notes = [], savedMem = wsMem, savedCur = wsCurrent, savedCache = wsCache;
+            wsMem = {};
+            wsCache = {};
+            try{
+                var r = {x1: 40, y1: 40, x2: 46, y2: 46};
+                var ws = wsNew(r, "probe");
+                ws.notes = "probe-notes";
+                var fake = {tile: {x: 41, y: 42}, code: "set n 1\nend", links: null};
+                wsTouchProc(ws, fake, "探测用描述");
+                if(wsSave(ws) === null){ notes.push("save"); }
+                var back = wsLoad(ws.id);
+                if(back === null || String(back.notes) !== "probe-notes"){ notes.push("roundtrip"); }
+                var procs = (back === null ? [] : (back.procs || []));
+                if(procs.length !== 1 || String(procs[0].desc) !== "探测用描述"){ notes.push("procs"); }
+                if(wsFindActive(r) !== String(ws.id)){ notes.push("reuse"); }
+                if(wsFindActive({x1: 400, y1: 400, x2: 402, y2: 402}) !== null){ notes.push("noreuse"); }
+                wsRecordJob(ws, "job-1", "探测用描述");
+                var jobs = ((wsLoad(ws.id) || {}).jobs) || [];
+                if(jobs.length !== 1 || String(jobs[0].id) !== "job-1"){ notes.push("job"); }
+                wsArchive(ws.id);
+                if(wsFindActive(r) !== null){ notes.push("archived"); }
+                if(String((wsLoad(ws.id) || {}).state) !== "archived"){ notes.push("state"); }
+                wsRestore(ws.id);
+                if(wsFindActive(r) !== String(ws.id)){ notes.push("restore"); }
+                wsRelease(ws.id);
+                if(wsLoad(ws.id) !== null){ notes.push("release-load"); }
+                if(wsFileNames().length !== 0){ notes.push("release-file"); }
+            }catch(e){
+                notes.push("throw:" + e);
+            }
+            wsMem = savedMem;
+            wsCache = savedCache;
+            wsCurrent = savedCur;
+            var dir = "no";
+            try{ if(Vars.dataDirectory !== null && Vars.dataDirectory !== undefined){ dir = "yes"; } }catch(e2){ dir = "no"; }
+            return (notes.length === 0 ? "ok" : ("bad " + notes.join(","))) + " dir=" + dir + " mem=yes";
+        };
         api.maiJobCancel = function(){ return cancelJob(); };
+        // v0.14.0：工作区数据层自检口（实现在工作区段里，这里转发）
+        api.maiWorkspaceList = function(){ return JSON.stringify(wsList()); };
+        api.maiWorkspaceArchive = function(id){ return wsArchive(String(id)); };
+        api.maiWorkspaceRestore = function(id){ return wsRestore(String(id)); };
+        api.maiWorkspaceRelease = function(id){ return wsRelease(String(id)); };
+        api.maiWorkspaceCurrent = function(){ return wsCurrent === null ? "" : String(wsCurrent); };
         api.maiJobState = function(){
             return aiJob === null ? "" : JSON.stringify({id: aiJob.id, desc: aiJob.desc});
         };
@@ -3838,7 +4233,7 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
         api.maiJobBox = function(){
             var s = jobBoxState();
             if(s === null){ return JSON.stringify({box: false}); }
-            return JSON.stringify({box: true, r: jobBox.r, ids: jobBox.ids,
+            return JSON.stringify({box: true, r: jobBox.r, ws: jobBox.ws || null, ids: jobBox.ids,
                                    total: s.total, terminal: s.terminal,
                                    done: s.done, failed: s.failed,
                                    linger: jobBox.termAt > 0, badge: jobBadgeText()});
