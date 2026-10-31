@@ -187,8 +187,16 @@ P2–P5 的路线（框选 → 队列 → 模型 → 写入）在 `docs/Mlog辅�
 `docs/Mlog辅助-规划.md` §4.1：`{id: sha1(snapshot+desc+mode)[:16], created, state, mode, desc, snapshot,
 attempts, findings[], code, explanation, assumptions[]}`，状态 `queued -> running -> done|rejected|failed|cancelled`；
 **每次跃迁先写 `<jobs-dir>/<id>.json`**（tmp + `os.replace`，重启时把残留的 `running` 放回 `queued` 且 attempts 保留 = 双写可续）。
-`POST /jobs` 同 body 二次提交幂等（回 `created: false`）；`GET /jobs?id=` 查一个、`?state=` 过滤（不带 state 只回未完成）；
+`POST /jobs` 同 body 二次提交在**上一次还在飞**时幂等（回 `created: false`）；上一次已终态后同 body 起新跑
+`<id>-2`、`<id>-3`…（带 `retry_of` 指回首轮，v0.12.2）；`GET /jobs?id=` 查一个、`?state=` 过滤（不带 state 只回未完成）；
 `DELETE /jobs?id=` 取消（running 也能取消，worker 在检查点退出）。
+**为什么要拆掉「一律幂等」（v0.12.2）**：`id` 是 `sha1(snapshot+desc+mode)[:16]`，内容寻址。把已终态的作业也当成
+「同 body 已答过」，等于让一条死在 `provider-error: empty reply` 的作业永久占住这句话——玩家把端点修好、原地再点一次
+「生成」，拿回来的还是那条 `empty reply`，模型根本不会再被问一次，看起来就是「修了没用」。现在只有 queued/running
+占着 id（`jobqueue._free_id()`，上限 `RETRY_MAX = 99` 轮顺延），失败的那次照样留在盘上可对比，模组不用改也不用重装。
+同版还修了两处写盘薄弱点（`jobqueue.py`）：`Store.save()` 对 `PermissionError`/WinError 5·32·33 这类「文件刚被别人
+占了一下」的冲突重试 `SAVE_TRIES = 6` 次（Windows + OneDrive 目录下实测会撞），`_loop()` 兜底 `_strand()` 把仍然写不下去
+的作业落成 `failed` + `worker-error`，不再让它永久停在 `running`——面板上「不动」和「还在跑」玩家分不出来。
 **门禁比分析器更严**：`mlogcheck` 对「形似链接名但处理器没有这个链接」只给 WARN（人可能还没接完线），
 但作业是机器输出直接写进处理器，所以 `jobqueue.FATAL_RIDS = ('link-name-not-bound',)` 把这一条**提升为 ERR**：
 最多 3 次尝试（1 + 2 次 self-repair，第二次起把 findings 当提示回给 provider），仍不过就 `rejected` 且 `code == ""`——绝不写入。

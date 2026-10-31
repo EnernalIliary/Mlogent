@@ -15,10 +15,23 @@ Contract (docs/Mlog辅助-规划.md section 4.1)
 
     queued -> running -> done | rejected | failed | cancelled
 
+The id is content-addressed, so a second POST of the same body is a no-op *while
+that job is still in flight* (section 4.2).  Once the job is terminal the same
+body starts a NEW run (v0.12.2): because the id is a hash of the request, an
+idempotent replay would answer every retry with the old verdict -- a job that
+died on 'provider-error: empty reply' would keep answering 'empty reply' after
+the endpoint was fixed, and the model would never be asked again.  The retry is
+stored as '<id>-2', '<id>-3' ... with 'retry_of' pointing at the first run, so
+the failed attempt stays on disk for comparison.
+
 Every transition is written to <dir>/<id>.json before it is reported (the mod
 also keeps its own copy, so a sidecar crash does not lose the job).  On startup
 a job found in 'running' is put back to 'queued' with its attempt count intact --
-that is what "双写可续" means here.
+that is what "双写可续" means here.  A write can lose a race with whatever else
+holds the file for an instant (OneDrive sync, a scanner, a reader), so it is
+retried, and a job whose worker still could not be written down ends as 'failed'
+rather than sitting in 'running' for ever: from the mod's panel a job that never
+moves looks exactly like one still being worked on.
 
 Why link-name-not-bound is fatal here but only a WARN in the analyzer
 --------------------------------------------------------------------
@@ -44,6 +57,31 @@ ROOT = os.path.dirname(HERE)
 
 #: one first try plus two self-repairs (docs/Mlog辅助-规划.md:175)
 MAX_ATTEMPTS = 3
+
+#: how many runs of one content id are numbered before the id gets a random tail
+#: (a player would have to re-send the same sentence 98 times to get there)
+RETRY_MAX = 99
+
+#: a job file is written tmp + os.replace; on Windows the replace can lose a race
+#: with anything else holding the file for a moment (OneDrive sync, a virus
+#: scanner, another reader), which shows up as WinError 5 / 32 / 33.  A save that
+#: died there used to leave the job stuck in 'running' with nothing in the panel,
+#: so the write is now retried instead of giving up on the first collision.
+SAVE_TRIES = 6
+SAVE_WAIT = 0.03
+
+_WIN_CONTENDED = (5, 32, 33)
+
+
+def _contended(exc):
+    """True when an OSError only means 'someone else had the file open just now'."""
+    return isinstance(exc, PermissionError) or getattr(exc, 'winerror', None) in _WIN_CONTENDED
+
+
+def _replace(src, dst):
+    """os.replace behind a name of its own, so a test can make it collide on purpose."""
+    os.replace(src, dst)
+
 
 STATES = ('queued', 'running', 'done', 'rejected', 'failed', 'cancelled')
 TERMINAL = ('done', 'rejected', 'failed', 'cancelled')
@@ -156,13 +194,27 @@ class Store:
 
     def save(self, job):
         body = json.dumps(job, ensure_ascii=False, indent=1, sort_keys=True)
-        tmp = self.file(job['id']) + '.tmp'
-        with open(tmp, 'w', encoding='utf-8', newline='\n') as fh:
-            fh.write(body)
-            fh.flush()
-            os.fsync(fh.fileno())
-        os.replace(tmp, self.file(job['id']))
-        return self.file(job['id'])
+        dest = self.file(job['id'])
+        tmp = '%s.%d.%d.tmp' % (dest, os.getpid(), threading.get_ident())
+        last = None
+        for n in range(SAVE_TRIES):
+            try:
+                with open(tmp, 'w', encoding='utf-8', newline='\n') as fh:
+                    fh.write(body)
+                    fh.flush()
+                    os.fsync(fh.fileno())
+                _replace(tmp, dest)
+                return dest
+            except OSError as exc:            # a watcher held the file for a moment
+                if not _contended(exc):
+                    raise
+                last = exc
+                time.sleep(SAVE_WAIT * (n + 1))
+        try:
+            os.remove(tmp)
+        except OSError:
+            pass
+        raise last
 
     def load(self, jid):
         path = self.file(jid)
@@ -209,14 +261,44 @@ class Queue:
             self.jobs[job['id']] = job
 
     # -- public API ------------------------------------------------------
+    def _free_id(self, base):
+        """(id, None) for an id nobody holds, (id, job) when that id is in flight.
+
+        A *terminal* job does not hold its content id (v0.12.2): the id is
+        content-addressed, so treating a finished job as "already done" turns
+        every retry of the same sentence into a replay of the old verdict -- a
+        job rejected on 'provider-error: empty reply' kept answering 'empty
+        reply' forever, which reads exactly like "the fix did not work".  A
+        finished run therefore moves the retry to base-2, base-3, ... while a
+        queued/running one still dedupes (section 4.2).
+        """
+        jid = base
+        for n in range(2, RETRY_MAX + 1):
+            old = self.jobs.get(jid)
+            if old is None:
+                return jid, None
+            if old.get('state') not in TERMINAL:
+                return jid, old
+            jid = '%s-%d' % (base, n)
+        return '%s-%s' % (base, os.urandom(3).hex()), None
+
     def enqueue(self, body):
-        """-> (job, created).  A second POST of the same body is a no-op (section 4.2)."""
+        """-> (job, created).
+
+        A second POST of the same body is a no-op while the job is still
+        queued/running (section 4.2); after it finished, the same body starts a
+        new run -- see _free_id for why the replay had to go.
+        """
         job = normalize(body)
+        base = job['id']
         with self.lock:
-            old = self.jobs.get(job['id'])
+            jid, old = self._free_id(base)
             if old is not None:
                 return dict(old), False
-            self.jobs[job['id']] = job
+            if jid != base:
+                job['id'] = jid
+                job['retry_of'] = base
+            self.jobs[jid] = job
             self.store.save(job)
             return dict(job), True
 
@@ -291,8 +373,30 @@ class Queue:
                 continue
             try:
                 self._run(jid)
-            except Exception:                 # the worker must outlive one bad job
+            except Exception as exc:          # the worker must outlive one bad job
                 traceback.print_exc()
+                self._strand(jid, exc)
+
+    def _strand(self, jid, exc):
+        """A job whose worker died must end up terminal, not 'running' for ever.
+
+        Every failure inside _run is supposed to turn into 'failed' by itself, but
+        a write that keeps colliding (see SAVE_TRIES) escapes that, and the panel
+        then shows a job that never moves -- indistinguishable, for the player,
+        from work still in progress.  Best effort: if the disk is still refusing
+        writes there is nothing left to persist the verdict to.
+        """
+        text = '%s: %s' % (type(exc).__name__, exc)
+        with self.lock:
+            job = self.jobs.get(jid)
+            if job is None or job.get('state') in TERMINAL:
+                return
+        try:
+            self._set(jid, state='failed', finished=int(time.time() * 1000),
+                      findings=[{'sev': 'ERR', 'rid': 'worker-error', 'line': 0, 'msg': text[:300]}],
+                      explanation='the worker could not finish this job: ' + text[:200])
+        except Exception:
+            traceback.print_exc()
 
     def _set(self, jid, **fields):
         with self.lock:

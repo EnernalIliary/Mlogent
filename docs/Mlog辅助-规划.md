@@ -161,9 +161,15 @@ P3 **不接模型**：只把快照打印/落盘，用来验证「框选到底拿
 
 | 端点 | 语义 |
 |---|---|
-| `POST /jobs` | 入队（body = job），返回 `{ok, id, state}`；`id` 冲突视为幂等 |
+| `POST /jobs` | 入队（body = job），返回 `{ok, id, state}`；**还在飞**（queued/running）时 `id` 冲突视为幂等，已终态（done/rejected/failed/cancelled）后同 body 起新跑 |
 | `GET /jobs?id=` / `GET /jobs?state=` | 查一个 / 列未完成的 |
 | `DELETE /jobs?id=` | 取消（running 也取消，worker 在下一个检查点退出） |
+
+**幂等只对「在飞」成立（v0.12.2）**：job id 是 `sha1(snapshot+desc+mode)[:16]`，也就是内容寻址。
+最初把「同 body 二次提交」一律当幂等回旧作业，结果是**已终态的作业把自己的内容 id 粘住了**——
+一条死在 `provider-error: empty reply` 的作业，玩家把端点修好后原地再点一次「生成」，拿回来的还是
+那条 `empty reply`，模型根本没有被再问一次。现在终态作业不再占着内容 id：同一个 body 会起
+`<id>-2`、`<id>-3`…（带 `retry_of` 指回首轮），失败的那次仍留在盘上可对比。模组不用改，也不用重装。
 
 ### 4.3 两档生成（先锚定，后自由）
 
@@ -310,11 +316,12 @@ CLI 无端点 exit 2、replay 文件回放、CLI `--jobs-drain` 用 replay 跑�
 | P3 框选 + 快照（第一刀：只读） | 部分完成（v0.4.2） | `main.js` 的 `regionSnapshot()` / `regionText()` / `regionCandidatesText()` / F7 热键 / 控制台 `maiSnapshot`·`maiRegion`·`maiRegionAround`；`tools/logicd.py` 的 `POST /region`（链接候选 + 命名 + 距离判定） | `tests/mlogauxiliary/run_ui_smoke.py` 在真 v160.7 里造 container/switch 后快照出 6 格 1 处理器且 bounds 被 clamp；`tests/logicd/run_logicd_tests.py` 23 项协议 check（含合成快照的候选/编号/`used` 断言与 mschgen 全表零漂移） |
 | P3 框选 + 区域面板（第二刀：面板） | 完成（v0.6.0） | `main.js` 的 `buildRegionTable()` / `showRegionPanel()` / `buildAt()` / `showAiPanel(target)`，`dumpRegion()` 改成 snapshot→region→面板 串行；`MlogAuxiliary/README.md` 新增 v0.6.0 节 | `run_ui_smoke.py` 的 `MAISELF` 行（区域表格 8 行）+ 四条 v0.6.0 源码红线；`gate.py --full` 16/16 |
 | v0.8.1 单格选中处理器 = AI 面板（F4 并入 F3） | 完成（v0.8.1） | `main.js` 的 `KEY_PANEL`（保留为别名）/ `processorAt()` / `selFinish()` 的 1×1 分支 / `api.maiPick` | ui smoke 的 `MAIPICK`·`MAIPICKEMPTY` 两行 + 四条源码红线（断言表 L2-43） |
-| v0.9.0 删掉 F4 热键 + 零链接门禁 | 完成（v0.9.0） | `main.js`（无 `KEY_PANEL` / `toggleAiPanel`）/ `mlogcheck.analyse(links_authoritative=)` / `logicd.analyse()` / `jobqueue._materialize()` / `linkListOrNull()` | ui smoke 反向红线 + `MAIJOBZERO`；`test_jobs()` 12 项（断言表 L2-43 / L2-44） |
+| v0.9.0 删掉 F4 热键 + 零链接门禁 | 完成（v0.9.0） | `main.js`（无 `KEY_PANEL` / `toggleAiPanel`）/ `mlogcheck.analyse(links_authoritative=)` / `logicd.analyse()` / `jobqueue._materialize()` / `linkListOrNull()` | ui smoke 反向红线 + `MAIJOBZERO`；`test_jobs()` 15 项（断言表 L2-43 / L2-44） |
 | v0.7.0 F2 全图处理器清单 | 完成（v0.7.0） | `main.js` 的 `KEY_LIST` / `scanProcessors()` / `listHead()` / `listRowLabel()` / `buildListTable()` / `showListPanel()` / `openListPanel()` / `jumpTo()`，控制台 `maiList`·`maiListRows`·`maiListPanel` | ui smoke 的 `MAISELF` 清单表格行 + `MAILIST`/`MAILISTROWS` 两行 + 五条源码红线（断言表 L2-40） |
-| P4 队列 + 模型 + 门禁 | 完成（三刀：v0.8.0 / v0.8.1 / 本刀） | `tools/jobqueue.py`（状态机 + 双写落盘 + `FATAL_RIDS` 门禁）/ `tools/mlogprovider.py`（§4.4 三段 prompt + `parse_reply` + `HttpProvider` + 录制回放）/ `tools/logicd.py` 的 `/jobs` 三端点与 `--jobs-provider llm`；模组侧 `jobBody()`/`jobTick()`/`renderJob()`/`cancelJob()` | `test_jobs()` 12 项 + `test_provider()` 9 项（断言表 L2-41 / L2-44 / L2-45）；ui smoke 三路作业探针（干净 done / 门禁拒绝 / 零链接拒绝） |
+| P4 队列 + 模型 + 门禁 | 完成（三刀：v0.8.0 / v0.8.1 / 本刀） | `tools/jobqueue.py`（状态机 + 双写落盘 + `FATAL_RIDS` 门禁）/ `tools/mlogprovider.py`（§4.4 三段 prompt + `parse_reply` + `HttpProvider` + 录制回放）/ `tools/logicd.py` 的 `/jobs` 三端点与 `--jobs-provider llm`；模组侧 `jobBody()`/`jobTick()`/`renderJob()`/`cancelJob()` | `test_jobs()` 15 项 + `test_provider()` 9 项（断言表 L2-41 / L2-44 / L2-45）；ui smoke 三路作业探针（干净 done / 门禁拒绝 / 零链接拒绝） |
 | P4.5 模型档运行时配置 | 完成（v0.11.0） | `tools/logicd.py` 的 `LLM_STATE` + `GET /llm` / `POST /llm` / `POST /models`、`tools/mlogprovider.HttpProvider` 热替换；模组设置页「大模型」段（地址 / 密钥 / 模型 + 获取模型 / 启用模型档 / 回到模板档），密钥只回显尾巴 | `test_llm()` 6 项（假 OpenAI 端点：列表 / 换档 / 真作业 / 400 / 回模板）；ui smoke `MAILLM:ok` + 五条源码红线 + v0.12.1 端点自测（`POST /llm/probe`）、API base 地址自动补全、重启后模组自动重同步 |
 | P5 多处理器写入 + 撤销落盘 | 部分完成（第一刀 v0.10.0 撤销落盘 / 第二刀 v0.10.1 写前冲突检测 / 第三刀上半 v0.12.0 事务写入核心；面板批量入口未做） | `MlogAuxiliary/scripts/main.js` 的 `undoRoot`/`snapshotText`/`saveUndoTo`/`undoFromDisk`/`undoBatchFromDisk`/`undoInfo`、`writeBuild` 里记快照名、`writeMany`（整批预检 + 整批冲突 + 整批快照 + 逐台 configure + 失败回滚）、设置页「撤销上次写入」/「撤销快照」、控制台 `maiUndo`/`maiUndoInfo`/`maiUndoProbe`/`maiWriteManyProbe` | ui smoke 的 `MAIUNDO` 行（真引擎里写快照→读回比对→删目录）+ `MAIWRITEMANY` 行（真引擎两台处理器：整批写、整批撤销、第二台抛错回滚第一台）+ `MAISELF` 的「撤销快照 ok」+ 三条 v0.10.0 与四条 v0.12.0 源码红线（断言表 L2-46 / L2-48） |
+| v0.12.2 重投不再回放旧结论（sidecar 侧，模组未变） | 完成（v0.12.2） | `tools/jobqueue.py` 的 `RETRY_MAX` / `_free_id()` / `enqueue()`（终态作业不再占着内容 id：同 body 重投 = `<id>-2`，带 `retry_of` 指回首轮）、`Store.save()` 的撞车重试（`SAVE_TRIES` / `SAVE_WAIT` / `_contended()` / `_replace()`）、`_loop()` 的 `_strand()`（写不下去的作业落 `failed`，不再永久 `running`） | `test_jobs()` 15 项（新增三项：终态后重投得 `<id>-2` 且 `retry_of` 指回首轮、文件已落盘；撞车两次的 save 第 3 次成功；running 阶段写失败的作业必须变成 `failed` 且带 `worker-error` finding） |
 
 P2 期间确认的第三条环境事实：**真 v160.7 的 Rhino 里 `String.prototype.split(正则)` 对带 `+` 量词的模式
 等价于空匹配**（`"abc def".split(/\s+/)` → `["a","b","c","d","e","f"]`；`split(/ /)`、`split(/\s/)`、

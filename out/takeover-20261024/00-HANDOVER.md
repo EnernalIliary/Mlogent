@@ -1819,3 +1819,53 @@ ui smoke EXIT=0（`MAIDIAG:版本：0.12.1`、103 行/格、`MAILLM:ok 82`）。
 「接口十四个」+ `POST /llm/probe` 段；`docs/Mlog辅助-规划.md` P4.5 行补 v0.12.1。
 
 **下一刀**：面板批量入口（P5 第三刀下半）/ 联机无权限提示 / 打包安装即用（用户定最后解决）。
+
+## §67 logicd v0.12.2：重投不再回放旧结论（sidecar 侧，模组未变）
+
+**症状**：玩家把 03:01–03:07 那三条作业都变成 `rejected / attempts 3 / provider-error: empty reply`，
+端点修好之后原地再点一次「生成」，拿回来的还是那条 `empty reply`——模型根本没有被再问一次。
+
+**根因**：job id 是内容寻址的
+（`tools/jobqueue.py:67` `job_id()` = `sha1(json.dumps({'snapshot','desc','mode'}))[:16]`），
+而 `enqueue()` 把所有同 id 提交一律当幂等：`old = self.jobs.get(job['id']); if old is not None: return dict(old), False`。
+模组侧 `jobBody()` 送的快照（`main.js:2104` `regionSnapshot()`）不含时间戳/nonce，
+所以「同一台处理器 + 同一句话」永远是同一个 id ⇒ **已终态的作业把自己的内容 id 粘死了**。
+用 `out/jobs/af91a583e578f39b.json` 的 snapshot 本地重算 hash 与存储 id 完全一致，实证了这条链。
+
+**改动**（`tools/jobqueue.py`，模组不动、不用重装——游戏安装目录至今未定位，重装成本高）：
+- 新增 `RETRY_MAX = 99` 与 `Queue._free_id(base)`：旧作业**还在飞**（queued/running）时幂等；
+  已终态（done/rejected/failed/cancelled）就把这次的 id 顺延成 `<id>-2`、`<id>-3`…，
+  并写 `retry_of` 指回首轮，失败那次仍留在盘上可对比。`enqueue()` 改用它。
+- 同版修掉两处写盘薄弱点（§66 记为「环境性偶发」的那次 `FAIL jobs: … last state 'running'` 的真因）：
+  `Store.save()` 的 `os.replace` 在 Windows/OneDrive 目录下会撞 `PermissionError: [WinError 5]`
+  （`tools/jobqueue.py:177`，同步引擎/扫描器短暂占住文件）——异常被 `_loop` 的
+  `except Exception: traceback.print_exc()` 吞掉后，作业**永久停在 running**，面板上「不动」和
+  「还在跑」玩家分不出来。现在 save 对这类冲突重试 `SAVE_TRIES = 6` 次（`SAVE_WAIT = 0.03`
+  递增退避，`_contended()` 只重试 PermissionError / WinError 5·32·33，`_replace()` 留出测试注入口），
+  仍失败才抛；`_loop()` 兜底 `_strand()`：未预期异常 → `failed` + `worker-error` finding + 原因文本
+  （已是终态的不覆盖）。
+- 模块 docstring 补了「为什么幂等只对在飞成立」与写盘重试/兜底两段。
+
+**测试**（`tests/logicd/run_logicd_tests.py`，`test_jobs()` 12 → 15 项）：
+- 终态后重投：`id == <首轮>-2`、`retry_of == 首轮`、`wait_job` 等到 `done`、`attempts == 1`、`<id>-2.json` 落盘；
+  在飞（`'慢一点'`，只含 `'慢'`，FakeProvider 取最长 key）时同 body 再投仍 `created:false`。
+- 撞车：`_replace` 前两次抛 `PermissionError`、第 3 次放行 → save 成功、`tries == 3`。
+- 卡死：`Store.save` 在 `state == 'running'` 时抛一次 `FileNotFoundError` → 作业必须 `failed` +
+  findings 含 `worker-error` + 盘上也 `failed`，且 worker traceback 里确实是那个 `FileNotFoundError`
+  （stderr 用 `contextlib.redirect_stderr` 收走，别污染 gate 输出）。
+
+**复跑**：`tests/logicd/run_logicd_tests.py --no-sim` → protocol 26 / jobs 15 / provider 11 / llm 8，EXIT=0；
+`gate.py` 默认 11/11（1 warn kb → `--kb-build` 后 11/11，163 源文件）；
+`gate.py --full` **16/16 in 68.4s**。
+
+**诊断教训（省下一轮）**：`tests/logicd/run_logicd_tests.py:72` 的 `Server` 用
+`stderr=subprocess.STDOUT` 起 sidecar，**ready 行之后没有人再读那条 pipe** —— worker 线程的 traceback
+全躺在 pipe 缓冲里，所以「作业卡在 running」在测试输出里看不到任何原因。要看它，就把 sidecar 按同样的
+参数单独起一份并且开一个线程持续 drain stdout（本轮 `out/_diag2.py` 的做法，用完删掉）。
+
+**边界**：只改 sidecar，模组版本仍是 0.12.1（`MlogAuxiliary/mod.hjson` 未动）；`<id>-N` 上限 99 轮，
+超出用随机尾巴；`retry_of` 只指首轮，不链式；写盘重试只在「文件刚被别人占了一下」的语义上重试，
+目录不存在/权限真不足这种错第一次就抛。
+
+**下一刀**：①面板批量入口（P5 第三刀下半）②联机拒绝写入的「无权限」提示 ③冲突检测只比代码文本、不比链接表
+④打包/安装即用（用户已定最后解决）。

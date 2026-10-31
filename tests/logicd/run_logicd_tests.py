@@ -31,6 +31,8 @@ from __future__ import annotations
 
 import argparse
 import base64
+import contextlib
+import io
 import json
 import os
 import pathlib
@@ -556,10 +558,33 @@ def test_jobs():
         need((qdir / (jid + '.json')).is_file(), 'job was not written to %s' % qdir)
         checks += 1
 
-        # the same body again is a no-op (section 4.2: id 冲突视为幂等)
-        st, again = srv.post('/jobs', {'desc': '把铜打印出来（好）', 'links': JLINKS, 'ipt': 2})
-        need(st == 200 and again['id'] == jid and again['created'] is False,
-             'POST /jobs twice was not idempotent: %r' % (again,))
+        # section 4.2: the same body is a no-op while that job is still in flight
+        # (the provider sleeps 2 s, so the second POST cannot race the worker)
+        slow_body = {'desc': '慢一点', 'links': JLINKS}
+        st, first = srv.post('/jobs', slow_body)
+        need(st == 200 and first.get('created') is True, 'POST /jobs (slow): %s %r' % (st, first))
+        st, twin = srv.post('/jobs', slow_body)
+        need(st == 200 and twin['id'] == first['id'] and twin['created'] is False,
+             'a second POST while the job was in flight was not a no-op: %r' % (twin,))
+        srv.delete('/jobs?id=' + first['id'])
+        wait_job(srv, first['id'], ('cancelled',))
+        checks += 1
+
+        # v0.12.2: a *terminal* job must not keep its content id.  The id is a hash of
+        # the request, so replaying a finished job answered every retry with the old
+        # verdict -- a job rejected on 'provider-error: empty reply' kept saying
+        # 'empty reply' after the endpoint was fixed, and the model was never asked.
+        st, rerun = srv.post('/jobs', {'desc': '把铜打印出来（好）', 'links': JLINKS, 'ipt': 2})
+        need(st == 200 and rerun.get('created') is True and rerun['id'] == jid + '-2',
+             'a terminal job swallowed the retry: %r' % (rerun,))
+        need(rerun['job'].get('retry_of') == jid,
+             'the retry does not point at the first run: %r' % (rerun['job'].get('retry_of'),))
+        rerun_job = wait_job(srv, rerun['id'], ('done',))
+        need(rerun_job['attempts'] == 1 and rerun_job['code'].strip(),
+             'the retry did not run again: %r'
+             % ({k: rerun_job.get(k) for k in ('attempts', 'code')},))
+        need((qdir / (rerun['id'] + '.json')).is_file(),
+             'the retry was not written to disk as its own job file')
         checks += 1
 
         # a hallucinated link name is a refusal, never a write
@@ -672,6 +697,71 @@ def test_jobs():
     g2 = jobqueue.gate(long_code, [], ipt=2)
     need(any(f['rid'] == 'link-name-not-bound' for f in g2['fatal']),
          'a long link-less program lost the link refusal: %r' % (g2['findings'][:3],))
+    checks += 1
+
+    # v0.12.2: a save that loses the replace to something else holding the file
+    # for a moment (OneDrive, a scanner) is retried instead of costing the job
+    raw_replace = jobqueue._replace
+    tries = {'n': 0}
+
+    def stubborn(src, dst):
+        tries['n'] += 1
+        if tries['n'] <= 2:
+            raise PermissionError(5, 'another handle held the file for a moment')
+        return raw_replace(src, dst)
+
+    jobqueue._replace = stubborn
+    try:
+        retry_store = jobqueue.Store(str(tmp / 'retry'))
+        retry_job = jobqueue.normalize({'desc': '把铜打印出来（好）', 'links': JLINKS, 'ipt': 2})
+        retry_store.save(retry_job)
+    finally:
+        jobqueue._replace = raw_replace
+    need(retry_store.load(retry_job['id']) is not None, 'a collided save lost the job')
+    need(tries['n'] == 3, 'a contended save was not retried: %d replace(s)' % tries['n'])
+    checks += 1
+
+    # v0.12.2: and when the write keeps failing, the job must not stay 'running'
+    # for ever -- from the panel that looks like work still in progress
+    strand_store = jobqueue.Store(str(tmp / 'strand'))
+    real_save = jobqueue.Store.save
+    poison = {'left': 1}
+
+    def lose_one(self, obj):
+        if poison['left'] and obj.get('state') == 'running':
+            poison['left'] -= 1
+            raise FileNotFoundError(2, 'the disk refused the write')
+        return real_save(self, obj)
+
+    jobqueue.Store.save = lose_one
+    noise = io.StringIO()
+    try:
+        with contextlib.redirect_stderr(noise):
+            stranded = jobqueue.Queue(strand_store, provider=jobqueue.FakeProvider(
+                {'把铜': {'code': 'sensor n container1 @copper\nend'}}))
+            stranded.start()
+            try:
+                one, _ = stranded.enqueue({'desc': '把铜打印出来（好）', 'links': JLINKS, 'ipt': 2})
+                deadline = time.time() + 30
+                while time.time() < deadline:
+                    got = stranded.get(one['id'])
+                    if got['state'] in JTERMINAL:
+                        break
+                    time.sleep(0.05)
+                got = stranded.get(one['id'])
+            finally:
+                stranded.stop()
+    finally:
+        jobqueue.Store.save = real_save
+    # the worker prints the traceback it swallowed; that is the path, not a failure
+    need('FileNotFoundError' in noise.getvalue(),
+         'the worker died without saying why: %r' % (noise.getvalue()[:200],))
+    need(got['state'] == 'failed',
+         'a job whose write kept failing ended as %r, want failed' % (got['state'],))
+    need(any(f.get('rid') == 'worker-error' for f in got.get('findings') or []),
+         'the stranded job did not carry worker-error: %r' % (got.get('findings'),))
+    need(strand_store.load(one['id'])['state'] == 'failed',
+         'the stranded job was never written down as failed')
     checks += 1
 
     shutil.rmtree(tmp, ignore_errors=True)
