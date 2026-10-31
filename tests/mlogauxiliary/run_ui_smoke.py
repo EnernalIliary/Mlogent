@@ -1088,8 +1088,9 @@ def main():
         if needle not in code_only:
             problems.append(why)
     # 设置页顺序：运行环境必须排在最后（用户 2026-11-01「运行环境应该放在最后」）
-    order = ['section(t, "大模型', 'section(t, "聊天播报', 'section(t, "快捷动作',
-             'section(t, "本地快检', 'section(t, "说明', 'section(t, "运行环境']
+    order = ['section(t, "大模型', 'section(t, "聊天播报', 'section(t, "框选控件',
+             'section(t, "快捷动作', 'section(t, "本地快检', 'section(t, "说明',
+             'section(t, "运行环境']
     pos = -1
     for key in order:
         at = code_only.find(key)
@@ -1100,6 +1101,35 @@ def main():
             problems.append('v0.14.4: settings sections out of order at ' + key)
             break
         pos = at
+    # v0.14.5（用户 2026-11-01）：「做一个hud倍率自己调就好」——框角控件的大小由玩家自己
+    # 在设置页加减（HUD_SCALE_KEY，0.5×–2.0×），按钮 / 字号 / 边距一起缩放，改完要重建控件。
+    for needle, why in (('var HUD_SCALE_KEY  = "mlogauxiliary-hud-scale"',
+                         'v0.14.5: the HUD scale setting key is gone'),
+                        ('function hudScale(', 'v0.14.5: the HUD scale reader is gone'),
+                        ('function hudScaleStep(', 'v0.14.5: the +/- stepper is gone'),
+                        ('function hudScaleRefresh(', 'v0.14.5: the settings label must refresh'),
+                        ('function jobWidgetDrop(',
+                         'v0.14.5: changing the scale must rebuild the widget'),
+                        ('S.scl(84) * hk, S.scl(40) * hk',
+                         'v0.14.5: the widget buttons must scale with the setting'),
+                        ('lbl.setFontScale(hk)', 'v0.14.5: the status label must scale too'),
+                        ('var edge = JOB_BTN_EDGE * hk2',
+                         'v0.14.5: the widget offset must scale too')):
+        if needle not in code_only:
+            problems.append(why)
+    # v0.14.6（用户 m06631）：游戏内导入的模组是 zip，`m.root` 是 ZipFi，随包的
+    # logicd.exe 只是一个 zip 条目 —— 必须解到数据目录再从磁盘起进程。
+    for needle, why in (('function sidecarIsZip(', 'v0.14.6: the zip-mod check is gone'),
+                        ('function sidecarCopyTree(',
+                         'v0.14.6: the zip-mod extraction is gone'),
+                        ('function sidecarBinDir(',
+                         'v0.14.6: the sidecar bin dir resolver is gone'),
+                        ('Vars.dataDirectory.child("mlogauxiliary").child("sidecar")',
+                         'v0.14.6: a zip mod must extract the sidecar into the data dir'),
+                        ('if(!sidecarIsZip()){',
+                         'v0.14.6: a disk install must not be extracted every launch')):
+        if needle not in code_only:
+            problems.append(why)
     # v0.4.4 red lines: the transport must stay a raw socket, and the settings category
     # must show the vanilla logic badge (Icon.logic).
     if 'openConnection(' in code_only:

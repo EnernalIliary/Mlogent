@@ -28,7 +28,7 @@
 function __logicWriterMain(){
     "use strict";
 
-    var MOD_VERSION = "0.14.4";
+    var MOD_VERSION = "0.14.6";
     var URL_KEY     = "mlogauxiliary-url";
     var DEFAULT_URL = "http://127.0.0.1:8765";
     // v0.11.0：设置页里填的模型档三件套。密钥只留在本机 Core.settings 与 sidecar 进程内存。
@@ -36,6 +36,13 @@ function __logicWriterMain(){
     var LLM_KEY_KEY   = "mlogauxiliary-llm-key";
     // v0.14.4（用户 2026-11-01）：「是否将AI工作提示发送到服务器聊天框，默认关闭」。
     var CHAT_SEND_KEY = "mlogauxiliary-chat-send";
+    // v0.14.5（用户 2026-11-01）：「做一个hud倍率自己调就好」。框角控件在 HUD 上的大小
+    // 因人而异，我给 84×40 只是起点；倍率存在 Core.settings 里，设置页加减，下一帧生效。
+    var HUD_SCALE_KEY  = "mlogauxiliary-hud-scale";
+    var HUD_SCALE_MIN  = 0.5;
+    var HUD_SCALE_MAX  = 2;
+    var HUD_SCALE_STEP = 0.1;
+    var hudScaleBtn    = null;     // 设置页中间那格（显示当前倍率，点一下回 1.0×）
     var LLM_MODEL_KEY = "mlogauxiliary-llm-model";
     var KEY_REGION  = ["f7"];      // F7：扫鼠标周围 10 格，列出链接候选
     var KEY_SELECT  = ["f3"];      // F3：按住 = 鼠标左键拉框（v0.5.0；F8 是游戏控制台，F9/F10 也被占）
@@ -114,22 +121,74 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
     // 模组读不到管道；而 sidecar 的 ready 行写在它自己的 stdout 上。
     var SIDE = {state: "idle", tries: 0, at: 0, why: "", exe: ""};
 
-    function sidecarExe(){
+    // v0.14.6（用户 m06631：游戏内导入的模组是 zip）：`m.root` 是 ZipFi，随包的
+    // logicd.exe 只是 zip 里的一个条目 —— ProcessBuilder 执行不了它，`pb.directory()`
+    // 也拿不到真实目录。所以第一次用到时把 sidecar 整棵解到数据目录（目录名带版本号，
+    // 升级自动换新），此后一律从那里跑；`安装.bat` 装到磁盘的走原路径，不解压。
+    var SIDE_BIN = null;
+
+    function sidecarIsZip(){
+        try{
+            var m = Vars.mods.getMod("mlog-auxiliary");
+            if(m === null || m === undefined){ return false; }
+            return String(m.root.getClass().getName()).indexOf("ZipFi") >= 0;
+        }catch(e){ log("sidecarIsZip: " + e); return false; }
+    }
+
+    // 不用 try/finally：v160.7 的 Rhino 在 finally 体里带 try/catch 时 codegen 会炸
+    // （见 run_ui_smoke.py 的红线）。这里逐层 try/catch 兜底即可。
+    function sidecarCopyTree(src, dst){
+        dst.mkdirs();
+        var kids = src.list();
+        for(var i = 0; i < kids.length; i++){
+            var k = kids[i];
+            var t = dst.child(String(k.name()));
+            if(k.isDirectory()){
+                sidecarCopyTree(k, t);
+            }else if(!(t.exists() && t.length() === k.length())){
+                var inp = k.read();
+                t.write(inp, false);
+                inp.close();
+            }
+        }
+    }
+
+    function sidecarBinDir(){
+        if(SIDE_BIN !== null && SIDE_BIN.exists()){ return SIDE_BIN; }
         try{
             var m = Vars.mods.getMod("mlog-auxiliary");
             if(m === null || m === undefined){ return null; }
-            var f = m.root.child("sidecar").child("bin").child("logicd.exe");
+            var src = m.root.child("sidecar");
+            if(src === null || !src.exists()){ return null; }
+            if(!sidecarIsZip()){
+                SIDE_BIN = src.child("bin");
+                return SIDE_BIN;
+            }
+            var out = Vars.dataDirectory.child("mlogauxiliary").child("sidecar")
+                .child(String(MOD_VERSION));
+            var bin = out.child("bin");
+            if(!bin.child("logicd.exe").exists()){
+                log("sidecar: mod is a zip, extracting to " + out.absolutePath());
+                hint("从模组包解出逻辑后端（首次约 40 MB）…");
+                sidecarCopyTree(src, out);
+            }
+            SIDE_BIN = bin;
+            return SIDE_BIN;
+        }catch(e){ log("sidecarBinDir: " + e); return null; }
+    }
+
+    function sidecarExe(){
+        try{
+            var d = sidecarBinDir();
+            if(d === null || d === undefined){ return null; }
+            var f = d.child("logicd.exe");
             return (f !== null && f.exists()) ? f : null;
         }catch(e){ log("sidecarExe: " + e); return null; }
     }
 
     function sidecarDir(){
-        try{
-            var m = Vars.mods.getMod("mlog-auxiliary");
-            if(m === null || m === undefined){ return null; }
-            var f = m.root.child("sidecar").child("bin");
-            return (f !== null && f.exists()) ? f : null;
-        }catch(e){ return null; }
+        try{ return sidecarBinDir(); }
+        catch(e){ return null; }
     }
 
     function sidecarPort(){
@@ -392,6 +451,18 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
         t.add(crow).width(ROW_W).left().padTop(5).row();
         kv(t, "", "开启后，作业的启用与完成状态会发到联机聊天框（MAI<逻辑徽标> 状态 (x,y): 信息）；"
            + "关闭时只在本机提示。默认关闭。", mk);
+
+        section(t, "框选控件");
+        var hrow = mk();
+        hrow.margin(6).left();
+        hrow.button("缩小", function(){ hudScaleStep(-1); hudScaleRefresh(); }).height(38).padRight(6);
+        hudScaleBtn = hrow.button(hudScaleBtnText(), function(){ hudScaleSet(1); hudScaleRefresh(); })
+            .height(38).padRight(6);
+        hrow.button("放大", function(){ hudScaleStep(1); hudScaleRefresh(); }).height(38);
+        t.add(hrow).width(ROW_W).left().padTop(5).row();
+        kv(t, "", "框角「查看 / 取消」和状态条的大小倍率（" + HUD_SCALE_MIN + "×–" + HUD_SCALE_MAX
+           + "×，每次 " + HUD_SCALE_STEP + "×）。按钮、字号、留白一起缩放，下一帧生效；"
+           + "点中间那一格回到 1.0×。", mk);
 
         section(t, "快捷动作");
         buttonRow(t, ["AI 辅助编程", "复制诊断"], [
@@ -2733,12 +2804,15 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
                 var t = new Packages.arc.scene.ui.layout.Table();
                 var lbl = new Packages.arc.scene.ui.Label("", new Packages.arc.scene.ui.Label.LabelStyle(
                     Packages.mindustry.ui.Fonts.outline, Pal.accent));
-                t.add(lbl).right().padBottom(S.scl(3)).row();
+                var hk = hudScale();
+                try{ lbl.setFontScale(hk); }
+                catch(ef){ log("label scale skipped: " + ef); }
+                t.add(lbl).right().padBottom(S.scl(3) * hk).row();
                 var btns = new Packages.arc.scene.ui.layout.Table();
                 btns.button("查看", Packages.mindustry.ui.Styles.defaultt, function(){ jobWidgetView(); })
-                    .size(S.scl(84), S.scl(40)).padLeft(S.scl(6));
+                    .size(S.scl(84) * hk, S.scl(40) * hk).padLeft(S.scl(6) * hk);
                 btns.button("取消", Packages.mindustry.ui.Styles.defaultt, function(){ jobWidgetCancel(); })
-                    .size(S.scl(84), S.scl(40)).padLeft(S.scl(6));
+                    .size(S.scl(84) * hk, S.scl(40) * hk).padLeft(S.scl(6) * hk);
                 t.add(btns).right().row();
                 t.pack();
                 jobWidget = {table: t, label: lbl, group: group, attached: false};
@@ -2767,6 +2841,16 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
             jobWidget.attached = false;
         }
 
+        // 倍率变了要按新尺寸重建：摘掉旧的、把 jobWidgetTried 复位，
+        // 下一帧 jobButtonsSync 的 jobWidgetBuild() 就会用新倍率重新排一遍。
+        function jobWidgetDrop(){
+            jobWidgetHide();
+            try{ if(jobWidget !== null && jobWidget.table !== null){ jobWidget.table.remove(); } }
+            catch(e){ log("job widget drop failed: " + e); }
+            jobWidget = null;
+            jobWidgetTried = false;
+        }
+
         // 每帧同步：框还在就把控件摆到框右下角外侧，框没了就摘下来。
         // 返回 true 表示「这一帧由控件负责」，调用方就别再画即时版了。
         function jobButtonsSync(){
@@ -2777,8 +2861,9 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
             if(!show){ jobWidgetHide(); return true; }
             var a = selDrawArgs(jobBox.r);
             var p = worldToScreen(a.x + a.w, a.y);
-            var edge = JOB_BTN_EDGE;
-            try{ edge = Packages.arc.scene.ui.layout.Scl.scl(JOB_BTN_EDGE); }catch(e0){ }
+            var hk2 = hudScale();
+            var edge = JOB_BTN_EDGE * hk2;
+            try{ edge = Packages.arc.scene.ui.layout.Scl.scl(JOB_BTN_EDGE) * hk2; }catch(e0){ }
             try{
                 w.label.setText(text);
                 w.table.pack();
@@ -2875,6 +2960,53 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
             catch(e){ log("save " + CHAT_SEND_KEY + " failed: " + e); }
             log("chat broadcast = " + want);
             return want;
+        }
+
+        // v0.14.5（用户 2026-11-01）：「做一个hud倍率自己调就好」。
+        // 只影响框角那两个原版控件（查看 / 取消）和它们上面的状态条，不影响游戏其它 HUD。
+        function hudScaleClamp(v){
+            var n = v;
+            if(!(n > 0)){ n = 1; }
+            if(n < HUD_SCALE_MIN){ n = HUD_SCALE_MIN; }
+            if(n > HUD_SCALE_MAX){ n = HUD_SCALE_MAX; }
+            return Math.round(n * 100) / 100;
+        }
+
+        function hudScale(){
+            var v = 1;
+            try{ v = Core.settings.getFloat(HUD_SCALE_KEY, 1); }
+            catch(e){ v = 1; }
+            return hudScaleClamp(v);
+        }
+
+        function hudScaleText(){
+            var s = String(hudScale());
+            return s + "×";
+        }
+
+        function hudScaleBtnText(){
+            return "倍率 " + hudScaleText();
+        }
+
+        function hudScaleRefresh(){
+            try{
+                if(hudScaleBtn !== null && hudScaleBtn !== undefined){
+                    hudScaleBtn.get().setText(hudScaleBtnText());
+                }
+            }catch(e){ log("hud scale label not updated"); }
+        }
+
+        function hudScaleSet(v){
+            var n = hudScaleClamp(v);
+            try{ Core.settings.put(HUD_SCALE_KEY, n); }
+            catch(e){ log("save " + HUD_SCALE_KEY + " failed: " + e); }
+            jobWidgetDrop();          // 按新倍率重建，下一帧 jobButtonsSync 会重做
+            log("hud scale = " + n);
+            return n;
+        }
+
+        function hudScaleStep(dir){
+            return hudScaleSet(hudScale() + (dir > 0 ? HUD_SCALE_STEP : -HUD_SCALE_STEP));
         }
 
         function chatTrim(s, max){

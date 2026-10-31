@@ -2256,3 +2256,37 @@ llm 12 / write path 7 模板）。版本三处 0.14.3。
 - **聊天播报开关**：`CHAT_SEND_KEY` 默认 false，`chatSay` 判据 `netActive() && chatSendOn()`。
 - **投递前先查模型**：`jobSubmit` 未配置时直接回「未配置模型：…」。
 - 断言表 L2-71（总 130 条）；ui smoke 与 logicd tests 全绿；报告 83。
+
+## §84 v0.14.5：框角控件的 HUD 倍率自己调
+
+用户 m06525：「做一个hud倍率自己调就好」。详见 `84-v0145-hud-scale.md`。
+
+- `HUD_SCALE_KEY = "mlogauxiliary-hud-scale"`（`Core.settings`，`Settings.getFloat` at arc/Settings.java:357），
+  范围 0.5×–2.0×、步长 0.1×，`hudScaleClamp()` 两位小数 + 非法值回 1。
+- 设置页新段「框选控件」：`缩小` / 中间格（显示当前倍率，点一下 `hudScaleSet(1)`）/ `放大`；
+  段位在「聊天播报」与「快捷动作」之间，运行环境仍最后。
+- `jobWidgetBuild()`：`var hk = hudScale()` 后按钮 `size(S.scl(84) * hk, S.scl(40) * hk)`、
+  `padLeft(S.scl(6) * hk)`、状态条 `padBottom(S.scl(3) * hk)`，`Label.setFontScale(hk)`（Label.java:306）；
+  `jobButtonsSync()` 的 `JOB_BTN_EDGE` 乘 `hk2`。
+- `jobWidgetDrop()`：倍率一变就摘表 + `jobWidget=null` + `jobWidgetTried=false`，
+  下一帧按新倍率重建（arc 的 Cell 尺寸建表时定死，不重建改设置不生效）。
+- 只动框角那一小块；即时绘制降级路径不变（`MAIBADGERECT` 仍 `box{4,4,48,48}`）。断言 L2-72（总 131 条）。
+
+## §85 v0.14.6：发行包能被游戏直接导入 + zip 导入时 sidecar 自解压
+
+用户 m06631：「游戏因为没有检测到mod.hjson无法从zip直接导入，解决一下」。详见 `85-v0146-import-zip.md`。
+
+- 前半（游戏不认整包）：`Mods.importMod()`（Mods.java:107-149）→ `resolveRoot()`（Mods.java:1070-1074，
+  zip 根**恰好只有一个目录**才下钻）→ `findMeta()`（Mods.java:997-1000，只在下钻后的那层找 `mod.hjson`）。
+  整包顶层有 `mod/`、`install.ps1`、`使用说明.md` 等多项 ⇒ 不下钻 ⇒ 报「没有检测到 mod.hjson」。
+- `tools/package.py`：`MOD_NAME = 'MlogAuxiliary'`、`build_mod_zip(tree, out_dir, name)`（顶层只 `MlogAuxiliary/`，
+  缺 `mod.hjson` 就 `RuntimeError`）、`build()` 追加 `info['import_zip']`、`verify()` 第 7 步按游戏规则验形状。
+- `tests/packaging/run_pack_tests.py` 第 3b 组：同一套规则 + 反向断言「整包 zip 顶层不是单目录」（否则自证）。
+- 后半（导入后是 ZipFi）：`sidecarExe()` 原来直接取 `m.root.child(...)` 交给 `ProcessBuilder` —— zip 里的条目执行不了。
+  新增 `sidecarIsZip()` / `sidecarCopyTree()` / `sidecarBinDir()`：磁盘安装走原路径；zip 安装解到
+  `Vars.dataDirectory/mlogauxiliary/sidecar/<MOD_VERSION>/`（带版本号换新），首次 hint「从模组包解出逻辑后端（首次约 40 MB）…」。
+  `sidecarCopyTree()` **不用 try/finally**（v160.7 Rhino codegen 会炸，ui smoke 有红线）。
+- `packaging/使用说明.md`：新增「也可以在游戏里直接导入」小节 + 一条排障行。
+- 产物：`out/_dist/MAI-0.14.6-mod.zip` 8408196 B（sha256 `4E177F36…CDFF60`）、
+  `out/_dist/MAI-0.14.6.zip` 8428606 B（`574C22BD…990342`）。版本三处 0.14.6。断言 L2-73 / L2-74（总 133 条）。
+- 真机未验一项：「zip 导入 → 首次解压 → sidecar 起来」需要玩家在游戏里点一次导入才能确认（无头环境没有真 ZipFi）。

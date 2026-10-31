@@ -129,6 +129,59 @@ def main() -> int:
         print('PACK:version MAI=%s sidecar=%s hashes=%d'
               % (P.mod_version(), P.sidecar_version(), len(listed)))
 
+        # ---- 3b. the zip the game imports in-game ------------------------
+        # Mindustry's importer only looks at the zip root: Mods.importMod()
+        # copies the file to saves/mods/<name>.zip, loadMod() runs
+        # resolveRoot() (Mods.java:1070-1074) which descends one level *only*
+        # when the root holds exactly one directory, and findMeta()
+        # (Mods.java:997) then wants mod.json/mod.hjson right there.  The full
+        # package zip has several top-level entries, so the game reports
+        # "no mod.hjson" when a player picks it -- hence the second, shaped zip.
+        import_zip = info.get('import_zip') or {}
+        izp = import_zip.get('zip')
+        if izp is None or not Path(izp).is_file():
+            problems.append('the in-game import zip (%s-mod.zip) was not written'
+                            % info['name'])
+        else:
+            with zipfile.ZipFile(izp) as z:
+                names = [n for n in z.namelist() if not n.endswith('/')]
+            tops = sorted({n.split('/', 1)[0] for n in names})
+            # what the game does: resolveRoot() -> single folder, findMeta() -> meta
+            if tops != [P.MOD_NAME]:
+                problems.append('%s: resolveRoot() would not descend -- top-level '
+                                'entries are %s, want exactly [%r]'
+                                % (Path(izp).name, tops, P.MOD_NAME))
+            else:
+                meta = [n for n in names
+                        if n in tuple(P.MOD_NAME + '/' + m for m in
+                                      ('mod.json', 'mod.hjson', 'plugin.json',
+                                       'plugin.hjson'))]
+                if not meta:
+                    problems.append('%s: no meta file at %s/ -- the game says '
+                                    '"no mod.hjson"' % (Path(izp).name, P.MOD_NAME))
+                elif (P.MOD_NAME + '/scripts/main.js') not in names:
+                    problems.append('%s: %s/scripts/main.js missing'
+                                    % (Path(izp).name, P.MOD_NAME))
+                elif (P.MOD_NAME + '/' + P.SIDE.split('/')[2] + '/' + P.EXE_SUB
+                      + '/logicd.exe') not in names:
+                    problems.append('%s: the sidecar exe is not inside the import zip'
+                                    % Path(izp).name)
+                else:
+                    notes.append('import zip: %s/%s at root, %d file(s), %.1f MB'
+                                 % (P.MOD_NAME, Path(meta[0]).name, len(names),
+                                    Path(izp).stat().st_size / 1e6))
+            # the package zip itself must keep failing that check -- that is the
+            # bug the player hit, and it is why two zips ship
+            with zipfile.ZipFile(info['zip']) as z:
+                pkg_names = [n for n in z.namelist() if not n.endswith('/')]
+            pkg_tops = sorted({n.split('/', 1)[0] for n in pkg_names})
+            if pkg_tops == [P.MOD_NAME]:
+                problems.append('the package zip now looks importable -- then the '
+                                'separate import zip is dead weight, decide one shape')
+            print('PACK:import-zip %s files=%d tops=%s'
+                  % (Path(izp).name if izp else '-', len(names) if izp else 0,
+                     ','.join(tops) if izp else '-'))
+
         # ---- 4. the packaged sidecar serves ------------------------------
         port = P.free_port()
         proc, banner, kind = P.start_sidecar(tree, port)

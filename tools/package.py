@@ -72,6 +72,11 @@ SIDE = 'mod/MlogAuxiliary/sidecar/'
 #: ("Could not create temporary directory!" from the bootloader).  onedir never
 #: touches %TEMP%.
 EXE_SUB = 'bin'
+#: v0.14.5a: the folder name inside the zip the game imports in-app.  Mindustry
+#: only looks at the zip root (or one level down when the root holds exactly one
+#: directory), so the importable zip must have this as its *only* top-level entry
+#: -- see `build_mod_zip()`.
+MOD_NAME = 'MlogAuxiliary'
 
 # data files the sidecar loads by name; discovered from the sources, not listed
 _JSON_RE = re.compile(r"""["']([A-Za-z0-9_]+\.json)["']""")
@@ -241,6 +246,31 @@ def version_txt(rows: list[tuple[str, Path]]) -> bytes:
     return ('\n'.join(lines) + '\n').encode('utf-8')
 
 
+def build_mod_zip(tree: Path, out_dir: Path, name: str) -> dict:
+    """Zip *only* the mod folder, shaped so the game can import it in-app.
+
+    Mindustry's importer (`Mods.importMod()` -> `loadMod()` -> `resolveRoot()`)
+    descends into the single top-level folder when there is exactly one, then
+    `findMeta()` looks for mod.json/mod.hjson right there.  The full package zip
+    has several top-level entries (install.ps1, 使用说明.md, mod/, ...), so the
+    game never finds mod.hjson inside it and reports "no mod.hjson".  This zip
+    has one folder -- MlogAuxiliary/ -- with mod.hjson at its root.
+    """
+    root = tree / 'mod' / MOD_NAME
+    files = sorted(str(p.relative_to(root)).replace('\\', '/')
+                   for p in root.rglob('*') if p.is_file())
+    if 'mod.hjson' not in files:
+        raise RuntimeError('%s/mod.hjson missing -- the import zip would be useless'
+                           % (tree / 'mod' / MOD_NAME))
+    zp = out_dir / (name + '-mod.zip')
+    if zp.exists():
+        zp.unlink()
+    with zipfile.ZipFile(zp, 'w', zipfile.ZIP_DEFLATED) as z:
+        for f in files:
+            z.write(root / f, MOD_NAME + '/' + f)
+    return {'zip': zp, 'files': files, 'bytes': zp.stat().st_size, 'sha256': sha256(zp)}
+
+
 def build(out_dir: Path | None = None, make_zip: bool = True,
           make_exe: bool = True, quiet: bool = False) -> dict:
     """Write the package tree (and zip) and return a summary dict."""
@@ -274,11 +304,18 @@ def build(out_dir: Path | None = None, make_zip: bool = True,
         info['zip'] = zp
         info['zip_sha256'] = sha256(zp)
         info['zip_bytes'] = zp.stat().st_size
+        # the game cannot import the package zip (several top-level entries, so
+        # resolveRoot never descends to mod.hjson) -- ship a second, shaped zip
+        info['import_zip'] = build_mod_zip(tree, out_dir, name)
     if not quiet:
         print('package %s  (mod %s, sidecar %s)' % (name, ver, sidecar_version()))
         for f in files:
             print('  %-46s %8d B' % (f, (tree / f).stat().st_size))
         print('  %d files, %d bytes' % (len(files), total))
+        iz = info.get('import_zip')
+        if iz:
+            print('import zip %s  %d B  files %d  sha256 %s'
+                  % (iz['zip'], iz['bytes'], len(iz['files']), iz['sha256']))
         if info['zip']:
             print('zip %s  %d B  sha256 %s'
                   % (info['zip'], info['zip_bytes'], info['zip_sha256']))
@@ -508,6 +545,31 @@ def verify(tree: Path | None = None, keep: bool = False) -> dict:
                         problems.append('VERSION.txt does not list %s' % rel)
         if 'MAI ' + mod_version() not in vt:
             problems.append('VERSION.txt does not say "MAI %s"' % mod_version())
+
+        # 7. the import zip is shaped the way Mindustry's importer wants it:
+        #    resolveRoot() (Mods.java:1070-1074) descends only when the root holds
+        #    exactly one directory, then findMeta() (Mods.java:997) needs
+        #    mod.hjson right there.  Anything else and the player gets
+        #    "no mod.hjson" after picking the zip in-game.
+        izp = tree.parent / (tree.name + '-mod.zip')
+        if not izp.is_file():
+            problems.append('%s missing -- that is the zip the player imports in-game'
+                            % izp.name)
+        else:
+            with zipfile.ZipFile(izp) as z:
+                names = [n for n in z.namelist() if not n.endswith('/')]
+            tops = sorted({n.split('/', 1)[0] for n in names})
+            if tops != [MOD_NAME]:
+                problems.append('%s must have exactly one top-level folder %s/, got %s'
+                                % (izp.name, MOD_NAME, tops))
+            elif (MOD_NAME + '/mod.hjson') not in names:
+                problems.append('%s has no %s/mod.hjson -- the game will say '
+                                '"no mod.hjson"' % (izp.name, MOD_NAME))
+            elif not any(n == MOD_NAME + '/scripts/main.js' for n in names):
+                problems.append('%s has no %s/scripts/main.js' % (izp.name, MOD_NAME))
+            else:
+                notes.append('%s: %s/mod.hjson at the mod root (%d file(s), %d B)'
+                             % (izp.name, MOD_NAME, len(names), izp.stat().st_size))
 
         return {'ok': not problems, 'problems': problems, 'notes': notes,
                 'tree': tree, 'info': info}
