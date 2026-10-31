@@ -1801,6 +1801,25 @@ def analyse(lines: list[str], links: list[str] | None = None, ipt: int = 2,
                 f"ramp that never explodes -- so this is a question, not a "
                 f"verdict"))
 
+    # ---- statements that can never run (v0.13.2) ---------------------------
+    # The cost model has always computed this (cost_report -> "UNREACHABLE"),
+    # but it lived in a report nobody opens at write time.  A program whose jump
+    # target is off by one jumps INTO the middle of a block: the statement it
+    # skipped can never run, the program still parses, and the analyzer used to
+    # call it clean.  Promote it to a finding so it reaches the job, the panel
+    # and the retry hint (measured: out/jobs/43fe34c6557e3eeb.json, `jump 12`
+    # where the label was at 11, so `control shootp ... null 0` never ran).
+    if stmts:
+        _live = reachable_set(stmts)
+        for _k, (_ln, _c) in enumerate(stmts):
+            if _k in _live:
+                continue
+            out.append(Finding(
+                "WARN", _ln + 1, "unreachable-statement",
+                "this statement can never run: no jump reaches it and the "
+                "statement before it does not fall through, so a jump target is "
+                "usually off by one"))
+
     # dedupe, keep order
     # Every finding above was created against the RAW line index (orig + 1),
     # because that is what someone counting in a text editor expects. But `jump

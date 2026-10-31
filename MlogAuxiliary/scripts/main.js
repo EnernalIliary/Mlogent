@@ -28,7 +28,7 @@
 function __logicWriterMain(){
     "use strict";
 
-    var MOD_VERSION = "0.13.1";
+    var MOD_VERSION = "0.13.2";
     var URL_KEY     = "mlogauxiliary-url";
     var DEFAULT_URL = "http://127.0.0.1:8765";
     // v0.11.0：设置页里填的模型档三件套。密钥只留在本机 Core.settings 与 sidecar 进程内存。
@@ -2060,6 +2060,26 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
             return out;
         }
 
+        // v0.13.2：作业视图以前只给 findings/代码。两样东西一直存在但没人看得见：
+        // 模型的 assumptions（它替玩家假定的前提，错了就是「生成的逻辑不对」的源头）
+        // 和 cost 报告（里面有 UNREACHABLE 段落——永远执行不到的语句）。
+        function jobAssumptionLines(job, maxLines, perLine){
+            var a = job.assumptions || [], out = [], i, s, w = perLine || 88;
+            for(i = 0; i < a.length && i < (maxLines || 4); i++){
+                s = String(a[i]);
+                out.push(s.length > w ? s.substring(0, w - 1) + "…" : s);
+            }
+            return out;
+        }
+
+        function jobCostLines(job, maxLines){
+            var c = job.cost;
+            if(c === null || c === undefined || String(c).length === 0){ return []; }
+            var rows = String(c).split("\n"), out = [];
+            for(var i = 0; i < rows.length && i < (maxLines || 8); i++){ out.push(rows[i]); }
+            return out;
+        }
+
         function renderJob(host, job, b, d){
             if(host === null || host === undefined || job === null || job === undefined){ return; }
             host.clear();
@@ -2080,6 +2100,16 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
                 var ls = job.findings || [];
                 for(var i = 0; i < ls.length && i < 6; i++){
                     host.add("  " + ls[i].sev + " L" + ls[i].line + " " + ls[i].msg).row();
+                }
+                var as = jobAssumptionLines(job, 4, 88);
+                if(as.length > 0){
+                    host.add("--- 模型假定的前提（它替你想的，错了就是逻辑不对的源头）---").row();
+                    for(var ai = 0; ai < as.length; ai++){ host.add("  · " + as[ai]).row(); }
+                }
+                var costRows = jobCostLines(job, 8);
+                if(costRows.length > 0){
+                    host.add("--- 成本（含 UNREACHABLE：永远执行不到的语句）---").row();
+                    for(var ci = 0; ci < costRows.length; ci++){ host.add(costRows[ci]).row(); }
                 }
                 host.add("--- 代码（" + (job.statements || 0) + " 条语句，" + (job.bytes_len || 0) + " 字节）---").row();
                 var code = String(job.code || "").split("\n");
@@ -3789,6 +3819,17 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
         api.maiJobProgress = function(jobJson){ return jobProgressText(parse(String(jobJson))); };
         // v0.12.4：作业里带回的模型思考原文（控制台/自检用；面板显示的是它的开头）。
         api.maiJobReasoning = function(jobJson){ return jobReasoningText(parse(String(jobJson))); };
+        // v0.13.2：作业视图新摊开的两段——模型的 assumptions 与 cost 报告
+        // （cost 里带 UNREACHABLE 段落）。无头环境没有真 Table，所以探针只调
+        // 取行函数本身：行数对、内容非空，就算这两段接上了。
+        api.maiJobPanelProbe = function(jobJson){
+            var job = parse(String(jobJson));
+            var as = jobAssumptionLines(job, 4, 88), co = jobCostLines(job, 8);
+            var ok = as.length === 2 && co.length === 3 && co[0].indexOf("UNREACHABLE") >= 0;
+            return ok ? ("ok assumptions=" + as.length + " cost=" + co.length
+                         + " first=" + as[0])
+                      : ("bad assumptions=" + as.length + " cost=" + co.length);
+        };
         api.maiJobCancel = function(){ return cancelJob(); };
         api.maiJobState = function(){
             return aiJob === null ? "" : JSON.stringify({id: aiJob.id, desc: aiJob.desc});

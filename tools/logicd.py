@@ -82,7 +82,7 @@ import mlogprovider           # noqa: E402  (prompt / reply parsing / model call
 PROTOCOL = 1
 # The sidecar is what gets restarted when a fix ships, and a stale process answers
 # /health with 200 all day, so let the answer say which build it is (v0.12.3).
-SIDECAR_VERSION = '0.13.1'
+SIDECAR_VERSION = '0.13.2'
 GAME = 'mindustry v160.7 (executor jar out/_server160.jar)'
 
 #: LogicBlock.instructionsPerTick is 1 by default and clamped to
@@ -154,8 +154,7 @@ def _t_patrol(params):
              'wait %s' % hold,
              'ucontrol move %d %d 0 0 0' % (x2, y2),
              'wait %s' % hold,
-             'jump loop always',
-             'end']
+             'jump loop always']
     return lines, []
 
 
@@ -171,8 +170,7 @@ def _t_item_threshold(params):
              'printflush %s' % msg,
              'enough:',
              'wait 1',
-             'jump loop always',
-             'end']
+             'jump loop always']
     return lines, [cell, msg]
 
 
@@ -185,8 +183,7 @@ def _t_radar_fire(params):
              'jump loop always',
              'fire:',
              'control shootp %s target 1' % turret,
-             'jump loop always',
-             'end']
+             'jump loop always']
     return lines, [turret]
 
 
@@ -210,8 +207,7 @@ def _t_timer_flush(params):
              'wait %s' % secs,
              'print "%s"' % text,
              'printflush %s' % msg,
-             'jump loop always',
-             'end']
+             'jump loop always']
     return lines, [msg]
 
 
@@ -223,8 +219,7 @@ def _t_counter(params):
              'op add n n %d' % step,
              'write n %s 0' % cell,
              'wait 1',
-             'jump loop always',
-             'end']
+             'jump loop always']
     return lines, [cell]
 
 

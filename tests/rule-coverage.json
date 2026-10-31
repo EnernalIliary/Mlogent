@@ -5,6 +5,13 @@
   "constant-null-guard": [
     "const-null-guard.mlog"
   ],
+  "unreachable-statement": [
+    "counter-op.mlog",
+    "counter-set.mlog",
+    "jump-range.mlog",
+    "label-index.mlog",
+    "unreachable-statement.mlog"
+  ],
   "self-read-undefined": [
     "declared-by-mention.mlog",
     "self-readwrite.mlog"
@@ -34,12 +41,14 @@
   "link-name-not-bound": [
     "link-hyphen-ok.mlog",
     "link-hyphen.mlog",
+    "loop-labels-ok.mlog",
     "reactor-guard-impact-ok.mlog",
     "reactor-guard-impact.mlog",
     "reactor-guard-ok.mlog",
     "reactor-guard-slow.mlog",
     "reactor-guard-unknown.mlog",
     "surplus-slot.mlog",
+    "unreachable-statement.mlog",
     "val3.mlog"
   ],
   "link-name-hyphen": [

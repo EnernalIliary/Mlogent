@@ -329,6 +329,12 @@ SUITE: list[tuple[str, str, str | None]] = [
     # the line with an InvalidStatement (a noop), the destination variable stays
     # null and nothing says why. Eight-token line, one ERR, nothing else.
     ("check/op-long-unknown", "check_msg", "op-long-unknown.mlog"),
+    # v0.13.2: a statement no jump can reach is a finding now, not just a line
+    # in the cost report. The positive fixture has `jump loop always` in front of
+    # a `control shootp ... null 0`, i.e. the statement that turns a turret off;
+    # the counter-example does the same loop with labels and stays silent.
+    ("check/unreachable",      "check",   "unreachable-statement.mlog"),
+    ("check/loop-labels-ok",   "check",   "loop-labels-ok.mlog"),
     ("tool/aigenerated",       "aigenerated", None),
     ("gen/normalized",         "gen",     None),
     ("tool/mcp",               "mcp",     None),

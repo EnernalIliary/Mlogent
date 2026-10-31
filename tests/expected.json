@@ -212,6 +212,10 @@
     "case": "label-index.mlog",
     "digest": [
       [
+        "WARN",
+        2
+      ],
+      [
         "INFO",
         0
       ],
@@ -487,6 +491,21 @@
         "unknown op `select`"
       ]
     ]
+  },
+  "check/unreachable": {
+    "kind": "check",
+    "case": "unreachable-statement.mlog",
+    "digest": [
+      [
+        "WARN",
+        3
+      ]
+    ]
+  },
+  "check/loop-labels-ok": {
+    "kind": "check",
+    "case": "loop-labels-ok.mlog",
+    "digest": []
   },
   "tool/aigenerated": {
     "kind": "aigenerated",

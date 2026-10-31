@@ -2096,3 +2096,16 @@ m01735「哦哦，成功了，但是在模型生成被截断的时候还有报�
 - 没做：模组在真游戏里拉起 exe 的链路未实测（无头里没有 exe，只验了 `noexe` 退回）；`停止逻辑后端.bat` 仍只做源码断言；
   `_internal` 体积未裁剪（zip 8.4 MB 是带运行时的必然代价）。
 
+## §78 v0.13.2：不可达语句变成 WARN + 生成改用标签 + 面板摊开假设与成本
+
+- 起因：用户 m03631「插件生成的逻辑问题很多，好像没有过逻辑审查」。取证 `out/jobs/43fe34c6557e3eeb.json`：
+  `jump 12` 少算一行跳进块中间，`L11` 永不执行；`mlogcheck` 当时回 `no issues found`，只有 `--cost` 里那句 `UNREACHABLE`。
+- 通路：`analyse()` 新增 unreachable 段（WARN finding）→ `jobqueue._set()` 存 `cost` → 面板两段（假设 + 成本）→
+  重试提示（findings 非空才重试，现在可达性也算 findings）。
+- 生成侧：`build_prompt()` 禁行号、给标签规则与 free tier 骨架。标签零成本：`msch.build_logic_data()` 只写代码原文。
+- 当场抓到自己的 5 个内置模板结尾死 `end`（`patrol`/`item-threshold`/`radar-fire`/`timer-flush`/`counter`），已删。
+- 验证：`tests/run_tests.py` 46/46、`ruleids` 0 problem、`logicd` 全绿（protocol 26 / jobs 16 / provider 12 / llm 12）、
+  ui smoke `MAIJOBPANEL:ok assumptions=2 cost=3`、`node --check` 0、门禁 17/17。
+- 测试基础设施坑：`mlogsim.Server.js()` 用 `' '.join(script.splitlines())` 送脚本，真实换行会被拼成空格；
+  要在 JS 字符串里送换行，Python 源码必须写 `\n`（值 = 反斜杠 + n，再由 Rhino 解析）。
+- 详见 `out/takeover-20261024/78-v0132-unreachable.md`；断言表 L2-65；README「## v0.13.2」。

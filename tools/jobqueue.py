@@ -486,6 +486,7 @@ class Queue:
             res = self._materialize(job, out)
             self._set(jid, findings=res['findings'], explanation=res.get('explanation') or '',
                       assumptions=res.get('assumptions') or [],
+                      cost=res.get('cost') or '',
                       template=res.get('template'), params=res.get('params') or {})
             if res['ok']:
                 self._set(jid, state='done', code=res['code'],

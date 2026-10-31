@@ -330,6 +330,11 @@ def main():
     # v0.13.0: the job status lines that go to the chat box (format only; no ui, no net)
     "print('MAICHAT:' + maiChatProbe());",
                     "print('MAISIDECAR:' + maiSidecarProbe());",
+    # v0.13.2: the two sections the job view now opens up -- the model's assumptions
+    # and the cost report (which carries the UNREACHABLE block).
+    "print('MAIJOBPANEL:' + maiJobPanelProbe(JSON.stringify({state:'done',"
+    " assumptions:['假定一','假定二'],"
+    " cost:'UNREACHABLE : 1 statement(s) can never run:\\nL11: control shootp salvo1 null 0\\nloop heads: L5(?)'})));",
     "print('MAILLM:' + maiLlmProbe());",
     # v0.12.5: the retained selection box + corner badge state machine (no sidecar, no ui)
     "print('MAIJOBBOX0:' + maiJobBox());",
@@ -357,6 +362,7 @@ def main():
              or l.startswith(('MAISELF:', 'MAIDIAG:', 'MAISET:', 'MAILIST:', 'MAILISTROWS:',
                               'MAIUNDO:', 'MAICONFLICT:', 'MAILLM:',
                               'MAILINKCONFLICT:', 'MAINET:', 'MAIWRITECHECK:', 'MAICHAT:', 'MAISIDECAR:',
+                              'MAIJOBPANEL:',
                               'MAIJOBBOX0:', 'MAIJOBBOXPIN:', 'MAIJOBBOXFIN:',
                               'MAIJOBBOXCLR:', 'MAIJOBBOX3:', 'MAIJOBMANAGER:',
                               'MAIJOBBOXPIN2:', 'MAIJOBBOXCLOSE:', 'MAIJOBBOX4:',
@@ -503,6 +509,15 @@ def main():
         problems.append('v0.13.1: a dev checkout has no sidecar/bin/logicd.exe, so the probe '
                         'must report exe=none: %r'
                         % [l for l in lines if l.startswith('MAISIDECAR:')][:1])
+
+    # v0.13.2: the job view used to show findings and code only. The model's assumptions
+    # and the cost report (with its UNREACHABLE block) existed but were invisible; the
+    # probe feeds a job with two assumptions and a three-line cost report and checks both
+    # sections come back, the cost one starting at UNREACHABLE.
+    if 'MAIJOBPANEL:ok' not in joined:
+        problems.append('v0.13.2: the job view does not show assumptions + cost '
+                        '(want MAIJOBPANEL:ok assumptions=2 cost=3): %r'
+                        % [l for l in lines if l.startswith('MAIJOBPANEL:')][:1])
 
     # v0.12.5: the F3 box now outlives the drag, so its state machine has to be pinned
     # headless -- there is no camera, no mouse and no sidecar in this engine.
@@ -956,6 +971,16 @@ def main():
                          'the chat format probe is gone')):
         if needle not in code_only:
             problems.append('v0.13.0: ' + why)
+    for needle, why in (('function jobAssumptionLines(',
+                         'the job view stopped showing what the model assumed'),
+                        ('function jobCostLines(',
+                         'the job view stopped showing the cost report'),
+                        ('api.maiJobPanelProbe = function',
+                         'headless probe for assumptions + cost'),
+                        ('UNREACHABLE：永远执行不到的语句',
+                         'the cost block no longer says what UNREACHABLE means')):
+        if needle not in code_only:
+            problems.append('v0.13.2: ' + why)
     for needle, why in (('function jobRetryHead(',                          'a retrying job no longer labels its findings as the last attempt'),
                         ('function jobFindingLines(',
                          'the truncation gloss helper is gone'),

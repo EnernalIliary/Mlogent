@@ -355,6 +355,28 @@ Arc 的 `Table.cells` 是私有字段（`arc/scene/ui/layout/Table.java:35`）�
 
 真引擎对照探针（`out/_v47_probe.py`）：放处理器、用 `msch.build_logic_data` 写带两条链接的载荷，读回 `links.size=2`，把真链接名喂 `quickcheck.check` ⇒ 零命中；喂空数组 ⇒ 第 1、3 行各一条 WARN。所以快检逻辑本身没错，错的是喂进去的东西。
 
+## v0.13.2：模型算错一行跳转，现在会被抓住 —— 而且它会重试
+
+旧版有个难看的洞：模型自己数跳转行号，`jump 12` 写成 `jump 12` 少算一行，就跳进了「停止射击」块的正中间，
+后半段代码永远执行不到。检查器其实**算出了**这件事（成本报告里的 `UNREACHABLE`），但它躺在没人看的报告里：
+不进 findings、不进作业 JSON、面板不显示、也不会触发重试。你看到的「生成出来的逻辑有问题」就是这么漏出去的。
+
+这一版把这条通路接上了：
+
+- **检查器**：`analyse()` 现在把「可达性分析到不了的语句」追加成 `WARN`，规则 id `unreachable-statement`，
+  文案是 `this statement can never run: ... a jump target is usually off by one`。它进作业 JSON、进面板、也让模型重试。
+- **作业**：`cost` 现在存进作业文件（以前只有 findings/explanation/assumptions 存了）。
+- **面板**：作业详情里多了两段 —— 「模型假定的前提（它替你想的，错了就是逻辑不对的源头）」和
+  「成本（含 UNREACHABLE：永远执行不到的语句）」。
+- **生成侧**：prompt 不再允许数行号，要求用标签（`wait_ready:` 独占一行、`jump wait_ready always`），
+  并给了一个 free tier 的骨架。标签是零成本的：写进蓝图的 logic data 就是代码原文，游戏加载时自己解析标签。
+
+顺带一说，这条规则上线后当场抓到了我们**自己的 7 个内置模板里的 5 个** —— `patrol` / `item-threshold` /
+`radar-fire` / `timer-flush` / `counter` 结尾都是 `jump loop always` 再跟一行 `end`，那个 `end` 永远执行不到。
+已经全删了。
+
+自检口：`maiJobPanelProbe(jobJson)`；断言表 L2-65。
+
 ## v0.13.1：装完就没有第三步了 —— 后端随包，模组自己把它拉起来
 
 v0.13.0 的包能装，但装完还得双击 `启动逻辑后端.bat`、留一个黑窗口，源码检出还要玩家自己装 Python 3。
