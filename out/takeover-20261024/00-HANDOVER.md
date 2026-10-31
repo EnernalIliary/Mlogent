@@ -1951,3 +1951,20 @@ m01735「哦哦，成功了，但是在模型生成被截断的时候还有报�
   结果：`protocol 26 / jobs 16 / provider 12 / llm 12`，ui smoke EXIT=0，`gate.py --full --kb-build` 16/16。
 - **装机**：模组 0.12.6 覆盖 `E:\Program Files (x86)\Steam\steamapps\common\Mindustry\saves\mods\MlogAuxiliary\`
   后重启游戏；sidecar 也要重启（`/health` 的 `version` 应为 `0.12.6`，否则 `/jobs?all=1` 会被忽略）。
+
+## §72 mai v0.12.7：框选框只在写入成功或主动关闭之后才消失（2026-10-31）
+
+报告全文：`out/takeover-20261024/72-box-persist.md`。触发是玩家 m01944「选框不应该自行消失，
+只能在应用后消失，或者主动关闭。」
+
+- **删掉定时消失**：v0.12.5 的 `JOB_BOX_LINGER_MS = 8000`（终态后多留 8 s 就清框）整个删掉；
+  `jobBoxTick()` 在 `jobBox.termAt > 0` 时只停止轮询，框与徽标继续画。
+- **两条消失路径**：①`writeBuild()` 写成功后 `jobBoxWritten(b)`——只在该处理器落在 `jobBox.r` 里时才清；
+  ②`closeJobBox()`：作业管理窗新增「关闭框选框」按钮，或右键点框右下角的徽标（左键仍是打开管理窗）。
+  徽标文案加「右键关」，投递提示说明「写入成功后框才消失（右键徽标可主动关）」。
+- **验证**：ui smoke 新增 `MAIJOBBOXPIN2`（终态后 `linger` 仍 true）、`MAIJOBBOXCLOSE`（回 `closed`）、
+  `MAIJOBBOX4`（`{"box": false}`），加反向红线「`JOB_BOX_LINGER_MS` 不许再出现」与三条正向红线；
+  断言表新增 L2-57（现 **116 条**：L1 31 / L2 57 / L3 6 / L4 4 / S 18）。
+  `gate.py --full --kb-build` 16/16；logicd 未改（protocol 26 / jobs 16 / provider 12 / llm 12）。
+- **装机**：模组 0.12.7 覆盖到 `E:\Program Files (x86)\Steam\steamapps\common\Mindustry\saves\mods\MlogAuxiliary\`
+  后重启游戏；sidecar 仍是 0.12.6（这版没改 sidecar）。

@@ -321,6 +321,10 @@ def main():
     "print('MAIJOBBOXFIN:' + maiJobBoxPin(JSON.stringify(['a','b']), JSON.stringify(['done','rejected'])));",
     "print('MAIJOBBOXCLR:' + maiJobBoxClear());",
     "print('MAIJOBBOX3:' + maiJobBox());",
+    # v0.12.7: the box must NOT time itself out -- only a write or an explicit close ends it
+    "print('MAIJOBBOXPIN2:' + maiJobBoxPin(JSON.stringify(['a']), JSON.stringify(['done'])));",
+    "print('MAIJOBBOXCLOSE:' + maiJobBoxClose());",
+    "print('MAIJOBBOX4:' + maiJobBox());",
     "print('MAIJOBMANAGER:' + maiJobManager());",
     ] + region_probe(srv) + select_probe(srv) + arrow_probe() + [
         "void 0;",
@@ -337,6 +341,7 @@ def main():
                               'MAIUNDO:', 'MAICONFLICT:', 'MAILLM:',
                               'MAIJOBBOX0:', 'MAIJOBBOXPIN:', 'MAIJOBBOXFIN:',
                               'MAIJOBBOXCLR:', 'MAIJOBBOX3:', 'MAIJOBMANAGER:',
+                              'MAIJOBBOXPIN2:', 'MAIJOBBOXCLOSE:', 'MAIJOBBOX4:',
                               'MAIBADGERECT:'))]
     joined = '\n'.join(lines)
 
@@ -481,6 +486,17 @@ def main():
     if boxmark('MAIJOBBOX3:') != {'box': False}:
         problems.append('v0.12.5: the box came back after being cleared: %r'
                         % [l for l in lines if l.startswith('MAIJOBBOX3:')][:1])
+    pinned2 = boxmark('MAIJOBBOXPIN2:')
+    if not isinstance(pinned2, dict) or pinned2.get('box') is not True \
+            or pinned2.get('linger') is not True:
+        problems.append('v0.12.7: a finished batch is not kept on screen until the player '
+                        'writes or closes it: %r' % (pinned2,))
+    if 'MAIJOBBOXCLOSE:closed' not in joined:
+        problems.append('v0.12.7: maiJobBoxClose did not close the box: %r'
+                        % [l for l in lines if l.startswith('MAIJOBBOXCLOSE:')][:1])
+    if boxmark('MAIJOBBOX4:') != {'box': False}:
+        problems.append('v0.12.7: the box survived an explicit close: %r'
+                        % [l for l in lines if l.startswith('MAIJOBBOX4:')][:1])
     badge = boxmark('MAIBADGERECT:')
     if not isinstance(badge, dict) or badge.get('rect') is not True:
         problems.append('v0.12.6: the corner badge has no geometry: %r'
@@ -797,8 +813,18 @@ def main():
                          'the badge geometry probe is gone')):
         if needle not in code_only:
             problems.append('v0.12.6: ' + why)
-    for needle, why in (('function jobRetryHead(',
-                         'a retrying job no longer labels its findings as the last attempt'),
+    for needle, why in (('function closeJobBox(',
+                         'the box can no longer be closed on purpose'),
+                        ('jobBoxWritten(b)',
+                         'a successful write no longer clears the selection box'),
+                        ('api.maiJobBoxClose = function',
+                         'the explicit-close probe is gone')):
+        if needle not in code_only:
+            problems.append('v0.12.7: ' + why)
+    if 'JOB_BOX_LINGER_MS' in code_only:
+        problems.append('v0.12.7: the box still times itself out -- it has to wait for a '
+                        'write or for the player to close it')
+    for needle, why in (('function jobRetryHead(',                          'a retrying job no longer labels its findings as the last attempt'),
                         ('function jobFindingLines(',
                          'the truncation gloss helper is gone'),
                         ('上一次尝试的问题',

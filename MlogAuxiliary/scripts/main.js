@@ -28,7 +28,7 @@
 function __logicWriterMain(){
     "use strict";
 
-    var MOD_VERSION = "0.12.6";
+    var MOD_VERSION = "0.12.7";
     var URL_KEY     = "mlogauxiliary-url";
     var DEFAULT_URL = "http://127.0.0.1:8765";
     // v0.11.0：设置页里填的模型档三件套。密钥只留在本机 Core.settings 与 sidecar 进程内存。
@@ -973,6 +973,7 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
                 if(undoStack.length > 20){ undoStack.shift(); }
                 b.configure(base64Bytes(res.bytes_b64));
                 forgetOrig(b);          // 写成功之后这次作业的基线就过期了
+                jobBoxWritten(b);       // v0.12.7：写入成功 = 这块框选的活干完了，框才消失
                 return "已写入 " + (res.template || "") + "（" + res.statements + " 条语句，"
                      + res.bytes_len + " 字节）";
             }catch(e){
@@ -1632,7 +1633,8 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
         // 全部终态再多留 8 秒，玩家才有机会点右下角的徽标看思考过程。
         var jobBox = null;                // {r, ids, jobs, pend, started, termAt, lastPoll}
         var jobBadge = null;              // 徽标在世界坐标里的点击区 {x, y, w, h}
-        var JOB_BOX_LINGER_MS = 8000;
+        // v0.12.7（用户 2026-10-31）：「选框不应该自行消失，只能在应用后消失，或者主动关闭。」
+        // 所以这里没有「留几秒」的常量：框一直画着，直到写入成功（jobBoxWritten）或玩家主动关（closeJobBox）。
         // 管理窗的列表是异步拉回来的：点进详情之后，迟到的列表回调不能往详情页里塞行。
         var managerSeq = 0;
 
@@ -1922,9 +1924,9 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
             var s = jobBoxState();
             if(s === null){ return ""; }
             if(s.total === 0){ return (s.pending > 0) ? "投递中…" : ""; }
-            if(!s.finished){ return "作业 " + s.terminal + "/" + s.total + " · 生成中（点开看）"; }
-            if(s.failed === 0){ return "作业 " + s.total + "/" + s.total + " · 完成（点开看）"; }
-            return "作业 " + s.total + "/" + s.total + " · " + s.done + " 成 " + s.failed + " 败（点开看）";
+            if(!s.finished){ return "作业 " + s.terminal + "/" + s.total + " · 生成中（点开看 · 右键关）"; }
+            if(s.failed === 0){ return "作业 " + s.total + "/" + s.total + " · 完成（点开看 · 右键关）"; }
+            return "作业 " + s.total + "/" + s.total + " · " + s.done + " 成 " + s.failed + " 败（点开看 · 右键关）";
         }
 
         function jobBoxFinishIfDone(){
@@ -1935,13 +1937,37 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
             }
         }
 
+        // v0.12.7：框选框只有两个消失理由 —— 写入成功，或者玩家主动关。
+        function closeJobBox(why){
+            if(jobBox === null){ return "没有框选框"; }
+            jobBox = null;
+            jobBadge = null;
+            return (why === null || why === undefined || why === "") ? "框选框已关掉" : String(why);
+        }
+
+        function jobBoxContainsBuild(b){
+            if(jobBox === null || jobBox.r === null || b === null || b === undefined) { return false; }
+            try{
+                var t = b.tile;
+                if(t === null || t === undefined){ return false; }
+                var r = jobBox.r;
+                return t.x >= r.x1 && t.x <= r.x2 && t.y >= r.y1 && t.y <= r.y2;
+            }catch(e){ return false; }
+        }
+
+        // 写入成功 → 这块框选的活干完了，框才可以消失。
+        function jobBoxWritten(b){
+            if(jobBox === null){ return; }
+            if(!jobBoxContainsBuild(b)){ return; }
+            jobBox = null;
+            jobBadge = null;
+        }
+
         function jobBoxTick(){
             if(jobBox === null){ return; }
             var now = Packages.java.lang.System.currentTimeMillis();
-            if(jobBox.termAt > 0){
-                if(now - jobBox.termAt > JOB_BOX_LINGER_MS){ jobBox = null; jobBadge = null; }
-                return;
-            }
+            // v0.12.7：这一批都终态了就不再轮询，但框和徽标留着 —— 等写入或玩家主动关。
+            if(jobBox.termAt > 0){ return; }
             if(now - (jobBox.lastPoll || 0) < JOB_POLL_MS){ return; }
             jobBox.lastPoll = now;
             var ids = jobBox.ids || [], i;
@@ -2020,10 +2046,12 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
         // 且框是玩家自己刚画的那一块，通常不在放方块的节奏里。
         function jobBadgeClick(){
             if(jobBox === null || jobBadge === null || selDragging){ return false; }
-            if(!Core.input.keyTap(Packages.arc.input.KeyCode.mouseLeft)){ return false; }
+            var right = Core.input.keyTap(Packages.arc.input.KeyCode.mouseRight);
+            if(!right && !Core.input.keyTap(Packages.arc.input.KeyCode.mouseLeft)){ return false; }
             var mx = Core.input.mouseWorldX(), my = Core.input.mouseWorldY();
             if(mx < jobBadge.x || mx > jobBadge.x + jobBadge.w){ return false; }
             if(my < jobBadge.y || my > jobBadge.y + jobBadge.h){ return false; }
+            if(right){ hint(closeJobBox("框选框已关掉（右键徽标）")); return true; }
             try{
                 openJobManager();
             }catch(e){
@@ -2077,7 +2105,7 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
                                 jobBox = null;
                                 hint("这批作业一个也没投出去：" + String(why));
                             }else{
-                                hint("已投 " + box.ids.length + " 个作业：框右下角点开看进度");
+                                hint("已投 " + box.ids.length + " 个作业：框右下角点开看进度；写入成功后框才消失（右键徽标可主动关）");
                             }
                         }
                         jobBoxFinishIfDone();
@@ -2220,6 +2248,7 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
             var host = new Packages.arc.scene.ui.layout.Table();
             try{ d.cont.pane(host).height(320).width(600).row(); }catch(e){ d.cont.add(host).row(); }
             d.buttons.button("刷新", function(){ renderManager(host, d); }).width(110);
+            d.buttons.button("关闭框选框", function(){ hint(closeJobBox("框选框已关掉")); d.hide(); }).width(140);
             d.buttons.button("关闭", function(){ d.hide(); }).width(110);
             d.closeOnBack();
             d.show();
@@ -3127,6 +3156,8 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
                                    linger: jobBox.termAt > 0, badge: jobBadgeText()});
         };
         api.maiJobBoxClear = function(){ jobBox = null; jobBadge = null; return "cleared"; };
+        // v0.12.7：框只该在「写入」或「主动关」时消失 —— 这个口子就是「主动关」。
+        api.maiJobBoxClose = function(){ return closeJobBox("closed"); };
         // 自检口：角标矩形与框右下角的关系（无头引擎里 renderer 可能是 null，按 scale 1 算）。
         api.maiBadgeRect = function(){
             var a = selDrawArgs({x1: 1, y1: 1, x2: 6, y2: 6, w: 6, h: 6});
