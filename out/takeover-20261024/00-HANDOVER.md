@@ -2290,3 +2290,24 @@ llm 12 / write path 7 模板）。版本三处 0.14.3。
 - 产物：`out/_dist/MAI-0.14.6-mod.zip` 8408196 B（sha256 `4E177F36…CDFF60`）、
   `out/_dist/MAI-0.14.6.zip` 8428606 B（`574C22BD…990342`）。版本三处 0.14.6。断言 L2-73 / L2-74（总 133 条）。
 - 真机未验一项：「zip 导入 → 首次解压 → sidecar 起来」需要玩家在游戏里点一次导入才能确认（无头环境没有真 ZipFi）。
+
+## §86 v0.14.7：签名作者名改 `MAI`
+
+用户 m07277「那个签名改成MAI吧」。签名行是 `jump 0 always 0 "aigenerated:<author>:<12hex>[:<payload>]"`，
+作者名原来写死中文「猪猪鱼」——CLI 会 `print(sign(...))` 把整行打出去，cp1252 控制台（GitHub `windows-latest` 默认）
+直接 `UnicodeEncodeError: 'charmap' codec can't encode characters`，这就是 CI 首跑 run 41231288166 里
+`FAIL tool/aigenerated` 的根因。
+
+- `tools/aigenerated.py`：`DEFAULT_AUTHOR = "MAI"`，文件头示例同步；`main()` 仍把 stdout/stderr
+  `reconfigure(encoding="utf-8", errors="replace")` 兜底。
+- `tools/mlog.py`：`--author` 帮助串改 `signature author (default: MAI)`。
+- 下游无需改：`tools/jobqueue.py` / `tools/logicd.py` 读 `aigenerated.SIGN_AUTHOR`（`MAI_SIGN_AUTHOR` 仍可覆盖）。
+- 旧签名不失效：`SIG_RE` 第 2 组才参与校验（只比哈希）。
+- 版本三处 0.14.7（`main.js` `MOD_VERSION`、`mod.hjson`、`tools/logicd.py` `SIDECAR_VERSION`）；
+  `MlogAuxiliary/README.md` 签名说明改 `aigenerated:MAI:<12 位哈希>`；`CHANGELOG.md` 加 0.14.7；
+  断言表 L2-75（总 134 条）；规划状态表加 v0.14.7 行。
+- 验证：`node --check` 0；`PYTHONIOENCODING=cp1252 python tools/aigenerated.py sign …` 退出码 0；
+  `tests/run_tests.py` 46/46（`tests/expected.json` 里 `slot_line`/`terminal_line` 两条期望串同步换成 `MAI:…`）；
+  `tests/logicd/run_logicd_tests.py` `logicd OK`；ui smoke EXIT=0；门禁 17/17。
+- 坑：`tools/aigenerated.py` 的 `sign` 子命令没有 `-o`（只有 `post` 有），就地改文件；
+  动过 `tools/*.py` 就要 `sync_mlogagent.py --mirror all` 再 `--global`，否则门禁 mirror/global 两处红。
