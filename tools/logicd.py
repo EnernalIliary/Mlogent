@@ -83,7 +83,7 @@ import aigenerated             # noqa: E402  (the hidden @aigenerated signature)
 PROTOCOL = 1
 # The sidecar is what gets restarted when a fix ships, and a stale process answers
 # /health with 200 all day, so let the answer say which build it is (v0.12.3).
-SIDECAR_VERSION = '0.14.3'
+SIDECAR_VERSION = '0.14.4'
 GAME = 'mindustry v160.7 (executor jar out/_server160.jar)'
 
 #: v0.14.2: every program this sidecar hands out is signed before it is analyzed
@@ -1131,14 +1131,18 @@ def fetch_models(url, key='', timeout=20):
 
 
 def apply_llm(req):
-    """POST /llm -- switch the running queue between the model tier and the template tier."""
+    """POST /llm -- switch the running queue between the model tier and「未配置模型」.
+
+    v0.14.4：模板档已从产品里删掉（用户 2026-11-01），kind=template/off/none 现在
+    表示「没有模型」，队列换成一个只会说「未配置模型」的 provider，不生成任何代码。
+    """
     kind = str(req.get('kind') or 'llm').strip().lower()
     if kind in ('template', 'off', 'none', 'default'):
-        LLM_STATE['kind'] = 'template'
-        jobs_queue().provider = jobqueue.template_provider
+        LLM_STATE['kind'] = 'none'
+        jobs_queue().provider = jobqueue.unconfigured_provider
         return llm_state()
     if kind not in ('llm', 'model'):
-        raise ValueError('kind must be llm or template')
+        raise ValueError('kind must be llm or none')
     url = str(req.get('url') or LLM_STATE['url'] or '').strip()
     if not url:
         raise ValueError('a model url is required (an OpenAI compatible /chat/completions)')
@@ -1383,9 +1387,11 @@ def main(argv=None):
     ap.add_argument('--plan', metavar='TEXT', help='route one intent, print the JSON result, exit')
     ap.add_argument('--jobs-dir', metavar='DIR',
                     help='where job files live (default out/jobs, or $MLOG_JOBS_DIR)')
-    ap.add_argument('--jobs-provider', choices=('template', 'fake', 'llm'), default='template',
-                    help='template = the offline intent router (default); fake = test table; '
-                         'llm = a real model endpoint (or a recorded replay)')
+    ap.add_argument('--jobs-provider', choices=('none', 'template', 'fake', 'llm'),
+                    default='none',
+                    help='none = 未配置模型, the product default since v0.14.4; '
+                         'template = the offline intent router (kept for tests); '
+                         'fake = test table; llm = a real model endpoint (or a recorded replay)')
     ap.add_argument('--fake-provider', metavar='FILE',
                     help='JSON table for --jobs-provider fake: {"<desc substring>": output}')
     ap.add_argument('--llm-url', metavar='URL',
@@ -1418,7 +1424,7 @@ def main(argv=None):
     except ValueError as exc:
         print(str(exc))
         return 2
-    LLM_STATE.update({'kind': a.jobs_provider if a.jobs_provider in ('llm', 'fake') else 'template',
+    LLM_STATE.update({'kind': a.jobs_provider if a.jobs_provider in ('llm', 'fake') else 'none',
                       'url': a.llm_url or '', 'model': a.llm_model or '',
                       'key': (os.environ.get(a.llm_key_env) if a.llm_key_env else '') or '',
                       'timeout': int(a.llm_timeout or 60),

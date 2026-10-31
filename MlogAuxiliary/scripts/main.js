@@ -28,12 +28,14 @@
 function __logicWriterMain(){
     "use strict";
 
-    var MOD_VERSION = "0.14.3";
+    var MOD_VERSION = "0.14.4";
     var URL_KEY     = "mlogauxiliary-url";
     var DEFAULT_URL = "http://127.0.0.1:8765";
     // v0.11.0：设置页里填的模型档三件套。密钥只留在本机 Core.settings 与 sidecar 进程内存。
     var LLM_URL_KEY   = "mlogauxiliary-llm-url";
     var LLM_KEY_KEY   = "mlogauxiliary-llm-key";
+    // v0.14.4（用户 2026-11-01）：「是否将AI工作提示发送到服务器聊天框，默认关闭」。
+    var CHAT_SEND_KEY = "mlogauxiliary-chat-send";
     var LLM_MODEL_KEY = "mlogauxiliary-llm-model";
     var KEY_REGION  = ["f7"];      // F7：扫鼠标周围 10 格，列出链接候选
     var KEY_SELECT  = ["f3"];      // F3：按住 = 鼠标左键拉框（v0.5.0；F8 是游戏控制台，F9/F10 也被占）
@@ -48,7 +50,6 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
     // 所有游戏对象访问都套 try：无头环境里只是返回 false，不会炸。
 
     var sidecarOk = null;
-    var panel = null;          // 模板块面板的单实例（v0.3.1 之前每开一次都新建一个，能叠起来）
     var settingsDone = false;
     var settingsErr = null;
     var settingsTries = 0;    // 见热键钩子：UI 晚于脚本建好时每 60 帧重试一次   // 注册失败时的原文，摊在诊断里，省得翻 last_log.txt
@@ -174,11 +175,24 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
                 SIDE.state = "up";
                 log("sidecar is up after " + tries + " probe(s)");
                 hint("sidecar 已就绪：" + base);
+                llmAutoSync();          // v0.14.4：模型档随 sidecar 就绪自动挂载
             }else if(tries >= 25){
                 SIDE.state = "failed";
                 hint("sidecar 启动失败（25 次探测无响应），日志见 sidecar.log");
             }
         });
+    }
+
+    // v0.14.4（用户 2026-11-01）：「大模型也应该随游戏自动挂载」。
+    // sidecar 每次重启都会把内存里的模型档忘掉（配置只在进程里），所以只要它一就绪，
+    // 就把 Core.settings 里的 地址/密钥/模型 推一遍。60 s 内不重复推（每帧的 health 回调会反复命中）。
+    var llmAutoAt = 0;
+    function llmAutoSync(){
+        var now = 0;
+        try{ now = Packages.java.lang.System.currentTimeMillis(); }catch(e){ }
+        if(llmAutoAt > 0 && now > 0 && now - llmAutoAt < 60000){ return; }
+        llmAutoAt = (now > 0) ? now : 1;
+        try{ llmSync(); }catch(e){ log("llm auto-sync skipped: " + e); }
     }
 
     // 幂等：已经在 starting 就不重复拉；已经在跑就不管。
@@ -187,7 +201,9 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
         if(SIDE.state === "up" && sidecarOk === true){ return; }
         httpJson("GET", "/health", null, function(code, text){
             if(code === 200){
-                sidecarOk = true; SIDE.state = "up"; return;
+                sidecarOk = true; SIDE.state = "up";
+                llmAutoSync();      // v0.14.4：已经在跑的 sidecar 也补一次模型档
+                return;
             }
             var exe = sidecarExe();
             var dir = sidecarDir();
@@ -300,32 +316,16 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
         }catch(e){ log("clipboard failed: " + e); }
     }
 
+    // v0.14.4（用户 2026-11-01）：「运行环境应该放在最后」「删除sidecar」「默认当隐藏API密钥」
+    // 「增加一个设置选项，是否将AI工作提示发送到服务器聊天框，默认关闭」。
+    // 顺序固定：大模型 → 聊天播报 → 快捷动作 → 本地快检 → 说明 → 运行环境（永远最后）。
+    // sidecar 不再单独成段：地址固定本机 8765、随游戏自启，出问题时看运行环境那一行。
     function buildSettingsTable(t, mk){
         mk = mk || realRow;
         t.defaults().pad(3).left();
         kv(t, "", "Mlog辅助 " + MOD_VERSION + " · 说一句要什么 → 生成 → 预检 → 写入；写入走原版 config 通道，联机由服务端执行", mk);
         var parts = diagParts(), i;
-        section(t, "运行环境");
-        for(i = 0; i < parts.length; i++){
-            if(parts[i].k !== "快检" && parts[i].k !== "sidecar"){ kv(t, parts[i].k, parts[i].v, mk); }
-        }
-        section(t, "本地快检");
-        for(i = 0; i < parts.length; i++){
-            if(parts[i].k === "快检"){ kv(t, parts[i].k, parts[i].v, mk); }
-        }
-        section(t, "sidecar");
-        var srow = mk();
-        srow.margin(8).left();
-        srow.add("地址").width(LABEL_W).left().color(Pal.gray);
-        srow.field(base, function(v){
-            var s = String(v);
-            if(s.length > 0){ base = s; Core.settings.put(URL_KEY, s); log("sidecar = " + s); }
-        }).width(300).left();
-        t.add(srow).width(ROW_W).left().padTop(5).row();
-        buttonRow(t, ["连接测试", "复制诊断"], [
-            function(){ probeSidecar(); },
-            function(){ copyDiag(); }
-        ], mk);
+
         section(t, "大模型（启用后由模型直接写逻辑）");
         kv(t, "档位", llmText(), mk);
         var lrow = mk();
@@ -336,6 +336,10 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
             log("llm url = " + v);
         }).width(300).left();
         t.add(lrow).width(ROW_W).left().padTop(5).row();
+        // 密钥默认遮成 *：setPasswordMode 只换显示，明文仍在 Core.settings 里。
+        // v0.12 只调了 setPasswordMode(true)，但 Fonts.def 里没有 bullet 字形，等于没遮；
+        // v0.14.4 补 setPasswordCharacter('*')，并给一个「显示密钥」按钮按需看明文。
+        var keyField = null;
         var krow = mk();
         krow.margin(8).left();
         krow.add("密钥").width(LABEL_W).left().color(Pal.gray);
@@ -343,9 +347,23 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
             llmSave(LLM_KEY_KEY, String(v));
             log("llm key saved (" + String(v).length + " chars)");
         }).width(300).left();
-        try{ kcell.get().setPasswordMode(true); }
-        catch(e){ log("password mode skipped (this table has no cell.get)"); }
+        try{
+            keyField = kcell.get();
+            keyField.setPasswordMode(true);
+            try{ keyField.setPasswordCharacter('*'); }catch(e1){ log("password char skipped: " + e1); }
+        }catch(e){ log("password mode skipped (this table has no cell.get)"); }
         t.add(krow).width(ROW_W).left().padTop(5).row();
+        var kbtn = mk();
+        kbtn.margin(6).left();
+        var ktoggle = kbtn.button("显示密钥", function(){
+            var masked = true;
+            try{ masked = keyField.isPasswordMode(); }catch(e0){ }
+            try{
+                keyField.setPasswordMode(!masked);
+                ktoggle.get().setText(!masked ? "隐藏密钥" : "显示密钥");
+            }catch(e2){ log("password toggle skipped: " + e2); }
+        }).height(38).padRight(6);
+        t.add(kbtn).width(ROW_W).left().padTop(5).row();
         var mrow = mk();
         mrow.margin(8).left();
         mrow.add("模型").width(LABEL_W).left().color(Pal.gray);
@@ -354,19 +372,31 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
             log("llm model = " + v);
         }).width(300).left();
         t.add(mrow).width(ROW_W).left().padTop(5).row();
-        buttonRow(t, ["获取模型", "测试端点", "启用模型档", "回到模板档"], [
+        buttonRow(t, ["获取模型", "测试端点", "启用模型档"], [
             function(){ showLlmModels(); },
             function(){ llmProbe(); },
-            function(){ llmEnable(); },
-            function(){ llmUseTemplate(); }
+            function(){ llmEnable(); }
         ], mk);
         kv(t, "", "地址填 OpenAI 兼容的 /chat/completions（例：" + LLM_DEFAULT_URL
            + "），只填到 /v1 也可以，sidecar 会自动补全。密钥只存于本机 Core.settings 与 sidecar 内存，"
-           + "面板只显示末段；改完回车保存。sidecar 重启后模组会自动重新同步模型档。", mk);
+           + "界面默认遮成 *，点「显示密钥」可查看。改完回车保存。", mk);
+
+        section(t, "聊天播报");
+        var crow = mk();
+        crow.margin(6).left();
+        var csend = crow.button("发送到服务器聊天框：" + (chatSendOn() ? "开" : "关"), function(){
+            toggleChatSend();
+            try{ csend.get().setText("发送到服务器聊天框：" + (chatSendOn() ? "开" : "关")); }
+            catch(e0){ log("chat toggle label not updated"); }
+        }).height(38).padRight(6);
+        t.add(crow).width(ROW_W).left().padTop(5).row();
+        kv(t, "", "开启后，作业的启用与完成状态会发到联机聊天框（MAI<逻辑徽标> 状态 (x,y): 信息）；"
+           + "关闭时只在本机提示。默认关闭。", mk);
+
         section(t, "快捷动作");
-        buttonRow(t, ["AI 辅助编程", "模板面板"], [
+        buttonRow(t, ["AI 辅助编程", "复制诊断"], [
             function(){ showAiPanel(); },
-            function(){ openPanel(); }
+            function(){ copyDiag(); }
         ], mk);
         buttonRow(t, ["快检光标下的处理器", "打印诊断"], [
             function(){ quickAimed(); },
@@ -380,8 +410,22 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
             function(){ var r = undo(); if(Vars.ui !== null){ Vars.ui.showText("Mlog辅助 · 撤销", r); } },
             function(){ if(Vars.ui !== null){ Vars.ui.showText("Mlog辅助 · 撤销", undoInfo()); } }
         ], mk);
+
+        section(t, "本地快检");
+        for(i = 0; i < parts.length; i++){
+            if(parts[i].k === "快检"){ kv(t, parts[i].k, parts[i].v, mk); }
+        }
+        kv(t, "", "模组自带的离线静态检查：不联网也能标出不可达语句、未定义变量、链接没绑上这类问题，"
+           + "规则与 sidecar 的检查器同源，只在本机跑。", mk);
+
         section(t, "说明");
-        kv(t, "", "F3：指向处理器，描述意图 → 生成 → 预检 → 写入；原版逻辑编辑器底部会多一条「审查」栏。sidecar 未运行时仍可进游戏，只是生成与模板不可用。", mk);
+        kv(t, "", "F3：指向处理器，描述意图 → 生成 → 预检 → 写入；原版逻辑编辑器底部会多一条「审查」栏。"
+           + "sidecar 随游戏自启，未就绪时投递会提示稍后再投。", mk);
+
+        section(t, "运行环境");
+        for(i = 0; i < parts.length; i++){
+            if(parts[i].k !== "快检"){ kv(t, parts[i].k, parts[i].v, mk); }
+        }
     }
 
     // 区域面板的布线（v0.6.0）：框选松手之后不再只弹一段纯文本，而是把「区域摘要 +
@@ -586,7 +630,8 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
         // sidecar 在进程里把 provider 换成模型档 —— 不用重启 sidecar。密钥只留在本机
         // Core.settings 与 sidecar 内存里：面板、诊断、日志永远只显示尾巴。
         var LLM_DEFAULT_URL = "https://api.deepseek.com/v1/chat/completions";
-        var llmState = {kind: "template", url: "", model: "", key_set: false, key_hint: "", timeout: 60};
+        // v0.14.4：模板档已删，默认就是「未配置模型」——没配模型时只提示，不生成任何代码。
+        var llmState = {kind: "none", url: "", model: "", key_set: false, key_hint: "", timeout: 60};
 
         function llmGet(key, dflt){
             try{
@@ -604,7 +649,7 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
 
         function llmText(){
             var tier = (llmState.kind === "llm") ? "模型档"
-                     : (llmState.kind === "fake" ? "回放档" : "模板档");
+                     : (llmState.kind === "fake" ? "回放档" : "未配置模型");
             var url = llmState.url.length > 0 ? llmState.url : (llmUrl().length > 0 ? llmUrl() : "未填");
             var model = llmState.model.length > 0 ? llmState.model
                       : (llmModel().length > 0 ? llmModel() : "未填");
@@ -708,16 +753,6 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
                         }
                     });
                 });
-        }
-
-        function llmUseTemplate(){
-            llmApply(JSON.stringify({kind: "template"}), function(code, d, text){
-                if(d === null || d.ok !== true){
-                    llmNote("切回模板档失败：" + ((d && d.error) ? String(d.error) : jobWhy(code, text, null)));
-                    return;
-                }
-                llmNote("已回到模板档（离线，仅固定样板）。");
-            });
         }
 
         // ---------------------------------------------------------- 传输层
@@ -1736,89 +1771,6 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
                 });
         }
 
-        // ---------------------------------------------------------- 面板
-        // 模板按钮来自 GET /capabilities —— 面板本身就是"协议通了"的证据。
-
-        // ---------------------------------------------------------- 面板
-        // 模板按钮来自 GET /capabilities —— 面板本身就是「协议通了」的证据。
-        //
-        // 关不掉的教训（v0.3.1 之前）：Arc 的 Dialog.addCloseButton() 是空实现
-        //   Arc-Source/arc-core/src/arc/scene/ui/Dialog.java:453-455
-        //   "no default implementation; should be implemented by subclasses"
-        // 而 closeOnBack()（ESC / 返回键）也不会自动生效 —— Mindustry 的 BaseDialog
-        // 是在构造里显式调（BaseDialog.java:70）。我们既不是 BaseDialog、又只调了
-        // addCloseButton()，于是这个模态面板打开之后没有任何退出路径。现在三件一起做：
-        // 自加「关闭」按钮 + closeOnBack()，并且只保留一个实例。
-
-        function panelShown(){
-            try{ return panel !== null && panel.isShown(); }catch(e){ return false; }
-        }
-
-        function togglePanel(){
-            if(panelShown()){ try{ panel.hide(); }catch(e){ /* ignore */ } return; }
-            openPanel();
-        }
-
-        function openPanel(){
-            if(panelShown()){ try{ panel.toFront(); return; }catch(e){ /* ignore */ } }
-            ensureSidecar();   // v0.13.1：装包版里后端是模组自己拉起来的
-            var b = targetBuild();
-            var d = new Packages.arc.scene.ui.Dialog("Mlog辅助 v" + MOD_VERSION);
-            d.cont.defaults().pad(4);
-            d.cont.add("sidecar: " + base).left().row();
-            d.cont.add(describe(b)).left().row();
-            var qres = quickRun(b === null ? "" : String(b.code), b);
-            d.cont.add(quickSummary(qres)).left().row();
-            var qlines = quickLines(qres);
-            var qmax = Math.min(qlines.length, 5);
-            for(var qi = 0; qi < qmax; qi++){
-                d.cont.add("  " + qlines[qi]).left().row();
-            }
-            if(qlines.length > qmax){ d.cont.add("  … 共 " + qlines.length + " 条（控制台 maiCheck() 查看全部）").left().row(); }
-            d.cont.add("").row();
-            // pane() 交回来的是 ScrollPane，不是 Table —— ScrollPane 上没有 add/clear/button。
-            // 所以自己造一张 Table 交给 pane(Element) 托管，之后只往这张 Table 里加东西。
-            // 这一条是 v0.4.0 点「生成」直接崩的根因（mlog-auxiliary/main.js:685，
-            // TypeError: Cannot find function add in object ScrollPane）。
-            var host = new Packages.arc.scene.ui.layout.Table();
-            host.defaults().pad(2).left();
-            host.add("正在读取模板…").row();
-            try{
-                d.cont.pane(host).height(300).width(520);
-            }catch(e){
-                log("pane() overload unavailable, falling back to a plain table: " + e);
-                d.cont.add(host).growX();
-            }
-            d.buttons.defaults().pad(4);
-            d.buttons.button("工作区快照", function(){ openWorkspaceDialog(); }).width(160);   // v0.14.1
-            d.buttons.button("关闭", function(){ d.hide(); }).width(200);
-            d.closeOnBack();
-            d.show();
-            panel = d;
-
-            httpJson("GET", "/capabilities", null, function(code, text){
-                var cap = parse(text);
-                if(code !== 200 || !cap || cap.ok !== true){
-                    host.clear();
-                    host.add("离线：sidecar 无响应（" + code + "）").row();
-                    host.add("先启动 sidecar：python tools/logicd.py").row();
-                    return;
-                }
-                host.clear();
-                host.add("模板（点击 = 生成 + 预检）").row();
-                for(var i = 0; i < cap.templates.length; i++){
-                    (function(tmpl){
-                        host.button(tmpl.title, function(){
-                            d.hide();
-                            compose(tmpl.id, {}, b);
-                        }).width(500).row();
-                    })(cap.templates[i]);
-                }
-                host.add("ipt 上限 " + cap.limits.ipt_max
-                       + "，链接半径 " + cap.limits.link_range_tiles + " 格").row();
-            });
-        }
-
         // ------------------------------------------ 原版逻辑编辑器里的审查
         // LogicDialog 是 Vars.ui.logic 上的单例（UI.java:228 `logic = new LogicDialog()`），
         // 它的构造里 clearChildren() 之后只放了三样东西：add(canvas).grow() / row() /
@@ -2151,53 +2103,6 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
             return null;
         }
 
-        function plan(intent, b, cb){
-            var req = {intent: String(intent), links: linkList(b), ipt: 2,
-                       origin: originOf(b)};
-            httpJson("POST", "/plan", JSON.stringify(req), function(code, text){
-                var res = parse(text);
-                if(code !== 200 || !res || res === null){
-                    cb({ok: false, reason: "sidecar 返回 " + code + "：" + String(text).substring(0, 200)});
-                    return;
-                }
-                cb(res);
-            });
-        }
-
-        function renderPlan(out, res, b, d){
-            out.clear();
-            if(!res || res.ok !== true){
-                out.add("没能生成：" + (res && res.reason ? res.reason : "sidecar 未给出理由")).row();
-                var cand = res && res.candidates ? res.candidates : (res && res.templates ? res.templates : null);
-                if(cand !== null){
-                    var names = [];
-                    for(var i = 0; i < cand.length; i++){
-                        names.push(cand[i].title ? String(cand[i].title) : String(cand[i].id));
-                    }
-                    out.add("可用模板：" + names.join(" / ")).row();
-                }
-                return;
-            }
-            out.add("模板 " + res.template + " —— " + res.reason).row();
-            var c = reviewCount(res);
-            out.add(c.total === 0 ? "预检：通过（0 条）"
-                    : ("预检：ERR " + c.err + " / WARN " + c.warn + " / INFO " + c.info)).row();
-            var ls = res.findings ? res.findings : [];
-            for(var i2 = 0; i2 < ls.length && i2 < 6; i2++){
-                out.add("  " + ls[i2].sev + " L" + ls[i2].line + " " + ls[i2].msg).row();
-            }
-            out.add("--- 代码（" + res.statements + " 条语句，" + res.bytes_len + " 字节）---").row();
-            var code = String(res.code).split("\n");
-            for(var k = 0; k < code.length && k < 40; k++){ out.add(code[k]).row(); }
-            if(code.length > 40){ out.add("… 共 " + code.length + " 行").row(); }
-            d.buttons.clearChildren();
-            d.buttons.defaults().pad(4);
-            if(c.err === 0){
-                d.buttons.button("写入", function(){ writeBuild(b, res); d.hide(); }).width(140);
-            }
-            d.buttons.button("关闭", function(){ d.hide(); }).width(140);
-        }
-
         // target 可选：区域面板里点「生成」时直接指定那个处理器，不必再把鼠标移过去。
         function showAiPanel(target){
             try{ llmSync(); }catch(e){ log("llm sync skipped"); }
@@ -2223,12 +2128,6 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
             d.buttons.defaults().pad(4);
             // v0.8.0：默认走作业队列（落盘 + 更严的门禁 + 可取消）。
             d.buttons.button("生成", function(){ startJob(b, host, d, intent); }).width(140);
-            // 直接生成 = 旧的 /plan 路径：sidecar 没有 /jobs（老版本）时的退路。
-            d.buttons.button("直接生成", function(){
-                host.clear();
-                host.add("正在请求 sidecar…").row();
-                plan(intent, b, function(res){ renderPlan(host, res, b, d); });
-            }).width(140);
             d.buttons.button("取消作业", function(){ hint(cancelJob()); }).width(120);
             d.buttons.button("关闭", function(){ d.hide(); }).width(140);
             d.closeOnBack();
@@ -2284,6 +2183,16 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
             if(SIDE.state === "starting"){
                 cb(null, "sidecar 正在启动（首次需几秒），稍后再投");
                 return;
+            }
+            // v0.14.4：模板档已删，没有模型就不生成任何代码 —— 先说清楚要配什么，
+            // 别让玩家等一个注定失败的作业。llmState 只反映 sidecar 内存，落盘配置另算。
+            if(llmState.kind !== "llm" && llmState.kind !== "fake"){
+                if(llmUrl().length === 0 || llmModel().length === 0){
+                    cb(null, "未配置模型：先在「设置 → Mlog辅助 → 大模型」填地址、密钥、模型，"
+                           + "再点「启用模型档」");
+                    return;
+                }
+                llmAutoSync();               // 配置在、sidecar 忘了（刚重启）：先推一遍再投
             }
             rememberOrig(b);                 // v0.10.1：投递那一刻的代码就是冲突基线
             httpJson("POST", "/jobs", JSON.stringify(jobBody(b, desc, wsInfo)), function(code, text){
@@ -2761,6 +2670,8 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
         // 点「查看」= 开作业管理窗；点「取消」= 关掉这个框选框（工作区留着，只是不画框了）。
         // 世界坐标命中，和 drawJobButtons 用的是同一份 jobButtonLayout 几何。
         function jobButtonsClick(){
+            // v0.14.4：控件在管这一帧就交给 arc，别再走世界坐标命中（会双触发）。
+            if(jobWidget !== null && jobWidget.attached === true){ return false; }
             if(jobBox === null || jobBadge === null || selDragging){ return false; }
             var right = Core.input.keyTap(Packages.arc.input.KeyCode.mouseRight);
             if(!right && !Core.input.keyTap(Packages.arc.input.KeyCode.mouseLeft)){ return false; }
@@ -2782,6 +2693,108 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
                 return true;
             }
             return false;
+        }
+
+
+        // v0.14.4（用户 2026-11-01）：「按照你说的修改UI」——框角的「查看 / 取消」改成原版控件：
+        // 往 Vars.ui.hudGroup（UI.java:53/192/239-244，setFillParent + touchable=childrenOnly）
+        // 挂一张自己的 Table，按钮用 Styles.defaultt 的 TextButton，由 arc 负责排版、缩放、
+        // 命中与悬停。上面那一套即时绘制（drawJobButtons / jobButtonLayout）留作降级：
+        // 拿不到 hudGroup 或建表失败时仍能看、能点，绝不因为 UI 变了就失去入口。
+        // 坐标：Camera.project(world) 给的是屏幕像素（原点左下、y 向上），与 arc scene 同一套；
+        // 若 scene 根节点另有缩放，用 graphics/scene 宽高比换算回来。
+        var jobWidget = null;       // {table, label, group, attached}
+        var jobWidgetTried = false;
+
+        function worldToScreen(x, y){
+            var px = x, py = y;
+            try{
+                var v = Core.camera.project(x, y);
+                if(v !== null && v !== undefined){ px = v.x; py = v.y; }
+            }catch(e){ }
+            var k = 1;
+            try{
+                var gw = Core.graphics.getWidth(), sw = Core.scene.getWidth();
+                if(gw > 0 && sw > 0){ k = gw / sw; }
+            }catch(e2){ }
+            return {x: px * k, y: py * k};
+        }
+
+        function jobWidgetBuild(){
+            if(jobWidget !== null){ return true; }
+            if(jobWidgetTried){ return false; }
+            jobWidgetTried = true;
+            try{
+                var ui = Vars.ui;
+                if(ui === null || ui === undefined){ return false; }
+                var group = ui.hudGroup;
+                if(group === null || group === undefined){ return false; }
+                var S = Packages.arc.scene.ui.layout.Scl;
+                var t = new Packages.arc.scene.ui.layout.Table();
+                var lbl = new Packages.arc.scene.ui.Label("", new Packages.arc.scene.ui.Label.LabelStyle(
+                    Packages.mindustry.ui.Fonts.outline, Pal.accent));
+                t.add(lbl).right().padBottom(S.scl(3)).row();
+                var btns = new Packages.arc.scene.ui.layout.Table();
+                btns.button("查看", Packages.mindustry.ui.Styles.defaultt, function(){ jobWidgetView(); })
+                    .size(S.scl(84), S.scl(40)).padLeft(S.scl(6));
+                btns.button("取消", Packages.mindustry.ui.Styles.defaultt, function(){ jobWidgetCancel(); })
+                    .size(S.scl(84), S.scl(40)).padLeft(S.scl(6));
+                t.add(btns).right().row();
+                t.pack();
+                jobWidget = {table: t, label: lbl, group: group, attached: false};
+                log("job widget ready (native buttons)");
+                return true;
+            }catch(e){
+                log("job widget unavailable, keeping the drawn buttons: " + e);
+                jobWidget = null;
+                return false;
+            }
+        }
+
+        function jobWidgetView(){
+            try{ openJobManager(); }
+            catch(e){ hint("作业窗口打不开：" + e); }
+        }
+
+        function jobWidgetCancel(){
+            hint(closeJobBox("框选框已关掉（取消按钮）"));
+        }
+
+        function jobWidgetHide(){
+            if(jobWidget === null || jobWidget.attached !== true){ return; }
+            try{ jobWidget.table.remove(); }
+            catch(e){ log("job widget detach failed: " + e); }
+            jobWidget.attached = false;
+        }
+
+        // 每帧同步：框还在就把控件摆到框右下角外侧，框没了就摘下来。
+        // 返回 true 表示「这一帧由控件负责」，调用方就别再画即时版了。
+        function jobButtonsSync(){
+            if(!jobWidgetBuild()){ return false; }
+            var w = jobWidget;
+            var text = jobBadgeText();
+            var show = (jobBox !== null && jobBox.r !== null && !selDragging && text !== "");
+            if(!show){ jobWidgetHide(); return true; }
+            var a = selDrawArgs(jobBox.r);
+            var p = worldToScreen(a.x + a.w, a.y);
+            var edge = JOB_BTN_EDGE;
+            try{ edge = Packages.arc.scene.ui.layout.Scl.scl(JOB_BTN_EDGE); }catch(e0){ }
+            try{
+                w.label.setText(text);
+                w.table.pack();
+                var tw = 0, th = 0;
+                try{ tw = w.table.width; th = w.table.height; }catch(e1){ }
+                w.table.setPosition(p.x - edge - tw, p.y - edge - th);
+                if(!w.attached){
+                    w.group.addChild(w.table);
+                    w.attached = true;
+                }
+            }catch(e2){
+                log("job widget sync failed, falling back to drawn buttons: " + e2);
+                jobWidgetHide();
+                return false;
+            }
+            return true;
         }
 
         // Rhino 的 String.prototype 不一定有 trim（v160.7 里 split 都能等价空匹配），自己来。
@@ -2834,7 +2847,7 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
         function chatSay(text){
             var s = String(text);
             try{ log("[chat] " + s); }catch(e){ }
-            if(netActive()){
+            if(netActive() && chatSendOn()){
                 var ui = Vars.ui;
                 if(ui !== null && ui !== undefined){
                     try{
@@ -2847,6 +2860,21 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
             }
             hint(s);
             return "hint";
+        }
+
+        // v0.14.4（用户 2026-11-01）：播报要不要进服务器聊天框，做成设置项，默认关。
+        // 关掉时仍走 hint（本机淡出提示），状态不会因为「不想进聊天框」就消失。
+        function chatSendOn(){
+            try{ return Core.settings.getBool(CHAT_SEND_KEY, false) === true; }
+            catch(e){ return false; }
+        }
+
+        function toggleChatSend(){
+            var want = !chatSendOn();
+            try{ Core.settings.put(CHAT_SEND_KEY, want); }
+            catch(e){ log("save " + CHAT_SEND_KEY + " failed: " + e); }
+            log("chat broadcast = " + want);
+            return want;
         }
 
         function chatTrim(s, max){
@@ -3590,19 +3618,6 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
             return out;
         }
 
-        function compose(template, params, b){
-            var body = JSON.stringify({template: template, params: params || {},
-                                       links: linkList(b), ipt: 2, origin: originOf(b)});
-            httpJson("POST", "/compose", body, function(code, text){
-                var res = parse(text);
-                if(code !== 200 || res === null){
-                    Vars.ui.showText("Mlog辅助", "compose 失败（" + code + "）\n" + text);
-                    return;
-                }
-                showResult(res, b);
-            });
-        }
-
         // 这里原本有个 ping() 用 busy-wait「同步」等 /health —— 在真引擎里永远拿不到结果
         // （回调走 Core.app.post 投递回主线程，而调用方就在主线程上）。探活请用 probeSidecar()。
 
@@ -4017,43 +4032,6 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
                 return "已发出 health 请求（结果稍后弹窗）";
             },
             maiSel:     function(){ return describe(targetBuild()); },
-            maiPanel:   function(){ openPanel(); return "opened"; },
-            maiCompose: function(template, paramsJson){
-                var params = {};
-                if(paramsJson){ var p = parse(String(paramsJson)); if(p){ params = p; } }
-                var b = targetBuild();
-                httpJson("POST", "/compose",
-                         JSON.stringify({template: String(template), params: params,
-                                         links: linkList(b), ipt: 2}),
-                         function(code, text){
-                             var out = "compose " + code + "\n" + String(text).substring(0, 1500);
-                             print("[mai] " + out);
-                             if(Vars.ui !== null){ Vars.ui.showText("Mlog辅助 · compose", out); }
-                         });
-                return "已发出 compose 请求（结果稍后弹窗并写日志）";
-            },
-            maiApply:   function(template, paramsJson){
-                var b = targetBuild();
-                if(b === null){ return "光标下没有处理器"; }
-                var params = {};
-                if(paramsJson){ var p = parse(String(paramsJson)); if(p){ params = p; } }
-                httpJson("POST", "/compose",
-                         JSON.stringify({template: String(template), params: params,
-                                         links: linkList(b), ipt: 2}),
-                         function(code, text){
-                             var res = parse(text);
-                             if(code !== 200 || res === null){
-                                 if(Vars.ui !== null){ Vars.ui.showText("Mlog辅助",
-                                     "compose 失败（" + code + "）\n" + String(text).substring(0, 800)); }
-                                 return;
-                             }
-                             // 回调本身就在主线程（httpJson 用 Core.app.post），可以直接写方块
-                             var msg = writeBuild(b, res);
-                             print("[mai] " + msg);
-                             if(Vars.ui !== null){ Vars.ui.showText("Mlog辅助 · 写入", msg); }
-                         });
-                return "已发出 compose 请求（0 ERR 才写，结果稍后弹窗）";
-            },
             maiUndo:    function(){ return undo(); },
             maiCheck:   function(code){
                 var b = targetBuild();
@@ -4096,7 +4074,6 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
 
         // 调试入口也挂到控制台（设置界面用不了时的退路）
         api.maiDiag = function(){ return diagText(); };
-        api.maiPanel = function(){ openPanel(); return "opened"; };
         api.maiSettings = function(){ return registerSettings() ? "registered" : "no ui"; };
         api.maiSelfTest = function(){ return selfTest(); };
         api.maiUndo = function(){ return undo(); };
@@ -4126,7 +4103,7 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
                 var prev = {u: llmGet(LLM_URL_KEY, ""), m: llmGet(LLM_MODEL_KEY, ""),
                             k: llmGet(LLM_KEY_KEY, "")};
                 var boot = llmText();
-                if(boot.indexOf("模板档") < 0){ return "bad tier text: " + boot; }
+                if(boot.indexOf("未配置模型") < 0){ return "bad tier text: " + boot; }
                 llmSave(LLM_URL_KEY, "https://example.invalid/v1/chat/completions");
                 llmSave(LLM_MODEL_KEY, "m-probe");
                 llmSave(LLM_KEY_KEY, "sk-probe-9999");
@@ -4268,7 +4245,10 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
                 L.rect(a.x, a.y, a.w, a.h);
                 D.color();
             }catch(e){ /* 画不出来不影响选择本身 */ }
-            if(live){ drawSizeText(r); } else { drawJobButtons(r, a); }
+            // v0.14.4：框角操作区优先用 HUD 上的原版控件；控件不可用（无 UI / 建表失败）时
+            // 才退回即时绘制 —— 两条路都留，谁也挡不住谁。
+            if(live){ drawSizeText(r); jobWidgetHide(); }
+            else if(!jobButtonsSync()){ drawJobButtons(r, a); }
         }
 
         // 原版还在光标旁写「宽x高 (面积)」（InputHandler.java:1772-1794）：
@@ -4747,6 +4727,9 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
         };
 
         // 挂到脚本作用域（控制台里能直接敲），并读回自检
+        // v0.14.4（用户 2026-11-01）：「sidcar应该随游戏启动而启动」——不再等 F3 才拉；
+        // 这里先试一次，ClientLoadEvent（进游戏）再补一次，两次都幂等。
+        try{ ensureSidecar(true); }catch(e){ log("sidecar autostart skipped at load: " + e); }
         // 载入时就试着把设置里的模型档推给 sidecar（重启过的 sidecar 会忘）。
         try{ llmSync(); }catch(e){ log("llm sync skipped at load"); }
         var scope = Vars.mods.getScripts().scope;
@@ -4769,6 +4752,8 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
         try{
             Events.on(ET.ClientLoadEvent, function(){
                 try{ if(!settingsReady){ settingsReady = registerSettings(); } }catch(e){ /* ignore */ }
+                // v0.14.4：「随游戏启动」——进游戏再拉一次（脚本加载时可能在主菜单）。
+                try{ ensureSidecar(true); }catch(e2){ log("sidecar autostart skipped: " + e2); }
             });
         }catch(e){ log("ClientLoadEvent hook failed: " + e); }
 
@@ -4792,7 +4777,7 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
                     if(Vars.state.isMenu()){ return; }
                     if(Vars.ui.chatfrag.shown()){ return; }
                     if(KEY_REGION !== null && Core.input.keyTap(Packages.arc.input.KeyCode[KEY_REGION[0]])){
-                        if(!aiShown() && !panelShown() && Core.scene !== null && Core.scene.hasDialog()){ return; }
+                        if(!aiShown() && Core.scene !== null && Core.scene.hasDialog()){ return; }
                         var rb = targetBuild();
                         if(rb === null){
                             Vars.ui.showText("Mlog辅助 · 链接候选",
@@ -4806,7 +4791,7 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
                         }
                     }
                     if(KEY_LIST !== null && Core.input.keyTap(Packages.arc.input.KeyCode[KEY_LIST[0]])){
-                        if(!aiShown() && !panelShown() && Core.scene !== null && Core.scene.hasDialog()){ return; }
+                        if(!aiShown() && Core.scene !== null && Core.scene.hasDialog()){ return; }
                         openListPanel();
                     }
                     // F3 = 鼠标左键：按住就拉框（起点=按下那一刻的鼠标格），松开就出快照。

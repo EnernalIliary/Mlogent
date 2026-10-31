@@ -373,7 +373,8 @@ class Queue:
 
     def __init__(self, store=None, provider=None, poll=0.05):
         self.store = store or Store()
-        self.provider = provider or template_provider
+        # v0.14.4：默认不再是模板档 —— 没配模型就明确说没配。
+        self.provider = provider or unconfigured_provider
         self.poll = poll
         self.lock = threading.RLock()
         self.jobs = {}
@@ -599,6 +600,11 @@ class Queue:
                 hint = [{'sev': 'ERR', 'rid': 'provider-error', 'line': 0,
                          'msg': str(out['error'])}]
                 self._set(jid, findings=hint)
+                if out.get('fatal'):
+                    # 重试只会得到同一句话（例如「未配置模型」），直接失败收场。
+                    self._set(jid, state='failed', finished=int(time.time() * 1000),
+                              explanation=str(out['error']))
+                    return
                 continue
             res = self._materialize(job, out)
             self._set(jid, findings=res['findings'], explanation=res.get('explanation') or '',
@@ -689,6 +695,19 @@ class Queue:
 
 
 # ---------------------------------------------------------------- providers
+
+def unconfigured_provider(job, hint=None):
+    """The product default since v0.14.4: no model configured.
+
+    The template tier is gone from the product (the player asked for it), so a job
+    that reaches the queue without a model must say so and stop -- not quietly
+    stamp out a canned program nobody asked for.  ``fatal`` tells the retry loop
+    that a second attempt would fail exactly the same way.
+    """
+    return {'error': '未配置模型：请在 设置 -> Mlog辅助 -> 大模型 里填地址、密钥、模型，'
+                     '再点「启用模型档」',
+            'fatal': True}
+
 
 def template_provider(job, hint=None):
     """The offline tier: the intent router already in logicd picks a template."""

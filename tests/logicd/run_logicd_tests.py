@@ -700,13 +700,29 @@ def test_jobs():
     finally:
         srv.close()
 
-    # the default provider is the offline tier: the intent router picks a template,
-    # so a Chinese sentence becomes real mlog with no model in the loop at all
+    # v0.14.4（用户 2026-11-01「删除sidecar和模版档」）：产品默认不再是模板档。
+    # 没配模型的队列必须把「未配置模型」说出来，一次就失败 —— 不能悄悄套个样板交差。
     srv2 = Server(['--jobs-dir', str(tmp / 'queue2')])
     try:
         st, res = srv2.post('/jobs', {'desc': '容器里铜够 100 就打印', 'links': JLINKS, 'ipt': 2})
+        need(st == 200 and res.get('ok'), 'POST /jobs (unconfigured): %s %r' % (st, res))
+        none = wait_job(srv2, res['id'], ('failed',))
+        need('未配置模型' in (none.get('explanation') or ''),
+             'an unconfigured queue did not say so: %r' % (none.get('explanation'),))
+        need(none.get('code') == '', 'an unconfigured queue wrote code: %r' % (none.get('code'),))
+        need(none.get('attempts') == 1,
+             'the unconfigured error was retried %r time(s), want 1' % (none.get('attempts'),))
+        checks += 1
+    finally:
+        srv2.close()
+
+    # 模板档没死透：它退化成显式的开发/测试档位（--jobs-provider template），
+    # 意图路由照旧能把一句中文变成真 mlog —— 只是产品路径不再走它。
+    srv3 = Server(['--jobs-dir', str(tmp / 'queue3'), '--jobs-provider', 'template'])
+    try:
+        st, res = srv3.post('/jobs', {'desc': '容器里铜够 100 就打印', 'links': JLINKS, 'ipt': 2})
         need(st == 200 and res.get('ok'), 'POST /jobs (template tier): %s %r' % (st, res))
-        auto = wait_job(srv2, res['id'], ('done',))
+        auto = wait_job(srv3, res['id'], ('done',))
         need(auto.get('template') == 'item-threshold',
              'template tier picked %r, want item-threshold' % (auto.get('template'),))
         need('sensor' in auto['code'] and 'container1' in auto['code'],
@@ -720,7 +736,7 @@ def test_jobs():
              % (auto.get('sig'), auto['code']))
         checks += 1
     finally:
-        srv2.close()
+        srv3.close()
 
     # 双写可续: a job left in "running" by a crash is picked up again on startup
     store = jobqueue.Store(str(tmp / 'resume'))
@@ -1325,10 +1341,10 @@ def test_llm():
     tmp = tempfile.mkdtemp(prefix='logicd-llm-')
     srv = Server(['--jobs-dir', os.path.join(tmp, 'q')])
     try:
-        # 1. boot state is the template tier, and the key is never echoed
+        # 1. boot state is「未配置模型」(kind none), and the key is never echoed
         code, doc = srv.get('/llm')
-        need(code == 200 and doc.get('ok') is True and doc.get('kind') == 'template',
-             'GET /llm did not report the template tier: %r' % (doc,))
+        need(code == 200 and doc.get('ok') is True and doc.get('kind') == 'none',
+             'GET /llm did not report the unconfigured state: %r' % (doc,))
         need('key' not in doc and doc.get('key_set') is False,
              'GET /llm leaked a key field: %r' % (doc,))
         checks += 1
@@ -1376,8 +1392,8 @@ def test_llm():
         need(code == 400 and 'http' in str(doc.get('error', '')).lower(),
              'POST /llm accepted a non-http url: %r %r' % (code, doc))
         code, doc = srv.post('/llm', {'kind': 'template'})
-        need(code == 200 and doc.get('kind') == 'template',
-             'POST /llm kind=template did not go back: %r' % (doc,))
+        need(code == 200 and doc.get('kind') == 'none',
+             'POST /llm kind=template did not go back to unconfigured: %r' % (doc,))
         checks += 1
         # 7. a url that stops at the API base is completed before the provider sees it
         base = 'http://127.0.0.1:%d/v1' % stub.port

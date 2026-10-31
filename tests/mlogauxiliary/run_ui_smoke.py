@@ -1013,8 +1013,10 @@ def main():
      'Runtime.exec splits paths on spaces; "Program Files (x86)" would break it'),
     ('pb.redirectOutput(new Packages.java.io.File(',
      'an unread pipe blocks the child once it has written 64 KB'),
-    ('ensureSidecar();',
-     'opening the panel must try to start the sidecar'),
+    ('ensureSidecar(true); }catch(e){ log("sidecar autostart skipped at load',
+     'v0.14.4: the sidecar must start with the game, not when a panel opens'),
+    ('ensureSidecar(true); }catch(e2){ log("sidecar autostart skipped',
+     'v0.14.4: ClientLoadEvent must try again once the player is in a game'),
     ('sidecarTick();',
      'the update hook must drive the poll loop'),
     ('api.maiSidecarProbe = function',
@@ -1062,9 +1064,42 @@ def main():
                          'the retry header lost its wording')):
         if needle not in code_only:
             problems.append('v0.12.6: ' + why)
-    if '"直接生成"' not in code_only:                 # 直接生成
-        problems.append('v0.8.0: the /plan fallback button is gone -- an older sidecar '
-                        'without /jobs would leave the panel unusable')
+    # v0.14.4（用户 2026-11-01）：模板档删掉，面板删掉，产品路径不许再碰 /plan 与 /compose。
+    for needle, why in (('openPanel', 'v0.14.4: the template panel should be gone'),
+                        ('llmUseTemplate', 'v0.14.4: the template tier switch should be gone'),
+                        ('"直接生成"', 'v0.14.4: the /plan fallback button should be gone'),
+                        ('"/plan"', 'v0.14.4: the mod must not call /plan any more'),
+                        ('"/compose"', 'v0.14.4: the mod must not call /compose any more')):
+        if needle in code_only:
+            problems.append(why)
+    for needle, why in (('var CHAT_SEND_KEY = "mlogauxiliary-chat-send"',
+                         'v0.14.4: the chat broadcast setting key is gone'),
+                        ('function chatSendOn(', 'v0.14.4: the chat broadcast switch is gone'),
+                        ('if(netActive() && chatSendOn()){',
+                         'v0.14.4: chatSay must honour the broadcast switch (default off)'),
+                        ('function jobWidgetBuild(', 'v0.14.4: the native job widget is gone'),
+                        ('Packages.mindustry.ui.Styles.defaultt',
+                         'v0.14.4: the job widget must use the vanilla button style'),
+                        ('ui.hudGroup', 'v0.14.4: the widget must live on the HUD stage'),
+                        ('function llmAutoSync(', 'v0.14.4: the model profile must auto-attach'),
+                        ('未配置模型：先在', 'v0.14.4: an unconfigured model must be said up front'),
+                        ('setPasswordCharacter(', 'v0.14.4: the key must be masked with a real glyph'),
+                        ('显示密钥', 'v0.14.4: there must be a way to reveal the key on demand')):
+        if needle not in code_only:
+            problems.append(why)
+    # 设置页顺序：运行环境必须排在最后（用户 2026-11-01「运行环境应该放在最后」）
+    order = ['section(t, "大模型', 'section(t, "聊天播报', 'section(t, "快捷动作',
+             'section(t, "本地快检', 'section(t, "说明', 'section(t, "运行环境']
+    pos = -1
+    for key in order:
+        at = code_only.find(key)
+        if at < 0:
+            problems.append('v0.14.4: settings section missing: ' + key)
+            break
+        if at < pos:
+            problems.append('v0.14.4: settings sections out of order at ' + key)
+            break
+        pos = at
     # v0.4.4 red lines: the transport must stay a raw socket, and the settings category
     # must show the vanilla logic badge (Icon.logic).
     if 'openConnection(' in code_only:

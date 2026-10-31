@@ -2234,3 +2234,25 @@ improve 8 / llm 12，含 **write path 7 模板**把 `/compose` 的 `bytes_b64` �
 llm 12 / write path 7 模板）。版本三处 0.14.3。
 
 报告：`out/takeover-20261024/82-v0143-copy.md`；断言表 L2-70（总 129 条：L1 31 / L2 70 / L3 6 / L4 4 / S 18）。
+
+## §83 v0.14.4：UI 改原版控件 + sidecar/模型档自启 + 删模板档 + 聊天播报开关
+
+用户 m05298 / m05333 / m05432 三条需求合成一版（详见 `83-v0144-ui.md`）。
+
+- **框角按钮改原版控件**：`jobWidgetBuild()` 把一张 `Table` 挂到 `Vars.ui.hudGroup`，按钮用
+  `Styles.defaultt` 的 `TextButton`（`Scl.scl(84/40)`），标题用 `Label(Fonts.outline, Pal.accent)`；
+  `jobButtonsSync()` 每帧用 `Camera.project` 对齐到框右下角；控件接管时 `jobButtonsClick()` 直接
+  `return false`（防双触发）；**即时绘制保留为降级**（建表失败仍走 `drawJobButtons`）。
+- **sidecar 随游戏启动**：脚本尾部与 `ClientLoadEvent` 各 `ensureSidecar(true)`，幂等。
+- **模型档自动挂载**：`llmAutoSync()` 在 sidecar 探到 200 时把地址/密钥/模型推过去，60 s 节流。
+- **删模板档**：模组删 `openPanel`/`panelShown`/`togglePanel`/`plan`/`renderPlan`/`compose`/
+  `llmUseTemplate` 与探针 `maiPanel`/`maiCompose`/`maiApply`、AI 面板「直接生成」；`llmState` 默认
+  `kind:"none"`、`llmText()` →「未配置模型」。sidecar 侧 `jobqueue.unconfigured_provider`
+  （`fatal: True` ⇒ 只跑一次就 `failed`）成为默认，`apply_llm(kind=template)` → 未配置模型，
+  `--jobs-provider` 默认 `none`；`TEMPLATES`/`/compose`/`/plan` 保留给测试。
+- **设置页重排**：大模型 → 聊天播报 → 快捷动作 → 本地快检 → 说明 → 运行环境（最后）；sidecar 段删掉。
+- **密钥默认遮**：`setPasswordMode(true)` + `setPasswordCharacter('*')`（专门修「Fonts.def 没有 bullet 字形，
+  只设 passwordMode 等于没遮」），另加「显示密钥」按钮。
+- **聊天播报开关**：`CHAT_SEND_KEY` 默认 false，`chatSay` 判据 `netActive() && chatSendOn()`。
+- **投递前先查模型**：`jobSubmit` 未配置时直接回「未配置模型：…」。
+- 断言表 L2-71（总 130 条）；ui smoke 与 logicd tests 全绿；报告 83。

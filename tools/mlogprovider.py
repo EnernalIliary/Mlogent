@@ -590,7 +590,11 @@ def _reply_text(doc):
 
 def provider_from_args(args):
     """Build the provider the CLI asked for, or raise ValueError."""
-    kind = getattr(args, "jobs_provider", "template")
+    kind = getattr(args, "jobs_provider", "none")
+    if kind == "template":
+        # v0.14.4：模板档从产品里删了，但保留成显式的开发/测试档位。
+        import jobqueue
+        return jobqueue.template_provider
     if kind == "fake":
         import jobqueue
         return jobqueue.load_fake_provider(args.fake_provider)
