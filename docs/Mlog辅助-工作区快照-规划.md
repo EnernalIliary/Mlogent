@@ -149,10 +149,10 @@ F3 框选松手
 
 | 阶段 | 内容 | 验收（机器可验） | 估时 |
 | --- | --- | --- | --- |
-| **W1 数据层** | 工作区读写（`wsRoot()`/`wsList()`/`wsLoad()`/`wsSave()`/`wsRelease()`）、F3 自动建/复用、`jobBody` 带 `workspace`、写入成功回写 `code/accepted/history`、`api.maiWorkspaceProbe` | ui smoke `MAIWORKSPACE:ok`（建/复用/归档/释放四条）、磁盘上真有 `<id>.json`、`node --check` | 2–3 天 |
-| **W2 界面** | 工作区快照对话框（列表/预览/恢复/归档/释放/改名/导出）、作业管理窗显示工作区名 | ui smoke 断言对话框存在 + 红线；手动截图（真机） | 2–3 天 |
-| **W3 继续改进** | `mode:"improve"` + prompt 的 `workspace` 段 + 面板「继续改进」按钮 + sidecar 侧测试 | `tests/logicd` 新增 provider 断言（prompt 含 prevCode 且被截断）、真机一单 | 2 天 |
-| **W4 蓝图页 + 导入导出** | 「从蓝图创建工作区」、导出/导入 JSON | ui smoke 断言蓝图列表非空 + 导出文件字节可回读 | 1–2 天 |
+| **W1 数据层**（v0.14.0，已交付） | 工作区读写（`wsRoot()`/`wsList()`/`wsLoad()`/`wsSave()`/`wsRelease()`）、F3 自动建/复用、写入成功回写 `code/accepted/history`、`api.maiWorkspaceProbe` | ui smoke `MAIWORKSPACE:ok dir=yes mem=yes`、磁盘上真有 `<id>.json`、`node --check` | 2–3 天 |
+| **W2 界面**（v0.14.1，已交付） | 工作区快照对话框 `openWorkspaceDialog()`（列表按 active/archived 分组、预览、恢复选框/归档/释放/改名/导出 JSON） | ui smoke `MAIWS2:ok`（rowlabel/bounds/proclines/joblines/export/import/rename/restorebox）+ 红线 `function openWorkspaceDialog(` | 2–3 天 |
+| **W3 继续改进**（v0.14.1，已交付） | `mode:"improve"`（模组 `wsImprovePayload()` → 作业 `workspace{...}`）+ `job_id()` 只在 improve 计入 prevCode + prompt 的 `=== previous version (same area) ===` 段（≤ 1200 字符）+ 面板「继续改进」/「改进上一版」按钮 | `tests/logicd` 的 `test_improve()` 7 组断言（protocol 26 / jobs 16 / provider 12 / improve 7 / llm 12）、`MAIWS2:ok` 的 payload 项 | 2 天 |
+| **W4 蓝图页 + 导入导出**（v0.14.1，已交付） | 「从蓝图创建工作区」（`blueprintList()` 吃 `Vars.schematics === null` 回空数组）、导出 `wsExportText()`/`wsExportToDisk()`、导入 `wsImportText()`（复制、撞 id 换新 id） | `MAIWS2:ok` 的 blueprint / blueprint-miss / export / import / import-id 项 | 1–2 天 |
 | **W5（可选）** | sidecar 索引工作区（`out/workspaces` 镜像），CLI/工具链可读 | 门禁新步或 logicd 测试 | 1–2 天 |
 
 合计约 **8–12 个工作日**。W1 单独上线也有价值（上下文落盘 + 框选不再是一次性的），W3 是用户感知最强的一步。
@@ -171,7 +171,11 @@ F3 框选松手
 
 实现时新增两条：
 
-- **L2-66**（W1）工作区必须落盘且可复用：F3 在同一区域第二次框选必须复用同一个 `<id>.json`（不是新建），
+- **L2-66**（W1，已写入 `docs/断言表.md`）工作区必须落盘且可复用：F3 在同一区域第二次框选必须复用同一个 `<id>.json`（不是新建），
   写入成功后 `procs[].code` 必须等于处理器回读的代码；验法 `MAIWORKSPACE:ok` + 磁盘断言。
-- **L2-67**（W3）「继续改进」必须带上一版上下文：prompt 里必须出现 `prevCode` 的片段且总长 ≤ 1200 字符；
-  验法 `tests/logicd` 的 provider 断言 + 红线。
+- **L2-67**（W2/W3/W4，已写入 `docs/断言表.md`）工作区要有界面、要能「接着上一版改进」、要能搬走：
+  界面 `MAIWS2:ok`；「继续改进」必须带上一版上下文（prompt 里出现 `prevCode` 片段且整段 ≤ 1200 字符，
+  `job_id()` 只在 improve 时把 prevCode 计入 blob）；导入导出往返（导入换新 id，不覆盖）。
+
+**实施记录**：W1 → v0.14.0（提交 `5df6ece`）；W2+W3+W4 → v0.14.1（模组侧 `main.js` + sidecar 侧
+`tools/jobqueue.py`/`tools/mlogprovider.py`/`tools/logicd.py`，`SIDECAR_VERSION='0.14.0'`）。W5（sidecar 索引）仍可选、未做。

@@ -2132,3 +2132,40 @@ ui smoke 成功路径的展示白名单不含 `MAIJOBPANEL:`/`MAIWORKSPACE:`，�
 **没做**：界面（W2）、`mode:"improve"`（W3，`jobqueue.normalize()` 只认白名单字段）、跨地图迁移。
 
 报告：`out/takeover-20261024/79-v0140-workspace-w1.md`；断言表 L2-66。
+
+## §80 v0.14.1 工作区快照 W2/W3/W4：界面 + 继续改进 + 导入导出 + 蓝图入口（2026-10-31）
+
+承接 m03632 的工作区快照要求与 `docs/Mlog辅助-工作区快照-规划.md`（W1–W5）。W1 = v0.14.0（提交 `5df6ece`，只有数据层），
+用户 m04147 原话「继续，直接做完，然后我验证」⇒ 本版把 W2（界面）、W3（继续改进）、W4（导入导出 + 蓝图入口）一次做完。
+
+**模组侧**（`MlogAuxiliary/scripts/main.js`，现 4,7xx 行，`MOD_VERSION = "0.14.1"`）：新段「工作区界面（v0.14.1，W2/W3/W4）」
+放在「区域面板」段之前，含 `wsTimeText`/`wsRowLabel`/`wsBoundsText`/`wsProcLines`/`wsJobLines`、
+`wsRestoreBox`（把 `jobBox` 指到工作区 bounds，**故意不给 ids** ⇒ `jobBoxState()` 的 `total === 0` 不画徽标、不轮询空作业）、
+`wsRename`/`wsExportText`/`wsExportToDisk`/`wsImportText`（复制语义，撞 id 换新 id）、
+`renderWorkspaceDetail`/`renderWorkspaces`/`openWorkspaceDialog`（仿蓝图对话框）、
+`wsImprovePayload`/`wsImproveBatch`（每台写过代码的处理器各投一单 improve）、
+`blueprintList`（`Vars.schematics === null` 回空数组 —— 无头里它就是 null）、`wsFromBlueprintName`、`renderBlueprintPicker`。
+钩子：`jobBody(b, desc, wsInfo)` 在有 wsInfo 时 `job.mode = "improve"` + `job.workspace`；`jobSubmit(..., wsInfo)` 透传；
+`startJobBatch(targets, desc, rect, improve)` 逐台算 payload；`openQuickJob` 多一个「改进上一版」按钮；
+`wsRecordTerminal` 记 `findings`（`prevFindings` 来源）。新口子 `api.maiWorkspaceDialog/Export/ExportDisk/Import/RestoreBox/Rename/Improve/ImprovePayload/RowLabel/BlueprintList/WorkspaceFromBlueprint`，
+`tools/jobqueue.py:_ws_finding()` 把 `{sev,rid,msg}` 渲染成 `WARN <rid>: <msg>`（原来 `str(dict)` 把 Python repr 送进 prompt）。入口：主面板（设置 → Mlog辅助）与作业管理窗底部的「工作区快照」按钮（红线 `d.buttons.button("工作区快照"` 守着）。自检口 `api.maiWorkspace2Probe()` → `MAIWS2:ok`（14 项：rowlabel/bounds/proclines/joblines/export/import/import-id/import-procs/rename/payload/payload-code/payload-id/restorebox/restorebox-ids/restorebox-msg/blueprint/blueprint-miss/improve-miss）。
+
+**sidecar 侧**（teammate `sidecar-dev` 实现，我复核）：`tools/jobqueue.py` 加 `WS_*` 上限与 `workspace_of()`/`_ws_code()`/`_ws_text()`，
+`job_id(snapshot, desc, mode, prev_code=None)` **仅 improve** 把 prevCode 计入 blob（new/edit id 与 v0.13.2 逐字节不变，
+两个硬编码 legacy id 锁死），`normalize()` mode 白名单加 `improve`、返回 dict 带 `workspace`；
+`tools/mlogprovider.py` 的 `previous_version(job)` 在 `=== task ===` 前插 `=== previous version (same area) ===`，
+段本体 ≤ 1198 字符（留 2 字符给分隔空行，整段恰好 1200）；`tools/logicd.py` 的 `SIDECAR_VERSION = "0.14.0"`；
+`tests/logicd/run_logicd_tests.py` 加 `test_improve()`（7 组）。
+
+**验证**：`node --check` 0；`tests/mlogauxiliary/run_ui_smoke.py` EXIT=0 且可见 `MAIDIAG:版本：0.14.1`、`MAIWORKSPACE:ok dir=yes mem=yes`、`MAIWS2:ok`；
+`tests/logicd/run_logicd_tests.py` → protocol 26 / jobs 16 / provider 12 / improve 7 / llm 12、write path 7 模板、`logicd OK`；
+`tests/run_tests.py` 46/46；`gate.py --full --kb-build` 17/17。
+
+**踩坑**：①`api.*` 赋值必须晚于 `var api = {`（W1 的老坑，这次全部放在 api 段内）②`var payload` 声明了却没传给 `jobSubmit`
+⇒ improve 静默退化成 new，补第 4 个实参 ③PowerShell `python -c` 里拼引号/括号必炸，改文件一律写 `.py` 脚本再跑
+④补丁脚本里的中文长串里出现 `'0.14.0'` 这种单引号会把字符串提前闭合，`SyntaxError` 却报在表达式第一行 —— 长文本改放独立 `.txt`。
+
+**已知边界**：工作区不广播（联机写入仍走 `permWhy()` + `armWriteCheck()`）；W5（sidecar 索引）没做；
+`GET /jobs?all=1` 的行现在带 `workspace`（单行最多 5–6 KB），暂不剥字段。
+
+报告：`out/takeover-20261024/80-v0141-workspace-ui.md`；断言表 L2-67。

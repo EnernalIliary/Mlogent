@@ -26,6 +26,16 @@ import urllib.request
 
 MAX_PROMPT_CELLS = 40
 
+#: v0.14.0: the whole 'previous version' section, title included, must fit in this
+#: many characters -- a workspace whose prevCode is 4000 characters long must not
+#: push the actual task out of the model's attention (or out of a small context).
+#: One character of the budget is held back for the newline that separates the
+#: section from '=== task ===', so the section as it appears in the prompt is
+#: never longer than PREV_VERSION_MAX.
+PREV_VERSION_MAX = 1200
+PREV_FINDINGS_MAX = 6
+PREV_TRUNC = '\n  ... (truncated)'
+
 
 class ProviderError(Exception):
     """A reply that cannot be used: bad JSON, missing keys, wrong types."""
@@ -114,6 +124,46 @@ def snapshot_facts(snap):
     return rows
 
 
+def previous_version(job):
+    """The 'improve THIS, do not start over' block, or '' when there is none (v0.14.0).
+
+    A player who says "continue improving" has a program in the processor that
+    they want kept: without the previous version in front of it the model happily
+    writes a fresh program that drops whatever already worked (and, on a repeat
+    run, wanders back into the shape the analyzer already refused).  Only
+    mode='improve' with a non-empty workspace.prevCode produces the block, so a
+    'new'/'edit' prompt is byte for byte what it was before this existed.
+    """
+    if not isinstance(job, dict) or job.get("mode") != "improve":
+        return ""
+    ws = job.get("workspace")
+    if not isinstance(ws, dict):
+        return ""
+    code = ws.get("prevCode")
+    if not isinstance(code, str) or not code.strip():
+        return ""
+    rows = ["=== previous version (same area) ==="]
+    for line in code.splitlines():
+        rows.append("  " + line)
+    findings = ws.get("prevFindings")
+    if isinstance(findings, list) and findings:
+        for f in findings[:PREV_FINDINGS_MAX]:
+            rows.append("  - %s" % (f,))
+    prev_job = ws.get("prevJob")
+    if isinstance(prev_job, str) and prev_job:
+        rows.append("previous job: %s" % prev_job)
+    rows.append("- The player wants THIS version improved, not a rewrite from zero.")
+    rows.append("- Keep what works; change only what the request needs. "
+                "Do not go back to a shape that already failed.")
+    text = "\n".join(rows)
+    # the blank line that separates this block from '=== task ===' is part of the
+    # section as the reader (and the test) sees it: hold back its two newlines
+    room = PREV_VERSION_MAX - 2
+    if len(text) > room:
+        text = text[:room - len(PREV_TRUNC)] + PREV_TRUNC
+    return text
+
+
 def build_prompt(job, hint=None):
     """The three sections of section 4.4, as one string."""
     links = _link_names(job.get("links"))
@@ -154,6 +204,10 @@ def build_prompt(job, hint=None):
     out.append("- End the program with an explicit `end` unless it loops forever.")
     out.append("- The whole program must pass the analyzer: any ERR rejects the job.")
     out.append("")
+    prev = previous_version(job)
+    if prev:
+        out.append(prev)
+        out.append("")
     out.append("=== task ===")
     out.append("the player asked for: %s" % (job.get("desc") or ""))
     if hint:

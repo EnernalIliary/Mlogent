@@ -11,7 +11,8 @@ that already exists in logicd, so the whole state machine is exercised offline
 Contract (docs/Mlog辅助-规划.md section 4.1)
 -------------------------------------------
     {id: sha1(snapshot+desc+mode)[:16], created, state, mode, desc, snapshot,
-     attempts, findings[], code, explanation, assumptions[], reasoning}
+     attempts, findings[], code, explanation, assumptions[], reasoning,
+     workspace}                      # v0.14.0, only for mode='improve'
 
     queued -> running -> done | rejected | failed | cancelled
 
@@ -83,6 +84,18 @@ SAVE_WAIT = 0.03
 #: of it; a reasoning model can spend thousands of tokens before it writes a line)
 REASONING_MAX = 20000
 
+#: v0.14.0: how much of a workspace ("continue improving" context) a job carries.
+#: The prompt only ever shows the first ~1200 characters of prevCode
+#: (mlogprovider.previous_version), so these caps are about what a job file and a
+#: GET /jobs?id= can afford to hold -- not about what the model gets to see.
+WS_NAME_MAX = 120
+WS_NOTES_MAX = 500
+WS_CODE_MAX = 4000
+WS_JOB_MAX = 64
+WS_FINDINGS_MAX = 12
+WS_FINDING_MAX = 300
+WS_TRUNC = '\n... (truncated)'
+
 _WIN_CONTENDED = (5, 32, 33)
 
 
@@ -115,11 +128,92 @@ def default_dir():
     return os.environ.get('MLOG_JOBS_DIR') or DEFAULT_DIR
 
 
-def job_id(snapshot, desc, mode):
-    """sha1(snapshot + desc + mode)[:16] -- stable across retries, so POST is idempotent."""
-    blob = json.dumps({'snapshot': snapshot, 'desc': desc, 'mode': mode},
-                      ensure_ascii=False, sort_keys=True, separators=(',', ':'))
-    return hashlib.sha1(blob.encode('utf-8')).hexdigest()[:16]
+def job_id(snapshot, desc, mode, prev_code=None):
+    """sha1(snapshot + desc + mode)[:16] -- stable across retries, so POST is idempotent.
+
+    v0.14.0: an 'improve' job also hashes the code it starts from.  "Continue
+    improving" on the same sentence with a *different* previous version is the
+    normal second round, and without this it hashed to the same id as the first
+    round -- so the queue answered the second request with the first run (or a
+    '-2' replay of it) and the model was never asked about the new code.  The
+    extra key is added only for 'improve': a 'new'/'edit' id has to stay exactly
+    what it was, or every job id the mod already knows changes under it.
+    """
+    blob = {'snapshot': snapshot, 'desc': desc, 'mode': mode}
+    if mode == 'improve':
+        blob['prev'] = prev_code or ''
+    body = json.dumps(blob, ensure_ascii=False, sort_keys=True, separators=(',', ':'))
+    return hashlib.sha1(body.encode('utf-8')).hexdigest()[:16]
+
+
+def _ws_text(ws, key, limit):
+    """One string field of a workspace, truncated to `limit`; junk becomes ''."""
+    v = ws.get(key)
+    if not isinstance(v, str):
+        return ''
+    return v if len(v) <= limit else v[:limit]
+
+
+def _ws_code(ws):
+    """prevCode: the head of the last version that was actually written (v0.14.0).
+
+    The tail is usually where a broken program went wrong, but the head is what
+    the next attempt has to keep working, so the head is what is kept.  The
+    marker counts against the cap, so the stored field never exceeds it.
+    """
+    v = ws.get('prevCode')
+    if not isinstance(v, str):
+        return ''
+    if len(v) <= WS_CODE_MAX:
+        return v
+    return v[:WS_CODE_MAX - len(WS_TRUNC)] + WS_TRUNC
+
+
+def _ws_finding(f):
+    """One readable line per previous finding (v0.14.1).
+
+    The mod sends {sev, rid, msg} objects; str(dict) would leak Python repr into
+    the prompt ("{'sev': 'WARN', ...}"), which tells the model nothing.
+    """
+    if isinstance(f, str):
+        return f[:WS_FINDING_MAX]
+    if isinstance(f, dict):
+        sev = str(f.get('sev') or '').strip()
+        rid = str(f.get('rid') or '').strip()
+        msg = str(f.get('msg') or '').strip()
+        head = (sev + ' ' + rid).strip()
+        line = (head + ': ' + msg) if msg else head
+        return line[:WS_FINDING_MAX]
+    if f is None:
+        return ''
+    return str(f)[:WS_FINDING_MAX]
+
+
+def workspace_of(body):
+    """The 'continue improving' context of a request, or None (v0.14.0).
+
+    Missing or not an object is None, never an error: the job body is a contract
+    the mod owns, and a mod that knows nothing about workspaces must keep posting
+    jobs.  Every field is optional and junk is dropped rather than refused for
+    the same reason -- a half-filled workspace still tells the model something.
+    """
+    ws = body.get('workspace')
+    if not isinstance(ws, dict):
+        return None
+    findings = ws.get('prevFindings')
+    if not isinstance(findings, list):
+        findings = []
+    rows = []
+    for f in findings[:WS_FINDINGS_MAX]:
+        line = _ws_finding(f)
+        if line:
+            rows.append(line)
+    return {'id': _ws_text(ws, 'id', WS_NAME_MAX),
+            'name': _ws_text(ws, 'name', WS_NAME_MAX),
+            'notes': _ws_text(ws, 'notes', WS_NOTES_MAX),
+            'prevCode': _ws_code(ws),
+            'prevJob': _ws_text(ws, 'prevJob', WS_JOB_MAX),
+            'prevFindings': rows}
 
 
 def _int(v, name, default=None):
@@ -141,8 +235,8 @@ def normalize(body):
     if len(desc) > 2000:
         raise ValueError('job.desc is too long (2000 characters)')
     mode = body.get('mode') or 'new'
-    if mode not in ('new', 'edit'):
-        raise ValueError("job.mode must be 'new' or 'edit'")
+    if mode not in ('new', 'edit', 'improve'):
+        raise ValueError("job.mode must be 'new', 'edit' or 'improve'")
     snap = body.get('snapshot')
     if snap is None:
         snap = {}
@@ -163,10 +257,12 @@ def normalize(body):
     ipt = _int(body.get('ipt'), 'job.ipt', 2)
     if not 1 <= ipt <= 40:
         raise ValueError('job.ipt must be 1..40 (LogicBlock.maxInstructionsPerTick)')
-    jid = job_id(snap, desc, mode)
+    # v0.14.0: parsed before the id, because an 'improve' id hashes prevCode
+    ws = workspace_of(body)
+    jid = job_id(snap, desc, mode, ws.get('prevCode') if ws else None)
     return {'id': jid, 'created': int(body.get('created') or time.time() * 1000),
             'state': 'queued', 'mode': mode, 'desc': desc, 'snapshot': snap,
-            'links': links, 'origin': origin, 'ipt': ipt,
+            'links': links, 'origin': origin, 'ipt': ipt, 'workspace': ws,
             'attempts': 0, 'findings': [], 'code': '', 'explanation': '',
             'assumptions': [], 'template': None, 'params': {}, 'bytes_b64': ''}
 

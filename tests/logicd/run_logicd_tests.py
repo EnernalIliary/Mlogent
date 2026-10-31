@@ -1007,6 +1007,158 @@ def test_provider():
         shutil.rmtree(tmp, ignore_errors=True)
     return checks
 
+# ---------------------------------------------------------------- half E: v0.14.0 improve
+
+def test_improve():
+    """'Continue improving': the workspace rides on the job, the id follows the
+    previous code, and the prompt shows the version that is being improved.
+
+    Offline: normalize()/job_id()/build_prompt() directly, then one job through
+    the real HTTP surface with the fake provider.
+    """
+    import jobqueue
+    import mlogprovider as MP
+
+    checks = 0
+    prev = ('loop:\nsensor n container1 @copper\njump done lessThan n 50\n'
+            'jump loop always\ndone:\nend')
+    ws = {'id': 'ws1793456316430_1', 'name': '区域 (12,34)', 'notes': '省电优先',
+          'prevCode': prev, 'prevJob': '3f2a1b9c',
+          'prevFindings': ['line 3: [WARN] this statement can never run: end']}
+    body = {'mode': 'improve', 'desc': '把铜矿传送带改成低于 50 就停', 'links': JLINKS,
+            'ipt': 2, 'origin': {'x': 10, 'y': 20}, 'workspace': ws}
+    title = '=== previous version (same area) ==='
+
+    # 1. normalize accepts mode=improve and keeps every workspace field
+    job = jobqueue.normalize(body)
+    need(job['mode'] == 'improve', 'normalize refused mode=improve: %r' % (job.get('mode'),))
+    got = job['workspace']
+    need(isinstance(got, dict), 'normalize dropped the workspace: %r' % (got,))
+    for k, want in (('id', 'ws1793456316430_1'), ('name', '区域 (12,34)'),
+                    ('notes', '省电优先'), ('prevCode', prev), ('prevJob', '3f2a1b9c')):
+        need(got.get(k) == want, 'workspace.%s came back as %r' % (k, got.get(k)))
+    rich = jobqueue.normalize({'desc': 'x', 'mode': 'improve',
+                               'workspace': {'id': 'ws1', 'name': 'n', 'prevCode': 'set n 1\n',
+                                             'prevFindings': [{'sev': 'WARN',
+                                                               'rid': 'unreachable-statement',
+                                                               'msg': 'this can never run'}]}})
+    line = rich['workspace']['prevFindings'][0]
+    need('{' not in line and 'unreachable-statement' in line,
+         'a dict finding leaked Python repr into the prompt: %r' % (line,))
+    need(line.startswith('WARN unreachable-statement:'),
+         'a dict finding lost its sev/rid prefix: %r' % (line,))
+    need(got['prevFindings'] == ws['prevFindings'],
+         'workspace.prevFindings came back as %r' % (got.get('prevFindings'),))
+    checks += 1
+
+    # 2. a 4000-character previous version is truncated to the cap, head kept
+    big = '\n'.join('set v%d %d' % (i, i) for i in range(400))
+    need(len(big) > 4000, 'the test code is not long enough: %d' % len(big))
+    cut = jobqueue.normalize(dict(body, workspace=dict(ws, prevCode=big)))['workspace']
+    need(len(cut['prevCode']) <= 4000, 'prevCode was not capped: %d'
+         % len(cut['prevCode']))
+    need(cut['prevCode'].startswith('set v0 0'), 'truncation did not keep the head')
+    need(cut['prevCode'].endswith('... (truncated)'),
+         'a truncated prevCode does not say it was cut: %r' % cut['prevCode'][-40:])
+    checks += 1
+
+    # 3. missing / junk workspace is None, never an error (an older mod keeps posting)
+    need(jobqueue.normalize({'desc': 'x'})['workspace'] is None,
+         'a job without a workspace grew one')
+    need(jobqueue.normalize({'desc': 'x', 'workspace': 'nope'})['workspace'] is None,
+         'a non-object workspace was not ignored')
+    need(jobqueue.normalize({'desc': 'x', 'workspace': {'id': 7, 'prevFindings': 'x'}})
+         ['workspace'] == {'id': '', 'name': '', 'notes': '', 'prevCode': '',
+                           'prevJob': '', 'prevFindings': []},
+         'a half-filled workspace was not defaulted')
+    checks += 1
+
+    # 4. the id follows prevCode -- but only for improve, so the second round of
+    #    "continue improving" on the same sentence is a different job
+    a = jobqueue.normalize(body)['id']
+    b = jobqueue.normalize(dict(body, workspace=dict(ws, prevCode='end')))['id']
+    need(a != b, 'two improve jobs with different prevCode share the id %r' % (a,))
+    need(jobqueue.normalize(body)['id'] == a,
+         'the same improve body is no longer content-addressed')
+    # 'new'/'edit' ids are what they were before v0.14.0: a saved job must not
+    # change identity under the mod when the sidecar is upgraded
+    need(jobqueue.job_id({}, 'keep this id', 'new') == '5e64562ed52ae875',
+         "v0.14.0 changed the 'new' id")
+    need(jobqueue.job_id({}, 'keep this id', 'edit') == '38968079334a4679',
+         "v0.14.0 changed the 'edit' id")
+    checks += 1
+
+    # 5. the prompt shows the previous version, before === task ===, within budget
+    snap = {'bounds': {'x1': 4, 'y1': 14, 'x2': 16, 'y2': 26}, 'cells': 3,
+            'truncated': False, 'blocks': {'container': 2},
+            'map': {'name': 'groundZero'}}
+    pjob = {'mode': 'improve', 'desc': body['desc'], 'links': LINKS,
+            'origin': {'x': 10, 'y': 20}, 'ipt': 2, 'snapshot': snap,
+            'workspace': job['workspace']}
+    p = MP.build_prompt(pjob)
+    need(title in p, 'the improve prompt has no previous-version section')
+    need('  jump done lessThan n 50' in p, 'the previous code is not in the prompt')
+    need('previous job: 3f2a1b9c' in p, 'the previous job id is not in the prompt')
+    need('  - line 3: [WARN] this statement can never run: end' in p,
+         'the previous findings are not in the prompt')
+    need('- The player wants THIS version improved, not a rewrite from zero.' in p,
+         'the prompt does not say "improve this, do not rewrite"')
+    need('Do not go back to a shape that already failed.' in p,
+         'the prompt does not warn about the failed shape')
+    need(p.index(title) < p.index('=== task ==='),
+         'the previous-version section is not before === task ===')
+    seg = p[p.index(title):p.index('=== task ===')]
+    need(len(seg) <= 1200, 'the section is %d characters, cap is 1200' % len(seg))
+    # a 4000-character previous version must still fit in the same budget
+    pb = MP.build_prompt(dict(pjob, workspace=cut))
+    need(title in pb, 'a long previous version dropped the section')
+    segb = pb[pb.index(title):pb.index('=== task ===')]
+    need(len(segb) <= 1200, 'the section is %d characters with a 4000-character '
+         'prevCode, cap is 1200' % len(segb))
+    need(segb.rstrip().endswith('... (truncated)'), 'a clipped section does not say so')
+    checks += 1
+
+    # 6. and it is strictly an improve thing: 'new' never grows it, and an improve
+    #    job with nothing to improve yet is a plain job
+    need(title not in MP.build_prompt(dict(pjob, mode='new')),
+         "a 'new' job grew the previous-version section")
+    need(title not in MP.build_prompt(dict(pjob, workspace={'prevCode': ''})),
+         'an empty prevCode still produced a section')
+    need(title not in MP.build_prompt(dict(pjob, workspace=None)),
+         'a missing workspace still produced a section')
+    checks += 1
+
+    # 7. the workspace survives the queue, _set(), the disk and GET /jobs?id=
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='logicd-improve-', dir=str(ROOT / 'out')))
+    fake = tmp / 'fake.json'
+    fake.write_text(json.dumps(FAKE, ensure_ascii=False), encoding='utf-8')
+    qdir = tmp / 'queue'
+    srv = Server(['--jobs-dir', str(qdir), '--jobs-provider', 'fake',
+                  '--fake-provider', str(fake)])
+    try:
+        st, res = srv.post('/jobs', {'job': dict(body,
+                                                 desc='把铜矿传送带改成低于 50 就停（好）')})
+        need(st == 200 and res.get('ok'), 'POST /jobs (improve): %s %r' % (st, res))
+        jid = res['id']
+        st, one = srv.get('/jobs?id=' + jid)
+        need(st == 200 and one.get('ok'), 'GET /jobs?id=%s: %s %r' % (jid, st, one))
+        need((one['job'].get('workspace') or {}).get('id') == 'ws1793456316430_1',
+             'GET /jobs?id= lost workspace.id: %r' % (one['job'].get('workspace'),))
+        need((one['job'].get('workspace') or {}).get('prevCode') == prev,
+             'GET /jobs?id= lost workspace.prevCode')
+        done = wait_job(srv, jid, ('done',))
+        need((done.get('workspace') or {}).get('id') == 'ws1793456316430_1',
+             'a finished job lost its workspace (a _set() update dropped it)')
+        on_disk = json.loads((qdir / (jid + '.json')).read_text(encoding='utf-8'))
+        need((on_disk.get('workspace') or {}).get('id') == 'ws1793456316430_1',
+             'the job file on disk has no workspace: %r' % (sorted(on_disk),))
+        checks += 1
+    finally:
+        srv.close()
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    return checks
+
 # ---------------------------------------------------------------- half A3: model tier
 
 #: what the stub puts in reasoning_content -- the panel shows this text (v0.12.4:
@@ -1277,6 +1429,15 @@ def main(argv=None):
         return 1
     except Exception as exc:
         print('FAIL provider: %s: %s' % (type(exc).__name__, exc))
+        return 1
+    try:
+        n = test_improve()
+        print('improve: %d check(s) passed' % n)
+    except Fail as exc:
+        print('FAIL improve: %s' % exc)
+        return 1
+    except Exception as exc:
+        print('FAIL improve: %s: %s' % (type(exc).__name__, exc))
         return 1
     try:
         n = test_llm()

@@ -339,6 +339,7 @@ def main():
     # The probe swaps the three storage primitives for an in-memory table, so it also works
     # where Vars.dataDirectory is null (headless sim does not call Vars.loadSettings).
     "print('MAIWORKSPACE:' + maiWorkspaceProbe());",
+    "print('MAIWS2:' + maiWorkspace2Probe());",
     "print('MAILLM:' + maiLlmProbe());",
     # v0.12.5: the retained selection box + corner badge state machine (no sidecar, no ui)
     "print('MAIJOBBOX0:' + maiJobBox());",
@@ -366,7 +367,7 @@ def main():
              or l.startswith(('MAISELF:', 'MAIDIAG:', 'MAISET:', 'MAILIST:', 'MAILISTROWS:',
                               'MAIUNDO:', 'MAICONFLICT:', 'MAILLM:',
                               'MAILINKCONFLICT:', 'MAINET:', 'MAIWRITECHECK:', 'MAICHAT:', 'MAISIDECAR:',
-                              'MAIJOBPANEL:', 'MAIWORKSPACE:',
+                              'MAIJOBPANEL:', 'MAIWORKSPACE:', 'MAIWS2:',
                               'MAIJOBBOX0:', 'MAIJOBBOXPIN:', 'MAIJOBBOXFIN:',
                               'MAIJOBBOXCLR:', 'MAIJOBBOX3:', 'MAIJOBMANAGER:',
                               'MAIJOBBOXPIN2:', 'MAIJOBBOXCLOSE:', 'MAIJOBBOX4:',
@@ -523,6 +524,10 @@ def main():
                         '(want MAIWORKSPACE:ok dir=no|yes mem=yes): %r'
                         % [l for l in lines if l.startswith('MAIWORKSPACE:')][:1])
 
+    if 'MAIWS2:ok' not in joined:
+        fail('v0.14.1: the workspace dialog helpers are broken '
+             '(want MAIWS2:ok): %r'
+             % [l for l in lines if l.startswith('MAIWS2:')][:1])
     if 'MAIJOBPANEL:ok' not in joined:
         problems.append('v0.13.2: the job view does not show assumptions + cost '
                         '(want MAIJOBPANEL:ok assumptions=2 cost=3): %r'
@@ -990,6 +995,28 @@ def main():
                          'the cost block no longer says what UNREACHABLE means')):
         if needle not in code_only:
             problems.append('v0.13.2: ' + why)
+    for needle, why in (('function openWorkspaceDialog(',
+                         'the workspace snapshot dialog is gone'),
+                        ('function renderWorkspaces(',
+                         'the workspace list renderer is gone'),
+                        ('function wsRestoreBox(',
+                         'restoring a workspace selection box is gone'),
+                        ('function wsExportText(',
+                         'exporting a workspace to JSON is gone'),
+                        ('function wsImportText(',
+                         'importing a workspace from JSON is gone'),
+                        ('function wsImprovePayload(',
+                         'the improve payload builder is gone'),
+                        ('job.mode = "improve";',
+                         'improve jobs no longer switch the job mode'),
+                        ('function blueprintList(',
+                         'the blueprint list (null-safe) is gone'),
+                        ('api.maiWorkspace2Probe = function',
+                         'headless probe for the workspace dialog helpers'),
+                        ('d.buttons.button("工作区快照"',
+                         'no dialog offers a way into the workspace list')):
+        if needle not in code_only:
+            problems.append('v0.14.1: ' + why)
     for needle, why in (('function jobRetryHead(',                          'a retrying job no longer labels its findings as the last attempt'),
                         ('function jobFindingLines(',
                          'the truncation gloss helper is gone'),
@@ -1384,7 +1411,7 @@ def main():
         print('  batch write: ' + wm[:170])
     for l in lines:
         if l.startswith(('MAISELF:', 'MAIDIAG:', 'MAIUNDO:', 'MAICONFLICT:', 'MAILLM:',
-                        'MAICHAT:', 'MAISIDECAR:', 'MAIJOBPANEL:', 'MAIWORKSPACE:',
+                        'MAICHAT:', 'MAISIDECAR:', 'MAIJOBPANEL:', 'MAIWORKSPACE:', 'MAIWS2:',
                         'MAIJOBBOX', 'MAIBADGERECT:', 'MAIJOBMANAGER:')):
             print('  ' + l[:300])
     return 0
