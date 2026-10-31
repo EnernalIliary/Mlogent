@@ -2335,3 +2335,29 @@ llm 12 / write path 7 模板）。版本三处 0.14.3。
 坑（详见报告 4 节）：补丁锚点撞上 `ScriptedProvider.__call__` 把 `HttpProvider` 整类删掉（`git checkout` 还原 + 先定位 `class HttpProvider:`）；
 一行的 `python -c` 把 CRLF 测试文件改成 LF（`git diff --stat` 才看得出，`git show | python -` 在 PowerShell 里会假报 CRLF）；
 `Queue.enqueue()` 返回 `(job, created)`；红线不能带行尾注释；红线锚点 grep 不到时脚本不写盘但 smoke 仍 EXIT=0。
+
+## §88 v0.15.1：批次可辨识 + 框内续聊 + 提示留痕 + 作业窗过滤（2026-11-01）
+
+用户 m07868「把你到的都作完，我再做检查。」⇒ 上一轮点名的 A4 / D1 / D2 / D3 全部做完。
+
+- **A4**：`main.js` 的 `jobBody(b, desc, wsInfo, batch)` 把 `{i, n}` 写进作业体，`jobSubmit` 透传，`startJobBatch` 逐台带 `{i: i+1, n: targets.length}`；
+  `tools/jobqueue.py` 的 `normalize()` 校验并夹紧（`batch` **不进 id**，同批仍靠 `-2/-3`）；`tools/mlogprovider.py` 的 `build_prompt()`
+  加 `batch: the same sentence was sent to N processors; this is #i` + 「每台链接表不同」+ 「只用白名单里的链接名」。
+- **D1**：框角第三按钮「续聊」（`{id: "follow", label: "续聊"}`，即时绘制与原版控件两套）；`jobFollowPick()`（光标下那台，须在框里，否则框里唯一那台）、
+  `jobFollowAsk()`（预填工作区 notes / 上次描述）、`jobFollowSubmit()`（`wsAttach` + `wsImprovePayload` → `mode: improve`，作业挂回当前框，不新建框）。
+- **D2**：`hint()` 写 `LAST_HINT{text, at}`；设置页「最近提示」段（复制全文 / 清空）；`lastHintLblRefresh()` 逐层判类型（无头 Cell 桩没有 `get()`）。
+- **D3**：`managerFilter {text, onlyBad, limit: 100}` + `jobHit(job)`；管理窗「过滤 / 只看失败 / 显示更多（+100，上限 200）」+ 「符合条件 X / Y 个」。
+- 探针：`MAIHINT:ok last=yes …`、`MAIFILTER:ok hit=2 of 3 btn=只看失败：关`、`MAIFILTER2:ok … btn=只看失败：开`。
+
+验证：`node --check` 0；`run_logicd_tests.py` 的 `diag` 5→6；ui smoke EXIT=0（`MAIBADGERECT` 三按钮 `follow{-72,-35,36,18}`）；`tests/run_tests.py` 46/46；
+断言表 L2-81（**140 条**）；版本三处 0.15.1；报告 `88-v0151-a4d1d2d3.md`。
+
+坑：锚点 `pad(4).left()` + `pane(host).height(320)` 在 `main.js` 出现两次（作业管理窗 / 工作区窗）⇒ 改用「刷新」按钮行；
+探针别自带前缀（否则打印成 `MAIFILTER2:MAIFILTER:ok`）；v0.14.2 的「恰好两按钮」红线要放宽；
+`lastHintLblRefresh()` 必须先判 `typeof … === "function"`（模拟器 Cell 桩无 `get()`）。
+
+交付：门禁 **17/17 in 175.0s**；包 `out/_dist/MAI-0.15.1`（166 files / 18605868 B），mod zip 8394851 B
+`17E1F21D…BD9014`、整包 8415267 B `F8DF9611…794F3C`；包内 exe `/health` = 0.15.1 且 `POST /shutdown` 退出码 0；
+装机前 8765 上残留 **0.14.7** 旧后端（pid 57340）已停，`install.ps1 -Silent` 装好（旧版 `MlogAuxiliary.bak-20261101-043054`）；
+工作区提交 **`a4cba92`**（13 files +400/−19），公开仓 `main` = **`3ec8bb8`** + tag `v0.15.1`，Release 两附件已传，
+CI run **41239699508** success。直连 GitHub 又断，走本机代理 `127.0.0.1:7890` 才推上去。
