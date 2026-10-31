@@ -2046,3 +2046,23 @@ m01735「哦哦，成功了，但是在模型生成被截断的时候还有报�
   （现 **121 条**：L1 31 / L2 62 / L3 6 / L4 4 / S 18）；规划 §9 加 v0.13.0 行；README 加「## v0.13.0」节。
 - **没做**：真联机未实测（无头 `Vars.net` 为 null ⇒ 走 `hint()` 回退分支，聊天框分支只有代码审 + 格式单测）；
   播报不广播（`addMessage` 只写本地）；聊天颜色 / 条数上限没碰。
+
+## §76 打包安装即用（v0.13.0 工具链；模组 0.13.0 / sidecar 0.12.9 未变）
+
+清单第 ④ 项落地。详版 `out/takeover-20261024/76-v0130-package.md`。
+
+- 新增 `tools/package.py`：`layout()` 决定包内容（模组三文件 + sidecar 闭包 + `rules/` 40 条 + `packaging/`
+  脚本 + `VERSION.txt`），`build()` 出树与 zip（`out/_dist/MAI-0.13.0/`，63 文件、677,274 B；
+  zip 235,177 B），`verify()` 真跑一遍，CLI `--verify/--out/--no-zip/--keep`。
+- 新增 `packaging/`：`install.ps1`（探测目录、旧版改名 `MlogAuxiliary.bak-<stamp>`、拷完按 `VERSION.txt`
+  逐文件核 SHA256）、`uninstall.ps1`、`stop-sidecar.ps1`，以及四个纯 ASCII 的 `.bat` 双击入口和 `使用说明.md`。
+- 新增 `tests/packaging/run_pack_tests.py`，进 `gate.py` 的 `package` 步（在 `ui` 之后）：9 组断言，全部行为级。
+- 三个坑（都属「看起来成功」）：①`rule_ids` 在函数内导入，行首正则的闭包漏掉它 ⇒ `/health` 正常、`/analyze`
+  才炸，改用 `ast.walk` 的 `local_imports()`；②存档目录由 `Vars.java:494-495` 决定（Steam 版 = 游戏目录旁的
+  `saves/`），第一版把 `%APPDATA%` 排前面导致装到了游戏不读的目录，已改成 Steam 优先、`%APPDATA%` 兜底；
+  ③`install.ps1` 被编辑器回写后丢了 UTF-8 BOM，PowerShell 5.1 按 ANSI 解码 ⇒ 安装成功但中文乱码，已恢复
+  BOM 并把「`.ps1` 必须有 BOM / `.bat` 必须纯 ASCII」写成断言。
+- 装机：双击路径装到 `E:\Program Files (x86)\Steam\steamapps\common\Mindustry\saves\mods\MlogAuxiliary`，
+  `main.js` sha256 `515CFBD0…F2E4` 与仓库一致；测试产生的两个 `.bak-*` 已删。
+- 没做：非 Steam 版的真机验证、Steam 库以外路径的自动探测、`停止逻辑后端.bat` 按端口过滤（它杀所有
+  `logicd.py` 进程，故本轮只做源码断言没真跑）。

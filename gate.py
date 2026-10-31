@@ -195,6 +195,14 @@ def build_steps(full: bool, only: str | None) -> list[tuple[str, list[str] | Non
         # node cannot see (reading the mount back with scope.get(k, scope) used to kill
         # init right after the rule table loaded).
         ("ui", ["tests/mlogauxiliary/run_ui_smoke.py"], ""),
+        # the installable package: build it, then RUN it.  "打包安装即用" is easy
+        # to fake by zipping the mod folder, and such a package cannot work -- the
+        # mod is a front end.  So the assertions are behavioural: the sidecar
+        # closure (including imports nested inside functions, e.g. rule_ids),
+        # /health and /analyze served by the packaged copy, install.ps1 and
+        # uninstall.ps1 against a throwaway saves\mods, VERSION.txt hashes, and a
+        # zip without __pycache__.
+        ("package", ["tests/packaging/run_pack_tests.py"], ""),
     ]
     global_skill = (Path(os.environ.get("DSH_HOME") or (Path.home() / ".dsh"))
                     / "skills" / "mlog-agentskill")

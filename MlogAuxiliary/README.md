@@ -355,6 +355,48 @@ Arc 的 `Table.cells` 是私有字段（`arc/scene/ui/layout/Table.java:35`）�
 
 真引擎对照探针（`out/_v47_probe.py`）：放处理器、用 `msch.build_logic_data` 写带两条链接的载荷，读回 `links.size=2`，把真链接名喂 `quickcheck.check` ⇒ 零命中；喂空数组 ⇒ 第 1、3 行各一条 WARN。所以快检逻辑本身没错，错的是喂进去的东西。
 
+## v0.13.0：打包安装即用（双击 `安装.bat`，不再手拷两个文件夹）
+
+以前「安装」是两处手拷：`MlogAuxiliary/` 进 `saves/mods`，再从仓库里开一个 `python tools/logicd.py` 窗口。
+而旧的 `out/_dist/MlogAuxiliary.zip` 只是模组文件夹的压缩 —— 模组是前端，没有 sidecar 它只会说
+「连不上 sidecar」，所以那个包从来没真的可用过。
+
+现在有一个真的包：`python tools/package.py` 产出 `out/_dist/MAI-0.13.0/`（63 个文件）与
+`MAI-0.13.0.zip`（233,560 B）。解压后：
+
+```
+MAI-0.13.0/
+  mod/MlogAuxiliary/        模组本体（mod.hjson + scripts/main.js + README.md）
+  sidecar/logicd.py         逻辑后端 + 它需要的 6 个模块、5 个 JSON 数据表、rules/ 40 条规则
+  install.ps1 / uninstall.ps1 / stop-sidecar.ps1
+  安装.bat / 卸载.bat / 启动逻辑后端.bat / 停止逻辑后端.bat
+  使用说明.md / VERSION.txt（每个文件的 SHA256 + 两边版本）
+```
+
+三步：解压到有写权限的目录（比如 `D:\MAI`）→ 双击 `安装.bat`（自动找 `Mindustry\saves\mods`，旧版本改名成
+`MlogAuxiliary.bak-<时间>`）→ 双击 `启动逻辑后端.bat` 留一个窗口。`启动逻辑后端.bat 8899` 可以换端口，
+端口被占会直接拒绝而不是叠第二个。
+
+四个不显眼但关键的细节（都是「看起来成功」的那一类）：
+
+1. **sidecar 闭包按 AST 算，不是按行首正则。** `rule_ids` 是在函数里导入的
+   （`logicd.py` 的 `_rid()` 里 `from rule_ids import rule_id`），行首锚定的正则漏掉它之后，包照样
+   `/health` 200、`/capabilities` 200，只有 `/analyze` 会在玩家机器上 `ModuleNotFoundError`。
+   现在 `tools/package.py` 的 `local_imports()` 走 `ast.walk`，并且 `tests/packaging/run_pack_tests.py`
+   （gate 的 `package` 步）解包后真的起 sidecar 打 `/analyze`，缺一个模块就红。
+2. **「装好了」是逐字节核对的。** `install.ps1` 拷完按 `VERSION.txt` 里 `mod/MlogAuxiliary/*` 的 SHA256
+   再哈希一遍，不一致就退出码 1，而不是「拷贝命令没报错就算成功」。
+3. **存档目录不是猜的。** `Vars.loadSettings()` 里 `if(steam || Version.isSteam){ settings.setDataDirectory(Core.files.local("saves/")); }`（`Mindustry-Source/core/src/mindustry/Vars.java:494-495`）—— Steam 版的
+   `saves/` 在**游戏目录旁边**，只有非 Steam 版才用 `%APPDATA%\Mindustry`。所以安装器先找「有 `saves\` 的
+   游戏目录」，再退 `%APPDATA%`；反着排会把模组装进游戏从不打开的目录，玩家只看到「模组没反应」。
+   卸载器同一个顺序，否则删错目录还会报成功。
+4. **`.ps1` 必须带 UTF-8 BOM。** PowerShell 5.1 对没有 BOM 的 `.ps1` 按 ANSI（中文机器上是 GBK）解码，
+   安装会成功、中文全变 `鍚姩閫昏緫鍚庣`。`.bat` 则相反：保持纯 ASCII，中文只出现在文件名里。
+   这两条都由 `tests/packaging/run_pack_tests.py` 逐文件断言。
+
+自检口：`python tools/package.py --verify`（建到临时目录、起 sidecar、跑 `install.ps1`/`uninstall.ps1` 往返）；
+断言表 L2-63。
+
 ## v0.13.0：作业启用和完成时，状态直接进聊天框
 
 以前作业跑到哪一步只能盯着面板或框右下角的徽标。现在投递成功和作业终态都会往聊天框塞一行，格式固定成
