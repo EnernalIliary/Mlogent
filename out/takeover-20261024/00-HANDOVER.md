@@ -2385,3 +2385,35 @@ CI run **41239699508** success。直连 GitHub 又断，走本机代理 `127.0.0
 
 **教训**：`code_only` 剥 `//` 注释 ⇒ 红线串不能带行尾注释；「控件挂在 hudGroup」这类生命周期问题，
 清数据（`jobBox = null`）与摘控件（`jobWidgetHide()`）必须成对，早退分支最容易漏。
+
+## §90 v0.15.3：心跳 JSON 化 + 旧副本移出 mods（2026-11-01）
+
+**触发**：用户 m08537「显示sidecar 已就绪：http://127.0.0.1:9046 但是仍然无法投递」，m08559「直接覆盖修复然后继续你的工作」。
+
+**根因**（两条同时成立）
+- `main.js` 的 `sidecarPing()` 发 `httpJson("POST", "/ping", {}, …)`，`httpRaw()` 用 `String(body)` 拼包体 ⇒
+  实际发出 `[object Object]` ⇒ `logicd.py` 的 `json.loads` 失败回 400 ⇒ 回调把 `SIDE.state="failed"`、
+  `spawned=false`、`url=""`，此后不再发心跳 ⇒ 后端 `serve()` 的 idle 看门狗（45 s）退出进程。
+  `sidecarRetire()` 的 `"/shutdown", {}` 同病，所以退役重拉从未生效。
+- `packaging/install.ps1` 把旧版移成 `mods\MlogAuxiliary.bak-<stamp>`，仍在 mods 下；
+  `Mods.loadMods()` 按 `meta.internalName` 去重、扫描顺序靠后的赢 ⇒ 「装了新版，跑的是上一版」
+  （真机现场：`MlogAuxiliary` 0.15.2 无 sidecar.log，`MlogAuxiliary.bak-…-050914` 0.15.1 的日志写着
+  `logicd listening on http://127.0.0.1:9046` / `logicd idle for 45 s with no ping, exiting`）。
+
+**改动**
+- `MlogAuxiliary/scripts/main.js`：心跳与退役请求 body 改 `"{}"`；`SIDE` 加 `pingFail`，`code === -1` 立即退役、
+  4xx/5xx 连续 3 次才退役、up 与 spawn 成功清零；`MOD_VERSION = "0.15.3"`。
+- `packaging/install.ps1`：`$bakRoot = <saves>\mod-backups`，旧版移出 mods，历史 `.bak-*` 一并挪走
+  （真机挪走 9 个）；末尾提示改 `(outside mods)`。
+- `MlogAuxiliary/mod.hjson`：version 0.15.3，description 补心跳/备份两句。
+- `tools/logicd.py`：`SIDECAR_VERSION = '0.15.3'`（行为未变）。
+- 测试：ui smoke 加心跳正向红线与两条反向红线；logicd 的 `test_life` 加 `raw_post()` 断言 400/200；
+  `test_improve` 的 echo 断言改成摘掉 payload 再比文本 + `decode_meta` 的 `ws`（v0.16.0 payload v2）。
+- 文档：断言表 L2-83（实数 142）、规划表 v0.15.3 行、CHANGELOG 0.15.3、README 安装段补 `mod-backups` 一句、
+  报告 `out/takeover-20261024/90-v0153-heartbeat.md`。
+
+**验证**：`logicd OK`、`46/46 passed`、ui smoke EXIT=0、门禁 17/17 in 105.1s；包内 exe `/health` 0.15.3、
+`/ping` 语义正确、`/shutdown` 码 0；装机后 mods 下只剩一份 `MlogAuxiliary`。
+
+**教训**：「已就绪」只代表探测那一刻成功；心跳失败必须马上有可见后果（这次 45 s 自退 + 界面不动 = 长期脱节）。
+装机脚本保留旧版时必须离开 mods，改个名字不算离开。
