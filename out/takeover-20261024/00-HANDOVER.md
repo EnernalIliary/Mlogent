@@ -2472,3 +2472,22 @@ CI run **41239699508** success。直连 GitHub 又断，走本机代理 `127.0.0
   `tests/logicd/run_logicd_tests.py` logicd OK；断言表 **L2-86**（总 145）。
 - smoke 同步：`fakeTable` 的 Label/Cell 方法实现但不记 `used`；单作业播报红线缩成 `if(isJobTerminal(job.state)){`。
 - 版本三处 → 0.17.0（`main.js` `MOD_VERSION`、`MlogAuxiliary/mod.hjson`、`tools/logicd.py` `SIDECAR_VERSION`）。
+
+## §94 v0.17.1：热键进原版按键绑定 + 标题居中 + 蓝图详情页 MAI + 框选先读签名（2026-11-01）
+
+用户 m09822 四条，全部落在 `MlogAuxiliary/scripts/main.js`（18 处替换），另新增 `MlogAuxiliary/bundles/bundle.properties`
+与 `bundle_zh_CN.properties`；sidecar 逻辑未动，只把 `SIDECAR_VERSION` 抬到 0.17.1。
+
+- **热键**：`selKeyBind()` 用 `KeyBind.add("mai-select", new KeyBind.Axis(KeyCode.f3), "mlogauxiliary")` 注册，
+  `KeybindDialog.rebuildBinds()` 每次显示遍历 `KeyBind.all` ⇒ 运行期注册即可见；值由 `Settings` 的
+  `keybind-default-keyboard-mai-select-key` 管；键名/分类走模组 bundle（`Mods.java:636-660` 合并 `bundles/bundle*.properties`）。
+  `selKeyCode()` 反读 `kb.value.key` 回退 f3；删除 v0.17.0 自建的 `HOT_KEY`/`hotBegin`/`hotCaptureTick` 全套；F2/F7 固定。
+- **标题居中根因**：`Cell.center()` 只设 `align`（Cell.java:512-514），Label 文字对齐是 `labelAlign`（Label.java:34，默认 left）
+  ⇒ 新增 `alignText(el, align)` 调 `Label.setAlignment`，`titleLine()` 与 `section()` 都套用。
+- **蓝图详情页**：`blueprintInfoHook()` 只挂一个 `info.buttons.button("MAI", …).width(110)`（与返回/导出/编辑并排），
+  点开是上下文管理窗（继续对话 / 写回蓝图 / 复制上下文 / 关闭）；去掉蓝图页底栏与详情页重复的两个入口。
+- **框选先读签名**：`sigCtxInRegion()` → `sigMetaOf()` 解 payload v2 的 `m`；`wsLoad(meta.ws)` 命中就用，
+  磁盘没有则 `wsFromSig()` 重建；`openQuickJob()` 预填 `ws.notes` 并在标题带工作区名；`startJobBatch(..., wsIn)` 走 `wsAttachCtx()` 不新建。
+- 验证：`node --check` 0；ui smoke EXIT=0（新增 11 正 + 2 反断言）；`tests/run_tests.py` 46/46；
+  `tests/logicd/run_logicd_tests.py` logicd OK；断言表 **L2-87**（总 146）。
+- 版本三处 → 0.17.1（`main.js` `MOD_VERSION`、`MlogAuxiliary/mod.hjson`、`tools/logicd.py` `SIDECAR_VERSION`）。
