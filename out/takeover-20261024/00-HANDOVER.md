@@ -2511,3 +2511,34 @@ CI run **41239699508** success。直连 GitHub 又断，走本机代理 `127.0.0
   README 加「首次配置（只弹一次）」段；报告 `95-v0180-welcome.md`。
 - **教训**：smoke 调试回显必须插在 `joined = '\n'.join(lines)` 之后（插在 `lines` 之前会
   `UnboundLocalError: cannot access local variable 'lines'`）；「没看到输出」≠「没跑」；文档锚点先 `assert count == 1`。
+
+## §96 v0.18.1 设置页观感 / 倍率滑条 / 改键不生效 / 查看行为（2026-11-01）
+
+四轮口头反馈一次做完（用户 m10289 / m10327 / m10374 / m10546），两个真根因都在引擎语义上。
+
+- **主题色/强调色**：`themeColor()` = `#8abcd1`；`emphColor()` = `Pal.accent` 向白 `lerp 0.3`
+  （`Mindustry-Source/core/src/mindustry/ui/UI.java:105/107` 的 `[highlight]` 就是这么算的），
+  段落标题、两行主标题、`infoIcon()` 统一走 `themeColor()`；长解释 `softWrap(text, 34)`、图标贴行右缘（`INFO_W = 26`）。
+- **向导按钮搬家**：「首次配置向导」从「大模型」段首移到「运行环境」段末。
+- **最近提示改日志**：`HINT_LOG`(12) + `hintLogPush()`/`hintClock()`/`hintLogText()`/`hintLogCopy()`/`hintLogClear()`。
+- **眼睛图标**：`eyeMark(hidden)` → `UI.formatIcons(":eye:")`/`":eyeOff:"`，单图标按钮贴密钥行右缘。
+- **倍率滑条 + 改不了的真根因**：设置页换成原版 `arc.scene.ui.Slider` + `hudSliderTick()` 每帧轮询
+  （`ProgressBar` 没有 `changed(Runnable)`，只有 `getValue()`/`setValue()`，`ProgressBar.java:207/241/246`）；
+  根因是 `arc/Settings.java:357-359` 的 `getFloat()` = `(float)get(...)`，JS 数字存进去是 `java.lang.Double`，
+  `(float)Object` 抛 `ClassCastException` ⇒ 永远退回 1×。改存 `String(n)`、读用 `get(key, null)` + `parseFloat`。
+- **查看行为**：框角「查看」→ `jobViewPick()`；`done` 走 `previewLogic()`（`Vars.ui.logic.show(code, null, false, fn)`，
+  只预览不写入）；未完成走 `jobThinkToChat()` + `chatLocalSay()`（`Vars.ui.chatfrag.addMessage`，只进本机聊天，
+  不发 `Call.sendChatMessage`）。旧「作业详情」窗不再从框角打开。蓝图库底栏「MAI 对话」→「MAI 控制面板」（宽 150）。
+- **改键不生效**：`KeybindDialog.java:128-150` 的 `rebind()` 对 Axis 默认值走两步 ⇒ 落盘 Axis 只有 `min`/`max`、
+  `key` 为 null，旧 `selKeyCode()` 只认 `ax.key` ⇒ 永远退回 f3。现 `selKeyCode()`/`selKeyDown()`/`selKeyName()`
+  两种形状都认；F2 也注册成 `mai-list`（`listKeyBind()`/`listKeyTap()`/`listKeyName()`，bundle 加
+  `keybind.mai-list.name`），设置页显示「框选键」「清单键」。F7 仍固定。
+- **验证**：`node --check` 0；ui smoke EXIT=0（探针 `MAIKEYBIND:ok axis=G / H code=G one=Y onecode=Y back=F3`）；
+  门禁 **17/17 in 102.2s**；包 `out\_dist\MAI-0.18.1`（168 files / 18,702,090 B，
+  `MAI-0.18.1-mod.zip` sha256 `0F5838B6CC22DCFDC91E2B7960E03A7C955213AB3DF8576B24812848AB76CB80`）；包内 exe `/health`
+  = `0.18.1`、`/ping {}` 200、`/ping "[object Object]"` 400、`/shutdown` 200。
+- **断点**：装机被「游戏在跑」挡住（`Mindustry.exe` + `logicd.exe` 占着 `saves\mods\MlogAuxiliary`，
+  `Move-Item` Access denied）；公开仓 push/tag/Release 也留到用户确认之后。
+- **教训**：`run_ui_smoke.py` 有两处前缀白名单（约 `:391-401` 收 `lines`、`:1783-1788` 才 `print`），
+  新增探针前缀必须两处都加；`mlogsim.Server` 要 `M.Server(M._default_java(), M.V160_JAR)`；
+  锚点缩进要照抄（`kv(t, "框选键", …)` 续行是 11 空格）。
