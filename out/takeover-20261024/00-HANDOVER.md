@@ -2542,3 +2542,27 @@ CI run **41239699508** success。直连 GitHub 又断，走本机代理 `127.0.0
 - **教训**：`run_ui_smoke.py` 有两处前缀白名单（约 `:391-401` 收 `lines`、`:1783-1788` 才 `print`），
   新增探针前缀必须两处都加；`mlogsim.Server` 要 `M.Server(M._default_java(), M.V160_JAR)`；
   锚点缩进要照抄（`kv(t, "框选键", …)` 续行是 11 空格）。
+
+## §97 v0.18.2 主题色/强调色可调 + 选框与高亮分色 + 高亮居中（2026-11-01）
+
+用户 m10938 / m10943。三个改动都在 `MlogAuxiliary/scripts/main.js`。
+
+- **颜色成为设置项**：`THEME_KEY="mlogauxiliary-theme-color"`（默认 `8abcd1`）、
+  `EMPH_KEY="mlogauxiliary-emph-color"`（默认按 `UI.java:107` 的 `[highlight]` 现算
+  `Pal.accent.cpy().lerp(Color.white, 0.3f)`）。一律存六位十六进制字符串，读用
+  `Core.settings.get(key, null)` + 自写 `hex6()` 校验（不用正则，避开 Rhino `invalid bytecode`）。
+  **不能存数字**：`arc/Settings.java:357-359` 的 `getFloat` 是 `(float)get(...)`，
+  JS 数字是 `java.lang.Double`，强转抛 `ClassCastException`（v0.18.1 倍率 bug 同坑）。
+- **设置页「外观」段**（框选控件之后、写入之前）：`colorRow()` = 标签 + 十六进制输入框 +
+  `Tex.whiteui` 色块（`setColor` 实时刷）+ 「默认」+ 行尾 `infoIcon`。非法输入退回当前值并提示。
+- **画法**：`drawSelection()` 本体改 `D.color(themeColor())`（阴影仍 `Pal.accentBack`）；
+  `drawLogicHighlight()` 改 `D.color(emphColor())`，并把 `L.rect(x*8, y*8, 8, 8)` 改成
+  `L.rect((x-0.5)*8, (y-0.5)*8, 8, 8)` —— `Tile.java:166-172` 的 `worldx()` 是格子中心，
+  `Lines.rect` 是左下角语义，少退半格就偏右上角（v0.6.0 的 `selDrawArgs` 已踩过同一手）。
+- **验证**：`node --check` 0（319038 → 324314 字符）；ui smoke EXIT=0，
+  探针 `MAITHEME:ok theme=8abcd1ff emph=ffe0a5ff … set=ff8800 back=8abcd1 dflt=8abcd1`；
+  门禁 **17/17 in 95.1s**；断言表 L2-90（总 149）。
+- **教训**：smoke 的前缀白名单仍是两处（`:397` 收行、`:1795` 才打印），新探针两处都要加；
+  `python -X utf8 -c` 里带引号的中文替换串照旧必炸，一律 write 工具写 `.py`；
+  版本三处（`main.js` `MOD_VERSION` / `mod.hjson` / `logicd.py` `SIDECAR_VERSION`）同改，
+  `mod.hjson` 的版本行是 `version: "x.y.z"`（没有引号包 key），别写成 JSON 形状。
