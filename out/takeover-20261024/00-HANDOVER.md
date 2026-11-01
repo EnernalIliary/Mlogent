@@ -2491,3 +2491,23 @@ CI run **41239699508** success。直连 GitHub 又断，走本机代理 `127.0.0
 - 验证：`node --check` 0；ui smoke EXIT=0（新增 11 正 + 2 反断言）；`tests/run_tests.py` 46/46；
   `tests/logicd/run_logicd_tests.py` logicd OK；断言表 **L2-87**（总 146）。
 - 版本三处 → 0.17.1（`main.js` `MOD_VERSION`、`MlogAuxiliary/mod.hjson`、`tools/logicd.py` `SIDECAR_VERSION`）。
+
+## §95 v0.18.0 首次启动欢迎 + 快速配置向导（2026-11-01）
+
+需求（用户 m10072 原话）：「第一次启动时候弹出欢迎和快速配置页面，并在验证sidecar可允许，模型配置完成之后重启。」
+
+- **首次判定**：`WELCOME_KEY = "mlogauxiliary-welcome-done"` 存 `Core.settings`；`welcomeSeen()` 读不到就当已看过
+  （宁可少弹不每局弹），弹过一次或点「稍后再说」即 `welcomeMarkSeen()`；`welcomeTick()` 挂 update，
+  只在非主菜单、`Vars.ui`/`Core.scene` 就绪且 `Core.scene.hasDialog()` 为假时插队。
+- **三步**（`welcomeBuild(t, mk)` 纯布线，真机 `Dialog.cont` 与无头 `fakeTable` 共用）：
+  1. 状态行 + 「启动并检测后端」→ `ensureSidecar(false)` 后 `GET /health` 回 `ok` 才显示「后端可用：vX · 端口 N」；
+  2. 地址/密钥/模型三个 `field` + 「获取模型」「测试端点」「保存并启用」→ 写 `Core.settings` 再 `POST /llm`；
+  3. 只有「完成（稍后自己重启）」与「现在退出游戏」（`Core.app.exit()`），不给假的热更按钮。
+- **入口**：设置页「大模型」段加「首次配置向导」按钮；`welcomeOpen()` 预填已存配置（地址空则 `LLM_DEFAULT_URL`）。
+- **自检**：`api.maiWelcomeProbe()`（`fakeTable` 跑 `welcomeBuild`）输出 `MAIWELCOME:ok seen=no cells=155 side=idle`；
+  ui smoke 新增 v0.18.0 段 8 条红线 + 2 条探针断言，EXIT=0。
+- **版本三处** → 0.18.0（`main.js` `MOD_VERSION`、`MlogAuxiliary/mod.hjson`、`tools/logicd.py` `SIDECAR_VERSION`）。
+- **断言表** L2-88（总 147：L1 31 / L2 88 / L3 6 / L4 4 / S 18）；规划表加 v0.18.0 行；CHANGELOG 加 0.18.0；
+  README 加「首次配置（只弹一次）」段；报告 `95-v0180-welcome.md`。
+- **教训**：smoke 调试回显必须插在 `joined = '\n'.join(lines)` 之后（插在 `lines` 之前会
+  `UnboundLocalError: cannot access local variable 'lines'`）；「没看到输出」≠「没跑」；文档锚点先 `assert count == 1`。
