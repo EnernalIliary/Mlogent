@@ -2566,3 +2566,37 @@ CI run **41239699508** success。直连 GitHub 又断，走本机代理 `127.0.0
   `python -X utf8 -c` 里带引号的中文替换串照旧必炸，一律 write 工具写 `.py`；
   版本三处（`main.js` `MOD_VERSION` / `mod.hjson` / `logicd.py` `SIDECAR_VERSION`）同改，
   `mod.hjson` 的版本行是 `version: "x.y.z"`（没有引号包 key），别写成 JSON 形状。
+
+## §98 v0.18.3 设置页瘦身 / MAI 控制面板管工作区 / 本地快检进包（2026-11-01）
+
+用户 m11124 一次六件，其中两件是「功能静默缺失」的真 bug：
+
+- **本地快检「未加载」**：`tools/package.py:161-185` 的 `layout()` 只拷 `scripts/main.js`，而 `main.js` 自己
+  `require("rules.generated")` / `require("quickcheck")`（游戏只执行 `scripts/` 里唯一的 `.js`，规则副本必须单独发）。
+  装机目录 `scripts/` 只有 main.js ⇒ require 抛异常 ⇒ `RULES` 恒 null。改成 glob `scripts/*.js`，
+  `tests/packaging/run_pack_tests.py` 新增 2c 段逐文件比 sha256 + 检查 main.js 是否 require 了每个脚本。
+- **设置项「未注册」假阴性**：`selfTest()` 的假表路径会让 `buildSettingsTable()` 跑一遍，此时 `settingsDone`
+  还是 false。新增 `SETTINGS_LIVE`（buildSettingsTable 首行 true、末尾 false），判断改 `settingsDone || SETTINGS_LIVE`。
+- **设置页瘦身**：删 `快捷动作`/`说明`/`本地快检` 三段（2838 字符），`最近提示` → `诊断与最近提示` 并把
+  `diagParts()` 全部行摊进去，按钮只留一个「复制」。新段序：大模型/聊天播报/框选控件/外观/写入/诊断与最近提示/运行环境
+  （热键两条是 kv 行，没有 section）。
+- **MAI 控制面板**：蓝图库底栏按钮 handler 由 `openBlueprintPicker()` 改 `openWorkspaceDialog()`；
+  面板底栏加「撤销上次写入」（`undo()`）、「撤销快照」（`undoInfo()`）。
+- **mod.hjson**：author → `Iliary艾铭&DeepSeek`，description → 「在一次选框中创建Mlog工作区并开始VibecodeingMlog。」。
+  **坑**：第一次用 `re.S` + `"[^"]*"` 的整段正则，把后面注释里的一对引号一并吃掉、文件从 1589 字节变成 807 字节
+  ⇒ 改 hjson 只能按行改（`git checkout --` 恢复后逐行替换）。
+- **验证**：`node --check` 0；ui smoke EXIT=0（段序/新红线/反向断言）；`main.js` 324314 → 323188 字符。
+- **质量问题**：teammate `quality-analyst` 出报告 `98-quality-analysis.md`：坏逻辑集中在「猜 v160 指令签名」
+  （prompt 2675 字符、无参数表）与「把 jump 当 1 基行号」（mlogcheck 按 0 基判回边）两件事，而检查器只查
+  参数过多/孤立链接、不查少参数与参数语义，WARN 也不触发重试 ⇒「没给规范 × 没查语义」的乘积。
+  R1–R5 修法见报告，另派 `quality-fix` 实现 R1–R4。
+
+## §99 v0.18.3 第二轮：多格处理器按建筑去重 / 高亮整块缩放（2026-11-01）
+
+- 用户 m11320（中核 2×2/超核 3×3 完全框选被下发 4/9 个作业）与 m11340（高亮同步缩放）。
+- 根因：`regionSnapshot` 快照循环逐格 `procs.push`（库存已有 `seenIds` 去重、处理器漏了）。
+- 修：`seenProcs`（快照）/`seenQ`（`openQuickJob`）/`seenH`（高亮）都按建筑 id 去重；
+  高亮每台画一整块外框 `L.rect(bx - bsize*4, by - bsize*4, bsize*8, bsize*8)`（`Building.x/y` 中心 + `block.size`）。
+- smoke 红线三条换新（`L.rect(bx - bsize * 4, ...)`、`seenH`、`seenProcs`），EXIT=0；门禁/打包/文档（L2-92）同步。
+- 教训：smoke 红线补丁的锚点缩进要现 grep（`if(isProcessor(bld)){` 实际 20 空格缩进在 try 块内，20/24 空格都试错过）；
+  红线永远别设计成「往 main.js 里插注释」——改成断言 `code_only` 里的真实代码行。

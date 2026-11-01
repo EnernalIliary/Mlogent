@@ -277,6 +277,12 @@ SUITE: list[tuple[str, str, str | None]] = [
     # number > 1 there is the shape the old doc taught (radar-takes-no-count).
     ("check/radar-count-misuse", "check_rid", "radar-count-misuse.mlog"),
     ("check/radar-count-ok", "check_rid", "radar-count-ok.mlog"),
+    # `jump 3` counts STATEMENTS, not lines: label lines and blank lines do not
+    # take a slot, so a hand-counted number re-points itself the moment anything
+    # above it changes. 0-based index of the jump is 1; the label version of the
+    # same program is silent.
+    ("check/numeric-jump", "check_rid", "numeric-jump.mlog"),
+    ("check/numeric-jump-ok", "check", "numeric-jump-ok.mlog"),
     ("ir/labels-resolved",     "ir",      "label.mlog"),
     ("ir/odd-name",            "odd",     None),
     ("ir/stale-write",        "ir",      "stale.mlog"),
