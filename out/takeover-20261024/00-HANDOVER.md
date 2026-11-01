@@ -2446,3 +2446,29 @@ CI run **41239699508** success。直连 GitHub 又断，走本机代理 `127.0.0
   `tests/logicd/run_logicd_tests.py` logicd OK；断言表 **L2-85**（总 144）。
 - 版本三处 → 0.16.1（`main.js` `MOD_VERSION`、`MlogAuxiliary/mod.hjson`、`tools/logicd.py` `SIDECAR_VERSION`）。
 
+
+## §93 v0.17.0：设置页与框选的六项体验改造（用户 m09440 / m09517）
+
+- **自动写入**：`AUTO_WRITE_KEY="mlogauxiliary-auto-write"`、`autoWriteOn/autoWriteSet/autoWriteText/autoWriteRefresh`；
+  设置页「写入」段 + F3 描述框各一个开关；`autoWriteApply(b, job)` 要求 `state==="done"` 且 `bytes_b64` 非空 →
+  `writeBuild(b, jobAsPlan(job))` + `jobBoxWritten(b)`，挂在 `jobTick()` terminal 分支与 `jobBoxTick()` 回调，
+  都在 `jobBoxFinishIfDone()` 之前。
+- **主标题**：`titleLine(t, text, scale, color)`（Cell 上 `width(ROW_W)+center()`，`cell.get()` 上 `setFontScale/setColor`）；
+  三行 MAI(1.9×) / MlogAuxIliary(1.2×) / 版本行(0.9×)。游戏设置的对话框标题与左侧分类按钮名模组改不了
+  （`SettingsMenuDialog.java:50`、`:357-365`，按钮 `size(300f,60f)`）。
+- **infoCircle**：`tipOn(el, text)`（`Tooltip.Tooltips.getInstance().create(String)` + `setInstant(true)`；**先判
+  `Core.scene === null` 直接返回**，否则无头下 NPE 被 smoke 记 FAIL）+ `infoIcon(row, text)`
+  （`row.image(Packages.mindustry.gen.Icon.infoCircle).size(18).padLeft(8).color(accent)`）；`kv(..., expl)` 第 5 参。
+  「启用模型档」→「启用模型」三处。
+- **框选高亮**：`drawLogicHighlight(r)` 逐格 `Vars.world.tile` + `isLogicBuild` → `L.rect(x*8,y*8,8,8)`，
+  只描边不填色，面积上限 1024 格（Rhino 跨语言调用贵）。
+- **热键**：`HOT_KEY="mlogauxiliary-hotkey-"` + `hotGet/hotSet/hotKeyCode/hotTap/hotBegin/hotCaptureTick/hotLabelsRefresh`，
+  which 一律 `select/list/region`（第一版把中文当 which 写进去，读取处找不到 —— 已修）；
+  F3 拉框仍走 `Core.input.keyDown(selKey)`。
+- **sidecar 无感**：`PENDING_SUBMITS` + `flushPendingSubmits()`（`SIDE.state==="starting"` 时排队，60 秒内补发），
+  去掉每局闪一次的「sidecar 已就绪」提示。
+- **蓝图入口**（m09517）：「详细」页同时挂「MAI 对话」与「继续对话」。
+- 验证：`node --check` 0；ui smoke EXIT=0（`MAIBADGERECT` 几何不变）；`tests/run_tests.py` 46/46；
+  `tests/logicd/run_logicd_tests.py` logicd OK；断言表 **L2-86**（总 145）。
+- smoke 同步：`fakeTable` 的 Label/Cell 方法实现但不记 `used`；单作业播报红线缩成 `if(isJobTerminal(job.state)){`。
+- 版本三处 → 0.17.0（`main.js` `MOD_VERSION`、`MlogAuxiliary/mod.hjson`、`tools/logicd.py` `SIDECAR_VERSION`）。
