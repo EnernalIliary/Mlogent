@@ -28,7 +28,7 @@
 function __logicWriterMain(){
     "use strict";
 
-    var MOD_VERSION = "0.18.3";
+    var MOD_VERSION = "0.18.4";
     var URL_KEY     = "mlogauxiliary-url";
     var DEFAULT_URL = "http://127.0.0.1:8765";
     // v0.11.0：设置页里填的模型档三件套。密钥只留在本机 Core.settings 与 sidecar 进程内存。
@@ -3390,6 +3390,66 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
             return out;
         }
 
+        // v0.18.4（用户 m13036）：「为什么不能查看当时的思考内容，而只能看到工作状态」。
+        // 思考其实一直都在作业里（sidecar 的 job.reasoning，非流式 ⇒ 作业收尾那一刻才落盘），
+        // 但以前只有两个隐蔽详情窗显示开头 16 行 × 40 字，终态点「查看」只看得到代码/一行状态。
+        // 这里补三个口子：全量文本、复制全量、可滚动的思考原文窗。
+        function jobThinkAll(job){
+            return jobReasoningText(job);
+        }
+
+        function jobThinkCopy(job){
+            var t = jobThinkAll(job);
+            if(t.length === 0){
+                hint("这个作业没有思考内容（端点没返回 reasoning_content）");
+                return "no reasoning";
+            }
+            try{ Core.app.setClipboardText(t); }
+            catch(e){ hint("复制失败：" + e); return "clipboard failed: " + e; }
+            hint("已复制思考（" + t.length + " 字符）");
+            return "copied " + t.length;
+        }
+
+        // 整段摊开（最多 100000 行 × 60 字符，reasoning 本体上限 20000 字符）。
+        function openThinkDialog(job){
+            var t = jobThinkAll(job);
+            if(t.length === 0){ return "no reasoning"; }
+            if(Vars.ui === null || Vars.ui === undefined){ return "no ui"; }
+            var d = new Packages.arc.scene.ui.Dialog("MAI · 模型思考（" + t.length + " 字符）");
+            try{ d.addCloseButton(); }catch(e0){ }
+            try{ d.closeOnBack(); }catch(e1){ }
+            var host = new Packages.arc.scene.ui.layout.Table();
+            try{ d.cont.pane(host).width(640).height(420).row(); }
+            catch(e2){ d.cont.add(host).growX().row(); }
+            var rows = jobReasoningLines(job, 100000, 60);
+            for(var i = 0; i < rows.length; i++){ host.add(rows[i]).left().row(); }
+            try{
+                d.buttons.defaults().pad(4);
+                d.buttons.button("复制全部", function(){ jobThinkCopy(job); }).width(140);
+                if(String(job.state) === "done" && String(job.code || "").length > 0){
+                    d.buttons.button("看代码", function(){ d.hide(); previewLogic(job); }).width(140);
+                }
+                d.buttons.button("关闭", function(){ d.hide(); }).width(140);
+            }catch(e3){ log("think dialog buttons failed: " + e3); }
+            d.show();
+            return "shown " + t.length;
+        }
+
+        // 作业列表接口故意剥掉 reasoning（tools/logicd.py 的 BRIEF_DROP），
+        // 所以从「作业管理」点进来的行要按 id 再拉一次全量作业，才有思考可看。
+        function jobThinkFetchOpen(job){
+            if(job === null || job === undefined){ return "no job"; }
+            if(jobReasoningText(job).length > 0){ return openThinkDialog(job); }
+            jobGet(String(job.id), function(full, why){
+                if(full === null){ hint("读不到思考：" + why); return; }
+                var r = openThinkDialog(full);
+                if(r === "no reasoning"){
+                    hint("这个作业没有思考内容（端点没返回 reasoning_content）");
+                }
+            });
+            return "fetching";
+        }
+
         // v0.13.2：作业视图以前只给 findings/代码。两样东西一直存在但没人看得见：
         // 模型的 assumptions（它替玩家假定的前提，错了就是「生成的逻辑不对」的源头）
         // 和 cost 报告（里面有 UNREACHABLE 段落——永远执行不到的语句）。
@@ -3451,6 +3511,8 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
                     d.buttons.clearChildren();
                     d.buttons.defaults().pad(4);
                     d.buttons.button("写入", function(){ hint(writeBuild(b, res)); d.hide(); }).width(140);
+                    // v0.18.4：整段思考 + 复制全部（面板里只摊开头 16 行）。
+                    d.buttons.button("思考", function(){ openThinkDialog(job); }).width(110);
                     d.buttons.button("关闭", function(){ d.hide(); }).width(140);
                 }
                 return;
@@ -3467,6 +3529,13 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
                 if(ev.length > 0){
                     host.add("--- 诊断 ---").row();
                     for(var ei = 0; ei < ev.length; ei++){ host.add("  " + ev[ei]).row(); }
+                }
+                // v0.18.4：失败/被拒恰恰是最想看思考的时候，以前这里一个按钮都没有。
+                if(d !== null && d !== undefined){
+                    d.buttons.clearChildren();
+                    d.buttons.defaults().pad(4);
+                    d.buttons.button("思考", function(){ openThinkDialog(job); }).width(110);
+                    d.buttons.button("关闭", function(){ d.hide(); }).width(140);
                 }
                 return;
             }
@@ -3931,13 +4000,19 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
                 return;
             }
             var state = String(job.state);
-            if(state === "done"){
-                var why = previewLogic(job);
-                if(why !== ""){ hint(why); }
-                return;
-            }
             if(isJobTerminal(state)){
-                hint("作业" + stateCn(state) + "：" + jobProgressText(job));
+                // v0.18.4：终态以前 done 只弹代码预览、失败只弹一行状态，思考看不到。
+                // 现在先开思考窗（全量 + 复制全部）；端点没给思考才退回老行为。
+                var tr = openThinkDialog(job);
+                if(tr === "no reasoning" || tr === "no ui"){
+                    if(state === "done"){
+                        var why = previewLogic(job);
+                        if(why !== ""){ hint(why); }
+                    }else{
+                        hint("作业" + stateCn(state) + "：" + jobProgressText(job)
+                             + "（端点没返回思考内容）");
+                    }
+                }
                 return;
             }
             if(!chatLocalSay("MAI · " + jobProgressText(job))){
@@ -4486,6 +4561,13 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
                     });
                 }).width(280).row();
             }
+            // v0.18.4：列表接口不带 reasoning，按钮里按 id 再拉一次全量作业。
+            (function(jb){
+                var n = jobReasoningText(jb).length;
+                host.button(n > 0 ? ("思考（" + n + " 字符）") : "思考（读取全文）", function(){
+                    jobThinkFetchOpen(jb);
+                }).width(280).row();
+            })(job);
             host.button("返回列表", function(){ renderManager(host, d); }).width(280).row();
         }
 
@@ -6752,6 +6834,16 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
             return ok ? ("ok assumptions=" + as.length + " cost=" + co.length
                          + " first=" + as[0])
                       : ("bad assumptions=" + as.length + " cost=" + co.length);
+        };
+        // v0.18.4（用户 m13036）：思考全文的无头探针。Dialog 在无头环境开不了，
+        // 所以只验「取行」这一层：全量文本长度、按 60 字切出来的行数与首行宽度。
+        api.maiJobThinkProbe = function(jobJson){
+            var job = parse(String(jobJson));
+            var all = jobThinkAll(job), rows = jobReasoningLines(job, 100000, 60);
+            var ok = all.length === 80 && rows.length === 2 && String(rows[0]).length === 60;
+            return ok ? ("ok len=" + all.length + " rows=" + rows.length
+                         + " w0=" + String(rows[0]).length)
+                      : ("bad len=" + all.length + " rows=" + rows.length);
         };
         // v0.14.0：工作区数据层的无头探针。无头模拟器里 Vars.dataDirectory 可能是 null，
         // 所以把三个存储原语换成内存表，验的是「逻辑」而不是磁盘：

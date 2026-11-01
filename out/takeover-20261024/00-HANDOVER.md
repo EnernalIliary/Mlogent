@@ -2600,3 +2600,40 @@ CI run **41239699508** success。直连 GitHub 又断，走本机代理 `127.0.0
 - smoke 红线三条换新（`L.rect(bx - bsize * 4, ...)`、`seenH`、`seenProcs`），EXIT=0；门禁/打包/文档（L2-92）同步。
 - 教训：smoke 红线补丁的锚点缩进要现 grep（`if(isProcessor(bld)){` 实际 20 空格缩进在 try 块内，20/24 空格都试错过）；
   红线永远别设计成「往 main.js 里插注释」——改成断言 `code_only` 里的真实代码行。
+
+## §100 v0.18.4 模型思考全文可查看（2026-11-01）
+
+- 用户 `m13036`「为什么不能查看当时的思考内容，而只能看到工作状态」。不是没存，是三处只给状态：
+  - 思考一直在：`tools/mlogprovider.py:719-728` 把端点的 `reasoning_content`/`reasoning` 收进
+    `res["reasoning"]`（`REASONING_MAX = 12000`），`tools/jobqueue.py:680-684` 作业收尾写 `job["reasoning"]`
+    （`REASONING_MAX = 20000`）；而 sidecar 是非流式调用，整轮结束前根本没有文本 ⇒ 生成中确实只有状态词。
+  - 终态入口：`jobWidgetView()` 原来 done 只 `previewLogic()`、failed/rejected 只 `hint` 一行；
+    思考只挂在 `renderJob()` 与 `renderManagerDetail()`，而两处都只 `jobReasoningLines(job, 16, 40)` 的开头。
+  - `GET /jobs?all=1` 故意剥掉 reasoning（`tools/logicd.py:1176-1190` 的 `BRIEF_DROP`）⇒ 列表行没有全文。
+- 修（`MlogAuxiliary/scripts/main.js`）：`jobThinkAll()` `:3397`、`jobThinkCopy()` `:3401`（`Core.app.setClipboardText`）、
+  `openThinkDialog()` `:3414`（`Packages.arc.scene.ui.Dialog` + `cont.pane` 640×420，`jobReasoningLines(job, 100000, 60)`，
+  按钮 `复制全部` / done 时 `看代码` / `关闭`）、`jobThinkFetchOpen()` `:3440`（列表行没有全文时先 `jobGet(id)`）；
+  `jobWidgetView()` 终态 `:4006` 一律先 `var tr = openThinkDialog(job);`，回 `no reasoning`/`no ui` 才退回老行为；
+  `renderJob()` done 加 `思考`（`:3515`）、失败/被拒那支补 `思考`/`关闭`（`:3537`）；
+  `renderManagerDetail()` 加 `思考（N 字符）`/`思考（读取全文）`（`:4567`）。
+- 探针 `api.maiJobThinkProbe`（`:6840`）只验取行这一层（无头开不了 Dialog）：`MAIJOBTHINK2:ok len=80 rows=2 w0=60`；
+  smoke 加两处前缀白名单 + `jres` 取键 + 四条 `code_only` 红线，EXIT=0。
+- 门禁 `python gate.py --full --kb-build`：首次 15/17 —— `package` 撞上一轮被打断留下的
+  `out\_exe\dist\logicd`（沙箱给它加了 Everyone deny-delete ACE，`Remove-Item` 报 WinError 5），
+  删掉后单独重跑 **PASS 9.0s**；`corpus` 的 `--jobs 8` 在本机沙箱下必炸（Windows multiprocessing 走命名管道，
+  `multiprocessing/connection.py:557` `PermissionError: [WinError 5]`），改 `--jobs 1` 串行跑同一 400 样本 → **PASS**（400 programs / 2523 findings / analyse errors 0 / 27.9 s，
+  `out/_bench/_gate_corpus.json` 已重写）
+- 放宽沙箱后整轮复跑 `python gate.py --full` → **17/17 in 52.8s**（`out/_gate_v184b.log`）——上面两条失败
+  都是沙箱/残留目录，不是代码问题。
+- 文档：CHANGELOG 0.18.4、规划表 v0.18.4 行、断言表 L2-93 且口径改 **152 条**
+  （L1 31 / L2 93 / L3 6 / L4 4 / S 18 —— 旧「147 条 / L2 88」本身已落后 4 条）、版本三处 → 0.18.4、
+  报告 `100-v0184-think.md`。
+- 包：`python tools/package.py` → `out\_dist\MAI-0.18.4-mod.zip`（169 files / 8,448,226 B，
+  sha256 `BC046D16F83BB81A03C22CD1D63F6D30FBF967C5AB06E71BFF47A14D51B91F5F`）与 `MAI-0.18.4.zip`
+  （8,469,960 B，sha256 `42910D4B946ED24A812F2D8F9CE8C589590BC75D3FE1AC8FE8D05B1FA0D5BBB1`）；
+  装机：2026-11-01 22:44 `install.ps1 -Silent` 覆盖安装到
+  `E:\Program Files (x86)\Steam\steamapps\common\Mindustry\saves\mods\MlogAuxiliary`（169 files / 18,712,000 B，
+  旧版移到 `saves\mod-backups\MlogAuxiliary-20261101-224430`），`sidecar\bin\logicd.exe` 起在 8799 上 `/health`
+  返回 `{"ok":true,"protocol":1,"version":"0.18.4"}` 后正常 `/shutdown`。公开仓 push/tag/Release 等用户确认。
+- 教训：`gate.py --only corpus` 不带 `--full` 时这两步根本没进 `build_steps`，会打印 `0/0 passed` —— 别当成功；
+  被中断的 PyInstaller 构建目录会带沙箱 deny ACE，删掉再跑 `package` 即恢复。

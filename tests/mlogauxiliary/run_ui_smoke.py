@@ -194,6 +194,8 @@ def job_probe(port, bx, by):
         # prints it under the status line.  The fake provider has no reasoning, so hand
         # the renderer a hand-made job that does (this is the UI half, not the transport).
         "print('MAIJOBTHINK:' + maiJobReasoning('{\"id\":\"t1\",\"state\":\"done\",\"reasoning\":\"先想一想：玩家要的是打印铜的数量\"}'));",
+        # v0.18.4: the thinking window reads the whole text, not the 16x40 head.
+        "print('MAIJOBTHINK2:' + maiJobThinkProbe(JSON.stringify({id:'t2',state:'failed',reasoning:'%s'})));" % ("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"),
         "var wmA = maiJobSyncAt(%d, %d, 'ui clean code batch', 25000);" % (bx, by),
         "print('MAIWRITEMANY:' + maiWriteManyProbe(wmA, %d, %d));" % (bx, by),
     ]
@@ -400,7 +402,7 @@ def main():
                               'MAIJOBBOX0:', 'MAIJOBBOXPIN:', 'MAIJOBBOXFIN:',
                               'MAIJOBBOXCLR:', 'MAIJOBBOX3:', 'MAIJOBMANAGER:',
                               'MAIJOBBOXPIN2:', 'MAIJOBBOXCLOSE:', 'MAIJOBBOX4:',
-                              'MAIBADGERECT:', 'MAIDBG:'))]
+                              'MAIBADGERECT:', 'MAIDBG:', 'MAIJOBTHINK2:'))]
     joined = '\n'.join(lines)
 
     # ---- resolve every Table/Cell method the page actually uses, in the engine
@@ -825,7 +827,7 @@ def main():
     for l in jtext.splitlines():
         for key in ('MAIJOBSET', 'MAIJOBCLEAN', 'MAIJOBPROG', 'MAIJOBWRITE', 'MAIJOBREJ',
                     'MAIJOBCONF', 'MAIJOBEDIT', 'MAIJOBEDIT2',
-                    'MAIJOBZERO', 'MAIWRITEMANY', 'MAIJOBTHINK'):
+                    'MAIJOBZERO', 'MAIWRITEMANY', 'MAIJOBTHINK', 'MAIJOBTHINK2'):
             if l.startswith(key + ':'):
                 jres[key] = l[len(key) + 1:]
 
@@ -895,6 +897,10 @@ def main():
     if '先想一想' not in think:
         problems.append('v0.12.4: maiJobReasoning lost the job thinking: %r'
                         % (think[:160],))
+    think2 = jres.get('MAIJOBTHINK2') or ''
+    if not think2.startswith('ok len=80 rows=2 w0=60'):
+        problems.append('v0.18.4: the thinking window no longer reads the whole text '
+                        '(want ok len=80 rows=2 w0=60): %r' % (think2[:160],))
     wm = jres.get('MAIWRITEMANY') or ''
     if not wm.startswith('ok '):
         problems.append('v0.12.0: the transactional batch write probe failed: %r' % (wm[:260],))
@@ -907,6 +913,12 @@ def main():
                          'the model-thinking renderer is gone'),
                         ('api.maiJobReasoning = function',
                          'the reasoning test hook is gone'),
+                        ('function openThinkDialog(', 'the thinking window is gone'),
+                        ('function jobThinkCopy(', 'copying the whole thinking is gone'),
+                        ('function jobThinkFetchOpen(',
+                         'the list-row thinking fetch is gone'),
+                        ('var tr = openThinkDialog(job);',
+                         'a finished job no longer opens the thinking window'),
                         ('api.maiJobSyncAt = function', 'the job test hook is gone'),
                         ('POST", "/jobs"', 'main.js no longer submits to /jobs')):
         if needle not in code_only:
@@ -1833,7 +1845,8 @@ def main():
         if l.startswith(('MAISELF:', 'MAIDIAG:', 'MAIUNDO:', 'MAICONFLICT:', 'MAILLM:',
                         'MAICHAT:', 'MAISIDECAR:', 'MAIJOBPANEL:', 'MAIJOBPANELDIAG:', 'MAIHINT:', 'MAIFILTER:', 'MAIFILTER2:', 'MAIWORKSPACE:', 'MAIWS2:',
                         'MAIJOBBOX', 'MAIBADGERECT:', 'MAIJOBMANAGER:', 'MAIBP:',
-                        'MAISIGMETA:', 'MAIBPTITLE:', 'MAIBPCHAT:', 'MAIKEYBIND:', 'MAITHEME:')):
+                        'MAISIGMETA:', 'MAIBPTITLE:', 'MAIBPCHAT:', 'MAIKEYBIND:', 'MAITHEME:',
+                        'MAIJOBTHINK2:')):
             print('  ' + l[:300])
     return 0
 
