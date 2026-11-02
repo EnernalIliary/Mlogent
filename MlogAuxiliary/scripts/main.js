@@ -28,7 +28,7 @@
 function __logicWriterMain(){
     "use strict";
 
-    var MOD_VERSION = "0.19.2";
+    var MOD_VERSION = "0.19.3";
     var URL_KEY     = "mlogauxiliary-url";
     var DEFAULT_URL = "http://127.0.0.1:8765";
     // v0.11.0：设置页里填的模型档三件套。密钥只留在本机 Core.settings 与 sidecar 进程内存。
@@ -5098,7 +5098,17 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
         // v0.19.2（用户截图：字重叠 / 宽度不够 / 按钮折行）：
         // 所有可能超长的文字一律「固定宽度 + ellipsis(true)」，能自适应的按钮（排序 / 底部动作）
         // 不再写死宽度 —— 写死宽度时按钮 label 会折行，固定宽度又没 ellipsis 的文字会画到邻居身上。
+        // v0.19.3（截图里搜索框和「排序」按钮叠字）：刷新会在控件回调里被再次触发，
+        // 重入时两次 host.clear() 交错，同一个面板里就留下两套控件。这里用 busy 标记挡住重入。
         function wsRefreshList(){
+            if(wsUI.busyList === true){ return; }
+            wsUI.busyList = true;
+            try{ wsRefreshListBody(); }
+            catch(e){ log("ws list refresh failed: " + e); }
+            wsUI.busyList = false;
+        }
+
+        function wsRefreshListBody(){
             var host = wsUI.listHost;
             if(host === null || host === undefined){ return; }
             try{ host.clear(); }catch(e){ return; }
@@ -5118,9 +5128,20 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
                 try{ tf.setText(String(wsUI.q || "")); }catch(e2){ }
                 tf.setTextFieldListener(function(field, c){
                     try{ wsUI.q = String(field.getText()); }catch(e3){ wsUI.q = ""; }
+                    // v0.19.3：搜索框是随列表一起重建的，重建后要把焦点和光标还回去，
+                    // 否则打完一个字输入框就被换掉、后面的字打不进去。
+                    wsUI.focusSearch = true;
                     wsRefreshList();
                 });
                 bar.add(tf).width(Math.max(90, iw - sortW - 6)).height(34).padRight(6);
+                // 重建后恢复焦点（上面 listener 里置的标志）。
+                try{
+                    if(wsUI.focusSearch === true){
+                        wsUI.focusSearch = false;
+                        if(Core.scene !== null && Core.scene !== undefined){ Core.scene.setKeyboardFocus(tf); }
+                        try{ tf.setCursorPosition(String(wsUI.q || "").length); }catch(ec){ }
+                    }
+                }catch(ef){ log("ws search focus restore skipped: " + ef); }
             }catch(e){ log("ws search field failed: " + e); }
             bar.button("排序：" + wsSortCn(wsUI.sort), function(){
                 wsUI.sort = wsNextSort(wsUI.sort);
@@ -5172,6 +5193,14 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
         }
 
         function wsRefreshDetail(){
+            if(wsUI.busyDetail === true){ return; }
+            wsUI.busyDetail = true;
+            try{ wsRefreshDetailBody(); }
+            catch(e){ log("ws detail refresh failed: " + e); }
+            wsUI.busyDetail = false;
+        }
+
+        function wsRefreshDetailBody(){
             var dp = wsUI.detailHost;
             if(dp === null || dp === undefined){ return; }
             try{ dp.clear(); }catch(e){ return; }
@@ -5890,19 +5919,62 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
             host.button("返回列表", function(){ renderWorkspaces(host, d); }).height(32).padTop(4).ellipsis(true).row();
         }
 
+        // v0.19.3（用户 m01237：按钮太宽、标题被挤到右边遮挡）：
+        // Core.graphics.getWidth()/getHeight() 给的是**像素**，而 Arc 里 Table/Cell 的尺寸单位是
+        // scene 单位 —— 官方到处都先除一次 UI 缩放再用：
+        //   Mindustry-Source\core\src\mindustry\ui\dialogs\JoinDialog.java:647
+        //     Math.min(Core.graphics.getWidth() / Scl.scl() * 0.9f, 550f)
+        // 同类：ModsDialog.java:114/117、MapLocalesDialog.java:210、MapListDialog.java:116。
+        // v0.19.2 直接把像素当格子宽度 ⇒ 对话框比窗口宽 Scl 倍 ⇒ 右栏被推出屏幕、按钮看着特别长。
+        // 这里把「像素 → scene 单位」抽成纯函数，探针可以直接断言。
+        // 一像素等于几个 scene 单位：优先用「场景宽度比」（main.js:3889 的 worldToScreen 就是这么算的），
+        // 拿不到场景再退回 Scl.scl()，都没有就按 1:1 处理。
+        function wsSclFactor(){
+            try{
+                var gw = Number(Core.graphics.getWidth()), sw = Number(Core.scene.getWidth());
+                if(gw > 0 && sw > 0){ return gw / sw; }
+            }catch(e){ }
+            try{
+                var f = Number(Packages.arc.scene.ui.layout.Scl.scl());
+                if(f > 0){ return f; }
+            }catch(e2){ }
+            return 1;
+        }
+        function wsSceneUnits(px, scl){
+            var v = Number(px), f = Number(scl);
+            if(!(f > 0)){ f = 1; }
+            if(!(v > 0)){ return 0; }
+            return Math.round(v / f);
+        }
+        // 当前屏幕有多大（scene 单位）。Core.scene 的宽高本来就是 scene 单位，能拿到就直接用。
+        function wsScreenSize(){
+            var w = 0, h = 0;
+            try{ w = Number(Core.scene.getWidth()); h = Number(Core.scene.getHeight()); }catch(e){ w = 0; h = 0; }
+            var f = wsSclFactor();
+            if(!(w > 0)){
+                try{ w = wsSceneUnits(Number(Core.graphics.getWidth()), f); }catch(e2){ w = 0; }
+            }
+            if(!(h > 0)){
+                try{ h = wsSceneUnits(Number(Core.graphics.getHeight()), f); }catch(e3){ h = 0; }
+            }
+            if(!(w > 0)){ w = 1280; }
+            if(!(h > 0)){ h = 720; }
+            return {w: Math.round(w), h: Math.round(h), scl: f};
+        }
+
         // v0.19.2：把「按屏幕算尺寸」抽成纯函数，探针可以直接断言（无头环境也能跑）。
-        // 用户反馈「窗口宽度不够」时，先看这里的数字，再去改栏内排版。
+        // 入参是 **scene 单位**（不是像素，见上面 wsSclFactor 的注释）。
         function wsDialogPlan(sw, sh){
             var w = Number(sw), h = Number(sh);
             if(!(w > 0)){ w = 1280; }
             if(!(h > 0)){ h = 720; }
-            var availW = Math.round(Math.max(520, Math.min(1500, w - 40)));
-            // 高度要扣掉标题栏 + 底部按钮栏（约 70~90），否则对话框会顶到屏幕外面去。
-            var availH = Math.round(Math.max(320, Math.min(820, h - 150)));
-            var listW = Math.round(Math.min(470, Math.max(340, availW * 0.3)));
+            // 左右留 28+28、上下留 100+90：对话框边框 + 标题栏 + 底部按钮栏都要吃掉余量。
+            var availW = Math.round(Math.max(520, Math.min(1500, w - 56)));
+            var availH = Math.round(Math.max(320, Math.min(820, h - 190)));
+            var listW = Math.round(Math.min(430, Math.max(340, availW * 0.3)));
             var detailW = Math.round(Math.max(300, availW - listW - 14));
             var onlyW = Math.round(Math.min(availW, 560));
-            return {wide: w >= 980, availW: availW, availH: availH,
+            return {wide: w >= 900, availW: availW, availH: availH,
                     listW: listW, detailW: detailW, onlyW: onlyW};
         }
 
@@ -5913,14 +5985,11 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
             // v0.19.0：宽屏双栏（左列表 / 右详情），窄屏单栏靠「← 返回列表」翻。
             // v0.19.1：尺寸按屏幕算，不再写死 300/440×430。
             // v0.19.2（用户截图：字重叠 / 宽度不够 / 按钮折行）：几乎顶满屏幕，算好的宽度存进 wsUI 供各栏排版。
-            var wide = false, sw = 1280, sh = 720;
-            try{
-                sw = Number(Core.graphics.getWidth());
-                sh = Number(Core.graphics.getHeight());
-            }catch(e0){ sw = 1280; sh = 720; }
-            if(!(sw > 0)){ sw = 1280; }
-            if(!(sh > 0)){ sh = 720; }
-            var plan = wsDialogPlan(sw, sh);
+            // v0.19.3（用户 m01237）：尺寸必须换算成 scene 单位（像素 / Scl.scl()），
+            // 否则对话框比窗口宽一倍多，右栏直接被挤出屏幕。见 wsSclFactor 的注释。
+            var wide = false;
+            var scr = wsScreenSize();
+            var plan = wsDialogPlan(scr.w, scr.h);
             wide = plan.wide;
             var availH = plan.availH;
             var listT = wsT(), detailT = wsT();
@@ -7541,17 +7610,25 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
                 var plan = wsDialogPlan(1366, 768);
                 if(plan.wide !== true){ notes.push("plan-wide"); }
                 if(plan.listW < 340 || plan.detailW < 300){ notes.push("plan-min"); }
-                if(plan.availW !== 1326){ notes.push("plan-avail"); }
+                if(plan.availW !== 1310){ notes.push("plan-avail"); }
                 if(plan.listW + plan.detailW + 14 > plan.availW){ notes.push("plan-fit"); }
-                if(wsDialogPlan(900, 600).wide !== false){ notes.push("plan-narrow"); }
-                if(wsDialogPlan(0, 0).availW !== 1240){ notes.push("plan-fallback"); }
+                if(wsDialogPlan(880, 600).wide !== false){ notes.push("plan-narrow"); }
+                if(wsDialogPlan(900, 600).wide !== true){ notes.push("plan-wide-edge"); }
+                if(wsDialogPlan(0, 0).availW !== 1224){ notes.push("plan-fallback"); }
+                // v0.19.3：像素 → scene 单位的换算（用户 m01237 的「按钮太宽 / 右栏被挤出屏幕」）。
+                if(wsSceneUnits(2049, 1.5) !== 1366){ notes.push("scene-units"); }
+                if(wsSceneUnits(0, 1.5) !== 0){ notes.push("scene-units-zero"); }
+                if(wsSclFactor() <= 0){ notes.push("scene-factor"); }
+                var eq = wsDialogPlan(wsSceneUnits(2049, 1.5), wsSceneUnits(1152, 1.5));
+                if(eq.availW !== plan.availW || eq.listW !== plan.listW){ notes.push("scene-equiv"); }
                 if(wsFilterCn("all") !== "全部" || wsFilterCn("mismatch") !== "地图不符"){ notes.push("filter-cn"); }
                 counts = "rows=" + String(rows.length) + " filt=" + String(act.length + mm.length)
                        + " sort=" + String(srt.length) + " detail=" + String(m.procs.length + m.jobs.length)
                        + " ghosts=" + String(gh.length) + " release=" + String(rl.length > 0 ? 1 : 0)
                        + " mismatch=" + String(m2.canLocate === false ? 1 : 0)
                        + " locate=" + String(wsCanLocate(a, "A") ? 1 : 0)
-                       + " plan=" + String(plan.listW) + "x" + String(plan.detailW);
+                       + " plan=" + String(plan.listW) + "x" + String(plan.detailW)
+                       + " scl=" + String(wsSclFactor() > 0 ? 1 : 0);
             }catch(e){
                 notes.push("throw:" + e);
             }

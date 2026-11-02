@@ -2688,3 +2688,22 @@ CI run **41239699508** success。直连 GitHub 又断，走本机代理 `127.0.0
   `MAIWS3:ok rows=3 filt=2 sort=3 detail=2 ghosts=1 release=1 mismatch=1 locate=1 plan=398x914`。
 - 版本三处一起 0.19.2：`main.js` 的 `MOD_VERSION`、`mod.hjson` 的 `version`、`tools/logicd.py:87` 的 `SIDECAR_VERSION`。
 
+
+## §103 v0.19.3 工作区窗口按 scene 单位算尺寸（2026-11-02）
+
+- 驱动：用户 m01237「工作区的按钮宽度太长导致标题被拉到右边遮挡了。修改，然后push realesse」+ 两张截图。
+  详细报告见 `out/takeover-20261024/104-v0193-wsui-scene.md`。这一轮**要 push + 发 Release**（推翻 §102 的「不要 push」）。
+- 根因：**单位错了** —— `Core.graphics.getWidth()/getHeight()` 是像素，`Table`/`Cell.width()`/`ScrollPane` 是 scene 单位，
+  差一个 `Scl.scl()`（桌面 = 界面缩放）。0.19.1/0.19.2 直接把像素喂进 `wsDialogPlan()` ⇒ 界面缩放 1.5 时窗口宽出一倍多，
+  右栏被挤出屏幕、按钮被拉长、标题被压。官方 `JoinDialog.java:647` 等一律 `Core.graphics.getWidth() / Scl.scl()`。
+- 改法：新增 `wsSclFactor()` / `wsSceneUnits(px, scl)` / `wsScreenSize()`；`wsDialogPlan(sw, sh)` 入参语义改成 scene 单位，
+  留白放宽到宽 -56 / 高 -190；`openWorkspaceDialog()` 改用 `wsScreenSize()`；`wsRefreshList()` / `wsRefreshDetail()`
+  拆出 `...Body()` 并加 `wsUI.busyList` / `wsUI.busyDetail` 重入保护（叠字的机理：回调里重入刷新 ⇒ 同一面板两代控件并排画）；
+  搜索框重建后把键盘焦点与光标还回去。`MAIWS3` 断言改到 scene 单位（含 `wsSceneUnits(2049,1.5) === 1366`）。
+- 自检：`python -X utf8 tests/mlogauxiliary/run_ui_smoke.py` EXIT=0，
+  `MAIWS3:ok rows=3 filt=2 sort=3 detail=2 ghosts=1 release=1 mismatch=1 locate=1 plan=393x903 scl=1`。
+- 版本三处一起 0.19.3：`main.js` 的 `MOD_VERSION`、`mod.hjson` 的 `version`、`tools/logicd.py:87` 的 `SIDECAR_VERSION`。
+- 门禁 `python gate.py --full --kb-build` → 17/17 in 235.6s（`out/_gate_v193.log`）；打包 178 files / 18,796,496 B，
+  `MAI-0.19.3-mod.zip` sha256 `B98CA084…6DD9DCAF94D4`、`MAI-0.19.3.zip` sha256 `ADBDD2EC…CBBE513B086`；已装机。
+- 发布：本地提交 `9cdc280`；公开仓克隆 `out/_publish/mai-clone` 提交 `5fb3eb3` + tag `v0.19.3` 已 push；
+  Release https://github.com/EnernalIliary/MAI-MlogAuxiIliary/releases/tag/v0.19.3 （两个 zip，`releases/latest` 已复核）。
