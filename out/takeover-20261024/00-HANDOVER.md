@@ -2824,3 +2824,24 @@ CI run **41239699508** success。直连 GitHub 又断，走本机代理 `127.0.0
 - 打包后端的实证：`out/_dist/MAI-0.20.0/mod/MlogAuxiliary/sidecar/bin/logicd.exe --port 18778 --chats-dir <tmp>` 能起来，
   `GET /health` → `{"ok":true,"protocol":1,"version":"0.20.0",...}`、`GET /chats?limit=5` → `{"ok":true,"count":0,"chats":[]}`（说明 chats 被打进 exe，不是只有源码有）。
 - 技巧：`out/_v200_pub.py` 从 `_v196_pub.py` 改时要把 `tests/logicd/run_logicd_tests.py` 加进 FILES —— 它不在自动补全的目录里（只自动扫 `tools/`、`rules`、`tests/cases`、`mindustry-blueprint/tools`）。
+
+## §108 v0.20.1 对话入口搬到看得见的地方（2026-11-02）
+
+- 起因（用户 m02850）：「没有看到哪里更新了」。排查结论：v0.20.0 确实已加载（`[mai] v0.20.0 ready, 87/87`），但 `openChatDialog()` 的用户入口
+  只有作业管理窗顶部的 `＋ 新建对话`，而作业管理窗仅有「作业框查看」（`main.js` 的 `openJobManager()`）与 `api.maiJobManager` 两个调用点
+  ⇒ 没投过作业就永远看不到。用户平时点的「MAI 控制面板」开的是工作区快照窗（`openWorkspaceDialog()`），底栏原先没有对话入口。
+- 改法：蓝图页底栏 `btns.button("MAI 对话", …)`（在「MAI 控制面板」右侧，`blueprintPageHook()` 内）；工作区快照底栏新增 `d.buttons.button("＋ 对话", …)`
+  （「从蓝图创建」之后、「关闭」之前）；作业管理窗原入口保留。三处都调同一个 `openChatDialog()`，`CHAT_UI` 单例不变。
+- 测试：ui smoke 新增 v0.20.1 两条红线（`btns.button("MAI 对话"` / `d.buttons.button("＋ 对话"`）；`node --check` EXIT=0；ui smoke EXIT=0。
+- 门禁：`python gate.py --full --kb-build` → **17/17 passed in 120.5s**（`out/_gate_v201.txt`，kb 169 源文件）。
+- 打包：`out/_dist/MAI-0.20.1/` 191 files / 19,405,961 B；`MAI-0.20.1-mod.zip` 8,708,402 B / 182 files sha256 `E6C17A963E48DE74DF64A1B0D1E85A2CE57F27E66A83A925002FD50BE12F6DD1`；
+  `MAI-0.20.1.zip` 8,730,983 B sha256 `3BC52AC40C7574C225EE8144D4EBF8164D889932EDD49583D0287FF49A2F85C9`。
+- 装机注意：本轮打包时游戏仍在跑（pid 47768，0.20.0）⇒ **装包前必须先关游戏**，否则旧代码的 `sidecarVersionMismatch()` 会把 0.20.1 后端判成版本不符，
+  触发每秒 respawn（v0.20.0 装机时实测两分钟 21 个 logicd，见 §107）。
+- 断言：`docs/断言表.md` 新增 L2-106（新功能入口必须落在用户平时会打开的窗口里）与 L2-107（多入口共用一份窗口状态），口径 **166 条**（L1 31 / L2 107 / L3 6 / L4 4 / S 18）。
+- 报告：`out/takeover-20261024/109-v0201-entry.md`。
+- 发布：本地提交 **43f2b80**；公开仓提交 **f223439** + tag `v0.20.1`（push 需 `$env:HTTPS_PROXY`）；
+  Release https://github.com/EnernalIliary/MAI-MlogAuxiIliary/releases/tag/v0.20.1 两资产 201，latest = v0.20.1。
+- 装机（20:07 完成，用户关游戏后）：`Stop-Process logicd` → `out/_dist/MAI-0.20.1/install.ps1 -Target "…\Mindustry\saves\mods"` → `[ok] MAI 0.20.1 installed`，
+  备份 `saves\mod-backups\MlogAuxiliary-20261102-200723`；装后 `mod.hjson` = 0.20.1，`scripts/main.js` 里 `btns.button("MAI 对话"` 与 `d.buttons.button("＋ 对话"` 各 1 处。
+  坑：用 PowerShell 的 `Select-String`/`Get-Content` 在中文上会误报 0 命中（编码），核实中文串要用 `node -e` 按 UTF-8 读。
