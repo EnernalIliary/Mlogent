@@ -2845,3 +2845,19 @@ CI run **41239699508** success。直连 GitHub 又断，走本机代理 `127.0.0
 - 装机（20:07 完成，用户关游戏后）：`Stop-Process logicd` → `out/_dist/MAI-0.20.1/install.ps1 -Target "…\Mindustry\saves\mods"` → `[ok] MAI 0.20.1 installed`，
   备份 `saves\mod-backups\MlogAuxiliary-20261102-200723`；装后 `mod.hjson` = 0.20.1，`scripts/main.js` 里 `btns.button("MAI 对话"` 与 `d.buttons.button("＋ 对话"` 各 1 处。
   坑：用 PowerShell 的 `Select-String`/`Get-Content` 在中文上会误报 0 命中（编码），核实中文串要用 `node -e` 按 UTF-8 读。
+## §109 v0.20.2 自由对话窗的宽度预算与「新对话」位置（2026-11-02）
+
+- 用户三连报：m03006「左边的新对话窗口太大了已经超出左边了」、m03017「新对话应该在右边」、m03682「「＋ 新对话」按钮占满了整个左边的屏幕」。
+  当时装机版 = v0.20.1（`last_log.txt` 里 `[mai] v0.20.1 ready, 87/87 console function(s)`）。
+- 根因两条：① `chatPlan()` 把「外壳 pad 3+3」漏在 `availW` 之外（只算了竖线 2 + 两侧 7+7 = 16），`d.cont` 内容比预算宽 6，
+  Dialog 被顶宽、居中后两边外溢；② 左栏「＋ 新对话」是 `width(iw - 4)`（≈ 整栏宽）+ 外层 `growX()`，画出来横贯左栏。
+- 改法：`chatPlan()` 加 `gapW = 22`（竖线 2 + 7+7 + 外壳 3+3），`listW + gapW + detailW === availW`；总宽 1080→980、左栏 190..260→168..224；
+  「＋ 新对话」并入「会话列表」标题行（固定 132 宽），作业管理窗顶栏按钮靠右且整行 600，对话窗底栏 `d.buttons.right()` 且新对话在最右，
+  右栏空态给「＋ 在这里开一段新对话」；新增 `chatGeomDump()`（`[mai] chat geom:` 一次性 dump，仿 `wsGeomDump`）。
+- 探针：`MAICHATUI:ok plan=980x548 list=206 detail=752`；ui smoke exit 0。
+- 门禁 `gate.py --full --kb-build` 17/17 (118.4s)；打包 `out/_dist/MAI-0.20.2/` 191 files / 19,414,101 B（mod.zip sha256 5431…4F0F）；
+  装机 [ok]（备份 `mod-backups\MlogAuxiliary-20261102-205727`，装机目录 mod.hjson = 0.20.2）。
+- 本地提交 2a7692f；公开仓提交 765cae6 + tag v0.20.2，Release https://github.com/EnernalIliary/MAI-MlogAuxiIliary/releases/tag/v0.20.2（两个 zip 均 201）。
+- **网络坑**：这一轮直连 github 443 不通、本机代理 `127.0.0.1:10808` 反而通（v0.19.3 时是反的）。
+  push 用 `git -c http.proxy=http://127.0.0.1:10808 push ...`；`out/_v202_release.py` 的 opener 改成「先代理、失败退回直连」。
+- 报告：`out/takeover-20261024/110-v0202-chatui.md`。
