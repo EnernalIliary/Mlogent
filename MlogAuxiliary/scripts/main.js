@@ -28,7 +28,7 @@
 function __logicWriterMain(){
     "use strict";
 
-    var MOD_VERSION = "0.19.1";
+    var MOD_VERSION = "0.19.2";
     var URL_KEY     = "mlogauxiliary-url";
     var DEFAULT_URL = "http://127.0.0.1:8765";
     // v0.11.0：设置页里填的模型档三件套。密钥只留在本机 Core.settings 与 sidecar 进程内存。
@@ -4835,7 +4835,8 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
 
         var wsUI = {open: false, d: null, host: null, listHost: null, detailHost: null,
                     sel: null, q: "", filter: "all", sort: "updated",
-                    single: false, showDetail: false, ghosts: []};
+                    single: false, showDetail: false, ghosts: [],
+                    listW: 380, detailW: 380};   // v0.19.2：由 openWorkspaceDialog 按屏幕算
 
         function wsMapName(){
             try{ return String(mapName); }catch(e){ return "?"; }
@@ -5075,6 +5076,28 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
             if(!wsUI.single){ wsRefreshDetail(); }
         }
 
+        // 面板宽度：openWorkspaceDialog 算好后存进 wsUI；探针 / 无窗时用缺省值。
+        function wsListPaneWidth(){
+            var w = Number(wsUI.listW);
+            if(!(w > 0)){ w = 380; }
+            return w;
+        }
+        function wsDetailPaneWidth(){
+            var w = Number(wsUI.detailW);
+            if(!(w > 0)){ w = wsListPaneWidth(); }
+            return w;
+        }
+        function wsFilterCn(key){
+            var k = String(key === null || key === undefined ? "all" : key);
+            if(k === "active"){ return "进行中"; }
+            if(k === "archived"){ return "已归档"; }
+            if(k === "mismatch"){ return "地图不符"; }
+            return "全部";
+        }
+
+        // v0.19.2（用户截图：字重叠 / 宽度不够 / 按钮折行）：
+        // 所有可能超长的文字一律「固定宽度 + ellipsis(true)」，能自适应的按钮（排序 / 底部动作）
+        // 不再写死宽度 —— 写死宽度时按钮 label 会折行，固定宽度又没 ellipsis 的文字会画到邻居身上。
         function wsRefreshList(){
             var host = wsUI.listHost;
             if(host === null || host === undefined){ return; }
@@ -5083,41 +5106,48 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
             var all = wsAll();
             wsUI.ghosts = wsGhostRects(all, map);
             var rows = wsSortList(wsFilterList(all, {q: wsUI.q, filter: wsUI.filter, map: map}), wsUI.sort);
+            var pw = wsListPaneWidth();
+            var iw = Math.max(200, pw - 22);
+            var sortW = 158;
             var bar = wsT();
             bar.left();
             try{
                 var tf = new Packages.arc.scene.ui.TextField();
-                tf.setMessageText("搜索 名字 / 备注 / 处理器");
+                tf.setMessageText("搜索名字/备注");
                 tf.setMaxLength(40);
                 try{ tf.setText(String(wsUI.q || "")); }catch(e2){ }
                 tf.setTextFieldListener(function(field, c){
                     try{ wsUI.q = String(field.getText()); }catch(e3){ wsUI.q = ""; }
                     wsRefreshList();
                 });
-                bar.add(tf).width(170).height(34).padRight(4);
+                bar.add(tf).width(Math.max(90, iw - sortW - 6)).height(34).padRight(6);
             }catch(e){ log("ws search field failed: " + e); }
             bar.button("排序：" + wsSortCn(wsUI.sort), function(){
                 wsUI.sort = wsNextSort(wsUI.sort);
                 wsRefreshList();
-            }).width(132).height(34);
+            }).width(sortW).height(34).ellipsis(true);
             host.add(bar).growX().left().row();
+            // 筛选 chips：四等分 + 省略号；当前筛选写在下面计数行里（省掉「● 」前缀，那个会把文字挤折行）。
             var chips = wsT();
             chips.left();
             var defs = [["all", "全部"], ["active", "进行中"], ["archived", "已归档"], ["mismatch", "地图不符"]];
+            var cw = Math.max(60, Math.floor((iw - 14) / 4));
             for(var ci = 0; ci < defs.length; ci++){
                 (function(key, cn){
-                    chips.button((String(wsUI.filter) === key ? "● " : "") + cn, function(){
+                    chips.button(cn, function(){
                         wsUI.filter = key;
                         wsRefreshList();
-                    }).width(92).height(30).padRight(4);
+                    }).width(cw).height(30).padRight(4).ellipsis(true);
                 })(defs[ci][0], defs[ci][1]);
             }
             host.add(chips).growX().left().row();
-            host.add("— " + String(rows.length) + " 个工作区 —").color(Pal.gray).left().row();
+            host.add("— " + String(rows.length) + " 个工作区 · 筛选：" + wsFilterCn(wsUI.filter) + " —")
+                .color(Pal.gray).width(iw).left().ellipsis(true).row();
             if(rows.length === 0){
                 host.add(all.length === 0
                     ? "（框选区域并投递作业后，这里会出现一个工作区）"
-                    : "（没有符合条件的，换个词或点「全部」）").left().row();
+                    : "（没有符合条件的，换个词或点「全部」）")
+                    .width(iw).left().ellipsis(true).row();
             }
             for(var i = 0; i < rows.length; i++){
                 var ws = rows[i];
@@ -5127,13 +5157,15 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
                         var card = new Packages.arc.scene.ui.Button();
                         card.left();
                         var col = wsStatusColor(pr.state);
-                        try{ card.image(Tex.whiteui).width(4).height(34).color(col); }catch(e4){ }
+                        try{ card.image(Tex.whiteui).width(4).height(28).color(col); }catch(e4){ }
                         card.add((String(wsUI.sel) === String(pr.id) ? "▸ " : "") + String(pr.name))
-                            .color(col).left().padLeft(6);
+                            .color(col).left().padLeft(6).width(Math.max(80, iw - 26)).ellipsis(true);
                         card.row();
-                        card.add(String(pr.sub)).color(Pal.gray).left().padLeft(10).fontScale(0.85);
+                        card.add(String(pr.sub)).color(Pal.gray).left().padLeft(10)
+                            .fontScale(0.85).width(Math.max(80, iw - 30)).ellipsis(true);
                         card.changed(function(){ wsSelect(pr.id); });
-                        host.add(card).growX().height(46).padBottom(3).row();
+                        // 不写死卡片高度：高度跟着两行字走（写死 46 时大字号下两行会压到下一张卡）。
+                        host.add(card).growX().padTop(2).padBottom(4).row();
                     }catch(e5){ log("ws card failed: " + e5); }
                 })(p);
             }
@@ -5143,108 +5175,124 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
             var dp = wsUI.detailHost;
             if(dp === null || dp === undefined){ return; }
             try{ dp.clear(); }catch(e){ return; }
+            var iw = Math.max(200, wsDetailPaneWidth() - 22);
             if(wsUI.single){
                 dp.button("← 返回列表", function(){
                     wsUI.showDetail = false;
                     wsRefreshList();
-                }).width(120).height(32).left().row();
+                }).height(32).padBottom(4).left().ellipsis(true).row();
             }
             var ws = (wsUI.sel === null || wsUI.sel === undefined) ? null : wsLoad(String(wsUI.sel));
             if(ws === null){
-                dp.add("← 左边选一个工作区").color(Pal.gray).left().row();
-                dp.add("· 恢复选框：把选框重新指到它的范围").color(Pal.gray).left().fontScale(0.85).row();
-                dp.add("· 继续改进：拿它的代码再投一单").color(Pal.gray).left().fontScale(0.85).row();
-                dp.add("· 世界里的细框 = 进行中的工作区（选中的会加粗）").color(Pal.gray).left().fontScale(0.85).row();
+                dp.add("← 左边选一个工作区").color(Pal.gray).width(iw).left().ellipsis(true).row();
+                dp.add("· 恢复选框：把选框重新指到它的范围").color(Pal.gray).fontScale(0.85)
+                    .width(iw).left().ellipsis(true).row();
+                dp.add("· 继续改进：拿它的代码再投一单").color(Pal.gray).fontScale(0.85)
+                    .width(iw).left().ellipsis(true).row();
+                dp.add("· 世界里的细框 = 进行中的工作区（选中的会加粗）").color(Pal.gray).fontScale(0.85)
+                    .width(iw).left().ellipsis(true).row();
                 return;
             }
             var map = wsMapName();
             var m = wsDetailModel(ws, map);
             var col = wsStatusColor(m.state);
             var head = wsT();
-            head.defaults().left();
-            head.add(String(m.name)).color(col);
-            head.add("  " + String(m.stateCn)).color(col).fontScale(0.85);
+            head.left();
+            head.add(String(m.name)).color(col).left().width(Math.max(90, iw - 86)).ellipsis(true);
+            head.add("  " + String(m.stateCn)).color(col).fontScale(0.85).width(80).ellipsis(true);
             dp.add(head).growX().left().row();
-            dp.add(String(m.boundsLine) + "   " + String(m.size) + " 格").color(Pal.gray).left().row();
+            dp.add(String(m.boundsLine) + "   " + String(m.size) + " 格").color(Pal.gray)
+                .width(iw).left().ellipsis(true).row();
             var meta = wsT();
-            meta.defaults().left();
-            meta.add("创建 " + String(m.created) + " · 更新 " + String(m.updated)).color(Pal.gray).fontScale(0.85);
-            meta.button("⌖ 定位", function(){ hint(wsLocate(ws)); }).width(84).height(28).padLeft(6);
+            meta.left();
+            meta.add("创建 " + String(m.created) + " · 更新 " + String(m.updated))
+                .color(Pal.gray).fontScale(0.85).width(Math.max(80, iw - 100)).ellipsis(true);
+            meta.button("⌖ 定位", function(){ hint(wsLocate(ws)); }).height(28).padLeft(6).ellipsis(true);
             dp.add(meta).growX().left().row();
             if(String(m.notes).length > 0){
-                dp.add("备注：" + String(m.notes)).color(Pal.gray).left().row();
+                dp.add("备注：" + String(m.notes)).color(Pal.gray).width(iw).left().ellipsis(true).row();
             }
-            dp.add("── 处理器 " + String(m.procTotal) + " 台 ──").color(Pal.gray).left().row();
+            dp.add("── 处理器 " + String(m.procTotal) + " 台 ──").color(Pal.gray)
+                .width(iw).left().ellipsis(true).row();
             if(m.procs.length === 0){
-                dp.add("（还没有处理器）").left().row();
+                dp.add("（还没有处理器）").width(iw).left().ellipsis(true).row();
             }else{
+                // 列宽跟着面板宽度走：位置 / 写入 固定，方块列吃掉剩余宽度（方块名可能很长）。
+                var cPos = 92, cCode = 92, cWrite = 60;
+                var cBlock = Math.max(80, iw - cPos - cCode - cWrite - 6);
                 var hdr = wsT();
-                hdr.defaults().left();
-                hdr.add("位置").width(78).color(Pal.gray);
-                hdr.add("方块").width(118).color(Pal.gray);
-                hdr.add("代码").width(88).color(Pal.gray);
-                hdr.add("写入").width(50).color(Pal.gray);
+                hdr.left();
+                hdr.add("位置").width(cPos).color(Pal.gray).ellipsis(true);
+                hdr.add("方块").width(cBlock).color(Pal.gray).ellipsis(true);
+                hdr.add("代码").width(cCode).color(Pal.gray).ellipsis(true);
+                hdr.add("写入").width(cWrite).color(Pal.gray).ellipsis(true);
                 dp.add(hdr).growX().left().row();
                 for(var pi = 0; pi < m.procs.length; pi++){
                     var pr = m.procs[pi];
                     var rowT = wsT();
-                    rowT.defaults().left();
-                    rowT.add(String(pr.pos)).width(78);
-                    rowT.add(String(pr.block).substring(0, 12)).width(118);
-                    rowT.add(String(pr.code)).width(88);
-                    rowT.add(String(pr.written) + " 次").width(50);
+                    rowT.left();
+                    rowT.add(String(pr.pos)).width(cPos).ellipsis(true);
+                    rowT.add(String(pr.block)).width(cBlock).ellipsis(true);
+                    rowT.add(String(pr.code)).width(cCode).ellipsis(true);
+                    rowT.add(String(pr.written) + " 次").width(cWrite).ellipsis(true);
                     if(String(pr.desc).length > 0){
                         try{ tipOn(rowT, String(pr.desc)); }catch(e6){ }
                     }
                     dp.add(rowT).growX().left().row();
                 }
                 if(m.procTotal > m.procs.length){
-                    dp.add("… 还有 " + String(m.procTotal - m.procs.length) + " 台").color(Pal.gray).left().row();
+                    dp.add("… 还有 " + String(m.procTotal - m.procs.length) + " 台").color(Pal.gray)
+                        .width(iw).left().ellipsis(true).row();
                 }
             }
-            dp.add("── 最近作业 " + String(m.jobTotal) + " 条 ──").color(Pal.gray).left().row();
+            dp.add("── 最近作业 " + String(m.jobTotal) + " 条 ──").color(Pal.gray)
+                .width(iw).left().ellipsis(true).row();
             if(m.jobs.length === 0){
-                dp.add("（还没有投过作业）").left().row();
+                dp.add("（还没有投过作业）").width(iw).left().ellipsis(true).row();
             }else{
+                var cState = 64, cId = 90, cTime = 86;
+                var cDesc = Math.max(60, iw - 8 - 6 - cState - cId - cTime - 6);
                 for(var ji = 0; ji < m.jobs.length; ji++){
                     var j = m.jobs[ji];
                     var jr = wsT();
-                    jr.defaults().left();
+                    jr.left();
                     var jc = (j.state === "done") ? themeColor() : (j.state === "failed" ? Pal.remove : Pal.gray);
                     try{ jr.image(Tex.whiteui).width(8).height(8).color(jc).padRight(6); }catch(e7){ }
-                    jr.add(String(j.cn)).color(jc).width(56);
-                    jr.add("#" + String(j.id)).width(72);
-                    jr.add(String(j.desc)).growX();
-                    jr.add(String(j.at)).color(Pal.gray).width(80).right();
+                    jr.add(String(j.cn)).color(jc).width(cState).ellipsis(true);
+                    jr.add("#" + String(j.id)).width(cId).ellipsis(true);
+                    jr.add(String(j.desc)).width(cDesc).ellipsis(true);
+                    jr.add(String(j.at)).color(Pal.gray).width(cTime).right().ellipsis(true);
                     dp.add(jr).growX().left().row();
                 }
             }
             // 动作三层：主（恢复选框 / 继续改进）/ 次（存蓝图 / 归档 / 改名 / 导出）/ 危险（释放，独立一行靠右）
             var a1 = wsT();
-            a1.defaults().left();
+            a1.left();
+            var half = Math.max(120, Math.floor((iw - 8) / 2));
             a1.button("恢复选框", function(){ hint(wsRestoreBox(ws.id)); try{ wsUI.d.hide(); }catch(e8){ } })
-              .width(150).height(40).padRight(6);
+              .width(half).height(40).padRight(6).ellipsis(true);
             a1.button("继续改进", function(){ hint(wsImproveBatch(ws.id, "在上一版的基础上继续改进")); try{ wsUI.d.hide(); }catch(e9){ } })
-              .width(150).height(40);
+              .width(half).height(40).ellipsis(true);
             dp.add(a1).growX().left().row();
             var a2 = wsT();
-            a2.defaults().left();
-            a2.button("存成蓝图", function(){ blueprintSaveBoxAsk(ws); }).width(104).height(32).padRight(4);
+            a2.left();
+            a2.button("存成蓝图", function(){ blueprintSaveBoxAsk(ws); }).height(32).padRight(4).ellipsis(true);
             a2.button(String(ws.state) === "archived" ? "取消归档" : "归档", function(){
                 hint(String(ws.state) === "archived" ? wsRestore(ws.id) : wsArchive(ws.id));
                 wsRefreshAll();
-            }).width(104).height(32).padRight(4);
+            }).height(32).padRight(4).ellipsis(true);
             a2.button("改名", function(){
                 if(Vars.ui === null || Vars.ui === undefined){ return; }
                 Vars.ui.showTextInput("工作区改名", "名字", 40, String(ws.name || ""), function(nm){
                     hint(wsRename(ws.id, String(nm)));
                     wsRefreshAll();
                 });
-            }).width(84).height(32).padRight(4);
-            a2.button("导出 JSON", function(){ hint(wsExportToDisk(ws.id)); }).width(110).height(32);
+            }).height(32).padRight(4).ellipsis(true);
+            a2.button("导出 JSON", function(){ hint(wsExportToDisk(ws.id)); }).height(32).ellipsis(true);
             dp.add(a2).growX().left().row();
             var a3 = wsT();
-            a3.button("释放工作区…", function(){ wsAskRelease(ws); }).width(150).height(32);
+            a3.right();
+            a3.button("释放工作区…", function(){ wsAskRelease(ws); }).height(32).ellipsis(true);
             dp.add(a3).growX().right().row();
         }
 
@@ -5822,29 +5870,49 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
 
         function renderBlueprintPicker(host, d){
             managerSeq++;
+            if(host === null || host === undefined){ return; }
             try{ host.clear(); }catch(e){ return; }
+            var iw = Math.max(200, wsListPaneWidth() - 22);
             var rows = blueprintList(24);
-            host.add("— 从蓝图创建工作区（" + String(rows.length) + " 个）—").row();
+            host.add("— 从蓝图创建工作区（" + String(rows.length) + " 个）—")
+                .width(iw).left().ellipsis(true).row();
             if(rows.length === 0){
-                host.add("（没有蓝图，或者这个环境里读不到蓝图库）").row();
+                host.add("（没有蓝图，或者这个环境里读不到蓝图库）").width(iw).left().ellipsis(true).row();
             }
             for(var i = 0; i < rows.length; i++){
                 (function(nm){
                     host.button(String(nm), function(){
                         hint(wsFromBlueprintName(nm));
                         renderWorkspaces(host, d);
-                    }).width(560).row();
+                    }).width(iw).height(30).padRight(4).ellipsis(true).row();
                 })(rows[i].name);
             }
-            host.button("返回列表", function(){ renderWorkspaces(host, d); }).width(160).row();
+            host.button("返回列表", function(){ renderWorkspaces(host, d); }).height(32).padTop(4).ellipsis(true).row();
+        }
+
+        // v0.19.2：把「按屏幕算尺寸」抽成纯函数，探针可以直接断言（无头环境也能跑）。
+        // 用户反馈「窗口宽度不够」时，先看这里的数字，再去改栏内排版。
+        function wsDialogPlan(sw, sh){
+            var w = Number(sw), h = Number(sh);
+            if(!(w > 0)){ w = 1280; }
+            if(!(h > 0)){ h = 720; }
+            var availW = Math.round(Math.max(520, Math.min(1500, w - 40)));
+            // 高度要扣掉标题栏 + 底部按钮栏（约 70~90），否则对话框会顶到屏幕外面去。
+            var availH = Math.round(Math.max(320, Math.min(820, h - 150)));
+            var listW = Math.round(Math.min(470, Math.max(340, availW * 0.3)));
+            var detailW = Math.round(Math.max(300, availW - listW - 14));
+            var onlyW = Math.round(Math.min(availW, 560));
+            return {wide: w >= 980, availW: availW, availH: availH,
+                    listW: listW, detailW: detailW, onlyW: onlyW};
         }
 
         function openWorkspaceDialog(){
             if(Vars.ui === null || Vars.ui === undefined){ return "no ui"; }
             var d = new Packages.arc.scene.ui.Dialog("Mlog辅助 · 工作区快照 v" + MOD_VERSION);
-            d.cont.defaults().pad(4).left();
+            d.cont.defaults().pad(3).left();
             // v0.19.0：宽屏双栏（左列表 / 右详情），窄屏单栏靠「← 返回列表」翻。
-            // v0.19.1（用户：窗口太小、展示不完）：尺寸按屏幕算，不再写死 300/440×430。
+            // v0.19.1：尺寸按屏幕算，不再写死 300/440×430。
+            // v0.19.2（用户截图：字重叠 / 宽度不够 / 按钮折行）：几乎顶满屏幕，算好的宽度存进 wsUI 供各栏排版。
             var wide = false, sw = 1280, sh = 720;
             try{
                 sw = Number(Core.graphics.getWidth());
@@ -5852,20 +5920,21 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
             }catch(e0){ sw = 1280; sh = 720; }
             if(!(sw > 0)){ sw = 1280; }
             if(!(sh > 0)){ sh = 720; }
-            wide = sw >= 900;
-            // 对话框最多占屏幕的九成宽、八成高：1280×720 → 约 1152×560；1920×1080 → 约 1240×760。
-            var availW = Math.round(Math.max(460, Math.min(1240, sw * 0.9)));
-            var availH = Math.round(Math.max(300, Math.min(760, sh * 0.8)));
-            var listW = Math.round(Math.min(430, Math.max(300, availW * 0.34)));
-            var detailW = Math.round(Math.max(320, availW - listW - 16));
+            var plan = wsDialogPlan(sw, sh);
+            wide = plan.wide;
+            var availH = plan.availH;
             var listT = wsT(), detailT = wsT();
             if(wide){
                 try{
-                    d.cont.pane(listT).width(listW).height(availH).padRight(6);
-                    d.cont.pane(detailT).width(detailW).height(availH).row();
+                    d.cont.pane(listT).width(plan.listW).height(availH).padRight(6);
+                    d.cont.pane(detailT).width(plan.detailW).height(availH).row();
                 }catch(e1){ log("ws two-pane failed: " + e1); d.cont.add(listT).row(); }
+                wsUI.listW = plan.listW;
+                wsUI.detailW = plan.detailW;
             }else{
-                try{ d.cont.pane(listT).height(availH).width(Math.min(availW, 520)).row(); }catch(e2){ d.cont.add(listT).row(); }
+                try{ d.cont.pane(listT).height(availH).width(plan.onlyW).row(); }catch(e2){ d.cont.add(listT).row(); }
+                wsUI.listW = plan.onlyW;
+                wsUI.detailW = plan.onlyW;
             }
             wsUI.open = true;
             wsUI.d = d;
@@ -5875,18 +5944,19 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
             wsUI.detailHost = wide ? detailT : listT;
             wsUI.ghosts = [];
             var listOf = function(){ return wsUI.listHost; };
-            d.buttons.button("刷新", function(){ renderWorkspaces(listOf(), d); }).width(110);
+            // 底部按钮不写死宽度：宽度跟着文字走，大字号下就不会折行。
+            d.buttons.button("刷新", function(){ renderWorkspaces(listOf(), d); }).height(34).padLeft(4).ellipsis(true);
             // v0.18.3（用户 m11124）：「撤销功能移入 MAI 控制面板」。
             d.buttons.button("撤销上次写入", function(){
                 var r = undo();
                 if(Vars.ui !== null && Vars.ui !== undefined){ Vars.ui.showText("Mlog辅助 · 撤销", String(r)); }
                 renderWorkspaces(listOf(), d);
-            }).width(150);
+            }).height(34).padLeft(4).ellipsis(true);
             d.buttons.button("撤销快照", function(){
                 if(Vars.ui !== null && Vars.ui !== undefined){ Vars.ui.showText("Mlog辅助 · 撤销", String(undoInfo())); }
-            }).width(120);
-            d.buttons.button("从蓝图创建", function(){ renderBlueprintPicker(listOf(), d); }).width(140);
-            d.buttons.button("关闭", function(){ d.hide(); }).width(110);
+            }).height(34).padLeft(4).ellipsis(true);
+            d.buttons.button("从蓝图创建", function(){ renderBlueprintPicker(listOf(), d); }).height(34).padLeft(4).ellipsis(true);
+            d.buttons.button("关闭", function(){ d.hide(); }).height(34).padLeft(4).ellipsis(true);
             // 关窗必须清 open，否则世界层会一直画细框（drawWorkspaceGhosts 只认这个标志）。
             d.hidden(function(){ wsUI.open = false; wsUI.ghosts = []; });
             d.closeOnBack();
@@ -7467,11 +7537,21 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
                 if(rl.indexOf("释放") < 0 || rl.indexOf("不能恢复") < 0){ notes.push("release-text"); }
                 if(wsCanLocate(c, "A") !== false || wsCanLocate(a, "A") !== true){ notes.push("can-locate"); }
                 if(String(wsLocate(null)) !== "没有这个工作区"){ notes.push("locate-null"); }
+                // v0.19.2：排版尺寸（用户截图「窗口宽度不够」的那条线）也被断言，改宽度时不会静默退化。
+                var plan = wsDialogPlan(1366, 768);
+                if(plan.wide !== true){ notes.push("plan-wide"); }
+                if(plan.listW < 340 || plan.detailW < 300){ notes.push("plan-min"); }
+                if(plan.availW !== 1326){ notes.push("plan-avail"); }
+                if(plan.listW + plan.detailW + 14 > plan.availW){ notes.push("plan-fit"); }
+                if(wsDialogPlan(900, 600).wide !== false){ notes.push("plan-narrow"); }
+                if(wsDialogPlan(0, 0).availW !== 1240){ notes.push("plan-fallback"); }
+                if(wsFilterCn("all") !== "全部" || wsFilterCn("mismatch") !== "地图不符"){ notes.push("filter-cn"); }
                 counts = "rows=" + String(rows.length) + " filt=" + String(act.length + mm.length)
                        + " sort=" + String(srt.length) + " detail=" + String(m.procs.length + m.jobs.length)
                        + " ghosts=" + String(gh.length) + " release=" + String(rl.length > 0 ? 1 : 0)
                        + " mismatch=" + String(m2.canLocate === false ? 1 : 0)
-                       + " locate=" + String(wsCanLocate(a, "A") ? 1 : 0);
+                       + " locate=" + String(wsCanLocate(a, "A") ? 1 : 0)
+                       + " plan=" + String(plan.listW) + "x" + String(plan.detailW);
             }catch(e){
                 notes.push("throw:" + e);
             }

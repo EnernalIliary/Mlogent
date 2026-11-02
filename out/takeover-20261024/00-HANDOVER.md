@@ -2671,3 +2671,20 @@ CI run **41239699508** success。直连 GitHub 又断，走本机代理 `127.0.0
   Release https://github.com/EnernalIliary/MAI-MlogAuxIliary/releases/tag/v0.19.0（两个 zip 已上传，2026-11-02T04:52:13Z）。
   坑：克隆里 `out/_exe` 带 deny ACE 要先 `rd /s /q`；跑 `tests/run_tests.py` 前先 `python tools/sync_mlogagent.py --mirror all`；
   本机注册表系统代理 127.0.0.1:10808 会让 python urllib 报 `URLError Errno 2`（看着像网络断，其实是代理），已改直连。
+
+## §102 v0.19.2「工作区快照」窗口排版修复（2026-11-02）
+
+- 驱动：用户 m01050 截图 + 「很多地方字符重叠了。而且窗口宽度不够。按钮有意外换行。简单修一下，不要push。我来检查。」
+  详细报告见 `out/takeover-20261024/102-v0192-wsui-fix.md`。**明确不 push / 不打 tag / 不发 Release**，等用户自查。
+- 根因：Arc 的 `Label` 默认不截断（cell 设了 `width` 也照样画出去 ⇒ 压邻居），`TextButton` 宽度不够就折行；
+  `Cell.fontScale()` 只对 `Label` 生效（`Cell.java:311`）⇒ 按钮只能加宽。0.19.1 只放大了面板，栏内还是旧窄列宽。
+- 改法（`MlogAuxiliary/scripts/main.js`）：`wsRefreshList()` / `wsRefreshDetail()` / `renderBlueprintPicker()` 里所有
+  可能超长的文字改「固定宽度 + `ellipsis(true)`」；卡片去掉写死 `height(46)` 由两行字撑高；排序按钮 132→158、
+  筛选 chips 四等分并去掉「● 」前缀（改在计数行显示当前筛选）；处理器表与作业行按面板宽度算剩余列宽；
+  底部动作按钮全部去掉写死宽度。尺寸计算抽成纯函数 `wsDialogPlan(sw, sh)`（`availW = clamp(w-40, 520, 1500)`、
+  `availH = clamp(h-150, 320, 820)`、`listW = clamp(availW*0.3, 340, 470)`、`detailW = max(300, availW-listW-14)`、
+  `wide = w >= 980`），`MAIWS3` 直接断言这些数。
+- 自检：`python -X utf8 tests/mlogauxiliary/run_ui_smoke.py` EXIT=0，
+  `MAIWS3:ok rows=3 filt=2 sort=3 detail=2 ghosts=1 release=1 mismatch=1 locate=1 plan=398x914`。
+- 版本三处一起 0.19.2：`main.js` 的 `MOD_VERSION`、`mod.hjson` 的 `version`、`tools/logicd.py:87` 的 `SIDECAR_VERSION`。
+
