@@ -2637,3 +2637,37 @@ CI run **41239699508** success。直连 GitHub 又断，走本机代理 `127.0.0
   返回 `{"ok":true,"protocol":1,"version":"0.18.4"}` 后正常 `/shutdown`。公开仓 push/tag/Release 等用户确认。
 - 教训：`gate.py --only corpus` 不带 `--full` 时这两步根本没进 `build_steps`，会打印 `0/0 passed` —— 别当成功；
   被中断的 PyInstaller 构建目录会带沙箱 deny ACE，删掉再跑 `package` 即恢复。
+
+## §101 v0.19.0 工作区界面重做（左列表 / 右详情 + 世界细框 + 释放确认）（2026-11-02）
+
+- 驱动：用户 m13036 之后的界面改版规划，方案稿 `docs/Mlog辅助-工作区快照-界面改版-方案.md`（A1+A2+A3+C1，C2 只做选中）。
+  详细报告见 `out/takeover-20261024/101-v0190-wsui.md`。
+- 改前：`renderWorkspaces`（旧 `:4869`）是一列纯文本行，`renderWorkspaceDetail`（旧 `:4830`）另开一屏，
+  `openWorkspaceDialog`（旧 `:5470`）600×320 单栏，`wsRelease` 无确认，世界里看不到工作区。
+- 改后（`MlogAuxiliary/scripts/main.js`，旧 70 行 → 约 560 行，起点仍 `:4830`）：`wsUI` 状态对象 + 纯函数层
+  （`wsStatusOf` 三态 / `wsRowParts` / `wsDetailModel` / `wsFilterList` / `wsSortList` / `wsGhostRects` /
+  `wsReleaseConfirmText` / `wsCanLocate` / `wsLocate`）+ `wsRefreshList()`（搜索/排序/chips/卡片）+
+  `wsRefreshDetail()`（处理器表 ≤12 / 作业时间线 ≤6 / 动作三层）+ `drawWorkspaceGhosts()`（挂在
+  `Events.run(ET.Trigger.draw)` 的 `drawSelection` 之后）+ `wsAskRelease()`（`showConfirm("释放工作区", ...)`）。
+  `openWorkspaceDialog()` 改双栏（宽 ≥900 左 300 / 右 440，窄屏单 360），`d.hidden` 清 `wsUI.open`。
+- 坑：本 checkout `Pal.java:76-88` **没有 `Pal.scarlet`** ⇒ 异地图/失败用 `Pal.remove`；悬停高亮不做
+  （`InputListener` 子类化 Rhino 下 0 先例）；`Styles.flatOver` 不能用于选中态（静态字段要 atlas，无头炸）；
+  无 `Vars.ui` 时释放确认必须兜底直接执行，否则功能卡死。
+- 自检：`api.maiWorkspace3Probe()` → `ok rows=3 filt=2 sort=3 detail=2 ghosts=1 release=1 mismatch=1 locate=1`；
+  smoke 断言 `MAIWS3:ok` + 10 条 `code_only` 红线，EXIT=0（`out/_smoke_v190.log`）。
+- 文档：CHANGELOG 0.19.0、规划表 v0.19.0 行、断言表 L2-94/L2-95 且口径改 **154 条**
+  （L1 31 / L2 95 / L3 6 / L4 4 / S 18）、版本两处 → 0.19.0、方案文档 §11 实现回填。
+- **打包守卫（装机时抓到的坑，已修）**：`main.js:266-271` 的 `sidecarVersionMismatch(h)` 会把 `/health` 版本不等于
+  自身版本的 sidecar 退役，而 `tools/logicd.py:87` 的 `SIDECAR_VERSION` 还停在 `0.18.4`（`MOD_VERSION` 已是 0.19.0）
+  ⇒ 装上去 AI 全不可用，gate 17/17 抓不到。已修：`SIDECAR_VERSION = '0.19.0'`；`tools/package.py` 的 `build()` 加守卫
+  （两处版本不等直接 `SystemExit`）；`tests/packaging/run_pack_tests.py` 加一致性检查；CHANGELOG 加一条。
+- 门禁：`python gate.py --full --kb-build` → **17/17 passed**（`out/_gate_v190c.log`）。
+- 包（末版，首版两个 zip 作废）：`out/_dist/MAI-0.19.0-mod.zip`（169 files / 8,453,972 B，sha256
+  `26FFA21B00698D5CBC72ECDD9E716F2E767B099C7E95530828F3662D627B14D3`）与 `MAI-0.19.0.zip`（8,475,714 B，
+  sha256 `2FB5B887FEC8BD0F49CE64AD54A13C97C356941AACC7704209AE53B4C8F9B361`）；`out/_pack190b.log`。
+- 装机：`E:\Program Files (x86)\Steam\steamapps\common\Mindustry\saves\mods\MlogAuxiliary`（Steam 版数据目录在
+  游戏旁，见 `Vars.java:494-495`；旧副本备份到 `saves\mod-backups\`），bundled sidecar 0.19.0。
+- 公开发布：源码仓 `EnernalIliary/MAI-MlogAuxIliary` push `bba8244` + tag `v0.19.0`；
+  Release https://github.com/EnernalIliary/MAI-MlogAuxIliary/releases/tag/v0.19.0（两个 zip 已上传，2026-11-02T04:52:13Z）。
+  坑：克隆里 `out/_exe` 带 deny ACE 要先 `rd /s /q`；跑 `tests/run_tests.py` 前先 `python tools/sync_mlogagent.py --mirror all`；
+  本机注册表系统代理 127.0.0.1:10808 会让 python urllib 报 `URLError Errno 2`（看着像网络断，其实是代理），已改直连。
