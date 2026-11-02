@@ -28,7 +28,7 @@
 function __logicWriterMain(){
     "use strict";
 
-    var MOD_VERSION = "0.19.0";
+    var MOD_VERSION = "0.19.1";
     var URL_KEY     = "mlogauxiliary-url";
     var DEFAULT_URL = "http://127.0.0.1:8765";
     // v0.11.0：设置页里填的模型档三件套。密钥只留在本机 Core.settings 与 sidecar 进程内存。
@@ -5844,16 +5844,28 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
             var d = new Packages.arc.scene.ui.Dialog("Mlog辅助 · 工作区快照 v" + MOD_VERSION);
             d.cont.defaults().pad(4).left();
             // v0.19.0：宽屏双栏（左列表 / 右详情），窄屏单栏靠「← 返回列表」翻。
-            var wide = false;
-            try{ wide = Number(Core.graphics.getWidth()) >= 900; }catch(e0){ wide = false; }
+            // v0.19.1（用户：窗口太小、展示不完）：尺寸按屏幕算，不再写死 300/440×430。
+            var wide = false, sw = 1280, sh = 720;
+            try{
+                sw = Number(Core.graphics.getWidth());
+                sh = Number(Core.graphics.getHeight());
+            }catch(e0){ sw = 1280; sh = 720; }
+            if(!(sw > 0)){ sw = 1280; }
+            if(!(sh > 0)){ sh = 720; }
+            wide = sw >= 900;
+            // 对话框最多占屏幕的九成宽、八成高：1280×720 → 约 1152×560；1920×1080 → 约 1240×760。
+            var availW = Math.round(Math.max(460, Math.min(1240, sw * 0.9)));
+            var availH = Math.round(Math.max(300, Math.min(760, sh * 0.8)));
+            var listW = Math.round(Math.min(430, Math.max(300, availW * 0.34)));
+            var detailW = Math.round(Math.max(320, availW - listW - 16));
             var listT = wsT(), detailT = wsT();
             if(wide){
                 try{
-                    d.cont.pane(listT).width(300).height(430).padRight(6);
-                    d.cont.pane(detailT).width(440).height(430).row();
+                    d.cont.pane(listT).width(listW).height(availH).padRight(6);
+                    d.cont.pane(detailT).width(detailW).height(availH).row();
                 }catch(e1){ log("ws two-pane failed: " + e1); d.cont.add(listT).row(); }
             }else{
-                try{ d.cont.pane(listT).height(430).width(360).row(); }catch(e2){ d.cont.add(listT).row(); }
+                try{ d.cont.pane(listT).height(availH).width(Math.min(availW, 520)).row(); }catch(e2){ d.cont.add(listT).row(); }
             }
             wsUI.open = true;
             wsUI.d = d;
