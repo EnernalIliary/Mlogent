@@ -2887,3 +2887,32 @@ Arc `Table` 的列宽**跨行共享**（computeSize 里 `columnPrefWidth[column]
 装机 [ok]（备份 `mod-backups\MlogAuxiliary-20261102-214516`，装机 mod.hjson = 0.20.3，游戏 21:13 已启动 ⇒ 要重启）；
 本地提交 **420ebf0**；公开仓提交 **3d21f60** + tag v0.20.3（push 走 10808 代理，rc=0）；
 Release https://github.com/EnernalIliary/MAI-MlogAuxiIliary/releases/tag/v0.20.3 两个 zip 均 201。
+
+## §111 v0.21.0 档1：对话窗与工作区窗共用一套外壳（2026-11-02）
+
+**起因**：用户 m04199「能直接把工作区快照并入MAI对话里面吗」/ m04211「可以，先做档1，再做档3」⇒ 本轮档1，档2 暂缓，档3 待装机验证后另起。
+
+**动机**：v0.19.4 / v0.19.6 / v0.20.2 三次排版事故的共同成因是「对话框初始化」在 `openChatDialog()` 与
+`openWorkspaceDialog()` 里各有一份逐字同构的代码（`new Dialog` + `cont.defaults().pad(3).left()` + `title.setAlignment` + `titleTable.clearChildren()` 重建），
+修一份漏一份。所以先抽外壳，再让两个窗口成为它的两种模式。
+
+**改法**（`MlogAuxiliary/scripts/main.js`，新增在 `function openChatDialog(` 之前）：`DUAL = { last: "chat" }`、
+`dualModes()`、`dualModeCn()`、`dualHideOthers(mode)`（先 hide 另一个，各自 `hidden()` 收尾轮询/地图选框）、
+`dualSwitch(mode)`、`dualChrome(d, mode)`（标题左对齐 + 右侧 64×22「对话」「工作区」分段按钮，当前项 disabled）、
+`dualDialog(titleCn, mode)`（统一构造 + `closeOnBack`）。两个 open 函数各剩 `var d = dualDialog(...)` 一行（工作区保留 `d.buttons.left()`）。
+`chatPlan()` / `wsDialogPlan()` 的分栏数学与底栏顺序**刻意未动**（各有探针断言）。
+
+**验证**：`node --check` exit 0；ui smoke exit 0，新增 `MAIDUAL:ok modes=chat,ws cn=对话/工作区 last=chat`，
+v0.21.0 红线 9 正向 + 2 反向（源码里不许再出现两处手写 `new Packages.arc.scene.ui.Dialog("Mlog辅助 · … v"`）。
+
+**文档**：CHANGELOG `## 0.21.0`；`docs/Mlog辅助-规划.md` 版本表 v0.20.3 行后；`docs/断言表.md` 追加 **L2-112 / L2-113**，
+口径改 **172 条**（L1 31 / L2 113 / L3 6 / L4 4 / S 18）；报告 `out/takeover-20261024/112-v0210-dual-shell.md`。
+
+**收尾数字（2026-11-02 22:45）**：门禁 `python -X utf8 gate.py --full --kb-build` → **17/17 passed in 112.4s**（`out\_gate_v210.log`，kb 覆盖 169 源文件）；
+打包 `python -X utf8 tools\package.py` → `out/_dist/MAI-0.21.0/` **191 files / 19,418,242 B**，
+`MAI-0.21.0-mod.zip` 8,710,049 B sha256 `5A1B92F2A9C69BE070C7F9D1863333EDBD6CDFBA70AE225340E2A40EFB659FB3`，
+`MAI-0.21.0.zip` 8,732,632 B sha256 `6BF9F7FFE12E7B3CFCBCF72261237E7936483A36F9FE09108C402036F0A0B5B5`；
+装机 [ok] → `saves\mods\MlogAuxiliary`，备份 `saves\mod-backups\MlogAuxiliary-20261102-223457`，装机 `mod.hjson` = `version: "0.21.0"`（游戏里要重启才生效）；
+本地提交 **v0.21.0**（9 files / +196 −28，`git commit -F out\_msg210.txt`；收尾数字以 amend 方式并入，最终 sha 见 `git log -1`）；
+公开仓提交 **9b42e44** "v0.21.0: one shared shell for the chat and workspace dialogs" + tag `v0.21.0`（push 走 `http://127.0.0.1:10808` 代理，PUSH_MAIN=0 / PUSH_TAG=0）；
+Release https://github.com/EnernalIliary/MAI-MlogAuxiIliary/releases/tag/v0.21.0 两个 zip 均 201，`releases/latest` = v0.21.0。
