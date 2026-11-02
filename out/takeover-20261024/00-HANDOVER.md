@@ -2861,3 +2861,29 @@ CI run **41239699508** success。直连 GitHub 又断，走本机代理 `127.0.0
 - **网络坑**：这一轮直连 github 443 不通、本机代理 `127.0.0.1:10808` 反而通（v0.19.3 时是反的）。
   push 用 `git -c http.proxy=http://127.0.0.1:10808 push ...`；`out/_v202_release.py` 的 opener 改成「先代理、失败退回直连」。
 - 报告：`out/takeover-20261024/110-v0202-chatui.md`。
+
+## §110 v0.20.3 对话窗 1768 宽的根因：Arc 表格列宽跨行共享（2026-11-02）
+
+**现象**：v0.20.2 装好后用户 m03832 仍报「还是不对」（整屏截图：左栏贴屏幕左边缘、底栏「新对话」被右边缘裁掉）。
+
+**取证**：装机 main.js 与仓库一致、`[mai] v0.20.2 ready`；`last_log.txt` 里
+`[mai] chat geom: dialog(Dialog w=1768 x=-30 h=803)`，而 plan=980x680 list=206 detail=752。
+
+**根因**：`openChatDialog()` 把两栏排成 cont 同一行的三个 cell（206 / 16 / 752 ⇒ 三列），输入行（974）落在第 0 列的第二条行上。
+Arc `Table` 的列宽**跨行共享**（computeSize 里 `columnPrefWidth[column]` 取各行该列最大值），于是第 0 列被输入行顶成 980，
+三列求和 980+16+758 = 1754，加边框 = 1768 —— 与实测完全吻合。高度 803 对得上，说明只有横向坏。
+工作区窗没有第二条全宽行，所以一直是对的（1095）。
+
+**改法**：两栏包进只有一条列的外层表 `body`（`body.pane(listT).width(plan.listW)...`、
+`d.cont.add(body).width(max(200, availW-6))`），输入行放同一条列；`chatGeomDump()` 增打 `cont(cols= pref= budget= dw=)`。
+
+**验证**：`node --check` exit 0；ui smoke exit 0（MAIWS3/MAICHATUI 照旧），新增 v0.20.3 红线 7 条 + 反向 2 条，
+并把 v0.20.0 的 `d.cont.image(Tex.whiteui).width(2)` 红线改成 `body.image(...)`（分隔线搬了家）。
+
+**文档**：CHANGELOG `## 0.20.3`；`docs/Mlog辅助-规划.md` 版本表 v0.20.2 行后；`docs/断言表.md` 追加 **L2-110 / L2-111**，
+口径改 **170 条**（L1 31 / L2 111 / L3 6 / L4 4 / S 18）；报告 `out/takeover-20261024/111-v0203-chat-cols.md`。
+**收尾数字**：门禁 `gate.py --full --kb-build` 17/17 in 109.9s（`out\_gate_v203.log`）；
+打包 `out/_dist/MAI-0.20.3/` 191 files / 19,416,227 B，mod.zip 8,711,602 B sha256 `423A5FAA…`，全量 zip 8,734,185 B sha256 `DE2BD620…`；
+装机 [ok]（备份 `mod-backups\MlogAuxiliary-20261102-214516`，装机 mod.hjson = 0.20.3，游戏 21:13 已启动 ⇒ 要重启）；
+本地提交 **420ebf0**；公开仓提交 **3d21f60** + tag v0.20.3（push 走 10808 代理，rc=0）；
+Release https://github.com/EnernalIliary/MAI-MlogAuxiIliary/releases/tag/v0.20.3 两个 zip 均 201。
