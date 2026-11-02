@@ -2707,3 +2707,18 @@ CI run **41239699508** success。直连 GitHub 又断，走本机代理 `127.0.0
   `MAI-0.19.3-mod.zip` sha256 `B98CA084…6DD9DCAF94D4`、`MAI-0.19.3.zip` sha256 `ADBDD2EC…CBBE513B086`；已装机。
 - 发布：本地提交 `9cdc280`；公开仓克隆 `out/_publish/mai-clone` 提交 `5fb3eb3` + tag `v0.19.3` 已 push；
   Release https://github.com/EnernalIliary/MAI-MlogAuxiIliary/releases/tag/v0.19.3 （两个 zip，`releases/latest` 已复核）。
+
+## §104 v0.19.4 工作区标题左对齐与按钮宽度上限（2026-11-02）
+
+- 驱动：用户 m01690「你把工作区的标题居中了，导致工作区按钮宽度被拉伸」。详细报告见 `out/takeover-20261024/105-v0194-wsui-title.md`。
+- 根因：0.19.3 单位对了但窗口几乎顶满屏幕，标题所在单元格是 `expandX().fillX()`，标题被居中就撑满整行把列顶宽；同列的筛选 chips（`floor((iw-14)/4)` 四等分）与详情主按钮（`floor((iw-8)/2)` 半栏）就跟着面板一起变长。不是某个按钮写死宽度，是「宽度按面板等分 + 面板无上限」。
+- 改法（`MlogAuxiliary/scripts/main.js`）：`wsDialogPlan()` 加上限（`availW = clamp(w-56, 520, 1080)`、`availH = clamp(h-190, 320, 760)`、`listW = clamp(availW*0.33, 320, 400)`）；新增 `wsChipWidth(iw)`（56–96）与 `wsPrimaryWidth(iw)`（100–168）；`openWorkspaceDialog()` 里 `d.title.setAlignment(Packages.arc.util.Align.left)` + `d.titleTable.left()` + `d.buttons.left()`（均 try/catch）；打开时把 `screen/scl/plan/list/detail/wide` 写进 `saves/last_log.txt`（`[mai] ws dialog: …`）当真机取证基准。
+- 自检：`python -X utf8 tests/mlogauxiliary/run_ui_smoke.py` EXIT=0，`MAIWS3:ok … plan=356x710 cap=96/168 scl=1`；smoke 新增 v0.19.4 红线（标题左对齐 / `d.buttons.left()` / `wsChipWidth` / `wsPrimaryWidth`）。
+- 文档：`CHANGELOG.md` 的 `## 0.19.4`；`docs/Mlog辅助-规划.md` 版本表 v0.19.4 行；`docs/断言表.md` 追加 L2-98 / L2-99，口径行 **158 条**（L1 31 / L2 99 / L3 6 / L4 4 / S 18）。
+- 版本三处一起 0.19.4：`main.js` 的 `MOD_VERSION`、`mod.hjson` 的 `version`、`tools/logicd.py` 的 `SIDECAR_VERSION`。
+- 取证经验：模型读不了图（`read_image` 报 `does not declare image input`）；真机排版只能靠 `log()` 写出的 `last_log.txt`。
+- 门禁 `python gate.py --full --kb-build` → 17/17 in 196.4s（`out/_gate_v194.log`）；打包 178 files / 18,799,096 B，
+  `MAI-0.19.4-mod.zip` sha256 `65C2C38E…5C73AFF181`、`MAI-0.19.4.zip` sha256 `6020A37A…32603D99E5`；已装机（备份 `MlogAuxiliary-20261102-174202`）。
+- 发布：本地提交 `817b94d`；公开仓克隆提交 `150d27d` + tag `v0.19.4` 已 push；
+  Release https://github.com/EnernalIliary/MAI-MlogAuxiIliary/releases/tag/v0.19.4 （两个 zip，`releases/latest` 已复核）。
+- 真机复核提示：装 0.19.4 后打开一次「工作区快照」，`saves/last_log.txt` 会出现 `[mai] ws dialog: screen=… scl=… plan=1080x… list=… detail=… wide=…`。
