@@ -2948,3 +2948,37 @@ v0.20.1 那组判据改成合并后的按钮，并把两个旧入口翻成反向
 Release https://github.com/EnernalIliary/MAI-MlogAuxiIliary/releases/tag/v0.21.1 两个 zip 均 201，`releases/latest` = v0.21.1。
 
 **下一步**：档3（侧车 workspace 工具化，v0.22.0）。
+
+## §113 v0.22.0 档3：工作区快照接进对话（只读 ws_* 工具）（2026-11-02）
+
+**问题**：档1 只做到「同一个壳」，对话里的模型看不见工作区 —— 数据在游戏侧进程，侧车是另一个进程，只认 `/chat` 请求体。
+
+**做法（只读）**：
+- `main.js` 新增 `wsDigestOf(all, map, budget)`（:5532）与 `wsDigest()`（:5568）：每个工作区最多 40 台、每段代码 6000 字符、
+  总代码预算 120000（超预算的代码置 `''` 但坐标/方阵/描述仍保留）、备注 500、作业只留最近 12 条。
+- `chatSend()`（:4829 附近）每轮都带 `req.workspaces = wsDigest(); req.map = wsMapName();`。
+- `chatRefreshDetailBody()`（:5081）在「工具 N 次 · 轮次 M」后加「助手能看到 N 个工作区（ws_list / ws_get / ws_search，只读）」。
+- `tools/chats.py`：常量 `WS_MAX`/`WS_PROCS_MAX`/`WS_CODE_MAX`/`WS_NOTE_MAX`、`_cut()`/`_int()`/`_ws_norm()`、`_CTX = threading.local()`，
+  TOOLS 末尾加 `ws_list` / `ws_get` / `ws_search` 三个**只读**工具（`_ws_list()`/`_ws_get()`/`_ws_search()`，`_run_tool` 三分支），
+  SYSTEM_PROMPT 两行写明「只能看不能改，写回由玩家点确认」。没有快照时明确回「这一轮没有快照…不要编」。
+- 探针 `api.maiWsDigestProbe`（:8349），实测 `MAIWSDIGEST:ok ws=2 procs=1+1 clipped=0 kept=10`。
+
+**测试**：`tests/logicd/run_logicd_tests.py` 的 `_ChatStub` 改成可配置（`tool`/`args`/`reply`）；`test_chats()` 新增第 8 节
+（切到 `ws_get` stub → 带快照发一轮 → 断言 tool 消息含 `@12,34`/`jump 0 always`、`chat['ws']==2`、`ws_map=='区域'`、
+system 与 tools 都提到 `ws_list`；再发一轮不带快照断言旧快照仍在）。`--no-sim` 全绿：protocol 26 / jobs 17 / provider 12 / improve 8 / llm 12 / **chats 11** / diag 7 / life 3。
+`run_ui_smoke.py` 加 `MAIWSDIGEST:` 打印 + 断言 + v0.22.0 红线 5 条，exit 0。
+
+**文档**：CHANGELOG `## 0.22.0`；`docs/Mlog辅助-规划.md` 版本表 v0.22.0 行；`docs/断言表.md` 追加 **L2-115**（跨进程数据必须裁剪并给预算）、
+**L2-116**（只读通道只读 + 系统提示词明说），口径改 **175 条**（L1 31 / L2 116 / L3 6 / L4 4 / S 18）；报告 `out/takeover-20261024/114-v0220-ws-digest.md`。
+
+**收尾数字（2026-11-03 00:12）**：门禁 `python -X utf8 gate.py --full --kb-build` → **17/17 passed in 84.9s**（`out\_gate_v220.log`，kb 169 源文件）；
+打包 `python -X utf8 tools\package.py` → `out/_dist/MAI-0.22.0/` **191 files / 19,442,952 B**，
+`MAI-0.22.0-mod.zip` 8,724,379 B sha256 `210E24E1C1B2355FB53B2A8E414800EAC5634FFC70E29EF8FF31537D709FD9A2`，
+`MAI-0.22.0.zip` 8,746,968 B sha256 `3B5AF07770226F17CB26742915B2D418048EB3265F93D8ED21F2079BA4056EC0`；
+装机 [ok] → `saves\mods\MlogAuxiliary`，备份 `saves\mod-backups\MlogAuxiliary-20261103-001246`，装机 `mod.hjson` = `version: "0.22.0"`（装机时游戏没在跑，下次启动生效）。
+
+本地提交 **f1216fc**（11 files / +560 −13）；公开仓提交 **7e4175b** "v0.22.0: let the assistant read the workspace snapshot" + tag `v0.22.0`
+（这次 **直连 443 通、10808 代理未监听**，push 不带 `-c http.proxy`，rc 均 0）；
+Release https://github.com/EnernalIliary/MAI-MlogAuxiIliary/releases/tag/v0.22.0 两个 zip 均 201，`releases/latest` = v0.22.0。
+
+**下一步**：真机重启复核「助手能看到 N 个工作区」那行与对话里的工作区问答（档3 只读通道的最后一验）。
