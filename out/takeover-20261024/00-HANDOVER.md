@@ -2916,3 +2916,35 @@ v0.21.0 红线 9 正向 + 2 反向（源码里不许再出现两处手写 `new P
 本地提交 **v0.21.0**（9 files / +196 −28，`git commit -F out\_msg210.txt`；收尾数字以 amend 方式并入，最终 sha 见 `git log -1`）；
 公开仓提交 **9b42e44** "v0.21.0: one shared shell for the chat and workspace dialogs" + tag `v0.21.0`（push 走 `http://127.0.0.1:10808` 代理，PUSH_MAIN=0 / PUSH_TAG=0）；
 Release https://github.com/EnernalIliary/MAI-MlogAuxiIliary/releases/tag/v0.21.0 两个 zip 均 201，`releases/latest` = v0.21.0。
+
+## §112 v0.21.1 合并两个入口 + 逻辑标志（2026-11-02）
+
+**用户 m04334**：「工作区的按钮宽度不够，被换行了其它没有问题。合并控制面板和MAI对话吧。对了，合并之后要加个逻辑标志并染上主题色。完成之后继续做档3」
+
+**① 折行根因**：v0.21.0 的分段按钮写死 `width(64)`，「工作区」三个汉字 + 内边距装不下 ⇒ Label 在按钮里换行。
+改法：`dualSegWidth(mode)` 按字数给宽（对话 72 / 工作区 88）+ `.ellipsis(true)`。
+
+**② 合并入口**：`<main.js:6604>` 的「MAI 控制面板」本来就是 `openWorkspaceDialog()`（v0.18.3 m11124 命名），
+所以合并 = 蓝图页两个按钮并成一个 `btns.button("MAI " + LOGIC_NAME, ...)` → `openLogicAssistant()`（`dualSwitch(DUAL.last)`，按上次模式打开）；
+工作区窗底栏的「＋ 对话」（v0.20.1）随之删除。对外新增 `api.maiLogicAssistant`。
+
+**③ 逻辑标志**：`LOGIC_NAME = "逻辑助手"`，窗口标题 `"Mlog辅助 · 逻辑助手 v" + MOD_VERSION`；
+标题行最左与入口按钮左侧各一个 `Tex.whiteui` + `themeColor()` 方块（主题色随设置走）。
+
+**验证**：`node --check` exit 0；`run_ui_smoke.py` exit 0，打印 `MAIDUAL:ok modes=chat,ws cn=对话/工作区 last=chat name=逻辑助手 seg=72/88`；
+`MAIWS3` / `MAICHATUI` 数字不变。smoke v0.21.1 红线 7 正向 + 1 反向（`width(64).padLeft(6)` 不许存在）；
+v0.20.1 那组判据改成合并后的按钮，并把两个旧入口翻成反向。
+
+**文档**：CHANGELOG `## 0.21.1`；`docs/Mlog辅助-规划.md` 版本表 v0.21.0 行后；`docs/断言表.md` 追加 **L2-114**（分段按钮宽度按字数给 + ellipsis），
+口径改 **173 条**（L1 31 / L2 114 / L3 6 / L4 4 / S 18）；报告 `out/takeover-20261024/113-v0211-merge.md`。
+
+
+**收尾数字（2026-11-02 23:15）**：门禁 `python -X utf8 gate.py --full --kb-build` → **17/17 passed in 112.4s**（`out\_gate_v211.log`，kb 169 源文件）；
+打包 `python -X utf8 tools\package.py` → `out/_dist/MAI-0.21.1/` **191 files / 19,419,404 B**，
+`MAI-0.21.1-mod.zip` 8,711,975 B sha256 `8E5025AB8ADFFD9B8B8B53DECD91BD102665D58DAE3978CF871D2C2E66E6062F`，
+`MAI-0.21.1.zip` 8,734,565 B sha256 `874DF18022B3B8E1DC7ECE539489485FD212157CE624C13B09F482BFE4F84392`；
+装机 [ok] → `saves\mods\MlogAuxiliary`，备份 `saves\mod-backups\MlogAuxiliary-20261102-230925`，装机 `mod.hjson` = `version: "0.21.1"`（装的时候游戏没在跑，直接开游戏生效）；
+本地提交 **89422f4**（9 files / +176 −40）；公开仓提交 **f53c52c** "v0.21.1: merge the two entries, add the logic mark" + tag `v0.21.1`（push 走 10808 代理，rc 均 0）；
+Release https://github.com/EnernalIliary/MAI-MlogAuxiIliary/releases/tag/v0.21.1 两个 zip 均 201，`releases/latest` = v0.21.1。
+
+**下一步**：档3（侧车 workspace 工具化，v0.22.0）。
