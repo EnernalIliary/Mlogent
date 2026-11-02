@@ -2786,3 +2786,41 @@ CI run **41239699508** success。直连 GitHub 又断，走本机代理 `127.0.0
   直连 github.com:443 本机不通；python 侧仍用直连 opener）；Release
   https://github.com/EnernalIliary/MAI-MlogAuxiIliary/releases/tag/v0.19.6 两资产 201，latest = v0.19.6。
 - 留给真机：重启游戏开「工作区快照」，标题应在左上、卡片色条贴左；若还不对，要**整窗**截图或贴 `[mai] ws geom:` 那行（现含 title 与真实 x）。
+
+## §107 v0.20.0 自由对话：纯文本 + 工具调用 + 双栏选单/详情（2026-11-02）
+
+- 驱动：用户 m02407「允许在MAI中新建纯文本对话，但是要能调用工具」、m02414「就是在MAI管理面板中新建对话」、
+  m02455「对了，对话选单和右侧对话详情的分隔也加回去」。
+- 为什么不能复用作业流水线：`tools/jobqueue.py` mode 只有 `new|edit|improve`，`tools/mlogprovider.py` 的 `HttpProvider.__call__` 一次请求后
+  `parse_reply()` 只抠一个 JSON ⇒ 没有工具调用；且 `/chat` 必须**先回包再算**（模组 socket 读超时 16s，一次模型调用 60s 级）。
+- 侧车（teammate sidecar-dev，task-1）：新增 `tools/chats.py`（921 行）——`Store` :213 一会话一 JSON 原子写、`start` :429 追加 user 并起 daemon 线程后立刻返回、
+  `_run_loop` :539 工具循环 `MAX_ROUNDS=6`、`_call_model` :603 端点不支持 tools 时去掉 tools 重试并记 `tools_supported=false`、
+  工具表 `TOOLS` :57 = `mlog_check` / `mlog_value` / `mlog_pack` / `game_lookup` / `mlog_template`；`tools/logicd.py` 加 `GET /chats` :1274、`GET /chat` :1278、
+  `POST /chat` :1367、`DELETE /chat` :1389，`SIDECAR_VERSION='0.20.0'` :88、`--chats-dir` :1481；`tests/logicd/run_logicd_tests.py` 加 `_ChatStub` :1511 / `test_chats` :1574（9 checks）。
+- 线格式：`POST /chat` 立刻回 `{ok,id,state:'running',...}`；`GET /chat?id=` 回 `chat.{messages[],tools[],rounds,tools_supported,error,state}`；
+  `GET /chats` 的 brief 里 `tools` 是**次数**；`state` 只有 `idle|running`，失败是 `state='idle'`+`error`；运行中再 POST 回 `error:'busy'`。
+- 模组（lead，task-2）：`main.js` 新增整块「自由对话（v0.20.0）」（约 470 行）——`chatPlan()` / `openChatDialog()`（左 `pane(listT)` → 2px 竖分隔线
+  `image(Tex.whiteui).width(2).height(availH).color(Pal.gray).padLeft(7).padRight(7)` → 右 `pane(detailT)`，窄屏单栏）、`chatRefreshList/Body` 与 `chatRefreshDetail/Body`
+  （各自 `busyList`/`busyDetail` 守卫）、`chatSend/chatPoll/chatTick`（900ms 节流，`state!=='running'` 停）、`chatNew/chatAskDelete`；
+  `openJobManager()` 内容区顶部加 `＋ 新建对话`；自检口 `api.maiChatUiProbe`（`MAICHATUI`）。
+- 版本三处 0.20.0：`main.js:31`、`MlogAuxiliary\mod.hjson:5`、`tools/logicd.py:88`。
+- 验证：`node --check` EXIT=0；ui smoke EXIT=0，`MAICHATUI:ok plan=1080x558 list=259 detail=805 sub=4 条 · 工具 2 次 · ? poll=900`；
+  `tests/logicd/run_logicd_tests.py` 全绿（`chats: 9 check(s) passed`、`logicd OK`）。smoke 新增 v0.20.0 红线 6 条 + `MAICHATUI` 前缀白名单。
+- 文档：CHANGELOG 0.20.0；`docs/Mlog辅助-规划.md` v0.20.0 行；`docs/断言表.md` L2-104（双栏 + 竖分隔线）/ L2-105（轮询异步 + 节流 + 防重入），
+  口径行 → **164 条**（L1 31 / L2 105 / L3 6 / L4 4 / S 18）；报告 `108-v0200-chat.md`。
+- 留给真机：管理面板 → `＋ 新建对话` → 左选单 / 竖线 / 右详情；发一句让模型调 `mlog_check`；关窗再开应还在（`<jobs-dir>/chats/<id>.json`）。
+- 门禁 `python gate.py --full --kb-build` → **17/17 passed in 115.9s**（`out/_gate_v200.log`，UTF-16LE；kb 覆盖 **169** 源文件，多了新增的 `tools/chats.py`）。
+- 打包 `python tools/package.py` → `out/_dist/MAI-0.20.0/` **191 files / 19,405,007 B**；`MAI-0.20.0-mod.zip` **8,708,273 B / 182 files**
+  sha256 `BF856EC3C23DF6C9AEDAF46DB0F095F62E798448991AB043BC5D8D082BE76D95`；`MAI-0.20.0.zip` **8,730,851 B**
+  sha256 `1BA3EE65564885BB6EE707BD72139CC926CDC8EC1BF0D87285823915901F49E5`（`out/_pack200.log`）。
+- 装机：`install.ps1 -Target "E:\Program Files (x86)\Steam\steamapps\common\Mindustry\saves\mods"` → `[ok] MAI 0.20.0 installed`，
+  备份 `saves\mod-backups\MlogAuxiliary-20261102-194454`；装后 mod.hjson/main.js/logicd.py 三处均 0.20.0，`sidecar/chats.py` 已随包。
+- 发布：本地提交 **11 files / +1898 −8**（amend 后；hash 以 `git log -1` 为准）；公开仓提交 **cdf272e** + tag `v0.20.0`（push 需 `$env:HTTPS_PROXY="http://127.0.0.1:10808"`）；
+  Release https://github.com/EnernalIliary/MAI-MlogAuxiIliary/releases/tag/v0.20.0 两资产 201，latest = v0.20.0。
+- **装机坑（实测）**：装的时候游戏还开着（pid 49392，19:21 启动，跑的是 0.19.6 的模组代码）⇒ 旧代码 `sidecarVersionMismatch()` 把新后端
+  （0.20.0）判成版本不符 → `sidecarRetire()` → `sidecar shutdown -> -1`（关不掉）→ 重新 spawn，**每秒一个**逻辑后端，两分钟内堆到 21 个进程。
+  这是既有 retire 逻辑的行为，不是 v0.20.0 回归；`last_log.txt` 里能看到成对的 `sidecar spawned` / `sidecar retire (版本 0.20.0 不是 0.19.6)`。
+  结论：**装新包前先关游戏**（install.ps1 只杀 logicd，杀不掉已经 spawn 的循环）。
+- 打包后端的实证：`out/_dist/MAI-0.20.0/mod/MlogAuxiliary/sidecar/bin/logicd.exe --port 18778 --chats-dir <tmp>` 能起来，
+  `GET /health` → `{"ok":true,"protocol":1,"version":"0.20.0",...}`、`GET /chats?limit=5` → `{"ok":true,"count":0,"chats":[]}`（说明 chats 被打进 exe，不是只有源码有）。
+- 技巧：`out/_v200_pub.py` 从 `_v196_pub.py` 改时要把 `tests/logicd/run_logicd_tests.py` 加进 FILES —— 它不在自动补全的目录里（只自动扫 `tools/`、`rules`、`tests/cases`、`mindustry-blueprint/tools`）。
