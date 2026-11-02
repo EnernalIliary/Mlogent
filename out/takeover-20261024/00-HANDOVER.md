@@ -2755,3 +2755,34 @@ CI run **41239699508** success。直连 GitHub 又断，走本机代理 `127.0.0
   要用 `git reset --mixed HEAD~1` 撤回后逐个 `git add <路径>`。
 - 下一步（等真机）：用户重开「工作区快照」面板，若还觉得宽/挤，读 `saves/last_log.txt` 里的
   `[mai] ws geom: dialog(...) pane(...) host(...) #0 ... | #1 ...` 那行，直接按数字定位是哪个控件。
+
+## §106 v0.19.6 工作区标题/卡片真正左对齐（2026-11-02）
+
+- 驱动：用户 m02101「还是没改到，标题还是居中的，按钮底部的详情明明都正确省略了。」+ 609x766 真机截图。
+- 取证：`[mai] ws dialog: screen=1707x1044 scl=1 plan=1080x760 list=324 detail=742 wide=true` 说明尺寸链路（v0.19.3/4/5）都对；
+  `[mai] ws geom:` 的宽度数字也全对（搜索框 150、排序 148、chips 60/77/76/96）。真问题是**位置**：
+  截图像素量出卡片 4px 色条在卡片中间 x≈270，名字被推到 x≈505 并被裁。
+- 根因（源码）：`Table.java:1243` `align = c.align;` —— 单元格对齐**不继承表**，`Cell.align` 默认 0（`Cell.java:31`）
+  ⇒ 走 `Table.java:1249` 的居中分支。所以 `card.left()`/`bar.left()` 只管整表摆放。
+  叠加两点：卡片 sub 行落在第 0 列把该列撑到 `iw-30`、`Dialog.java:78` `add(title).expandX().fillX()` 把标题撑满整行。
+  另外发现上一版 dump 的 x 恒为 -1：`Element` 没有无参 `getX()`（只有 `getX(int)`，`Element.java:380`）。
+- 改法（`MlogAuxiliary/scripts/main.js`）：卡片整卡 `left().top()`、色条/名字/副行逐格 `.left()`、副行 `.colspan(2)`；
+  chips 短标签（`地图不符`→`不符`+tooltip）并删掉 `maxWidth(cw)`；搜索行与详情右栏（状态/时间/定位/处理器表 4 列/作业行/三排按钮）逐格 `.left()`；
+  `d.titleTable.clearChildren(); d.titleTable.left(); d.titleTable.add(d.title).left().padLeft(2);`；`d.cont.left().top();`；
+  `wsGeomOne` 改读字段 `e.x`；`wsGeomDump` 增加 `title(...)`。
+- 版本三处 0.19.6：`main.js:31`、`MlogAuxiliary\mod.hjson:5`、`tools/logicd.py:87`。
+- 验证：`node --check` EXIT=0；ui smoke EXIT=0，`MAIWS3:ok … plan=324x742 cap=96/168 scl=1`；smoke 新增 v0.19.6 红线 6 条
+  （`card.image(Tex.whiteui).width(4).height(26).color(col).left()`、`.left().padLeft(12).colspan(2)`、`d.titleTable.clearChildren()`、
+  `d.cont.left().top()`、`try{ x = Math.round(Number(e.x)); }catch(e2){ }`、chips 三元组）。
+- 文档：CHANGELOG 0.19.6；`docs/Mlog辅助-规划.md` v0.19.6 行；`docs/断言表.md` L2-102（单元格 align 不继承表，必须逐格 .left()）/
+  L2-103（标题 cell 不许 fillX 撑满），口径行 → **162 条**（L1 31 / L2 103 / L3 6 / L4 4 / S 18）；报告 `107-v0196-wsui-align.md`。
+- 门禁 `python gate.py --full --kb-build` → **17/17 passed in 114.9s**（`out/_gate_v196.log`；恢复 CRLF 换行后复跑 17/17 in 50.8s，`out/_gate_v196b.log`）。
+- 打包 `python tools/package.py` → `out/_dist/MAI-0.19.6/` **178 files / 18,805,928 B**；
+  `MAI-0.19.6-mod.zip` **8,460,696 B** sha256 `C1FAE44D48DBF257A499F8A91BBCA8463177E3D25279F2F4EBB9DFEE4A90EAFA`；
+  `MAI-0.19.6.zip` **8,482,432 B** sha256 `B16F41CB422CF7E0C04265C96631E7792530BC8C55CC6972DBFAEF06E3F5634A`（`out/_pack196.log`）。
+- 装机：`install.ps1 -Target "E:\Program Files (x86)\Steam\steamapps\common\Mindustry\saves\mods"` → [ok]，
+  备份 `saves\mod-backups\MlogAuxiliary-20261102-190226`；装后 `mod.hjson version=0.19.6`、`main.js MOD_VERSION=0.19.6`。
+- 发布：本地提交 **b7fa158**；公开仓提交 **8e115b6** + tag `v0.19.6`（push 需 `$env:HTTPS_PROXY="http://127.0.0.1:10808"`，
+  直连 github.com:443 本机不通；python 侧仍用直连 opener）；Release
+  https://github.com/EnernalIliary/MAI-MlogAuxiIliary/releases/tag/v0.19.6 两资产 201，latest = v0.19.6。
+- 留给真机：重启游戏开「工作区快照」，标题应在左上、卡片色条贴左；若还不对，要**整窗**截图或贴 `[mai] ws geom:` 那行（现含 title 与真实 x）。
