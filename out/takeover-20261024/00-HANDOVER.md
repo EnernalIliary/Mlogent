@@ -2722,3 +2722,36 @@ CI run **41239699508** success。直连 GitHub 又断，走本机代理 `127.0.0
 - 发布：本地提交 `817b94d`；公开仓克隆提交 `150d27d` + tag `v0.19.4` 已 push；
   Release https://github.com/EnernalIliary/MAI-MlogAuxiIliary/releases/tag/v0.19.4 （两个 zip，`releases/latest` 已复核）。
 - 真机复核提示：装 0.19.4 后打开一次「工作区快照」，`saves/last_log.txt` 会出现 `[mai] ws dialog: screen=… scl=… plan=1080x… list=… detail=… wide=…`。
+
+## §105 v0.19.5 工作区左栏控件按文字宽度（2026-11-02）
+
+- 驱动：用户 m01884「MAI的左栏。仍然没变」，选项答「按钮/输入框还是被拉得很宽，占满一整行」。
+- 取证：`saves/last_log.txt` 里 `[mai] ws dialog: screen=1707x1044 scl=1 plan=1080x760 list=356 detail=710 wide=true`
+  ⇒ v0.19.4 的宽度封顶已生效，问题不在窗口宽度。真凶是**排布策略**：左栏 356 时 `iw=334`，
+  搜索框 `iw-158-6=170` + 排序按钮 158 = 334、四个 chips 80×4 = 332 —— 两行各自刚好填满整栏。
+- 改法（`MlogAuxiliary/scripts/main.js`）：`wsDialogPlan` 的 `listW = clamp(availW*0.30, 300, 360)`（1080 → 324）；
+  搜索框 `.width(150)`；排序按钮去掉 `.width(sortW)` 走自然宽度 + `ellipsis(true)`；
+  chips `.width(cw)` → `.maxWidth(cw)`（按文字宽度，超上限才截断）；卡片仍 `growX()`。
+- 新增真机排版自检 `wsGeomDump()`：`openWorkspaceDialog()` 置 `wsUI.needGeom = true`，
+  `Events.run(Trigger.draw)` 里（`drawWorkspaceGhosts` 之后）第一帧 dump 一次，
+  把 `dialog(...) pane(...) host(...) #i Class w= x= h= t=…` 写进 `saves/last_log.txt`。
+  关键点：`Element.getWidth()` 在 `validate()` 之前是 0，不能在 `wsRefreshListBody()` 里读。
+- 验证：`node --check` EXIT=0；`python -X utf8 tests/mlogauxiliary/run_ui_smoke.py` EXIT=0，
+  `MAIWS3:ok … plan=324x742 cap=96/168 scl=1`；探针新增 `plan-listw`（listW===324）/`plan-detail-min`；
+  smoke 加 v0.19.5 红线（`function wsGeomDump(`、`wsUI.needGeom = true`、`bar.add(tf).width(150)`、`maxWidth(cw)`）。
+- 文档：CHANGELOG 0.19.5；`docs/Mlog辅助-规划.md` v0.19.5 行；`docs/断言表.md` L2-100（左栏按文字宽度）/
+  L2-101（排版自检 dump 的时机），口径行 → **160 条**（L1 31 / L2 101 / L3 6 / L4 4 / S 18）；
+  报告 `out/takeover-20261024/106-v0195-wsui-left.md`。
+- 门禁 `python gate.py --full --kb-build` → **17/17 passed in 108.1s**（`out/_gate_v195.log`，kb 覆盖 168 源文件）。
+- 打包 `python tools/package.py` → `out/_dist/MAI-0.19.5/` **178 files / 18,803,149 B**；
+  `MAI-0.19.5-mod.zip` **8,461,519 B** sha256 `156EAA0BD079D4B04455364CF97DA36F6A50EDD906CABABEAD3B501E174FEF52`；
+  `MAI-0.19.5.zip` **8,483,258 B** sha256 `2BEAC03A2D62974384A2960F39A5157D7E6DA3595F8833A48850A8F143191E0B`。
+- 装机：Stop-Process logicd → `out/_dist/MAI-0.19.5/install.ps1 -Target "E:\Program Files (x86)\Steam\steamapps\common\Mindustry\saves\mods"`，
+  备份 `saves\mod-backups\MlogAuxiliary-20261102-184248`；实测装机目录 mod.hjson `version: "0.19.5"`，
+  main.js 里 `wsGeomDump` / `bar.add(tf).width(150)` / `maxWidth(cw)` 各 1 处。
+- 本地提交 `0376b2d`（9 files / +182 −11）；公开仓克隆提交 `1782d37` + tag `v0.19.5` 已 push；
+  Release https://github.com/EnernalIliary/MAI-MlogAuxiIliary/releases/tag/v0.19.5 （两个 zip 均 201，latest = v0.19.5）。
+- 教训：`git add -A <目录>` 会把该目录下所有未跟踪文件一起收进去（第一次提交 95 files / +93962 行），
+  要用 `git reset --mixed HEAD~1` 撤回后逐个 `git add <路径>`。
+- 下一步（等真机）：用户重开「工作区快照」面板，若还觉得宽/挤，读 `saves/last_log.txt` 里的
+  `[mai] ws geom: dialog(...) pane(...) host(...) #0 ... | #1 ...` 那行，直接按数字定位是哪个控件。
