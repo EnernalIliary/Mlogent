@@ -28,7 +28,7 @@
 function __logicWriterMain(){
     "use strict";
 
-    var MOD_VERSION = "0.22.0";
+    var MOD_VERSION = "0.23.0";
     var URL_KEY     = "mlogauxiliary-url";
     var DEFAULT_URL = "http://127.0.0.1:8765";
     // v0.11.0：设置页里填的模型档三件套。密钥只留在本机 Core.settings 与 sidecar 进程内存。
@@ -4827,6 +4827,9 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
             var req = {text: txt};
             if(id !== ""){ req.id = id; }
             try{ req.workspaces = wsDigest(); req.map = wsMapName(); }catch(ew){ }
+            // v0.23.0 ③：玩家 / 本局服务器状态跟着这一轮一起发（无头时两者都是 null，就不带字段）
+            try{ var pd = playerDigest(); if(pd !== null){ req.player = pd; } }catch(ep){ }
+            try{ var sd = serverDigest(); if(sd !== null){ req.server = sd; } }catch(es){ }
             var body = JSON.stringify(req);
             CHAT_UI.sending = true;
             CHAT_UI.polling = false;
@@ -4891,6 +4894,8 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
                 CHAT_UI.polling = running;
                 chatRefreshAll();
                 if(running !== true){
+                    // v0.23.0 ①②：这一轮说完了，模型要是登记了「写蓝图 / 跑命令」的意图，就弹一次确认
+                    chatTakeIntents(doc.chat);
                     chatReloadList();
                     if(errText !== ""){ hint("对话出错：" + errText); }
                 }
@@ -5106,7 +5111,8 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
                     }
                     if(chatStrip(content) !== ""){
                         dp.add("MAI").color(themeColor()).fontScale(0.85).left().row();
-                        chatWrap(dp, content, iw);
+                        // v0.23.0 ④：模型写的 markdown 换成标签再进 Label（转换本身绝不抛）
+                        chatWrap(dp, mdToTags(content), iw);
                     }
                 }else if(role === "tool"){
                     var tn = String(msg.name === null || msg.name === undefined ? "工具" : msg.name);
@@ -5125,19 +5131,319 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
             }
         }
 
+        // ------------------------------------------------ markdown → Mindustry 标签（v0.23.0）
+        // 用户 m04691 ④：模型习惯写 markdown，对话框里却是纯文本。这里做**只影响显示**的转换：
+        // 把 markdown 换成像素工厂的富文本标签（[accent]… 那种），存档里的原文一个字都不改。
+        // 字面量的 '[' 在标签语言里必须双写成 '[['（原版的转义写法），所以先把所有 '[' 换成占位符，
+        // 等我们自己插完 [accent] 这类标签再换回来 —— 否则自己的标签也会被转义成字面文字。
+        // 整个函数是「绝不抛」的：出任何错就原样返回。
+        var MD_LB = "\u0001";
+        function mdEscBrackets(t){ return String(t).split("[").join(MD_LB); }
+        function mdUnescapeBrackets(t){ return String(t).split(MD_LB).join("[["); }
+        // v0.23.0 修（2026-11-03）：v160.7 的 Rhino 在**正则字面量**上会抛
+        // `FAILED ASSERTION: invalid bytecode`（整段脚本连带不执行，见断言 L2-31），
+        // 所以这一段全部改成字符串扫描 —— 和 httpRaw / 签名解析同一口径。
+        // 成对定界符 → 标签；找不到配对就原样留下（宁可不好看，不能吃字符）。
+        function mdWrapPairs(t, d, open, close){
+            var i = 0, n = t.length, out = "", a, b, mid;
+            while(i < n){
+                a = t.indexOf(d, i);
+                if(a < 0){ out = out + t.substring(i); break; }
+                b = t.indexOf(d, a + d.length);
+                if(b < 0){ out = out + t.substring(i); break; }
+                mid = t.substring(a + d.length, b);
+                out = out + t.substring(i, a);
+                if(mid.length === 0){ out = out + d + d; i = b + d.length; continue; }
+                out = out + open + mid + close;
+                i = b + d.length;
+            }
+            return out;
+        }
+        // [文字](地址) → 文字 (地址)：标签语言里没有链接，只能把地址露出来
+        function mdLinkToText(t){
+            var i = 0, n = t.length, out = "", a, b, c, e, name, url, ok;
+            while(i < n){
+                a = t.indexOf("[", i);
+                if(a < 0){ out = out + t.substring(i); break; }
+                b = t.indexOf("]", a + 1);
+                c = (b < 0) ? -1 : t.indexOf("(", b + 1);
+                e = (c < 0) ? -1 : t.indexOf(")", c + 1);
+                ok = (b > a && c > b && e > c + 1);
+                if(ok){
+                    name = t.substring(a + 1, b);
+                    url = t.substring(c + 1, e);
+                    if(name.indexOf("[") >= 0 || name.indexOf("]") >= 0){ ok = false; }
+                    if(url.indexOf(" ") >= 0 || url.indexOf("\t") >= 0 || url.indexOf("(") >= 0){ ok = false; }
+                }
+                if(!ok){ out = out + t.substring(i, a + 1); i = a + 1; continue; }
+                out = out + t.substring(i, a) + name + " (" + url + ")";
+                i = e + 1;
+            }
+            return out;
+        }
+        // HTML 噪声（<br>、<b>x</b>…）一律去掉
+        function mdStripHtml(t){
+            var i = 0, n = t.length, out = "", a, b, body, k, ch, ok;
+            while(i < n){
+                a = t.indexOf("<", i);
+                if(a < 0){ out = out + t.substring(i); break; }
+                b = t.indexOf(">", a + 1);
+                if(b < 0){ out = out + t.substring(i); break; }
+                body = t.substring(a + 1, b);
+                if(body.charAt(0) === "/"){ body = body.substring(1); }
+                ok = (body.length > 0 && body.length <= 24);
+                for(k = 0; ok && k < body.length; k++){
+                    ch = body.charAt(k);
+                    if(!((ch >= "a" && ch <= "z") || (ch >= "A" && ch <= "Z") || ch === "/" || ch === " ")){ ok = false; }
+                }
+                if(!ok){ out = out + t.substring(i, a + 1); i = a + 1; continue; }
+                out = out + t.substring(i, a);
+                i = b + 1;
+            }
+            return out;
+        }
+        function mdInline(s){
+            var t = String(s === null || s === undefined ? "" : s);
+            t = mdLinkToText(t);
+            t = mdEscBrackets(t);
+            // 代码 → 粗体 → 斜体：顺序不能反，** 要先被吃掉，否则会当成两次斜体
+            t = mdWrapPairs(t, "`", "[lightgray]", "[]");
+            t = mdWrapPairs(t, "**", "[accent]", "[]");
+            t = mdWrapPairs(t, "__", "[accent]", "[]");
+            t = mdWrapPairs(t, "*", "[lightgray]", "[]");
+            t = mdWrapPairs(t, "_", "[lightgray]", "[]");
+            return mdUnescapeBrackets(t);
+        }
+        // 行首缩进（空格 / 制表符）的个数：标题、引用、列表都按 Markdown 的 ≤3 空格算
+        function mdLead(t){
+            var i = 0;
+            while(i < t.length && (t.charAt(i) === " " || t.charAt(i) === "\t")){ i++; }
+            return i;
+        }
+        function mdIsFence(ln){
+            var k = mdLead(ln);
+            return (k + 3 <= ln.length && ln.charAt(k) === "`" && ln.charAt(k + 1) === "`" && ln.charAt(k + 2) === "`");
+        }
+        function mdHeading(ln){
+            var k = mdLead(ln), n = 0;
+            if(k > 3){ return null; }
+            while(k + n < ln.length && ln.charAt(k + n) === "#"){ n++; }
+            if(n < 1 || n > 6){ return null; }
+            if(k + n < ln.length && ln.charAt(k + n) !== " "){ return null; }
+            return chatStrip(ln.substring(k + n));
+        }
+        function mdQuoteLine(ln){
+            var k = mdLead(ln), t;
+            if(k > 3 || ln.charAt(k) !== ">"){ return null; }
+            t = ln.substring(k + 1);
+            if(t.charAt(0) === " "){ t = t.substring(1); }
+            return chatStrip(t);
+        }
+        function mdBullet(ln){
+            var k = mdLead(ln), ch;
+            if(k >= ln.length){ return null; }
+            ch = ln.charAt(k);
+            if(ch !== "-" && ch !== "*" && ch !== "+"){ return null; }
+            if(k + 1 >= ln.length || ln.charAt(k + 1) !== " "){ return null; }
+            return { lead: ln.substring(0, k), text: chatStrip(ln.substring(k + 1)) };
+        }
+        function mdOrdered(ln){
+            var k = mdLead(ln), j = k, num = "";
+            while(j < ln.length && num.length < 3 && ln.charAt(j) >= "0" && ln.charAt(j) <= "9"){ num = num + ln.charAt(j); j++; }
+            if(num.length === 0 || j >= ln.length){ return null; }
+            if(ln.charAt(j) !== "." && ln.charAt(j) !== ")"){ return null; }
+            if(j + 1 >= ln.length || ln.charAt(j + 1) !== " "){ return null; }
+            return { lead: ln.substring(0, k), num: num, text: chatStrip(ln.substring(j + 1)) };
+        }
+        function mdToTags(text){
+            try{
+                var s = String(text === null || text === undefined ? "" : text);
+                s = s.split("\r\n").join("\n").split("\r").join("\n");
+                // 少量模型会夹 HTML（<br>、<b>），一律当噪声去掉
+                s = mdStripHtml(s);
+                var src = s.split("\n"), out = [], i, ln, hr, hd, qt, ul, ol, inCode = false;
+                for(i = 0; i < src.length; i++){
+                    ln = src[i];
+                    if(mdIsFence(ln)){ inCode = !inCode; continue; }
+                    if(inCode){
+                        // 代码块整体灰掉，里面的 markdown 一律不解释（宁可不好看，不能吃字符）
+                        out.push("[lightgray]  " + mdEscBrackets(ln));
+                        continue;
+                    }
+                    if(chatStrip(ln).length === 0){ out.push(""); continue; }
+                    // 分隔线 --- / *** / ___（不用正则，靠 split 全等判断）
+                    hr = chatStrip(ln);
+                    if(hr.length >= 3 && (hr.split("-").join("") === "" || hr.split("*").join("") === ""
+                                          || hr.split("_").join("") === "")){
+                        out.push("[gray]────────────");
+                        continue;
+                    }
+                    hd = mdHeading(ln);
+                    if(hd !== null){ out.push("[accent]" + mdInline(hd) + "[]"); continue; }
+                    qt = mdQuoteLine(ln);
+                    if(qt !== null){ out.push("[gray]│ " + mdInline(qt) + "[]"); continue; }
+                    ul = mdBullet(ln);
+                    if(ul !== null){ out.push(ul.lead + "• " + mdInline(ul.text)); continue; }
+                    ol = mdOrdered(ln);
+                    if(ol !== null){ out.push(ol.lead + ol.num + ". " + mdInline(ol.text)); continue; }
+                    out.push(mdInline(ln));
+                }
+                return out.join("\n");
+            }catch(e){
+                // 转换出问题就退回原文：宁可不好看，也不能让对话窗整段消失
+                try{ return String(text === null || text === undefined ? "" : text); }catch(e2){ return ""; }
+            }
+        }
         // 长文本：能 labelWrap 就折行，不能（无头/样式缺）就退回单行省略 —— 绝不抛。
         function chatWrap(dp, text, iw){
             try{ dp.labelWrap(String(text)).width(iw).left().row(); }
             catch(e){ dp.add(chatFlat(text)).width(iw).left().ellipsis(true).row(); }
         }
 
+        // ------------------------------------------------ 模型请求的动作（v0.23.0 ①②）
+        // 用户 m04691：模型要能「写蓝图库」和「跑控制台命令」。这两件都会改玩家的存档/服务器，
+        // 所以侧车只把意图登记进 chat['intents']（它自己碰不到游戏），模组这边看到意图先弹一次确认，
+        // 玩家点「执行」才真的落地。一次最多认真前 8 条，去重键 = 会话 id#轮次#条数。
+        var CHAT_INTENT = {key: "", shown: 0};
+        function chatIntentList(chat){
+            var out = [], list = null, i, n;
+            try{ list = (chat === null || chat === undefined) ? null : chat.intents; }catch(e0){ list = null; }
+            n = chatArrLen(list);
+            for(i = 0; i < n && out.length < 8; i++){
+                var it = null;
+                try{ it = list[i]; }catch(e1){ it = null; }
+                if(it === null || it === undefined){ continue; }
+                var kind = String(it.kind === null || it.kind === undefined ? "" : it.kind);
+                if(kind === "bp"){
+                    out.push({kind: "bp",
+                              name: String(it.name === null || it.name === undefined ? "" : it.name),
+                              code: String(it.code === null || it.code === undefined ? "" : it.code),
+                              desc: String(it.desc === null || it.desc === undefined ? "" : it.desc)});
+                }else if(kind === "console"){
+                    out.push({kind: "console",
+                              cmd: String(it.cmd === null || it.cmd === undefined ? "" : it.cmd)});
+                }
+            }
+            return out;
+        }
+        function chatIntentLine(it){
+            if(it.kind === "bp"){
+                var nm = chatStrip(String(it.name));
+                if(nm === ""){ nm = "(未命名)"; }
+                return "· 写蓝图库「" + nm + "」（" + String(String(it.code).length) + " 字符的蓝图码）";
+            }
+            return "· 控制台命令 /" + String(it.cmd);
+        }
+        function chatIntentText(list){
+            var a = [], i;
+            for(i = 0; i < list.length; i++){ a.push(chatIntentLine(list[i])); }
+            return "模型请求执行 " + String(list.length) + " 个动作：" + "\n" + a.join("\n")
+                   + "\n\n蓝图会写进蓝图库（可以再删），命令按你现在的权限执行。";
+        }
+        function chatTakeIntents(chat){
+            var list = chatIntentList(chat);
+            if(list.length === 0){ return 0; }
+            var key = "", rounds = 0, cid = "";
+            try{
+                cid = String(chat.id === null || chat.id === undefined ? "" : chat.id);
+                rounds = Number(chat.rounds || 0);
+            }catch(ek){ }
+            key = cid + "#" + String(rounds) + "#" + String(list.length);
+            if(CHAT_INTENT.key === key){ return 0; }
+            CHAT_INTENT.key = key;
+            CHAT_INTENT.shown = list.length;
+            // 无头（Vars.ui 为 null）：只记账，不弹窗、不执行
+            if(Vars.ui === null || Vars.ui === undefined){ return -1; }
+            try{
+                Vars.ui.showConfirm("MAI · 执行动作", chatIntentText(list), function(){ chatRunIntents(list); });
+                return list.length;
+            }catch(e){
+                log("intent confirm failed: " + e);
+                return -1;
+            }
+        }
+        function chatRunBp(it){
+            var name = chatStrip(String(it.name || ""));
+            var code = chatStrip(String(it.code || ""));
+            var desc = chatStrip(String(it.desc || ""));
+            if(name === ""){ name = "MAI 蓝图"; }
+            if(name.length > 40){ name = name.substring(0, 40); }
+            if(code === ""){ return "· 蓝图「" + name + "」→ 跳过：蓝图码是空的"; }
+            var s = null;
+            try{ s = Packages.mindustry.game.Schematics.readBase64(code); }
+            catch(e){
+                var why = String(e);
+                if(why.length > 90){ why = why.substring(0, 90) + "…"; }
+                return "· 蓝图「" + name + "」→ 失败：不是有效的蓝图码（" + why + "）";
+            }
+            if(s === null || s === undefined){ return "· 蓝图「" + name + "」→ 失败：解析结果为空"; }
+            try{ s.tags.put("name", name); }catch(e2){ }
+            if(desc !== ""){ try{ s.tags.put("description", desc.substring(0, 200)); }catch(e3){ } }
+            try{
+                Vars.schematics.add(s);
+                try{ s.save(); }catch(e4){ }
+                return "· 蓝图「" + name + "」→ 已写进蓝图库（" + String(s.width) + "×" + String(s.height) + "）";
+            }catch(e5){
+                var why2 = String(e5);
+                if(why2.length > 90){ why2 = why2.substring(0, 90) + "…"; }
+                return "· 蓝图「" + name + "」→ 失败：" + why2;
+            }
+        }
+        function chatRunConsole(it){
+            var cmd = chatStrip(String(it.cmd || ""));
+            if(cmd.length > 0 && cmd.charAt(0) === "/"){ cmd = cmd.substring(1); }
+            if(cmd === ""){ return "· 控制台命令：空的，跳过"; }
+            var full = "/" + cmd;
+            // 联机：命令要在服务端跑，客户端只能把它当聊天发过去（NetClient.java:343 是服务端的入口）
+            try{
+                if(netActive() === true){
+                    Packages.mindustry.gen.Call.sendChatMessage(full);
+                    return "· 控制台命令 " + full + " → 已发给服务器";
+                }
+            }catch(e1){ }
+            // 单机：直接走本机的客户端命令处理器（ClientLauncher.java:185 里 netServer 非 null）
+            try{
+                var ns = Vars.netServer;
+                if(ns === null || ns === undefined){ return "· 控制台命令 " + full + " → 没有可用的控制台"; }
+                ns.clientCommands.handleMessage(full, Vars.player);
+                return "· 控制台命令 " + full + " → 已在本机执行";
+            }catch(e2){
+                var why = String(e2);
+                if(why.length > 90){ why = why.substring(0, 90) + "…"; }
+                return "· 控制台命令 " + full + " → 失败：" + why;
+            }
+        }
+        function chatRunIntents(list){
+            var res = [], i;
+            for(i = 0; i < list.length; i++){
+                var it = list[i], one = "";
+                try{ one = (it.kind === "bp") ? chatRunBp(it) : chatRunConsole(it); }
+                catch(e){ one = "· 动作失败：" + String(e); }
+                res.push(one);
+            }
+            var text = res.join("\n");
+            try{ log("[intent] " + chatFlat(text)); }catch(e2){ }
+            try{
+                if(Vars.ui !== null && Vars.ui !== undefined){ Vars.ui.showText("MAI · 动作结果", text); }
+                else{ hint(chatFlat(text)); }
+            }catch(e3){ hint(chatFlat(text)); }
+            try{ chatRefreshAll(); }catch(e4){ }
+            return text;
+        }
+        // Shift 按住 = 换行（真机输入法的 Shift 也在 Core.input 里，见 TextArea.java 的写法）
+        function chatShiftDown(){
+            try{
+                var kc = Packages.arc.input.KeyCode, inp = Core.input;
+                return (inp.keyDown(kc.shiftLeft) || inp.keyDown(kc.shiftRight));
+            }catch(e){ return false; }
+        }
         // ------------------------------------------------ 共用外壳（v0.21.0 档1 / v0.21.1 合并入口）
         // 用户 m04199：把「工作区快照」并进对话窗；m04211「先做档1」；m04334「合并控制面板和MAI对话，
         // 合并之后要加个逻辑标志并染上主题色」。
         // 所以「控制面板」（= 工作区）与「MAI 对话」现在是同一个窗口的两种模式，统一叫「逻辑助手」，
         // 标题行最左是主题色小方块（逻辑标志），当前模式那一段是灰的、点不动。
         // 为什么要共用：v0.19.4 / v0.19.6 / v0.20.2 三次排版事故都是「同一段初始化抄了两份、只改了一份」。
-        var DUAL = { last: "chat" };
+        var DUAL = { last: "chat", dockRight: true };
         var LOGIC_NAME = "逻辑助手";
         function dualModes(){ return ["chat", "ws"]; }
         function dualModeCn(mode){ if(mode === "ws"){ return "工作区"; } return "对话"; }
@@ -5187,6 +5493,29 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
             try{ d.closeOnBack(); }catch(e0d){ }
             dualChrome(d, mode);
             return d;
+        }
+        // v0.23.0（用户 m04691 ⑤「对话框贴右侧」）：对话窗和工作区窗都贴屏幕右边、竖直居中。
+        // Dialog.show() 内部会 centerWindow() 把窗口摆中间（Dialog.java:519 → :327），所以 show 之后自己
+        // setPosition，并在每帧的 update 钩子里维持（真机第一帧前 getWidth() 还是 0，那次先跳过）。
+        function dualDockRight(d){
+            if(DUAL.dockRight !== true){ return false; }
+            if(d === null || d === undefined){ return false; }
+            var sc = null, sw = 0, sh = 0, dw = 0, dh = 0;
+            try{ sc = d.getScene(); }catch(e0){ sc = null; }
+            if(sc === null || sc === undefined){ return false; }
+            try{ sw = Number(sc.getWidth()); sh = Number(sc.getHeight()); }catch(e1){ return false; }
+            try{ dw = Number(d.getWidth()); dh = Number(d.getHeight()); }catch(e2){ return false; }
+            if(!(sw > 0) || !(sh > 0) || !(dw > 0) || !(dh > 0)){ return false; }
+            var x = Math.round(sw - dw - 12), y = Math.round((sh - dh) / 2);
+            if(x < 0){ x = 0; }
+            if(y < 0){ y = 0; }
+            // 差不到 1px 就别动，免得每帧都触发 layout
+            if(Math.abs(Number(d.x) - x) <= 0.5 && Math.abs(Number(d.y) - y) <= 0.5){ return true; }
+            try{ d.setPosition(x, y); return true; }catch(e3){ return false; }
+        }
+        function dualDock(){
+            try{ if(CHAT_UI.open === true){ dualDockRight(CHAT_UI.d); } }catch(a){ }
+            try{ if(wsUI.open === true){ dualDockRight(wsUI.d); } }catch(b){ }
         }
         // v0.21.1（用户 m04334「合并控制面板和MAI对话」）：对外只剩一个入口，按上次用的模式打开。
         function openLogicAssistant(){
@@ -5247,16 +5576,32 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
             var inRow = wsT();
             inRow.left();
             try{
-                tf = new Packages.arc.scene.ui.TextField();
-                tf.setMessageText("说点什么（纯文本；模型可以调用工具）");
+                // v0.23.0（用户 m04691 ⑤「回车发送、Shift+回车换行」）：多行输入必须用 TextArea
+                // —— 它 initialize() 里把 writeEnters 打开（TextArea.java:42），TextField 那条是关的，
+                // 回车根本进不到文本里。监听器在字符插入**之后**才被调用（TextField.java:1137），
+                // 所以能看见刚插进去的 '\n'：Shift 不在就把它抠掉再发送，Shift 按住就留着当换行。
+                tf = new Packages.arc.scene.ui.TextArea("");
+                tf.setMessageText("说点什么（回车发送，Shift+回车换行；模型可以调用工具）");
                 tf.setMaxLength(2000);
+                try{ tf.setPrefRows(2); }catch(ep){ }
                 tf.setTextFieldListener(function(field, c){
+                    var ch = (c === null || c === undefined) ? "" : String(c);
                     try{ CHAT_UI.text = String(field.getText()); }catch(e4){ CHAT_UI.text = ""; }
+                    if(ch !== "\n" && ch !== "\r"){ return; }
+                    if(chatShiftDown() === true){ return; }
+                    // 回车：先把刚插进去的换行从文本里去掉（发送失败时字还留在框里，不会丢）
+                    var t = String(CHAT_UI.text);
+                    if(t.length > 0 && (t.charAt(t.length - 1) === "\n" || t.charAt(t.length - 1) === "\r")){
+                        t = t.substring(0, t.length - 1);
+                    }
+                    CHAT_UI.text = t;
+                    try{ if(String(field.getText()) !== t){ field.setText(t); } }catch(e6){ }
+                    chatSend();
                 });
                 // 160 = 「发送」110 + padRight 6 + 外壳左右 pad 3+3 + 余量；cell 宽度用 availW-6（扣掉外壳 3+3），
-                // 这样输入行和上面两栏一样宽，不会把对话框顶宽。
-                inRow.add(tf).width(Math.max(220, Number(plan.availW) - 160)).height(34).padRight(6).left();
-                inRow.button("发送", function(){ chatSend(); }).width(110).height(34).ellipsis(true).left();
+                // 这样输入行和上面两栏一样宽，不会把对话框顶宽。高 56 = 两行，能看出换行。
+                inRow.add(tf).width(Math.max(220, Number(plan.availW) - 160)).height(56).padRight(6).left();
+                inRow.button("发送", function(){ chatSend(); }).width(110).height(56).ellipsis(true).left();
             }catch(e5){ log("chat input row failed: " + e5); }
             // v0.20.3：输入行与 body 行同处 cont 的唯一一条列（都 974），不会再产生第二列把窗口顶宽。
             d.cont.add(inRow).width(Math.max(200, Number(plan.availW) - 6)).left().row();
@@ -5289,6 +5634,8 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
             });
             d.closeOnBack();
             d.show();
+            // v0.23.0 ⑤：show() 会把窗口摆中间，这里按「贴右」再摆一次（宽高还没算好时 dualDock 每帧补）。
+            dualDockRight(d);
             // 窗口要等第一帧 validate 之后才有真实宽高，交给 Trigger.draw 里的 chatGeomDump 打一次日志。
             CHAT_UI.needGeom = true;
             chatRefreshAll();
@@ -5570,6 +5917,67 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
             catch(ew){ return []; }
         }
 
+        // ------------------------------------------------ 玩家 / 服务器快照（v0.23.0）
+        // 用户 m04691 ③：模型要能读玩家和这一局的状态。和 wsDigest 一样，每轮随 POST /chat 一起发，
+        // 侧车存成 chat['player'] / chat['server']，用 player_info / server_info 两个只读工具读。
+        // 无头（Vars.player / Vars.state 为 null）返回 null，请求里就不带这两个字段。
+        function playerDigest(){
+            try{
+                var p = Vars.player;
+                if(p === null || p === undefined){ return null; }
+                var o = {name: "", admin: false, x: 0, y: 0, team: "", unit: "", hp: 0, maxHp: 0, dead: false};
+                try{
+                    var nm = p.name;
+                    if(typeof nm === "function"){ nm = p.name(); }
+                    o.name = String(nm === null || nm === undefined ? "" : nm);
+                }catch(e1){ }
+                try{ o.admin = (p.admin === true); }catch(e2){ }
+                // 世界坐标 / 8 = 格子坐标（Vars.tilesize 在 v160 是 8，这里跟着 wsProc / 选框一致）
+                try{ o.x = Math.round(Number(p.x) / 8); o.y = Math.round(Number(p.y) / 8); }catch(e3){ }
+                try{
+                    var tm = p.team();
+                    if(tm !== null && tm !== undefined){ o.team = String(tm.name === null || tm.name === undefined ? tm : tm.name); }
+                }catch(e4){ }
+                var u = null;
+                try{ u = p.unit(); }catch(e5){ u = null; }
+                if(u !== null && u !== undefined){
+                    try{ o.unit = String(u.type === null || u.type === undefined ? "" : u.type.name); }catch(e6){ }
+                    try{ o.hp = Math.round(Number(u.health)); }catch(e7){ }
+                    try{ o.maxHp = Math.round(Number(u.maxHealth)); }catch(e8){ }
+                    if(!(o.maxHp > 0)){ try{ o.maxHp = Math.round(Number(u.type.health)); }catch(e9){ } }
+                    try{ o.dead = (u.dead === true || Number(u.health) <= 0); }catch(e10){ }
+                }
+                return o;
+            }catch(e){ return null; }
+        }
+        function serverDigest(){
+            try{
+                var st = Vars.state;
+                if(st === null || st === undefined){ return null; }
+                var o = {map: "", w: 0, h: 0, wave: 0, tps: 0, players: 0, enemies: 0, net: false, pvp: false, mode: ""};
+                try{
+                    var mp = st.map;
+                    if(mp !== null && mp !== undefined){
+                        try{ o.map = String(mp.name() === null ? "" : mp.name()); }catch(n1){ }
+                        o.w = Number(mp.width); o.h = Number(mp.height);
+                    }
+                }catch(e1){ }
+                if(o.map === ""){ try{ o.map = wsMapName(); }catch(n2){ } }
+                try{ o.wave = Number(st.wave); }catch(e2){ }
+                try{ o.tps = Number(st.serverTps); }catch(e3){ }
+                try{ o.enemies = Number(st.enemies); }catch(e4){ }
+                try{ o.players = Number(Packages.mindustry.gen.Groups.player.size()); }catch(e5){ }
+                try{ o.net = (netActive() === true); }catch(e6){ }
+                try{
+                    var rl = st.rules;
+                    if(rl !== null && rl !== undefined){
+                        o.pvp = (rl.pvp === true);
+                        o.mode = String(rl.mode === null || rl.mode === undefined ? "" : rl.mode.name());
+                    }
+                }catch(e7){ }
+                return o;
+            }catch(e){ return null; }
+        }
         function wsLastJobText(ws){
             var list = ws.jobs || [], i;
             for(i = list.length - 1; i >= 0; i--){
@@ -6893,6 +7301,7 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
             d.hidden(function(){ wsUI.open = false; wsUI.ghosts = []; wsUI.needGeom = false; });
             d.closeOnBack();
             d.show();
+            dualDockRight(d);   // v0.23.0 ⑤：工作区窗也贴右（真机第一帧前宽高是 0，由 dualDock 每帧补）
             renderWorkspaces(listT, d);
             return "workspace dialog";
         }
@@ -8590,6 +8999,71 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
         };
 
 
+        // v0.23.0：对话 agent 五项（markdown→标签 / 玩家·服务器快照 / 意图队列 / 贴右停靠）的自检口。
+        // 只跑纯函数：真机才有的 Vars.ui / Vars.player / Vars.schematics 都走 null 分支。
+        api.maiChatActionsProbe = function(){
+            var notes = [], counts = "";
+            try{
+                // ---- ① markdown → 标签
+                var md = mdToTags("# 标题" + "\n" + "**粗** 和 *斜* 和 `代码`" + "\n- 甲" + "\n1. 一"
+                                  + "\n> 引用" + "\n" + "```" + "\nset n 1" + "\n" + "```" + "\n[a](http://x/y)");
+                if(md.indexOf("[accent]标题[]") < 0){ notes.push("md-h1"); }
+                if(md.indexOf("[accent]粗[]") < 0){ notes.push("md-bold"); }
+                if(md.indexOf("[lightgray]斜[]") < 0){ notes.push("md-italic"); }
+                if(md.indexOf("[lightgray]代码[]") < 0){ notes.push("md-code"); }
+                if(md.indexOf("• 甲") < 0){ notes.push("md-list"); }
+                if(md.indexOf("1. 一") < 0){ notes.push("md-ol"); }
+                if(md.indexOf("[gray]│ 引用[]") < 0){ notes.push("md-quote"); }
+                if(md.indexOf("[lightgray]  set n 1") < 0){ notes.push("md-fence"); }
+                if(md.indexOf("a (http://x/y)") < 0){ notes.push("md-link"); }
+                // 字面量方括号：只把 '[' 双写（arc 的转义就是这么写的），自己生成的标签不能被改
+                var esc = mdToTags("a [b] c");
+                if(esc !== "a [[b] c"){ notes.push("md-escape:" + esc); }
+                if(esc.indexOf("\u0001") >= 0){ notes.push("md-placeholder-left"); }
+                if(mdToTags("纯文本 abc") !== "纯文本 abc"){ notes.push("md-plain"); }
+                if(mdToTags(null) !== ""){ notes.push("md-null"); }
+                // ---- ② 意图队列
+                var fake = {id: "c1", rounds: 3, intents: [
+                    {kind: "bp", name: "甲", code: "bXNjaABxxxx", desc: "说明"},
+                    {kind: "console", cmd: "pause on"},
+                    {kind: "nope"}
+                ]};
+                var list = chatIntentList(fake);
+                if(list.length !== 2){ notes.push("intent-count:" + String(list.length)); }
+                if(list.length === 2){
+                    if(list[0].kind !== "bp" || list[0].name !== "甲"){ notes.push("intent-bp"); }
+                    if(list[1].kind !== "console" || list[1].cmd !== "pause on"){ notes.push("intent-console"); }
+                }
+                var itxt = chatIntentText(list);
+                if(itxt.indexOf("写蓝图库「甲」") < 0){ notes.push("intent-text-bp"); }
+                if(itxt.indexOf("/pause on") < 0){ notes.push("intent-text-cmd"); }
+                if(chatIntentList(null).length !== 0){ notes.push("intent-null"); }
+                // 无 Vars.ui：只记账不弹窗（返回 -1 表示没弹），同一个 id#rounds#count 只记一次
+                var took = chatTakeIntents(fake);
+                var took2 = chatTakeIntents(fake);
+                if(took2 !== 0){ notes.push("intent-dedup:" + String(took2)); }
+                // 非法蓝图码必须回一句人话而不是抛
+                var bp = chatRunBp({kind: "bp", name: "坏", code: "not-a-blueprint"});
+                if(typeof bp !== "string" || bp.indexOf("坏") < 0){ notes.push("bp-guard"); }
+                // ---- ③ 玩家 / 服务器快照：无头要么 null、要么对象，绝不许抛
+                var pd = playerDigest(), sd = serverDigest();
+                if(pd !== null && typeof pd !== "object"){ notes.push("player-digest"); }
+                if(sd !== null && typeof sd !== "object"){ notes.push("server-digest"); }
+                // ---- ④ 贴右停靠：没有窗口时必须安静地什么都不做
+                if(DUAL.dockRight !== true){ notes.push("dock-flag"); }
+                if(dualDockRight(null) !== false){ notes.push("dock-null"); }
+                dualDock();
+                counts = "md=" + String(md.split("\n").length)
+                       + " esc=" + esc
+                       + " intents=" + String(list.length) + " took=" + String(took)
+                       + " player=" + String(pd === null ? "null" : "obj")
+                       + " server=" + String(sd === null ? "null" : "obj")
+                       + " dock=" + String(DUAL.dockRight);
+            }catch(e){
+                notes.push("throw:" + e);
+            }
+            return notes.length === 0 ? ("ok " + counts) : ("bad " + notes.join(","));
+        };
         // 挂到脚本作用域（控制台里能直接敲），并读回自检
         // v0.14.4（用户 2026-11-01）：「sidcar应该随游戏启动而启动」——不再等 F3 才拉；
         // 这里先试一次，ClientLoadEvent（进游戏）再补一次，两次都幂等。
@@ -8634,6 +9108,7 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
                     jobButtonsClick(); // v0.14.2：框右下角的「查看 / 取消」两个按钮
                     blueprintTick(); // v0.16.1：蓝图页入口、「详细」页续聊、蓝图对话轮询
                     chatTick();     // v0.20.0：自由对话这一轮还没答完就 900ms 轮询一次
+                    dualDock();     // v0.23.0 ⑤：对话框贴右 → 每帧校一次位置（版本/分辨率的保险）
                     // 「设置 → Mlog辅助」这一栏只在 Vars.ui 建好之后能注册。脚本加载时
                     // UI 往往还没建（真机日志里是在 ClientLoadEvent 前），所以这里补一次
                     // 有界重试：每 60 帧试一次、最多 600 次（≈10 s @60fps），成功即停。

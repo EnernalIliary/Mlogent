@@ -44,6 +44,18 @@ WS_PROCS_MAX = 40       # 每个工作区最多记多少台处理器
 WS_CODE_MAX = 6000      # 每台处理器最多留多少字符代码
 WS_NOTE_MAX = 500       # 备注最多留多少字符
 
+# v0.23.0：玩家/服务器快照同样是模组每一轮送来的只读副本 —— 形状由模组定，侧车只负责夹体积。
+# 蓝图与控制台命令走「意图队列」：模型只登记，真正写进游戏仍然要玩家在窗口里点确认。
+SNAP_KEYS_MAX = 60      # 一个快照最多留多少个键
+SNAP_LIST_MAX = 40      # 快照里一个列表最多留多少项
+SNAP_TEXT_MAX = 200     # 快照里一个字符串最多留多少字符
+SNAP_DEPTH = 3          # 快照最多往下几层
+INTENTS_MAX = 4         # 每轮最多登记多少条意图
+BP_NAME_MAX = 80        # 蓝图名字最多留多少字符
+BP_DESC_MAX = 200       # 蓝图备注最多留多少字符
+BP_CODE_MAX = 20000     # 一条蓝图代码（base64）最多留多少字符
+CONSOLE_CMD_MAX = 300   # 一条控制台命令最多留多少字符
+
 #: copied from jobqueue.Store: a write can lose a race on Windows and is retried
 SAVE_TRIES = 6
 SAVE_WAIT = 0.03
@@ -62,6 +74,10 @@ SYSTEM_PROMPT = (
     '那是模组每轮发过来的只读快照，不要编工作区里有什么。\n'
     '- 工作区里的代码要改，就在回答里写清「哪个工作区、哪台处理器（坐标）、改成什么」，'
     '让玩家自己贴进去；你没有写入权限，不要说「我已经改好了」。\n'
+    '- 蓝图（bp_add）和控制台命令（console_run）只是「登记意图」：登记完还要玩家在窗口里点'
+    '确认才会真正写进游戏或执行，别说「已经写好了」「已经执行了」。\n'
+    '- 玩家和服务器数据（player_info / server_info）是模组这一轮发来的只读快照；'
+    '没有就直说没看到，不要编位置、血量、人数。\n'
     '- 只调用上面列出的工具，不要假装还有别的工具。'
 )
 
@@ -181,6 +197,60 @@ TOOLS = [
                     'q': {'type': 'string', 'description': '要找的文字'},
                 },
                 'required': ['q'],
+            },
+        },
+    },
+    {
+        'type': 'function',
+        'function': {
+            'name': 'player_info',
+            'description': '看玩家这一轮发过来的只读快照（名字、位置、血量、队伍、手里/脚下的东西等）',
+            'parameters': {
+                'type': 'object',
+                'properties': {},
+            },
+        },
+    },
+    {
+        'type': 'function',
+        'function': {
+            'name': 'server_info',
+            'description': '看服务器这一轮发过来的只读快照（地图、波次、人数、tps、规则等）',
+            'parameters': {
+                'type': 'object',
+                'properties': {},
+            },
+        },
+    },
+    {
+        'type': 'function',
+        'function': {
+            'name': 'bp_add',
+            'description': '登记一条蓝图，等玩家确认后写进游戏蓝图库；不给写入权限，只登记意图',
+            'parameters': {
+                'type': 'object',
+                'properties': {
+                    'name': {'type': 'string', 'description': '蓝图名字'},
+                    'code': {'type': 'string',
+                             'description': '蓝图 base64 串（最多 20000 字符），超了会被截断'},
+                    'desc': {'type': 'string', 'description': '备注，可省略'},
+                },
+                'required': ['name', 'code'],
+            },
+        },
+    },
+    {
+        'type': 'function',
+        'function': {
+            'name': 'console_run',
+            'description': '登记一条控制台命令，等玩家确认后才执行',
+            'parameters': {
+                'type': 'object',
+                'properties': {
+                    'command': {'type': 'string',
+                                'description': '命令文本（最多 300 字符），超了会被截断'},
+                },
+                'required': ['command'],
             },
         },
     },
@@ -396,6 +466,10 @@ def _brief(chat):
         'tools_supported': chat.get('tools_supported'),
         'error': chat.get('error') or '',
         'ws': len(chat.get('workspaces') or []),
+        # v0.23.0：列表只看条数；快照有没有用布尔表示，别把整份玩家数据塞进列表窗口
+        'intents': len(chat.get('intents') or []),
+        'has_player': bool(chat.get('player')),
+        'has_server': bool(chat.get('server')),
     }
 
 
@@ -434,6 +508,9 @@ def _full(chat):
         'ws': len(chat.get('workspaces') or []),
         'ws_at': chat.get('ws_at') or 0,
         'ws_map': chat.get('ws_map') or '',
+        'intents': chat.get('intents') or [],
+        'player': chat.get('player') or {},
+        'server': chat.get('server') or {},
     }
 
 
@@ -538,6 +615,13 @@ def start(req):
             chat['workspaces'] = _ws_norm(req.get('workspaces'))
             chat['ws_at'] = now
             chat['ws_map'] = _cut(req.get('map') or '', 120)
+        # v0.23.0：玩家/服务器快照同样只读，跟着这一轮走（这轮没发就沿用上一份，跟工作区一样），
+        # 意图队列每轮清零 —— 玩家确认过的上一轮不该再被重放一遍。
+        if 'player' in req:
+            chat['player'] = _norm_snapshot(req.get('player'))
+        if 'server' in req:
+            chat['server'] = _norm_snapshot(req.get('server'))
+        chat['intents'] = []
         chat['updated'] = now
         _RUNNING.add(cid)
         try:
@@ -665,10 +749,51 @@ def _ws_norm(raw):
     return out
 
 
+def _norm_snapshot(raw):
+    """Clip one player/server snapshot the mod posted with this turn (v0.23.0).
+
+    The mod owns the real objects and decides the shape; the sidecar only ever
+    renders this copy, so nothing in it is trusted: unknown value kinds become
+    text, strings and lists are cut, and the depth is bounded.  A broken or
+    hostile payload must not be able to blow up the chat file.
+    """
+    if not isinstance(raw, dict):
+        return {}
+    return _snap_value(raw, 0)
+
+
+def _snap_value(value, depth):
+    if isinstance(value, dict):
+        if depth >= SNAP_DEPTH:
+            return _cut(json.dumps(value, ensure_ascii=False, sort_keys=True), SNAP_TEXT_MAX)
+        out = {}
+        for i, (key, val) in enumerate(value.items()):
+            if i >= SNAP_KEYS_MAX:
+                break
+            out[_cut(str(key), 40)] = _snap_value(val, depth + 1)
+        return out
+    if isinstance(value, list):
+        if depth >= SNAP_DEPTH:
+            return _cut(json.dumps(value, ensure_ascii=False), SNAP_TEXT_MAX)
+        return [_snap_value(item, depth + 1) for item in value[:SNAP_LIST_MAX]]
+    if isinstance(value, bool) or isinstance(value, (int, float)):
+        return value
+    if value is None:
+        return None
+    return _cut(value, SNAP_TEXT_MAX)
+
+
 def _run_loop(chat):
     # v0.22.0：把这一轮的工作区快照挂到本线程，工具实现自己来取。
     _CTX.ws = [w for w in (chat.get('workspaces') or []) if isinstance(w, dict)]
     _CTX.map = str(chat.get('ws_map') or '')
+    # v0.23.0：快照只读、意图队列可写；工具直接往 chat['intents'] 这个列表里追加，
+    # 轮末 _save 落盘，模组轮询 GET /chat 时就能看到要玩家确认的东西。
+    _CTX.player = chat['player'] if isinstance(chat.get('player'), dict) else {}
+    _CTX.server = chat['server'] if isinstance(chat.get('server'), dict) else {}
+    if not isinstance(chat.get('intents'), list):
+        chat['intents'] = []
+    _CTX.intents = chat['intents']
     msgs = [{'role': 'system', 'content': SYSTEM_PROMPT}]
     for m in chat.get('messages') or []:
         msgs.append(dict(m))
@@ -910,6 +1035,14 @@ def _run_tool(name, args):
         return _ws_get(args)
     if name == 'ws_search':
         return _ws_search(args)
+    if name == 'player_info':
+        return _player_info(args)
+    if name == 'server_info':
+        return _server_info(args)
+    if name == 'bp_add':
+        return _bp_add(args)
+    if name == 'console_run':
+        return _console_run(args)
     return False, '没有这个工具：%s' % (name or '（空）')
 
 
@@ -1072,6 +1205,127 @@ def _ws_search(args):
     if not hits:
         return False, '工作区里没有找到「%s」' % q
     return True, _clip('找到 %d 处：\n%s' % (len(hits), '\n'.join(hits)))
+
+
+# ---------------------------------------------------------------- player / server + intents (v0.23.0)
+
+def _snap_get(which):
+    """The read-only snapshot the mod attached to this turn ({} when it sent none)."""
+    snap = getattr(_CTX, which, None)
+    return snap if isinstance(snap, dict) else {}
+
+
+def _snap_lines(obj, prefix='  ', depth=0):
+    """Render a snapshot as indented 键: 值 lines —— the model reads text, not JSON."""
+    out = []
+    if not isinstance(obj, dict):
+        return out
+    for key, value in obj.items():
+        if len(out) >= SNAP_KEYS_MAX:
+            out.append(prefix + '…（还有更多，已省略）')
+            break
+        label = prefix + str(key)
+        if isinstance(value, dict):
+            out.append(label + ':')
+            if depth >= SNAP_DEPTH:
+                out.append(label + '  …（太深，已省略）')
+            else:
+                out.extend(_snap_lines(value, prefix + '  ', depth + 1))
+        elif isinstance(value, list):
+            if not value:
+                out.append(label + ': （空）')
+                continue
+            parts = []
+            for item in value[:SNAP_LIST_MAX]:
+                if isinstance(item, (dict, list)):
+                    parts.append(json.dumps(item, ensure_ascii=False, sort_keys=True))
+                else:
+                    parts.append(str(item))
+            out.append(label + ': ' + '、'.join(parts))
+        else:
+            out.append('%s: %s' % (label, value))
+    return out
+
+
+def _snap_report(which, title):
+    snap = _snap_get(which)
+    if not snap:
+        return False, ('玩家这一轮没有提供%s快照（可能是旧版模组，或者这不在一局游戏里）。'
+                       '不要编里面的数据，直接说没看到。' % title)
+    lines = ['%s（只读，模组这一轮发来的）：' % title]
+    lines.extend(_snap_lines(snap))
+    return True, _clip('\n'.join(lines))
+
+
+def _player_info(args):
+    return _snap_report('player', '玩家')
+
+
+def _server_info(args):
+    return _snap_report('server', '服务器')
+
+
+def _intent_rows():
+    """This turn's intent queue; start() gave the chat a fresh list."""
+    rows = getattr(_CTX, 'intents', None)
+    if not isinstance(rows, list):
+        rows = []
+        _CTX.intents = rows
+    return rows
+
+
+def _intent_refuse(what):
+    return False, ('这一轮已经登记了 %d 条（每轮最多 %d 条），这条%s被丢掉了；'
+                   '把剩下的写进回答里，让玩家下一轮再说。'
+                   % (INTENTS_MAX, INTENTS_MAX, what))
+
+
+def _bp_add(args):
+    name = _str_arg(args, 'name').strip()
+    if not name:
+        return False, 'name 不能为空（蓝图得有名字，玩家才认得出）'
+    code = _str_arg(args, 'code')
+    if not code.strip():
+        return False, 'code 不能为空（要的是蓝图 base64 串）'
+    rows = _intent_rows()
+    if len(rows) >= INTENTS_MAX:
+        return _intent_refuse('蓝图')
+    desc = _str_arg(args, 'desc').strip()
+    lines = len(code.split('\n'))
+    notes = []
+    if len(name) > BP_NAME_MAX:
+        name = name[:BP_NAME_MAX]
+        notes.append('名字超过 %d 字符，已截断' % BP_NAME_MAX)
+    if len(desc) > BP_DESC_MAX:
+        desc = desc[:BP_DESC_MAX]
+        notes.append('备注超过 %d 字符，已截断' % BP_DESC_MAX)
+    if len(code) > BP_CODE_MAX:
+        code = code[:BP_CODE_MAX]
+        notes.append('代码超过 %d 字符，已截断' % BP_CODE_MAX)
+    rows.append({'kind': 'bp', 'name': name, 'code': code, 'desc': desc})
+    text = ('已登记：写入蓝图库「%s」（%d 行代码）。玩家确认后才会真正写进游戏。'
+            % (name, lines))
+    if notes:
+        text += '\n（%s）' % '；'.join(notes)
+    return True, text
+
+
+def _console_run(args):
+    cmd = _str_arg(args, 'command').strip()
+    if not cmd:
+        return False, 'command 不能为空'
+    rows = _intent_rows()
+    if len(rows) >= INTENTS_MAX:
+        return _intent_refuse('控制台命令')
+    notes = []
+    if len(cmd) > CONSOLE_CMD_MAX:
+        cmd = cmd[:CONSOLE_CMD_MAX]
+        notes.append('命令超过 %d 字符，已截断' % CONSOLE_CMD_MAX)
+    rows.append({'kind': 'console', 'cmd': cmd})
+    text = '已登记：控制台命令 %s。玩家确认后才会执行。' % cmd
+    if notes:
+        text += '\n（%s）' % '；'.join(notes)
+    return True, text
 
 
 # ---------------------------------------------------------------- bundled data

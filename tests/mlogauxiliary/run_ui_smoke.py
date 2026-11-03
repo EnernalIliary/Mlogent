@@ -365,6 +365,9 @@ def main():
     # v0.21.0 档1（用户 m04199「能直接把工作区快照并入MAI对话里面吗」）：两个窗口共用一个外壳，
     # 标题行右侧是「对话 / 工作区」分段开关，开一个就关掉另一个。纯状态探针，窗口本身要真机看。
     "print('MAIDUAL:' + maiDualProbe());",
+    # v0.23.0（用户 m04691）：对话 agent 五项 —— markdown→标签、玩家/服务器快照、
+    # 写蓝图/跑命令的意图队列（侧车登记、玩家确认）、回车发送、对话框贴右。
+    "print('MAIACT:' + maiChatActionsProbe());",
     # v0.22.0 档3（用户 m04334「完成之后继续做档3」）：工作区快照随 POST /chat 一起下发，
     # 侧车只读地用 ws_list / ws_get / ws_search 看它。这里只验纯函数的裁剪与预算。
     "print('MAIWSDIGEST:' + maiWsDigestProbe());",
@@ -408,7 +411,7 @@ def main():
              or l.startswith(('MAISELF:', 'MAIDIAG:', 'MAISET:', 'MAILIST:', 'MAILISTROWS:',
                               'MAIUNDO:', 'MAICONFLICT:', 'MAILLM:',
                               'MAILINKCONFLICT:', 'MAINET:', 'MAIWRITECHECK:', 'MAICHAT:', 'MAISIDECAR:',
-                              'MAIJOBPANEL:', 'MAIJOBPANELDIAG:', 'MAIHINT:', 'MAIFILTER:', 'MAIFILTER2:', 'MAIWORKSPACE:', 'MAIWS2:', 'MAIWS3:', 'MAICHATUI:', 'MAIDUAL:', 'MAIWSDIGEST:', 'MAIBP:',
+                              'MAIJOBPANEL:', 'MAIJOBPANELDIAG:', 'MAIHINT:', 'MAIFILTER:', 'MAIFILTER2:', 'MAIWORKSPACE:', 'MAIWS2:', 'MAIWS3:', 'MAICHATUI:', 'MAIDUAL:', 'MAIWSDIGEST:', 'MAIBP:', 'MAIACT:',
                               'MAISIGMETA:', 'MAIBPTITLE:', 'MAIBPCHAT:', 'MAIWELCOME:', 'MAIKEYBIND:', 'MAITHEME:',
                               'MAIJOBBOX0:', 'MAIJOBBOXPIN:', 'MAIJOBBOXFIN:',
                               'MAIJOBBOXCLR:', 'MAIJOBBOX3:', 'MAIJOBMANAGER:',
@@ -596,6 +599,12 @@ def main():
         problems.append('v0.21.0: the shared dialog shell lost its mode switch '
                         '(want MAIDUAL:ok modes=chat,ws ...): %r'
                         % [l for l in lines if l.startswith('MAIDUAL:')][:1])
+    # v0.23.0（用户 m04691）：模型写 markdown、要写蓝图库/跑命令、要读玩家与服务器；
+    # 转换器与意图队列都是纯函数，玩家/服务器快照在无头下必须是 null 而不是抛。
+    if 'MAIACT:ok' not in joined:
+        problems.append('v0.23.0: the chat actions (md->tags / intents / digests / dock) are broken '
+                        '(want MAIACT:ok ...): %r'
+                        % [l for l in lines if l.startswith('MAIACT:')][:1])
     # v0.22.0 档3: the workspace snapshot that rides on POST /chat must be trimmed to a budget --
     # full code on every processor of every workspace would blow up the request.
     if 'MAIWSDIGEST:ok' not in joined:
@@ -2075,6 +2084,35 @@ def main():
     if 'isProcessor(g)' not in code_only:
         problems.append('the list scan stopped filtering by duck type (isProcessor)')
 
+    # v0.23.0（用户 m04691）：五项都要在代码里立住 —— 少一项就等于没做。
+    # ① markdown → 标签：助手气泡必须走 mdToTags，字面量方括号要双写成 [[。
+    if 'function mdToTags(' not in code_only:
+        problems.append('v0.23.0 ④: mdToTags is gone')
+    if 'chatWrap(dp, mdToTags(content), iw);' not in code_only:
+        problems.append('v0.23.0 ④: the assistant bubble no longer runs mdToTags')
+    if 'split(MD_LB).join("[[")' not in code_only:
+        problems.append('v0.23.0 ④: literal [ is no longer escaped as [[')
+    # ② ③ 意图与快照：四个工具的数据源必须随 POST /chat 下发，意图必须过确认才执行。
+    if 'function playerDigest(' not in code_only or 'function serverDigest(' not in code_only:
+        problems.append('v0.23.0 ③: the player/server digests are gone')
+    if 'req.player = pd' not in code_only or 'req.server = sd' not in code_only:
+        problems.append('v0.23.0 ③: the digests no longer ride on POST /chat')
+    if 'chatTakeIntents(doc.chat);' not in code_only:
+        problems.append('v0.23.0 ①②: the finished round no longer picks up intents')
+    if 'Vars.ui.showConfirm("MAI · 执行动作"' not in code_only:
+        problems.append('v0.23.0 ①②: intents no longer ask before acting')
+    if 'Packages.mindustry.game.Schematics.readBase64' not in code_only:
+        problems.append('v0.23.0 ①: bp intents no longer go through Schematics.readBase64')
+    if 'Call.sendChatMessage(full)' not in code_only:
+        problems.append('v0.23.0 ②: console intents no longer reach the server in multiplayer')
+    # ④ ⑤ 输入与停靠：TextArea 才有换行，回车要拦、Shift+回车才换行；两个窗口都要贴右。
+    if 'new Packages.arc.scene.ui.TextArea("")' not in code_only:
+        problems.append('v0.23.0 ⑤: the chat input is not a TextArea (Enter can never arrive)')
+    if 'function chatShiftDown(' not in code_only or 'field.setText(t);' not in code_only:
+        problems.append('v0.23.0 ⑤: Enter/Shift+Enter handling is gone')
+    if 'function dualDock(' not in code_only or 'dualDockRight(d);' not in code_only:
+        problems.append('v0.23.0 ⑤: the dialogs no longer dock right')
+
     if problems:
         print('FAIL ' + '; '.join(problems))
         print(joined[-1500:])
@@ -2103,7 +2141,7 @@ def main():
         print('  batch write: ' + wm[:170])
     for l in lines:
         if l.startswith(('MAISELF:', 'MAIDIAG:', 'MAIUNDO:', 'MAICONFLICT:', 'MAILLM:',
-                        'MAICHAT:', 'MAISIDECAR:', 'MAIJOBPANEL:', 'MAIJOBPANELDIAG:', 'MAIHINT:', 'MAIFILTER:', 'MAIFILTER2:', 'MAIWORKSPACE:', 'MAIWS2:', 'MAIWS3:', 'MAICHATUI:', 'MAIDUAL:', 'MAIWSDIGEST:',
+                        'MAICHAT:', 'MAISIDECAR:', 'MAIJOBPANEL:', 'MAIJOBPANELDIAG:', 'MAIHINT:', 'MAIFILTER:', 'MAIFILTER2:', 'MAIWORKSPACE:', 'MAIWS2:', 'MAIWS3:', 'MAICHATUI:', 'MAIDUAL:', 'MAIWSDIGEST:', 'MAIACT:',
                         'MAIJOBBOX', 'MAIBADGERECT:', 'MAIJOBMANAGER:', 'MAIBP:',
                         'MAISIGMETA:', 'MAIBPTITLE:', 'MAIBPCHAT:', 'MAIKEYBIND:', 'MAITHEME:',
                         'MAIJOBTHINK2:')):

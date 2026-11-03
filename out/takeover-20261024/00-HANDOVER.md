@@ -2982,3 +2982,37 @@ system 与 tools 都提到 `ws_list`；再发一轮不带快照断言旧快照�
 Release https://github.com/EnernalIliary/MAI-MlogAuxiIliary/releases/tag/v0.22.0 两个 zip 均 201，`releases/latest` = v0.22.0。
 
 **下一步**：真机重启复核「助手能看到 N 个工作区」那行与对话里的工作区问答（档3 只读通道的最后一验）。
+
+## §114 v0.23.0 对话 agent 能动手（写蓝图 / 跑命令）+ 看得见玩家与服务器 + markdown + 回车换行 + 贴右（2026-11-03）
+
+**问题（用户一次点了五项）**：模型只会说 —— 生成了蓝图码要玩家手抄进原版蓝图库；想让你跑 `status` 只能靠人敲；不知道玩家/服务器的状态；
+回话整段 markdown 原样贴进 Label（满屏星号井号）；输入框单行、回车即发；两只窗口总在正中。
+
+**做法**：
+- **动作两段式**（模组 + 侧车）：侧车 `bp_add` / `console_run` 只把动作写进当轮 `chat["intents"]`（每轮 4 条、码 20000 / 命令 300 字符），
+  模组 `chatTakeIntents()`(:5343) 用 `id#rounds#count` 去重后弹 `Vars.ui.showConfirm("MAI · 执行动作", …)`，确认才 `chatRunBp()`(:5365，
+  `Schematics.readBase64` → `tags.put` → `Vars.schematics.add` → `save()`) 或 `chatRunConsole()`(:5392，联机 `Call.sendChatMessage`、单机 `clientCommands.handleMessage`)；
+  无 `Vars.ui` 时返回 −1（桩环境）⇒ 永远不可能是「模型自己改游戏」。
+- **只读快照**：`playerDigest()`(:5924) / `serverDigest()`(:5953) 随 `POST /chat` 下发（`req.player` / `req.server`），侧车 `player_info` / `server_info` 只读；
+  `_brief` 只报条数与布尔、`_full` 才给全文。
+- **markdown → 标签**：`mdWrapPairs`(:5147) / `mdLinkToText`(:5163) / `mdStripHtml`(:5185) / `mdInline`(:5205) / `mdToTags`(:5258)，**零正则**（原因见下）。
+- **输入 / 停靠**：`TextArea("")`(:5583，回车发送、Shift+回车换行，高 34→56)、`dualDockRight`(:5500) + `dualDock`(:5516) 每帧把两只窗贴右。
+- 探针 `api.maiChatActionsProbe`(:9004) ⇒ `ok md=7 esc=a [[b] c intents=2 took=-1 player=null server=obj dock=true`。
+
+**真机级坑（已写成断言 L2-118）**：第一版 markdown 转换器写了 13 条正则字面量，v160.7 的 Rhino 在**构造期**抛
+`IllegalStateException: FAILED ASSERTION: invalid bytecode`（`rhino/Kit.class` 与 `rhino/regexp/NativeRegExp.class`），
+**try/catch 抓不住**，整个 `main.js` 静默不执行（smoke 表现为 `FAIL engine call` + `srv.js` 超时）。改成字符扫描后转绿。
+
+**测试**：`tests/logicd/run_logicd_tests.py` 的 `_ChatStub` 支持一轮连发多个工具调用，`test_chats` 新增第 9 节 6 条 check（chats 11→17），
+`--no-sim` 全绿：protocol 26 / jobs 17 / provider 12 / improve 8 / llm 12 / chats 17 / diag 7 / life 3；
+`tests/mlogauxiliary/run_ui_smoke.py` 加 `MAIACT` 打印 + 断言 + 12 条红线，rc 0。
+
+**文档**：CHANGELOG `## 0.23.0`、`docs/Mlog辅助-规划.md` 版本表 v0.23.0 行、`docs/断言表.md` 追加 L2-117 / L2-118 / L2-119 并把口径改 **178 条**
+（L1 31 / L2 119 / L3 6 / L4 4 / S 18）、报告 `out/takeover-20261024/115-v0230-chat-actions.md`。
+**收尾数字（2026-11-03 14:52）**：门禁 `python -X utf8 gate.py --full --kb-build` → **17/17 passed in 139.7s**（`out/_gate_v230.log`，kb 169 源文件）；
+打包 `python -X utf8 tools/package.py` → `out/_dist/MAI-0.23.0/` **191 files / 19,487,681 B**，
+`MAI-0.23.0-mod.zip` 8,740,207 B sha256 `D58E2F8CA80002B28E85CBE978B021E5D57726CEB5C717A14D772FCDC1351EDA`，
+`MAI-0.23.0.zip` 8,762,789 B sha256 `89109D084CBC19FCACDAC5F196006E6A4447CA9CEEE27DE20938FA9E6076C741`；
+装机 [ok] → `saves\mods\MlogAuxiliary`，备份 `saves\mod-backups\MlogAuxiliary-20261103-145135`，装机 `mod.hjson` = `version: "0.23.0"`
+（装机时游戏在跑，pid 40504 于 12:51 启动 ⇒ 这一版要重启游戏才生效）；本地提交见 `git log --oneline --grep=v0.23.0`（11 files / +1130 −16）。
+公开仓 push / tag / Release 未做 —— 等用户批准（从 m00167 起一直挂着这条）。
