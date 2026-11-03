@@ -3046,8 +3046,40 @@ v0.23.0 的 `console_run` 走的是聊天里 `/命令` 那条路（`clientComman
 - `Core.app.setClipboardText` 桌面端是否直通系统剪贴板。
 - `console_help` 的 90 条 `api.*` 上限是否够用。
 
+### §116 v0.23.2 loader 型模组下的逻辑审查修复（2026-11-03）
+
+用户 m05726：「编辑界面的逻辑审查显示没有连接到处理器。」（v0.23.1 装机后）。详见 `out/takeover-20261024/117-v0232-review-links.md`。
+
+- **根因**：v0.4.7 起的 `logicExecutor()` 用写死的 `Class.forName("mindustry.logic.LogicDialog")` 反射读包私有的 `executor`。
+  用户装了 `dexed-MindustryX-2026.10.10.B509.loader.zip`（loader 型模组，包里直接带替换版 `mindustry/logic/LogicDialog.class` 26090 B 与 `LExecutor.class` 14304 B），
+  类由别的 ClassLoader 定义 ⇒ `field.get(instance)` 抛 `IllegalArgumentException`，被外层 `catch(e){ return null; }` 静默吞掉，
+  审查栏永远 `链接 ?（读不到处理器）`。日志可作证：有 `review bar injected into the vanilla logic editor`，但没有 `executor is not reachable`（探测没失败，失败在后面）。
+- **改法**（`MlogAuxiliary/scripts/main.js`）：`logicClassChain()` / `fieldByName()` / `fieldByType()` / `logicExecFieldOf()` —— 从 `Vars.ui.logic.getClass()`
+  沿父类链找 `executor`（名字 `executor` / `exec` / `lExecutor`，再不行按声明类型 `mindustry.logic.LExecutor` 认）；`logicBuildOf()` 用鸭子判据
+  `isProcessor()` 扫编辑器自己的字段兜底（MindustryX 的 `LogicDialog` 自己有 `building`）；`reviewTargets()` 两条路；`linkWhy` 区分
+  「编辑器没绑处理器」/「读不到链接表」；`reviewDiagText()` 一行诊断 + 首次取不到链接表时打一次日志；`api.maiReviewDiag`（F8 里敲 `maiReviewDiag()`）
+  与 `api.maiReviewDiagProbe`（ui smoke 用）。
+- **验证**：`node --check` rc 0；ui smoke rc 0，关键行 `MAIREV:ok ui=null cls=- field=none owner=- ex=null build=null links=unknown`（`out/_smoke232.log`）；
+  新增 `MAIREV:ok` 断言 + 7 条红线（含「禁止写死的 `Class.forName("mindustry.logic.LogicDialog")` 回归」）。
+- **留给真机**：重启游戏后打开任意处理器编辑器，看链接一项是否为真实条数；若仍是 `链接 ?`，在 F8 敲 `maiReviewDiag()` 把返回串发回，
+  或看 `saves/last_log.txt` 的 `review links unknown: …`。
+- **文档**：CHANGELOG `## 0.23.2`、规划版本表 v0.23.2 行、断言表 L2-122（loader 型模组会替换游戏类 ⇒ 反射必须从实例的类沿父类链找），口径行改 181 条（L1 31 / L2 122 / L3 6 / L4 4 / S 18）。
+
 ### 收尾数字（2026-11-03 16:02）
 - 本地提交见 `git log --oneline --grep=v0.23.1`（10 files / +420 − 36）；装机已做（`saves\mods\MlogAuxiliary`，旧副本 `mod-backups\MlogAuxiliary-20261103-160611`），**需重启游戏才生效**。
 
 - 门禁 `python -X utf8 gate.py --full --kb-build` → **17/17 passed in 127.9s**（`out/_gate_v231.log`）。
 - 打包 `out/_dist/MAI-0.23.1/` **191 files / 19,505,237 B**；`MAI-0.23.1-mod.zip` 8,747,166 B sha256 `920B51D1813D469F1E9BA8EF9EB6C6F96444BC28369317646D54003FB9B1E18D`；`MAI-0.23.1.zip` 8,769,750 B sha256 `FDC62595D623970EE8D3AF9329E00A883227CEC92DD141F673B183E8296F0020`。
+
+### 收尾数字（2026-11-03 18:35）
+
+- 门禁：`python -X utf8 gate.py --full --kb-build` → **17/17 passed in 72.0s**（日志 `out/_gate_v232.log`，kb 覆盖 169 源文件）。
+- 打包：`python -X utf8 tools/package.py` → `out/_dist/MAI-0.23.2/` **191 files / 19,511,476 B**；
+  `MAI-0.23.2-mod.zip` 8,749,291 B sha256 `3821123559CF361F8B85A6A3E09FB96FDFF72CF8BBFCB22C71E8F704E0288C9D`；
+  `MAI-0.23.2.zip` 8,771,876 B sha256 `00F677309E0E5E6F3853E14290D4CADEF4F1CA5F96F52AE84BD96017E01A2FDF`（日志 `out/_pack232.log`）。
+- 装机 [ok]：先 `Stop-Process -Id 29944`（游戏从 mod 目录拉起的 `sidecarin\logicd.exe`，不停会被 Move-Item 拒），
+  再 `powershell -NoProfile -ExecutionPolicy Bypass -File "out\_dist\MAI-0.23.2\install.ps1"` → 自动识别
+  `E:\Program Files (x86)\Steam\steamapps\common\Mindustry\saves\mods`，旧副本备份到
+  `saves\mod-backups\MlogAuxiliary-20261103-182859`；装机后 `mod.hjson` version 0.23.2、`main.js`
+  `var MOD_VERSION = "0.23.2";` 均已核对。**装机时游戏在跑（Mindustry.exe pid 48880，17:37 启动）⇒ 要重启游戏才生效。**
+- 提交：`git log --oneline --grep=v0.23.2`（amend 会改哈希，这里只留指针）；8 files / +203 −27。

@@ -3,6 +3,14 @@
 只记对外可见的变化。工程日志（每一版的动机、踩过的坑、源码依据）见
 `MlogAuxiliary/HISTORY.md` 与 `docs/`。
 
+## 0.23.2
+
+- **审查栏不再因为「模组换了游戏类」而永远说没有处理器**：v0.4.7 起审查栏读 `LogicDialog.executor` 靠的是写死的 `Class.forName("mindustry.logic.LogicDialog")` + 反射。装了 MindustryX（loader 型模组，包里直接带替换版 `mindustry/logic/LogicDialog.class`）之后，类由别的 ClassLoader 定义，`field.get(实例)` 抛 `IllegalArgumentException` 又被外层 `catch` 静默吞掉 —— 表现就是审查栏永远「链接 ?（读不到处理器）」（用户 m05726 实报）。
+  现在改成**从实例自己的类出发沿父类链找字段**：名字先试 `executor` / `exec` / `lExecutor`，都对不上就按字段的声明类型 `mindustry.logic.LExecutor` 认，不再依赖写死的类名。
+- **目标处理器多了第二条路**：`executor.build` 拿不到时，扫编辑器自己声明的字段，用「有 executor + code 字段才算处理器」的鸭子判据找目标建筑（MindustryX 的 `LogicDialog` 自己就存着 `building`），两条路都失败才认「读不到」。
+- **「链接 ?」现在会说清原因**：区分「编辑器没绑处理器」与「读到处理器但链接表读不出来」，详情里还会附一行自检串。
+- **一键自检**：F8 控制台里敲 `maiReviewDiag()`（就是 `api.maiReviewDiag`），返回 `ui=obj cls=mindustry.logic.LogicDialog field=executor owner=… ex=obj build=obj links=N` 这一串，直接能看出卡在哪一环；审查栏第一次取不到链接表时也会把同一串打进日志（只打一次，不刷屏）。
+- 自检口：`api.maiReviewDiagProbe()` 在无头环境返回 `MAIREV:ok ui=null cls=- field=none owner=- ex=null build=null links=unknown`；ui smoke 加 `MAIREV:ok` 断言与 7 条红线（不许再出现写死的 `Class.forName("mindustry.logic.LogicDialog")`）。
 ## 0.23.1
 
 - **对话里的「控制台」终于是游戏里 F8 那个 JavaScript 控制台**：上一版模型把「控制台命令」理解成服务器聊天里的 `/命令`，于是你让它查点东西，它一直在 `/info`、`/pause`。现在明确分流：`/` 开头的仍按聊天命令走（联机发聊天、单机走 `clientCommands`），其余一律当 JS 代码送进 F8 控制台执行（`mods.getScripts().runConsole(injectConsoleVariables() + code)`），返回值原样回给模型；代码可多行，上限从 300 字符放宽到 2000。

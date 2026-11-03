@@ -28,7 +28,7 @@
 function __logicWriterMain(){
     "use strict";
 
-    var MOD_VERSION = "0.23.1";
+    var MOD_VERSION = "0.23.2";
     var URL_KEY     = "mlogauxiliary-url";
     var DEFAULT_URL = "http://127.0.0.1:8765";
     // v0.11.0：设置页里填的模型档三件套。密钥只留在本机 Core.settings 与 sidecar 进程内存。
@@ -2731,6 +2731,8 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
         // 无头环境里 Vars.ui 是 null（Vars.java:209/332），每次访问都套 try。
 
         var reviewHost = null, reviewBar = null, reviewLast = "", reviewFrame = 0, reviewRes = null;
+        // 「读不到链接表」的两种原因要分开说（v0.23.2）：编辑器没绑处理器 / 绑了但链接表读不出来
+        var linkWhy = "读不到处理器";
 
         // LogicDialog.executor 是**包私有**字段（真 v160.7 反射实测：canvas 是 public，
         // executor / privileged / consumer / wasRows 全是包私有），而 Rhino 只按 public
@@ -2738,35 +2740,128 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
         // 审查栏永远认为「没有处理器」，把链接表当成空表喂给 quickcheck。
         // 唯一能读到它的路是反射：getDeclaredField + setAccessible（Mindustry 在
         // classpath 上，没有模块系统挡着，实测 setAccessible 可用）。
-        var logicExecField = null, logicExecProbed = false;
+        var logicExecField = null, logicExecProbed = false, logicExecOwner = "", logicDiag = "";
+        var logicDiagLogged = false;
+
+        // v0.23.2：MindustryX 这类 loader 型模组会替换掉 mindustry.logic.LogicDialog 的字节码，
+        // 甚至让 Vars.ui.logic 变成它的子类。此时用 Class.forName("mindustry.logic.LogicDialog")
+        // 拿到的类未必是实例真正的类，field.get(L) 抛 IllegalArgumentException 又被外层
+        // catch 静默吞掉 —— 表现就是审查栏永远「读不到处理器」（v0.23.1 装机后用户实报）。
+        // 改法：从实例自己的类出发沿父类链找字段；名字对不上（executor / exec / lExecutor）
+        // 就按类型名 mindustry.logic.LExecutor 认，不再依赖写死的类名。
+
+        function logicClassChain(c){
+            var out = [];
+            while(c !== null && c !== undefined){
+                out.push(c);
+                try{ c = c.getSuperclass(); }catch(e){ c = null; }
+            }
+            return out;
+        }
+
+        function fieldByName(c, names){
+            for(var i = 0; i < names.length; i++){
+                try{ return c.getDeclaredField(names[i]); }catch(e){ /* try next */ }
+            }
+            return null;
+        }
+
+        function fieldByType(c, typeName){
+            try{
+                var fs = c.getDeclaredFields();
+                for(var i = 0; i < fs.length; i++){
+                    var t = "";
+                    try{ t = String(fs[i].getType().getName()); }catch(e){ continue; }
+                    if(t === typeName){ return fs[i]; }
+                }
+            }catch(e){ /* ignore */ }
+            return null;
+        }
+
+        function logicExecFieldOf(L){
+            if(logicExecProbed){ return logicExecField; }
+            logicExecProbed = true;
+            var chain = [];
+            try{ chain = logicClassChain(L.getClass()); }catch(e){ chain = []; }
+            for(var i = 0; i < chain.length; i++){
+                var f = fieldByName(chain[i], ["executor", "exec", "lExecutor"]);
+                if(f === null){ f = fieldByType(chain[i], "mindustry.logic.LExecutor"); }
+                if(f === null){ continue; }
+                try{ f.setAccessible(true); }catch(e){ continue; }
+                logicExecField = f;
+                try{ logicExecOwner = String(chain[i].getName()); }catch(e){ logicExecOwner = "?"; }
+                return f;
+            }
+            try{ log("logic editor: executor field not found on " + String(L.getClass().getName())); }catch(e){ }
+            return null;
+        }
 
         function logicExecutor(){
             try{
                 var L = Vars.ui.logic;
                 if(L === null || L === undefined){ return null; }
-                if(!logicExecProbed){
-                    logicExecProbed = true;
-                    try{
-                        var cls = Packages.java.lang.Class.forName("mindustry.logic.LogicDialog");
-                        var f = cls.getDeclaredField("executor");
-                        f.setAccessible(true);
-                        logicExecField = f;
-                    }catch(e){ log("LogicDialog.executor is not reachable: " + e); }
-                }
-                if(logicExecField === null){ return null; }
-                var ex = logicExecField.get(L);
+                var f = logicExecFieldOf(L);
+                if(f === null){ return null; }
+                var ex = f.get(L);
                 return (ex === undefined) ? null : ex;
             }catch(e){ return null; }
         }
 
+        // 目标处理器的第二条路：编辑器自己身上往往也存着目标建筑（MindustryX 的 LogicDialog
+        // 就有 building 字段 / 以及一个 LogicSupport 用来回填）。字段名不可知，就按类型认：
+        // 用页面下方 isProcessor() 的鸭子判据（只有逻辑建筑才有 executor + code）。
+        function logicBuildOf(L){
+            var chain = [];
+            try{ chain = logicClassChain(L.getClass()); }catch(e){ return null; }
+            for(var i = 0; i < chain.length; i++){
+                var fs;
+                try{ fs = chain[i].getDeclaredFields(); }catch(e){ continue; }
+                for(var k = 0; k < fs.length; k++){
+                    var v = null;
+                    try{ fs[k].setAccessible(true); v = fs[k].get(L); }catch(e){ continue; }
+                    if(v === null || v === undefined){ continue; }
+                    if(isProcessor(v)){ return v; }
+                }
+            }
+            return null;
+        }
+
         function reviewTargets(){
-            // LExecutor.build 是 public（v160.7 实测），所以拿到 executor 之后这一步直读即可。
+            // LExecutor.build 是 public（v160.7 实测），拿到 executor 之后直读即可；
+            // 拿不到或为 null 时退回「扫编辑器自己的字段」。
             var ex = logicExecutor();
-            if(ex === null){ return null; }
-            try{
-                var b = ex.build;
-                return (b === undefined) ? null : b;
-            }catch(e){ return null; }
+            if(ex !== null){
+                try{
+                    var b = ex.build;
+                    if(b !== undefined && b !== null){ return b; }
+                }catch(e){ /* fall through */ }
+            }
+            var L = null;
+            try{ L = Vars.ui.logic; }catch(e){ L = null; }
+            if(L !== null && L !== undefined){ return logicBuildOf(L); }
+            return null;
+        }
+
+        // 一句话诊断：给 F8 控制台的 maiReviewDiag() 和日志用（发给开发者就能定位）。
+        function reviewDiagText(){
+            var L = null, cls = "-", f = null, ex = null, b = null, lk = null;
+            try{ L = Vars.ui.logic; }catch(e){ L = null; }
+            if(L !== null && L !== undefined){
+                try{ cls = String(L.getClass().getName()); }catch(e){ cls = "?"; }
+                try{ f = logicExecFieldOf(L); }catch(e){ f = null; }
+            }
+            ex = logicExecutor();
+            b = reviewTargets();
+            lk = linkListOrNull(b);
+            var s = "ui=" + (L === null ? "null" : "obj")
+                  + " cls=" + cls
+                  + " field=" + (f === null ? "none" : String(f.getName()))
+                  + " owner=" + (logicExecOwner === "" ? "-" : logicExecOwner)
+                  + " ex=" + (ex === null ? "null" : "obj")
+                  + " build=" + (b === null ? "null" : "obj")
+                  + " links=" + (lk === null ? "unknown" : String(lk.length));
+            logicDiag = s;
+            return s;
         }
 
         function reviewCode(){
@@ -2779,7 +2874,7 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
             var st = (res === null || res === undefined) ? null : res.stats;
             if(st === null || st === undefined){ return "链接 ?"; }
             if(st.linkKnown === true){ return "链接 " + st.linkCount; }
-            return "链接 ?（读不到处理器）";
+            return "链接 ?（" + linkWhy + "）";
         }
 
         function reviewCount(res){
@@ -2796,8 +2891,14 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
             if(code === null){ return; }
             if(!force && code === reviewLast){ return; }
             reviewLast = code;
-            var res = quickRun(code, reviewTargets());
+            var tgt = reviewTargets();
+            linkWhy = (tgt === null) ? "编辑器没绑处理器" : "读不到链接表";
+            var res = quickRun(code, tgt);
             reviewRes = res;
+            if(!logicDiagLogged && res.stats !== null && res.stats !== undefined && res.stats.linkKnown !== true){
+                logicDiagLogged = true;
+                try{ log("review links unknown: " + reviewDiagText()); }catch(e){ }
+            }
             // 审查栏重画之后把行内箭头也同步一遍（箭头贴在原版画布上，见下面的「行内箭头」段）
             syncArrows(res, null, null);
             var c = reviewCount(res);
@@ -7645,7 +7746,8 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
                  + "    " + linkLine(res)
                  + (st.truncates ? "    ⚠ 超过 1000 条会被截断" : "")
                  + (st.linkKnown === false
-                    ? "\n（链接表未知：读不到 LogicDialog.executor，本次跳过链接槽判据）"
+                    ? ("\n（链接表未知：" + linkWhy + "，本次跳过链接槽判据）"
+                       + (logicDiag === "" ? "" : ("\n（自检：" + logicDiag + "）")))
                     : "");
         }
 
@@ -9224,6 +9326,23 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
             }
             return notes.length === 0 ? ("ok " + counts) : ("bad " + notes.join(","));
         };
+        // v0.23.2：审查栏说「读不到处理器」时的一键诊断 —— 在 F8 控制台里敲
+        // maiReviewDiag()，把返回的这一串发给开发者就能定位是「编辑器没绑处理器」
+        // 还是「绑了但链接表读不出来」，以及 MindustryX 那套替换后的类名/字段名。
+        api.maiReviewDiag = function(){
+            try{ return reviewDiagText(); }catch(e){ return "diag failed: " + e; }
+        };
+        api.maiReviewDiagProbe = function(){
+            var notes = [], d = "";
+            try{
+                d = String(reviewDiagText());
+                if(d.indexOf("ui=") !== 0){ notes.push("diag=" + chatFlat(d)); }
+                if(d.indexOf("links=") < 0){ notes.push("nolinks"); }
+                if(linkWhy === "" || linkWhy === null){ notes.push("nowhy"); }
+            }catch(e){ notes.push("throw:" + e); }
+            return notes.length === 0 ? ("ok " + d) : ("bad " + notes.join(","));
+        };
+
         // 挂到脚本作用域（控制台里能直接敲），并读回自检
         // v0.14.4（用户 2026-11-01）：「sidcar应该随游戏启动而启动」——不再等 F3 才拉；
         // 这里先试一次，ClientLoadEvent（进游戏）再补一次，两次都幂等。

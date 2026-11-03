@@ -371,6 +371,10 @@ def main():
     # v0.23.1（用户 m05372 ②）：「无法复制它给出的代码块」—— 回复按围栏切段，代码段带头行与复制按钮。
     # 切段/转义都是纯函数，无头下只验这些；按钮本身要真机点。
     "print('MAICOPY:' + maiChatCopyProbe());",
+    # v0.23.2（用户 m05726「编辑界面的逻辑审查显示没有连接到处理器」）：MindustryX 这类
+    # loader 模组会替换 LogicDialog 的字节码，写死的 Class.forName 反射会静默失败；
+    # 现在改成从实例的类沿父类链找 executor 字段、并按鸭子类型找目标建筑。无头下只验诊断串。
+    "print('MAIREV:' + maiReviewDiagProbe());",
     # v0.22.0 档3（用户 m04334「完成之后继续做档3」）：工作区快照随 POST /chat 一起下发，
     # 侧车只读地用 ws_list / ws_get / ws_search 看它。这里只验纯函数的裁剪与预算。
     "print('MAIWSDIGEST:' + maiWsDigestProbe());",
@@ -414,7 +418,7 @@ def main():
              or l.startswith(('MAISELF:', 'MAIDIAG:', 'MAISET:', 'MAILIST:', 'MAILISTROWS:',
                               'MAIUNDO:', 'MAICONFLICT:', 'MAILLM:',
                               'MAILINKCONFLICT:', 'MAINET:', 'MAIWRITECHECK:', 'MAICHAT:', 'MAISIDECAR:',
-                              'MAIJOBPANEL:', 'MAIJOBPANELDIAG:', 'MAIHINT:', 'MAIFILTER:', 'MAIFILTER2:', 'MAIWORKSPACE:', 'MAIWS2:', 'MAIWS3:', 'MAICHATUI:', 'MAIDUAL:', 'MAIWSDIGEST:', 'MAIBP:', 'MAIACT:', 'MAICOPY:',
+                              'MAIJOBPANEL:', 'MAIJOBPANELDIAG:', 'MAIHINT:', 'MAIFILTER:', 'MAIFILTER2:', 'MAIWORKSPACE:', 'MAIWS2:', 'MAIWS3:', 'MAICHATUI:', 'MAIDUAL:', 'MAIWSDIGEST:', 'MAIBP:', 'MAIACT:', 'MAICOPY:', 'MAIREV:',
                               'MAISIGMETA:', 'MAIBPTITLE:', 'MAIBPCHAT:', 'MAIWELCOME:', 'MAIKEYBIND:', 'MAITHEME:',
                               'MAIJOBBOX0:', 'MAIJOBBOXPIN:', 'MAIJOBBOXFIN:',
                               'MAIJOBBOXCLR:', 'MAIJOBBOX3:', 'MAIJOBMANAGER:',
@@ -613,6 +617,13 @@ def main():
         problems.append('v0.23.1: the code-block splitter / console digest is broken '
                         '(want MAICOPY:ok segs=3 ...): %r'
                         % [l for l in lines if l.startswith('MAICOPY:')][:1])
+    # v0.23.2（用户 m05726）：审查栏不能再靠写死的 Class.forName("mindustry.logic.LogicDialog")
+    # 反射 —— MindustryX 替换字节码之后 f.get(L) 抛 IllegalArgumentException 被静默吞掉，
+    # 表现就是永远「读不到处理器」。诊断串在无头下必须是 ui=null 且字段齐全。
+    if 'MAIREV:ok' not in joined:
+        problems.append('v0.23.2: the review diagnosis (executor field chain / link why) is broken '
+                        '(want MAIREV:ok ui=null ...): %r'
+                        % [l for l in lines if l.startswith('MAIREV:')][:1])
     # v0.22.0 档3: the workspace snapshot that rides on POST /chat must be trimmed to a budget --
     # full code on every processor of every workspace would blow up the request.
     if 'MAIWSDIGEST:ok' not in joined:
@@ -2052,6 +2063,23 @@ def main():
     # 'executor:pkg'), and Rhino only exposes public members -- so L.executor was
     # undefined, linkNames() came back empty, and every link slot looked unbound.
     # Read it through the reflective accessor instead of touching the field directly.
+    # v0.23.2: the executor field must be found from the INSTANCE's class chain, not from a
+    # hard-coded Class.forName -- MindustryX (dexed loader) replaces mindustry.logic.LogicDialog,
+    # and field.get(instance) then throws IllegalArgumentException which the outer catch swallowed
+    # silently (the bar showed "链接 ?（读不到处理器）" forever).
+    if 'function logicExecFieldOf(' not in code_only or 'function logicClassChain(' not in code_only:
+        problems.append('v0.23.2: logicExecutor() no longer walks the instance class chain -- '
+                        'MindustryX replaces LogicDialog, so a hard-coded Class.forName fails silently')
+    if 'mindustry.logic.LExecutor' not in code_only:
+        problems.append('v0.23.2: the executor field is no longer located by its declared type')
+    if 'function logicBuildOf(' not in code_only:
+        problems.append('v0.23.2: lost the logicBuildOf() fallback (the dialog itself holds the target build)')
+    if 'function reviewDiagText(' not in code_only or 'api.maiReviewDiag = function(' not in code_only:
+        problems.append('v0.23.2: lost the one-line review diagnosis (maiReviewDiag() in the F8 console)')
+    if '"链接 ?（" + linkWhy' not in code_only:
+        problems.append('v0.23.2: the link line no longer says WHY the link table is unknown')
+    if 'Class.forName("mindustry.logic.LogicDialog")' in code_only:
+        problems.append('v0.23.2: the hard-coded Class.forName("mindustry.logic.LogicDialog") is back')
     if 'function logicExecutor(' not in code_only:
         problems.append('main.js lost logicExecutor() -- LogicDialog.executor is package-private; '
                         'a direct read is undefined and every link slot looks unbound')
@@ -2159,7 +2187,7 @@ def main():
         print('  batch write: ' + wm[:170])
     for l in lines:
         if l.startswith(('MAISELF:', 'MAIDIAG:', 'MAIUNDO:', 'MAICONFLICT:', 'MAILLM:',
-                        'MAICHAT:', 'MAISIDECAR:', 'MAIJOBPANEL:', 'MAIJOBPANELDIAG:', 'MAIHINT:', 'MAIFILTER:', 'MAIFILTER2:', 'MAIWORKSPACE:', 'MAIWS2:', 'MAIWS3:', 'MAICHATUI:', 'MAIDUAL:', 'MAIWSDIGEST:', 'MAIACT:', 'MAICOPY:',
+                        'MAICHAT:', 'MAISIDECAR:', 'MAIJOBPANEL:', 'MAIJOBPANELDIAG:', 'MAIHINT:', 'MAIFILTER:', 'MAIFILTER2:', 'MAIWORKSPACE:', 'MAIWS2:', 'MAIWS3:', 'MAICHATUI:', 'MAIDUAL:', 'MAIWSDIGEST:', 'MAIACT:', 'MAICOPY:', 'MAIREV:',
                         'MAIJOBBOX', 'MAIBADGERECT:', 'MAIJOBMANAGER:', 'MAIBP:',
                         'MAISIGMETA:', 'MAIBPTITLE:', 'MAIBPCHAT:', 'MAIKEYBIND:', 'MAITHEME:',
                         'MAIJOBTHINK2:')):
