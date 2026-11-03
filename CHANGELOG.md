@@ -3,6 +3,13 @@
 只记对外可见的变化。工程日志（每一版的动机、踩过的坑、源码依据）见
 `MlogAuxiliary/HISTORY.md` 与 `docs/`。
 
+## 0.23.4
+
+- **数字行号 jump 不再被当成错误**：用户 m06173 报「使用行号 jump 不应该报 err，原版编辑器只能用数字行号 jump」。原版逻辑编辑器的 jump 目标就是一个数字字段（`LParser.java:117-125` 把 `label:` 记在语句计数器上、`:195-198` 把命名 jump 解析成同一个 0 基数字，两者编译成同一条指令），所以在编辑器里改过的程序**必然**全是数字目标。v0.4.x 起我们把每一处数字 jump 都判成 WARN「不是标签」，6 个分支就是 6 条警告 —— 一个完全正常的程序被刷成一片黄。现在整个程序只出一条 **INFO**（列出位置，最多 8 处），措辞改成「编辑器只能写数字，这是常态，不是错误；但字面目标是关于它上方语句数的承诺，插一句或删一句，下方所有目标都会漂」；`rules/numeric-jump.json` 的 severity 同步 WARN → INFO（`match.sevs` 必须一起改，否则 rid 认不出来）。
+- **跳转越界的提示更具体**：`jump target 3 out of range (0..2)` 后面补上「jump 取的是 0 基**语句**序号，最后一条是 n-1，再大就什么也不做、直接往下走；如果你是按 1 基行号数的，减 1」。真正该拦的从来不是「用了数字」，而是「数字指不到任何语句」—— 这条 ERR 与 `unreachable-statement`(WARN) 照旧。
+- **给模型的话术放宽**：`tools/mlogprovider.py` 里原来写「every jump must name a label ... never a number」，现在改成「标签形式更安全、是生成文本的首选；但数字同样合法 —— 它是编辑器唯一能写的形式，所以带数字的程序玩家还能接着改 —— 只是数字得数对」。
+- 自检：`tests/run_tests.py` 48/48（`numeric-jump` / `labels-check` / `reactor-guard*` / `loop-labels-ok` 等 12 个夹具的期望从 WARN 改成 INFO，同一程序多条 WARN 合并成一条）；`tests/ruleids/run_ruleids.py` 35 rid / 49 夹具 0 问题（覆盖集合不变，`rule-coverage.json` 只有键序变化）；三个分析器镜像（`.dsh/skills/mlog-agentskill/tools`、`mindustry-blueprint/tools`、`.dsh/skills/mindustry-blueprint/tools`）已同步。
+
 ## 0.23.3
 
 - **审查栏真的会报错了**：这一栏以前只有本地 5 条判据（未知指令 / 子命令拼错 / 版本门 / 链接名未绑定 / 体积），所以 `jump 3 always` 这种跳转越界的错一条都不命中，栏里永远「没有发现问题」——用户 m05926 报「一直是 0err 0warn」就是这个。现在再挂一条**侧车全量检查**：代码一变就 `POST /analyze`（`tools/mlogcheck.py` 的 41 条规则：跳转目标越界、不可达语句、读未赋值变量、参数个数…），回来之后重画这一栏，行文从「本地 · 语句 N」变成「全量 · 语句 N」。

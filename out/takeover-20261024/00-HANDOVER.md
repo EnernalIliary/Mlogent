@@ -3118,3 +3118,17 @@ v0.23.0 的 `console_run` 走的是聊天里 `/命令` 那条路（`clientComman
 - 踩坑（教训）：第一轮 gate 的 `package` FAIL 是 **19:14 那次被我 kill 掉的构建留下的坏 dist** —— PyInstaller 打出的
   `logicd.exe` 起来就 `ModuleNotFoundError: No module named 'select'`。清掉 `out/_exe/dist` 与 `out/_exe/build` 之后
   `gate.py --only package` 20.8s PASS，整轮重跑 17/17。⇒ 中途 kill 过 gate/打包之后，先清 `out/_exe/{dist,build}` 再跑。
+### §118 v0.23.4 数字行号 jump 不再报错（2026-11-03）
+
+- 起因 m06173：「使用行号jump不应该报err，原版编辑器只能用数字行号jump」。
+- 根因：`tools/mlogcheck.py` 的 numeric-jump 块对**每一处**数字 jump 发一条 WARN（「0-based statement index,
+  not a label」），6 分支程序就是 6 条；`rules/numeric-jump.json` severity 也是 WARN。而原版编辑器的 jump 目标
+  就是数字字段（`LParser.java:117-125` 的 `label:` 记的是语句计数器、`:195-198` 把命名 jump 解析成同一数字）。
+- 改法：numeric-jump 改成**每程序一条 INFO**（`_num_jumps` 收集、末尾汇总，列最多 8 处）+ 消息改成「数字是编辑器
+  唯一写法，是常态不是错误，但字面目标是关于上方语句数的承诺」；越界消息补「0 基语句序号 / 按 1 基行号数的减 1」；
+  `rules/numeric-jump.json` severity → INFO 且 `match` 同步改（`{sevs:["INFO"], msg_any:["numeric jump target"]}`，
+  否则 `tools/rule_ids.py:73` 认不出 rid）；`tools/mlogprovider.py` 的「never a number」改成「label 首选、数字合法」。
+- 验证：`out/_probe_jump.mlog` → 0 err / 0 warn / 1 info；`tests/run_tests.py` 48/48；
+  `tests/ruleids/run_ruleids.py` 35 rid / 49 夹具 0 问题（覆盖集合不变，只有键序变化）。
+- 见 `out/takeover-20261024/119-v0234-numeric-jump.md`。
+
