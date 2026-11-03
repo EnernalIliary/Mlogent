@@ -3,6 +3,16 @@
 只记对外可见的变化。工程日志（每一版的动机、踩过的坑、源码依据）见
 `MlogAuxiliary/HISTORY.md` 与 `docs/`。
 
+## 0.24.0
+
+- 全图事实段：区域快照只写了框里有什么，而 `ubind` / `ulocate` / `radar` 看的是整张图 —— 「从核心给穹顶送料」的材料全在框外时，模型只能判「做不到」。模组新增 `globalFacts()`（`Groups.build` 找最近的核心连库存、`Groups.unit` 按本队统计类型、`Vars.state.rules.logicUnitControl`）挂到 `regionSnapshot().globals`，侧车 `global_facts()` 把它写成三行提示（没有数据时明说这一版游戏没送）。
+- `needs_links` 不再是拒绝：旧提示一边说「需要玩家接线的方块写进 needs_links」，一边说「needs_links 必须是白名单子集」，模型于是得出「没有 core 的链接就做不了」。现在照常收下代码，记下 `needs_links` 并给一条 WARN `needs-unwired-link`，作业卡片显示「需要接线 core」。
+- 新的 blocked 出口：模型可以直接答 `{"blocked": {"reason", "need", "instead"}}`，作业进入新终态 `blocked`（不再退化成 failed），聊天卡片说清原因与所需方块，并弹一次「MAI · 这件事它做不了」。
+- 语义覆盖检查：任务句子里出现单位/物品词（星辉、供料、transport…）而程序一条 `ubind` / `ucontrol` / `itemTake` / `itemDrop` / `ulocate` 都没有 ⇒ WARN `task-needs-unit-control`，不再静默发一个只开关穹顶的程序。
+- 预算与例子：`TOKENS_CEILING` 16000 → 32000，截断重试追加一段 `TRUNC_NUDGE`（上一轮把 16000 tokens 全花在思考上、`finish_reason=length`、交回空回复）；`EXAMPLES` 8 → 11，新增单位运输 / 供给循环 / 采矿三条，全部过 `mlogcheck` 0 findings。
+- 作业卡片 0 字节修复：`bytes_len` 由 `_materialize()` 按实际 payload 记下（`normalize()` 默认 0），卡片才真的显示「N 字节」。
+- 自检：`api.maiTaskFactsProbe` 返回 `ok cores=0 units=0 blocked=1 bytes=1234 need=1 states=Done/Blocked/Rejected/Failed`；sidecar provider 12 → 15 项（needs_links 改 WARN / blocked 终态 / 全图事实在提示里 / 覆盖检查），smoke 加 5 条红线。
+
 ## 0.23.6
 
 - **修：审查箭头关掉再打开就消失**（用户 m06578「就第一次建出来了，但是后来再打开就消失了」）。原因：原版编辑器每次打开都会 `canvas.rebuild()`，它在 `LCanvas.java:110` 里 `statements = new DragLayout()` —— 整个语句容器换成了新对象，旧箭头跟着旧容器一起没了；而`refreshReview()` 在代码没变时会早退（本来是为了省掉重复快检），自愈分支又要求「一行箭头都没有」才重试 —— 旧箭头还挂在记录里，于是从第二次打开起永久没有箭头。

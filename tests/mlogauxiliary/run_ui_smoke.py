@@ -378,6 +378,7 @@ def main():
     # v0.23.5（用户 m06360「没有看到明显的错误行指示箭头」）：箭头以前只吃本地快检的结果，
     # 「跳转越界」这类只有侧车全量才查得出的错误一条箭头也没有；现在两份合并，栏里也标 L# 行号。
     "print('MAIARROW2:' + maiArrow2Probe());",
+    "print('MAITASK:' + maiTaskFactsProbe());",
     # v0.23.2（用户 m05726「编辑界面的逻辑审查显示没有连接到处理器」）：MindustryX 这类
     # loader 模组会替换 LogicDialog 的字节码，写死的 Class.forName 反射会静默失败；
     # 现在改成从实例的类沿父类链找 executor 字段、并按鸭子类型找目标建筑。无头下只验诊断串。
@@ -425,7 +426,7 @@ def main():
              or l.startswith(('MAISELF:', 'MAIDIAG:', 'MAISET:', 'MAILIST:', 'MAILISTROWS:',
                               'MAIUNDO:', 'MAICONFLICT:', 'MAILLM:',
                               'MAILINKCONFLICT:', 'MAINET:', 'MAIWRITECHECK:', 'MAICHAT:', 'MAISIDECAR:',
-                              'MAIJOBPANEL:', 'MAIJOBPANELDIAG:', 'MAIHINT:', 'MAIFILTER:', 'MAIFILTER2:', 'MAIWORKSPACE:', 'MAIWS2:', 'MAIWS3:', 'MAICHATUI:', 'MAIDUAL:', 'MAIWSDIGEST:', 'MAIBP:', 'MAIACT:', 'MAICOPY:', 'MAIREV:', 'MAIREV2:', 'MAIARROW2:',
+                              'MAIJOBPANEL:', 'MAIJOBPANELDIAG:', 'MAIHINT:', 'MAIFILTER:', 'MAIFILTER2:', 'MAIWORKSPACE:', 'MAIWS2:', 'MAIWS3:', 'MAICHATUI:', 'MAIDUAL:', 'MAIWSDIGEST:', 'MAIBP:', 'MAIACT:', 'MAICOPY:', 'MAIREV:', 'MAIREV2:', 'MAIARROW2:', 'MAITASK:',
                               'MAISIGMETA:', 'MAIBPTITLE:', 'MAIBPCHAT:', 'MAIWELCOME:', 'MAIKEYBIND:', 'MAITHEME:',
                               'MAIJOBBOX0:', 'MAIJOBBOXPIN:', 'MAIJOBBOXFIN:',
                               'MAIJOBBOXCLR:', 'MAIJOBBOX3:', 'MAIJOBMANAGER:',
@@ -634,6 +635,13 @@ def main():
         problems.append('v0.23.5: the review arrows lost their merged feed or their line list'
                         ' (want MAIARROW2:ok lines=2 worst=ERR size=22 ...): %r'
                         % [l for l in lines if l.startswith('MAIARROW2:')][:1])
+    # v0.24.0（用户 m06693「画工作区做无线超那个」结果不好）：选区快照只说框里有什么，
+    # 而 ubind / ulocate 看的是整张图 —— 全图核心/单位/规则要一起送上去；做不了的作业要有
+    # 自己的状态和说得清原因的卡片，不能退回 Failed + 空话。
+    if 'MAITASK:ok' not in joined:
+        problems.append('v0.24.0: the task prompt lost the map-wide facts or the blocked card'
+                        ' (want MAITASK:ok cores=N units=N blocked=1): %r'
+                        % [l for l in lines if l.startswith('MAITASK:')][:1])
     # v0.23.2（用户 m05726）：审查栏不能再靠写死的 Class.forName("mindustry.logic.LogicDialog")
     # 反射 —— MindustryX 替换字节码之后 f.get(L) 抛 IllegalArgumentException 被静默吞掉，
     # 表现就是永远「读不到处理器」。诊断串在无头下必须是 ui=null 且字段齐全。
@@ -2219,6 +2227,17 @@ def main():
     if 'review arrows: canvas rebuilt, rows=' not in code_only:
         problems.append('v0.23.6: the canvas-rebuild diagnostic line disappeared')
 
+    # v0.24.0：全图事实段 + blocked 出口 + 卡片措辞（都不能再退回去）。
+    if 'function globalFacts(' not in code_only or 'globals: globalFacts(' not in code_only:
+        problems.append('v0.24.0: the region snapshot no longer carries the map-wide facts')
+    if 'function jobChatText(' not in code_only:
+        problems.append('v0.24.0: the job card wording was folded back into jobChatDone')
+    if 'var JOB_TERMINAL = {done: 1, blocked: 1' not in code_only:
+        problems.append('v0.24.0: blocked is not a terminal job state any more')
+    if 'Vars.ui.showText("MAI · 这件事它做不了"' not in code_only:
+        problems.append('v0.24.0: a blocked job is no longer surfaced outside the chat box')
+    if 'api.maiTaskFactsProbe = function(' not in code_only:
+        problems.append('v0.24.0: the task-facts self-check hook disappeared')
     if problems:
         print('FAIL ' + '; '.join(problems))
         print(joined[-1500:])
@@ -2247,7 +2266,7 @@ def main():
         print('  batch write: ' + wm[:170])
     for l in lines:
         if l.startswith(('MAISELF:', 'MAIDIAG:', 'MAIUNDO:', 'MAICONFLICT:', 'MAILLM:',
-                        'MAICHAT:', 'MAISIDECAR:', 'MAIJOBPANEL:', 'MAIJOBPANELDIAG:', 'MAIHINT:', 'MAIFILTER:', 'MAIFILTER2:', 'MAIWORKSPACE:', 'MAIWS2:', 'MAIWS3:', 'MAICHATUI:', 'MAIDUAL:', 'MAIWSDIGEST:', 'MAIACT:', 'MAICOPY:', 'MAIREV:', 'MAIREV2:', 'MAIARROW2:',
+                        'MAICHAT:', 'MAISIDECAR:', 'MAIJOBPANEL:', 'MAIJOBPANELDIAG:', 'MAIHINT:', 'MAIFILTER:', 'MAIFILTER2:', 'MAIWORKSPACE:', 'MAIWS2:', 'MAIWS3:', 'MAICHATUI:', 'MAIDUAL:', 'MAIWSDIGEST:', 'MAIACT:', 'MAICOPY:', 'MAIREV:', 'MAIREV2:', 'MAIARROW2:', 'MAITASK:',
                         'MAIJOBBOX', 'MAIBADGERECT:', 'MAIJOBMANAGER:', 'MAIBP:',
                         'MAISIGMETA:', 'MAIBPTITLE:', 'MAIBPCHAT:', 'MAIKEYBIND:', 'MAITHEME:',
                         'MAIJOBTHINK2:')):

@@ -28,7 +28,7 @@
 function __logicWriterMain(){
     "use strict";
 
-    var MOD_VERSION = "0.23.6";
+    var MOD_VERSION = "0.24.0";
     var URL_KEY     = "mlogauxiliary-url";
     var DEFAULT_URL = "http://127.0.0.1:8765";
     // v0.11.0：设置页里填的模型档三件套。密钥只留在本机 Core.settings 与 sidecar 进程内存。
@@ -3494,7 +3494,7 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
         // 契约：docs/Mlog辅助-规划.md §4.1；端点：POST /jobs、GET /jobs?id=、DELETE /jobs?id=。
         var aiJob = null;                 // {id, b, desc, host, d, lastPoll, job}
         var JOB_POLL_MS = 1000;
-        var JOB_TERMINAL = {done: 1, rejected: 1, failed: 1, cancelled: 1};
+        var JOB_TERMINAL = {done: 1, blocked: 1, rejected: 1, failed: 1, cancelled: 1};
         // v0.12.5: F3 松手之后框不立刻消失——它代表「这一批作业还在跑」，一直到这一批
         // 全部终态再多留 8 秒，玩家才有机会点右下角的徽标看思考过程。
         var jobBox = null;                // {r, ids, jobs, pend, started, termAt, lastPoll}
@@ -3671,6 +3671,9 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
             }
             if(st === "rejected"){
                 return "作业 " + id + "：被门禁拒绝（尝试 " + a + " 次，ERR " + c.err + " 条）";
+            }
+            if(st === "blocked"){
+                return "作业 " + id + "：它说这件事做不了（" + chatTrim(String(job.explanation || ""), 60) + "）";
             }
             if(st === "cancelled"){ return "作业 " + id + "：已取消"; }
             return "作业 " + id + "：" + st
@@ -4496,6 +4499,7 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
             if(s === "done"){ return "完成"; }
             if(s === "rejected"){ return "被拒"; }
             if(s === "failed"){ return "失败"; }
+            if(s === "blocked"){ return "做不了"; }
             if(s === "cancelled"){ return "已取消"; }
             return s;
         }
@@ -4668,6 +4672,36 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
         }
 
         // 完成：终态只播报一次（jobTick 和 jobBoxTick 可能同时看到同一个作业）。
+        // v0.24.0：卡片措辞独立出来（探针能直接断言；以前只能靠真机看聊天框）。
+        function jobChatText(job){
+            var st = String(job.state);
+            if(st === "done"){
+                var c = jobSevCounts(job), tpl = String(job.template || "");
+                var info = (tpl.length > 0 ? tpl + " · " : "") + String(job.statements || 0) + " 条语句 · "
+                         + String(job.bytes_len || 0) + " 字节 · " + (c.err === 0 ? "0 ERR" : ("ERR " + c.err));
+                var need = job.needs_links;
+                if(need === null || need === undefined || need.length === undefined){ need = []; }
+                if(need.length > 0){ info += " · 需要接线 " + need.join("、"); }
+                if(c.warn > 0){ info += " · WARN " + c.warn; }
+                return {status: "Done", info: info};
+            }
+            if(st === "blocked"){
+                var why = chatTrim(String(job.explanation || ""), 80);
+                if(String(why) === ""){ why = "它没说原因"; }
+                var blk = job.blocked, need2 = [];
+                if(blk !== null && blk !== undefined && blk.need !== null && blk.need !== undefined){ need2 = blk.need; }
+                var tail = (need2.length > 0) ? ("；要 " + need2.join("、")) : "";
+                return {status: "Blocked", info: why + tail};
+            }
+            if(st === "rejected"){
+                var c2 = jobSevCounts(job);
+                return {status: "Rejected", info: "静态检查有 ERR（" + c2.err + " 条）"};
+            }
+            if(st === "cancelled"){ return {status: "Cancelled", info: "已取消"}; }
+            var inf = chatTrim(String(job.explanation || ""), 60);
+            if(String(inf) === ""){ inf = "没有说明"; }
+            return {status: "Failed", info: inf};
+        }
         function jobChatDone(job){
             if(job === null || job === undefined){ return; }
             var st = String(job.state);
@@ -4687,25 +4721,13 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
                 var q = chatXY(lb);
                 if(q.x !== "?"){ x = q.x; y = q.y; }
             }
-            var status, info;
-            if(st === "done"){
-                status = "Done";
-                var c = jobSevCounts(job), tpl = String(job.template || "");
-                info = (tpl.length > 0 ? tpl + " · " : "") + String(job.statements || 0) + " 条语句 · "
-                     + String(job.bytes_len || 0) + " 字节 · " + (c.err === 0 ? "0 ERR" : ("ERR " + c.err));
-            }else if(st === "rejected"){
-                status = "Rejected";
-                var c2 = jobSevCounts(job);
-                info = "静态检查有 ERR（" + c2.err + " 条）";
-            }else if(st === "cancelled"){
-                status = "Cancelled";
-                info = "已取消";
-            }else{
-                status = "Failed";
-                info = chatTrim(String(job.explanation || ""), 60);
-                if(String(info) === ""){ info = "没有说明"; }
+            var t = jobChatText(job);
+            chatSay(chatLine(t.status, x, y, t.info));
+            if(st === "blocked"){
+                // v0.24.0：它自己说做不了 —— 只留在聊天框里会被刷走，开一次窗说清楚要什么。
+                try{ Vars.ui.showText("MAI · 这件事它做不了", String(t.info)); }
+                catch(eB){ log("blocked notice: no ui"); }
             }
-            chatSay(chatLine(status, x, y, info));
         }
 
         // 一个描述框 → 这块区域里每个处理器各投一个作业（P5 批量入口，v0.12.5）。
@@ -8201,6 +8223,58 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
             return res;
         }
 
+        // v0.24.0（用户 m06693「画工作区做无线超那个」结果不好）：选区快照只说明框里有什么，
+        // 而 ubind / ulocate / radar 看的是整张图 ——「从核心取料送给穹顶」的材料全在框外，
+        // 模型只能猜「做不到」。这里补三样全图事实：离选区最近的核心（带库存）、我方单位、地图规则。
+        // 无头环境 / 联机早期这些集合可能不存在，三层 try 兜底，宁可少给也不抛。
+        var GLOBAL_MAX_CORES = 4;
+        function globalFacts(x1, y1, x2, y2){
+            var out = {cores: [], units: {total: 0, types: {}}, rules: {}};
+            var cx = (Number(x1) + Number(x2)) / 2, cy = (Number(y1) + Number(y2)) / 2;
+            if(!(cx === cx)){ cx = 0; }
+            if(!(cy === cy)){ cy = 0; }
+            var myTeam = null;
+            try{
+                var pl = localPlayer();
+                if(pl !== null && pl !== undefined){ myTeam = String(pl.team().name); }
+            }catch(eM){ myTeam = null; }
+            var itemsSeq = null;
+            try{ itemsSeq = Vars.content.items(); }catch(eI){ itemsSeq = null; }
+            try{
+                var found = [];
+                var put = function(g){
+                    try{
+                        var nm = String(g.block.name);
+                        if(nm.indexOf("core") !== 0){ return; }
+                        var stk = stockOf(g.items, itemsSeq);
+                        found.push({x: Number(g.tile.x), y: Number(g.tile.y), block: nm, items: stk.v,
+                                    d: Math.abs(Number(g.tile.x) - cx) + Math.abs(Number(g.tile.y) - cy)});
+                    }catch(eC){ }
+                };
+                var builds = Packages.mindustry.gen.Groups.build;
+                if(builds !== null && builds !== undefined && typeof builds.each === "function"){ builds.each(put); }
+                found.sort(function(a, b){ return a.d - b.d; });
+                for(var i = 0; i < found.length && i < GLOBAL_MAX_CORES; i++){
+                    out.cores.push({x: found[i].x, y: found[i].y, block: found[i].block, items: found[i].items});
+                }
+            }catch(eB){ }
+            try{
+                var units = Packages.mindustry.gen.Groups.unit;
+                var add = function(u){
+                    try{
+                        if(u === null || u === undefined){ return; }
+                        if(myTeam !== null && String(u.team.name) !== myTeam){ return; }
+                        var tn = String(u.type.name);
+                        out.units.total += 1;
+                        out.units.types[tn] = (out.units.types[tn] || 0) + 1;
+                    }catch(eU){ }
+                };
+                if(units !== null && units !== undefined && typeof units.each === "function"){ units.each(add); }
+            }catch(eT){ }
+            try{ out.rules.logicUnitControl = (Vars.state.rules.logicUnitControl === true); }
+            catch(eR){ out.rules.logicUnitControl = null; }
+            return out;
+        }
         function regionSnapshot(x1, y1, x2, y2){
             var W = Vars.world;
             var mapName = "?";
@@ -8284,7 +8358,7 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
                     grid: grid, processors: procs,
                     blocks: blocks, items: items, liquids: liquids, stores: stores,
                     units: {total: us.total, types: us.types, teams: us.teams},
-                    enemies: enemies};
+                    enemies: enemies, globals: globalFacts(x1, y1, x2, y2)};
         }
 
         // Last non-empty line of a diagnostic, trimmed: the user needs one line
@@ -9702,6 +9776,38 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
             return notes.length === 0 ? ("ok " + out) : ("bad " + notes.join(","));
         };
 
+        // v0.24.0 自检：全图事实段 + blocked 卡片文案（只跑纯函数，无头也能过）。
+        api.maiTaskFactsProbe = function(){
+            var bad = [];
+            function chk(cond, why){ if(cond !== true){ bad.push(why); } }
+            var gf = null;
+            try{ gf = globalFacts(0, 0, 10, 10); }catch(e0){ bad.push("globalFacts threw"); }
+            chk(gf !== null && gf !== undefined, "globalFacts null");
+            if(gf !== null && gf !== undefined){
+                chk(gf.cores !== null && gf.cores !== undefined, "no cores");
+                chk(gf.units !== null && gf.units !== undefined, "no units");
+                chk(gf.rules !== null && gf.rules !== undefined, "no rules");
+            }
+            chk(stateCn("blocked") === "做不了", "stateCn blocked");
+            chk(JOB_TERMINAL.blocked === 1, "blocked not terminal");
+            var d1 = jobChatText({state: "done", statements: 8, bytes_len: 1234, findings: []});
+            chk(d1.status === "Done", "done status");
+            chk(String(d1.info).indexOf("1234 字节") >= 0, "done info without bytes");
+            var d2 = jobChatText({state: "done", statements: 2, bytes_len: 10, needs_links: ["core"], findings: []});
+            chk(String(d2.info).indexOf("需要接线 core") >= 0, "done info without needs_links");
+            var d3 = jobChatText({state: "blocked", explanation: "地图上没有星辉",
+                                  blocked: {reason: "地图上没有星辉", need: ["flare"]}});
+            chk(d3.status === "Blocked", "blocked status");
+            chk(String(d3.info).indexOf("地图上没有星辉") >= 0, "blocked info without reason");
+            chk(String(d3.info).indexOf("要 flare") >= 0, "blocked info without need");
+            var d4 = jobChatText({state: "rejected", findings: [{sev: "ERR", msg: "x"}]});
+            chk(String(d4.info).indexOf("静态检查有 ERR") >= 0, "rejected info");
+            var d5 = jobChatText({state: "failed", explanation: "侧车没应答"});
+            chk(d5.status === "Failed", "failed status");
+            if(bad.length > 0){ return "bad " + bad.join("; "); }
+            return "ok cores=" + gf.cores.length + " units=" + gf.units.total + " blocked=1 bytes=1234 need=1"
+                 + " states=" + d1.status + "/" + d3.status + "/" + d4.status + "/" + d5.status;
+        };
         // 挂到脚本作用域（控制台里能直接敲），并读回自检
         // v0.14.4（用户 2026-11-01）：「sidcar应该随游戏启动而启动」——不再等 F3 才拉；
         // 这里先试一次，ClientLoadEvent（进游戏）再补一次，两次都幂等。

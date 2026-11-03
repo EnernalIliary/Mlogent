@@ -527,7 +527,7 @@ FAKE = {
 }
 
 JLINKS = [{'name': 'container1', 'x': 1, 'y': 2}, {'name': 'message1', 'x': 3, 'y': 4}]
-JTERMINAL = ('done', 'rejected', 'failed', 'cancelled')
+JTERMINAL = ('done', 'blocked', 'rejected', 'failed', 'cancelled')
 
 
 def wait_job(srv, jid, want=JTERMINAL, timeout=60):
@@ -957,18 +957,68 @@ def test_provider():
              'the repair attempt was not told what was wrong')
         checks += 1
 
-        # 6. needs_links that the processor does not have is a refusal by itself
-        prov4 = MP.ScriptedProvider([{'code': 'set n 0\nend',
-                                     'needs_links': ['container9']}] * 3)
+        # 6. v0.24.0（m06693）：asking for an unwired link is NOT a refusal any more --
+        #    the player wiring it is the normal way out, so the job is accepted with a WARN.
+        prov4 = MP.ScriptedProvider([{'code': 'set n 0',
+                                     'needs_links': ['container9']}])
         q4 = jobqueue.Queue(jobqueue.Store(os.path.join(tmp, 'q4')), provider=prov4)
         j4, _ = q4.enqueue({'desc': 'scripted needs', 'links': LINKS})
         q4.drain()
         got4 = q4.get(j4['id'])
-        need(got4['state'] == 'rejected' and got4['code'] == '',
-             'a reply asking for a link it does not own was accepted: %r' % (got4,))
-        need(any('container9' in f.get('msg', '') for f in got4['findings']),
-             'the needs_links refusal is not explained: %r' % (got4['findings'],))
+        need(got4['state'] == 'done' and got4['code'].strip() != '',
+             'a reply asking for an unwired link was refused: %r' % (got4['state'],))
+        need(got4.get('needs_links') == ['container9'],
+             'the accepted reply dropped the links it asked for: %r' % (got4.get('needs_links'),))
+        need(any(f.get('rid') == 'needs-unwired-link' and f['sev'] == 'WARN'
+                 for f in got4['findings']),
+             'the unwired link was not reported as a warning: %r' % (got4['findings'],))
         checks += 1
+
+        # 6b. v0.24.0: a blocked reply is a first-class answer, not a failure
+        prov5 = MP.ScriptedProvider([{'blocked': {'reason': 'the map has no flare',
+                                                  'need': ['flare'],
+                                                  'instead': 'wire a dome'}}])
+        q5 = jobqueue.Queue(jobqueue.Store(os.path.join(tmp, 'qb')), provider=prov5)
+        j5, _ = q5.enqueue({'desc': 'scripted blocked', 'links': LINKS})
+        q5.drain()
+        got5 = q5.get(j5['id'])
+        need(got5['state'] == 'blocked' and got5['code'] == '',
+             'a blocked reply did not become a blocked job: %r' % (got5['state'],))
+        need((got5.get('blocked') or {}).get('reason') == 'the map has no flare'
+             and (got5.get('blocked') or {}).get('need') == ['flare'],
+             'the blocked job lost its reason/need: %r' % (got5.get('blocked'),))
+        checks += 1
+
+        # 6c. v0.24.0: the prompt must carry the map-wide facts and the blocked way out
+        p6 = MP.build_prompt({'desc': 'supply the dome with a flare', 'links': LINKS, 'ipt': 2,
+                              'snapshot': {'globals': {
+                                  'cores': [{'x': 1, 'y': 2, 'block': 'core-shard',
+                                             'items': {'copper': 300}}],
+                                  'units': {'total': 2, 'types': {'flare': 2}},
+                                  'rules': {'logicUnitControl': True}}}})
+        need('cores on the map' in p6 and 'core-shard' in p6,
+             'the prompt lost the map-wide core list')
+        need('your units on the map' in p6 and 'flare x2' in p6,
+             'the prompt lost the map-wide unit list')
+        need('logicUnitControl=True' in p6,
+             'the prompt lost the map rules')
+        need('A blocked reply is answered by the player' in p6,
+             'the prompt no longer offers the blocked way out')
+        need(len(MP.EXAMPLES) >= 11,
+             'the worked-example library shrank to %d' % len(MP.EXAMPLES))
+        checks += 1
+
+        # 6d. v0.24.0: a unit/item task answered without a single unit instruction is flagged
+        cov = jobqueue.coverage_findings('control a flare and supply the dome from the core',
+                                        'sensor n dome1 @copper' + chr(10) + 'end')
+        need(len(cov) == 1 and cov[0]['rid'] == 'task-needs-unit-control'
+             and cov[0]['sev'] == 'WARN',
+             'the unit-task coverage check did not fire: %r' % (cov,))
+        need(jobqueue.coverage_findings('turn the conveyor off',
+                                        'control enabled conveyor1 false') == [],
+             'a plain block task was flagged as a unit task')
+        checks += 1
+
 
         # 7. the llm provider is opt-in: no endpoint and no replay is a usage error
         r = subprocess.run([sys.executable, '-X', 'utf8', str(ROOT / 'tools' / 'logicd.py'),

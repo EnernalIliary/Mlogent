@@ -3161,3 +3161,17 @@ v0.23.0 的 `console_run` 走的是聊天里 `/命令` 那条路（`clientComman
 - 打包 `python -X utf8 tools/package.py` → `out/_dist/MAI-0.23.6/` **191 files / 19,534,298 B**；`MAI-0.23.6-mod.zip` 8,755,112 B sha256 `4BD1EAD9A46C530A39C8D38CFAEE83E1D2B05490CFADECEE19F890AF6848A543`；`MAI-0.23.6.zip` 8,777,703 B sha256 `551B3B9C0C239B5069C7944660B63D4652CEB3F35C0E94949F40B2F5638DE1AB`（`out/_pack236.log`）。
 - 装机 [ok]：先 `Get-Process logicd | Stop-Process -Force`，再 `powershell -NoProfile -ExecutionPolicy Bypass -File "out\_dist\MAI-0.23.6\install.ps1"` → 备份 `saves/mod-backups/MlogAuxiliary-20261103-214337`。装机时游戏在跑 ⇒ 需重启才加载 0.23.6。
 - 提交：见 `git log --oneline --grep=v0.23.6`。
+
+### §121 v0.24.0 作业「做不了」有出口了：全图事实 / blocked 终态 / 语义覆盖（2026-11-03）
+
+起因是用户 m06693 指的那次失败作业（aac523a1dd862b80「控制一个星辉，从核心为这个超速供给布和硅」）：模型在推理里写「Without links to core/flare impossible.」，最后交了个只开关穹顶的程序，0 ERR 0 WARN —— 门禁和审查都没问题，因为**它没写错，它只是被提示困住了**。三条根因（选区快照看不见框外的核心与单位 / 规则自相矛盾把 needs_links 堵死 / 16000 tokens 全花在思考上）已在 m06670 的复盘里报给用户，m06750 用户批准按此修。
+
+落地的六件事：① 模组 `globalFacts()` 把全图核心（连库存）/ 单位 / 规则挂到 `regionSnapshot().globals`，侧车 `global_facts()` 写成三行提示；② 白名单外的 `needs_links` 从致命拒绝改成 WARN `needs-unwired-link` + 记下，卡片显示「需要接线 …」；③ 新终态 `blocked`（`{"blocked": {reason, need, instead}}`），模组 `JOB_TERMINAL` / `stateCn` / `jobChatText()` 全链路认它，并弹一次窗；④ `coverage_findings()`：说单位/物品却没有一条单位指令 ⇒ WARN `task-needs-unit-control`；⑤ `TOKENS_CEILING` 16000→32000 + 截断后追加 `TRUNC_NUDGE`，`EXAMPLES` 8→11（运输 / 供给循环 / 采矿）；⑥ `bytes_len` 按实际 payload 记，卡片不再永远「0 字节」。
+
+验法：`MAITASK:ok cores=0 units=0 blocked=1 bytes=1234 need=1 states=Done/Blocked/Rejected/Failed`（无头下没有地图，cores/units 都是 0 属正常，`cores=` 存在即证字段在）；sidecar `provider: 15 check(s) passed`。
+
+### 收尾数字（2026-11-04 00:02）
+
+- 门禁：`python -X utf8 gate.py --full --kb-build` → **17/17 passed in 158.8s**（`out/_gate_v240.log`，kb 重建覆盖 169 源文件）。
+- 打包：`out/_dist/MAI-0.24.0/` **191 files / 19,557,925 B**；`MAI-0.24.0-mod.zip` **8,766,356 B** sha256 `2C70051BDF634BE9F0B8984396B1FCB20809656A7D34FB69ED6272DC535FBEBB`；`MAI-0.24.0.zip` **8,788,943 B** sha256 `B4051BAE052F3D0683273D0E61479FB9B7A1CA89A945F310B9377C4842988172`（`out/_pack240.log`）。
+- 装机 [ok]：`powershell -NoProfile -ExecutionPolicy Bypass -File "out\_dist\MAI-0.24.0\install.ps1"` → 自动识别 `E:\Program Files (x86)\Steam\steamapps\common\Mindustry\saves\mods`，旧副本备份 `saves\mod-backups\MlogAuxiliary-20261104-000146`；装机后 `mod.hjson` version 0.24.0、`main.js` `var MOD_VERSION = "0.24.0";` 均已核对。**必须重启游戏才加载**（这次装机时没有 logicd 在跑）。
