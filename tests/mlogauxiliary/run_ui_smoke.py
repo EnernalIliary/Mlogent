@@ -2207,6 +2207,18 @@ def main():
         problems.append('v0.23.5: the review bar no longer names the offending lines')
     if 'api.maiArrow2Probe = function(' not in code_only:
         problems.append('v0.23.5: the arrow self-check hook disappeared')
+    # v0.23.6（用户 m06578「就第一次建出来了，但是后来再打开就消失了」）：
+    # 编辑器每次打开都会 canvas.rebuild()（LCanvas.java:110 新建 DragLayout），旧箭头跟着旧容器一起没了；
+    # 代码没变时 refreshReview 早退、自愈分支又看 arrowRows 非空 —— 必须按「容器换了」整份重画。
+    if 'function arrowStale(' not in code_only:
+        problems.append('v0.23.6: the arrow overlay lost its statements-identity check')
+    if 'arrowHost.parent === parent' not in code_only:
+        problems.append('v0.23.6: a stale arrow host is no longer detected as detached')
+    if 'arrowStale(arrowStatements, st)' not in code_only:
+        problems.append('v0.23.6: the per-frame tick no longer rebuilds the arrows after a canvas rebuild')
+    if 'review arrows: canvas rebuilt, rows=' not in code_only:
+        problems.append('v0.23.6: the canvas-rebuild diagnostic line disappeared')
+
     if problems:
         print('FAIL ' + '; '.join(problems))
         print(joined[-1500:])

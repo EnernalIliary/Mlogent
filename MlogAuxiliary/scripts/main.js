@@ -28,7 +28,7 @@
 function __logicWriterMain(){
     "use strict";
 
-    var MOD_VERSION = "0.23.5";
+    var MOD_VERSION = "0.23.6";
     var URL_KEY     = "mlogauxiliary-url";
     var DEFAULT_URL = "http://127.0.0.1:8765";
     // v0.11.0：设置页里填的模型档三件套。密钥只留在本机 Core.settings 与 sidecar 进程内存。
@@ -3185,6 +3185,9 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
         var ARROW = 22;                       // 箭头边长（像素）
         var arrowHost = null, arrowParent = null, arrowRows = [], arrowByLine = {};
         var arrowWant = 0, arrowLogged = false;   // 应画几行 / 诊断日志只打一次
+        // v0.23.6：编辑器每次打开都会 canvas.rebuild()（LCanvas.java:110 新建 DragLayout），
+        // 记住箭头挂在哪份 statements 上，换了容器就整份重画。
+        var arrowStatements = null, arrowRebuilt = 0;
         var arrowDraw;                        // undefined = 还没找过，null = 这个环境没有图标
 
         function sevRank(sev){
@@ -3236,11 +3239,30 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
             }catch(e){ return null; }
         }
 
+        // 画布重建后 statements 是新对象（LCanvas.rebuild() 里 new DragLayout()）；
+        // 两代都不是 null 且不相等 ⇒ 箭头要重挂。
+        function arrowStale(prev, cur){
+            if(prev === null || prev === undefined){ return false; }
+            if(cur === null || cur === undefined){ return false; }
+            return prev !== cur;
+        }
+
         function arrowHostFor(statements){
             var parent = null;
             try{ parent = statements.parent; }catch(e){ return null; }
             if(parent === null || parent === undefined){ return null; }
-            if(arrowHost !== null && arrowParent === parent){ return arrowHost; }
+            if(arrowHost !== null && arrowParent === parent && arrowHost.parent === parent &&
+               arrowStatements === statements){
+                return arrowHost;
+            }
+            // 旧容器已经不在场景里（编辑器关掉/重开时 LCanvas.rebuild() 会换掉整棵子树）：
+            // 把旧覆盖层摘掉，别把 Image 攒在已分离的 Table 上。
+            if(arrowHost !== null){
+                try{ arrowHost.clearChildren(); }catch(e){ }
+                try{ arrowHost.remove(); }catch(e){ }
+            }
+            arrowHost = null;
+            arrowRows = [];
             var host = new Packages.arc.scene.ui.layout.Table();
             host.setFillParent(true);
             host.touchable = Packages.arc.scene.event.Touchable.childrenOnly;
@@ -3248,6 +3270,7 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
             host.update(function(){ layoutArrows(); });
             arrowHost = host;
             arrowParent = parent;
+            arrowStatements = statements;
             return host;
         }
 
@@ -3389,9 +3412,21 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
                 if(reviewHost !== Vars.ui.logic){ injectReview(); }
                 reviewFrame++;
                 if(reviewFrame % 30 === 0){ refreshReview(false); }
-                // 自愈：全量结果回来时画布可能还没上舞台（arrowHostFor 要 statements.parent 非空），
-                // 那时箭头建不出来；refreshReview 只在代码变化时重跑，所以每 30 帧补一次。
-                if(reviewFrame % 30 === 15 && arrowWant > 0 && arrowRows.length === 0){ refreshArrows(); }
+                // v0.23.6（用户 m06578「就第一次建出来了，但是后来再打开就消失了」）：
+                // 编辑器每次打开都 canvas.rebuild()，statements 是新的 DragLayout，旧箭头跟着旧容器一起没了；
+                // 代码没变时 refreshReview 会早退，所以这里按「容器换了」直接重画。
+                var st = reviewStatements();
+                if(arrowStale(arrowStatements, st)){
+                    var rebuilt = refreshArrows();
+                    if(arrowRebuilt < 3){
+                        arrowRebuilt++;
+                        try{ log("review arrows: canvas rebuilt, rows=" + rebuilt); }catch(e){ }
+                    }
+                }else if(reviewFrame % 30 === 15 && arrowWant > 0 && arrowRows.length === 0){
+                    // 自愈：全量结果回来时画布可能还没上舞台（arrowHostFor 要 statements.parent 非空），
+                    // 那时箭头建不出来；refreshReview 只在代码变化时重跑，所以每 30 帧补一次。
+                    refreshArrows();
+                }
             }catch(e){ /* 每帧回调里绝不抛出去 */ }
         }
 
@@ -9657,7 +9692,12 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
                 if(reviewLineList(null, undefined).length !== 0){ notes.push("linesnull"); }
                 if(ARROW !== 22){ notes.push("size=" + ARROW); }
                 if(syncArrows(null, null, null) !== 0){ notes.push("nocanvas"); }
-                out = "lines=2 worst=ERR size=" + ARROW;
+                if(arrowStale(null, {}) !== false){ notes.push("stale-null"); }
+                var fakeA = {id: 1}, fakeB = {id: 2};
+                if(arrowStale(fakeA, fakeA) !== false){ notes.push("stale-same"); }
+                if(arrowStale(fakeA, fakeB) !== true){ notes.push("stale-diff"); }
+                if(arrowStale(fakeA, null) !== false){ notes.push("stale-cur-null"); }
+                out = "lines=2 worst=ERR size=" + ARROW + " stale=1";
             }catch(e){ notes.push("throw:" + e); }
             return notes.length === 0 ? ("ok " + out) : ("bad " + notes.join(","));
         };

@@ -3146,3 +3146,18 @@ v0.23.0 的 `console_run` 走的是聊天里 `/命令` 那条路（`clientComman
 - 门禁 `python -X utf8 gate.py --full --kb-build` → **17/17 passed in 137.5s**（`out/_gate_v235.log`，kb 覆盖 169 源文件）。
 - 打包 `python -X utf8 tools/package.py` → `out/_dist/MAI-0.23.5/` **191 files / 19,531,885 B**；`MAI-0.23.5-mod.zip` 8,754,346 B sha256 `0DA05ED78F1C58541A094E3F14AECD49AA43165B471E0B3445B2F415268775B1`；`MAI-0.23.5.zip` 8,776,928 B sha256 `132DE3DECB68B592FDA92D72A70CCB0F0997A503A9559B6BCC7CB37E6A0690DC`（`out/_pack235.log`）。
 - 装机 [ok]：先停掉游戏拉起的 **21 个** `logicd.exe`（都在 `...\saves\mods\MlogAuxiliary\sidecar\bin\logicd.exe`），再 `powershell -NoProfile -ExecutionPolicy Bypass -File "out\_dist\MAI-0.23.5\install.ps1"` → 备份 `saves\mod-backups/MlogAuxiliary-20261103-211007`。装机时游戏在跑 ⇒ 需重启才加载 0.23.5。
+
+### §120 v0.23.6 审查箭头关掉再打开就消失（2026-11-03）
+
+- 起因 m06578：「就第一次建出来了，但是后来再打开就消失了」。
+- 根因：`LogicDialog.show(String,…)`（`Mindustry-Source/core/src/mindustry/logic/LogicDialog.java:349`）每次打开都 `canvas.rebuild()`，而 `LCanvas.java:106-119` 里 `statements = new DragLayout()` 且父容器 `t` 也是新的 —— 旧箭头随旧子树离开场景；重画入口只剩 `refreshReview()`（代码没变就早退）与自愈分支（要求 `arrowRows.length === 0`，而记录还留着旧的）⇒ 第二次起永久没有箭头。
+- 改法：`arrowStatements` 记身份 + `arrowStale(prev, cur)`(:3244)；`arrowHostFor()` 复用条件加 `arrowHost.parent === parent && arrowStatements === statements`，失效时摘掉旧覆盖层再建；`reviewTick()` 每帧比对、换了就整份重画；重画打 `review arrows: canvas rebuilt, rows=N`（≤3 次）。
+- 验证：smoke rc 0（`out/_smoke236.log`），`  MAIARROW2:ok lines=2 worst=ERR size=22 stale=1`；探针加四条 `arrowStale` 断言、smoke 加 4 条红线。
+- 见 `out/takeover-20261024/121-v0236-arrow-rebuild.md`。
+
+### 收尾数字（2026-11-03 21:44）
+
+- 门禁 `python -X utf8 gate.py --full --kb-build` → **17/17 passed in 138.3s**（`out/_gate_v236.log`，kb 覆盖 169 源文件）。
+- 打包 `python -X utf8 tools/package.py` → `out/_dist/MAI-0.23.6/` **191 files / 19,534,298 B**；`MAI-0.23.6-mod.zip` 8,755,112 B sha256 `4BD1EAD9A46C530A39C8D38CFAEE83E1D2B05490CFADECEE19F890AF6848A543`；`MAI-0.23.6.zip` 8,777,703 B sha256 `551B3B9C0C239B5069C7944660B63D4652CEB3F35C0E94949F40B2F5638DE1AB`（`out/_pack236.log`）。
+- 装机 [ok]：先 `Get-Process logicd | Stop-Process -Force`，再 `powershell -NoProfile -ExecutionPolicy Bypass -File "out\_dist\MAI-0.23.6\install.ps1"` → 备份 `saves/mod-backups/MlogAuxiliary-20261103-214337`。装机时游戏在跑 ⇒ 需重启才加载 0.23.6。
+- 提交：见 `git log --oneline --grep=v0.23.6`。
