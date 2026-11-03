@@ -375,6 +375,9 @@ def main():
     # 而且 canvas.save() 在 MindustryX 下可能读到空串（栏里「语句 0」）；现在取码有兜底、
     # 并异步问侧车 POST /analyze 要全量结果。无头下只验计数/行文/来源判定这些纯函数。
     "print('MAIREV2:' + maiReview2Probe());",
+    # v0.23.5（用户 m06360「没有看到明显的错误行指示箭头」）：箭头以前只吃本地快检的结果，
+    # 「跳转越界」这类只有侧车全量才查得出的错误一条箭头也没有；现在两份合并，栏里也标 L# 行号。
+    "print('MAIARROW2:' + maiArrow2Probe());",
     # v0.23.2（用户 m05726「编辑界面的逻辑审查显示没有连接到处理器」）：MindustryX 这类
     # loader 模组会替换 LogicDialog 的字节码，写死的 Class.forName 反射会静默失败；
     # 现在改成从实例的类沿父类链找 executor 字段、并按鸭子类型找目标建筑。无头下只验诊断串。
@@ -422,7 +425,7 @@ def main():
              or l.startswith(('MAISELF:', 'MAIDIAG:', 'MAISET:', 'MAILIST:', 'MAILISTROWS:',
                               'MAIUNDO:', 'MAICONFLICT:', 'MAILLM:',
                               'MAILINKCONFLICT:', 'MAINET:', 'MAIWRITECHECK:', 'MAICHAT:', 'MAISIDECAR:',
-                              'MAIJOBPANEL:', 'MAIJOBPANELDIAG:', 'MAIHINT:', 'MAIFILTER:', 'MAIFILTER2:', 'MAIWORKSPACE:', 'MAIWS2:', 'MAIWS3:', 'MAICHATUI:', 'MAIDUAL:', 'MAIWSDIGEST:', 'MAIBP:', 'MAIACT:', 'MAICOPY:', 'MAIREV:', 'MAIREV2:',
+                              'MAIJOBPANEL:', 'MAIJOBPANELDIAG:', 'MAIHINT:', 'MAIFILTER:', 'MAIFILTER2:', 'MAIWORKSPACE:', 'MAIWS2:', 'MAIWS3:', 'MAICHATUI:', 'MAIDUAL:', 'MAIWSDIGEST:', 'MAIBP:', 'MAIACT:', 'MAICOPY:', 'MAIREV:', 'MAIREV2:', 'MAIARROW2:',
                               'MAISIGMETA:', 'MAIBPTITLE:', 'MAIBPCHAT:', 'MAIWELCOME:', 'MAIKEYBIND:', 'MAITHEME:',
                               'MAIJOBBOX0:', 'MAIJOBBOXPIN:', 'MAIJOBBOXFIN:',
                               'MAIJOBBOXCLR:', 'MAIJOBBOX3:', 'MAIJOBMANAGER:',
@@ -626,6 +629,11 @@ def main():
         problems.append('v0.23.3: the review bar lost its full-check wiring or its count/line rendering'
                         ' (want MAIREV2:ok blank=3 cnt=1/2/1/4 ...): %r'
                         % [l for l in lines if l.startswith('MAIREV2:')][:1])
+    # v0.23.5（用户 m06360）：行内箭头必须同时吃本地快检和侧车全量；同一行取最坏级别、按行号排序。
+    if 'MAIARROW2:ok' not in joined:
+        problems.append('v0.23.5: the review arrows lost their merged feed or their line list'
+                        ' (want MAIARROW2:ok lines=2 worst=ERR size=22 ...): %r'
+                        % [l for l in lines if l.startswith('MAIARROW2:')][:1])
     # v0.23.2（用户 m05726）：审查栏不能再靠写死的 Class.forName("mindustry.logic.LogicDialog")
     # 反射 —— MindustryX 替换字节码之后 f.get(L) 抛 IllegalArgumentException 被静默吞掉，
     # 表现就是永远「读不到处理器」。诊断串在无头下必须是 ui=null 且字段齐全。
@@ -2058,10 +2066,11 @@ def main():
             if ast is None or (line - 1) not in kids:
                 continue
             kx, ky, kh = kids[line - 1]
-            want_x = ast[0] + kx - 16 - 2          # left gutter when there is room
+            # v0.23.5: ARROW 16 -> 22，左侧让位从 2 放宽到 4（箭头加大后别被行盖住）。
+            want_x = ast[0] + kx - 22 - 4          # left gutter when there is room
             if want_x < 2:
                 want_x = ast[0] + kx + 2
-            want_y = ast[1] + ky + kh - 19 - 8     # header row is 38 px tall
+            want_y = ast[1] + ky + kh - 19 - 11    # header row is 38 px tall (ARROW/2 = 11)
             if abs(v[0] - round(want_x)) > 1 or abs(v[1] - round(want_y)) > 1:
                 problems.append('arrow on line %d at %r, wanted (%r, %r)' % (line, v[:2], round(want_x), round(want_y)))
         if 1 in got and 3 in got and not got[1][1] > got[3][1]:
@@ -2183,6 +2192,21 @@ def main():
     if 'function consoleDigest(' not in code_only or 'req.console = cd' not in code_only:
         problems.append('v0.23.1 ①: the console api catalog no longer rides on POST /chat')
 
+    # v0.23.5（用户 m06360「没有看到明显的错误行指示箭头」）：
+    # 箭头以前只 syncArrows(本地 quickRun 的结果)，而跳转越界这类只有侧车全量才查得出 ——
+    # 栏里写着 ERR 1、编辑器里一条箭头也没有。现在两份合并、每份结果回来都重刷、建不出来还会重试。
+    if 'function reviewArrowFindings(' not in code_only or 'function refreshArrows(' not in code_only:
+        problems.append('v0.23.5: the review arrows lost their merged (local + full) feed')
+    if 'refreshArrows();' not in code_only or 'syncArrows(res, null, null)' in code_only:
+        problems.append('v0.23.5: refreshReview still feeds only the local quick check to the arrows')
+    if 'var ARROW = 22;' not in code_only:
+        problems.append('v0.23.5: review arrows shrank back below 22 px (too small to notice)')
+    if 'arrowWant > 0 && arrowRows.length === 0' not in code_only:
+        problems.append('v0.23.5: the arrow gutter has no retry (a failed first build stays empty)')
+    if 'reviewLineList(' not in code_only or 'reviewBar.add("L" + ll[ci].line)' not in code_only:
+        problems.append('v0.23.5: the review bar no longer names the offending lines')
+    if 'api.maiArrow2Probe = function(' not in code_only:
+        problems.append('v0.23.5: the arrow self-check hook disappeared')
     if problems:
         print('FAIL ' + '; '.join(problems))
         print(joined[-1500:])
@@ -2211,7 +2235,7 @@ def main():
         print('  batch write: ' + wm[:170])
     for l in lines:
         if l.startswith(('MAISELF:', 'MAIDIAG:', 'MAIUNDO:', 'MAICONFLICT:', 'MAILLM:',
-                        'MAICHAT:', 'MAISIDECAR:', 'MAIJOBPANEL:', 'MAIJOBPANELDIAG:', 'MAIHINT:', 'MAIFILTER:', 'MAIFILTER2:', 'MAIWORKSPACE:', 'MAIWS2:', 'MAIWS3:', 'MAICHATUI:', 'MAIDUAL:', 'MAIWSDIGEST:', 'MAIACT:', 'MAICOPY:', 'MAIREV:', 'MAIREV2:',
+                        'MAICHAT:', 'MAISIDECAR:', 'MAIJOBPANEL:', 'MAIJOBPANELDIAG:', 'MAIHINT:', 'MAIFILTER:', 'MAIFILTER2:', 'MAIWORKSPACE:', 'MAIWS2:', 'MAIWS3:', 'MAICHATUI:', 'MAIDUAL:', 'MAIWSDIGEST:', 'MAIACT:', 'MAICOPY:', 'MAIREV:', 'MAIREV2:', 'MAIARROW2:',
                         'MAIJOBBOX', 'MAIBADGERECT:', 'MAIJOBMANAGER:', 'MAIBP:',
                         'MAISIGMETA:', 'MAIBPTITLE:', 'MAIBPCHAT:', 'MAIKEYBIND:', 'MAITHEME:',
                         'MAIJOBTHINK2:')):

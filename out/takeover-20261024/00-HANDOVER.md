@@ -3132,3 +3132,17 @@ v0.23.0 的 `console_run` 走的是聊天里 `/命令` 那条路（`clientComman
   `tests/ruleids/run_ruleids.py` 35 rid / 49 夹具 0 问题（覆盖集合不变，只有键序变化）。
 - 见 `out/takeover-20261024/119-v0234-numeric-jump.md`。
 
+
+### §119 v0.23.5 行内箭头真的指到出错的行（2026-11-03）
+
+- 起因 m06360：「对了，我没有看到明显的错误行指示箭头」——栏里写着 ERR 1，编辑器里一条箭头也没有。
+- 根因两条：① 箭头只吃本地快检（`quickRun()` → `quickcheck.js` 5 条判据）的结果（v0.23.4 的 `syncArrows(res, null, null)`），而 `jump 3 always` 这类越界只有侧车 `tools/mlogcheck.py` 全量检查（41 条规则）才查得出来 ⇒ 箭头数据恒空；② 覆盖层依赖 `statements.parent`（loader 型模组下 `LogicDialog` 被替换，首次取不到很正常），失败后没有任何重试路径。
+- 改法：新增 `reviewArrowFindings()`(:2959) 合并「本地 + 全量」两份 findings、`reviewLineList()`(:2970) 按行取最坏级别并排序（栏里的 L# 与箭头共用这份行号表）、`reviewArrowFeed()`(:3296) / `refreshArrows()`(:3302)；`refreshReview()` 与 `reviewFullCheck()` 三条回调都改调 `refreshArrows()`；`reviewTick()` 每 30 帧自愈重试；`ARROW` 16→22、让位 2→4；`arrowDrawable()` 加图集白方块兜底；`paintReviewBar()` 补最多 4 个 L# + `+N`。
+- 验证：smoke 退出码 0（`out/_smoke235c.log`），关键行 `  MAIARROW2:ok lines=2 worst=ERR size=22`；老箭头几何断言按 22/4 重写；smoke 新增 6 条红线。
+- 见 `out/takeover-20261024/120-v0235-review-arrows.md`。
+
+### 收尾数字（2026-11-03 21:10）
+
+- 门禁 `python -X utf8 gate.py --full --kb-build` → **17/17 passed in 137.5s**（`out/_gate_v235.log`，kb 覆盖 169 源文件）。
+- 打包 `python -X utf8 tools/package.py` → `out/_dist/MAI-0.23.5/` **191 files / 19,531,885 B**；`MAI-0.23.5-mod.zip` 8,754,346 B sha256 `0DA05ED78F1C58541A094E3F14AECD49AA43165B471E0B3445B2F415268775B1`；`MAI-0.23.5.zip` 8,776,928 B sha256 `132DE3DECB68B592FDA92D72A70CCB0F0997A503A9559B6BCC7CB37E6A0690DC`（`out/_pack235.log`）。
+- 装机 [ok]：先停掉游戏拉起的 **21 个** `logicd.exe`（都在 `...\saves\mods\MlogAuxiliary\sidecar\bin\logicd.exe`），再 `powershell -NoProfile -ExecutionPolicy Bypass -File "out\_dist\MAI-0.23.5\install.ps1"` → 备份 `saves\mod-backups/MlogAuxiliary-20261103-211007`。装机时游戏在跑 ⇒ 需重启才加载 0.23.5。

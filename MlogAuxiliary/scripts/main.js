@@ -28,7 +28,7 @@
 function __logicWriterMain(){
     "use strict";
 
-    var MOD_VERSION = "0.23.4";
+    var MOD_VERSION = "0.23.5";
     var URL_KEY     = "mlogauxiliary-url";
     var DEFAULT_URL = "http://127.0.0.1:8765";
     // v0.11.0：设置页里填的模型档三件套。密钥只留在本机 Core.settings 与 sidecar 进程内存。
@@ -2952,6 +2952,37 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
             return (REVIEW_FULL.code === code) ? REVIEW_FULL.res : null;
         }
 
+        // v0.23.5（用户 m06360「没有看到明显的错误行指示箭头」）：
+        // 箭头以前只吃本地快检的结果（quickcheck.js 的 5 条判据），可「跳转越界」「读未赋值变量」
+        // 这些只有侧车 tools/mlogcheck.py 才查得出来 —— 于是栏里写着 ERR 1，编辑器里一条箭头也没有。
+        // 现在两份结果合并后再画箭头：同一行取最坏级别，按行号升序。
+        function reviewArrowFindings(local, full){
+            var out = [], i, g, lists = [local, full];
+            for(g = 0; g < lists.length; g++){
+                var l = lists[g];
+                if(l === null || l === undefined || l.length === undefined){ continue; }
+                for(i = 0; i < l.length; i++){ out.push(l[i]); }
+            }
+            return {findings: out};
+        }
+
+        // 覆盖层画不出来时的兜底：审查栏里直接标出「哪几行有问题」。
+        function reviewLineList(local, full){
+            var merged = reviewArrowFindings(local, full).findings;
+            var by = {}, lines = [], i;
+            for(i = 0; i < merged.length; i++){
+                var f = merged[i], ln = Number(f.line);
+                if(!(ln >= 1)){ continue; }
+                if(by[ln] === undefined){ by[ln] = {line: ln, sev: f.sev, count: 0}; lines.push(ln); }
+                by[ln].count++;
+                if(sevRank(f.sev) < sevRank(by[ln].sev)){ by[ln].sev = f.sev; }
+            }
+            var out = [];
+            for(i = 0; i < lines.length; i++){ out.push(by[lines[i]]); }
+            out.sort(function(a, b){ return (sevRank(a.sev) - sevRank(b.sev)) || (a.line - b.line); });
+            return out;
+        }
+
         function paintReviewBar(){
             if(reviewBar === null){ return; }
             var res = reviewRes;
@@ -2979,6 +3010,17 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
                       + " · " + linkLine(res);
             }
             reviewBar.add(line).padRight(10);
+            if(c.total > 0){
+                // 覆盖层（行左侧的箭头）建不出来时，栏里这几个 L# 是同等信息：
+                // 颜色直接指出是哪几行，点「详情」看原因。
+                var ll = reviewLineList((full !== null) ? full.findings : res.findings,
+                                        (full !== null) ? res.findings : null);
+                var cap = (ll.length > 4) ? 4 : ll.length;
+                for(var ci = 0; ci < cap; ci++){
+                    reviewBar.add("L" + ll[ci].line).color(sevColor(ll[ci].sev)).padRight(6);
+                }
+                if(ll.length > cap){ reviewBar.add("+" + (ll.length - cap)).padRight(6); }
+            }
             if(full === null){
                 if(REVIEW_FULL.busy === true){ reviewBar.add("全量检查中…").padRight(8); }
                 else if(REVIEW_FULL.err !== ""){ reviewBar.add("全量检查不可用（" + REVIEW_FULL.err + "）").padRight(8); }
@@ -3008,6 +3050,7 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
                 if(status !== 200){
                     REVIEW_FULL.res = null;
                     REVIEW_FULL.err = "侧车没应答";
+                    refreshArrows();
                     paintReviewBar();
                     return;
                 }
@@ -3015,11 +3058,13 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
                 if(r === null || r.findings === undefined || r.findings === null){
                     REVIEW_FULL.res = null;
                     REVIEW_FULL.err = "返回不是 JSON";
+                    refreshArrows();
                     paintReviewBar();
                     return;
                 }
                 REVIEW_FULL.res = r;
                 REVIEW_FULL.err = "";
+                refreshArrows();
                 paintReviewBar();
             });
         }
@@ -3047,7 +3092,7 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
                 reviewSrcLogged = true;
                 try{ log("review code: src=" + src.src + " chars=" + code.length + " stmts=" + stmts0); }catch(e){ }
             }
-            syncArrows(res, null, null);
+            refreshArrows();
             paintReviewBar();
             if((changed === true || force === true) && !reviewBlank(code)){
                 reviewFullCheck(code, tgt);
@@ -3137,8 +3182,9 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
         //    所以第 i 个孩子对应 line = i + 1。
         //  * 覆盖层用 Touchable.childrenOnly：空白处不拦鼠标（原版画布要能拖行、点按钮），
         //    只有箭头自己被命中（Group.hit 先测孩子，Element.hit 对非 enabled 返回 null）。
-        var ARROW = 16;                       // 箭头边长（像素）
+        var ARROW = 22;                       // 箭头边长（像素）
         var arrowHost = null, arrowParent = null, arrowRows = [], arrowByLine = {};
+        var arrowWant = 0, arrowLogged = false;   // 应画几行 / 诊断日志只打一次
         var arrowDraw;                        // undefined = 还没找过，null = 这个环境没有图标
 
         function sevRank(sev){
@@ -3163,7 +3209,21 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
                 var d = Packages.mindustry.gen.Icon.right;
                 if(d !== null && d !== undefined){ arrowDraw = d; }
             }catch(e){ /* ignore */ }
-            if(arrowDraw === null){ log("no Icon.right in this build -- review arrows stay off"); }
+            if(arrowDraw === null){
+                // v0.23.5：没有箭头图标就退成图集里的白色方块 —— 一样能染色贴在行左侧。
+                try{
+                    var a = Packages.arc.Core.atlas;
+                    if(a !== null && a !== undefined){
+                        var w = a.find("white");
+                        if(w !== null && w !== undefined){ arrowDraw = w; }
+                    }
+                }catch(e){ /* ignore */ }
+            }
+            if(arrowDraw === null){
+                log("no Icon.right / white drawable -- review arrows stay off");
+            }else{
+                try{ log("review arrow drawable: ok"); }catch(e){ }
+            }
             return arrowDraw;
         }
 
@@ -3202,7 +3262,7 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
                 try{
                     if(e === null || e === undefined){ img.visible = false; continue; }
                     img.visible = true;
-                    var x = statements.x + e.x - ARROW - 2;     // 优先放进行左侧的空白
+                    var x = statements.x + e.x - ARROW - 4;     // 优先放进行左侧的空白
                     if(x < 2){ x = statements.x + e.x + 2; }     // 没空白就压进行内左端
                     var y = statements.y + e.y + e.getHeight() - 19 - (ARROW / 2);
                     img.setPosition(x, y);
@@ -3243,6 +3303,28 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
         function clearArrows(){
             if(arrowHost !== null){ try{ arrowHost.clearChildren(); }catch(e){ /* ignore */ } }
             arrowRows = [];
+        }
+
+        // v0.23.5：本地和全量的结果每更新一次就重刷箭头；画布还没挂上时只记账，
+        // 由 reviewTick 每 30 帧补一次（以前只在代码变化时才 syncArrows，第一次没建成就整局没有）。
+        function reviewArrowFeed(){
+            var full = reviewFullFor(reviewLast);
+            var local = (reviewRes === null || reviewRes === undefined) ? null : reviewRes.findings;
+            return reviewArrowFindings(local, (full === null || full === undefined) ? null : full.findings);
+        }
+
+        function refreshArrows(){
+            var got = 0;
+            try{
+                var feed = reviewArrowFeed();
+                arrowWant = reviewLineList(feed.findings, null).length;
+                got = syncArrows(feed, null, null);
+            }catch(e){ got = 0; }
+            if(!arrowLogged && (arrowWant > 0 || got > 0)){
+                arrowLogged = true;
+                try{ log("review arrows: want=" + arrowWant + " rows=" + got); }catch(e){ }
+            }
+            return got;
         }
 
         // res.findings -> 每行一个箭头。statements / drawable 只给测试用，真机传 null。
@@ -3307,6 +3389,9 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
                 if(reviewHost !== Vars.ui.logic){ injectReview(); }
                 reviewFrame++;
                 if(reviewFrame % 30 === 0){ refreshReview(false); }
+                // 自愈：全量结果回来时画布可能还没上舞台（arrowHostFor 要 statements.parent 非空），
+                // 那时箭头建不出来；refreshReview 只在代码变化时重跑，所以每 30 帧补一次。
+                if(reviewFrame % 30 === 15 && arrowWant > 0 && arrowRows.length === 0){ refreshArrows(); }
             }catch(e){ /* 每帧回调里绝不抛出去 */ }
         }
 
@@ -9552,6 +9637,29 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
                 notes.push("throw:" + e);
             }
             return notes.length === 0 ? ("ok " + counts) : ("bad " + notes.join(","));
+        };
+
+        // v0.23.5 自检：箭头的数据源（本地 + 全量合并）、按行取最坏级别、栏里的 L# 行号。
+        api.maiArrow2Probe = function(){
+            var notes = [], out = "";
+            try{
+                var loc = [{line: 3, sev: "WARN", rid: "R1", msg: "w"}];
+                var ful = [{line: 3, sev: "ERR", rid: "R2", msg: "e"}, {line: 7, sev: "INFO", rid: "R3", msg: "i"}];
+                var feed = reviewArrowFindings(loc, ful);
+                if(feed.findings.length !== 3){ notes.push("feed=" + feed.findings.length); }
+                if(reviewArrowFindings(null, null).findings.length !== 0){ notes.push("feednull"); }
+                var ll = reviewLineList(loc, ful);
+                if(ll.length !== 2){ notes.push("lines=" + ll.length); }
+                else{
+                    if(ll[0].line !== 3 || ll[0].sev !== "ERR"){ notes.push("worst=" + ll[0].line + ll[0].sev); }
+                    if(ll[1].line !== 7){ notes.push("order=" + ll[1].line); }
+                }
+                if(reviewLineList(null, undefined).length !== 0){ notes.push("linesnull"); }
+                if(ARROW !== 22){ notes.push("size=" + ARROW); }
+                if(syncArrows(null, null, null) !== 0){ notes.push("nocanvas"); }
+                out = "lines=2 worst=ERR size=" + ARROW;
+            }catch(e){ notes.push("throw:" + e); }
+            return notes.length === 0 ? ("ok " + out) : ("bad " + notes.join(","));
         };
 
         // 挂到脚本作用域（控制台里能直接敲），并读回自检
