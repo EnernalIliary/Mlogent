@@ -3,6 +3,14 @@
 只记对外可见的变化。工程日志（每一版的动机、踩过的坑、源码依据）见
 `MlogAuxiliary/HISTORY.md` 与 `docs/`。
 
+## 0.23.3
+
+- **审查栏真的会报错了**：这一栏以前只有本地 5 条判据（未知指令 / 子命令拼错 / 版本门 / 链接名未绑定 / 体积），所以 `jump 3 always` 这种跳转越界的错一条都不命中，栏里永远「没有发现问题」——用户 m05926 报「一直是 0err 0warn」就是这个。现在再挂一条**侧车全量检查**：代码一变就 `POST /analyze`（`tools/mlogcheck.py` 的 41 条规则：跳转目标越界、不可达语句、读未赋值变量、参数个数…），回来之后重画这一栏，行文从「本地 · 语句 N」变成「全量 · 语句 N」。
+- **读不到编辑器代码时会说实话**：MindustryX（loader 型模组）换了游戏的 `LogicDialog`，`canvas.save()` 有可能拿到空串（栏里「语句 0」就是这么来的）。现在按 `canvas.save()` → 处理器里已保存的 `code` 顺序取，取到哪份就在栏里标出来（「编辑器代码读不到，查的是已保存的代码」/「读不到编辑器里的代码」），不再默默显示 0。
+- **详情窗口把两套结果分开写**：先本地快检的统计，再一行「全量检查：ERR n / WARN m    语句 k」（或「全量检查不可用：…」「还没回来，稍等一下」），然后逐条列 `L{行} {级别} [{规则}] 说明`；末尾附「代码来源：…」。
+- **一次性性能日志**：第一次取码时打一行 `review code: src=canvas|build|none chars=N stmts=M`，下次再报「不生效」看一眼这行就知道卡在哪一环。
+- 自检口：`api.maiReview2Probe()` 在无头环境返回 `MAIREV2:ok blank=3 cnt=1/2/1/4 lines=1 src=none`；诊断串 `maiReviewDiag()` 尾部加上了 `src= chars= stmts= full=`；ui smoke 加 `MAIREV2:ok` 断言与 6 条红线（`reviewCodeSrc` / 兜底文案 / `POST /analyze` / `paintReviewBar`+`reviewCountList` / 那行日志 / 探针本身）。
+
 ## 0.23.2
 
 - **审查栏不再因为「模组换了游戏类」而永远说没有处理器**：v0.4.7 起审查栏读 `LogicDialog.executor` 靠的是写死的 `Class.forName("mindustry.logic.LogicDialog")` + 反射。装了 MindustryX（loader 型模组，包里直接带替换版 `mindustry/logic/LogicDialog.class`）之后，类由别的 ClassLoader 定义，`field.get(实例)` 抛 `IllegalArgumentException` 又被外层 `catch` 静默吞掉 —— 表现就是审查栏永远「链接 ?（读不到处理器）」（用户 m05726 实报）。

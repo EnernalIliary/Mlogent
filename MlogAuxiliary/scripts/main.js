@@ -28,7 +28,7 @@
 function __logicWriterMain(){
     "use strict";
 
-    var MOD_VERSION = "0.23.2";
+    var MOD_VERSION = "0.23.3";
     var URL_KEY     = "mlogauxiliary-url";
     var DEFAULT_URL = "http://127.0.0.1:8765";
     // v0.11.0：设置页里填的模型档三件套。密钥只留在本机 Core.settings 与 sidecar 进程内存。
@@ -2859,15 +2859,85 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
                   + " owner=" + (logicExecOwner === "" ? "-" : logicExecOwner)
                   + " ex=" + (ex === null ? "null" : "obj")
                   + " build=" + (b === null ? "null" : "obj")
-                  + " links=" + (lk === null ? "unknown" : String(lk.length));
+                  + " links=" + (lk === null ? "unknown" : String(lk.length))
+                  + reviewDiagCode();
             logicDiag = s;
             return s;
         }
 
-        function reviewCode(){
-            try{ return String(Vars.ui.logic.canvas.save()); }catch(e){ return null; }
+        // v0.23.3：这一栏现在跑两套检查 ——
+        //   ① 本地快检（quickcheck.js，5 条判据：未知指令 / 子命令拼错 / 版本门 / 链接名 / 体积），
+        //      同步、零延迟，打字就能看到；
+        //   ② 侧车全量检查（tools/mlogcheck.py，41 条：跳转语义、未赋值读、不可达语句…），
+        //      异步、代码变了才发一次，回来之后重画这一栏。
+        // 起因：用户写 \`jump <不对的数> always\` 这类错误，本地 5 条一条都不命中，栏里一直
+        // 「没有发现问题」，看起来就像这一栏没起作用。
+        // 另一个起因：MindustryX 这类 loader 型模组换了游戏的 LogicDialog，canvas.save() 可能
+        // 是空的（用户实测「语句 0」）。所以代码按 canvas.save -> 处理器里已保存的 code 取，
+        // 并在栏里说清楚查的是哪一份。
+        var REVIEW_FULL = {code: "", res: null, err: "", busy: false, seq: 0};
+        var reviewCodeNote = "", reviewSrcLogged = false;
+
+        function reviewBlank(s){
+            if(s === null || s === undefined){ return true; }
+            for(var i = 0; i < s.length; i++){
+                var ch = s.charAt(i);
+                if(ch !== " " && ch !== "\t" && ch !== "\r" && ch !== "\n"){ return false; }
+            }
+            return true;
         }
 
+        function reviewCodeSrc(){
+            var canvasText = null, haveCanvas = false;
+            try{
+                var L = Vars.ui.logic;
+                if(L !== null && L !== undefined){
+                    var cv = L.canvas;
+                    if(cv !== null && cv !== undefined){
+                        var s = String(L.canvas.save());
+                        if(s !== null && s !== undefined){ canvasText = s; haveCanvas = true; }
+                    }
+                }
+            }catch(e){ canvasText = null; }
+            if(haveCanvas && !reviewBlank(canvasText)){
+                return {code: canvasText, src: "canvas", note: ""};
+            }
+            var b = reviewTargets();
+            if(b !== null && b !== undefined){
+                try{
+                    var raw = (b.code === undefined || b.code === null) ? "" : String(b.code);
+                    if(!reviewBlank(raw)){
+                        return {code: raw, src: "build",
+                                note: "编辑器代码读不到，查的是已保存的代码"};
+                    }
+                }catch(e2){ /* fall through */ }
+            }
+            return {code: (canvasText === null ? "" : canvasText), src: "none",
+                    note: "读不到编辑器里的代码"};
+        }
+
+        function reviewCode(){
+            return reviewCodeSrc().code;
+        }
+
+        function reviewCountList(list){
+            var err = 0, warn = 0, info = 0;
+            if(list === null || list === undefined){ return {err: 0, warn: 0, info: 0, total: 0}; }
+            for(var i = 0; i < list.length; i++){
+                var sev = String(list[i].sev);
+                if(sev === "ERR"){ err++; }
+                else if(sev === "WARN"){ warn++; }
+                else { info++; }
+            }
+            return {err: err, warn: warn, info: info, total: list.length};
+        }
+
+        function reviewCount(res){
+            if(res === null || res === undefined){ return {err: 0, warn: 0, info: 0, total: 0}; }
+            return reviewCountList(res.findings);
+        }
+
+        // 全量检查的结果只对「这一份代码」有效：代码一变就作废（REVIEW_FULL.code 存的是旧代码）。
         // 审查栏/详情里都要说清「链接表是数出来的还是不知道」——v0.4.6 的假 WARN 就是
         // 因为把「不知道」当成了「一个链接都没有」。
         function linkLine(res){
@@ -2877,19 +2947,91 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
             return "链接 ?（" + linkWhy + "）";
         }
 
-        function reviewCount(res){
-            var err = 0, warn = 0, info = 0, f = res.findings;
-            for(var k = 0; k < f.length; k++){
-                if(f[k].sev === "ERR"){ err++; } else if(f[k].sev === "WARN"){ warn++; } else { info++; }
+        function reviewFullFor(code){
+            if(REVIEW_FULL.res === null){ return null; }
+            return (REVIEW_FULL.code === code) ? REVIEW_FULL.res : null;
+        }
+
+        function paintReviewBar(){
+            if(reviewBar === null){ return; }
+            var res = reviewRes;
+            if(res === null || res === undefined){ return; }
+            var full = reviewFullFor(reviewLast);
+            var c = (full !== null) ? reviewCountList(full.findings) : reviewCount(res);
+            reviewBar.clear();
+            reviewBar.left();
+            reviewBar.add("审查").padRight(8);
+            if(c.total === 0){
+                reviewBar.add("没有发现问题").color(Pal.accent).padRight(12);
+            }else{
+                if(c.err > 0){ reviewBar.add("ERR " + c.err).color(Pal.remove).padRight(8); }
+                if(c.warn > 0){ reviewBar.add("WARN " + c.warn).color(Pal.lightOrange).padRight(8); }
+                if(c.info > 0){ reviewBar.add("INFO " + c.info).padRight(8); }
             }
-            return {err: err, warn: warn, info: info, total: f.length};
+            var stmts = res.stats === null || res.stats === undefined ? 0 : res.stats.statements;
+            if(full !== null && full.statements !== undefined && full.statements !== null){
+                stmts = full.statements;
+            }
+            var where = (full !== null) ? "全量" : "本地";
+            var line = where + " · 语句 " + stmts;
+            if(res.stats !== null && res.stats !== undefined){
+                line += " · 线性 " + res.stats.linearCost + " · ipt " + res.stats.ticksPerPass
+                      + " · " + linkLine(res);
+            }
+            reviewBar.add(line).padRight(10);
+            if(full === null){
+                if(REVIEW_FULL.busy === true){ reviewBar.add("全量检查中…").padRight(8); }
+                else if(REVIEW_FULL.err !== ""){ reviewBar.add("全量检查不可用（" + REVIEW_FULL.err + "）").padRight(8); }
+            }
+            if(reviewCodeNote !== ""){ reviewBar.add(reviewCodeNote).color(Pal.lightOrange).padRight(8); }
+            reviewBar.button("详情", function(){ showReview(); }).width(90);
+            reviewBar.button("AI 辅助", function(){ showAiPanel(); }).width(120);
+        }
+
+        // 异步问侧车要全量结果；回来的时候只重画栏，不重跑本地快检。
+        function reviewFullCheck(code, b){
+            REVIEW_FULL.code = reviewLast;
+            REVIEW_FULL.res = null;
+            REVIEW_FULL.err = "";
+            REVIEW_FULL.seq++;
+            var seq = REVIEW_FULL.seq;
+            if(code.length > 20000){
+                REVIEW_FULL.busy = false;
+                REVIEW_FULL.err = "代码超过 20000 字符";
+                return;
+            }
+            REVIEW_FULL.busy = true;
+            var body = JSON.stringify({code: code, links: linkNames(b), ipt: 2});
+            httpJson("POST", "/analyze", body, function(status, text){
+                if(seq !== REVIEW_FULL.seq){ return; }      // 代码已经又变了，这份作废
+                REVIEW_FULL.busy = false;
+                if(status !== 200){
+                    REVIEW_FULL.res = null;
+                    REVIEW_FULL.err = "侧车没应答";
+                    paintReviewBar();
+                    return;
+                }
+                var r = parse(text);
+                if(r === null || r.findings === undefined || r.findings === null){
+                    REVIEW_FULL.res = null;
+                    REVIEW_FULL.err = "返回不是 JSON";
+                    paintReviewBar();
+                    return;
+                }
+                REVIEW_FULL.res = r;
+                REVIEW_FULL.err = "";
+                paintReviewBar();
+            });
         }
 
         function refreshReview(force){
             if(reviewBar === null){ return; }
-            var code = reviewCode();
+            var src = reviewCodeSrc();
+            var code = (src.code === null || src.code === undefined) ? null : src.code;
             if(code === null){ return; }
+            reviewCodeNote = src.note;
             if(!force && code === reviewLast){ return; }
+            var changed = (code !== reviewLast);
             reviewLast = code;
             var tgt = reviewTargets();
             linkWhy = (tgt === null) ? "编辑器没绑处理器" : "读不到链接表";
@@ -2899,24 +3041,17 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
                 logicDiagLogged = true;
                 try{ log("review links unknown: " + reviewDiagText()); }catch(e){ }
             }
-            // 审查栏重画之后把行内箭头也同步一遍（箭头贴在原版画布上，见下面的「行内箭头」段）
-            syncArrows(res, null, null);
-            var c = reviewCount(res);
-            reviewBar.clear();
-            reviewBar.left();
-            reviewBar.add("审查").padRight(8);
-            if(c.total === 0){
-                reviewBar.add("没有发现问题").color(Pal.accent).padRight(16);
-            }else{
-                if(c.err > 0){ reviewBar.add("ERR " + c.err).color(Pal.remove).padRight(8); }
-                if(c.warn > 0){ reviewBar.add("WARN " + c.warn).color(Pal.lightOrange).padRight(8); }
-                if(c.info > 0){ reviewBar.add("INFO " + c.info).padRight(8); }
+            // 只打一次：座落在哪份代码上、读到多少。用户下次报「不生效」时看这一行就够。
+            var stmts0 = (res.stats === null || res.stats === undefined) ? 0 : Number(res.stats.statements);
+            if(!reviewSrcLogged && (src.src !== "canvas" || stmts0 === 0)){
+                reviewSrcLogged = true;
+                try{ log("review code: src=" + src.src + " chars=" + code.length + " stmts=" + stmts0); }catch(e){ }
             }
-            reviewBar.add("语句 " + res.stats.statements + " · 线性 " + res.stats.linearCost
-                          + " · ipt " + res.stats.ticksPerPass
-                          + " · " + linkLine(res)).padRight(16);
-            reviewBar.button("详情", function(){ showReview(); }).width(90);
-            reviewBar.button("AI 辅助", function(){ showAiPanel(); }).width(120);
+            syncArrows(res, null, null);
+            paintReviewBar();
+            if((changed === true || force === true) && !reviewBlank(code)){
+                reviewFullCheck(code, tgt);
+            }
         }
 
         function reviewText(){
@@ -2927,20 +3062,64 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
             var res = quickRun(code === null ? "" : code, b);
             if(res.missing){ return "本地快检不可用（quickcheck.js 未加载）"; }
             var out = [quickSummary(res)];
-            var ls = quickLines(res);
+            var ls = reviewLinesFor(res.findings);
             for(var i = 0; i < ls.length; i++){ out.push(ls[i]); }
             return out.join("\n");
         }
 
+        function reviewLinesFor(list){
+            var out = [];
+            if(list === null || list === undefined){ return out; }
+            for(var i = 0; i < list.length; i++){
+                var f = list[i];
+                out.push("L" + f.line + " " + f.sev + " [" + (f.rid || "-") + "] "
+                         + (f.code && f.code !== f.sev ? ("{" + f.code + "} ") : "")
+                         + String(f.msg));
+            }
+            return out;
+        }
+
         function showReview(){
-            var code = reviewCode();
-            var res = reviewRes;
-            if(code !== null){ res = quickRun(code, reviewTargets()); }
-            if(res === null){ if(Vars.ui !== null){ Vars.ui.showText("Mlog辅助 · 审查", "没有可审查的处理器。"); } return; }
+            var src = reviewCodeSrc();
+            var code = (src.code === null || src.code === undefined) ? "" : src.code;
+            var b = reviewTargets();
+            var res = quickRun(code, b);
+            if(res === null || res.missing){
+                if(Vars.ui !== null){ Vars.ui.showText("Mlog辅助 · 审查", "本地快检不可用（quickcheck.js 未加载）"); }
+                return;
+            }
+            var full = reviewFullFor(code);
             var out = [quickSummary(res)];
-            var ls = quickLines(res);
+            if(full !== null){
+                out.push("全量检查：ERR " + (full.errors === undefined ? "?" : full.errors)
+                         + " / WARN " + (full.warns === undefined ? "?" : full.warns)
+                         + "    语句 " + (full.statements === undefined ? "?" : full.statements));
+            }else if(REVIEW_FULL.err !== ""){
+                out.push("全量检查不可用：" + REVIEW_FULL.err + "（侧车没启动时只有本地 5 条判据）");
+            }else{
+                out.push("全量检查还没回来，稍等一下再点一次「详情」");
+            }
+            if(src.note !== ""){ out.push("代码来源：" + src.note); }
+            var ls = reviewLinesFor(full !== null ? full.findings : res.findings);
             for(var i = 0; i < ls.length; i++){ out.push(ls[i]); }
+            if(ls.length === 0){ out.push("（没有发现）"); }
             if(Vars.ui !== null){ Vars.ui.showText("Mlog辅助 · 审查", out.join("\n")); }
+        }
+
+        // 诊断口补的字段：这份代码从哪儿来（src）、多少字符、本地统计到几条语句、全量检查状态。
+        function reviewDiagCode(){
+            var src = null, st = "-", full = "none";
+            try{ src = reviewCodeSrc(); }catch(e){ return " src=? chars=? stmts=? full=?"; }
+            try{
+                if(reviewRes !== null && reviewRes !== undefined && reviewRes.stats !== null && reviewRes.stats !== undefined){
+                    st = String(reviewRes.stats.statements);
+                }
+            }catch(e){ st = "?"; }
+            if(REVIEW_FULL.res !== null){ full = "ok"; }
+            else if(REVIEW_FULL.busy === true){ full = "busy"; }
+            else if(REVIEW_FULL.err !== ""){ full = REVIEW_FULL.err; }
+            return " src=" + src.src + " chars=" + (src.code === null ? 0 : src.code.length)
+                 + " stmts=" + st + " full=" + full;
         }
 
         // ------------------------------------------ 行内箭头（v0.4.7）
@@ -9341,6 +9520,38 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
                 if(linkWhy === "" || linkWhy === null){ notes.push("nowhy"); }
             }catch(e){ notes.push("throw:" + e); }
             return notes.length === 0 ? ("ok " + d) : ("bad " + notes.join(","));
+        };
+
+        // v0.23.3：审查栏改成「本地快检 + 侧车全量」两套之后的纯函数自检。
+        // 只断言不依赖界面/侧车的东西：空白判定、计数、行文、来源判定、诊断串。
+        api.maiReview2Probe = function(){
+            var notes = [], counts = "";
+            try{
+                if(reviewBlank("") !== true){ notes.push("blank1"); }
+                if(reviewBlank(" \r\n\t") !== true){ notes.push("blank2"); }
+                if(reviewBlank("x") !== false){ notes.push("blank3"); }
+                var c = reviewCountList([{sev: "ERR"}, {sev: "WARN"}, {sev: "INFO"}, {sev: "WARN"}]);
+                if(c.err !== 1 || c.warn !== 2 || c.info !== 1 || c.total !== 4){
+                    notes.push("cnt=" + c.err + "/" + c.warn + "/" + c.info + "/" + c.total);
+                }
+                if(reviewCount(null).total !== 0){ notes.push("cntnull"); }
+                var ls = reviewLinesFor([{line: 3, sev: "ERR", rid: "jump-range", code: "jump-range", msg: "boom"}]);
+                if(ls.length !== 1){ notes.push("lines=" + String(ls.length)); }
+                else if(String(ls[0]).indexOf("L3 ERR") !== 0){ notes.push("linetext=" + String(ls[0])); }
+                if(reviewFullFor("nope") !== null){ notes.push("fullfor"); }
+                var src = reviewCodeSrc();
+                if(src === null || src.src === undefined){ notes.push("src"); }
+                var d = String(reviewDiagText());
+                if(d.indexOf(" src=") < 0 || d.indexOf(" stmts=") < 0 || d.indexOf(" full=") < 0){
+                    notes.push("diag=" + chatFlat(d));
+                }
+                paintReviewBar();
+                counts = "blank=3 cnt=" + c.err + "/" + c.warn + "/" + c.info + "/" + c.total
+                       + " lines=1 src=" + String(src === null || src.src === undefined ? "null" : src.src);
+            }catch(e){
+                notes.push("throw:" + e);
+            }
+            return notes.length === 0 ? ("ok " + counts) : ("bad " + notes.join(","));
         };
 
         // 挂到脚本作用域（控制台里能直接敲），并读回自检

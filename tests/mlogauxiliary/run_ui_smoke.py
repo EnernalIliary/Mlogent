@@ -371,6 +371,10 @@ def main():
     # v0.23.1（用户 m05372 ②）：「无法复制它给出的代码块」—— 回复按围栏切段，代码段带头行与复制按钮。
     # 切段/转义都是纯函数，无头下只验这些；按钮本身要真机点。
     "print('MAICOPY:' + maiChatCopyProbe());",
+    # v0.23.3（用户 m05926「逻辑审查一直 0err 0warn」）：这一栏原来只有本地 5 条判据，
+    # 而且 canvas.save() 在 MindustryX 下可能读到空串（栏里「语句 0」）；现在取码有兜底、
+    # 并异步问侧车 POST /analyze 要全量结果。无头下只验计数/行文/来源判定这些纯函数。
+    "print('MAIREV2:' + maiReview2Probe());",
     # v0.23.2（用户 m05726「编辑界面的逻辑审查显示没有连接到处理器」）：MindustryX 这类
     # loader 模组会替换 LogicDialog 的字节码，写死的 Class.forName 反射会静默失败；
     # 现在改成从实例的类沿父类链找 executor 字段、并按鸭子类型找目标建筑。无头下只验诊断串。
@@ -418,7 +422,7 @@ def main():
              or l.startswith(('MAISELF:', 'MAIDIAG:', 'MAISET:', 'MAILIST:', 'MAILISTROWS:',
                               'MAIUNDO:', 'MAICONFLICT:', 'MAILLM:',
                               'MAILINKCONFLICT:', 'MAINET:', 'MAIWRITECHECK:', 'MAICHAT:', 'MAISIDECAR:',
-                              'MAIJOBPANEL:', 'MAIJOBPANELDIAG:', 'MAIHINT:', 'MAIFILTER:', 'MAIFILTER2:', 'MAIWORKSPACE:', 'MAIWS2:', 'MAIWS3:', 'MAICHATUI:', 'MAIDUAL:', 'MAIWSDIGEST:', 'MAIBP:', 'MAIACT:', 'MAICOPY:', 'MAIREV:',
+                              'MAIJOBPANEL:', 'MAIJOBPANELDIAG:', 'MAIHINT:', 'MAIFILTER:', 'MAIFILTER2:', 'MAIWORKSPACE:', 'MAIWS2:', 'MAIWS3:', 'MAICHATUI:', 'MAIDUAL:', 'MAIWSDIGEST:', 'MAIBP:', 'MAIACT:', 'MAICOPY:', 'MAIREV:', 'MAIREV2:',
                               'MAISIGMETA:', 'MAIBPTITLE:', 'MAIBPCHAT:', 'MAIWELCOME:', 'MAIKEYBIND:', 'MAITHEME:',
                               'MAIJOBBOX0:', 'MAIJOBBOXPIN:', 'MAIJOBBOXFIN:',
                               'MAIJOBBOXCLR:', 'MAIJOBBOX3:', 'MAIJOBMANAGER:',
@@ -617,6 +621,11 @@ def main():
         problems.append('v0.23.1: the code-block splitter / console digest is broken '
                         '(want MAICOPY:ok segs=3 ...): %r'
                         % [l for l in lines if l.startswith('MAICOPY:')][:1])
+    # v0.23.3（用户 m05926「逻辑审查一直 0err 0warn」）：审查栏要真的能报出 ERR/WARN。
+    if 'MAIREV2:ok' not in joined:
+        problems.append('v0.23.3: the review bar lost its full-check wiring or its count/line rendering'
+                        ' (want MAIREV2:ok blank=3 cnt=1/2/1/4 ...): %r'
+                        % [l for l in lines if l.startswith('MAIREV2:')][:1])
     # v0.23.2（用户 m05726）：审查栏不能再靠写死的 Class.forName("mindustry.logic.LogicDialog")
     # 反射 —— MindustryX 替换字节码之后 f.get(L) 抛 IllegalArgumentException 被静默吞掉，
     # 表现就是永远「读不到处理器」。诊断串在无头下必须是 ui=null 且字段齐全。
@@ -2091,6 +2100,21 @@ def main():
     # an empty array makes quickcheck report a WARN on every link slot.
     if 'linkKnown' not in code_only:
         problems.append('the review stopped telling "no links" apart from "cannot read the link table"')
+    # ---- v0.23.3（用户 m05926）：本地快检只有 5 条判据，写着「jump 3 always」这种跳转越界
+    # 的错误一条都不命中；所以审查栏必须再接一条侧车全量检查，且取码要有兜底
+    # （MindustryX 下 canvas.save() 可能是空串）。
+    if 'function reviewCodeSrc(' not in code_only or 'L.canvas.save()' not in code_only:
+        problems.append('v0.23.3: reviewCode() no longer reads the editor canvas through reviewCodeSrc()')
+    if '"编辑器代码读不到，查的是已保存的代码"' not in code_only:
+        problems.append('v0.23.3: lost the fallback that reviews the saved code when canvas.save() is empty')
+    if '"POST", "/analyze"' not in code_only:
+        problems.append('v0.23.3: the review bar no longer asks the sidecar for a full check (POST /analyze)')
+    if 'function paintReviewBar(' not in code_only or 'function reviewCountList(' not in code_only:
+        problems.append('v0.23.3: the bar cannot be repainted from the full result (paintReviewBar / reviewCountList)')
+    if '"review code: src="' not in code_only:
+        problems.append('v0.23.3: lost the one-time review code: src=... chars=... stmts=... log line')
+    if 'api.maiReview2Probe = function(' not in code_only:
+        problems.append('v0.23.3: lost maiReview2Probe() (the headless self-check for the review bar)')
     if 'function syncArrows(' not in code_only or 'Touchable.childrenOnly' not in code_only:
         problems.append('the in-line review arrows are gone (syncArrows / Touchable.childrenOnly)')
     if 'function tapLine(' not in code_only:
@@ -2187,7 +2211,7 @@ def main():
         print('  batch write: ' + wm[:170])
     for l in lines:
         if l.startswith(('MAISELF:', 'MAIDIAG:', 'MAIUNDO:', 'MAICONFLICT:', 'MAILLM:',
-                        'MAICHAT:', 'MAISIDECAR:', 'MAIJOBPANEL:', 'MAIJOBPANELDIAG:', 'MAIHINT:', 'MAIFILTER:', 'MAIFILTER2:', 'MAIWORKSPACE:', 'MAIWS2:', 'MAIWS3:', 'MAICHATUI:', 'MAIDUAL:', 'MAIWSDIGEST:', 'MAIACT:', 'MAICOPY:', 'MAIREV:',
+                        'MAICHAT:', 'MAISIDECAR:', 'MAIJOBPANEL:', 'MAIJOBPANELDIAG:', 'MAIHINT:', 'MAIFILTER:', 'MAIFILTER2:', 'MAIWORKSPACE:', 'MAIWS2:', 'MAIWS3:', 'MAICHATUI:', 'MAIDUAL:', 'MAIWSDIGEST:', 'MAIACT:', 'MAICOPY:', 'MAIREV:', 'MAIREV2:',
                         'MAIJOBBOX', 'MAIBADGERECT:', 'MAIJOBMANAGER:', 'MAIBP:',
                         'MAISIGMETA:', 'MAIBPTITLE:', 'MAIBPCHAT:', 'MAIKEYBIND:', 'MAITHEME:',
                         'MAIJOBTHINK2:')):

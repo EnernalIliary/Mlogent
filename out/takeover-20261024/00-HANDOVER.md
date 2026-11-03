@@ -3083,3 +3083,38 @@ v0.23.0 的 `console_run` 走的是聊天里 `/命令` 那条路（`clientComman
   `saves\mod-backups\MlogAuxiliary-20261103-182859`；装机后 `mod.hjson` version 0.23.2、`main.js`
   `var MOD_VERSION = "0.23.2";` 均已核对。**装机时游戏在跑（Mindustry.exe pid 48880，17:37 启动）⇒ 要重启游戏才生效。**
 - 提交：`git log --oneline --grep=v0.23.2`（amend 会改哈希，这里只留指针）；8 files / +203 −27。
+
+### §117 v0.23.3 逻辑审查真的会报错（取码兜底 + 侧车全量检查）（2026-11-03）
+
+用户 m05926：「逻辑编辑器内的逻辑审查好像不生效，一直是0err 0warn」。追问后确认栏里显示「审查 没有发现问题 语句 0 · 线性 0 · …」，
+造的错误是「无意义跳转」这类。详见 `out/takeover-20261024/118-v0233-review-fullcheck.md`。
+
+- **两个根因**：① `reviewCode()` 只有 `String(Vars.ui.logic.canvas.save())` 一行 —— MindustryX（loader 型模组）下 `canvas.save()` 可能读到空串，
+  于是「语句 0」；② 就算读到代码，本地 `quickcheck.js` 只有 5 条判据（未知指令 / 子命令 / 版本门 / 链接名 / 体积），
+  `jump 3 always` 这类跳转越界一条都不命中，栏里自然永远「没有发现问题」。
+- **改法**（`MlogAuxiliary/scripts/main.js`）：`reviewCodeSrc()` 取码兜底（`L.canvas.save()` → `reviewTargets().code`，返回 `src`/note 供栏里标明来源）；
+  `REVIEW_FULL` + `reviewFullFor()` 让全量结果按代码作废；`reviewFullCheck()` 异步 `POST /analyze`（`{code, links, ipt:2}`，自增 `seq` 丢弃过期回调）；
+  `paintReviewBar()` 用全量计数重画（`全量/本地 · 语句 N · 线性 M · ipt K · 链接 …`）；详情分两段写；首次取码打一行
+  `review code: src=… chars=… stmts=…`；诊断串补 `src= chars= stmts= full=`；探针 `api.maiReview2Probe`。
+- **验证**：`node --check` rc 0；ui smoke rc 0（`out/_smoke233.log`），关键行 `MAIREV2:ok blank=3 cnt=1/2/1/4 lines=1 src=none`；
+  新增 `MAIREV2:ok` 断言 + 6 条红线。
+- **留给真机**：重启后打开编辑器，栏里应出现「全量 · 语句 N」；写 `jump 3 always` 应报 ERR；若显示「编辑器代码读不到，查的是已保存的代码」
+  则说明 MindustryX 下 `canvas.save()` 确实是空串，下一轮要换取码途径。
+- **文档**：CHANGELOG `## 0.23.3`、规划版本表 v0.23.3 行、断言表 L2-123（审查栏要说清看的是哪份代码、读不到要回退）与 L2-124（本地 5 条快检 vs 侧车 41 条全量检查的分工），
+  口径行改 183 条（L1 31 / L2 124 / L3 6 / L4 4 / S 18）。
+
+### 收尾数字（2026-11-03 19:25）
+
+- 门禁：`python -X utf8 gate.py --full --kb-build` → **17/17 passed in 81.4s**（日志 `out/_gate_v233.log`，kb 覆盖 169 源文件）。
+- 打包：`python -X utf8 tools/package.py` → `out/_dist/MAI-0.23.3/` **191 files / 19,522,770 B**；
+  `MAI-0.23.3-mod.zip` 8,752,283 B sha256 `56FC63CACEB8D660589AC1F8E84629D23E6B2BA83276DEE7E18B4C1787C361DE`；
+  `MAI-0.23.3.zip` 8,774,869 B sha256 `C094772F9AAEEF95F92AC52A2E926A44CAC2A47AE6C70BF622F4BC221F381D7B`（日志 `out/_pack233.log`）。
+- 装机 [ok]：先 `Stop-Process -Id 52784`（游戏从 mod 目录拉起的 `sidecar\bin\logicd.exe`，不停会被 Move-Item 拒），
+  再 `powershell -NoProfile -ExecutionPolicy Bypass -File "out\_dist\MAI-0.23.3\install.ps1"` → 自动识别
+  `E:\Program Files (x86)\Steam\steamapps\common\Mindustry\saves\mods`，旧副本备份到
+  `saves\mod-backups\MlogAuxiliary-20261103-192445`；装机后 `mod.hjson` version 0.23.3、`main.js` `var MOD_VERSION = "0.23.3";`、
+  `sidecar/logicd.py` `SIDECAR_VERSION = '0.23.3'` 均已核对。**装机时游戏在跑（Mindustry.exe pid 53920）⇒ 要重启游戏才生效。**
+- 提交：`git log --oneline --grep=v0.23.3`（amend 会改哈希，这里只留指针）。
+- 踩坑（教训）：第一轮 gate 的 `package` FAIL 是 **19:14 那次被我 kill 掉的构建留下的坏 dist** —— PyInstaller 打出的
+  `logicd.exe` 起来就 `ModuleNotFoundError: No module named 'select'`。清掉 `out/_exe/dist` 与 `out/_exe/build` 之后
+  `gate.py --only package` 20.8s PASS，整轮重跑 17/17。⇒ 中途 kill 过 gate/打包之后，先清 `out/_exe/{dist,build}` 再跑。
