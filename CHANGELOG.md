@@ -3,6 +3,14 @@
 只记对外可见的变化。工程日志（每一版的动机、踩过的坑、源码依据）见
 `MlogAuxiliary/HISTORY.md` 与 `docs/`。
 
+## 0.23.1
+
+- **对话里的「控制台」终于是游戏里 F8 那个 JavaScript 控制台**：上一版模型把「控制台命令」理解成服务器聊天里的 `/命令`，于是你让它查点东西，它一直在 `/info`、`/pause`。现在明确分流：`/` 开头的仍按聊天命令走（联机发聊天、单机走 `clientCommands`），其余一律当 JS 代码送进 F8 控制台执行（`mods.getScripts().runConsole(injectConsoleVariables() + code)`），返回值原样回给模型；代码可多行，上限从 300 字符放宽到 2000。
+- **模型知道你这一局里有什么可调**：每轮请求附带 `consoleDigest()` —— 模组版本、F8 是否可用、控制台预置变量（`unit` / `player` / `team` / `core` / `items` / `build` / `cursor` / `cursorUnit`）、以及本局 `api.*` 的全部函数名（最多 90 个，实测 90 个）。新增工具 `console_help`：先查再写，别再凭空猜 `Vars.xxx`。
+- **助手给出的代码块现在能一键复制**：回话按反引号围栏切段，代码段单独成一个块、顶上标语言和「复制」按钮，点了写进系统剪贴板并提示「代码已复制（N 字符）」；正文段继续走 markdown 转标签。没标语言的围栏也照切。
+- **确认框把风险说清楚**：控制台那条改成「控制台代码在游戏内那个 F8 JavaScript 控制台里执行，能直接改存档，看清楚再点确认。」，动作行改成「· 控制台 JS（N 行）：<前 60 字预览>」。
+- **切段不用正则**：v160.7 的 Rhino 有正则字面量构造期 codeBug（断言表 L2-118），所以 `chatSegments()` / `chatTrimCode()` / `chatEsc()` 全是逐字符扫描。
+- 自检口：`api.maiChatCopyProbe()` 返回 `ok segs=3 lang=mlog esc=a[[b]c api=90 f8=...`；ui smoke 增 `MAICOPY:ok` 断言与 4 条红线；侧车测试 chats 节 17 → 19 条。
 ## 0.23.0
 
 - **助手能替你写蓝图、跑控制台命令了 —— 但要你点确认**：对话里新增两个工具：`bp_add`（名字 + base64 蓝图码 + 一句说明）把一次生成结果直接存进原版蓝图库，

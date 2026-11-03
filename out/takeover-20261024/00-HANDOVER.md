@@ -3016,3 +3016,38 @@ Release https://github.com/EnernalIliary/MAI-MlogAuxiIliary/releases/tag/v0.22.0
 装机 [ok] → `saves\mods\MlogAuxiliary`，备份 `saves\mod-backups\MlogAuxiliary-20261103-145135`，装机 `mod.hjson` = `version: "0.23.0"`
 （装机时游戏在跑，pid 40504 于 12:51 启动 ⇒ 这一版要重启游戏才生效）；本地提交见 `git log --oneline --grep=v0.23.0`（11 files / +1130 −16）。
 公开仓 push / tag / Release 未做 —— 等用户批准（从 m00167 起一直挂着这条）。
+
+## §115 v0.23.1 F8 是 JavaScript 控制台 + 代码块复制按钮（2026-11-03）
+
+用户 m05372：「1.它好像并不知道有哪些控制台命令，我而且说的是f8调出的控制台，不是聊天命令。 2.无法复制它给出的代码块，尝试增加一个复制按钮」
+
+### 语义错位在哪
+
+v0.23.0 的 `console_run` 走的是聊天里 `/命令` 那条路（`clientCommands.handleMessage`），而用户说的「控制台」是按 F8 弹出来的 JavaScript 控制台。取证：`Mindustry-Source\core\src\mindustry\ui\fragments\ConsoleFragment.java:193-209` 的 `sendMessage()` 只有一句 `mods.getScripts().runConsole(injectConsoleVariables() + message)`；`:211` 的 `injectConsoleVariables()` 预置 `unit / player / team / core / items / build / cursor / cursorUnit`；整文件没有任何命令注册表，只有 `clear` 特殊处理。聊天 `/命令` 是另一条路（`NetClient.java:343`）。
+
+### 改法（模组 main.js 9343 行 + 侧车 tools/chats.py）
+
+- `chatRunConsole()`(:5469) 首字符分流：`/` → `chatRunChatCommand()`(:5496)（v0.23.0 行为不变：联机 `Call.sendChatMessage` / 单机 `clientCommands.handleMessage`）；其余 → `Vars.ui.consolefrag.injectConsoleVariables()` 拼前缀 + `Vars.mods.getScripts().runConsole(...)`，结果 `chatFlat` 截 300 回给模型。
+- `consoleDigest()`(:6085) 每轮随请求下发：`{version, f8, vars: [8 个注入变量], api: [本局 api.* 键名 ≤90]}`（`req.console` 在 `chatSend()` :4834）。侧车新增 `console_help` 工具把这份名单翻成「这台游戏里能用什么」，并明说 F8 不是聊天命令。
+- 侧车 `CONSOLE_CMD_MAX = 300` → `CONSOLE_CODE_MAX = 2000`、`CONSOLE_API_MAX = 40`、`CONSOLE_INJECTED`；`console_run` 描述改成 F8 JS 代码；`SYSTEM_PROMPT` 加三条（F8 是 JS / 先 console_help / 禁死循环与删文件）。
+- 代码块：`chatSegments()`(:5317) 逐字符切围栏 → `chatCodeBlock()`(:5358) 独立块 + 头行 `[语言]` + 66×24「复制」按钮 → `chatCopyText()`(:5349) 走 `Core.app.setClipboardText` + `hint("代码已复制（N 字符）")`；正文段仍 `mdToTags`。同样零正则（理由见断言表 L2-118）。
+- 意图文案：动作行「· 控制台 JS（N 行）：<前 60 字预览>」；确认框尾句「控制台代码在游戏内那个 F8 JavaScript 控制台里执行，能直接改存档，看清楚再点确认。」
+- 版本三处：main.js:31 `MOD_VERSION = "0.23.1"`、`MlogAuxiliary/mod.hjson:5` `version: "0.23.1"`、`tools/logicd.py:88` `SIDECAR_VERSION = "0.23.1"`。
+
+### 验证
+
+- `tests/logicd/run_logicd_tests.py --no-sim`：chats 17 → 19 条，全绿（protocol 26 / jobs 17 / provider 12 / improve 8 / llm 12 / chats 19 / diag 7 / life 3）。
+- `tests/mlogauxiliary/run_ui_smoke.py`：绿，`MAICOPY:ok segs=3 lang=mlog esc=a[[b]c api=90 f8=false`（无头没有 `Vars.ui`，f8 必然 false）。
+- 文档：CHANGELOG `## 0.23.1`、规划版本表 v0.23.1 行、断言表 L2-120（F8 是 JS 控制台，两条路分开）/ L2-121（围栏切段 + 复制按钮），口径行改 180 条（L1 31 / L2 121 / L3 6 / L4 4 / S 18）。
+
+### 留给真机
+
+- F8 代码真跑：`undefined` / 抛异常 / 返回 Java 对象三种返回值在对话里的呈现。
+- `Core.app.setClipboardText` 桌面端是否直通系统剪贴板。
+- `console_help` 的 90 条 `api.*` 上限是否够用。
+
+### 收尾数字（2026-11-03 16:02）
+- 本地提交见 `git log --oneline --grep=v0.23.1`（10 files / +420 − 36）；装机已做（`saves\mods\MlogAuxiliary`，旧副本 `mod-backups\MlogAuxiliary-20261103-160611`），**需重启游戏才生效**。
+
+- 门禁 `python -X utf8 gate.py --full --kb-build` → **17/17 passed in 127.9s**（`out/_gate_v231.log`）。
+- 打包 `out/_dist/MAI-0.23.1/` **191 files / 19,505,237 B**；`MAI-0.23.1-mod.zip` 8,747,166 B sha256 `920B51D1813D469F1E9BA8EF9EB6C6F96444BC28369317646D54003FB9B1E18D`；`MAI-0.23.1.zip` 8,769,750 B sha256 `FDC62595D623970EE8D3AF9329E00A883227CEC92DD141F673B183E8296F0020`。

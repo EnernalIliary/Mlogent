@@ -368,6 +368,9 @@ def main():
     # v0.23.0（用户 m04691）：对话 agent 五项 —— markdown→标签、玩家/服务器快照、
     # 写蓝图/跑命令的意图队列（侧车登记、玩家确认）、回车发送、对话框贴右。
     "print('MAIACT:' + maiChatActionsProbe());",
+    # v0.23.1（用户 m05372 ②）：「无法复制它给出的代码块」—— 回复按围栏切段，代码段带头行与复制按钮。
+    # 切段/转义都是纯函数，无头下只验这些；按钮本身要真机点。
+    "print('MAICOPY:' + maiChatCopyProbe());",
     # v0.22.0 档3（用户 m04334「完成之后继续做档3」）：工作区快照随 POST /chat 一起下发，
     # 侧车只读地用 ws_list / ws_get / ws_search 看它。这里只验纯函数的裁剪与预算。
     "print('MAIWSDIGEST:' + maiWsDigestProbe());",
@@ -411,7 +414,7 @@ def main():
              or l.startswith(('MAISELF:', 'MAIDIAG:', 'MAISET:', 'MAILIST:', 'MAILISTROWS:',
                               'MAIUNDO:', 'MAICONFLICT:', 'MAILLM:',
                               'MAILINKCONFLICT:', 'MAINET:', 'MAIWRITECHECK:', 'MAICHAT:', 'MAISIDECAR:',
-                              'MAIJOBPANEL:', 'MAIJOBPANELDIAG:', 'MAIHINT:', 'MAIFILTER:', 'MAIFILTER2:', 'MAIWORKSPACE:', 'MAIWS2:', 'MAIWS3:', 'MAICHATUI:', 'MAIDUAL:', 'MAIWSDIGEST:', 'MAIBP:', 'MAIACT:',
+                              'MAIJOBPANEL:', 'MAIJOBPANELDIAG:', 'MAIHINT:', 'MAIFILTER:', 'MAIFILTER2:', 'MAIWORKSPACE:', 'MAIWS2:', 'MAIWS3:', 'MAICHATUI:', 'MAIDUAL:', 'MAIWSDIGEST:', 'MAIBP:', 'MAIACT:', 'MAICOPY:',
                               'MAISIGMETA:', 'MAIBPTITLE:', 'MAIBPCHAT:', 'MAIWELCOME:', 'MAIKEYBIND:', 'MAITHEME:',
                               'MAIJOBBOX0:', 'MAIJOBBOXPIN:', 'MAIJOBBOXFIN:',
                               'MAIJOBBOXCLR:', 'MAIJOBBOX3:', 'MAIJOBMANAGER:',
@@ -605,6 +608,11 @@ def main():
         problems.append('v0.23.0: the chat actions (md->tags / intents / digests / dock) are broken '
                         '(want MAIACT:ok ...): %r'
                         % [l for l in lines if l.startswith('MAIACT:')][:1])
+    # v0.23.1（用户 m05372 ②）：回复里的代码块要能整块复制 —— 切成文字段/代码段后代码段单独带按钮。
+    if 'MAICOPY:ok' not in joined:
+        problems.append('v0.23.1: the code-block splitter / console digest is broken '
+                        '(want MAICOPY:ok segs=3 ...): %r'
+                        % [l for l in lines if l.startswith('MAICOPY:')][:1])
     # v0.22.0 档3: the workspace snapshot that rides on POST /chat must be trimmed to a budget --
     # full code on every processor of every workspace would blow up the request.
     if 'MAIWSDIGEST:ok' not in joined:
@@ -2088,7 +2096,7 @@ def main():
     # ① markdown → 标签：助手气泡必须走 mdToTags，字面量方括号要双写成 [[。
     if 'function mdToTags(' not in code_only:
         problems.append('v0.23.0 ④: mdToTags is gone')
-    if 'chatWrap(dp, mdToTags(content), iw);' not in code_only:
+    if 'var segs = chatSegments(content);' not in code_only or 'mdToTags(one.text)' not in code_only:
         problems.append('v0.23.0 ④: the assistant bubble no longer runs mdToTags')
     if 'split(MD_LB).join("[[")' not in code_only:
         problems.append('v0.23.0 ④: literal [ is no longer escaped as [[')
@@ -2112,6 +2120,16 @@ def main():
         problems.append('v0.23.0 ⑤: Enter/Shift+Enter handling is gone')
     if 'function dualDock(' not in code_only or 'dualDockRight(d);' not in code_only:
         problems.append('v0.23.0 ⑤: the dialogs no longer dock right')
+
+    # v0.23.1（用户 m05372）：① F8 调出来的是 JS 控制台，不是聊天命令 ② 代码块要能一键复制。
+    if 'function chatSegments(' not in code_only or 'function chatCodeBlock(' not in code_only:
+        problems.append('v0.23.1 ②: the code-block splitter / code block row is gone')
+    if 'function chatCopyText(' not in code_only or 'head.button("复制"' not in code_only:
+        problems.append('v0.23.1 ②: code blocks no longer carry a working copy button')
+    if 'injectConsoleVariables()' not in code_only or 'runConsole(pre + code)' not in code_only:
+        problems.append('v0.23.1 ①: console intents no longer run through the F8 JS console')
+    if 'function consoleDigest(' not in code_only or 'req.console = cd' not in code_only:
+        problems.append('v0.23.1 ①: the console api catalog no longer rides on POST /chat')
 
     if problems:
         print('FAIL ' + '; '.join(problems))
@@ -2141,7 +2159,7 @@ def main():
         print('  batch write: ' + wm[:170])
     for l in lines:
         if l.startswith(('MAISELF:', 'MAIDIAG:', 'MAIUNDO:', 'MAICONFLICT:', 'MAILLM:',
-                        'MAICHAT:', 'MAISIDECAR:', 'MAIJOBPANEL:', 'MAIJOBPANELDIAG:', 'MAIHINT:', 'MAIFILTER:', 'MAIFILTER2:', 'MAIWORKSPACE:', 'MAIWS2:', 'MAIWS3:', 'MAICHATUI:', 'MAIDUAL:', 'MAIWSDIGEST:', 'MAIACT:',
+                        'MAICHAT:', 'MAISIDECAR:', 'MAIJOBPANEL:', 'MAIJOBPANELDIAG:', 'MAIHINT:', 'MAIFILTER:', 'MAIFILTER2:', 'MAIWORKSPACE:', 'MAIWS2:', 'MAIWS3:', 'MAICHATUI:', 'MAIDUAL:', 'MAIWSDIGEST:', 'MAIACT:', 'MAICOPY:',
                         'MAIJOBBOX', 'MAIBADGERECT:', 'MAIJOBMANAGER:', 'MAIBP:',
                         'MAISIGMETA:', 'MAIBPTITLE:', 'MAIBPCHAT:', 'MAIKEYBIND:', 'MAITHEME:',
                         'MAIJOBTHINK2:')):

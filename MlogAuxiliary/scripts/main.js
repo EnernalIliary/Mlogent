@@ -28,7 +28,7 @@
 function __logicWriterMain(){
     "use strict";
 
-    var MOD_VERSION = "0.23.0";
+    var MOD_VERSION = "0.23.1";
     var URL_KEY     = "mlogauxiliary-url";
     var DEFAULT_URL = "http://127.0.0.1:8765";
     // v0.11.0：设置页里填的模型档三件套。密钥只留在本机 Core.settings 与 sidecar 进程内存。
@@ -4830,6 +4830,8 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
             // v0.23.0 ③：玩家 / 本局服务器状态跟着这一轮一起发（无头时两者都是 null，就不带字段）
             try{ var pd = playerDigest(); if(pd !== null){ req.player = pd; } }catch(ep){ }
             try{ var sd = serverDigest(); if(sd !== null){ req.server = sd; } }catch(es){ }
+            // v0.23.1 ①：F8 控制台能用的东西（api.* 清单）一起带上，侧车 console_help 要用
+            try{ var cd = consoleDigest(); if(cd !== null){ req.console = cd; } }catch(ec){ }
             var body = JSON.stringify(req);
             CHAT_UI.sending = true;
             CHAT_UI.polling = false;
@@ -5111,8 +5113,13 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
                     }
                     if(chatStrip(content) !== ""){
                         dp.add("MAI").color(themeColor()).fontScale(0.85).left().row();
-                        // v0.23.0 ④：模型写的 markdown 换成标签再进 Label（转换本身绝不抛）
-                        chatWrap(dp, mdToTags(content), iw);
+                        // v0.23.1 ②：按围栏切段 —— 文字段走 markdown 转标签，代码段单独渲染并带「复制」
+                        var segs = chatSegments(content);
+                        for(var sg = 0; sg < segs.length; sg++){
+                            var one = segs[sg];
+                            if(one.kind === "code"){ chatCodeBlock(dp, one.text, one.lang, iw); }
+                            else if(chatStrip(one.text) !== ""){ chatWrap(dp, mdToTags(one.text), iw); }
+                        }
                     }
                 }else if(role === "tool"){
                     var tn = String(msg.name === null || msg.name === undefined ? "工具" : msg.name);
@@ -5300,6 +5307,68 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
             catch(e){ dp.add(chatFlat(text)).width(iw).left().ellipsis(true).row(); }
         }
 
+        // ------------------------------------------------ 代码块与复制按钮（v0.23.1 ②）
+        // 用户 m05372 ②：「无法复制它给出的代码块，尝试增加一个复制按钮」。
+        // 原来整段回复都塞进一个 labelWrap，代码块只是普通文字 —— 游戏里的 Label 根本选不了。
+        // 这里把回复按围栏切成「文字段 / 代码段」，代码段单独渲染成带「复制」的头行 + 正文，
+        // 复制按钮直接写系统剪贴板。切分与渲染都绝不抛（无头 / 样式缺 / 剪贴板被占都只是降级）。
+        function chatSegments(content){
+            var out = [], src = "", i = 0, n = 0;
+            try{ src = String(content === null || content === undefined ? "" : content); }
+            catch(e0){ src = ""; }
+            n = src.length;
+            while(i < n){
+                var k = src.indexOf("```", i);
+                if(k < 0){ out.push({kind: "text", lang: "", text: src.substring(i)}); break; }
+                if(k > i){ out.push({kind: "text", lang: "", text: src.substring(i, k)}); }
+                var nl = src.indexOf("\n", k);
+                if(nl < 0){ out.push({kind: "code", lang: chatTrimCode(src.substring(k + 3)), text: ""}); break; }
+                var lang = chatTrimCode(src.substring(k + 3, nl));
+                var close = src.indexOf("```", nl + 1);
+                if(close < 0){
+                    // 模型漏写了收尾围栏：剩下的全当代码，宁可多给也不丢
+                    out.push({kind: "code", lang: lang, text: src.substring(nl + 1)}); break;
+                }
+                out.push({kind: "code", lang: lang, text: src.substring(nl + 1, close)});
+                i = close + 3;
+                if(src.charAt(i) === "\n"){ i++; }
+            }
+            return out;
+        }
+        function chatTrimCode(s){
+            var t = String(s === null || s === undefined ? "" : s);
+            try{ return t.trim(); }catch(e){ return t.split("\r").join("").split("\n").join("").split(" ").join(""); }
+        }
+        // 字面量的 '[' 在标签语言里要双写
+        function chatEsc(text){
+            try{ return String(text === null || text === undefined ? "" : text).split("[").join("[["); }
+            catch(e){ return ""; }
+        }
+        function chatCopyText(code){
+            var t = String(code === null || code === undefined ? "" : code);
+            try{
+                Core.app.setClipboardText(t);
+                hint("代码已复制（" + String(t.length) + " 字符）");
+                return true;
+            }catch(e){ hint("复制失败：" + String(e)); return false; }
+        }
+        // 代码块：头行「语言 + 复制按钮」+ 正文。头行用独立 Table，和工作区详情里的表格行同一个写法。
+        function chatCodeBlock(dp, code, lang, iw){
+            var body = String(code === null || code === undefined ? "" : code);
+            var name = chatTrimCode(lang);
+            if(name === ""){ name = "代码"; }
+            if(name.length > 16){ name = name.substring(0, 16); }
+            try{
+                var head = new Packages.arc.scene.ui.layout.Table();
+                head.left();
+                head.add("[" + name + "]").color(Pal.gray).fontScale(0.8)
+                    .width(Math.max(60, iw - 74)).ellipsis(true).left();
+                head.button("复制", function(){ chatCopyText(body); }).width(66).height(24).left();
+                dp.add(head).growX().left().row();
+            }catch(e1){ }
+            chatWrap(dp, chatEsc(body), iw);
+        }
+
         // ------------------------------------------------ 模型请求的动作（v0.23.0 ①②）
         // 用户 m04691：模型要能「写蓝图库」和「跑控制台命令」。这两件都会改玩家的存档/服务器，
         // 所以侧车只把意图登记进 chat['intents']（它自己碰不到游戏），模组这边看到意图先弹一次确认，
@@ -5332,13 +5401,19 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
                 if(nm === ""){ nm = "(未命名)"; }
                 return "· 写蓝图库「" + nm + "」（" + String(String(it.code).length) + " 字符的蓝图码）";
             }
-            return "· 控制台命令 /" + String(it.cmd);
+            // v0.23.1 ①：控制台已经不是聊天命令了 —— F8 那个是 JS 控制台
+            var c = String(it.cmd);
+            var lines = (c === "") ? 0 : c.split("\n").length;
+            var prev = chatFlat(c);
+            if(prev.length > 60){ prev = prev.substring(0, 60) + "…"; }
+            return "· 控制台 JS（" + String(lines) + " 行）：" + prev;
         }
         function chatIntentText(list){
             var a = [], i;
             for(i = 0; i < list.length; i++){ a.push(chatIntentLine(list[i])); }
             return "模型请求执行 " + String(list.length) + " 个动作：" + "\n" + a.join("\n")
-                   + "\n\n蓝图会写进蓝图库（可以再删），命令按你现在的权限执行。";
+                   + "\n\n蓝图会写进蓝图库（可以再删）；控制台代码在游戏内那个 F8 JavaScript 控制台里执行，"
+                   + "能直接改存档，看清楚再点确认。";
         }
         function chatTakeIntents(chat){
             var list = chatIntentList(chat);
@@ -5390,27 +5465,52 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
             }
         }
         function chatRunConsole(it){
-            var cmd = chatStrip(String(it.cmd || ""));
+            var code = chatTrimCode(String(it.cmd === null || it.cmd === undefined ? "" : it.cmd));
+            if(code === ""){ return "· 控制台代码：空的，跳过"; }
+            // v0.23.1 ①：用户 m05372「我说的是 f8 调出的控制台」。那个控制台是 **JavaScript** 控制台：
+            // ConsoleFragment.java:193-209 把输入拼在 injectConsoleVariables() 后面丢给
+            // mods.getScripts().runConsole(...)。这里走同一条路，玩家看到的就和手敲一样。
+            // 真以 '/' 开头的仍然当服务器聊天命令处理（两件事，不混）。
+            if(code.charAt(0) === "/"){ return chatRunChatCommand(code); }
+            var pre = "", out = "";
+            try{
+                var cf = (Vars.ui === null || Vars.ui === undefined) ? null : Vars.ui.consolefrag;
+                if(cf !== null && cf !== undefined){ pre = String(cf.injectConsoleVariables()); }
+            }catch(e0){ pre = ""; }
+            try{
+                var res = Vars.mods.getScripts().runConsole(pre + code);
+                out = String(res === null || res === undefined ? "" : res);
+            }catch(e){
+                var why = String(e);
+                if(why.length > 200){ why = why.substring(0, 200) + "…"; }
+                return "· 控制台 JS → 出错：" + why;
+            }
+            var flat = chatFlat(out);
+            if(flat.length > 300){ flat = flat.substring(0, 300) + "…"; }
+            if(flat === ""){ return "· 控制台 JS → 执行完了（没有返回值）"; }
+            return "· 控制台 JS → " + flat;
+        }
+        // '/' 开头：服务器聊天命令（联机发给服务端、单机走本机命令处理器）
+        function chatRunChatCommand(raw){
+            var cmd = chatStrip(String(raw === null || raw === undefined ? "" : raw));
             if(cmd.length > 0 && cmd.charAt(0) === "/"){ cmd = cmd.substring(1); }
-            if(cmd === ""){ return "· 控制台命令：空的，跳过"; }
+            if(cmd === ""){ return "· 聊天命令：空的，跳过"; }
             var full = "/" + cmd;
-            // 联机：命令要在服务端跑，客户端只能把它当聊天发过去（NetClient.java:343 是服务端的入口）
             try{
                 if(netActive() === true){
                     Packages.mindustry.gen.Call.sendChatMessage(full);
-                    return "· 控制台命令 " + full + " → 已发给服务器";
+                    return "· 聊天命令 " + full + " → 已发给服务器";
                 }
             }catch(e1){ }
-            // 单机：直接走本机的客户端命令处理器（ClientLauncher.java:185 里 netServer 非 null）
             try{
                 var ns = Vars.netServer;
-                if(ns === null || ns === undefined){ return "· 控制台命令 " + full + " → 没有可用的控制台"; }
+                if(ns === null || ns === undefined){ return "· 聊天命令 " + full + " → 没有可用的命令处理器"; }
                 ns.clientCommands.handleMessage(full, Vars.player);
-                return "· 控制台命令 " + full + " → 已在本机执行";
+                return "· 聊天命令 " + full + " → 已在本机执行";
             }catch(e2){
                 var why = String(e2);
                 if(why.length > 90){ why = why.substring(0, 90) + "…"; }
-                return "· 控制台命令 " + full + " → 失败：" + why;
+                return "· 聊天命令 " + full + " → 失败：" + why;
             }
         }
         function chatRunIntents(list){
@@ -5975,6 +6075,27 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
                         o.mode = String(rl.mode === null || rl.mode === undefined ? "" : rl.mode.name());
                     }
                 }catch(e7){ }
+                return o;
+            }catch(e){ return null; }
+        }
+        // v0.23.1 ①：把这台游戏里 F8 控制台能用的东西整理成一份清单，随每轮请求发给侧车。
+        // 侧车的 console_help 就靠它告诉模型「本局有哪些 api.* 函数」—— 之前模型只能瞎猜命令名。
+        function consoleDigest(){
+            try{
+                var o = {version: MOD_VERSION, f8: false,
+                         vars: ["unit", "player", "team", "core", "items", "build", "cursor", "cursorUnit"],
+                         api: []};
+                var keys = [], k;
+                for(k in api){
+                    try{ keys.push(String(k)); }catch(e1){ }
+                }
+                keys.sort();
+                if(keys.length > 90){ keys = keys.slice(0, 90); }
+                o.api = keys;
+                try{
+                    var cf = (Vars.ui === null || Vars.ui === undefined) ? null : Vars.ui.consolefrag;
+                    o.f8 = (cf !== null && cf !== undefined);
+                }catch(e2){ o.f8 = false; }
                 return o;
             }catch(e){ return null; }
         }
@@ -9036,7 +9157,8 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
                 }
                 var itxt = chatIntentText(list);
                 if(itxt.indexOf("写蓝图库「甲」") < 0){ notes.push("intent-text-bp"); }
-                if(itxt.indexOf("/pause on") < 0){ notes.push("intent-text-cmd"); }
+                if(itxt.indexOf("pause on") < 0){ notes.push("intent-text-cmd"); }
+                if(itxt.indexOf("控制台 JS") < 0){ notes.push("intent-text-js"); }
                 if(chatIntentList(null).length !== 0){ notes.push("intent-null"); }
                 // 无 Vars.ui：只记账不弹窗（返回 -1 表示没弹），同一个 id#rounds#count 只记一次
                 var took = chatTakeIntents(fake);
@@ -9059,6 +9181,44 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
                        + " player=" + String(pd === null ? "null" : "obj")
                        + " server=" + String(sd === null ? "null" : "obj")
                        + " dock=" + String(DUAL.dockRight);
+            }catch(e){
+                notes.push("throw:" + e);
+            }
+            return notes.length === 0 ? ("ok " + counts) : ("bad " + notes.join(","));
+        };
+        // v0.23.1 自检：代码块切段 / 转义 / 控制台清单 / 控制台执行分流
+        api.maiChatCopyProbe = function(){
+            var notes = [], counts = "";
+            try{
+                var t1 = "a\n```mlog\nx = 1\ny = 2\n```\nb";
+                var s1 = chatSegments(t1);
+                if(s1.length !== 3){ notes.push("segs=" + String(s1.length)); }
+                if(s1.length === 3){
+                    if(s1[0].kind !== "text"){ notes.push("k0=" + String(s1[0].kind)); }
+                    if(s1[1].kind !== "code"){ notes.push("k1=" + String(s1[1].kind)); }
+                    if(s1[1].lang !== "mlog"){ notes.push("lang=" + String(s1[1].lang)); }
+                    if(s1[1].text !== "x = 1\ny = 2\n"){ notes.push("code=" + chatFlat(s1[1].text)); }
+                    if(s1[2].kind !== "text"){ notes.push("k2=" + String(s1[2].kind)); }
+                }
+                var s2 = chatSegments("```\nno lang\n```");
+                if(s2.length !== 1 || s2[0].kind !== "code" || s2[0].lang !== ""){ notes.push("segs2=" + String(s2.length)); }
+                var s3 = chatSegments("```mlog\nunclosed = 1");
+                if(s3.length !== 1 || s3[0].kind !== "code" || s3[0].text !== "unclosed = 1"){ notes.push("segs3"); }
+                if(chatSegments("").length !== 0){ notes.push("empty"); }
+                if(chatEsc("a[b]c") !== "a[[b]c"){ notes.push("esc=" + chatEsc("a[b]c")); }
+                if(chatTrimCode("  x  ") !== "x"){ notes.push("trim"); }
+                var cd = consoleDigest();
+                if(cd === null){ notes.push("console=null"); }
+                else if(Number(cd.api.length) < 5){ notes.push("api=" + String(cd.api.length)); }
+                var il = chatIntentLine({kind: "console", cmd: "line1\nline2"});
+                if(String(il).indexOf("控制台 JS（2 行）") < 0){ notes.push("iline=" + String(il)); }
+                var rc = String(chatRunConsole({kind: "console", cmd: "1 + 1"}));
+                if(rc.indexOf("控制台 JS") < 0){ notes.push("runconsole=" + rc); }
+                var rk = String(chatRunConsole({kind: "console", cmd: "/pause on"}));
+                if(rk.indexOf("聊天命令") < 0){ notes.push("runchat=" + rk); }
+                counts = "segs=3 lang=mlog esc=" + chatEsc("a[b]c")
+                         + " api=" + String(cd === null ? 0 : Number(cd.api.length))
+                         + " f8=" + String(cd === null ? false : cd.f8);
             }catch(e){
                 notes.push("throw:" + e);
             }

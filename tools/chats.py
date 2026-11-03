@@ -54,7 +54,12 @@ INTENTS_MAX = 4         # 每轮最多登记多少条意图
 BP_NAME_MAX = 80        # 蓝图名字最多留多少字符
 BP_DESC_MAX = 200       # 蓝图备注最多留多少字符
 BP_CODE_MAX = 20000     # 一条蓝图代码（base64）最多留多少字符
-CONSOLE_CMD_MAX = 300   # 一条控制台命令最多留多少字符
+# v0.23.1：F8 控制台是 JavaScript 控制台（ConsoleFragment 把输入直接丢给 Rhino 执行），
+# 所以这里留的是「一段 JS 代码」而不是「一条聊天命令」，多行要原样留住。
+CONSOLE_CODE_MAX = 2000  # 一段控制台 JS 代码最多留多少字符（多行一起算）
+CONSOLE_API_MAX = 40     # console_help 最多列多少个 api.* 函数名
+CONSOLE_INJECTED = ('unit', 'player', 'team', 'core', 'items', 'build',
+                    'cursor', 'cursorUnit')  # ConsoleFragment 每次输入预置的变量
 
 #: copied from jobqueue.Store: a write can lose a race on Windows and is retried
 SAVE_TRIES = 6
@@ -74,8 +79,13 @@ SYSTEM_PROMPT = (
     '那是模组每轮发过来的只读快照，不要编工作区里有什么。\n'
     '- 工作区里的代码要改，就在回答里写清「哪个工作区、哪台处理器（坐标）、改成什么」，'
     '让玩家自己贴进去；你没有写入权限，不要说「我已经改好了」。\n'
-    '- 蓝图（bp_add）和控制台命令（console_run）只是「登记意图」：登记完还要玩家在窗口里点'
+    '- 蓝图（bp_add）和控制台代码（console_run）只是「登记意图」：登记完还要玩家在窗口里点'
     '确认才会真正写进游戏或执行，别说「已经写好了」「已经执行了」。\n'
+    '- console_run 登记的是游戏内 F8 打开的那个 JavaScript 控制台（Rhino）里要执行的 JS 代码，'
+    '不是服务器聊天命令，不要写 /xxx 这种。\n'
+    '- 要用控制台之前先调 console_help，看这台游戏里预置了哪些变量、有哪些 api.* 函数；'
+    '不要编不存在的函数或字段。\n'
+    '- 控制台代码一段一次，可以多行；不要写死循环、删文件这类破坏性代码。\n'
     '- 玩家和服务器数据（player_info / server_info）是模组这一轮发来的只读快照；'
     '没有就直说没看到，不要编位置、血量、人数。\n'
     '- 只调用上面列出的工具，不要假装还有别的工具。'
@@ -243,15 +253,25 @@ TOOLS = [
         'type': 'function',
         'function': {
             'name': 'console_run',
-            'description': '登记一条控制台命令，等玩家确认后才执行',
+            'description': '登记一段要在游戏内 F8 控制台（JavaScript 控制台）里执行的代码，'
+                           '等玩家确认后才执行',
             'parameters': {
                 'type': 'object',
                 'properties': {
                     'command': {'type': 'string',
-                                'description': '命令文本（最多 300 字符），超了会被截断'},
+                                'description': '控制台 JS 代码，可多行，最多 2000 字符'},
                 },
                 'required': ['command'],
             },
+        },
+    },
+    {
+        'type': 'function',
+        'function': {
+            'name': 'console_help',
+            'description': '查看这台游戏里 F8 控制台能用的东西（注入变量、常用 Vars/Core '
+                           '入口、本模组注册的 api.* 函数）',
+            'parameters': {'type': 'object', 'properties': {}},
         },
     },
 ]
@@ -470,6 +490,7 @@ def _brief(chat):
         'intents': len(chat.get('intents') or []),
         'has_player': bool(chat.get('player')),
         'has_server': bool(chat.get('server')),
+        'has_console': bool(chat.get('console')),
     }
 
 
@@ -511,6 +532,7 @@ def _full(chat):
         'intents': chat.get('intents') or [],
         'player': chat.get('player') or {},
         'server': chat.get('server') or {},
+        'console': chat.get('console') or {},
     }
 
 
@@ -621,6 +643,9 @@ def start(req):
             chat['player'] = _norm_snapshot(req.get('player'))
         if 'server' in req:
             chat['server'] = _norm_snapshot(req.get('server'))
+        # v0.23.1：本局 F8 控制台能用的对象清单（{version, vars, api}）也是只读快照
+        if 'console' in req:
+            chat['console'] = _norm_console(req.get('console'))
         chat['intents'] = []
         chat['updated'] = now
         _RUNNING.add(cid)
@@ -791,6 +816,7 @@ def _run_loop(chat):
     # 轮末 _save 落盘，模组轮询 GET /chat 时就能看到要玩家确认的东西。
     _CTX.player = chat['player'] if isinstance(chat.get('player'), dict) else {}
     _CTX.server = chat['server'] if isinstance(chat.get('server'), dict) else {}
+    _CTX.console = chat['console'] if isinstance(chat.get('console'), dict) else {}
     if not isinstance(chat.get('intents'), list):
         chat['intents'] = []
     _CTX.intents = chat['intents']
@@ -1043,6 +1069,8 @@ def _run_tool(name, args):
         return _bp_add(args)
     if name == 'console_run':
         return _console_run(args)
+    if name == 'console_help':
+        return _console_help(args)
     return False, '没有这个工具：%s' % (name or '（空）')
 
 
@@ -1310,22 +1338,81 @@ def _bp_add(args):
     return True, text
 
 
+def _norm_console(raw):
+    """The mod's F8 console catalogue for this turn: {version, vars, api} (v0.23.1).
+
+    Only names are kept.  The sidecar never executes anything: it needs just enough
+    to tell the model what this game actually exposes, so a long or hostile payload
+    cannot bloat the chat file either.
+    """
+    if not isinstance(raw, dict):
+        return {}
+    out = {}
+    ver = raw.get('version')
+    if isinstance(ver, str) and ver.strip():
+        out['version'] = _cut(ver.strip(), 80)
+    for key in ('vars', 'api'):
+        items = raw.get(key)
+        if isinstance(items, dict):
+            items = list(items.keys())
+        names = []
+        for item in items if isinstance(items, list) else []:
+            text = _cut(str(item).strip(), 80)
+            if text and text not in names:
+                names.append(text)
+            if len(names) >= CONSOLE_API_MAX:
+                break
+        out[key] = names
+    return out
+
+
 def _console_run(args):
-    cmd = _str_arg(args, 'command').strip()
-    if not cmd:
-        return False, 'command 不能为空'
+    code = _str_arg(args, 'command').strip()
+    if not code:
+        return False, 'command 不能为空（要的是 F8 控制台里执行的 JS 代码）'
     rows = _intent_rows()
     if len(rows) >= INTENTS_MAX:
-        return _intent_refuse('控制台命令')
+        return _intent_refuse('控制台代码')
     notes = []
-    if len(cmd) > CONSOLE_CMD_MAX:
-        cmd = cmd[:CONSOLE_CMD_MAX]
-        notes.append('命令超过 %d 字符，已截断' % CONSOLE_CMD_MAX)
-    rows.append({'kind': 'console', 'cmd': cmd})
-    text = '已登记：控制台命令 %s。玩家确认后才会执行。' % cmd
+    if len(code) > CONSOLE_CODE_MAX:
+        code = code[:CONSOLE_CODE_MAX]
+        notes.append('代码超过 %d 字符，已截断' % CONSOLE_CODE_MAX)
+    rows.append({'kind': 'console', 'cmd': code})
+    shown = code if len(code) <= 300 else code[:300] + '…'
+    text = '已登记：F8 控制台代码 %s。玩家确认后才会执行。' % shown
     if notes:
         text += '\n（%s）' % '；'.join(notes)
     return True, text
+
+
+def _console_help(args):
+    lines = [
+        '游戏内的 F8 控制台是 JavaScript 控制台（Rhino），不是服务器聊天命令 —— 别写 /xxx。'
+        '回车就执行，返回最后一个表达式的值；想拿结果直接写表达式。',
+        '每次输入都会预置这些变量：%s（ConsoleFragment 注入，直接当全局变量用）。'
+        % '、'.join(CONSOLE_INJECTED),
+        '常用入口：Vars.state（游戏状态）、Vars.world（地图）、Vars.player（玩家单位）、'
+        'Vars.schematics（蓝图）、Core.app、Groups.player、Time、Draw。',
+    ]
+    snap = _snap_get('console')
+    api = snap.get('api') if isinstance(snap.get('api'), list) else []
+    if api:
+        ver = str(snap.get('version') or '').strip()
+        head = '本局可用 api.* 函数（模组这一轮发来的清单'
+        head += ('，%s）：' % ver) if ver else '）：'
+        lines.append(head)
+        lines.extend('  api.%s' % name for name in api[:CONSOLE_API_MAX])
+        if len(api) > CONSOLE_API_MAX:
+            lines.append('  …（还有 %d 个，已省略）' % (len(api) - CONSOLE_API_MAX))
+    else:
+        lines.append('本局没收到 api.* 清单（模组可能是旧版，或者这不在一局游戏里）：'
+                     '不要凭印象调 api.xxx，只用手上这些 Vars / Core 入口。')
+    injected = snap.get('vars') if isinstance(snap.get('vars'), list) else []
+    if injected:
+        lines.append('模组给的变量清单：%s' % '、'.join(injected[:CONSOLE_API_MAX]))
+    lines.append('一段一次，不要写死循环、删文件这类破坏性代码；'
+                 '登记后还要玩家确认才会执行，别说「已经执行了」。')
+    return True, _clip('\n'.join(lines))
 
 
 # ---------------------------------------------------------------- bundled data

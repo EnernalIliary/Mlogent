@@ -1874,11 +1874,12 @@ def test_chats():
                  'the brief carries the raw snapshots: %r' % (b,))
             checks += 1
 
-            # e) 超长 code / command 被截断，并在返回里说清楚
+            # e) v0.23.1：控制台是一段 JS（可多行），超 2000 字符被截断并说清楚
+            long_js = 'var a = 1;\n' * 200          # 2200 字符、200 行
             big_stub = _ChatStub(calls=[
                 ('bp_add', json.dumps({'name': '超大蓝图', 'code': 'b' * 20050,
                                        'desc': 'd'}, ensure_ascii=False)),
-                ('console_run', json.dumps({'command': 'c' * 350}, ensure_ascii=False)),
+                ('console_run', json.dumps({'command': long_js}, ensure_ascii=False)),
             ], reply='截断的那种也登记了。')
             try:
                 code, doc = srv.post('/llm', {'url': big_stub.chat_url, 'model': 'stub'})
@@ -1895,10 +1896,14 @@ def test_chats():
                 need(len(intents) == 2,
                      'the truncation turn registered %r intents' % (len(intents),))
                 need(len(intents[0].get('code') or '') == 20000
-                     and len(intents[1].get('cmd') or '') == 300,
+                     and len(intents[1].get('cmd') or '') == 2000,
                      'the oversized intent was not cut: code=%d cmd=%d'
                      % (len(intents[0].get('code') or ''),
                         len(intents[1].get('cmd') or '')))
+                need('\n' in (intents[1].get('cmd') or '')
+                     and intents[1].get('cmd') == long_js[:2000],
+                     'the console code did not keep its multi-line body: %r'
+                     % (intents[1].get('cmd')[:60],))
                 need('截断' in bodies[0] and '截断' in bodies[1],
                      'truncation was not said out loud: %r / %r'
                      % (bodies[0][-80:], bodies[1][-80:]))
@@ -1940,6 +1945,75 @@ def test_chats():
                 checks += 1
             finally:
                 none_stub.close()
+
+            # g) v0.23.1：F8 控制台是 JavaScript 控制台 —— console_help 有清单列 api.*，
+            #    没清单就直说「没收到」，绝不编 api.xxx
+            help_stub = _ChatStub(calls=[('console_help', '{}')], reply='F8 是 JS 控制台。')
+            try:
+                code, doc = srv.post('/llm', {'url': help_stub.chat_url, 'model': 'stub'})
+                need(code == 200, 'pointing at the console_help stub answered %r' % (code,))
+                code, doc = srv.post('/chat', {
+                    'text': 'F8 控制台里能干什么',
+                    'console': {'version': 'v160.7', 'vars': ['unit', 'core'],
+                                'api': ['give', 'spawnUnit', 'fastForward']},
+                })
+                need(code == 200, 'the console_help turn was refused: %r %r' % (code, doc))
+                hcid = doc.get('id')
+                chat = wait_idle(hcid)
+                need(not chat.get('error'),
+                     'the console_help run ended badly: %r' % (chat.get('error'),))
+                rows = [m for m in chat.get('messages') or [] if m.get('role') == 'tool']
+                body = str((rows[0] if rows else {}).get('content') or '')
+                need('F8' in body and 'JavaScript' in body and 'cursorUnit' in body
+                     and 'Vars.world' in body,
+                     'console_help does not explain the F8 JS console: %r' % (body[:200],))
+                need('api.give' in body and 'api.spawnUnit' in body and 'v160.7' in body,
+                     'console_help does not list the mod api names: %r' % (body[:200],))
+                need((chat.get('console') or {}).get('api')
+                     == ['give', 'spawnUnit', 'fastForward'],
+                     'GET /chat does not keep the console catalogue: %r'
+                     % (chat.get('console'),))
+                need(chat.get('intents') == [],
+                     'console_help must not register an intent: %r' % (chat.get('intents'),))
+                first = help_stub.posts[0] if help_stub.posts else {}
+                prompt = [m for m in first.get('messages') or []
+                          if m.get('role') == 'system']
+                need(any('F8' in str(m.get('content') or '') for m in prompt),
+                     'the system prompt does not mention the F8 console')
+                need('console_help' in json.dumps(first.get('tools') or [],
+                                                  ensure_ascii=False),
+                     'console_help was not offered to the model')
+                checks += 1
+
+                # 下一轮没给清单（console:null）就必须说「没收到」
+                bare_stub = _ChatStub(calls=[('console_help', '{}')],
+                                      reply='那别乱调。')
+                try:
+                    code, doc = srv.post('/llm', {'url': bare_stub.chat_url, 'model': 'stub'})
+                    need(code == 200, 'pointing at the bare console stub answered %r' % (code,))
+                    code, doc = srv.post('/chat', {'id': hcid, 'text': '那还能用啥',
+                                                   'console': None})
+                    need(code == 200, 'the bare console turn was refused: %r %r' % (code, doc))
+                    chat = wait_idle(hcid)
+                    rows = [m for m in chat.get('messages') or []
+                            if m.get('role') == 'tool']
+                    body = str((rows[-1] if rows else {}).get('content') or '')
+                    need('没收到' in body and 'api.' in body,
+                         'console_help without a catalogue must say so: %r'
+                         % (body[:200],))
+                    code, doc = srv.get('/chats?limit=50')
+                    brief = [c for c in doc.get('chats') or [] if c.get('id') == hcid]
+                    need(len(brief) == 1 and brief[0].get('has_console') is False,
+                         'the brief still reports a console catalogue: %r' % (brief,))
+                    checks += 1
+                finally:
+                    bare_stub.close()
+                code, doc = srv.delete('/chat?id=' + hcid)
+                need(code == 200 and doc.get('deleted') is True,
+                     'deleting the console chat: %r %r' % (code, doc))
+            finally:
+                help_stub.close()
+
             code, doc = srv.delete('/chat?id=' + icid)
             need(code == 200 and doc.get('deleted') is True,
                  'deleting the intent chat: %r %r' % (code, doc))
