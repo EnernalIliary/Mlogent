@@ -3175,3 +3175,15 @@ v0.23.0 的 `console_run` 走的是聊天里 `/命令` 那条路（`clientComman
 - 门禁：`python -X utf8 gate.py --full --kb-build` → **17/17 passed in 158.8s**（`out/_gate_v240.log`，kb 重建覆盖 169 源文件）。
 - 打包：`out/_dist/MAI-0.24.0/` **191 files / 19,557,925 B**；`MAI-0.24.0-mod.zip` **8,766,356 B** sha256 `2C70051BDF634BE9F0B8984396B1FCB20809656A7D34FB69ED6272DC535FBEBB`；`MAI-0.24.0.zip` **8,788,943 B** sha256 `B4051BAE052F3D0683273D0E61479FB9B7A1CA89A945F310B9377C4842988172`（`out/_pack240.log`）。
 - 装机 [ok]：`powershell -NoProfile -ExecutionPolicy Bypass -File "out\_dist\MAI-0.24.0\install.ps1"` → 自动识别 `E:\Program Files (x86)\Steam\steamapps\common\Mindustry\saves\mods`，旧副本备份 `saves\mod-backups\MlogAuxiliary-20261104-000146`；装机后 `mod.hjson` version 0.24.0、`main.js` `var MOD_VERSION = "0.24.0";` 均已核对。**必须重启游戏才加载**（这次装机时没有 logicd 在跑）。
+### §122 v0.24.0 公开发布：push + tag + Release（2026-11-04）
+
+公开模组仓 `EnernalIliary/MAI-MlogAuxIliary` 远端上次停在 **7e4175b（v0.22.0）**，v0.23.0 ~ v0.24.0 一直没发 —— 这次一个 release 覆盖这三段。
+
+- **导出**：`out/_v240_pub.py copy`（由 `_v220_pub.py` 改写：FILES 42 条显式路径 + `rules/*`、`tests/cases/*`、`tools/*`、`mindustry-blueprint/tools/*` glob）→ 拷 234 个文件，克隆里 17 个文件变化（+2558 −230）。本地/克隆共享文件 239 个、0 个不一致；克隆里 `python tools/sync_mlogagent.py --mirror all --check` 回 `ok bp: 22 tool file(s) in sync`。
+- **克隆内测试**：`tests/run_tests.py` **48/48**；`tests/logicd/run_logicd_tests.py` rc 0（含 `write path: 7 template(s) accepted by the game`）；`tests/mlogauxiliary/run_ui_smoke.py` rc 0；`tests/packaging/run_pack_tests.py` **13/13**。
+  - 坑一：克隆里没有 `out/jre21`，`tools/mlogsim.py:181-187` 会退回 Steam 的 jlink 镜像 → 服务端启动即 `NoClassDefFoundError: java/util/logging/Logger`（`mlogsim.py:124` 注释写明了）。跑之前设 `$env:MLOGSIM_JAVA = "F:\OneDrive\桌面\AtomicStates\out\jre21\jdk-21.0.5+11-jre\bin\java.exe"`，并把本地 `out/_server160.jar`（19,453,000 B）临时拷进克隆 `out/`，跑完删。
+  - 坑二：`tools/sync_mlogagent.py` 的 `_repo_root()` 会从克隆往上找 `.dsh/skills`，命中的是**宿主仓**那份 ⇒ `--check` 报 skill/install 镜像陈旧（假警报）。给克隆临时建一个空 `.dsh/skills`，就只检查克隆自己的 in-tree 镜像，跑完删（`out/` 与 `.dsh` 都不进提交）。
+- **提交与 tag**：`7cb0661 "v0.24.0: let the assistant see the whole map, and act for you"`（17 files, +2558/−230），tag `v0.24.0`；`git push origin main`、`git push origin v0.24.0` 均 rc 0，`git ls-remote` 校验 main 与 tag 都是 `7cb06619e21b8e1a88b2be0667ea010fc397b289`。
+- **Release**：`out/_v240_release.py`（先试代理 10808，失败退直连）→ POST release 201 → 两个资产上传 201：`MAI-0.24.0-mod.zip` 8,766,356 B、`MAI-0.24.0.zip` 8,788,943 B → `releases/latest` 200 回 v0.24.0。
+  <https://github.com/EnernalIliary/MAI-MlogAuxIliary/releases/tag/v0.24.0>
+- 仍未做：装机验证（游戏在跑，需重启才加载新模组）；真机三条待验（区域快照 `globals` 里真有核心/单位、无核单位任务走 `blocked`、blocked 的颜色与文案）。
