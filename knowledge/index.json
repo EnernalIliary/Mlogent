@@ -1,6 +1,6 @@
 {
  "version": "1",
- "generated": "2026-11-08T06:31:05+08:00",
+ "generated": "2026-11-08T07:08:26+08:00",
  "root": "knowledge",
  "read_order": [
   "index.json",
@@ -210,7 +210,7 @@
      "id": "WORLD.LOGISTICS.001",
      "path": "knowledge/02-world/W06-logistics.md",
      "title": "物流与物品传输（传送带 / 路由 / 交叉 / 桥 / 质量驱动器）",
-     "tokens": 1834,
+     "tokens": 1837,
      "tokens_est": false,
      "conf": "S",
      "ver": [
@@ -425,6 +425,21 @@
      "lines": 188
     },
     {
+     "id": "COMBAT.TURRET.002",
+     "path": "knowledge/03-combat/C11-turret-verdict.md",
+     "title": "原版炮塔评价——该造哪门、值不值",
+     "tokens": 944,
+     "tokens_est": false,
+     "conf": "I",
+     "ver": [
+      "v160.7_rt",
+      "v159.3_src"
+     ],
+     "status": "active",
+     "domain": "combat",
+     "lines": 109
+    },
+    {
      "id": "COMBAT.UNITWEAPON.001",
      "path": "knowledge/03-combat/C06-unit-weapons.md",
      "title": "单位武器——weapons[]、挂点坐标、镜像与单位 DPS",
@@ -511,7 +526,7 @@
      "id": "UNIT.PRODUCE.001",
      "path": "knowledge/04-units/U02-production.md",
      "title": "单位生产链——工厂、重构厂、组装厂与单位上限",
-     "tokens": 1161,
+     "tokens": 1193,
      "tokens_est": false,
      "conf": "S",
      "ver": [
@@ -2383,11 +2398,11 @@
   }
  ],
  "counts": {
-  "articles": 57,
+  "articles": 58,
   "by_domain": {
    "01-execution": 6,
    "02-world": 12,
-   "03-combat": 10,
+   "03-combat": 11,
    "04-units": 5,
    "05-campaign": 6,
    "06-mlog": 8,
@@ -2405,7 +2420,7 @@
    "probes": 84
   },
   "evidence_dirs": 2,
-  "tokens_total": 63333,
+  "tokens_total": 64312,
   "empty": false
  },
  "notes": [

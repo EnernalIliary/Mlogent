@@ -22,7 +22,7 @@ data:
   - "00-data/blocks.json#id=mass-driver"
 depends: [WORLD.BLOCKS.001, WORLD.CRAFTING.001]
 tags: [物流, 传送带, conveyor, duct, router, junction, bridge, mass-driver, 吞吐, items/s]
-tokens: 1834
+tokens: 1837
 ---
 
 ## 一句话

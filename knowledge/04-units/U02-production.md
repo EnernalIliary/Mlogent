@@ -17,7 +17,7 @@ src:
 data: [00-data/blocks.json, 00-data/units.json]
 depends: [UNIT.MOVE.001]
 tags: [工厂, 重构厂, 组装厂, 单位上限, unitCap, buildSpeed, payload]
-tokens: 1161
+tokens: 1193
 ---
 
 ## 一句话
