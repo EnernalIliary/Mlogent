@@ -50,8 +50,8 @@ DOC_FILES = [
     "README.md", "Logic/逻辑代码规范.md", "mindustry-blueprint/SKILL.md",
     "mindustry-blueprint/REFERENCE.md", "mindustry-blueprint/EMULATOR-CROSSCHECK.md",
     "tools/README.md", "dsh-preset-mlog/README.md", "rules/README.md",
-    "docs/本地知识库.md", "docs/断言表.md", "docs/验证记录.md",
-    "docs/MBO与配比计算器.md", "knowledge/KB.md", "knowledge/CONVENTIONS.md",
+    "docs/断言表.md", "docs/验证记录.md",
+    "knowledge/KB.md", "knowledge/CONVENTIONS.md",
     "knowledge/VERSION.md",
 ]
 CODE_GLOBS = ["tools/*.py", "tests/run_tests.py"]

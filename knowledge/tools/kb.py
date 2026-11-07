@@ -61,15 +61,11 @@ DOC_FILES = [
     "tools/README.md",
     "dsh-preset-mlog/README.md",
     "rules/README.md",
-    "docs/本地知识库.md",
     # Truth-source docs: what was actually run and what got refuted. Without
     # these, "is L2-07 still ✅?" is unanswerable from the KB (found 2026-10-24
     # when a rebuilt snapshot could not find 「已推翻」 anywhere).
     "docs/断言表.md",
     "docs/验证记录.md",
-    # MBO / ratio-calc: 蓝图优化的真机结论、配比计算器的核心 API 与数值公式、
-    # 反射 dump 铁律、工具链坑（2026-11-07 并入）。
-    "docs/MBO与配比计算器.md",
     # knowledge/ 的入口与契约（文章正文由 KNOWLEDGE_DIR 递归扫描，见 _corpus）
     "knowledge/KB.md",
     "knowledge/CONVENTIONS.md",
