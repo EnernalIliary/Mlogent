@@ -1,6 +1,6 @@
 {
  "version": "1",
- "generated": "2026-11-08T07:08:26+08:00",
+ "generated": "2026-11-08T07:20:34+08:00",
  "root": "knowledge",
  "read_order": [
   "index.json",
@@ -220,6 +220,66 @@
      "status": "active",
      "domain": "world",
      "lines": 195
+    },
+    {
+     "id": "WORLD.NAMES.001",
+     "path": "knowledge/02-world/W13-name-blocks-terrain.md",
+     "title": "方块名对照①：地形 / 矿石 / 墙壁（136 条）",
+     "tokens": 1505,
+     "tokens_est": false,
+     "conf": "S",
+     "ver": [
+      "v160.7_rt",
+      "v159.3_src"
+     ],
+     "status": "active",
+     "domain": "world",
+     "lines": 202
+    },
+    {
+     "id": "WORLD.NAMES.002",
+     "path": "knowledge/02-world/W14-name-blocks-industry.md",
+     "title": "方块名对照②：物流 / 电力 / 液体 / 生产（168 条）",
+     "tokens": 1675,
+     "tokens_est": false,
+     "conf": "S",
+     "ver": [
+      "v160.7_rt",
+      "v159.3_src"
+     ],
+     "status": "active",
+     "domain": "world",
+     "lines": 233
+    },
+    {
+     "id": "WORLD.NAMES.003",
+     "path": "knowledge/02-world/W15-name-blocks-combat.md",
+     "title": "方块名对照③：合成 / 炮塔 / 效果 / 单位方块 / 逻辑（143 条）",
+     "tokens": 1602,
+     "tokens_est": false,
+     "conf": "S",
+     "ver": [
+      "v160.7_rt",
+      "v159.3_src"
+     ],
+     "status": "active",
+     "domain": "world",
+     "lines": 209
+    },
+    {
+     "id": "WORLD.NAMES.004",
+     "path": "knowledge/02-world/W16-name-items.md",
+     "title": "物品 / 液体 / 状态效果名对照（56 条）",
+     "tokens": 722,
+     "tokens_est": false,
+     "conf": "S",
+     "ver": [
+      "v160.7_rt",
+      "v159.3_src"
+     ],
+     "status": "active",
+     "domain": "world",
+     "lines": 133
     },
     {
      "id": "WORLD.PAYLOAD.001",
@@ -521,6 +581,21 @@
      "status": "active",
      "domain": "unit",
      "lines": 157
+    },
+    {
+     "id": "UNIT.NAMES.001",
+     "path": "knowledge/04-units/U06-name-units.md",
+     "title": "单位名对照：70 个单位的英文名与中文名（其中 60 个有官方简中）",
+     "tokens": 744,
+     "tokens_est": false,
+     "conf": "S",
+     "ver": [
+      "v160.7_rt",
+      "v159.3_src"
+     ],
+     "status": "active",
+     "domain": "unit",
+     "lines": 134
     },
     {
      "id": "UNIT.PRODUCE.001",
@@ -2378,8 +2453,8 @@
  "docs": [
   {
    "path": "knowledge/KB.md",
-   "bytes": 10227,
-   "tokens": 1362
+   "bytes": 10263,
+   "tokens": 1369
   },
   {
    "path": "knowledge/CONVENTIONS.md",
@@ -2393,17 +2468,17 @@
   },
   {
    "path": "knowledge/README.md",
-   "bytes": 5050,
-   "tokens": 611
+   "bytes": 5083,
+   "tokens": 616
   }
  ],
  "counts": {
-  "articles": 58,
+  "articles": 63,
   "by_domain": {
    "01-execution": 6,
-   "02-world": 12,
+   "02-world": 16,
    "03-combat": 11,
-   "04-units": 5,
+   "04-units": 6,
    "05-campaign": 6,
    "06-mlog": 8,
    "07-patterns": 6,
@@ -2420,7 +2495,7 @@
    "probes": 84
   },
   "evidence_dirs": 2,
-  "tokens_total": 64312,
+  "tokens_total": 70572,
   "empty": false
  },
  "notes": [
