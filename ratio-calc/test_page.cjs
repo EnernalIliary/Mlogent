@@ -187,5 +187,21 @@ window.__ratio.src("coal", { type: "drill", drill: "laser-drill", tiles: 8, boos
 check("液体需求表：钻头加水后出现 water 4.8/s",
       /water/.test(txt("liquids")) && /4\.8/.test(txt("liquids")), txt("liquids").slice(0, 300));
 
+/* --- 液体来源：抽水机（4.8/s 水 → rotary-pump 12/s 需要 1 台）--- */
+window.__ratio.src("water", { type: "pump", pump: "rotary-pump" });
+const liq2 = txt("liquids");
+check("液体来源：水可以改成抽水机",
+      /rotary-pump/.test(liq2) && /1 台/.test(liq2), liq2.slice(0, 400));
+check("液体来源：抽水机电力计入机器表与合计",
+      /rotary-pump/.test(txt("machines")) && /18/.test(txt("machines")), txt("machines").slice(0, 400));
+window.__ratio.src("water", { type: "import" });
+
+/* --- 兵厂链新口径：瓶颈 / 达成 / 台数不必 1:1 --- */
+const chain2 = window.__ratio.chain("dagger", 0.05);
+check("兵厂链：显示瓶颈标记与「实际达成」",
+      /瓶颈/.test(chain2) && /实际达成/.test(chain2), chain2.slice(0, 400));
+check("兵厂链：1 台 T4 能带 2.66 台 T5", /2\.66/.test(chain2), chain2.slice(0, 1500));
+check("兵厂链：利用率列出现", /90%/.test(chain2), chain2.slice(0, 1500));
+
 console.log(bad ? `\n${bad} 项失败` : "\n页面链路全部通过");
 process.exit(bad ? 1 : 0);

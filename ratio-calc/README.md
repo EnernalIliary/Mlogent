@@ -50,14 +50,37 @@
 - 还有 RTG 270、热力 108、大型太阳能 96、太阳能 7.2、涡轮冷凝器 20、热解 1400、化合燃烧室 550、
   通量反应堆 18000、新质反应堆 8400
 
-### 3. 兵厂 T1 → T5 大循环
+### 3. 兵厂 T1 → T5 大循环（按"最慢一段"算）
 
 10 条链（6 条原版 + 3 条 Erekir + 1 条 prime-refabricator），选链和顶级单位速率后按层级倒推：
 
-以 `dagger 0.05/s` 为例：`ground-factory ×2 → additive-reconstructor ×1 → multiplicative ×2 →
-exponential ×5 → tetrative ×12`，合计 **22 台兵厂、22944 电/s、硅 111.2/s、塑料 66.1/s、钛 47/s …**
+1. 每级台数 = `ceil(目标速率 / 单台每秒)`，各自按自己的 `constructTime` 折算，**不必 1:1**
+   （例如 1 台 T4 `scepter` 0.0111/s 能带 **2.67 台** T5 `reign` 0.00417/s）；
+2. 整条链的实际产出 = 各段产能的**最小值**（流水线由最慢的一段决定），不是"上级产能继续往下乘"；
+3. 材料按实际只跑到的产出算：`craft/s = 达成 / 该级每秒产出`，`材料 = 单次消耗 × craft/s`，
+   多放的机器只会闲置（表里"利用率"就是这个比值）。
+
+以 `dagger 0.05/s` 为例：`ground-factory ×1 → additive ×1 → multiplicative ×2 → exponential ×5 →
+tetrative ×12`，合计 **21 台兵厂、22872 电/s**，瓶颈在 T5；材料硅 101.5/s、塑料 62.5/s、钛 41.5/s、
+相织物 17.5/s、surge-alloy 25/s …
 
 > 兵厂的材料是"每造一个单位消耗多少"，不是每秒配方产出；台数按 `craftTime / 60` 折算成每秒。
+
+### 3.5 抽水机（液体也能自己产）
+
+液体需求表里每种液体可以选**外部运入**或**抽水机**，选抽水机后自动按每秒需求补台数、并把台数与耗电并进机器表：
+
+| 抽水机 | 尺寸 | 每秒 | 电力/s | 额外消耗 | 说明 |
+|---|---|---|---|---|---|
+| `mechanical-pump` | 1×1 | 7 | 0 | — | 最省，只能抽地表水 |
+| `rotary-pump` | 2×2 | 12 | 18 | — | |
+| `impulse-pump` | 3×3 | 13.2 | 78 | — | |
+| `reinforced-pump` | 2×2 | 20 | 0 | 氢 1.5/s | 不耗电但吃氢 |
+| `water-extractor` | 2×2 | 6.6 | 90 | — | 要地下水源，效率看地块 |
+| `oil-extractor` | 3×3 | 15（油） | 180 | 沙 1/s + 水 9/s | 要油田 |
+
+> 泵的台数会迭代收敛：泵自己也吃液体（抽油机吃水、强化泵吃氢），所以补台数时会重算几轮。
+
 
 ### 4. 贴图原尺寸
 
@@ -70,11 +93,12 @@ exponential ×5 → tetrative ×12`，合计 **22 台兵厂、22944 电/s、硅 
 index.html?mode=building&block=graphite-press&count=2&depth=4
 index.html?block=graphite-press&count=2&src=coal:drill:laser-drill:8:0&gen=combustion-generator&genfuel=coal
 index.html?block=silicon-smelter&count=3&boundary=coal,sand&src=sand:multi:disassembler&gen=steam-generator
+index.html?block=silicon-smelter&count=3&src=sand:drill:laser-drill:8:1&src=water:pump:rotary-pump
 index.html?block=ground-factory&count=2&chain=dagger&chainrate=0.05
 index.html?mode=item&item=silicon&rate=5&force=silicon=silicon-crucible
 ```
 
-`src` 格式：`物品:drill:钻头:矿格数:是否加水(0/1)` 或 `物品:multi:方块` 或 `物品:import`，多项用逗号分隔。
+`src` 格式：`物品:drill:钻头:矿格数:是否加水(0/1)` / `物品:multi:方块` / `物品:import` / **`液体:pump:抽水机`**，多项用逗号分隔（页面上的液体来源下拉就是往这里写 `pump:`）。
 
 ## 接入 bot（四种接法）
 
@@ -88,7 +112,9 @@ node ratio-calc/cli.cjs --block graphite-press --count 2 --format json
 node ratio-calc/cli.cjs --block silicon-smelter --count 3 --boundary coal,sand \
      --src sand=drill:laser-drill:8:1 --gen steam-generator --genfuel coal --format md
 node ratio-calc/cli.cjs --chain dagger --chainrate 0.05
-node ratio-calc/cli.cjs --list          # 列出物品/工厂/兵厂/发电厂/钻头/多产物/兵厂链
+node ratio-calc/cli.cjs --block silicon-smelter --count 3 --src sand=drill:laser-drill:8 \
+     --src water=pump:rotary-pump --format md   # 水自己抽
+node ratio-calc/cli.cjs --list          # 列出物品/工厂/兵厂/发电厂/钻头/多产物/抽水泵/兵厂链
 ```
 
 | 参数 | 说明 |
@@ -99,6 +125,7 @@ node ratio-calc/cli.cjs --list          # 列出物品/工厂/兵厂/发电厂/�
 | `--chain 单位 --chainrate N` | 兵厂 T1→T5 大循环，给顶级单位速率反推每一级 |
 | `--boundary a,b` | 外部输入的物品；不写默认 `coal,sand`；`all` = 所有矿，`none` = 全部自产 |
 | `--src 物品=drill:钻头:矿格数:0/1`<br>`--src 物品=multi:分离机/解离机`<br>`--src 物品=import` | 每项边界输入从哪来（可重复） |
+| `--src 液体=pump:抽水机` | 液体（水/油）自己抽，自动补台数并计入电力（可重复） |
 | `--force 物品=方块` | 指定多配方物品用哪个方块 |
 | `--depth N` | 递归层数（超过的按外部输入） |
 | `--gen 发电厂 --genfuel 燃料 [--gencount N]` | 供电方案；台数 0/省略 = 自动补足 |
@@ -168,6 +195,8 @@ python -X utf8 ratio-calc/card.py --json result.json --out card.png   # 喂现�
                  "outItems": [{ "name": "silicon", "perSecond": 2.5, "icon": "…" }] }],
   "demand":  [{ "name": "coal", "perSecond": 3.6, "icon": "…" }],
   "liquids": [{ "name": "water", "perSecond": 12 }],       // 要自己接管线
+  "liquidSources": [{ "liquid": "water", "pump": "rotary-pump", "count": 1,
+                      "perSecondEach": 12, "power": 18 }],  // 选了抽水机才有
   "power": 180,
   "sources": [{ "item": "sand", "type": "drill", "drill": "laser-drill", "count": 3,
                 "perSecondEach": 1.263, "liquid": { "name": "water", "perSecond": 4.8 },
@@ -176,9 +205,11 @@ python -X utf8 ratio-calc/card.py --json result.json --out card.png   # 喂现�
                "fuel": { "name": "coal", "perSecondEach": 0.667, "perSecond": 0.667 },
                "liquids": [{ "name": "water", "perSecond": 6 }] },
   "chain":   { "rows": [{ "tier": 1, "unit": "dagger", "block": "ground-factory",
-                          "count": 2, "actual": 0.0667 }],
-               "materials": { "silicon": 111.2, "lead": 1.33 },
-               "power": 22944 },
+                          "count": 1, "perSecond": 0.0667, "capacity": 0.0667,
+                          "actual": 0.05, "utilization": 0.75,
+                          "feedsNext": 0.667, "bottleneck": false }],
+               "achieved": 0.05, "bottleneck": "reign", "bottleneckTier": 5,
+               "materials": { "silicon": 101.5 }, "power": 22872 },  // 按最慢一段算
   "warnings": ["…"]
 }
 ```
@@ -189,16 +220,16 @@ python -X utf8 ratio-calc/card.py --json result.json --out card.png   # 喂现�
 |---|---|
 | `index.html` | 单页应用（样式 + 三个模式 + 来源/供电/兵厂链/液体四块表，无第三方库） |
 | `core.js` | 内核：展开、钻头/发电/多产物/兵厂链/液体算法（浏览器 + node 通用，`module.exports`） |
-| `data/gamedata.js` | 导出数据 + 内联图标：33 工厂 / 17 兵厂 / 14 发电厂 / 10 钻头 / 2 多产物 / 22 物品 / 129 图标 / 439.6 KB |
+| `data/gamedata.js` | 导出数据 + 内联图标：33 工厂 / 17 兵厂 / 14 发电厂 / 10 钻头 / 2 多产物 / 6 抽水泵 / 22 物品 / 129 图标 / 456.5 KB |
 | `export_data.py` | 重新导出：`python -X utf8 ratio-calc/export_data.py` |
 | `make_cases.py` | 用 `mbo calc --json` 生成对拍用例 |
 | `cli.cjs` | **bot 入口**：命令行 + 文本/Markdown/JSON 渲染 |
 | `serve.cjs` | **bot 入口**：HTTP 服务（`/calc` `/list` `/healthz`） |
 | `ratio.py` | **bot 入口**：Python 包装（`query/text/markdown/image/http_query`） |
 | `card.py` | **bot 入口**：把结果画成 PNG 卡片（带原尺寸图标） |
-| `test_core.cjs` | 14 项对拍 `mbo calc` + 29 项新算法断言 |
-| `test_page.cjs` | 最小 DOM 桩跑页面：36 项断言，不用浏览器 |
-| `test_cli.cjs` | 28 项：CLI/HTTP 与 `core.js` 逐项对拍 + 渲染 + 错误分支 |
+| `test_core.cjs` | 14 项对拍 `mbo calc` + 断项覆盖钻头/发电/多产物/兵厂链/抽水机 |
+| `test_page.cjs` | 最小 DOM 桩跑页面：42 项断言，不用浏览器 |
+| `test_cli.cjs` | 31 项：CLI/HTTP 与 `core.js` 逐项对拍 + 渲染 + 错误分支 |
 | `docs/screenshot-*.png` | 页面截图（Edge headless） |
 | `docs/card-*.png` | PNG 卡片示例 |
 
@@ -209,14 +240,15 @@ python -X utf8 ratio-calc/card.py --json result.json --out card.png   # 喂现�
 | 配方 / 电力 / 尺寸 | `MBO/gamedata/v160.7/gamedata.json`（反射 dump 的 v160.7 快照） |
 | 兵厂 plans / 升级链 / 组装厂 | `MBO/gamedata/v160.7/units_production.json`（Rhino 反射 dump） |
 | 发电厂 / 钻头 / 多产物 / 物品属性 | `MBO/gamedata/v160.7/power_drill.json`（Rhino 反射 dump） |
+| 抽水泵 | `power_drill.json` 的 Pump 段（`pumpAmount` per-tick ×60；源码 `Blocks.java` 核对） |
 | 图标 | `assetsraw/assets-raw/sprites/**`（原尺寸） |
 
 ## 已验证
 
 ```
-node ratio-calc/test_core.cjs   → 14 项对拍 mbo calc 全部一致 + 29 项新算法断言通过
-node ratio-calc/test_page.cjs   → 36 项页面链路断言通过
-node ratio-calc/test_cli.cjs    → 28 项 CLI/HTTP 与 core.js 对拍通过
+node ratio-calc/test_core.cjs   → 14 项对拍 mbo calc 全部一致 + 新算法断言全部通过
+node ratio-calc/test_page.cjs   → 42 项页面链路断言通过
+node ratio-calc/test_cli.cjs    → 31 项 CLI/HTTP 与 core.js 对拍通过
 ```
 
 对拍用例覆盖石墨/硅/合金/玻璃/塑料/爆炸物/燃烧物/相织物/孢子荚 + 3 个 `--force`；

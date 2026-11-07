@@ -187,13 +187,21 @@ def build_card(res: dict) -> Card:
         c.title("兵厂大循环：%s → %s" % (ch["start"], ch["top"]),
                 None, "目标 %s 台/s · %d 级 · 电力 %s/s · %s" % (fmt(ch.get("rate")), ch.get("tiers", 0),
                                                                 fmt(ch.get("power")), snap))
-        c.section("各级兵厂")
+        c.section("各级兵厂（台数按各自建造时间，不必 1:1）")
         for r in ch["rows"]:
             mat = "、".join("%s %s/s" % (i["name"], fmt(i["perSecond"])) for i in r.get("items") or [])
+            right = "%s %s/s" % (r["unit"], fmt(r["actual"]))
+            if r.get("feedsNext"):
+                right += " · 1 台带 %s 台上级" % fmt(r["feedsNext"])
+            if r.get("bottleneck"):
+                right += " · 瓶颈"
             c.row(r.get("icon") or r.get("blockIcon"), "T%s  %s ×%d" % (r["tier"], r["block"], r["count"]),
-                  "%s %s/s" % (r["unit"], fmt(r["actual"])), "电 %s/s" % fmt(r.get("power")), BLUE)
+                  right, "电 %s/s" % fmt(r.get("power")), BLUE)
             if mat:
                 c.note("      材料：%s" % mat, DIM)
+        if ch.get("bottleneck"):
+            c.note("整链实际达成 %s/s（受最慢的 T%s %s 限制）"
+                   % (fmt(ch.get("achieved")), ch.get("bottleneckTier"), ch["bottleneck"]), DIM)
         c.section("合计材料")
         for k, v in sorted((ch.get("materials") or {}).items()):
             c.row(None, k, "%s/s" % fmt(v))
@@ -234,9 +242,16 @@ def build_card(res: dict) -> Card:
         for d in demand:
             c.row(d.get("icon"), d["name"], "%s/s" % fmt(d["perSecond"]))
     if liquids:
+        pumps = {s["liquid"]: s for s in (res.get("liquidSources") or [])}
         c.section("液体需求")
         for l in liquids:
-            c.row(None, l["name"], "%s/s" % fmt(l.get("perSecond")), None, LIQUID)
+            src = pumps.get(l["name"])
+            sub = None
+            if src:
+                sub = "%s ×%d（电 %s/s）" % (src["pump"], src["count"], fmt(src.get("power")))
+            else:
+                sub = "外部运入"
+            c.row(None, l["name"], "%s/s" % fmt(l.get("perSecond")), sub, LIQUID)
 
     srcs = res.get("sources") or []
     if srcs:

@@ -50,6 +50,11 @@ function eq(name, got, want) {
   if (!ok) f2++;
   console.log(ok ? "ok  " : "FAIL", name, "got", JSON.stringify(got), "want", JSON.stringify(want));
 }
+function ok(name, cond, extra) {
+  const good = !!cond;
+  if (!good) f2++;
+  console.log(good ? "ok  " : "FAIL", name, extra === undefined ? "" : extra);
+}
 
 // 钻头：60 * 矿格数 * speed² / delay，delay = (drillTime + hardnessMult*hardness)/mult
 near("drillRate mechanical-drill/coal/8 格（煤硬度 2）", R.drillRate(DATA, "mechanical-drill", "coal", 8, false), 480 / 700);
@@ -97,11 +102,44 @@ near("来源=解离机：副产钍 4.8/s",
 // 兵厂大循环 T1~T5
 const ch = R.unitChain(DATA, "dagger", 0.05);
 eq("dagger 链五级台数", ch.rows.map(r => [r.tier, r.unit, r.count]),
-   [[1, "dagger", 2], [2, "mace", 1], [3, "fortress", 2], [4, "scepter", 5], [5, "reign", 12]]);
-near("dagger 链总耗电", ch.power, 22944, 1);
-near("dagger 链硅 111.22/s", ch.materials.silicon, 111.222222, 1e-3);
+   [[1, "dagger", 1], [2, "mace", 1], [3, "fortress", 2], [4, "scepter", 5], [5, "reign", 12]]);
+near("dagger 链实际达成 0.05/s", ch.achieved, 0.05, 1e-9);
+eq("dagger 链瓶颈是最慢的 T5", ch.bottleneck, "reign");
+near("dagger 链总耗电", ch.power, 22872, 1);
+near("dagger 链硅 101.5/s", ch.materials.silicon, 101.5, 1e-3);
+// 台数比例不必 1:1：1 台 T4 scepter（0.01111/s）够带 2.67 台 T5 reign（0.00417/s）
+const t4 = ch.rows[3], t5 = ch.rows[4];
+near("1 台 T4 带 2.67 台 T5", t4.feedsNext, 2.6667, 1e-3);
+near("T4 单台 0.01111/s", t4.perSecond, 0.011111, 1e-5);
 const ch2 = R.unitChain(DATA, "stell", 0.02);
-eq("erekir stell 链三级", ch2.rows.map(r => [r.tier, r.unit, r.count]), [[1, "stell", 2], [2, "locus", 1], [3, "precept", 2]]);
+eq("erekir stell 链三级", ch2.rows.map(r => [r.tier, r.unit, r.count]), [[1, "stell", 1], [2, "locus", 1], [3, "precept", 2]]);
+eq("erekir 链瓶颈是 T1 stell", ch2.bottleneck, "stell");
+
+// 抽水泵（液体来源）
+const pp = R.pumpPlan(DATA, "water", 14.4, "rotary-pump");
+eq("rotary-pump 补 14.4/s 水要 2 台", pp.count, 2);
+near("rotary-pump 单台 12/s", pp.perSecondEach, 12, 1e-6);
+near("rotary-pump 2 台电 36/s", pp.power, 36, 1e-9);
+eq("mechanical-pump 7/s 要 3 台", R.pumpPlan(DATA, "water", 14.4, "mechanical-pump").count, 3);
+near("mechanical-pump 不耗电", R.pumpPlan(DATA, "water", 14.4, "mechanical-pump").power, 0, 1e-9);
+const po = R.pumpPlan(DATA, "oil", 30, "oil-extractor");
+eq("oil-extractor 补 30/s 油要 2 台", po.count, 2);
+near("oil-extractor 2 台电 360/s", po.power, 360, 1e-9);
+near("oil-extractor 2 台吃沙 2/s", po.inputs[0].perSecond, 2, 1e-9);
+near("oil-extractor 2 台吃水 18/s", po.inputLiquids[0].perSecond, 18, 1e-9);
+let thrown = null;
+try { R.pumpPlan(DATA, "water", 1, "oil-extractor"); } catch (e) { thrown = e.message; }
+ok("抽错液体要报错", !!(thrown && thrown.indexOf("oil") >= 0), thrown);
+
+// 液体来源接进 expandBuilding：钻头加水 + 抽水机补
+const wres = R.expandBuilding(DATA, "silicon-smelter", 3,
+  { boundary: ["coal", "sand"], force: {},
+    sources: { sand: { type: "drill", drill: "laser-drill", tiles: 8, boosted: true },
+               water: { type: "pump", pump: "rotary-pump" } } });
+near("抽水机：水需求 14.4/s", wres.liquids.find(l => l.name === "water").perSecond, 14.4, 1e-6);
+eq("抽水机：补 2 台 rotary-pump", wres.machines["rotary-pump"], 2);
+near("抽水机：电力 90+198+36 = 324", wres.power, 324, 1e-6);
+eq("抽水机：liquidSources 有 1 条", (wres.liquidSources || []).length, 1);
 
 console.log(f2 ? `\n${f2} 项新算法断言失败` : "\n新算法断言全部通过");
 process.exit(bad || f2 ? 1 : 0);

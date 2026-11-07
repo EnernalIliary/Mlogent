@@ -13,7 +13,7 @@
 | 入口 | `python -X utf8 -m mbo <calc\|gen\|opt\|verify\|preview\|build-snapshot>`（在 `MBO/` 下） | 双击 `ratio-calc/index.html`（无服务器、无外网） |
 | 核心模块 | `mbo/gamedata.py` `production.py` `model.py` `layout.py` `codec.py` `engine.py` `validate.py` `logistics.py` `search.py` `sprites.py` `report.py` `cli.py` | `core.js`（内核，浏览器+node 通用）、`data/gamedata.js`（数据+内联图标） |
 | 数据 | `MBO/gamedata/v160.7/{gamedata,units_production,power_drill}.json` | 由 `export_data.py` 从上面三份导出 |
-| 测试 | `python -X utf8 -m unittest discover -s tests`（68 项）、`python -X utf8 gate.py`（12/12） | `node ratio-calc/test_core.cjs`（14 对拍 + 29 断言）、`node ratio-calc/test_page.cjs`（34 断言） |
+| 测试 | `python -X utf8 -m unittest discover -s tests`（68 项）、`python -X utf8 gate.py`（12/12） | `node ratio-calc/test_core.cjs`（14 对拍 + 新算法断言）、`node ratio-calc/test_page.cjs`（42 断言）、`node ratio-calc/test_cli.cjs`（31 断言） |
 | 产物 | `MBO/runs/<run_id>/{blueprint.msch,blueprint.b64.txt,metrics.json,report.md,trace.json,preview.png}` | `ratio-calc/docs/screenshot-*.png` |
 
 约束（用户定的）：规则要程序化（不靠 LLM 拍脑袋）、确定性优先、多目标不塌缩、可追溯可复现。
@@ -89,7 +89,7 @@
 `core.js` 公开 API（都在 `module.exports` 上）：
 
 ```
-buildIndex(data)                     → 索引：items/itemProps/generators/drills/multi/unitProducers/unitChains/unitIcons
+buildIndex(data)                     → 索引：items/itemProps/generators/drills/multi/pumps/unitProducers/unitChains/unitIcons
 expand(data, item, rate, boundary, force, opts)          传统：按物品速率
 expandBuilding(data, blockName, count, opts)             按建筑台数（物品工厂/兵厂/升级厂）
 drillRate(data, drill, item, tiles, boosted)             60*tiles*speed²/delay
@@ -97,17 +97,21 @@ drillsNeeded(...)                     → {count, perSecondEach, power, liquid, 
 generatorPlan(data, demand, gen, fuel) → {count, netEach, fuel:{perSecond}, liquids, surplus}
 generatorSupply(data, gen, fuel, count)                   手填台数
 separatorPlan(data, name, count)      → {outputs:[{name,share,perSecond}], inputs, inputLiquids}
-unitChain(data, startUnit, rate)      → {rows:[{tier,unit,block,count,...}], power, materials}
-applySources(data, res, cfg)          把边界物品换成本地来源（import / drill / multi）并重算机器与电力
+pumpPlan(data, liquid, amount, pump)  → {count, perSecondEach, power, inputs, inputLiquids}（液体自己抽）
+unitChain(data, startUnit, rate, opts) → {rows:[{tier,unit,block,count,perSecond,capacity,actual,utilization,feedsNext,bottleneck,...}],
+                                         achieved, bottleneck, bottleneckTier, power, materials}
+applySources(data, res, cfg)          把边界物品/液体换成本地来源（import / drill / multi / pump）并重算机器与电力
+liquidDemand(idx, machines, extra)    → [{name, perSecond}]（extra = 钻头加速液）
 machineRows(data, res)                → 表格行（含 outItems）
 anyBlock(idx, name)                   统一 blocks/drills/multi/generators 视图
 ```
 
 - 展开规则（与 `MBO/mbo/production.py` 一致）：①`n = ceil(需求/单台)`；②输入递归、遇 boundary 停；③多配方时先选"输入也能自造"（不新增边界），再选 `round(n*per)` 最接近，再比 `size²`，最后按名字；④无配方 → 外部输入 + warning；⑤`depth > maxDepth` 记 `reason:"depth"`。
-- 页面三块新表：**外部来源**（接收 / 钻头+矿格数+加水 / 分离机·解离机）、**供电**（14 发电厂，选燃料自动算台数与燃料/液体）、**兵厂大循环**（10 条链 T1–T5 倒推）。
-- URL 参数：`?mode=building|item&block=&count=&item=&rate=&boundary=&force=&depth=&gen=&genfuel=&gencount=&chain=&chainrate=&src=sand:drill:laser-drill:8:1,scrap:multi:disassembler`。
-- 贴图为**原尺寸**（`size×32px`），全部内联 base64：`data/gamedata.js` = 33 工厂 / 17 兵厂 / 14 发电厂 / 10 钻头 / 2 多产物 / 22 物品 / 129 图标 / 438 KB。
-- 实例：`graphite-press ×2` → 石墨 1.333/s、煤 2.667/s、电力 0；煤改激光钻 8 格 → 3 台激光钻、电力 198 → 燃烧发电机 4 台、烧煤 2/s；`silicon-smelter ×3` + 沙用解离机 → 6 台解离机、电力 1530、副产石墨/钛/钍各 4.8/s、吃废料 24/s；`dagger 0.05/s` → 2/1/2/5/12 台、22944 电、硅 111.2/s。
+- 页面四块新表：**外部来源**（接收 / 钻头+矿格数+加水 / 分离机·解离机）、**供电**（14 发电厂，选燃料自动算台数与燃料/液体）、**液体需求**（外部运入 / 抽水机，自动补台数与电力）、**兵厂大循环**（10 条链 T1–T5 倒推）。
+- **兵厂链口径（2026-11-07 修正）**：台数按各自 `constructTime` 算、**不必 1:1**（1 台 T4 scepter 0.0111/s 能带 2.67 台 T5 reign 0.00417/s）；整链产出 = 各段产能**最小值**（最慢一段决定），材料按实际达成算，多出的机器记"利用率"；`feedsNext` = 1 台本级能带几台上级。
+- URL 参数：`?mode=building|item&block=&count=&item=&rate=&boundary=&force=&depth=&gen=&genfuel=&gencount=&chain=&chainrate=&src=sand:drill:laser-drill:8:1,scrap:multi:disassembler,water:pump:rotary-pump`。
+- 贴图为**原尺寸**（`size×32px`），全部内联 base64：`data/gamedata.js` = 33 工厂 / 17 兵厂 / 14 发电厂 / 10 钻头 / 2 多产物 / 6 抽水泵 / 22 物品 / 129 图标 / 456.5 KB。
+- 实例：`graphite-press ×2` → 石墨 1.333/s、煤 2.667/s、电力 0；煤改激光钻 8 格 → 3 台激光钻、电力 198 → 燃烧发电机 4 台、烧煤 2/s；`silicon-smelter ×3` + 沙用解离机 → 6 台解离机、电力 1530、副产石墨/钛/钍各 4.8/s、吃废料 24/s；`silicon-smelter ×3` + 沙用激光钻（加水）+ 水用 rotary-pump → 水 14.4/s、泵 2 台（电力 +36）、总电力 324；`dagger 0.05/s` → **1/1/2/5/12** 台、**22872** 电、硅 101.5/s、瓶颈 T5 reign。
 
 ### 5.1 接入 bot 的四个入口（2026-11-07 加）
 
@@ -123,7 +127,8 @@ anyBlock(idx, name)                   统一 blocks/drills/multi/generators 视�
 - `cli.cjs` 的 `--boundary` 不写时默认 `coal,sand`（与网页一致，避免算出 `coal-centrifuge` 吃油的绕路链）；`all` = 所有矿外部输入，`none` = 全自产。
 - JSON 默认**剔除** base64 图标（`--icons` 保留）：体积能小一半以上；要发图就用 `card.py`。
 - 液体单独成表：方块条目的 `input_liquids`/`output_liquids` 来自 dump 的 per-tick `amount`×60；`res.liquids` 汇总全链液体（含水钻加速液）。
-- 卡片用 `C:\Windows\Fonts\msyh.ttc`，700px 宽、深色；`--scale 2` 出 2 倍图。示例 `ratio-calc/docs/card-{graphite,unit,chain,bot}.png`。
+- 卡片用 `C:\Windows\Fonts\msyh.ttc`，700px 宽、深色；`--scale 2` 出 2 倍图。示例 `ratio-calc/docs/card-{graphite,unit,chain,pump,bot}.png`。
+- 液体来源：`--src water=pump:rotary-pump`（CLI）/ `src=water:pump:rotary-pump`（URL）/ 页面液体需求表的下拉；`applySources` 迭代 6 轮收敛（泵自己可能吃液体：抽油机吃水 9/s、强化泵吃氢 1.5/s）。
 
 ---
 
@@ -136,6 +141,8 @@ anyBlock(idx, name)                   统一 blocks/drills/multi/generators 视�
 | 发电 | 台数 = `ceil(需求 / (gross − 自耗))`；燃料/s = `1 / (itemDuration/60 × mult)`，`mult` = 该物品 `flammability`（`ConsumeItemFlammable`）或 `radioactivity`（`ConsumeItemRadioact`） |
 | 多产物 | 每次 craft **随机按权重取一件**：`share = amount / Σamount`，`perSecond = cps × share` |
 | 兵厂 | 每秒 = `60 / time(帧)`；材料 = 每个单位的消耗 × 每秒产量；升级厂 `constructTime` 同理 |
+| 兵厂链 | 每级台数 `ceil(目标/单台)`（各自 `constructTime`，**不必 1:1**）；整链达成 = `min_k(产能_k)`（最慢一段）；材料按 `达成/该级每秒 × 单次消耗` |
+| 抽水 | `perSecond = pumpAmount(per-tick) × 60`；台数 = `ceil(需求 / perSecond)`；抽油机另吃沙 `60/itemUseTime` 与 水 9/s |
 
 物品属性：`hardness`（copper/lead 1、coal 2、多数 0）、`flammability`（coal 1、spore-pod 1.15、pyratite 1.4、blast-compound 0.4）、`radioactivity`（thorium 1、phase-fabric 0.6）。
 
@@ -191,6 +198,17 @@ anyBlock(idx, name)                   统一 blocks/drills/multi/generators 视�
 
 - `separator` 2×2：cps 1.7143，吃 slag 4/s、电 66 → copper .714 / lead .429 / graphite .286 / titanium .286
 - `disassembler` 3×3：cps 4，吃 scrap 4/s + slag 7.2/s、电 240 → sand 1.6 / graphite .8 / titanium .8 / **thorium .8**
+
+### 7.3.5 抽水泵（`power_drill.json` 的 Pump 段）
+
+| 泵 | 尺寸 | 每秒 | 电力/s | 额外消耗 | 备注 |
+|---|---|---|---|---|---|
+| mechanical-pump | 1 | 7 | 0 | — | 地表水 |
+| rotary-pump | 2 | 12 | 18 | — | |
+| impulse-pump | 3 | 13.2 | 78 | — | |
+| reinforced-pump | 2 | 20 | 0 | hydrogen 1.5/s | |
+| water-extractor | 2 | 6.6 | 90 | — | 要地下水 |
+| oil-extractor | 3 | 15（oil） | 180 | sand 1/s + water 9/s | 要油田 |
 
 ### 7.4 兵厂升级链（`units_production.json`：70 单位 / 17 兵厂）
 

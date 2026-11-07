@@ -145,6 +145,46 @@ def build_power(raw: dict, power_drill: dict | None, block_index: dict) -> dict:
             "item_props": pd.get("items") or {}}
 
 
+def build_pumps(raw: dict, block_index: dict) -> list:
+    """抽水泵（Pump / SolidPump / Fracker）。
+
+    数值口径：`raw.pumpAmount` 是 **每 tick** 的量 ⇒ ×60 = 每秒；
+    `raw.result` 是产出液体（Pump 基类没有该字段，默认水）；
+    `Fracker`（oil-extractor）每 `itemUseTime` 帧吃一次物品 ⇒ 每秒 = amount × 60 / itemUseTime。
+    """
+    pumps = []
+    for b in raw.get("blocks", []):
+        rr = b.get("raw") or {}
+        pa = rr.get("pumpAmount")
+        if pa is None:
+            continue
+        liquid = rr.get("result") or "water"
+        item_use = float(rr.get("itemUseTime") or 0.0)
+        inputs, input_liquids = [], []
+        for cons in b.get("consumers") or []:
+            for it in cons.get("items") or []:
+                per = float(it["amount"])
+                if item_use > 0:
+                    per = per * 60.0 / item_use
+                inputs.append([it["name"], per])
+            for lq in cons.get("liquids") or []:
+                # consumers 里的液体量是 per-tick
+                input_liquids.append([lq["name"], float(lq["amount"]) * 60.0])
+        pumps.append({
+            "name": b["name"],
+            "size": int(b.get("size") or 1),
+            "icon": icon_data_uri(block_index.get(b["name"])),
+            "perSecond": round(float(pa) * 60.0, 6),
+            "liquid": liquid,
+            "kind": (rr.get("subclass") or "").rsplit(".", 1)[-1],
+            "power": float((b.get("power") or {}).get("usagePerSecond") or 0.0),
+            "inputs": inputs,
+            "inputLiquids": input_liquids,
+        })
+    pumps.sort(key=lambda p: -p["perSecond"])
+    return pumps
+
+
 def build(raw: dict, block_index: dict, unit_prod: dict | None,
           power_drill: dict | None = None) -> dict:
     # ---- 物品工厂（craftTime > 0）----
@@ -253,6 +293,7 @@ def build(raw: dict, block_index: dict, unit_prod: dict | None,
         "generators": power["generators"],
         "drills": power["drills"],
         "multi": power["multi"],
+        "pumps": build_pumps(raw, block_index),
     }
 
 
@@ -280,10 +321,10 @@ def main() -> None:
               + sum(1 for i in data["items"] if i["icon"])
               + sum(1 for v in data["unit_icons"].values() if v))
     print("写出 %s：%d 个物品工厂 / %d 个兵厂 / %d 发电厂 / %d 钻头 / %d 多产物方块 / "
-          "%d 个物品 / %d 个图标 / %.1f KB"
+          "%d 抽水泵 / %d 个物品 / %d 个图标 / %.1f KB"
           % (args.out, n_item_blocks, n_unit_blocks, len(data["generators"]),
-             len(data["drills"]), len(data["multi"]), len(data["items"]),
-             n_icon, os.path.getsize(args.out) / 1024))
+             len(data["drills"]), len(data["multi"]), len(data["pumps"]),
+             len(data["items"]), n_icon, os.path.getsize(args.out) / 1024))
 
 
 if __name__ == "__main__":

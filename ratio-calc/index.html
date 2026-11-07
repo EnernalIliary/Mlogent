@@ -298,14 +298,33 @@
   /* ---- 液体需求表：水 / 油 / 冷冻液…，这些得自己接管线 ---- */
   function renderLiquids(res) {
     var list = (res.liquids || []).slice();
-    var h = '<tr><th>液体</th><th class="num">每秒</th><th class="num">每分钟</th></tr>';
+    var h = '<tr><th>液体</th><th class="num">每秒</th><th class="num">每分钟</th><th>来源</th>' +
+            '<th class="num">台数</th><th class="num">电力/s</th></tr>';
     if (!list.length) {
-      el("liquids").innerHTML = h + '<tr><td colspan="3" class="dim">无（不需要液体）</td></tr>';
+      el("liquids").innerHTML = h + '<tr><td colspan="6" class="dim">无（不需要液体）</td></tr>';
       return;
     }
+    var byLiq = {};
+    (res.liquidSources || []).forEach(function (s) { byLiq[s.liquid] = s; });
     el("liquids").innerHTML = h + list.map(function (l) {
+      var cfg = srcCfg[l.name] || (srcCfg[l.name] = { type: "import" });
+      var pumps = [];
+      idx.pumps.forEach(function (p) { if (p.liquid === l.name) pumps.push(p); });
+      var opts = [["import", "外部运入"]];
+      pumps.forEach(function (p) {
+        opts.push(["pump:" + p.name, "抽水机 · " + p.name + "（" + num(p.perSecond) + "/s）"]);
+      });
+      var val = cfg.type === "pump" ? "pump:" + (cfg.pump || "mechanical-pump") : "import";
+      var sel = '<select class="tbl-sel" data-liq="' + esc(l.name) + '">' + opts.map(function (o) {
+        return '<option value="' + esc(o[0]) + '"' + (o[0] === val ? " selected" : "") + ">" +
+          esc(o[1]) + "</option>";
+      }).join("") + "</select>";
+      var src = byLiq[l.name];
+      var cnt = src ? src.count + " 台 " + src.pump : '<span class="dim">—</span>';
+      var pw = src && src.power ? num(src.power) : '<span class="dim">—</span>';
       return '<tr><td>' + esc(l.name) + '</td><td class="num">' + num(l.perSecond) +
-        '</td><td class="num">' + num(l.perSecond * 60) + '</td></tr>';
+        '</td><td class="num">' + num(l.perSecond * 60) + '</td><td>' + sel +
+        '</td><td class="num">' + cnt + '</td><td class="num">' + pw + "</td></tr>";
     }).join("");
   }
 
@@ -374,14 +393,24 @@
         '<td>' + note + '</td></tr>';
     }).join("");
     el("sources").innerHTML = h + body;
-    bindSourceEvents();
   }
 
   function bindSourceEvents() {
     var tbl = el("sources");
     var nodes = Array.prototype.slice.call(tbl.querySelectorAll ? tbl.querySelectorAll("select,input") : []);
+    var ltab = el("liquids");
+    nodes = nodes.concat(Array.prototype.slice.call(ltab && ltab.querySelectorAll ? ltab.querySelectorAll("select") : []));
     nodes.forEach(function (n) {
       n.addEventListener("change", function () {
+        var liq = n.getAttribute("data-liq");
+        if (liq) {
+          var lc = srcCfg[liq] || (srcCfg[liq] = { type: "import" });
+          var lv = n.value;
+          if (lv.indexOf("pump:") === 0) { lc.type = "pump"; lc.pump = lv.slice(5); }
+          else { lc.type = "import"; }
+          run();
+          return;
+        }
         var item = n.getAttribute("data-src-item") || n.getAttribute("data-drill-item") ||
                    n.getAttribute("data-tiles-item") || n.getAttribute("data-boost-item");
         if (!item) return;
@@ -445,12 +474,18 @@
     try { ch = R.unitChain(DATA, start, rate); }
     catch (e) { el("chaintable").innerHTML = '<tr><td class="dim">' + esc(e.message) + "</td></tr>"; return; }
     var h = '<tr><th>层级</th><th>单位</th><th>方块</th><th class="num">台数</th>' +
-            '<th class="num">单台/s</th><th class="num">产出/s</th><th class="num">电力/s</th>' +
+            '<th class="num">单台/s</th><th class="num">产能/s</th><th class="num">实际/s</th>' +
+            '<th class="num">利用率</th><th class="num">1 台带上级</th><th class="num">电力/s</th>' +
             '<th>每级材料（/s）</th></tr>';
     var rows = ch.rows.map(function (r) {
-      return "<tr><td>T" + r.tier + '</td><td>' + unitLabel(r.unit) + '</td><td>' + blockLabel(r.block) + "</td>" +
+      return "<tr><td>T" + r.tier +
+        (r.bottleneck ? ' <span class="tag">瓶颈</span>' : "") + "</td><td>" + unitLabel(r.unit) +
+        "</td><td>" + blockLabel(r.block) + "</td>" +
         '<td class="num">' + r.count + '</td><td class="num">' + num(r.perSecond) + "</td>" +
-        '<td class="num">' + num(r.actual) + '</td><td class="num">' + num(r.power) + "</td>" +
+        '<td class="num">' + num(r.capacity) + '</td><td class="num">' + num(r.actual) + "</td>" +
+        '<td class="num">' + Math.round((r.utilization || 0) * 100) + '%</td>' +
+        '<td class="num">' + (r.feedsNext ? num(r.feedsNext) + " 台" : '<span class="dim">—</span>') + "</td>" +
+        '<td class="num">' + num(r.power) + "</td>" +
         "<td>" + (r.items.length ? r.items.map(function (i) {
           return itemLabel(i.name, "sm") + " " + num(i.perSecond);
         }).join(" · ") : "—") + "</td></tr>";
@@ -459,8 +494,10 @@
     var mats = Object.keys(ch.materials).map(function (k) {
       return itemLabel(k, "sm") + " " + num(ch.materials[k]) + "/s";
     }).join(" · ");
-    rows += '<tr><td colspan="3" class="dim">合计（' + ch.top + " " + num(rate) + '/s）</td>' +
-      '<td class="num">' + totalMachines + '</td><td></td><td class="num">' + num(rate) + "</td>" +
+    rows += '<tr><td colspan="3" class="dim">合计（想要 ' + ch.top + " " + num(rate) +
+      "/s，实际达成 " + num(ch.achieved) + "/s，瓶颈 " + esc(ch.bottleneck || "—") + "）</td>" +
+      '<td class="num">' + totalMachines + '</td><td></td><td></td>' +
+      '<td class="num">' + num(ch.achieved) + "</td><td></td><td></td>" +
       '<td class="num">' + num(ch.power) + "</td><td>" + mats + "</td></tr>";
     el("chaintable").innerHTML = h + rows;
   }
@@ -607,7 +644,7 @@
       var i = kv.indexOf("=");
       var k = decodeURIComponent(i < 0 ? kv : kv.slice(0, i));
       var v = i < 0 ? "" : decodeURIComponent(kv.slice(i + 1).replace(/\+/g, " "));
-      q[k] = v;
+      q[k] = q[k] === undefined ? v : (Array.isArray(q[k]) ? q[k].concat([v]) : [q[k], v]);
     });
     if (q.item && names.indexOf(q.item) >= 0) targetSel.value = q.item;
     if (q.block && blockOf(q.block)) curBlock = q.block;
@@ -623,8 +660,10 @@
     if (q.gencount) el("gencount").value = q.gencount;
     if (q.chain) el("chain").value = q.chain;
     if (q.chainrate) el("chainrate").value = q.chainrate;
-    // 外部来源：?src=sand:drill:laser-drill:8:1,scrap:multi:disassembler,coal:import
-    (q.src ? q.src.split(",") : []).forEach(function (part) {
+    // 外部来源：?src=sand:drill:laser-drill:8:1,scrap:multi:disassembler,water:pump:rotary-pump
+    // 同一个 key 可以出现多次（?src=a&src=b），先拼成一个数组再拆
+    var srcList = q.src === undefined ? [] : (Array.isArray(q.src) ? q.src : [q.src]);
+    srcList.join(",").split(",").forEach(function (part) {
       var p = part.split(":");
       if (p.length < 2) return;
       if (p[1] === "drill") {
@@ -632,6 +671,8 @@
                          tiles: parseInt(p[3], 10) || 8, boosted: p[4] === "1" };
       } else if (p[1] === "multi") {
         srcCfg[p[0]] = { type: "multi", block: p[2] || "separator" };
+      } else if (p[1] === "pump") {
+        srcCfg[p[0]] = { type: "pump", pump: p[2] || "rotary-pump" };
       } else {
         srcCfg[p[0]] = { type: "import" };
       }
@@ -740,6 +781,7 @@
 
     renderSources(res);
     renderLiquids(res);
+    bindSourceEvents();
     renderPower(res.power);
     renderChain();
 

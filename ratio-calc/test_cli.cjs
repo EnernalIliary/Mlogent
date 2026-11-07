@@ -133,6 +133,40 @@ ok("兵厂链 dagger 0.05/s：5 级、最后是 reign", () => {
   assert.ok(Object.keys(res.chain.materials).length > 0);
 });
 
+ok("兵厂链按最慢一段算：达成 0.05/s、瓶颈 T5、台数不必 1:1", () => {
+  const c = cli.query(cli.parseArgs(["--chain", "dagger", "--chainrate", "0.05"])).chain;
+  close(c.achieved, 0.05);
+  assert.strictEqual(c.bottleneck, "reign");
+  assert.strictEqual(c.bottleneckTier, 5);
+  assert.deepStrictEqual(c.rows.map(r => r.count), [1, 1, 2, 5, 12]);
+  close(c.rows[3].feedsNext, 2.6667, 2e-3);
+  close(c.power, 22872, 1);
+});
+
+/* 5b. 抽水泵：水可以自己抽 */
+ok("--src water=pump:rotary-pump 自动补台数并计入电力", () => {
+  const res = cli.query(cli.parseArgs(["--block", "silicon-smelter", "--count", "3",
+                                        "--src", "sand=drill:laser-drill:8",
+                                        "--src", "water=pump:rotary-pump"]));
+  const pump = res.machines.filter(m => m.name === "rotary-pump")[0];
+  assert.ok(pump, "机器表应有 rotary-pump");
+  const need = res.liquids.filter(l => l.name === "water")[0];
+  assert.ok(need.perSecond > 0);
+  assert.ok(pump.count >= need.perSecond / 12 - 1e-6);
+  assert.ok(res.liquidSources.length === 1);
+  close(res.liquidSources[0].power, pump.count * 18);
+  assert.ok(res.power > 0);
+});
+ok("--src water=pump:oil-extractor 抽错液体要报错", () => {
+  let msg = null;
+  try {
+    cli.query(cli.parseArgs(["--block", "silicon-smelter", "--count", "3",
+                             "--src", "sand=drill:laser-drill:8",
+                             "--src", "water=pump:oil-extractor"]));
+  } catch (e) { msg = e.message; }
+  assert.ok(msg && msg.indexOf("oil") >= 0, msg);
+});
+
 /* 6. 渲染 */
 ok("text 渲染含关键数字", () => {
   const t = cli.renderText(cli.query(cli.parseArgs(["--item", "graphite", "--rate", "1"])));
@@ -189,7 +223,7 @@ ok("--format json 的错误也是 json", () => {
 });
 ok("--list 能列全", () => {
   const t = run(["--list"]);
-  ["物品（22）", "兵厂（17）", "发电厂（14）", "钻头（10）", "多产物（2）", "兵厂链（10）"].forEach(k =>
+  ["物品（22）", "兵厂（17）", "发电厂（14）", "钻头（10）", "多产物（2）", "抽水泵（6）", "兵厂链（10）"].forEach(k =>
     assert.ok(t.indexOf(k) >= 0, "缺 " + k));
 });
 ok("--help 有用法", () => {

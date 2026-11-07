@@ -96,6 +96,17 @@
       });
     });
 
+    var pumps = new Map();
+    (data.pumps || []).forEach(function (p) {
+      pumps.set(p.name, {
+        name: p.name, size: p.size || 1, icon: p.icon || "",
+        perSecond: p.perSecond || 0, liquid: p.liquid || "water",
+        kind: p.kind || "Pump", power: p.power || 0,
+        inputs: (p.inputs || []).map(function (i) { return [i[0], i[1]]; }),
+        inputLiquids: (p.inputLiquids || []).map(function (i) { return [i[0], i[1]]; })
+      });
+    });
+
     /* 兵厂大循环：单位 -> 造它的方块；再串成 T1→T5 */
     var unitProducers = new Map();
     var nextOf = new Map();
@@ -125,6 +136,7 @@
       while (cur && guard++ < 8) {
         var prod = unitProducers.get(cur);
         tiers.push({ unit: cur, block: prod ? prod.block : "",
+                     kind: prod ? prod.kind : "",
                      perSecond: prod ? prod.perSecond : 0, power: prod ? prod.power : 0,
                      items: prod ? prod.items : [] });
         cur = nextOf.get(cur);
@@ -139,6 +151,7 @@
       generators: generators,
       drills: drills,
       multi: multi,
+      pumps: pumps,
       unitProducers: unitProducers,
       unitChains: chains,
       unitIcons: data.unit_icons || {},
@@ -385,6 +398,14 @@
                craftTime: 0, cps: 0, inputs: [], outputs: [], plans: [], upgrades: [],
                factoryKind: "", perSecond: g.perSecond };
     }
+    var p = idx.pumps.get(name);
+    if (p) {
+      return { name: name, kind: "pump", size: p.size, power: p.power, icon: p.icon,
+               craftTime: 0, cps: 0, inputs: [], outputs: [],
+               inputLiquids: p.inputLiquids.map(function (l) { return { name: l[0], perSecond: l[1] }; }),
+               plans: [], upgrades: [], factoryKind: "",
+               perSecond: p.perSecond, liquid: p.liquid };
+    }
     return null;
   }
 
@@ -491,40 +512,134 @@
     };
   }
 
-  /* 兵厂 T1→T5 大循环：要产 rate 台/s 的顶级单位，每级要几台、吃多少料 */
-  function unitChain(data, startUnit, rate) {
+  /* 抽水泵：要 rate 个/s 的某种液体，要几台泵、多少电、吃什么 */
+  function pumpPlan(data, liquidName, amount, pumpName) {
+    var idx = indexOf(data);
+    var p = idx.pumps.get(pumpName);
+    if (!p) throw new Error("未知抽水泵：" + pumpName);
+    if (p.liquid !== liquidName) {
+      throw new Error(p.name + " 抽的是 " + p.liquid + "，不是 " + liquidName);
+    }
+    var count = p.perSecond > 0 ? Math.ceil((amount || 0) / p.perSecond - 1e-9) : 0;
+    return {
+      name: p.name, icon: p.icon, size: p.size, liquid: p.liquid, kind: p.kind,
+      count: count, perSecondEach: p.perSecond, perSecondTotal: p.perSecond * count,
+      powerEach: p.power, power: p.power * count,
+      inputs: p.inputs.map(function (i) { return { name: i[0], perSecond: i[1] * count }; }),
+      inputLiquids: p.inputLiquids.map(function (i) { return { name: i[0], perSecond: i[1] * count }; }),
+      surplus: p.perSecond * count - (amount || 0)
+    };
+  }
+
+  /* 兵厂 T1→T5 大循环：要产 rate 个/s 的顶级单位，每级要几台、吃多少料。
+   *
+   * 模型（不是简单 1:1）：
+   *   每级有两个比例参数
+   *     inPer   —— 升 1 个这级单位要吃掉几个下级单位（默认 1；T1 没有下级 = 0）
+   *     outPer  —— 这个方块一次产出几个这级单位（默认 1）
+   *   需要的下级速率： need[k-1] = need[k] * inPer[k]
+   *   每台产能：       capacity[k] = count[k] * perSecond[k] * outPer[k]
+   *   一级单位能变成多少个顶级单位： factor[k] = Π_{j>k} (1 / inPer[j])
+   *   整条链的产出受最慢的一段限制： achieved = min_k (capacity[k] * factor[k])
+   *   材料按"整条链实际只跑 achieved"算，多放的机器只会闲置：
+   *     craft/s = (achieved / factor[k]) / outPer[k]，材料 = items × craft/s
+   *
+   * opts.ratios = { 单位名: inPer }  覆盖每级消耗比（例如 {mace: 2} = 2 个 dagger 升 1 个 mace）
+   * opts.outs   = { 单位名: outPer } 覆盖每级一次产出数（例如 {mace: 2} = 一次出 2 个）
+   */
+  function unitChain(data, startUnit, rate, opts) {
     var idx = indexOf(data);
     var chain = null;
     for (var i = 0; i < idx.unitChains.length; i++) {
       if (idx.unitChains[i].start === startUnit) { chain = idx.unitChains[i]; break; }
     }
     if (!chain) throw new Error(startUnit + " 没有 T1→T5 升级链");
+
+    var cfg = opts || {};
+    var ratios = cfg.ratios || {};
+    var outs = cfg.outs || {};
+    var want = Math.max(0, rate || 0);
+    var n = chain.tiers.length;
+
+    var stages = chain.tiers.map(function (t, k) {
+      var inPer = k === 0 ? 0 : (ratios[t.unit] !== undefined ? Number(ratios[t.unit]) : 1);
+      var outPer = outs[t.unit] !== undefined ? Number(outs[t.unit]) : 1;
+      if (!(inPer >= 0)) inPer = 1;
+      if (!(outPer > 0)) outPer = 1;
+      return { t: t, tier: k + 1, inPer: inPer, outPer: outPer };
+    });
+
+    /* 从顶级往下推"每级需要产多少" */
+    var need = new Array(n);
+    need[n - 1] = want;
+    for (var k = n - 1; k > 0; k--) need[k - 1] = need[k] * stages[k].inPer;
+
+    /* 每级台数与产能 */
+    stages.forEach(function (s, k) {
+      s.each = s.t.perSecond * s.outPer;                       // 每台每秒出几个这级单位
+      s.count = (need[k] > 0 && s.each > 0) ? Math.ceil(need[k] / s.each - 1e-9) : 0;
+      s.capacity = s.count * s.each;
+    });
+
+    /* 一级单位折算成顶级单位 */
+    var factor = new Array(n);
+    factor[n - 1] = 1;
+    for (var k2 = n - 2; k2 >= 0; k2--) {
+      factor[k2] = factor[k2 + 1] / (stages[k2 + 1].inPer || 1);
+    }
+
+    var achieved = 0;
+    if (want > 0) {
+      achieved = Infinity;
+      stages.forEach(function (s, k) { achieved = Math.min(achieved, s.capacity * factor[k]); });
+      if (!isFinite(achieved)) achieved = 0;
+    }
+    var bottleneck = 0;
+    stages.forEach(function (s, k) {
+      if (s.capacity * factor[k] < stages[bottleneck].capacity * factor[bottleneck] - 1e-12) bottleneck = k;
+    });
+
     var rows = [];
-    var demand = Math.max(0, rate || 0);
     var materials = {};
     var power = 0;
-    for (var k = chain.tiers.length - 1; k >= 0; k--) {
-      var t = chain.tiers[k];
-      var count = (demand > 0 && t.perSecond > 0) ? Math.ceil(demand / t.perSecond - 1e-9) : 0;
-      var actual = count * t.perSecond;
+    stages.forEach(function (s, k) {
+      var t = s.t;
+      var stageActual = factor[k] > 0 ? achieved / factor[k] : 0;   // 这级实际产出（个/s）
+      var crafts = s.outPer > 0 ? stageActual / s.outPer : 0;      // 这级方块每秒跑几次
       var rowItems = t.items.map(function (it) {
-        var v = it.amount * actual;              // 每秒消耗
+        var v = it.amount * crafts;
         materials[it.name] = (materials[it.name] || 0) + v;
-        return { name: it.name, perSecond: v };
+        return { name: it.name, perSecond: v,
+                 perSecondAtFull: s.count > 0 ? it.amount * (s.capacity / s.outPer) : 0 };
       });
-      power += count * t.power;
-      rows.unshift({
-        tier: k + 1, unit: t.unit, block: t.block, icon: idx.unitIcons[t.unit] || "",
+      power += s.count * t.power;
+      /* 1 台这级的机器，够带几台上一级的机器（不是 1:1：constructTime 不同） */
+      var upper = stages[k + 1];
+      var feedsNext = null;
+      if (upper && upper.count > 0 && upper.t.perSecond > 0) {
+        feedsNext = s.each / (upper.t.perSecond * upper.outPer);
+      }
+      rows.push({
+        tier: s.tier, unit: t.unit, block: t.block, kind: t.kind || "",
+        icon: idx.unitIcons[t.unit] || "",
         blockIcon: (idx.blocks.get(t.block) || {}).icon || "",
-        perSecond: t.perSecond, count: count, actual: actual,
-        powerEach: t.power, power: count * t.power, items: rowItems
+        perSecond: s.each, count: s.count,
+        inPer: s.inPer, outPer: s.outPer, need: round(need[k]),
+        capacity: round(s.capacity), stageActual: round(stageActual),
+        actual: round(achieved), feedsNext: feedsNext === null ? null : round(feedsNext),
+        utilization: (s.capacity * factor[k]) > 0 ? achieved / (s.capacity * factor[k]) : 0,
+        bottleneck: k === bottleneck,
+        powerEach: t.power, power: s.count * t.power, items: rowItems
       });
-      demand = actual;
-    }
+    });
+
     return {
       start: startUnit, top: chain.tiers[chain.tiers.length - 1].unit,
-      tiers: chain.tiers.length, rate: rate, rows: rows,
-      materials: sortMachines(materials), power: power
+      tiers: n, rate: rate,
+      achieved: round(achieved),
+      bottleneck: rows[bottleneck] ? rows[bottleneck].unit : null,
+      bottleneckTier: rows[bottleneck] ? rows[bottleneck].tier : null,
+      rows: rows, materials: sortMachines(materials), power: power
     };
   }
 
@@ -602,6 +717,55 @@
     });
     res.sources = sources;
     res.machines = sortMachines(res.machines);
+
+    /* ---- 液体来源：运入 / 抽水机（自动补台数；泵自己也吃液体，最多迭代 6 轮）---- */
+    var pumpCfg = {};
+    Object.keys(cfg).forEach(function (k) {
+      if (cfg[k] && cfg[k].type === "pump") pumpCfg[k] = cfg[k];
+    });
+    var liquidSources = [];
+    if (Object.keys(pumpCfg).length) {
+      var base = {};
+      Object.keys(res.machines).forEach(function (k) { base[k] = res.machines[k]; });
+      var counts = {};
+      for (var pass = 0; pass < 6; pass++) {
+        res.machines = {};
+        Object.keys(base).forEach(function (k) { res.machines[k] = base[k]; });
+        Object.keys(counts).forEach(function (liq) {
+          if (counts[liq] > 0) {
+            var pn = pumpCfg[liq].pump || "mechanical-pump";
+            res.machines[pn] = (res.machines[pn] || 0) + counts[liq];
+          }
+        });
+        recalcPower(idx, res);
+        var changed = false;
+        res.liquids.forEach(function (l) {
+          var c = pumpCfg[l.name];
+          if (!c) return;
+          var p = idx.pumps.get(c.pump || "mechanical-pump");
+          if (!p) throw new Error("未知抽水泵：" + (c.pump || "mechanical-pump"));
+          if (p.liquid !== l.name) throw new Error(p.name + " 抽的是 " + p.liquid + "，不是 " + l.name);
+          var n = p.perSecond > 0 ? Math.ceil(l.perSecond / p.perSecond - 1e-9) : 0;
+          if ((counts[l.name] || 0) !== n) { counts[l.name] = n; changed = true; }
+        });
+        if (!changed) break;
+      }
+      res.machines = sortMachines(res.machines);
+      recalcPower(idx, res);
+      Object.keys(counts).sort().forEach(function (liq) {
+        var need = 0;
+        res.liquids.forEach(function (l) { if (l.name === liq) need = l.perSecond; });
+        var plan = pumpPlan(data, liq, need, pumpCfg[liq].pump || "mechanical-pump");
+        liquidSources.push({
+          liquid: liq, type: "pump", pump: plan.name, count: plan.count,
+          perSecondEach: plan.perSecondEach, perSecondTotal: plan.perSecondTotal,
+          power: plan.power, inputs: plan.inputs, inputLiquids: plan.inputLiquids,
+          icon: plan.icon, surplus: plan.surplus
+        });
+      });
+    }
+    res.liquidSources = liquidSources;
+
     recalcPower(idx, res);
     return sources;
   }
@@ -615,6 +779,8 @@
       var outputs = [];
       if (b && b.kind === "drill") {
         outputs = ["采集（见外部来源）"];
+      } else if (b && b.kind === "pump") {
+        outputs = ["抽 " + b.liquid + " " + round(b.perSecond * count) + "/s"];
       } else if (b && b.kind === "unit") {
         if (b.factoryKind === "reconstructor") {
           outputs = (b.upgrades || []).length
@@ -656,6 +822,7 @@
               drillRate: drillRate, drillsNeeded: drillsNeeded,
               generatorPlan: generatorPlan, generatorSupply: generatorSupply,
               separatorPlan: separatorPlan, unitChain: unitChain,
+              pumpPlan: pumpPlan,
               applySources: applySources, recalcPower: recalcPower,
               liquidDemand: liquidDemand };
   global.RatioCore = api;

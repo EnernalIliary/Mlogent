@@ -38,15 +38,21 @@ function loadData(dataFile) {
 
 function parseArgs(argv) {
   const out = { src: [], _: [] };
+  /* 可重复的参数（--src 可以出现多次，各记一条）*/
+  const REPEAT = { src: true };
+  const set = (key, val) => {
+    if (REPEAT[key]) { if (!Array.isArray(out[key])) out[key] = []; out[key].push(val); }
+    else out[key] = val;
+  };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     if (!a.startsWith("--")) { out._.push(a); continue; }
     const key = a.slice(2);
     const eq = key.indexOf("=");
-    if (eq >= 0) { out[key.slice(0, eq)] = key.slice(eq + 1); continue; }
+    if (eq >= 0) { set(key.slice(0, eq), key.slice(eq + 1)); continue; }
     const next = argv[i + 1];
-    if (next === undefined || next.startsWith("--")) out[key] = true;
-    else { out[key] = next; i++; }
+    if (next === undefined || next.startsWith("--")) set(key, true);
+    else { set(key, next); i++; }
   }
   return out;
 }
@@ -91,7 +97,8 @@ function parseSources(list) {
       boosted: parts[3] === undefined ? true : !(parts[3] === "0" || parts[3] === "false")
     };
     else if (type === "multi") cfg[item] = { type: "multi", block: parts[1] || "separator" };
-    else throw new Error("未知来源类型：" + type + "（import / drill / multi）");
+    else if (type === "pump") cfg[item] = { type: "pump", pump: parts[1] || "mechanical-pump" };
+    else throw new Error("未知来源类型：" + type + "（import / drill / multi / pump）");
   });
   return cfg;
 }
@@ -115,7 +122,7 @@ function query(opts) {
   const res = {
     ok: true, mode: null, target: null, requested: null,
     products: [], inputs: [], machines: [], demand: [], liquids: [], power: 0,
-    warnings: [], sources: [], supply: null, chain: null
+    warnings: [], sources: [], liquidSources: [], supply: null, chain: null
   };
 
   if (opts.chain) {
@@ -144,6 +151,7 @@ function query(opts) {
     res.liquids = r.liquids || [];
     res.warnings = r.warnings || [];
     res.sources = r.sources || [];
+    res.liquidSources = r.liquidSources || [];
     if (r.planTotal > 1) res.warnings.push("该兵厂有 " + r.planTotal + " 个生产计划，用的是第 " + (r.plan + 1) + " 个（--plan 可换）");
   } else if (opts.item) {
     const rate = num(opts.rate, 1);
@@ -158,6 +166,7 @@ function query(opts) {
     res.liquids = r.liquids || [];
     res.warnings = r.warnings || [];
     res.sources = r.sources || [];
+    res.liquidSources = r.liquidSources || [];
   } else {
     throw new Error("要给 --item <物品> --rate <每秒> 或 --block <方块> --count <台数>");
   }
@@ -239,6 +248,16 @@ function renderText(res) {
         + (r.items.length ? "（" + r.items.map(i => i.name + " " + fmtNum(i.perSecond) + "/s").join("、") + "）" : ""));
     });
     L.push("  合计：" + c.rows.reduce((a, r) => a + r.count, 0) + " 台兵厂，电力 " + fmtNum(c.power) + "/s");
+    if (c.bottleneck) {
+      L.push("  整链实际达成 " + fmtNum(c.achieved) + "/s（受最慢的 T" + c.bottleneckTier + " " + c.bottleneck + " 限制）");
+    }
+    c.rows.forEach((r, i) => {
+      if (r.feedsNext && c.rows[i + 1]) {
+        L.push("  比例：1 台 T" + r.tier + " " + r.unit + " 能带 " + fmtNum(r.feedsNext)
+          + " 台 T" + c.rows[i + 1].tier + " " + c.rows[i + 1].unit
+          + "（台数不必 1:1，按各自建造时间算）");
+      }
+    });
     const mats = Object.keys(c.materials);
     if (mats.length) L.push("  材料：" + mats.map(k => k + " " + fmtNum(c.materials[k]) + "/s").join("、"));
     return L.join("\n");
@@ -266,8 +285,20 @@ function renderText(res) {
     L.push("  边界输入：" + res.demand.map(d => d.name + " " + fmtNum(d.perSecond) + "/s").join("、"));
   }
   if (res.liquids && res.liquids.length) {
-    L.push("  液体需求：" + res.liquids.map(d => d.name + " " + fmtNum(d.perSecond) + "/s").join("、"));
+    L.push("  液体需求：" + res.liquids.map(d => {
+      const pump = (res.liquidSources || []).filter(s => s.liquid === d.name)[0];
+      return d.name + " " + fmtNum(d.perSecond) + "/s" + (pump ? "（" + pump.pump + " 抽）" : "（外部运入）");
+    }).join("、"));
   }
+  (res.liquidSources || []).forEach(s => {
+    let line = "  液体 " + s.liquid + " ← " + s.pump + " ×" + s.count
+      + "（单台 " + fmtNum(s.perSecondEach) + "/s，合计 " + fmtNum(s.perSecondTotal) + "/s";
+    if (s.power) line += "，电 " + fmtNum(s.power) + "/s";
+    if (s.inputs && s.inputs.length) line += "，吃 " + s.inputs.map(i => i.name + " " + fmtNum(i.perSecond)).join("、");
+    if (s.inputLiquids && s.inputLiquids.length) line += "，吃 " + s.inputLiquids.map(i => i.name + " " + fmtNum(i.perSecond)).join("、");
+    line += "）";
+    L.push(line);
+  });
   if (res.sources && res.sources.length) {
     res.sources.forEach(s => {
       let line = "  来源 " + s.item + " ← ";
@@ -309,6 +340,11 @@ function renderMarkdown(res) {
     });
     L.push("");
     L.push("合计电力 **" + fmtNum(c.power) + "/s**");
+    if (c.bottleneck) {
+      L.push("");
+      L.push("整链实际达成 **" + fmtNum(c.achieved) + "/s**，受最慢的 T" + c.bottleneckTier
+        + " " + c.bottleneck + " 限制；台数不必 1:1（按各自建造时间算）。");
+    }
     return L.join("\n");
   }
   L.push("**" + (res.mode === "building"
@@ -322,7 +358,17 @@ function renderMarkdown(res) {
   res.machines.forEach(m => L.push("| " + m.name + " | " + m.count + " | " + (m.powerTotal ? fmtNum(m.powerTotal) : "—") + " |"));
   L.push("");
   if (res.demand.length) L.push("边界输入：" + res.demand.map(d => d.name + " " + fmtNum(d.perSecond) + "/s").join("、"));
-  if (res.liquids && res.liquids.length) L.push("液体需求：" + res.liquids.map(d => d.name + " " + fmtNum(d.perSecond) + "/s").join("、"));
+  if (res.liquids && res.liquids.length) {
+    L.push("液体需求：" + res.liquids.map(d => {
+      const pump = (res.liquidSources || []).filter(s => s.liquid === d.name)[0];
+      return d.name + " " + fmtNum(d.perSecond) + "/s" + (pump ? "（" + pump.pump + " 抽）" : "（外部运入）");
+    }).join("、"));
+  }
+  (res.liquidSources || []).forEach(s => {
+    L.push("液体 " + s.liquid + "：" + s.pump + " ×" + s.count + "（单台 " + fmtNum(s.perSecondEach)
+      + "/s，电 " + fmtNum(s.power) + "/s" + (s.inputLiquids && s.inputLiquids.length
+        ? "，吃 " + s.inputLiquids.map(i => i.name + " " + fmtNum(i.perSecond)).join("、") : "") + "）");
+  });
   if (res.sources && res.sources.length) {
     res.sources.forEach(s => {
       if (s.type === "import") L.push("来源 " + s.item + "：外部运入");
@@ -353,6 +399,8 @@ function renderList(env) {
   L.push("发电厂（" + idx.generators.size + "）：" + Array.from(idx.generators.values()).map(g => g.name + " " + fmtNum(g.perSecond)).join(", "));
   L.push("钻头（" + idx.drills.size + "）：" + Array.from(idx.drills.values()).map(d => d.name + " t" + d.tier).join(", "));
   L.push("多产物（" + idx.multi.size + "）：" + Array.from(idx.multi.values()).map(m => m.name).join(", "));
+  L.push("抽水泵（" + idx.pumps.size + "）：" + Array.from(idx.pumps.values())
+    .map(p => p.name + " " + p.liquid + " " + fmtNum(p.perSecond) + "/s").join(", "));
   L.push("兵厂链（" + idx.unitChains.length + "）：" + idx.unitChains.map(c => c.start + "→" + c.tiers[c.tiers.length - 1].unit).join(", "));
   return L.join("\n");
 }

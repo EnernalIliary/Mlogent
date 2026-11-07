@@ -19,7 +19,10 @@ shots = [
      "&src=sand:multi:disassembler&gen=steam-generator&genfuel=coal&gencount=0", "1180,2200"),
     ("screenshot-unit-factory.png", "?mode=building&block=ground-factory&count=1&depth=4", "1180,2100"),
     ("screenshot-unit-chain.png",
-     "?mode=building&block=ground-factory&count=2&depth=4&chain=dagger&chainrate=0.05", "1180,2400"),
+     "?mode=building&block=ground-factory&count=1&depth=4&chain=dagger&chainrate=0.05", "1180,2500"),
+    ("screenshot-pump.png",
+     "?mode=building&block=silicon-smelter&count=3&depth=4&boundary=coal,sand"
+     "&src=sand:drill:laser-drill:8:1&src=water:pump:rotary-pump", "1180,2200"),
     ("screenshot-item.png", "?mode=item&item=silicon&rate=5&depth=3", "1180,2100"),
 ]
 for name, q, win in shots:
