@@ -111,7 +111,8 @@ check("兵厂模式：硅被继续展开成硅炉（不是直接当边界）",
       /silicon-smelter/.test(txt("machines")) && /coal/.test(txt("demand")),
       txt("machines").slice(0, 300) + " || " + txt("demand").slice(0, 160));
 check("兵厂模式：同型号兵厂只出现一次",
-      (txt("machines").match(/ground-factory<\/span>/g) || []).length === 1, txt("machines").slice(0, 300));
+      txt("machines").split("<tr>").filter((r) => /ground-factory/.test(r)).length === 1,
+      txt("machines").slice(0, 300));
 
 /* --- 切回物品模式：graphite 1/s --- */
 window.__ratio.setMode("item");

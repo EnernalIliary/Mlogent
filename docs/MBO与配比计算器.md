@@ -110,7 +110,8 @@ anyBlock(idx, name)                   统一 blocks/drills/multi/generators 视�
 - 页面四块新表：**外部来源**（接收 / 钻头+矿格数+加水 / 分离机·解离机）、**供电**（14 发电厂，选燃料自动算台数与燃料/液体）、**液体需求**（外部运入 / 抽水机，自动补台数与电力）、**兵厂大循环**（10 条链 T1–T5 倒推）。
 - **兵厂链口径（2026-11-07 修正）**：台数按各自 `constructTime` 算、**不必 1:1**（1 台 T4 scepter 0.0111/s 能带 2.67 台 T5 reign 0.00417/s）；整链产出 = 各段产能**最小值**（最慢一段决定），材料按实际达成算，多出的机器记"利用率"；`feedsNext` = 1 台本级能带几台上级。
 - URL 参数：`?mode=building|item&block=&count=&item=&rate=&boundary=&force=&depth=&gen=&genfuel=&gencount=&chain=&chainrate=&src=sand:drill:laser-drill:8:1,scrap:multi:disassembler,water:pump:rotary-pump`。
-- 贴图为**原尺寸**（`size×32px`），全部内联 base64：`data/gamedata.js` = 33 工厂 / 17 兵厂 / 14 发电厂 / 10 钻头 / 2 多产物 / 6 抽水泵 / 22 物品 / 129 图标 / 456.5 KB。
+- 贴图为**原尺寸**且**优先 `-full` 高清整图**（`sprites/generated/block-<名>-full.png`、`unit-<名>-full.png`，缺了回退 `blocks/**` / `units/<名>-base.png`），全部内联 base64：`data/gamedata.js` = 33 工厂 / 17 兵厂 / 14 发电厂 / 10 钻头 / 2 多产物 / 6 抽水泵 / 22 物品 / **139 图标 / 493 中文名 / 1130.8 KB**。
+- 中文名来自 `assetsraw/assets/bundles/bundle_zh_CN.properties`（key 形如 `item.<名>.name` / `block.<名>.name` / `unit.<名>.name`），导出成 `data.names = {items, blocks, units}`；页面标签显示「英文名 + 灰字中文名」，选择格 tooltip 也带中文。
 - 实例：`graphite-press ×2` → 石墨 1.333/s、煤 2.667/s、电力 0；煤改激光钻 8 格 → 3 台激光钻、电力 198 → 燃烧发电机 4 台、烧煤 2/s；`silicon-smelter ×3` + 沙用解离机 → 6 台解离机、电力 1530、副产石墨/钛/钍各 4.8/s、吃废料 24/s；`silicon-smelter ×3` + 沙用激光钻（加水）+ 水用 rotary-pump → 水 14.4/s、泵 2 台（电力 +36）、总电力 324；`dagger 0.05/s` → **1/1/2/5/12** 台、**22872** 电、硅 101.5/s、瓶颈 T5 reign。
 
 ### 5.1 接入 bot 的四个入口（2026-11-07 加）

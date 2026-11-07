@@ -36,6 +36,7 @@
   img.ic.sm { width: 16px; height: 16px; vertical-align: -3px; }
   img.ic.lg { width: 34px; height: 34px; vertical-align: middle; }
   .name { display: inline-flex; align-items: center; gap: 6px; }
+  .zh { color: var(--dim); font-size: 11px; font-weight: 400; margin-left: 2px; }
 
   /* 建筑选择：按原尺寸贴图排布（1 格 = 22px） */
   .bgrid { display: flex; flex-wrap: wrap; gap: 6px; align-items: flex-end; flex: 1; }
@@ -221,11 +222,23 @@
     if (!src) return "";
     return '<img class="ic ' + (cls || "") + '" src="' + src + '" alt="' + (alt || "") + '" title="' + (alt || "") + '">';
   }
+  /* 中文名（来自 bundle_zh_CN.properties，随数据一起导出） */
+  var ZH = DATA.names || { items: {}, blocks: {}, units: {} };
+  function zhOf(kind, n) {
+    var m = ZH[kind] || {};
+    var z = m[n] || "";
+    return z && z !== n ? z : "";
+  }
+  function nameHtml(kind, n) {
+    var z = zhOf(kind, n);
+    return esc(n) + (z ? '<span class="zh">' + esc(z) + '</span>' : "");
+  }
+
   function itemLabel(n, cls) {
-    return '<span class="name">' + img(itemIcon.get(n), cls || "sm", n) + esc(n) + '</span>';
+    return '<span class="name">' + img(itemIcon.get(n), cls || "sm", n) + nameHtml("items", n) + '</span>';
   }
   function blockLabel(n, cls) {
-    return '<span class="name">' + img(blockIcon(n), cls || "sm", n) + esc(n) + '</span>';
+    return '<span class="name">' + img(blockIcon(n), cls || "sm", n) + nameHtml("blocks", n) + '</span>';
   }
   /* 原尺寸贴图：1 格 = tilePx 像素 */
   function blockImg(n, tilePx, cls) {
@@ -263,7 +276,7 @@
   }
   function unitIcon(n) { return idx.unitIcons[n] || ""; }
   function unitLabel(n, cls) {
-    return '<span class="name">' + img(unitIcon(n), cls || "sm", n) + esc(n) + '</span>';
+    return '<span class="name">' + img(unitIcon(n), cls || "sm", n) + nameHtml("units", n) + '</span>';
   }
 
   function syncGenFuel() {
@@ -518,7 +531,8 @@
     });
     function html(list) {
       return list.map(function (b) {
-        return '<div class="bcell" data-block="' + esc(b.name) + '" title="' + esc(b.name) +
+        return '<div class="bcell" data-block="' + esc(b.name) + '" title="' + esc(b.name)
+          + (zhOf("blocks", b.name) ? " · " + esc(zhOf("blocks", b.name)) : "") +
           " · " + b.size + "×" + b.size + (b.power ? " · " + b.power + " 电力/s" : "") + '">' +
           blockImg(b.name, 22) + '<span class="cn">' + esc(b.name) + '</span></div>';
       }).join("");
@@ -585,7 +599,8 @@
   var cells = {};
   var sortedNames = names.slice().sort();
   el("grid").innerHTML = sortedNames.map(function (n) {
-    return '<div class="cell" data-item="' + esc(n) + '" title="' + esc(n) + '">' +
+    return '<div class="cell" data-item="' + esc(n) + '" title="' + esc(n)
+      + (zhOf("items", n) ? " · " + esc(zhOf("items", n)) : "") + '">' +
       img(itemIcon.get(n), "", n) + '</div>';
   }).join("");
 

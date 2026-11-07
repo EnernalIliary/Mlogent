@@ -3,9 +3,11 @@
 为什么导出成 .js 而不是 .json：双击打开 index.html 时，浏览器对 file:// 的
 fetch/JSON 有 CORS 限制，而 `<script src="data/gamedata.js">` 不受影响。
 
-图标内联成 base64 data URI，**用原尺寸**（1×1=32、2×2=64、3×3=96、5×5=160）：
-物品取 `sprites/items/item-<名字>.png`，方块取 `sprites/blocks/**/<名字>.png`，
-单位取 `sprites/units/<名字>-base.png`（没有就用 `-cell.png` 兜底）。
+图标内联成 base64 data URI，**优先用 `-full` 尾缀的原尺寸大图**：
+方块取 `sprites/generated/block-<名字>-full.png`，单位取 `sprites/generated/unit-<名字>-full.png`；
+没有 `-full` 时回退到 物品 `sprites/items/item-<名字>.png`、方块 `sprites/blocks/**/<名字>.png`、
+单位 `sprites/units/<名字>-base.png`（再退 `-cell.png`）。
+同时导出中文名（`bundle_zh_CN.properties` 的 item/block/unit 名字），页面显示「中文名 (英文名)」。
 
 数据来源：
     MBO/gamedata/<snapshot>/gamedata.json          物品配方 + 各方块电力
@@ -30,6 +32,9 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)          # AtomicStates
 MBO = os.path.join(ROOT, "MBO")
 SPRITES = os.path.join(ROOT, "assetsraw", "assets-raw", "sprites")
+GENERATED = os.path.join(SPRITES, "generated")
+ZH_BUNDLE = os.path.join(ROOT, "assetsraw", "assets", "bundles", "bundle_zh_CN.properties")
+FULL_SPRITES = {"block": {}, "unit": {}}
 
 
 def load(snapshot: str, name: str = "gamedata.json") -> dict | None:
@@ -61,6 +66,52 @@ def _index_block_sprites() -> dict:
     return idx
 
 
+def _index_full_sprites() -> dict:
+    """-full 尾缀的全尺寸贴图：block-<名字>-full.png / unit-<名字>-full.png。"""
+    idx = {"block": {}, "unit": {}}
+    if not os.path.isdir(GENERATED):
+        return idx
+    for fn in os.listdir(GENERATED):
+        if not fn.endswith("-full.png"):
+            continue
+        stem = fn[:-len("-full.png")]
+        for kind in ("block", "unit"):
+            pre = kind + "-"
+            if stem.startswith(pre):
+                idx[kind][stem[len(pre):]] = os.path.join(GENERATED, fn)
+                break
+    return idx
+
+
+def load_zh_names() -> dict:
+    """bundle_zh_CN.properties 里的 物品/方块/单位 中文名。"""
+    out = {"items": {}, "blocks": {}, "units": {}}
+    if not os.path.exists(ZH_BUNDLE):
+        return out
+    with open(ZH_BUNDLE, encoding="utf-8") as fh:
+        for line in fh:
+            line = line.strip()
+            if not line or "=" not in line:
+                continue
+            key, val = line.split("=", 1)
+            key, val = key.strip(), val.strip()
+            if not key.endswith(".name"):
+                continue
+            parts = key.split(".")
+            if len(parts) != 3:
+                continue
+            kind, name = parts[0], parts[1]
+            bucket = {"item": "items", "block": "blocks", "unit": "units"}.get(kind)
+            if bucket:
+                out[bucket][name] = val
+    return out
+
+
+def block_icon(name: str, block_index: dict) -> str:
+    """方块图标：优先 generated/block-<名字>-full.png，回退原贴图索引。"""
+    return icon_data_uri(FULL_SPRITES["block"].get(name) or block_index.get(name))
+
+
 def icon_data_uri(path: str | None) -> str:
     """读 PNG 原样转 base64 data URI（不做缩放）；找不到就返回空串。"""
     if not path or not os.path.exists(path):
@@ -76,6 +127,9 @@ def icon_data_uri(path: str | None) -> str:
 
 
 def unit_icon(name: str) -> str:
+    full = FULL_SPRITES["unit"].get(name)
+    if full:
+        return icon_data_uri(full)
     root = os.path.join(SPRITES, "units")
     for pat in ("%s-base.png", "%s-cell.png", "%s.png"):
         path = os.path.join(root, pat % name)
@@ -101,7 +155,7 @@ def build_power(raw: dict, power_drill: dict | None, block_index: dict) -> dict:
         generators.append({
             "name": g["name"],
             "size": int(g.get("size") or 1),
-            "icon": icon_data_uri(block_index.get(g["name"])),
+            "icon": block_icon(g["name"], block_index),
             "perSecond": float(g.get("perSecond") or 0.0),
             "kind": g.get("kind") or "",
             # 自耗电（impact-reactor 的 consumePower）
@@ -116,7 +170,7 @@ def build_power(raw: dict, power_drill: dict | None, block_index: dict) -> dict:
         drills.append({
             "name": d["name"],
             "size": int(d.get("size") or 1),
-            "icon": icon_data_uri(block_index.get(d["name"])),
+            "icon": block_icon(d["name"], block_index),
             "tier": int(d.get("tier") or 0),
             "drillTime": float(d.get("drillTime") or 300.0),
             "hardnessMult": float(d.get("hardnessMult") or 0.0),
@@ -131,7 +185,7 @@ def build_power(raw: dict, power_drill: dict | None, block_index: dict) -> dict:
         multi.append({
             "name": s["name"],
             "size": int(s.get("size") or 1),
-            "icon": icon_data_uri(block_index.get(s["name"])),
+            "icon": block_icon(s["name"], block_index),
             "craftTime": float(s.get("craftTime") or 0.0),
             "cps": float(s.get("cps") or 0.0),
             "power": float(s.get("power") or 0.0),
@@ -173,7 +227,7 @@ def build_pumps(raw: dict, block_index: dict) -> list:
         pumps.append({
             "name": b["name"],
             "size": int(b.get("size") or 1),
-            "icon": icon_data_uri(block_index.get(b["name"])),
+            "icon": block_icon(b["name"], block_index),
             "perSecond": round(float(pa) * 60.0, 6),
             "liquid": liquid,
             "kind": (rr.get("subclass") or "").rsplit(".", 1)[-1],
@@ -221,7 +275,7 @@ def build(raw: dict, block_index: dict, unit_prod: dict | None,
             "outputs": outputs,
             "input_liquids": in_liquids,
             "output_liquids": out_liquids,
-            "icon": icon_data_uri(block_index.get(b["name"])),
+            "icon": block_icon(b["name"], block_index),
         })
 
     # ---- 兵厂（单位工厂 / 升级厂 / 组装厂）----
@@ -237,7 +291,7 @@ def build(raw: dict, block_index: dict, unit_prod: dict | None,
             "kind": "unit",
             "size": size,
             "power": float(f.get("power") or 0.0),
-            "icon": icon_data_uri(block_index.get(name)),
+            "icon": block_icon(name, block_index),
             "factory_kind": f["kind"],
         }
         if f["kind"] == "reconstructor":
@@ -294,6 +348,7 @@ def build(raw: dict, block_index: dict, unit_prod: dict | None,
         "drills": power["drills"],
         "multi": power["multi"],
         "pumps": build_pumps(raw, block_index),
+        "names": load_zh_names(),
     }
 
 
@@ -306,6 +361,8 @@ def main() -> None:
     raw = load(args.snapshot)
     unit_prod = load(args.snapshot, "units_production.json")
     power_drill = load(args.snapshot, "power_drill.json")
+    global FULL_SPRITES
+    FULL_SPRITES = _index_full_sprites()
     block_index = _index_block_sprites()
     data = build(raw, block_index, unit_prod, power_drill)
     os.makedirs(os.path.dirname(args.out), exist_ok=True)
@@ -321,10 +378,11 @@ def main() -> None:
               + sum(1 for i in data["items"] if i["icon"])
               + sum(1 for v in data["unit_icons"].values() if v))
     print("写出 %s：%d 个物品工厂 / %d 个兵厂 / %d 发电厂 / %d 钻头 / %d 多产物方块 / "
-          "%d 抽水泵 / %d 个物品 / %d 个图标 / %.1f KB"
+          "%d 抽水泵 / %d 个物品 / %d 个图标 / 中文名 %d 条 / %.1f KB"
           % (args.out, n_item_blocks, n_unit_blocks, len(data["generators"]),
              len(data["drills"]), len(data["multi"]), len(data["pumps"]),
-             len(data["items"]), n_icon, os.path.getsize(args.out) / 1024))
+             len(data["items"]), n_icon, len(data["names"]["blocks"]) + len(data["names"]["units"])
+             + len(data["names"]["items"]), os.path.getsize(args.out) / 1024))
 
 
 if __name__ == "__main__":

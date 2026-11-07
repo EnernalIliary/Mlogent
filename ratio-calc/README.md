@@ -82,10 +82,13 @@ tetrative ×12`，合计 **21 台兵厂、22872 电/s**，瓶颈在 T5；材料�
 > 泵的台数会迭代收敛：泵自己也吃液体（抽油机吃水、强化泵吃氢），所以补台数时会重算几轮。
 
 
-### 4. 贴图原尺寸
+### 4. 贴图原尺寸（优先 `-full` 大图）
 
-方块/兵厂/发电厂按 `size × 32px` 显示（1×1=32、2×2=64、3×3=96、4×4=128、5×5=160），
-不再统一缩到 32×32；物品 32×32、单位取 `units/<名>-base.png`（陆军）/ `<名>-cell.png`（飞行）。
+方块/兵厂/发电厂/单位优先用 `sprites/generated/block-<名>-full.png`、`unit-<名>-full.png`（原版高清整图，
+256 张方块 + 67 张单位），没有再回退到 `blocks/**`、`units/<名>-base.png` / `-cell.png`；物品用 `items/item-<名>.png`。
+页面按 `size × 32px` 显示（1×1=32、2×2=64、3×3=96、4×4=128、5×5=160），不缩放。
+同时导出中文名（`assets/bundles/bundle_zh_CN.properties`，493 条），页面标签显示「英文名 + 灰字中文名」，
+物品/建筑选择格的 tooltip 也带中文。
 
 ## URL 预设
 
@@ -220,7 +223,7 @@ python -X utf8 ratio-calc/card.py --json result.json --out card.png   # 喂现�
 |---|---|
 | `index.html` | 单页应用（样式 + 三个模式 + 来源/供电/兵厂链/液体四块表，无第三方库） |
 | `core.js` | 内核：展开、钻头/发电/多产物/兵厂链/液体算法（浏览器 + node 通用，`module.exports`） |
-| `data/gamedata.js` | 导出数据 + 内联图标：33 工厂 / 17 兵厂 / 14 发电厂 / 10 钻头 / 2 多产物 / 6 抽水泵 / 22 物品 / 129 图标 / 456.5 KB |
+| `data/gamedata.js` | 导出数据 + 内联图标 + 中文名：33 工厂 / 17 兵厂 / 14 发电厂 / 10 钻头 / 2 多产物 / 6 抽水泵 / 22 物品 / 139 图标 / 493 中文名 / 1130.8 KB |
 | `export_data.py` | 重新导出：`python -X utf8 ratio-calc/export_data.py` |
 | `make_cases.py` | 用 `mbo calc --json` 生成对拍用例 |
 | `cli.cjs` | **bot 入口**：命令行 + 文本/Markdown/JSON 渲染 |
@@ -241,7 +244,8 @@ python -X utf8 ratio-calc/card.py --json result.json --out card.png   # 喂现�
 | 兵厂 plans / 升级链 / 组装厂 | `MBO/gamedata/v160.7/units_production.json`（Rhino 反射 dump） |
 | 发电厂 / 钻头 / 多产物 / 物品属性 | `MBO/gamedata/v160.7/power_drill.json`（Rhino 反射 dump） |
 | 抽水泵 | `power_drill.json` 的 Pump 段（`pumpAmount` per-tick ×60；源码 `Blocks.java` 核对） |
-| 图标 | `assetsraw/assets-raw/sprites/**`（原尺寸） |
+| 图标 | `assetsraw/assets-raw/sprites/generated/*-full.png`（优先）、`blocks/**`、`units/**`、`items/**`（原尺寸） |
+| 中文名 | `assetsraw/assets/bundles/bundle_zh_CN.properties`（`item/block/unit.<名>.name`） |
 
 ## 已验证
 
