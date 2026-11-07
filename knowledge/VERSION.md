@@ -52,29 +52,37 @@
 - **整理动作**：修 `P01-architecture.md` 里指向不存在的 `EXEC.PROCESSOR.001` → `EXEC.MODEL.001`；`W06` 吞吐表 conveyor 行补全口径；删掉过期的 `knowledge/index.repo.json`（04:18 的旧目录副本，移到 `_report/attic/`）。
 - **重建结果**：index.json 57 篇 / 18 张表；正式库 **8,243 chunk / 140 files**（42.8MB，code 6322 / doc 1758 / data 163）；postpublish 三项 PASS（A@1 16/20、库外 top1 0）；300 题 **hit@1 59.7% / hit@6 86.3% / mrr 0.694 / strong@6 94.2%**（逐域与上一版一致，41 题未命中）。
 
-## 交付验收（v1.0，2026-11-08）
+## 2026-11-08 第二轮：炮塔评价 + 中英名对照（外部提交 49fac39 / 42aa158）
+
+- **新增 `03-combat/C11-turret-verdict.md`**（`COMBAT.TURRET.002`，conf I）：13 门主力的 DPS/造价、按目标护甲选型、7 门不能打空的防空缺口。表 1/表 2 的 DPS(0甲) 与 A* 逐格等于 C10 表 3/表 4；造价=件数之和、耗电=`usagePerSecond`、射程=`range/8` 已逐条复算通过；`targetAir=false` 恰为 arc / hail / lancer / ripple / scathe / scorch / titan（31 条 turrets 记录里非战斗 3 条：build-tower / repair-point / repair-turret）。
+- **新增中英名对照 5 篇**：`02-world/W13-W15-name-blocks-*.md` 合计 **447 条 = `00-data/blocks.json` 全量**（136 + 168 + 143，无重无漏）；`W16-name-items.md`（22 物品 + 11 液体 + 23 状态 = 56）；`04-units/U06-name-units.md`（70 单位，60 有官方简中）。
+- **名称真源**：`assetsraw/assets/bundles/bundle.properties` + `bundle_zh_CN.properties`（2867 个 key）——`out/_server160.jar` 里没有任何 bundle 条目（服务端 jar 剥掉资源），所以名称只能取 assetsraw；生成器 `tools/gen_name_docs.py`（key 规则 `<kind>.<id>.name`）。缺名的 36 方块 / 10 单位 / 3 状态全是内部占位（air、build1-7、`*-missile`、dummy、turret-unit-build-tower…）。
+- **交叉链接**：C02/C10 → `[[COMBAT.TURRET.002]]`；W01 → `[[WORLD.NAMES.001]]`-003；U01 → `[[UNIT.NAMES.001]]`；`08-evidence/CHEAT.md` 路由表下补一行「查中文名走哪」。
+- **重建结果**：门禁 **61 篇 / 0 error / 193 warning**；正式库 **8,317 chunk / 146 files**（43.6MB，doc 1831 / code 6322 / data 163）；postpublish 三项 PASS（A@1 16/20、库外 top1 0、p50 68.3ms）；300 题 **hit@1 59.7% / hit@6 86.3% / mrr 0.693 / strong@6 94.2%**（新增内容未抢金标，分数与上一版持平）。
+
+## 交付验收（v1.1，2026-11-08）
 
 | 项 | 结果 | 复现命令 |
 |---|---|---|
-| 门禁 | **55 篇 / 0 error**（187 warning，全部提示级） | `check_kb.py --root knowledge --all` |
-| 正式库 | **8,243 chunk / 140 files / 18 张数据表**（42.8MB，code 6322 / doc 1758 / data 163） | `dbstat.py out/_kb/kb.sqlite3` |
-| 发布后校验 | STRUCT / COUNT / RETRIEVAL **三项 PASS**（chunks 8243 = staging 8243、files 140，journal 已落盘） | `postpublish.py --db ... --staging ...` |
-| 300 题冻结评测 | coverage 100% / **hit@1 59.7% / hit@6 86.3%** / mrr 0.6943 / strong@6 94.2% / 库外槽 0%（FINAL3 终版，300 题逐题 0 回退） | `08-evidence/bench/`（A+B+C 全开，k=6） |
+| 门禁 | **61 篇 / 0 error**（193 warning，全部提示级） | `check_kb.py --root knowledge --all` |
+| 正式库 | **8,317 chunk / 146 files / 18 张数据表**（43.6MB，doc 1831 / code 6322 / data 163） | `dbstat.py out/_kb/kb.sqlite3` |
+| 发布后校验 | STRUCT / COUNT / RETRIEVAL **三项 PASS**（chunks 8317 = staging 8317、files 146，journal 已落盘） | `postpublish.py --db ... --staging ...` |
+| 300 题冻结评测 | coverage 100% / **hit@1 59.7% / hit@6 86.3%** / mrr 0.6932 / strong@6 94.2% / 库外槽 0%（v1.1 复跑，与 FINAL3 持平） | `08-evidence/bench/`（A+B+C 全开，k=6） |
 | 推导题 | 公式 22 题 **72.7%**（16/22）、跨源 24 题 **95.8%**（23/24） | 同上 |
-| 20 题冒烟（bench20） | A@1 **16/20（80%）**、A@6 17/20、库外 top1 **0/20**、p50 66.8ms（旧版 4/20、库外 12/20） | `bench20.py --db out/_kb/kb.sqlite3` |
+| 20 题冒烟（bench20） | A@1 **16/20（80%）**、A@3 16、库外 top1 **0/20**、p50 68.3ms（旧版 4/20、库外 12/20） | `bench20.py --db out/_kb/kb.sqlite3` |
 | 可执行探针 | **17 PASS / 1 FAIL（已修claims）/ 2 INCONCLUSIVE** | `08-evidence/probes/_run_all.py` |
 | jar 真值核对 | **终版 RERUN：178 条 / PASS 175 / FAIL 0 / 口径差 3**（①CHEAT 26 · ②C10 14 · ③W06/W07 41 · ④C02 28(3 口径差) · ⑤C05 41 · ⑥C06 28），退出码 0 | `python knowledge/tools/rt_verify.py`；明细 `08-evidence/_report/_rtverify/RERUN.md` |
 
 检索三开关（默认全开，可用环境变量关）见 `tools/REBUILD.md` §4：`KB_ONLY_KNOWLEDGE`（只检索 knowledge/）、`KB_DEDUPE_FILE`（按文件去重）、`KB_ASCII_BOOST`（ASCII 标识符加权）。
 
-## 当前内容规模（v1.0 交付）
+## 当前内容规模（v1.1）
 
 | 域 | 篇数 | 目录 |
 |---|---|---|
 | 执行模型 | 6 | `01-execution/`（E01-E06） |
-| 世界/方块 | 12 | `02-world/`（W01-W12） |
-| 战斗 | 10 | `03-combat/`（C01-C10） |
-| 单位 | 5 | `04-units/`（U01-U05） |
+| 世界/方块 | 16 | `02-world/`（W01-W16，含 W13-W16 中英名对照） |
+| 战斗 | 11 | `03-combat/`（C01-C11，含 C11 炮塔评价） |
+| 单位 | 6 | `04-units/`（U01-U06，含 U06 单位名对照） |
 | 战役 | 6 | `05-campaign/`（CAMP.*） |
 | mlog 语言 | 8 + 2 JSON | `06-mlog/`（M01-M08、instructions.json、enums.json） |
 | 蓝图模式 | 6 + JSON | `07-patterns/`（P01-P06、idioms.json） |

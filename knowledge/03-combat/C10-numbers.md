@@ -15,7 +15,7 @@ src:
 data: [00-data/turrets.json, 00-data/units.json, 00-data/bullets.json]
 depends: [COMBAT.TURRET.001, COMBAT.ARMOR.001, COMBAT.BULLET.001, COMBAT.UNITWEAPON.001]
 tags: [DPS, TTK, 护甲曲线, 算式, 跨层口径, 连续伤害]
-tokens: 1197
+tokens: 1211
 ---
 
 ## 一句话
@@ -167,3 +167,4 @@ duo 对 dagger 5.56 s、对 toxopid 8148 s：DPS 只降 10 倍，TTK 却涨 1466
 - [[COMBAT.UNITWEAPON.001]] 单位武器的挂点与 alternate 口径
 - [[COMBAT.DEFENSE.001]] 防御方块的 hp/护甲（TTK 的反向应用）
 - [[UNIT.MOVE.001]] 单位 speed 决定能否进入射程（射程外的 DPS 等于 0）
+- [[COMBAT.TURRET.002]] 用这些数字做选型：该造哪门、拐点在哪（DPS/造价与 A* 表）

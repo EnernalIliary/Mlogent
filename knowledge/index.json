@@ -1,6 +1,6 @@
 {
  "version": "1",
- "generated": "2026-11-08T07:20:34+08:00",
+ "generated": "2026-11-08T07:34:01+08:00",
  "root": "knowledge",
  "read_order": [
   "index.json",
@@ -120,7 +120,7 @@
      "id": "WORLD.BLOCKS.001",
      "path": "knowledge/02-world/W01-blocks-multiblock-anchor.md",
      "title": "方块模型与多格锚点",
-     "tokens": 1161,
+     "tokens": 1175,
      "tokens_est": false,
      "conf": "S",
      "ver": [
@@ -129,7 +129,7 @@
      ],
      "status": "active",
      "domain": "world",
-     "lines": 175
+     "lines": 176
     },
     {
      "id": "WORLD.BLOCKSTATE.001",
@@ -428,7 +428,7 @@
      "id": "COMBAT.NUMBERS.001",
      "path": "knowledge/03-combat/C10-numbers.md",
      "title": "战斗数值实例——DPS 定义式、跨层口径与 TTK",
-     "tokens": 1197,
+     "tokens": 1211,
      "tokens_est": false,
      "conf": "S",
      "ver": [
@@ -437,7 +437,7 @@
      ],
      "status": "active",
      "domain": "combat",
-     "lines": 170
+     "lines": 171
     },
     {
      "id": "COMBAT.STATUS.001",
@@ -473,7 +473,7 @@
      "id": "COMBAT.TURRET.001",
      "path": "knowledge/03-combat/C02-turrets.md",
      "title": "炮塔机制——射程、装填、弹药、冷却液、朝向与过热",
-     "tokens": 1058,
+     "tokens": 1074,
      "tokens_est": false,
      "conf": "S",
      "ver": [
@@ -482,7 +482,7 @@
      ],
      "status": "active",
      "domain": "combat",
-     "lines": 188
+     "lines": 189
     },
     {
      "id": "COMBAT.TURRET.002",
@@ -571,7 +571,7 @@
      "id": "UNIT.MOVE.001",
      "path": "knowledge/04-units/U01-movement.md",
      "title": "单位类型与移动——speed 的真实单位、hitSize、地形与 boost",
-     "tokens": 797,
+     "tokens": 809,
      "tokens_est": false,
      "conf": "S",
      "ver": [
@@ -580,7 +580,7 @@
      ],
      "status": "active",
      "domain": "unit",
-     "lines": 157
+     "lines": 158
     },
     {
      "id": "UNIT.NAMES.001",
@@ -963,7 +963,7 @@
      "id": "EV.CHEAT.001",
      "path": "knowledge/08-evidence/CHEAT.md",
      "title": "AI 速查卡——40 条反直觉陷阱、30 个高频数字、20 条路由",
-     "tokens": 1832,
+     "tokens": 1893,
      "tokens_est": false,
      "conf": "S",
      "ver": [
@@ -972,7 +972,7 @@
      ],
      "status": "active",
      "domain": "evidence",
-     "lines": 151
+     "lines": 153
     },
     {
      "id": "PATTERN.ANTI.001",
@@ -1899,7 +1899,7 @@
   {
    "path": "knowledge/08-evidence/CHEAT.md",
    "kind": "top",
-   "bytes": 16454,
+   "bytes": 16919,
    "desc": "top"
   },
   {
@@ -2453,8 +2453,8 @@
  "docs": [
   {
    "path": "knowledge/KB.md",
-   "bytes": 10263,
-   "tokens": 1369
+   "bytes": 10287,
+   "tokens": 1372
   },
   {
    "path": "knowledge/CONVENTIONS.md",
@@ -2463,13 +2463,13 @@
   },
   {
    "path": "knowledge/VERSION.md",
-   "bytes": 8192,
-   "tokens": 1024
+   "bytes": 10129,
+   "tokens": 1260
   },
   {
    "path": "knowledge/README.md",
-   "bytes": 5083,
-   "tokens": 616
+   "bytes": 5098,
+   "tokens": 618
   }
  ],
  "counts": {
@@ -2495,7 +2495,7 @@
    "probes": 84
   },
   "evidence_dirs": 2,
-  "tokens_total": 70572,
+  "tokens_total": 70930,
   "empty": false
  },
  "notes": [

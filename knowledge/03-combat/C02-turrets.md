@@ -16,7 +16,7 @@ src:
 data: [00-data/turrets.json]
 depends: [COMBAT.BULLET.001, COMBAT.DAMAGE.001]
 tags: [炮塔, reload, 冷却液, 弹药, shootCone, 过热, 射速]
-tokens: 1058
+tokens: 1074
 ---
 
 ## 一句话
@@ -185,3 +185,4 @@ reload 有下限：开火后立刻进入 `cooldownTime`（默认 20 tick，但 T
 - [[COMBAT.NUMBERS.001]] 炮塔 DPS 表与 TTK 表
 - [[COMBAT.DAMAGE.001]] 命中后的伤害管线
 - [[WORLD.BLOCKS.001]] 多格炮塔的 3×3/4×4/5×5 占位
+- [[COMBAT.TURRET.002]] 这些炮塔的性价比与选型结论（DPS/造价、护甲拐点 A*、防空缺口）

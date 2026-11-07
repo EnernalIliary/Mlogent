@@ -14,7 +14,7 @@ src:
 data: [00-data/blocks.json]
 depends: []
 tags: [方块, 多格, 锚点, 放置, tileSize]
-tokens: 1161
+tokens: 1175
 ---
 
 ## 一句话
@@ -171,4 +171,5 @@ if(block.isMultiblock()){
 - `WORLD.PAYLOAD.001`（载荷方块用 `size` 算载荷面积）
 - `WORLD.SANDBOX.001`（`placeablePlayer`/`inEditor` 决定编辑器可见性）
 - 数据表：`00-data/blocks.json`（`size`/`health`/`solid`/`underBullets`/`rotate` 字段）
+- 中英名对照：[[WORLD.NAMES.001]] / [[WORLD.NAMES.002]] / [[WORLD.NAMES.003]]（447 个方块全覆盖，界面只显示名字）
 - 源码：`Mindustry-Source/core/src/mindustry/world/Block.java`、`world/Build.java`、`world/Tile.java`、`Vars.java`

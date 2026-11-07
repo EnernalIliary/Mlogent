@@ -12,7 +12,7 @@ src:
 data: [00-data/units.json]
 depends: [COMBAT.ARMOR.001]
 tags: [单位, 移动, speed, hitSize, boost, 地形, 飞行, 海军]
-tokens: 797
+tokens: 809
 ---
 
 ## 一句话
@@ -154,3 +154,4 @@ dagger `0.5` 若当格/秒，穿越 100 格要 200 s；实际是 3.75 格/秒 �
 - [[UNIT.AI.001]] 移动由哪些 AI 接管
 - [[UNIT.ABILITY.001]] boost 与护盾类能力
 - [[COMBAT.UNITWEAPON.001]] 同一批单位的武器
+- [[UNIT.NAMES.001]] 这 70 个单位的中英文名（蓝图与波次表只认 id）

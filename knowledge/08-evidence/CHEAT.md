@@ -9,7 +9,7 @@ src: Mindustry-Source/core/src/mindustry/logic/LVar.java:56-58; Mindustry-Source
 data: [00-data/blocks.json, 00-data/units.json, 00-data/rules.json, 06-mlog/instructions.json#instructions, 08-evidence/claims.jsonl]
 depends: [EXEC.TRAP.001, COMBAT.NUMBERS.001, CAMP.RULES.001]
 tags: [速查卡, 陷阱, 数字表, 路由, 口径, 第一锚点]
-tokens: 1832
+tokens: 1893
 ---
 
 ## 一句话
@@ -85,6 +85,8 @@ tokens: 1832
 | 星区、科技解锁、跨局资源 | 05-campaign/CAMP-SECTOR.md | Sector/SectorPreset/TechTree |
 | mlog 指令参数、槽位、预算 | 06-mlog/instructions.json#instructions、06-mlog/M04-读写与感知.md、01-execution/E01-执行模型与预算.md | params/defs/ipt |
 | 某结论是否已验证 | 08-evidence/claims.jsonl | id/verdict/evidence/conf |
+
+- **备注（不在上表 20 条内）**：查某方块 / 单位 / 物品 / 液体的**中文名或英文名** → `02-world/W13-name-blocks-terrain.md`、`W14-name-blocks-industry.md`、`W15-name-blocks-combat.md`（合起来 447 个方块全覆盖）、`W16-name-items.md`（22 物品 + 11 液体 + 23 状态）、`04-units/U06-name-units.md`（70 单位）；id 为 `WORLD.NAMES.001-004` / `UNIT.NAMES.001`，界面只显示名字、蓝图与波次只认 id。
 
 ## 数值
 
