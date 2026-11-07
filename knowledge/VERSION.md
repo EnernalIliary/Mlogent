@@ -42,13 +42,23 @@
 3. `tools/mlogsim.py` 的 `tempfile.mkdtemp(dir=<repo>/out/_sim)` 在 OneDrive 同步目录下可能卡死数分钟（爬到 `tempfile.py:375` 不动）；设环境变量 `MLOG_SIM_BASEDIR` 指向本地非同步目录即可绕过（已支持）。
 4. 门禁 `check_kb.py` 的 warning 是提示级（exit 0 即合规）；`W_NUM_NO_SOURCE` 多为源码行号与举例数值，不必逐行补来源。
 
+## 2026-11-08 整合重建（两处外部会话并入）
+
+同一工作区的两个会话把各自的平行知识库并进来，本库据此做了一轮整理（内容源头已随仓库提交 8494ea4 / 5c2f933 / a5cf501 / 805fb4d）：
+
+- **退场两份平行库**：`docs/本地知识库.md`（检索器说明）与 `docs/MBO与配比计算器.md`（配比文档）。机制/数值并入 `02-world/W02/W03/W06/W07` + `04-units/U02`，检索用法归 `tools/README.md`/`tools/REBUILD.md`，工程细节归 `ratio-calc/README.md`；映射见 `INTEGRATION.md` 第 45-46 行。
+- **新增配比推导**：`04-units/U02-production.md` 第 128-156 行「台数比例与整链瓶颈」——每台每秒 = 60/constructTime、台数按速率反比、整链产出取最慢段；含 1/1/1/2/5 实例与「按 1:1 配 T4/T5」反例。
+- **传送带吞吐统一口径**：v160.7 jar `speed=0.035`、`itemSpace=0.4` ⇒ **5.25 件/s**（UI 的 `displayedSpeed=5` 是手填近似）；v159.3 源码 `0.046` ⇒ 6.9 件/s 作为版本注保留。此前 6.9 被误当当前值，`00-data/formulas.json`、`CHEAT.md`、`W06` 表格已一致。
+- **整理动作**：修 `P01-architecture.md` 里指向不存在的 `EXEC.PROCESSOR.001` → `EXEC.MODEL.001`；`W06` 吞吐表 conveyor 行补全口径；删掉过期的 `knowledge/index.repo.json`（04:18 的旧目录副本，移到 `_report/attic/`）。
+- **重建结果**：index.json 57 篇 / 18 张表；正式库 **8,243 chunk / 140 files**（42.8MB，code 6322 / doc 1758 / data 163）；postpublish 三项 PASS（A@1 16/20、库外 top1 0）；300 题 **hit@1 59.7% / hit@6 86.3% / mrr 0.694 / strong@6 94.2%**（逐域与上一版一致，41 题未命中）。
+
 ## 交付验收（v1.0，2026-11-08）
 
 | 项 | 结果 | 复现命令 |
 |---|---|---|
-| 门禁 | **55 篇 / 0 error**（190 warning，全部提示级） | `check_kb.py --root knowledge --all` |
-| 正式库 | **8,285 chunk / 142 files / 18 张数据表**（43.1MB，code 6321 / doc 1801 / data 163） | `dbstat.py out/_kb/kb.sqlite3` |
-| 发布后校验 | STRUCT / COUNT / RETRIEVAL **三项 PASS**（chunks 8285 = staging 8285、files 142，journal 已落盘） | `postpublish.py --db ... --staging ...` |
+| 门禁 | **55 篇 / 0 error**（187 warning，全部提示级） | `check_kb.py --root knowledge --all` |
+| 正式库 | **8,243 chunk / 140 files / 18 张数据表**（42.8MB，code 6322 / doc 1758 / data 163） | `dbstat.py out/_kb/kb.sqlite3` |
+| 发布后校验 | STRUCT / COUNT / RETRIEVAL **三项 PASS**（chunks 8243 = staging 8243、files 140，journal 已落盘） | `postpublish.py --db ... --staging ...` |
 | 300 题冻结评测 | coverage 100% / **hit@1 59.7% / hit@6 86.3%** / mrr 0.6943 / strong@6 94.2% / 库外槽 0%（FINAL3 终版，300 题逐题 0 回退） | `08-evidence/bench/`（A+B+C 全开，k=6） |
 | 推导题 | 公式 22 题 **72.7%**（16/22）、跨源 24 题 **95.8%**（23/24） | 同上 |
 | 20 题冒烟（bench20） | A@1 **16/20（80%）**、A@6 17/20、库外 top1 **0/20**、p50 66.8ms（旧版 4/20、库外 12/20） | `bench20.py --db out/_kb/kb.sqlite3` |

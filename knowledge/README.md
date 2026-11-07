@@ -52,7 +52,7 @@ python knowledge\tools\build_index.py --root knowledge --check # 校验索引与
 ```powershell
 $R="F:\OneDrive\桌面\AtomicStates"; $W="F:\OneDrive\文档\deepseek-harness\default-workspace"
 $env:KB_ROOT=$R; $env:KB_KNOWLEDGE="$R\knowledge"; $env:KB_DIR="$W\out\kb_build"
-python "$R\knowledge\tools\kb.py" build                       # 8285 chunk / 142 files
+python "$R\knowledge\tools\kb.py" build                       # 8243 chunk / 140 files
 python "$R\knowledge\tools\publish_db.py" "$W\out\kb_build\kb.sqlite3" "$R\out\_kb\kb.sqlite3"
 python "$R\knowledge\tools\postpublish.py" --db "$R\out\_kb\kb.sqlite3" --staging "$W\out\kb_build\kb.sqlite3"
 ```

@@ -108,7 +108,7 @@ if(progress >= 1 - 1f/speed && moveForward(current)){ ... progress %= 1 - 1f/spe
 
 | 方块 | size | itemCapacity | speed 原值 | 吞吐（件/s） | 出处 |
 |---|---|---|---|---|---|
-| `conveyor` | 1 | 3 | 0.035 格/tick | 5（[v159.3] 0.046 ⇒ 6.5） | Blocks.java:2068-2074 |
+| `conveyor` | 1 | 3 | 0.035 格/tick | **5.25**（UI 显示 5）；[v159.3] 0.046 ⇒ 6.9 | Blocks.java:2068-2074 |
 | `titanium-conveyor` | 1 | 3 | 0.0801 格/tick | 10 | Blocks.java:2076-2081 |
 | `armored-conveyor` | 1 | 3 | 0.08 格/tick | 10（[v159.3] displayedSpeed 11） | Blocks.java:2090-2095 |
 | `plastanium-conveyor` | 1 | 10 | 0.0667 格/tick | 40（10×0.0667×60） | Blocks.java:2083-2088 |

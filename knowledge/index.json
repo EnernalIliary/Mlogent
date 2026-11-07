@@ -1,6 +1,6 @@
 {
  "version": "1",
- "generated": "2026-11-08T06:15:44+08:00",
+ "generated": "2026-11-08T06:31:05+08:00",
  "root": "knowledge",
  "read_order": [
   "index.json",
@@ -2373,8 +2373,8 @@
   },
   {
    "path": "knowledge/VERSION.md",
-   "bytes": 6490,
-   "tokens": 797
+   "bytes": 8192,
+   "tokens": 1024
   },
   {
    "path": "knowledge/README.md",
@@ -2405,7 +2405,7 @@
    "probes": 84
   },
   "evidence_dirs": 2,
-  "tokens_total": 63106,
+  "tokens_total": 63333,
   "empty": false
  },
  "notes": [

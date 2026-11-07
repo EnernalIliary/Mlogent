@@ -93,5 +93,5 @@ while (accumulator >= 1) { runOnce(); accumulator--; }
 - PATTERN.STATE.001 状态机（@counter 分派）
 - PATTERN.COMM.001 通信与总线
 - PATTERN.PERF.001 性能与鲁棒性
-- EXEC.PROCESSOR.001 执行模型
+- EXEC.MODEL.001 执行模型
 - 08-evidence/idioms.json: 本文 idiom 条目的原始出处（30 条，含 src/ver）

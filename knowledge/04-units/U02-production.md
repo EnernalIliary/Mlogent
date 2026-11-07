@@ -139,7 +139,7 @@ UnitType.payloadCapacity 单位是 world units²；显示时 ÷ tilePayload 换�
 | T4 | exponential-reconstructor（scepter） | 5400 t = 90 s | 0.0111 |
 | T5 | tetrative-reconstructor（reign） | 14400 t = 240 s | 0.0042 |
 
-时间取自上文工厂表与重构厂表 [src: Blocks.java:6269-6447] [src: Blocks.java:6303-6385]；每秒折算依据 [src: Reconstructor.java:90]（`Stat.productionTime = constructTime / 60f`）。
+时间取自上文工厂表与重构厂表 [src: Blocks.java:6269-6447] [src: Blocks.java:6303-6385]；每秒折算依据 [src: Reconstructor.java:90]（`Stat.productionTime = constructTime / 60f`）。工厂侧没有 `constructTime` 字段，只有 `plans[].time`（T1 = `UnitPlan.time`，[src: Blocks.java:6272]），重构厂才是 `constructTime`（[src: Blocks.java:6310]）。速率成立前提：`efficiency > 0`（满电满料）且 `rules.unitBuildSpeed = 1`（[src: Reconstructor.java:328-334]、[src: UnitFactory.java:401-420]）。
 
 **台数比例不是 1:1**，而是与各级单台速率成反比：
 
