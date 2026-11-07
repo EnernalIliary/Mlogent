@@ -191,7 +191,11 @@ def build_card(res: dict) -> Card:
                                                             fmt(ch.get("power")), snap))
         c.section("各级兵厂（台数按各自建造时间，不必 1:1）")
         for r in ch["rows"]:
-            mat = "、".join("%s %s/s" % (i["name"], fmt(i["perSecond"])) for i in r.get("items") or [])
+            if not r.get("count"):
+                c.note("  T%s  %s ×0（不建）" % (r["tier"], r["block"]), DIM)
+                continue
+            mat = "、".join("%s %s/s" % (i["name"], fmt(i["perSecond"]))
+                           for i in r.get("items") or [] if i.get("perSecond", 0) > 0)
             right = "%s %s/s" % (r["unit"], fmt(r["actual"]))
             if r.get("feedsNext"):
                 right += " · 1 台带 %s 台上级" % fmt(r["feedsNext"])
@@ -206,6 +210,8 @@ def build_card(res: dict) -> Card:
                    % (fmt(ch.get("achieved")), ch.get("bottleneckTier"), ch["bottleneck"]), DIM)
         c.section("合计材料（/s · /min）")
         for k, v in sorted((ch.get("materials") or {}).items()):
+            if v <= 0:
+                continue
             c.row(None, k, "%s/s · %s/min" % (fmt(v), fmt(v * 60)))
         return c
 

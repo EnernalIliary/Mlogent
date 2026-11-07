@@ -680,6 +680,41 @@
     return unitChain(data, startUnit, 0, cfg);
   }
 
+  /* 默认优先挑这些“正统地面线”：一个方块的同一个工厂可以服务多条升级线（如 tetrative 同时升地面/空军/机甲） */
+  var CHAIN_PREF = ["dagger", "nova", "crawler", "flare", "mono", "risso", "retusa", "stell", "merui", "elude"];
+
+  /* 这个方块可能属于几条链？（每条给出 {start, tier}） */
+  function chainsForBlock(data, blockName) {
+    var idx = indexOf(data);
+    var out = [];
+    (idx.unitChains || []).forEach(function (ch) {
+      for (var i = 0; i < ch.tiers.length; i++) {
+        if (ch.tiers[i].block === blockName) {
+          out.push({ start: ch.start, top: ch.top, tier: i + 1, tiers: ch.tiers.length });
+          break;
+        }
+      }
+    });
+    out.sort(function (a, b) {
+      var ia = CHAIN_PREF.indexOf(a.start), ib = CHAIN_PREF.indexOf(b.start);
+      if (ia < 0) ia = 99;
+      if (ib < 0) ib = 99;
+      return (ia - ib) || (a.start < b.start ? -1 : 1);
+    });
+    return out;
+  }
+
+  /* 按「选了哪个兵厂 + 几台」走大循环：在该方块所在的链上定位层级，再交给 chainFromTop */
+  function chainFromBlock(data, blockName, count, opts) {
+    var cands = chainsForBlock(data, blockName);
+    if (!cands.length) return null;
+    var pick = cands[0];
+    if (opts && opts.chainStart) {
+      cands.forEach(function (c) { if (c.start === opts.chainStart) pick = c; });
+    }
+    return chainFromTop(data, pick.start, pick.tier, count, opts);
+  }
+
   /* 机器清单带来的液体需求（每秒）：方块/兵厂/多产物方块的输入液体 + 钻头加速液 */
   function liquidDemand(idx, machines, extra) {
     var acc = {};
@@ -879,6 +914,7 @@
               drillRate: drillRate, drillsNeeded: drillsNeeded,
               generatorPlan: generatorPlan, generatorSupply: generatorSupply,
               separatorPlan: separatorPlan, unitChain: unitChain, chainFromTop: chainFromTop,
+              chainFromBlock: chainFromBlock, chainsForBlock: chainsForBlock,
               pumpPlan: pumpPlan,
               applySources: applySources, recalcPower: recalcPower,
               liquidDemand: liquidDemand };

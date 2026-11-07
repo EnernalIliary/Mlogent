@@ -65,9 +65,16 @@
 - 还有 RTG 270、热力 108、大型太阳能 96、太阳能 7.2、涡轮冷凝器 20、热解 1400、化合燃烧室 550、
   通量反应堆 18000、新质反应堆 8400
 
-### 3. 兵厂 T1 → T5 大循环（给台数，例如 `5t5`）
+### 3. 兵厂 T1 → T5 大循环（**在「按目标建筑台数」页选兵厂就行**）
 
-10 条链（6 条原版 + 3 条 Erekir + 1 条 prime-refabricator），选链和顶级单位速率后按层级倒推：
+不必单开一类：左侧选一个兵厂、填台数，选中兵厂的那一刻就直接按大循环算——
+「台数」指的是**这一级要几台**，其它层级由它反推（选 T1 工厂就是"1 座 dagger 厂"，选 T5 就是"5 座 T5 厂"）。
+
+- 一个工厂服务多条线时（`tetrative-reconstructor` 同时升地面/空军/机甲）：单位工厂用「生产计划」下拉选线，
+  重建厂用新出现的「升级线」下拉选线，默认优先 dagger 线；
+- `5t5` / `3t4` 这种写法仍可在 URL 与 CLI 里用作快捷方式（`?chain=dagger&chainexpr=5t5`、`--chainexpr 5t5`）。
+
+10 条链（6 条原版 + 3 条 Erekir + 1 条 prime-refabricator），选定顶级台数后按层级倒推：
 
 1. 每级台数 = `ceil(目标速率 / 单台每秒)`，各自按自己的 `constructTime` 折算，**不必 1:1**
    （例如 1 台 T4 `scepter` 0.0111/s 能带 **2.67 台** T5 `reign` 0.00417/s）；
@@ -77,7 +84,7 @@
 
 **输入方式有两种**：给台数（`5t5` = 5 台 T5 厂，满效）或给速率（`0.02` = 每秒 0.02 个 T5 单位）。
 
-以 `5t5` 为例（`<input id="chainexpr">` 里直接写）：
+以「5 台 T5」为例（页面上选 `tetrative-reconstructor` + 台数 5，等价写法 `5t5`）：
 
 | 层级 | 单位 | 方块 | 台数 | 单台/s | 产能/s | 实际/s |
 |---|---|---|---|---|---|---|
@@ -128,7 +135,10 @@ index.html?mode=building&block=graphite-press&count=2&depth=4
 index.html?block=graphite-press&count=2&src=coal:drill:laser-drill:8:0&gen=combustion-generator&genfuel=coal
 index.html?block=silicon-smelter&count=3&boundary=coal,sand&src=sand:multi:disassembler&gen=steam-generator
 index.html?block=silicon-smelter&count=3&src=sand:drill:laser-drill:8:1&src=water:pump:rotary-pump
-index.html?mode=item&item=silicon&rate=1&chain=dagger&chainexpr=5t5
+# 兵厂大循环（等价于「选中 T5 兵厂 + 台数 5」）
+index.html?chain=dagger&chainexpr=5t5
+index.html?mode=building&block=tetrative-reconstructor&count=5
+index.html?mode=item&item=silicon&rate=1
 index.html?mode=item&item=graphite&rate=1&src=coal:belt:belt-blue
 index.html?mode=item&item=silicon&rate=5&force=silicon=silicon-crucible
 ```
@@ -146,7 +156,8 @@ node ratio-calc/cli.cjs --item silicon --rate 5
 node ratio-calc/cli.cjs --block graphite-press --count 2 --format json
 node ratio-calc/cli.cjs --block silicon-smelter --count 3 --boundary coal,sand \
      --src sand=drill:laser-drill:8:1 --gen steam-generator --genfuel coal --format md
-node ratio-calc/cli.cjs --chain dagger --chainexpr 5t5
+node ratio-calc/cli.cjs --block tetrative-reconstructor --count 5   # 选兵厂 + 台数 = 大循环
+node ratio-calc/cli.cjs --chain dagger --chainexpr 5t5              # 等价写法
 node ratio-calc/cli.cjs --item graphite --rate 1 --src coal=belt:belt-grey
 node ratio-calc/cli.cjs --block silicon-smelter --count 3 --src sand=drill:laser-drill:8 \
      --src water=pump:rotary-pump --format md   # 水自己抽
@@ -156,8 +167,9 @@ node ratio-calc/cli.cjs --list          # 列出物品/工厂/兵厂/发电厂/�
 | 参数 | 说明 |
 |---|---|
 | `--item X --rate N` | 按目标产物速率算（次模式） |
-| `--block X --count N` | 按满效建筑台数算（主模式，工厂与兵厂都行） |
-| `--plan N` | 兵厂有多个生产计划时选第 N 个（默认 0） |
+| `--block X --count N` | 按满效建筑台数算（主模式）。**选兵厂时自动走 T1→T5 大循环**：`count` 就是这一级的台数 |
+| `--plan N` | 兵厂有多个生产计划时选第 N 个（默认 0）；`--block ground-factory --plan 1` 就是 crawler 线 |
+| `--chainline 单位` | 一台重建厂能升多条线时指定升级线（默认优先 dagger 线） |
 | `--chain 单位 --chainexpr 5t5` | 兵厂大循环，给台数（5 台 T5 厂满效），反推 T4/T3/T2/T1 台数与整链资源 |
 | `--chain 单位 --chainrate N` | 同上，但按每秒几个顶级单位给 |
 | `--src 物品=belt:belt-grey` | 外部运入细分成带子/接收台：`belt-grey`(6.9/s)、`belt-blue`(12.015/s)、`belt-green`(40/s)、`phase-bridge`(30/s，18 电)、`mass-driver`(36/s，105 电)、`pad`(不限)、`other`(不限) |
@@ -285,14 +297,16 @@ python -X utf8 ratio-calc/card.py --json result.json --out card.png   # 喂现�
 ## 已验证
 
 ```
-node ratio-calc/test_core.cjs   → 14 项对拍 mbo calc 全部一致 + 新算法断言全部通过
-node ratio-calc/test_page.cjs   → 49 项页面链路断言通过
-node ratio-calc/test_cli.cjs    → 31 项 CLI/HTTP 与 core.js 对拍通过
+node ratio-calc/test_core.cjs   → 14 项对拍 mbo calc 全部一致 + 72 项新算法断言通过（共 86 行 ok）
+node ratio-calc/test_page.cjs   → 55 项页面链路断言通过
+node ratio-calc/test_cli.cjs    → 36 项 CLI/HTTP 与 core.js 对拍通过
 ```
 
 对拍用例覆盖石墨/硅/合金/玻璃/塑料/爆炸物/燃烧物/相织物/孢子荚 + 3 个 `--force`；
 新算法断言覆盖钻头速率（含加水、煤硬度 2）、发电台数与燃料、分离机/解离机加权产物、
-来源替换后的机器表与电力重算、dagger 与 stell 两条升级链。
+来源替换后的机器表与电力重算、抽水机台数与液体来源、入料方式 7 种、`5t5` 反推（1/1/1/2/5）、
+`chainsForBlock`/`chainFromBlock`（同一重建厂多线、默认 dagger、指定 flare → eclipse）、
+dagger 与 stell 两条升级链。
 
 截图用 Edge headless（Chrome headless 在这台机器上会超时被 kill）：
 `--headless=new --disable-gpu --no-sandbox --window-size=1180,2000 --virtual-time-budget=5000 --screenshot=...`

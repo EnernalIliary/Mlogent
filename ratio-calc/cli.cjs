@@ -144,6 +144,35 @@ function query(opts) {
 
   if (opts.block) {
     const count = num(opts.count, 1);
+    /* 选中的是兵厂 → 直接走 T1→T5 大循环（和页面「按目标建筑台数」一致） */
+    const selB = env.idx ? R.anyBlock(env.idx, String(opts.block)) : null;
+    if (selB && selB.kind === "unit") {
+      const planIdx = num(opts.plan, 0);
+      const line = selB.plans && selB.plans[planIdx] ? selB.plans[planIdx].unit : (opts.chainline ? String(opts.chainline) : null);
+      const ch = R.chainFromBlock(DATA, String(opts.block), count, line ? { chainStart: line } : null);
+      if (ch) {
+        const machines = {};
+        ch.rows.forEach(r => { if (r.count > 0) machines[r.block] = (machines[r.block] || 0) + r.count; });
+        res.mode = "chain";
+        res.chain = ch;
+        res.target = ch.start + " → " + ch.top;
+        res.requested = { topCount: count, topTier: ch.topTier };
+        const mine = ch.rows.filter(r => r.tier === ch.topTier)[0];
+        res.products = [{ name: mine ? mine.unit : ch.top, type: "unit", rate: mine ? mine.capacity : ch.achieved }];
+        res.machines = Object.keys(machines).sort().map(name => {
+          const b = R.anyBlock(env.idx, name);
+          return {
+            name, count: machines[name], kind: b ? b.kind : "unit",
+            icon: b ? (b.icon || "") : "", size: b ? b.size : 0,
+            powerEach: b ? b.power : 0, powerTotal: b ? b.power * machines[name] : 0,
+            outItems: [], outputs: []
+          };
+        });
+        res.demand = Object.keys(ch.materials).sort().map(k => ({ name: k, perSecond: ch.materials[k] }));
+        res.power = ch.power;
+        return res;
+      }
+    }
     const r = R.expandBuilding(DATA, String(opts.block), count, {
       boundary: boundary, force: force, maxDepth: depth,
       plan: num(opts.plan, 0), sources: sources
@@ -254,22 +283,23 @@ function renderText(res) {
         ? c.topCount + " 台 T" + c.topTier + "（≈ " + fmtNum(c.rate) + "/s）"
         : fmtNum(c.rate) + " 台/s"));
     c.rows.forEach(r => {
+      const it = (r.items || []).filter(i => i.perSecond > 0);
       L.push("  T" + r.tier + "  " + r.block + " ×" + r.count
-        + "  → " + r.unit + " " + fmtNum(r.actual) + "/s"
-        + (r.items.length ? "（" + r.items.map(i => i.name + " " + fmtNum(i.perSecond) + "/s").join("、") + "）" : ""));
+        + (r.count > 0 ? "  → " + r.unit + " " + fmtNum(r.actual) + "/s" : "（不建）")
+        + (it.length ? "（" + it.map(i => i.name + " " + fmtNum(i.perSecond) + "/s").join("、") + "）" : ""));
     });
     L.push("  合计：" + c.rows.reduce((a, r) => a + r.count, 0) + " 台兵厂，电力 " + fmtNum(c.power) + "/s");
     if (c.bottleneck) {
       L.push("  整链实际达成 " + fmtNum(c.achieved) + "/s（受最慢的 T" + c.bottleneckTier + " " + c.bottleneck + " 限制）");
     }
     c.rows.forEach((r, i) => {
-      if (r.feedsNext && c.rows[i + 1]) {
+      if (r.count > 0 && r.feedsNext && c.rows[i + 1] && c.rows[i + 1].count > 0) {
         L.push("  比例：1 台 T" + r.tier + " " + r.unit + " 能带 " + fmtNum(r.feedsNext)
           + " 台 T" + c.rows[i + 1].tier + " " + c.rows[i + 1].unit
           + "（台数不必 1:1，按各自建造时间算）");
       }
     });
-    const mats = Object.keys(c.materials);
+    const mats = Object.keys(c.materials).filter(k => c.materials[k] > 0);
     if (mats.length) {
       L.push("  材料：" + mats.map(k => k + " " + fmtNum(c.materials[k]) + "/s").join("、"));
       L.push("  材料（每分钟）：" + mats.map(k => k + " " + fmtNum(c.materials[k] * 60) + "/min").join("、"));

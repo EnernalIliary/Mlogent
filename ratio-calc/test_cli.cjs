@@ -71,19 +71,34 @@ ok("建筑模式 graphite-press ×2（煤 2.667/s）", () => {
   close(res.demand.filter(d => d.name === "coal")[0].perSecond, 2.666666, 1e-5);
 });
 
-ok("建筑模式 ground-factory ×2：电力含兵厂自己(144) + 上游", () => {
+ok("建筑模式选兵厂 → 自动走大循环（ground-factory ×2）", () => {
   const res = cli.query(cli.parseArgs(["--block", "ground-factory", "--count", "2"]));
+  assert.strictEqual(res.mode, "chain");
+  assert.strictEqual(res.chain.start, "dagger");
   const gf = res.machines.filter(m => m.name === "ground-factory")[0];
+  assert.strictEqual(gf.count, 2);
   close(gf.powerTotal, 144);
-  assert.ok(res.power > 144, "电力应包含上游：" + res.power);
+  close(res.power, 144);
   assert.strictEqual(res.products[0].type, "unit");
+  assert.strictEqual(res.products[0].name, "dagger");
+  close(res.products[0].rate, 0.133, 1e-3);
+  close(res.demand.filter(d => d.name === "silicon")[0].perSecond, 1.333, 1e-3);
 });
 
-ok("兵厂多计划：默认第 1 个，--plan 1 换 crawler", () => {
+ok("兵厂链 T1 少建时：0 台层级不进清单、材料不留 0", () => {
+  const res = cli.query(cli.parseArgs(["--block", "ground-factory", "--count", "1"]));
+  const txt = cli.renderText(res);
+  assert.ok(txt.indexOf("不建") >= 0, txt);
+  assert.ok(!/ 0\/s/.test(txt), "不该出现 0/s 材料：\n" + txt);
+  assert.strictEqual(res.machines.length, 1);
+});
+
+ok("兵厂多计划：--plan 1 换 crawler 线", () => {
   const a = cli.query(cli.parseArgs(["--block", "ground-factory", "--count", "1"]));
   const b = cli.query(cli.parseArgs(["--block", "ground-factory", "--count", "1", "--plan", "1"]));
-  assert.notStrictEqual(a.products[0].name, b.products[0].name);
-  assert.ok(a.warnings.some(w => w.indexOf("生产计划") >= 0));
+  assert.strictEqual(a.products[0].name, "dagger");
+  assert.strictEqual(b.products[0].name, "crawler");
+  assert.strictEqual(b.chain.start, "crawler");
 });
 
 /* 3. 外部来源：钻头台数/液体、多产物副产物 */

@@ -171,5 +171,22 @@ const gPad = graphiteWith("pad");
 eq("接收台：不限速（台数留空）", gPad.sources.filter(s => s.item === "coal")[0].count, null);
 eq("入料方式共 7 种", (DATA.channels || []).length, 7);
 
+// 建筑页选兵厂 → chainFromBlock（和页面/CLI 同一条路）
+const candT = R.chainsForBlock(DATA, "tetrative-reconstructor");
+eq("chainsForBlock(tetrative)：多条线可选", candT.length > 1, true);
+eq("chainsForBlock 首选 dagger 线", candT[0].start, "dagger");
+eq("chainsForBlock：tetrative 在第 5 级", candT[0].tier, 5);
+const cb1 = R.chainFromBlock(DATA, "ground-factory", 2);
+eq("chainFromBlock(ground-factory ×2)：台数 [2,0,0,0,0]", cb1.rows.map(r => r.count), [2, 0, 0, 0, 0]);
+eq("chainFromBlock：topTier 1", cb1.topTier, 1);
+near("chainFromBlock：电力 144", cb1.power, 144, 1e-9);
+const cb2 = R.chainFromBlock(DATA, "tetrative-reconstructor", 5);
+eq("chainFromBlock(tetrative ×5)：1/1/1/2/5", cb2.rows.map(r => r.count), [1, 1, 1, 2, 5]);
+eq("chainFromBlock 默认走 dagger", cb2.start, "dagger");
+const cb3 = R.chainFromBlock(DATA, "tetrative-reconstructor", 5, { chainStart: "flare" });
+eq("chainFromBlock 指定 flare 线", cb3.start, "flare");
+eq("flare 线 T5 是 eclipse", cb3.rows[4].unit, "eclipse");
+eq("chainFromBlock(物品工厂) 返回 null", R.chainFromBlock(DATA, "graphite-press", 1), null);
+
 console.log(f2 ? `\n${f2} 项新算法断言失败` : "\n新算法断言全部通过");
 process.exit(bad || f2 ? 1 : 0);

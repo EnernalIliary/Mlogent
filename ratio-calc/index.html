@@ -178,19 +178,17 @@
     </div>
     <table id="powertable"></table>
 
-    <div class="mode-item hidden" id="chainsec">
-      <div class="sec">兵厂大循环 T1→T5（写 <code>5t5</code> = 5 台 T5 厂满效，自动反推 T4/T3/T2/T1 要几台、整链吃多少料）</div>
-      <div class="bar" id="chainbar">
-        <div><label for="chain">升级链</label><select id="chain"></select></div>
-        <div><label for="chainexpr">目标</label><input id="chainexpr" type="text" size="12" value="5t5"
-             title="5t5 = 5 台 T5 厂满效；也可以直接写每秒几个，如 0.02"></div>
+    <div class="mode-block hidden" id="chainsec">
+      <div class="sec">兵厂大循环 T1→T5（选中兵厂 + 台数就自动反推：下面各级要几台、整链吃多少料）</div>
+      <div class="bar" id="chainlinebar" style="display:none">
+        <div><label for="chainline">升级线</label><select id="chainline"></select></div>
       </div>
       <table id="chaintable"></table>
       <div class="sec" id="chainressec">整链资源（/s 与 /min）</div>
       <table id="chainres"></table>
     </div>
 
-    <div class="sec">递归树（层数可改；超过层数的部分按外部输入统计）</div>
+    <div class="sec">递归树（层数可改；超过层数的部分按外部输入统计）</div>    <div class="sec">递归树（层数可改；超过层数的部分按外部输入统计）</div>
     <div class="tree" id="tree"></div>
 
     <div class="sec">这些产物有多个配方（点一下换配方再算）</div>
@@ -307,10 +305,6 @@
     if (idx.generators.has("combustion-generator")) el("gen").value = "combustion-generator";
     syncGenFuel();
 
-    el("chain").innerHTML = idx.unitChains.map(function (c) {
-      return '<option value="' + esc(c.start) + '">' + esc(c.start) + " → " +
-        esc(c.tiers[c.tiers.length - 1].unit) + "（T" + c.tiers.length + "）</option>";
-    }).join("");
   })();
 
   /* ---- 液体需求表：水 / 油 / 冷冻液…，这些得自己接管线 ---- */
@@ -502,31 +496,73 @@
   }
 
   /* ---- 兵厂 T1→T5 大循环表 ---- */
-  /* 「5t5」= 5 台 T5 厂满效；也可以写每秒几个单位（0.02） */
-  function parseChainExpr(text) {
-    var s = String(text == null ? "" : text).trim();
-    var m = /^(\d+(?:\.\d+)?)\s*[x×*]?\s*t\s*([1-5])$/i.exec(s);
-    if (m) return { kind: "count", count: parseFloat(m[1]), tier: parseInt(m[2], 10) };
-    var r = parseFloat(s);
-    return { kind: "rate", rate: r > 0 ? r : 0.01 };
+  /* 选中的是兵厂（unit 类）时，直接按「该厂 × 台数」走大循环，不用另填链与目标 */
+  function chainForSelected() {
+    var b = blockOf(curBlock);
+    if (!b || b.kind !== "unit") return null;
+    var count = Math.max(1, parseInt(el("count").value, 10) || 1);
+    var b0 = blockOf(curBlock);
+    var line = "";
+    if (b0 && b0.plans && b0.plans.length > 1) {
+      var pi = parseInt(el("plan").value || "0", 10) || 0;
+      line = b0.plans[pi] ? b0.plans[pi].unit : "";
+    } else {
+      line = el("chainline").value || "";
+    }
+    return R.chainFromBlock(DATA, curBlock, count, line ? { chainStart: line } : null);
   }
 
-  function chainFor(start, expr) {
-    var e = parseChainExpr(expr);
-    if (e.kind === "count") return R.chainFromTop(DATA, start, e.tier, e.count);
-    return R.unitChain(DATA, start, e.rate);
+  /* 同一个重建厂能升多条线时，给个下拉选；只有一条就藏起来 */
+  function renderChainLine() {
+    var bar = el("chainlinebar"), sel = el("chainline");
+    var cands = (R.chainsForBlock && R.chainsForBlock(DATA, curBlock)) || [];
+    var b0 = blockOf(curBlock);
+    /* 单位工厂本身有「生产计划」下拉（dagger/crawler/nova），就不要再重复给升级线 */
+    if (b0 && b0.plans && b0.plans.length > 1) cands = [];
+    if (cands.length <= 1) {
+      if (bar) bar.style.display = "none";
+      sel.innerHTML = "";
+      el("chainline").value = "";
+      return;
+    }
+    var keep = sel.value;
+    sel.innerHTML = cands.map(function (c) {
+      return '<option value="' + esc(c.start) + '">' + esc(c.start) + " → " + esc(c.top) +
+        "（T1→T" + c.tiers + "）</option>";
+    }).join("");
+    if (keep && cands.some(function (c) { return c.start === keep; })) el("chainline").value = keep;
+    if (bar) bar.style.display = "";
+  }
+
+  /* 把链结果摊成和 expandBuilding 一样的结果结构，供机器表/边界表/电力复用 */
+  function chainToRes(ch) {
+    var machines = {};
+    ch.rows.forEach(function (r) { if (r.count > 0) machines[r.block] = (machines[r.block] || 0) + r.count; });
+    /* 目标级自己的产出（满效产能），不是整链最慢段的达成值 */
+    var mine = ch.rows.filter(function (r) { return r.tier === ch.topTier; })[0];
+    var made = mine ? mine.capacity : ch.achieved;
+    return {
+      mode: "chain", block: curBlock, count: ch.topCount, machines: machines,
+      demand: ch.materials, power: ch.power,
+      products: [{ name: mine ? mine.unit : ch.top, type: "unit", rate: made }],
+      achieved: ch.achieved, chain: ch, tree: null, order: [], warnings: []
+    };
   }
 
   function renderChain() {
-    var start = el("chain").value;
-    if (!start) { el("chaintable").innerHTML = ""; el("chainres").innerHTML = ""; return; }
-    var ch;
-    try { ch = chainFor(start, el("chainexpr").value); }
-    catch (e) {
-      el("chaintable").innerHTML = '<tr><td class="dim">' + esc(e.message) + "</td></tr>";
+    var sec = el("chainsec");
+    var ch = null;
+    try { ch = chainForSelected(); } catch (e) { ch = null; }
+    if (!ch) {
+      if (sec && sec.classList) sec.classList.add("hidden");
+      if (el("chainlinebar")) el("chainlinebar").style.display = "none";
+      el("chaintable").innerHTML = "";
       el("chainres").innerHTML = "";
-      return;
+      return null;
     }
+    if (sec && sec.classList) sec.classList.remove("hidden");
+    renderChainLine();
+
     var counted = ch.topCount != null;
     var isTop = function (r) { return counted && r.tier === ch.topTier; };
     var h = '<tr><th>层级</th><th>单位</th><th>方块</th><th class="num">台数</th>' +
@@ -540,13 +576,13 @@
         (isTop(r) ? ' <span class="tag">目标</span>' : "") + "</td><td>" + unitLabel(r.unit) +
         "</td><td>" + blockLabel(r.block) + "</td>" +
         '<td class="num">' + r.count + '</td><td class="num">' + num(r.perSecond) + "</td>" +
-        '<td class="num">' + num(r.capacity) + '</td><td class="num">' + num(r.actual) + "</td>" +
-        '<td class="num">' + Math.round((r.utilization || 0) * 100) + '%</td>' +
+        '<td class="num">' + (dim ? "—" : num(r.capacity)) + '</td><td class="num">' + (dim ? "—" : num(r.actual)) + "</td>" +
+        '<td class="num">' + (dim ? "—" : Math.round((r.utilization || 0) * 100) + "%") + '</td>' +
         '<td class="num">' + (r.feedsNext ? num(r.feedsNext) + " 台" : '<span class="dim">—</span>') + "</td>" +
         '<td class="num">' + num(r.power) + "</td>" +
-        "<td>" + (r.items.length ? r.items.map(function (i) {
+        "<td>" + (dim ? "不建" : (r.items.length ? r.items.filter(function (i) { return i.perSecond > 0; }).map(function (i) {
           return itemLabel(i.name, "sm") + " " + num(i.perSecond);
-        }).join(" · ") : "—") + "</td></tr>";
+        }).join(" · ") : "—")) + "</td></tr>";
     }).join("");
     var totalMachines = ch.rows.reduce(function (a, r) { return a + r.count; }, 0);
     var wantText = counted
@@ -559,8 +595,7 @@
       '<td class="num">' + num(ch.power) + "</td><td></td></tr>";
     el("chaintable").innerHTML = h + rows;
 
-    /* 整链资源：把每一级的材料汇总成 /s 与 /min */
-    var mk = Object.keys(ch.materials);
+    var mk = Object.keys(ch.materials).filter(function (k) { return ch.materials[k] > 0; });
     var mh = '<tr><th>资源</th><th class="num">每秒</th><th class="num">每分钟</th></tr>';
     var mbody = mk.map(function (k) {
       return '<tr><td>' + itemLabel(k) + '</td><td class="num">' + num(ch.materials[k]) +
@@ -570,7 +605,8 @@
       '</td><td class="num dim">—</td></tr>' +
       '<tr><td class="dim">电力</td><td class="num">' + num(ch.power) +
       '</td><td class="num dim">—</td></tr>';
-    el("chainres").innerHTML = mh + (mk.length ? mbody : mbody);
+    el("chainres").innerHTML = mh + mbody;
+    return ch;
   }
 
 
@@ -731,9 +767,23 @@
     if (q.gen && idx.generators.has(q.gen)) { el("gen").value = q.gen; syncGenFuel(); }
     if (q.genfuel) el("genfuel").value = q.genfuel;
     if (q.gencount) el("gencount").value = q.gencount;
-    if (q.chain) el("chain").value = q.chain;
-    if (q.chainexpr) el("chainexpr").value = q.chainexpr;
-    else if (q.chainrate) el("chainexpr").value = q.chainrate;
+    // 兵厂链：?chain=dagger&chainexpr=5t5 等价于「选中第 5 级兵厂 + 台数 5」
+    if (q.chain) {
+      var chainHit = (idx.unitChains || []).filter(function (c) { return c.start === q.chain; })[0];
+      if (chainHit) {
+        var expr = chainLink(q.chainexpr || q.chainrate || "");
+        if (expr.tier && chainHit.tiers[expr.tier - 1]) {
+          curBlock = chainHit.tiers[expr.tier - 1].block;
+          el("count").value = String(Math.max(1, expr.count));
+          mode = "building";
+        } else if (expr.rate) {
+          var topT = chainHit.tiers[chainHit.tiers.length - 1];
+          curBlock = topT.block;
+          el("count").value = String(Math.max(1, Math.ceil(expr.rate / topT.perSecond - 1e-9)));
+          mode = "building";
+        }
+      }
+    }
     // 外部来源：?src=sand:drill:laser-drill:8:1,scrap:multi:disassembler,water:pump:rotary-pump
     // 同一个 key 可以出现多次（?src=a&src=b），先拼成一个数组再拆
     var srcList = q.src === undefined ? [] : (Array.isArray(q.src) ? q.src : [q.src]);
@@ -774,6 +824,15 @@
     });
     return out;
   }
+  /* 「5t5」→ {tier:5, count:5}；「0.02」→ {rate:0.02} */
+  function chainLink(text) {
+    var t = String(text == null ? "" : text).trim();
+    var m = /^(\d+(?:\.\d+)?)\s*[x×*]?\s*t\s*([1-5])$/i.exec(t);
+    if (m) return { tier: parseInt(m[2], 10), count: parseFloat(m[1]) };
+    var r = parseFloat(t);
+    return { rate: r > 0 ? r : 0, tier: 0, count: 1 };
+  }
+
   function num(x) { return (Math.round(x * 1000) / 1000).toString(); }
   function esc(s) { return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;"); }
 
@@ -788,7 +847,10 @@
       if (mode === "building") {
         var count = Math.max(1, parseInt(el("count").value, 10) || 1);
         var plan = parseInt(el("plan").value || "0", 10) || 0;
-        res = R.expandBuilding(DATA, curBlock, count, { boundary: boundary, force: forced, plan: plan, maxDepth: depth });
+        var selB = blockOf(curBlock);
+        var ch = (selB && selB.kind === "unit") ? R.chainFromBlock(DATA, curBlock, count) : null;
+        res = ch ? chainToRes(ch)
+                 : R.expandBuilding(DATA, curBlock, count, { boundary: boundary, force: forced, plan: plan, maxDepth: depth });
       } else {
         var rate = parseFloat(el("rate").value);
         if (!(rate > 0)) { alert("速率要大于 0"); return; }
@@ -813,7 +875,8 @@
       }).join(" · ");
       cards = [
         ["目标建筑", blockImg(curBlock, 18) + ' <span class="name">' + esc(curBlock) + '</span>', "wrap"],
-        ["台数", "× " + res.count + "（满效）"],
+        ["台数", "× " + res.count + (res.mode === "chain"
+          ? "（T" + res.chain.topTier + " 级，满效）" : "（满效）")],
         ["产出", prodText || "—", "wrap"],
         ["机器总数", String(totalMachines)],
         ["电力需求", num(res.power) + "/s"],
@@ -862,7 +925,9 @@
     renderPower(res.power);
     renderChain();
 
-    el("tree").innerHTML = renderTree(res.tree, 0, true);
+    el("tree").innerHTML = res.tree
+      ? renderTree(res.tree, 0, true)
+      : '<div class="dim">兵厂链没有物品递归树，见上方大循环表。</div>';
 
     // 多配方物品：哪个被选中、备选是谁
     var used = Object.keys(res.machines);
@@ -984,8 +1049,7 @@
   el("gen").addEventListener("change", function () { syncGenFuel(); if (lastRes) renderPower(lastRes.power); });
   el("genfuel").addEventListener("change", function () { if (lastRes) renderPower(lastRes.power); });
   el("gencount").addEventListener("change", function () { if (lastRes) renderPower(lastRes.power); });
-  el("chain").addEventListener("change", renderChain);
-  el("chainexpr").addEventListener("change", renderChain);
+  el("chainline").addEventListener("change", function () { renderChain(); });
 
   // 测试钩子：无浏览器环境里手动切模式 / 触发计算
   window.__ratio = { setMode: setMode, run: run, mode: function () { return mode; },
@@ -1003,15 +1067,21 @@
                        return el("powertable").innerHTML;
                      },
                      chain: function (start, rate) {
-                       if (start) el("chain").value = start;
-                       if (rate) el("chainexpr").value = String(rate);
-                       renderChain();
+                       var ch = (idx.unitChains || []).filter(function (c) { return c.start === start; })[0];
+                       if (!ch) return "";
+                       var top = ch.tiers[ch.tiers.length - 1];
+                       var n = Math.max(1, Math.ceil(rate / top.perSecond - 1e-9));
+                       curBlock = top.block;
+                       el("count").value = String(n);
+                       setMode("building");
                        return el("chaintable").innerHTML;
                      },
                      chainTop: function (start, tier, count) {
-                       if (start) el("chain").value = start;
-                       el("chainexpr").value = (count || 1) + "t" + (tier || 5);
-                       renderChain();
+                       var ch = (idx.unitChains || []).filter(function (c) { return c.start === start; })[0];
+                       if (!ch || !ch.tiers[(tier || 5) - 1]) return { table: "", res: "" };
+                       curBlock = ch.tiers[(tier || 5) - 1].block;
+                       el("count").value = String(Math.max(1, count || 1));
+                       setMode("building");
                        return { table: el("chaintable").innerHTML, res: el("chainres").innerHTML };
                      },
                      chainRes: function () { return el("chainres").innerHTML; },

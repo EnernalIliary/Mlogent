@@ -107,9 +107,11 @@ check("兵厂模式：机器表有 ground-factory × 2",
       /ground-factory/.test(txt("machines")) && />2</.test(txt("machines")), txt("machines").slice(0, 260));
 check("兵厂模式：产出卡片是 dagger",
       /dagger/.test(txt("cards")) && /0\.133/.test(txt("cards")), txt("cards").slice(0, 260));
-check("兵厂模式：硅被继续展开成硅炉（不是直接当边界）",
-      /silicon-smelter/.test(txt("machines")) && /coal/.test(txt("demand")),
-      txt("machines").slice(0, 300) + " || " + txt("demand").slice(0, 160));
+check("兵厂模式：走大循环（链表出现 T1/T5 两行）",
+      /T1/.test(txt("chaintable")) && /T5/.test(txt("chaintable")), txt("chaintable").slice(0, 200));
+check("兵厂模式：材料直接当边界输入（硅 1.333/s，不再展开硅炉）",
+      /silicon/.test(txt("demand")) && /1\.333/.test(txt("demand")) && !/silicon-smelter/.test(txt("machines")),
+      txt("demand").slice(0, 200));
 check("兵厂模式：同型号兵厂只出现一次",
       txt("machines").split("<tr>").filter((r) => /ground-factory/.test(r)).length === 1,
       txt("machines").slice(0, 300));
@@ -206,9 +208,17 @@ check("兵厂链：利用率列出现", /90%/.test(chain2), chain2.slice(0, 1500
 
 
 // 兵厂链挪到「按目标物品速率」页
-check("兵厂链块属于 item 模式（不是建筑页）",
-  /<div class="mode-item hidden" id="chainsec">[\s\S]{0,600}?id="chainexpr"/.test(html),
+check("兵厂链块属于建筑页（mode-block，不是 item 页）",
+  /<div class="mode-block hidden" id="chainsec">/.test(html),
   (html.match(/.{0,80}chainsec.{0,120}/) || [""])[0]);
+
+window.__ratio.block("graphite-press");
+$("count").value = "1";
+window.__ratio.run();
+check("选中物品工厂时链块隐藏", (function () {
+  const sec = $("chainsec");
+  return sec.classList.contains("hidden") && $("chaintable").innerHTML === "";
+})(), $("chainsec").className);
 
 // 5t5 口径：5 台 T5 厂满效 → 自动反推 T4/T3/T2/T1
 const top5 = window.__ratio.chainTop("dagger", 5, 5);
@@ -218,11 +228,36 @@ check("5t5：资源表有 silicon", /silicon/.test(top5.res), top5.res.slice(0, 
 check("5t5：资源表每分钟列有 2537", /2537/.test(top5.res), top5.res.slice(0, 600));
 
 // 外部入料方式：边界输入旁边有「灰带/蓝带/接收台」下拉
+window.__ratio.block("graphite-press");
+$("count").value = "2";
+window.__ratio.run();
 window.__ratio.src("coal", { type: "import", via: "belt-grey" });
 check("入料方式：来源表出现灰带选项",
   /data-via-item="coal"/.test($("sources").innerHTML) && /灰带/.test($("sources").innerHTML),
   $("sources").innerHTML.slice(0, 400));
 check("入料方式：灰带说明带条数", /条/.test($("sources").innerHTML), $("sources").innerHTML.slice(0, 800));
+
+// 建筑页选兵厂：一台重建厂能升多条线时给「升级线」下拉
+window.__ratio.block("tetrative-reconstructor");
+$("count").value = "5";
+window.__ratio.run();
+check("升级线：多个候选时下拉出现", $("chainlinebar").style.display === "" &&
+  $("chainline").innerHTML.split("<option").length - 1 > 1,
+  $("chainline").innerHTML.slice(0, 300));
+check("升级线：默认第一条是 dagger 线", /dagger/.test($("chainline").innerHTML),
+  $("chainline").innerHTML.slice(0, 200));
+
+$("chainline").value = "flare";
+window.__ratio.run();
+check("升级线：切到 flare 线后 T5 显示 eclipse",
+  /eclipse/.test($("chaintable").innerHTML), $("chaintable").innerHTML.slice(0, 400));
+
+// 只服务一条线的兵厂：下拉藏起来
+window.__ratio.block("ground-factory");
+$("count").value = "2";
+window.__ratio.run();
+check("升级线：候选只有一条时下拉隐藏", $("chainlinebar").style.display === "none",
+  String($("chainlinebar").style.display));
 
 console.log(bad ? `\n${bad} 项失败` : "\n页面链路全部通过");
 process.exit(bad ? 1 : 0);

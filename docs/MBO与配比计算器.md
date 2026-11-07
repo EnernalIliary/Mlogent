@@ -13,7 +13,7 @@
 | 入口 | `python -X utf8 -m mbo <calc\|gen\|opt\|verify\|preview\|build-snapshot>`（在 `MBO/` 下） | 双击 `ratio-calc/index.html`（无服务器、无外网） |
 | 核心模块 | `mbo/gamedata.py` `production.py` `model.py` `layout.py` `codec.py` `engine.py` `validate.py` `logistics.py` `search.py` `sprites.py` `report.py` `cli.py` | `core.js`（内核，浏览器+node 通用）、`data/gamedata.js`（数据+内联图标） |
 | 数据 | `MBO/gamedata/v160.7/{gamedata,units_production,power_drill}.json` | 由 `export_data.py` 从上面三份导出 |
-| 测试 | `python -X utf8 -m unittest discover -s tests`（68 项）、`python -X utf8 gate.py`（12/12） | `node ratio-calc/test_core.cjs`（14 对拍 + 新算法断言）、`node ratio-calc/test_page.cjs`（49 断言）、`node ratio-calc/test_cli.cjs`（35 断言）、`node ratio-calc/test_core.cjs`（14 对拍 + 75 断言） |
+| 测试 | `python -X utf8 -m unittest discover -s tests`（68 项）、`python -X utf8 gate.py`（12/12） | `node ratio-calc/test_core.cjs`（14 对拍 + 新算法断言）、`node ratio-calc/test_page.cjs`（55 断言）、`node ratio-calc/test_cli.cjs`（36 断言）、`node ratio-calc/test_core.cjs`（14 对拍 + 72 断言） |
 | 产物 | `MBO/runs/<run_id>/{blueprint.msch,blueprint.b64.txt,metrics.json,report.md,trace.json,preview.png}` | `ratio-calc/docs/screenshot-*.png` |
 
 约束（用户定的）：规则要程序化（不靠 LLM 拍脑袋）、确定性优先、多目标不塌缩、可追溯可复现。
@@ -101,6 +101,8 @@ pumpPlan(data, liquid, amount, pump)  → {count, perSecondEach, power, inputs, 
 unitChain(data, startUnit, rate, opts) → opts 支持 {topTier, topCount}（给台数，如 5t5）或 rate（给速率）
                                        → {topTier, topCount, rows:[{tier,unit,block,count,perSecond,capacity,actual,utilization,feedsNext,bottleneck,...}],
 chainFromTop(data, startUnit, tier, count, opts) → unitChain 的「给台数」包装（页面/CLI 的 `5t5` 走这条）
+chainsForBlock(data, blockName)      → 这个兵厂属于哪几条升级线 [{start,top,tier,tiers}]，按 CHAIN_PREF（dagger 优先）排序
+chainFromBlock(data, blockName, count, opts) → 选中兵厂 + 台数直接走大循环；opts.chainStart 指定升级线；非兵厂返回 null
                                          achieved, bottleneck, bottleneckTier, power, materials}
 applySources(data, res, cfg)          把边界物品/液体换成本地来源（import / drill / multi / pump）并重算机器与电力
 liquidDemand(idx, machines, extra)    → [{name, perSecond}]（extra = 钻头加速液）
@@ -113,7 +115,8 @@ anyBlock(idx, name)                   统一 blocks/drills/multi/generators 视�
 - **兵厂链口径（2026-11-07 修正）**：台数按各自 `constructTime` 算、**不必 1:1**（1 台 T4 scepter 0.0111/s 能带 2.67 台 T5 reign 0.00417/s）；整链产出 = 各段产能**最小值**（最慢一段决定），材料按实际达成算，多出的机器记"利用率"；`feedsNext` = 1 台本级能带几台上级。
 - **兵厂链给台数（2026-11-08 加）**：输入框 `#chainexpr` 写 `5t5`（5 台 T5 厂满效）或 `0.02`（每秒几个）；`parseChainExpr` 用 `/^(\d+(?:\.\d+)?)\s*[x×*]?\s*t\s*([1-5])$/i` 解析，走 `chainFromTop`。`5t5` 实测：T1–T5 台数 **1/1/1/2/5**、达成 **0.021/s**、瓶颈 reign、**9672 电**、硅 42.292/s（2537/min）、塑料 26.042、钛 17.292、surge-alloy 10.417、相织物 7.292、石墨/玻璃 0.833、铅 0.208。链块只在「按目标物品速率」页显示（`<div class="mode-item hidden" id="chainsec">`），`#chainres` 表给 /s 与 /min。
 - **外部入料方式细分（2026-11-08 加）**：`INPUT_CHANNELS`（`export_data.py`）7 种，键/速率/电力：`belt-grey` 灰带 conveyor 6.9/s 0 · `belt-blue` 蓝带 titanium-conveyor 12.015/s 0 · `belt-green` 绿带 plastanium-conveyor 40/s 0 · `phase-bridge` 布桥 phase-conveyor 30/s 18 · `mass-driver` 质驱 36/s 105 · `pad` 接收台 不限 0 · `other` 其它 不限 0。吞吐 = `speed × 150`（`Conveyor.java:27 itemSpace = 0.4`），与 MBO 真机实测约 4.9 items/s 的口径**不同**，要改只改 `INPUT_CHANNELS`。条数 = `ceil(需求/单条)`，经 `applySources` 的 `type:"import", via` 分支累加进 `res.extraPower`（`recalcPower` 里 `res.power = power + extraPower`，否则会被重算抹掉）。
-- URL 参数：`?mode=building|item&block=&count=&item=&rate=&boundary=&force=&depth=&gen=&genfuel=&gencount=&chain=&chainexpr=5t5&chainrate=&src=sand:drill:laser-drill:8:1,scrap:multi:disassembler,water:pump:rotary-pump,coal:belt:belt-blue`。
+- **兵厂链并进「按目标建筑台数」页（2026-11-08 二次修正，用户 m07495）**：不再单开一类。选中兵厂 + 填台数就自动走大循环（`run()` 里 `selB.kind === "unit"` → `R.chainFromBlock`，`chainToRes` 把链摊成 machines/demand/power/products，`products` 取**目标级自己的满效产能** `rows[topTier-1].capacity`，不是整链 achieved）；同一重建厂服务多条线时用「升级线」下拉（单位工厂则用已有的「生产计划」下拉，避免两个下拉重复），默认优先 dagger 线，`tetrative-reconstructor` 3 个候选、切 flare 后 T5 显示 eclipse；0 台层级显示「×0（不建）」、材料不列 0；`#chainsec` 改成 `mode-block`，`#chain`/`#chainexpr` 输入条删除（`chainLink()` 仍把 URL 的 `?chain=dagger&chainexpr=5t5` 翻译成"选中 T5 兵厂 + 台数 5"）。CLI 侧 `--block <兵厂> --count N` 同样返回 `mode:"chain"` 且填好 machines/demand/power，`--plan N` 映射成升级线。
+- URL 参数：`?mode=building|item&block=&count=&item=&rate=&boundary=&force=&depth=&gen=&genfuel=&gencount=&chain=&chainexpr=5t5&chainrate=&src=sand:drill:laser-drill:8:1,scrap:multi:disassembler,water:pump:rotary-pump,coal:belt:belt-blue`；兵厂链直接 `?mode=building&block=tetrative-reconstructor&count=5` 或 `?chain=dagger&chainexpr=5t5`。
 - 贴图为**原尺寸**且**优先 `-full` 高清整图**（`sprites/generated/block-<名>-full.png`、`unit-<名>-full.png`，缺了回退 `blocks/**` / `units/<名>-base.png`），全部内联 base64：`data/gamedata.js` = 33 工厂 / 17 兵厂 / 14 发电厂 / 10 钻头 / 2 多产物 / 6 抽水泵 / 22 物品 / **139 图标 / 493 中文名 / 1130.8 KB**。
 - 中文名来自 `assetsraw/assets/bundles/bundle_zh_CN.properties`（key 形如 `item.<名>.name` / `block.<名>.name` / `unit.<名>.name`），导出成 `data.names = {items, blocks, units}`；页面标签显示「英文名 + 灰字中文名」，选择格 tooltip 也带中文。
 - 实例：`graphite-press ×2` → 石墨 1.333/s、煤 2.667/s、电力 0；煤改激光钻 8 格 → 3 台激光钻、电力 198 → 燃烧发电机 4 台、烧煤 2/s；`silicon-smelter ×3` + 沙用解离机 → 6 台解离机、电力 1530、副产石墨/钛/钍各 4.8/s、吃废料 24/s；`silicon-smelter ×3` + 沙用激光钻（加水）+ 水用 rotary-pump → 水 14.4/s、泵 2 台（电力 +36）、总电力 324；`dagger 0.05/s` → **1/1/2/5/12** 台、**22872** 电、硅 101.5/s、瓶颈 T5 reign。
