@@ -179,125 +179,199 @@ class Card:
         return img
 
 
+def _machine_section(c, res):
+    """工厂配比结果：机器清单是卡片的正文，放最前面。"""
+    machines = res.get("machines") or []
+    total = sum(int(m.get("count") or 0) for m in machines)
+    c.section("工厂配比：%d 台 · 电力 %s/s" % (total, fmt(res.get("power"))))
+    if not machines:
+        c.note("· 没有要建的机器", DIM)
+        return
+    for m in machines:
+        bits = []
+        if m.get("powerTotal"):
+            bits.append("电 %s/s" % fmt(m["powerTotal"]))
+        outs = [o for o in (m.get("outItems") or []) if o.get("perSecond")]
+        if outs and m.get("kind") in ("item", "unit"):
+            bits.append("、".join("%s %s/s" % (o["name"], fmt(o["perSecond"])) for o in outs[:2]))
+        c.row(m.get("icon"), m.get("name") or "?", "×%d" % int(m.get("count") or 0),
+              " · ".join(bits) or None)
+
+
+def _import_section(c, res):
+    """外部入料：不给来源时默认蓝带（12.015/s 一条），条数 = ceil(需求/单条)。"""
+    demand = [d for d in (res.get("demand") or []) if (d.get("perSecond") or 0) > 0]
+    if not demand:
+        return
+    srcs = {}
+    for s in (res.get("sources") or []):
+        srcs[s.get("item")] = s
+    belts = [s for s in srcs.values() if s.get("type") == "import" and s.get("count")]
+    is_blue = any(s.get("via") == "belt-blue" for s in belts)
+    total = sum(int(s.get("count") or 0) for s in belts)
+    if belts:
+        head = "外部入料（%s）：%d 条带子" % ("默认蓝带" if is_blue else "指定带子", total)
+    else:
+        head = "外部入料"
+    c.section(head)
+    for d in demand:
+        s = srcs.get(d["name"]) or {}
+        sub = None
+        if s.get("type") == "drill":
+            sub = "%s ×%s%s" % (s.get("drill"), s.get("count"), "（加水）" if s.get("boosted") else "（不加水）")
+        elif s.get("type") == "multi":
+            sub = "%s ×%s" % (s.get("block"), s.get("count"))
+            bp = "、".join("%s %s/s" % (b["name"], fmt(b["perSecond"]))
+                          for b in (s.get("byproducts") or [])[:2])
+            if bp:
+                sub += " · 副产 " + bp
+        elif s.get("viaLabel") or s.get("via"):
+            label = s.get("viaLabel") or s.get("via")
+            if s.get("count") is None:
+                sub = "%s · 不限速" % label
+            else:
+                sub = "%s ×%s 条（%s/s）" % (label, int(s["count"]), fmt(s.get("perSecondTotal")))
+        c.row(d.get("icon"), d["name"], "%s/s" % fmt(d.get("perSecond")), sub)
+
+
+def _liquid_section(c, res):
+    liquids = res.get("liquids") or []
+    if not liquids:
+        return
+    pumps = {s["liquid"]: s for s in (res.get("liquidSources") or [])}
+    c.section("液体需求")
+    for l in liquids:
+        src = pumps.get(l["name"])
+        sub = ("%s ×%s（电 %s/s）" % (src["pump"], src["count"], fmt(src.get("power")))
+               if src else "外部运入")
+        c.row(None, l["name"], "%s/s" % fmt(l.get("perSecond")), sub, LIQUID)
+
+
+def _power_section(c, res):
+    sup = res.get("supply")
+    if not sup:
+        return
+    fuel = sup.get("fuel") or {}
+    c.section("供电")
+    c.row(sup.get("icon"), "%s ×%d" % (sup["name"], sup["count"]),
+          "净 %s/s" % fmt(sup.get("netTotal")),
+          ("烧 %s %s/s" % (fuel.get("name"), fmt(fuel.get("perSecond")))) if fuel.get("name") else None,
+          GREEN)
+    for l in sup.get("liquids") or []:
+        c.row(None, "%s（液体）" % l["name"], "%s/s" % fmt(l.get("perSecond")), None, LIQUID)
+
+
+def _warn_section(c, res):
+    warns = res.get("warnings") or []
+    if not warns:
+        return
+    c.section("提示")
+    for w in warns:
+        c.note("· " + w)
+
+
 def build_card(res: dict) -> Card:
+    """一张卡片：**工厂配比结果**是正文，外部入料（默认蓝带）/液体/供电是附注。"""
     c = Card()
     snap = res.get("snapshot") or ""
-    if res.get("mode") == "chain":
+    mode = res.get("mode")
+
+    if mode == "chain":
         ch = res["chain"]
         goal = ("%s 台 T%s ≈ %s/s" % (ch["topCount"], ch.get("topTier"), fmt(ch.get("rate")))
                 if ch.get("topCount") else "%s 台/s" % fmt(ch.get("rate")))
-        c.title("兵厂大循环：%s → %s" % (ch["start"], ch["top"]),
-                None, "目标 %s · %d 级 · 电力 %s/s · %s" % (goal, ch.get("tiers", 0),
-                                                            fmt(ch.get("power")), snap))
-        c.section("各级兵厂（台数按各自建造时间，不必 1:1）")
+        top_icon = None
+        for r in ch["rows"]:
+            if r.get("count"):
+                top_icon = r.get("blockIcon") or r.get("icon")
+                break
+        built = [r for r in ch["rows"] if r.get("count")]
+        shown_top = built[-1]["unit"] if built else ch["top"]
+        head = ("兵厂大循环：%s → %s" % (ch["start"], shown_top) if len(built) > 1
+                else "兵厂：%s ×%s" % (ch["start"], built[0]["count"] if built else 0))
+        c.title(head, top_icon,
+                "目标 %s · 电力 %s/s · %s" % (goal, fmt(res.get("power") or ch.get("power")), snap))
+        c.section("各级兵厂（配比结果 · 台数按各自建造时间）")
         for r in ch["rows"]:
             if not r.get("count"):
                 c.note("  T%s  %s ×0（不建）" % (r["tier"], r["block"]), DIM)
                 continue
-            mat = "、".join("%s %s/s" % (i["name"], fmt(i["perSecond"]))
-                           for i in r.get("items") or [] if i.get("perSecond", 0) > 0)
             right = "%s %s/s" % (r["unit"], fmt(r["actual"]))
-            if r.get("feedsNext"):
-                right += " · 1 台带 %s 台上级" % fmt(r["feedsNext"])
             if r.get("bottleneck"):
                 right += " · 瓶颈"
-            c.row(r.get("icon") or r.get("blockIcon"), "T%s  %s ×%d" % (r["tier"], r["block"], r["count"]),
-                  right, "电 %s/s" % fmt(r.get("power")), BLUE)
-            if mat:
-                c.note("      材料：%s" % mat, DIM)
+            sub = "电 %s/s" % fmt(r.get("power"))
+            if r.get("feedsNext"):
+                sub += " · 1 台带 %s 台上级" % fmt(r["feedsNext"])
+            c.row(r.get("blockIcon") or r.get("icon"),
+                  "T%s  %s ×%d" % (r["tier"], r["block"], r["count"]), right, sub, BLUE)
         if ch.get("bottleneck"):
             c.note("整链实际达成 %s/s（受最慢的 T%s %s 限制）"
                    % (fmt(ch.get("achieved")), ch.get("bottleneckTier"), ch["bottleneck"]), DIM)
-        c.section("合计材料（/s · /min）")
-        for k, v in sorted((ch.get("materials") or {}).items()):
-            if v <= 0:
-                continue
-            c.row(None, k, "%s/s · %s/min" % (fmt(v), fmt(v * 60)))
+        _import_section(c, res)
+        _liquid_section(c, res)
+        _power_section(c, res)
+        _warn_section(c, res)
         return c
 
-    if res.get("mode") == "building":
+    if mode == "building":
         head = "%s ×%s" % (res.get("target"), fmt(res.get("requested")))
         sub = "建筑模式（满效）· %s" % snap
     else:
         head = "%s %s/s" % (res.get("target"), fmt(res.get("requested")))
         sub = "物品模式 · %s" % snap
-    c.title("配比：" + head, (res.get("machines") or [{}])[0].get("icon") if False else None, sub)
 
-    prods = res.get("products") or []
-    if prods:
-        c.section("产出")
-        for p in prods:
-            kind = "单位" if p.get("type") == "unit" else "物品"
-            c.row(p.get("icon"), "%s（%s）" % (p["name"], kind), "%s/s" % fmt(p.get("rate")), None, GREEN)
-
-    c.section("建筑清单（共 %d 台 · 电力 %s/s）"
-              % (sum(m["count"] for m in res.get("machines") or []), fmt(res.get("power"))))
+    icon = None
     for m in res.get("machines") or []:
-        right = "×%d" % m["count"]
-        sub = None
-        if m.get("powerTotal"):
-            sub = "电 %s/s" % fmt(m["powerTotal"])
-        outs = m.get("outItems") or []
-        if outs and m.get("kind") in ("item", "unit"):
-            sub = (sub + " · ") if sub else ""
-            sub += "、".join("%s %s/s" % (o["name"], fmt(o["perSecond"])) for o in outs[:2])
-        c.row(m.get("icon"), m["name"], right, sub)
+        if m.get("name") == res.get("target"):
+            icon = m.get("icon")
+            break
+    if not icon:
+        machines = res.get("machines") or []
+        icon = machines[0].get("icon") if machines else None
+    c.title(head, icon, sub)
 
-    demand = res.get("demand") or []
-    liquids = res.get("liquids") or []
-    if demand:
-        c.section("边界输入（外部运入）")
-        for d in demand:
-            c.row(d.get("icon"), d["name"], "%s/s" % fmt(d["perSecond"]))
-    if liquids:
-        pumps = {s["liquid"]: s for s in (res.get("liquidSources") or [])}
-        c.section("液体需求")
-        for l in liquids:
-            src = pumps.get(l["name"])
-            sub = None
-            if src:
-                sub = "%s ×%d（电 %s/s）" % (src["pump"], src["count"], fmt(src.get("power")))
-            else:
-                sub = "外部运入"
-            c.row(None, l["name"], "%s/s" % fmt(l.get("perSecond")), sub, LIQUID)
+    _machine_section(c, res)
 
-    srcs = res.get("sources") or []
-    if srcs:
-        c.section("外部来源")
-        for s in srcs:
-            if s.get("type") == "drill":
-                c.row(s.get("icon"), "%s ← %s ×%d" % (s["item"], s["drill"], s["count"]),
-                      "%s/s" % fmt(s.get("perSecondTotal")),
-                      "%s 格矿%s" % (s.get("tiles"), "·加水" if s.get("boosted") else "·不加水"))
-            elif s.get("type") == "multi":
-                bp = "、".join("%s %s/s" % (b["name"], fmt(b["perSecond"])) for b in (s.get("byproducts") or [])[:3])
-                c.row(s.get("icon"), "%s ← %s ×%d" % (s["item"], s["block"], s["count"]),
-                      "电 %s/s" % fmt(s.get("power")), bp)
-            else:
-                c.row(None, "%s ← 外部运入" % s["item"], "%s/s" % fmt(s.get("demand")))
+    prods = [p for p in (res.get("products") or []) if p.get("rate")]
+    if prods:
+        parts = []
+        for p in prods[:3]:
+            kind = "单位" if p.get("type") == "unit" else "物品"
+            parts.append("%s %s/s（%s）" % (p["name"], fmt(p.get("rate")), kind))
+        c.note("产出：" + "、".join(parts), GREEN)
 
-    sup = res.get("supply")
-    if sup:
-        c.section("供电")
-        fuel = sup.get("fuel") or {}
-        c.row(sup.get("icon"), "%s ×%d" % (sup["name"], sup["count"]),
-              "净 %s/s" % fmt(sup.get("netTotal")),
-              ("烧 %s %s/s" % (fuel.get("name"), fmt(fuel.get("perSecond")))) if fuel.get("name") else None,
-              GREEN)
-        for l in sup.get("liquids") or []:
-            c.row(None, "%s（液体）" % l["name"], "%s/s" % fmt(l.get("perSecond")), None, LIQUID)
-
-    warns = res.get("warnings") or []
-    if warns:
-        c.section("提示")
-        for w in warns:
-            c.note("· " + w)
+    _import_section(c, res)
+    _liquid_section(c, res)
+    _power_section(c, res)
+    _warn_section(c, res)
     return c
+
+
+def render_png(res: dict, out: str, width: int = 700, scale: float = 1.0) -> str:
+    """把结果 dict 直接画成 PNG，返回绝对路径（bot 侧调这个函数就行）。"""
+    card = build_card(res)
+    card.width = int(width)
+    img = card.render()
+    if scale and scale != 1.0:
+        img = img.resize((int(img.width * scale), int(img.height * scale)), Image.LANCZOS)
+    path = os.path.abspath(out)
+    d = os.path.dirname(path)
+    if d and not os.path.isdir(d):
+        os.makedirs(d, exist_ok=True)
+    img.convert("RGB").save(path, "PNG")
+    return path
+
+
+def card_from_json(path: str, out: str, width: int = 700, scale: float = 1.0) -> str:
+    """喂一份 cli.cjs --format json 的结果文件，出一张卡。"""
+    with io.open(path, encoding="utf-8") as f:
+        res = json.load(f)
+    return render_png(res, out, width=width, scale=scale)
 
 
 def parse_cli(argv):
     """手写解析：本文件自己的参数抽出来，其余原样交给 cli.cjs。"""
-    known = {"--out": "out", "--json": "json", "--data": "data", "--node": "node",
+    known = {"--out": "out", "--json": "json", "--from-json": "json", "--data": "data", "--node": "node",
              "--width": "width", "--scale": "scale"}
     opts = {"out": None, "json": None, "data": None, "node": "node", "width": 700, "scale": 1.0}
     rest = []

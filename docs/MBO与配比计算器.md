@@ -13,7 +13,7 @@
 | 入口 | `python -X utf8 -m mbo <calc\|gen\|opt\|verify\|preview\|build-snapshot>`（在 `MBO/` 下） | 双击 `ratio-calc/index.html`（无服务器、无外网） |
 | 核心模块 | `mbo/gamedata.py` `production.py` `model.py` `layout.py` `codec.py` `engine.py` `validate.py` `logistics.py` `search.py` `sprites.py` `report.py` `cli.py` | `core.js`（内核，浏览器+node 通用）、`data/gamedata.js`（数据+内联图标） |
 | 数据 | `MBO/gamedata/v160.7/{gamedata,units_production,power_drill}.json` | 由 `export_data.py` 从上面三份导出 |
-| 测试 | `python -X utf8 -m unittest discover -s tests`（68 项）、`python -X utf8 gate.py`（12/12） | `node ratio-calc/test_core.cjs`（14 对拍 + 新算法断言）、`node ratio-calc/test_page.cjs`（55 断言）、`node ratio-calc/test_cli.cjs`（36 断言）、`node ratio-calc/test_core.cjs`（14 对拍 + 72 断言） |
+| 测试 | `python -X utf8 -m unittest discover -s tests`（68 项）、`python -X utf8 gate.py`（12/12） | `node ratio-calc/test_core.cjs`（14 对拍 + 新算法断言）、`node ratio-calc/test_page.cjs`（58 断言）、`node ratio-calc/test_cli.cjs`（39 断言）、`node ratio-calc/test_core.cjs`（14 对拍 + 72 断言）、`python -X utf8 ratio-calc/test_card.py`（5 断言） |
 | 产物 | `MBO/runs/<run_id>/{blueprint.msch,blueprint.b64.txt,metrics.json,report.md,trace.json,preview.png}` | `ratio-calc/docs/screenshot-*.png` |
 
 约束（用户定的）：规则要程序化（不靠 LLM 拍脑袋）、确定性优先、多目标不塌缩、可追溯可复现。
@@ -137,6 +137,23 @@ anyBlock(idx, name)                   统一 blocks/drills/multi/generators 视�
 - 液体单独成表：方块条目的 `input_liquids`/`output_liquids` 来自 dump 的 per-tick `amount`×60；`res.liquids` 汇总全链液体（含水钻加速液）。
 - 卡片用 `C:\Windows\Fonts\msyh.ttc`，700px 宽、深色；`--scale 2` 出 2 倍图。示例 `ratio-calc/docs/card-{graphite,unit,chain,pump,bot}.png`。
 - 液体来源：`--src water=pump:rotary-pump`（CLI）/ `src=water:pump:rotary-pump`（URL）/ 页面液体需求表的下拉；`applySources` 迭代 6 轮收敛（泵自己可能吃液体：抽油机吃水 9/s、强化泵吃氢 1.5/s）。
+
+**统一入口（2026-11-08 规范化）** —— 五层各有唯一入口，下层只调上层、不复制算法：
+
+| 层 | 入口 |
+|---|---|
+| `core.js`（唯一算法） | `buildIndex(data)` → `expand` / `expandBuilding` / `chainFromTop` / `chainFromBlock` / `chainsForBlock` / `applySources` / `generatorPlan` / `pumpPlan` / `separatorPlan` / `drillRate` / `unitChain`；常量 `DEFAULT_CHANNEL` |
+| `cli.cjs` | **`query(opts) -> JSON`**、`renderText` / `renderMarkdown` / `renderList`、`loadData`；内部 `chainResult()` 是 `--chain` 与 `--block <兵厂>` **共用**的一段装配 |
+| `serve.cjs` | `handle(req, res)`、`optsFromQuery(q)`（就是 `cli.query`） |
+| `ratio.py` | **`calc(**kw)`**（`query` 的别名）、`text`、`markdown`、`image`、`card(res, out)`、`http_query` |
+| `card.py` | **`build_card(res)`**、`render_png(res, out)`、`card_from_json(path, out)`；`--from-json` = `--json` |
+
+**外部入料默认蓝带**：`core.js` 的 `DEFAULT_CHANNEL = "belt-blue"`（12.015/s 一条）是唯一默认值，网页下拉、CLI、卡片、`ratio.py` 全读它；
+`applySources` 的 import 分支不再要求显式 `via`，缺省即蓝带 ⇒ 每项边界输入**自动给出条数**，条数电耗进 `res.extraPower`。
+
+**bot 卡片内容顺序**（`card.py`，2026-11-08 调整）：① 工厂配比（正文主体，`工厂配比：N 台 · 电力 X/s` + 每台 `×台数 · 电 · 产出`；
+兵厂链模式换成 `各级兵厂（配比结果）`）→ ② 外部入料（默认蓝带，`蓝带 titanium-conveyor ×N 条（12.015/s）`）→ ③ 液体需求 → ④ 供电 → ⑤ 提示。
+`test_card.py` 用结构断言守住"配比在前、蓝带在后、行不重叠、PNG 可渲染"，不靠肉眼看图。
 
 ---
 

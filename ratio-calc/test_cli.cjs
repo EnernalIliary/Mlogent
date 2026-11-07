@@ -314,5 +314,32 @@ ok("--src coal=belt:phase-bridge：电力计入", () => {
   assert.ok(cli.renderText(r).indexOf("电 18") >= 0);
 });
 
+ok("默认入料：不指定 --src 时走蓝带并给出条数", () => {
+  const r = cli.query({ item: "silicon", rate: "5" });
+  const src = (r.sources || []).filter((s) => s.type === "import");
+  assert.ok(src.length >= 2, JSON.stringify(r.sources));
+  src.forEach((s) => {
+    assert.strictEqual(s.via, "belt-blue", JSON.stringify(s));
+    assert.ok(s.count >= 1, JSON.stringify(s));
+    assert.ok(Math.abs(s.perSecondTotal - s.count * 12.015) < 1e-6, JSON.stringify(s));
+  });
+  assert.strictEqual(r.power, 120); // silicon-smelter ×2，带子不耗电
+  const t = cli.renderText(r);
+  assert.ok(t.indexOf("蓝带") >= 0, t);
+  assert.ok(t.indexOf("×1 条") >= 0, t);
+});
+ok("--src coal=import：同样回落蓝带", () => {
+  const r = cli.query({ item: "graphite", rate: "1", src: ["coal=import"] });
+  const s = (r.sources || []).filter((x) => x.type === "import" && x.item === "coal")[0];
+  assert.ok(s && s.via === "belt-blue" && s.count === 1, JSON.stringify(r.sources));
+});
+ok("兵厂链也带外部入料（蓝带条数）", () => {
+  const r = cli.query({ block: "tetrative-reconstructor", count: "5" });
+  assert.strictEqual(r.mode, "chain");
+  assert.ok(Array.isArray(r.sources) && r.sources.length > 0, "no sources");
+  assert.ok(r.sources.every((s) => s.via === "belt-blue"), JSON.stringify(r.sources.slice(0, 3)));
+  assert.ok(r.sources.some((s) => s.item === "silicon" && s.count >= 4), JSON.stringify(r.sources));
+});
+
 console.log("\n通过 " + pass + " 项，失败 " + fail + " 项");
 process.exitCode = fail ? 1 : 0;

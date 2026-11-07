@@ -22,11 +22,31 @@
 
 ## 四块新功能
 
+### 0. 统一入口（先看这一节，别复制算法）
+
+五层各有**唯一入口**，下层只调用上层，不重写算法；bot 只用记一行：
+
+| 层 | 文件 | 入口 | 返回 |
+|---|---|---|---|
+| 内核（唯一算法） | `core.js` | `buildIndex(data)`、`expand`、`expandBuilding`、`chainFromTop`、`chainFromBlock`、`chainsForBlock`、`applySources`、`generatorPlan`、`pumpPlan`、`separatorPlan`、`drillRate`、`unitChain`、`DEFAULT_CHANNEL` | 纯 JS 对象 |
+| 命令行 / HTTP 逻辑 | `cli.cjs` | **`query(opts)`** → JSON；`renderText` / `renderMarkdown` / `renderList`；`loadData` | JSON / 文本 |
+| HTTP | `serve.cjs` | `handle(req, res)`、`optsFromQuery(q)`（内部就是 `cli.query`） | HTTP 响应 |
+| Python | `ratio.py` | **`calc(**kw)`**（= `query`）、`text`、`markdown`、`image`、`card`、`http_query` | dict / str / PNG |
+| 卡片 | `card.py` | **`build_card(res)`**、`render_png(res, out)`、`card_from_json(path, out)` | PIL / PNG |
+
+规矩：
+
+1. **默认值只在一处**：外部入料默认蓝带写在 `core.js` 的 `DEFAULT_CHANNEL`，网页下拉、`cli.cjs`、`card.py`、`ratio.py` 全部读它；
+2. **三种模式的 JSON 同构**（`mode: item | building | chain`），字段见下文「JSON 结构」；
+3. `--chain X --chainexpr 5t5` 与 `--block <T5 兵厂> --count 5` 走**同一段装配**（`cli.cjs` 的 `chainResult`），结果按字段逐项相同；
+4. 改算法只改 `core.js`；改数据只改 `export_data.py`。
+
 ### 1. 外部来源可配置（含入料方式：灰带 / 蓝带 / 接收台…）
 
 边界表（页面中部"外部来源"）里，每种边界物品可以选：
 
-- **接收（外部运入）** —— 默认，什么都不算；
+- **接收（外部运入）** —— 默认；入料方式默认**蓝带**（`titanium-conveyor` 12.015/s 一条），
+  条数 = `ceil(需求 / 12.015)`，并按条数算电力（蓝带 0 电，布桥/质驱才算）；
 - **钻头采集** —— 选钻头（10 种）+ 矿格数 + 是否加水/加氢/加氮/加臭氧/加氰；
   台数按 `60 × 矿格数 × speed² / delay` 反推，`delay = (drillTime + hardnessMult × 物品硬度)`，
   `speed` 加水时取该钻头的 `boostIntensity`（机械/气动/激光 1.6 ⇒ 吞吐 ×2.56，爆裂钻 1.8 ⇒ ×3.24）；
@@ -229,7 +249,20 @@ python -X utf8 ratio-calc/card.py --json result.json --out card.png   # 喂现�
 ```
 
 深色主题、700px 宽（`--width` 可改，`--scale` 出 2 倍图），建筑/物品**原尺寸图标**（`size×32px`）随卡片一起画好，
-不依赖 emoji 或外部字体；示例见 `docs/card-graphite.png`、`docs/card-unit.png`、`docs/card-chain.png`、`docs/card-bot.png`。
+不依赖 emoji 或外部字体。
+
+**卡片正文顺序（bot 发图就用这个）**：
+
+1. **工厂配比**（主要内容）：每台机器 `名字 ×台数 · 电力/s · 产出/s`，标题行给"共 N 台 · 电力 X/s"；
+   兵厂链模式下这里是 `各级兵厂（配比结果）`，包含每级台数、单台/s、产能、实际、利用率、1 台带几台上级；
+2. **外部入料（默认蓝带）**：每种边界物品一行，右侧 `X/s`，副标写 `蓝带 titanium-conveyor ×N 条（12.015/s）`、
+   `钻头 ×N（加水）`、`解离机 ×N · 副产 钍 …`、`接收台 · 不限速`；
+3. 液体需求（水/油/冷冻液） → 4. 供电 → 5. 提示（warnings）。
+
+示例：`docs/card-graphite.png`(700×248)、`docs/card-silicon.png`(700×282)、
+`docs/card-chain.png`(700×622)、`docs/card-chain-t1.png`(700×378)、
+`docs/card-via.png`(700×248，蓝带入料)、`docs/card-pump.png`(700×414，钻头 + 抽水机)、
+`docs/card-unit.png`(700×378，兵厂单级)。
 
 ### JSON 结构（三种模式统一）
 
@@ -277,9 +310,10 @@ python -X utf8 ratio-calc/card.py --json result.json --out card.png   # 喂现�
 | `serve.cjs` | **bot 入口**：HTTP 服务（`/calc` `/list` `/healthz`） |
 | `ratio.py` | **bot 入口**：Python 包装（`query/text/markdown/image/http_query`） |
 | `card.py` | **bot 入口**：把结果画成 PNG 卡片（带原尺寸图标） |
-| `test_core.cjs` | 14 项对拍 `mbo calc` + 断项覆盖钻头/发电/多产物/兵厂链/抽水机 |
-| `test_page.cjs` | 最小 DOM 桩跑页面：49 项断言，不用浏览器 |
-| `test_cli.cjs` | 31 项：CLI/HTTP 与 `core.js` 逐项对拍 + 渲染 + 错误分支 |
+| `test_core.cjs` | 14 项对拍 `mbo calc` + 72 项断言：钻头/发电/多产物/兵厂链/抽水机/入料方式 |
+| `test_page.cjs` | 最小 DOM 桩跑页面：58 项断言，不用浏览器 |
+| `test_cli.cjs` | 39 项：CLI/HTTP 与 `core.js` 逐项对拍 + 渲染 + 默认蓝带 + 错误分支 |
+| `test_card.py` | 5 项：卡片结构（配比在前）/ 默认蓝带条数 / 0 台不建 / 行不重叠 / PNG 可渲染 |
 | `docs/screenshot-*.png` | 页面截图（Edge headless） |
 | `docs/card-*.png` | PNG 卡片示例 |
 
@@ -298,8 +332,9 @@ python -X utf8 ratio-calc/card.py --json result.json --out card.png   # 喂现�
 
 ```
 node ratio-calc/test_core.cjs   → 14 项对拍 mbo calc 全部一致 + 72 项新算法断言通过（共 86 行 ok）
-node ratio-calc/test_page.cjs   → 55 项页面链路断言通过
-node ratio-calc/test_cli.cjs    → 36 项 CLI/HTTP 与 core.js 对拍通过
+node ratio-calc/test_page.cjs   → 58 项页面链路断言通过
+node ratio-calc/test_cli.cjs    → 39 项 CLI/HTTP 与 core.js 对拍通过
+python -X utf8 ratio-calc/test_card.py → 5 项卡片结构/排版断言通过
 ```
 
 对拍用例覆盖石墨/硅/合金/玻璃/塑料/爆炸物/燃烧物/相织物/孢子荚 + 3 个 `--force`；

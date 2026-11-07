@@ -382,7 +382,7 @@
       }
 
       if (cfg.type === "import") {
-        var via = cfg.via || "pad";
+        var via = cfg.via || idx.defaultChannel || "belt-blue";
         param = '<select class="tbl-sel" data-via-item="' + esc(item) + '">' +
           idx.channels.map(function (c) {
             return '<option value="' + esc(c.key) + '"' + (c.key === via ? " selected" : "") + ">" +
@@ -1054,6 +1054,7 @@
   // 测试钩子：无浏览器环境里手动切模式 / 触发计算
   window.__ratio = { setMode: setMode, run: run, mode: function () { return mode; },
                      block: function (n) { if (n) { curBlock = n; syncBlockSel(); } return curBlock; },
+                     clearSources: function () { srcCfg = {}; run(); return srcCfg; },
                      src: function (item, cfg) {
                        if (item) { srcCfg[item] = cfg || { type: "import" }; run(); }
                        return srcCfg;

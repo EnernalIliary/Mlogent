@@ -18,6 +18,10 @@
 
   var MAX_DEPTH = 12;
 
+  /* 外部运入的默认入料方式：蓝带（12.015/s）。"外部入料按蓝带默认"就是这里，
+   * 网页下拉 / CLI / 卡片都读这一个常量；要换成绿带或接收台只改这一行。 */
+  var DEFAULT_CHANNEL = "belt-blue";
+
   function buildIndex(data) {
     var blocks = new Map();
     (data.blocks || []).forEach(function (b) {
@@ -162,6 +166,7 @@
       pumps: pumps,
       channels: channels,
       channelsByKey: channelsByKey,
+      defaultChannel: DEFAULT_CHANNEL,
       unitProducers: unitProducers,
       unitChains: chains,
       unitIcons: data.unit_icons || {},
@@ -785,10 +790,11 @@
         row.inputs = sp.inputs; row.inputLiquids = sp.inputLiquids;
         row.byproducts = sp.outputs.filter(function (o) { return o.name !== item; });
         if (n) res.machines[block] = (res.machines[block] || 0) + n;
-      } else if (type === "import" && c.via) {
+      } else if (type === "import") {
         /* 外部运入细分成 灰带/蓝带/绿带/布桥/质驱/接收台/其它：
-         * perSecond>0 的按吞吐算要几条，perSecond=0 视为不限速（接收台/其它） */
-        var ch = idx.channelsByKey.get(c.via);
+         * perSecond>0 的按吞吐算要几条，perSecond=0 视为不限速（接收台/其它）。
+         * 不指定 via 时用默认蓝带。 */
+        var ch = idx.channelsByKey.get(c.via || DEFAULT_CHANNEL);
         if (!ch) throw new Error("未知入料方式：" + c.via);
         row.via = ch.key;
         row.viaLabel = ch.label;
@@ -917,7 +923,7 @@
               chainFromBlock: chainFromBlock, chainsForBlock: chainsForBlock,
               pumpPlan: pumpPlan,
               applySources: applySources, recalcPower: recalcPower,
-              liquidDemand: liquidDemand };
+              liquidDemand: liquidDemand, DEFAULT_CHANNEL: DEFAULT_CHANNEL };
   global.RatioCore = api;
   if (typeof module !== "undefined" && module.exports) module.exports = api;
 })(typeof window !== "undefined" ? window : globalThis);

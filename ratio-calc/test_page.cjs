@@ -259,5 +259,18 @@ window.__ratio.run();
 check("升级线：候选只有一条时下拉隐藏", $("chainlinebar").style.display === "none",
   String($("chainlinebar").style.display));
 
+// 外部入料：不给来源时默认蓝带（12.015/s），并给出条数
+window.__ratio.setMode("item");
+$("item").value = "silicon";
+$("rate").value = "5";
+window.__ratio.clearSources();
+check("默认入料：来源下拉默认选中蓝带",
+  /value="belt-blue" selected/.test($("sources").innerHTML),
+  $("sources").innerHTML.slice(0, 600));
+check("默认入料：蓝带显示条数（×1 条）",
+  /蓝带[^<]*×1 条/.test($("sources").innerHTML), $("sources").innerHTML.slice(0, 900));
+check("默认入料：合计吞吐 12.015/s",
+  /12\.015/.test($("sources").innerHTML), $("sources").innerHTML.slice(0, 900));
+
 console.log(bad ? `\n${bad} 项失败` : "\n页面链路全部通过");
 process.exit(bad ? 1 : 0);

@@ -80,6 +80,9 @@ function parseForce(v) {
 }
 
 /* --src sand=drill:laser-drill:8:1  或  --src scrap=multi:disassembler 或 --src coal=import */
+/* 外部运入的默认入料方式：跟 core.js 的 DEFAULT_CHANNEL 保持一致（蓝带） */
+const DEFAULT_CHANNEL = "belt-blue";
+
 function parseSources(list) {
   if (!list) list = [];
   if (!Array.isArray(list)) list = [list];
@@ -98,10 +101,40 @@ function parseSources(list) {
     };
     else if (type === "multi") cfg[item] = { type: "multi", block: parts[1] || "separator" };
     else if (type === "pump") cfg[item] = { type: "pump", pump: parts[1] || "mechanical-pump" };
-    else if (type === "belt") cfg[item] = { type: "import", via: parts[1] || "belt-grey" };
+    else if (type === "belt") cfg[item] = { type: "import", via: parts[1] || DEFAULT_CHANNEL };
     else throw new Error("未知来源类型：" + type + "（import / drill / multi / pump / belt）");
   });
   return cfg;
+}
+
+/* 链结果 → 统一 JSON 形状（--chain 与 --block <兵厂> 都走这里，避免两份实现） */
+function chainResult(env, ch, count) {
+  const R = env.R;
+  const machines = {};
+  ch.rows.forEach(r => { if (r.count > 0) machines[r.block] = (machines[r.block] || 0) + r.count; });
+  const mine = ch.rows.filter(r => r.tier === ch.topTier)[0];
+  /* 链的材料也要按"外部入料"过一遍，卡片/JSON 才能显示蓝带条数 */
+  const tmp = { machines: Object.assign({}, machines), demand: ch.materials, liquidExtra: {}, extraPower: 0 };
+  R.applySources(env.DATA, tmp, {});
+  const beltPower = tmp.extraPower || 0;
+  return {
+    mode: "chain", chain: ch,
+    target: ch.start + " → " + ch.top,
+    requested: { topCount: count, topTier: ch.topTier },
+    products: [{ name: mine ? mine.unit : ch.top, type: "unit", rate: mine ? mine.capacity : ch.achieved }],
+    machines: Object.keys(machines).sort().map(name => {
+      const b = R.anyBlock(env.idx, name);
+      return {
+        name, count: machines[name], kind: b ? b.kind : "unit",
+        icon: b ? (b.icon || "") : "", size: b ? b.size : 0,
+        powerEach: b ? b.power : 0, powerTotal: b ? b.power * machines[name] : 0,
+        outItems: [], outputs: []
+      };
+    }),
+    demand: Object.keys(ch.materials).sort().map(k => ({ name: k, perSecond: ch.materials[k] })),
+    sources: tmp.sources || [],
+    power: ch.power + beltPower
+  };
 }
 
 /* ---------------- 查询 ---------------- */
@@ -121,25 +154,25 @@ function query(opts) {
   const sources = parseSources(opts.src || []);
 
   const res = {
-    ok: true, mode: null, target: null, requested: null,
+    ok: true, snapshot: DATA.snapshot || "", mode: null, target: null, requested: null,
     products: [], inputs: [], machines: [], demand: [], liquids: [], power: 0,
     warnings: [], sources: [], liquidSources: [], supply: null, chain: null
   };
 
   if (opts.chain) {
-    res.mode = "chain";
+    /* 快捷写法：--chain dagger --chainexpr 5t5 → 等价于"选 T5 兵厂 + 台数 5"，同一条装配路径 */
     const expr = opts.chainexpr !== undefined ? String(opts.chainexpr) : null;
     const m = expr ? /^(\d+(?:\.\d+)?)\s*[x×*]?\s*t\s*([1-5])$/i.exec(expr.trim()) : null;
+    let ch;
     if (m) {
-      res.chain = R.chainFromTop(DATA, String(opts.chain), parseInt(m[2], 10), parseFloat(m[1]));
-      res.requested = { topCount: parseFloat(m[1]), topTier: parseInt(m[2], 10) };
-    } else {
-      const rate = num(opts.chainrate !== undefined ? opts.chainrate : opts.rate, 0.05);
-      res.chain = R.unitChain(DATA, String(opts.chain), rate);
-      res.requested = rate;
+      ch = R.chainFromTop(DATA, String(opts.chain), parseInt(m[2], 10), parseFloat(m[1]));
+      return Object.assign(res, chainResult(env, ch, parseFloat(m[1])));
     }
-    res.target = res.chain.start + " → " + res.chain.top;
-    return res;
+    const rate = num(opts.chainrate !== undefined ? opts.chainrate : opts.rate, 0.05);
+    ch = R.unitChain(DATA, String(opts.chain), rate);
+    const out = Object.assign(res, chainResult(env, ch, ch.topCount || null));
+    out.requested = rate;
+    return out;
   }
 
   if (opts.block) {
@@ -150,28 +183,7 @@ function query(opts) {
       const planIdx = num(opts.plan, 0);
       const line = selB.plans && selB.plans[planIdx] ? selB.plans[planIdx].unit : (opts.chainline ? String(opts.chainline) : null);
       const ch = R.chainFromBlock(DATA, String(opts.block), count, line ? { chainStart: line } : null);
-      if (ch) {
-        const machines = {};
-        ch.rows.forEach(r => { if (r.count > 0) machines[r.block] = (machines[r.block] || 0) + r.count; });
-        res.mode = "chain";
-        res.chain = ch;
-        res.target = ch.start + " → " + ch.top;
-        res.requested = { topCount: count, topTier: ch.topTier };
-        const mine = ch.rows.filter(r => r.tier === ch.topTier)[0];
-        res.products = [{ name: mine ? mine.unit : ch.top, type: "unit", rate: mine ? mine.capacity : ch.achieved }];
-        res.machines = Object.keys(machines).sort().map(name => {
-          const b = R.anyBlock(env.idx, name);
-          return {
-            name, count: machines[name], kind: b ? b.kind : "unit",
-            icon: b ? (b.icon || "") : "", size: b ? b.size : 0,
-            powerEach: b ? b.power : 0, powerTotal: b ? b.power * machines[name] : 0,
-            outItems: [], outputs: []
-          };
-        });
-        res.demand = Object.keys(ch.materials).sort().map(k => ({ name: k, perSecond: ch.materials[k] }));
-        res.power = ch.power;
-        return res;
-      }
+      if (ch) return Object.assign(res, chainResult(env, ch, count));
     }
     const r = R.expandBuilding(DATA, String(opts.block), count, {
       boundary: boundary, force: force, maxDepth: depth,

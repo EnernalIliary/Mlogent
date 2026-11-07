@@ -2,16 +2,28 @@
 # -*- coding: utf-8 -*-
 """配比计算器的 Python 入口（给 Python 写的 bot 用，只用标准库）。
 
+统一入口（推荐 bot 只记这四个 + 一个出图）：
+    calc(**kw) -> dict      一次配比计算，返回和 `node cli.cjs --format json` 完全一样的 dict
+    text(**kw) -> str       文本
+    markdown(**kw) -> str   Markdown 表格（适合消息卡片）
+    image(out, **kw) -> str PNG 卡片（bot 直接发图）
+    http_query(base, **kw)  走 serve.cjs 的 HTTP 版本
+
+`**kw` 就是网页/CLI 的参数名，一一对应：item/rate、block/count、plan/chainline、
+boundary/force/depth/gen/genfuel/gencount/chain/chainexpr/chainrate/src(csv 或列表)。
+
 三种用法：
-  1) 当命令行用（等价于 node cli.cjs，只是多了 --image）：
-       python -X utf8 ratio-calc/ratio.py --item silicon --rate 5
-       python -X utf8 ratio-calc/ratio.py --block ground-factory --count 2 --format md
+  1) 命令行（等价于 node cli.cjs，只是多了 --image）：
+       python -X utf8 ratio-calc/ratio.py --block tetrative-reconstructor --count 5
        python -X utf8 ratio-calc/ratio.py --item silicon --rate 5 --image card.png
   2) 当模块用：
-       from ratio import query, text, markdown, image
-       r = query(item="silicon", rate=5)          # -> dict（和 CLI --format json 一致）
+       from ratio import calc, text, image
+       r = calc(item="silicon", rate=5)                 # dict
        print(text(block="graphite-press", count=2))
-       image(chain="dagger", chainrate=0.05, out="card.png")
+       image(chain="dagger", chainexpr="5t5", out="card.png")
+       # 已经算过一次的话，别重复算：直接拿 dict 出图
+       from ratio import card
+       card(calc(block="ground-factory", count=2), "gf.png")
   3) 连 HTTP 服务（serve.cjs）：
        from ratio import http_query
        r = http_query("http://127.0.0.1:8799", item="silicon", rate=5)
@@ -86,6 +98,19 @@ def image(out: str, scale: float = 1.0, width: int = 700, **kw) -> str:
     return os.path.abspath(out)
 
 
+def card(res: dict, out: str, width: int = 700, scale: float = 1.0) -> str:
+    """拿已经算好的 dict 直接出 PNG（不再跑一次 node）。"""
+    try:
+        from card import render_png          # 同目录，脚本方式跑时会命中
+    except ImportError:
+        import importlib.util
+        spec = importlib.util.spec_from_file_location("ratio_card", CARD)
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        render_png = mod.render_png
+    return render_png(res, out, width=width, scale=scale)
+
+
 def http_query(base: str, timeout: float = 10.0, **kw) -> dict:
     """走 serve.cjs 的 HTTP 服务。"""
     q = {}
@@ -147,6 +172,12 @@ def _flags_to_kw(rest: list) -> dict:
             kw[key.replace("-", "_")] = val
         i += 1
     return kw
+
+
+# 统一入口的别名：calc 是正式名字（query 保留给老调用）
+calc = query
+
+__all__ = ["calc", "query", "text", "markdown", "image", "card", "http_query"]
 
 
 if __name__ == "__main__":
