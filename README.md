@@ -55,7 +55,7 @@ python tools/mlogsim.py logic.mlog --save scene.msav --units mono:1 --core-items
 | `gate.py` | 一键门禁（mirror 一致性 / tests / lint / 语句形状 / 全局副本 / KB 新鲜度） |
 | `rules/` | 41 条规则（33 条在报，8 条 SUPPRESSED），一条一个 JSON，供 `review.py` 逐条审计 |
 | `tests/` | 43 个 golden 用例，`python tests/run_tests.py`（副本陈旧时直接拒绝运行）；`tests/probes/` 是真执行器的运行期断言，`tests/shapes/` 是检查器自身的语句形状不变量（7 形状 x 4 变体），`tests/ruleids/` 断言没有死规则 |
-| `docs/` | 本地知识库说明、`断言表.md`、`验证记录.md`、`速查卡.md`、`Mlog辅助-设计.md`、`MBO与配比计算器.md`（MBO/ratio-calc 的结论、公式、数值表）、`游戏速查/`（物品/方块/单位/配方） |
+| `docs/` | 本地知识库说明、`断言表.md`、`验证记录.md`、`速查卡.md`、`Mlog辅助-设计.md`、`MBO与配比计算器.md` 已退场（内容并入 `knowledge/`）、`游戏速查/`（物品/方块/单位/配方） |
 | `data/game/` | 从 v160.7 真执行器导出的游戏事实（物品/液体/方块/单位/别名），供 `game.py` 与知识库使用 |
 | `Logic/` | `逻辑代码规范.md` 与示例逻辑（个人程序） |
 | `out/scenes/` | 5 张现实场景 `.msav`、3 个合成台（`benches/`：core / memory / processor）、快照 |
