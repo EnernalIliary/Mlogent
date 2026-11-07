@@ -141,5 +141,35 @@ eq("抽水机：补 2 台 rotary-pump", wres.machines["rotary-pump"], 2);
 near("抽水机：电力 90+198+36 = 324", wres.power, 324, 1e-6);
 eq("抽水机：liquidSources 有 1 条", (wres.liquidSources || []).length, 1);
 
+
+// 兵厂链「5t5」口径：给台数（5 台 T5 厂满效），自动反推上面各级台数
+const c5 = R.chainFromTop(DATA, "dagger", 5, 5);
+eq("5t5：台数 1/1/1/2/5", c5.rows.map(r => r.count), [1, 1, 1, 2, 5]);
+eq("5t5：topTier/topCount", [c5.topTier, c5.topCount], [5, 5]);
+near("5t5：整链达成 5×0.004167（保留 3 位 0.021）", c5.achieved, 0.021, 1e-9);
+eq("5t5：瓶颈是 reign", c5.bottleneck, "reign");
+near("5t5：硅 42.292/s", c5.materials.silicon, 42.291666, 1e-4);
+eq("3t4：T5 不参与（0 台）", R.chainFromTop(DATA, "dagger", 4, 3).rows.map(r => r.count), [1, 1, 1, 3, 0]);
+eq("5t1：只有 T1", R.chainFromTop(DATA, "dagger", 1, 5).rows.map(r => r.count), [5, 0, 0, 0, 0]);
+
+// 外部入料方式：灰带 / 布桥（要电）/ 接收台（不限速）
+function graphiteWith(via) {
+  const r = R.expand(DATA, "graphite", 1, ["coal", "sand"], {}, { maxDepth: 6 });
+  R.applySources(DATA, r, { coal: { type: "import", via: via } });
+  return r;
+}
+const gGrey = graphiteWith("belt-grey");
+const coalGrey = gGrey.sources.filter(s => s.item === "coal")[0];
+eq("灰带：煤 2.667/s 要 1 条", coalGrey.count, 1);
+near("灰带：单条 6.9/s", coalGrey.perSecondEach, 6.9, 1e-9);
+near("灰带：不耗电", gGrey.power, 0, 1e-9);
+const gBlue = graphiteWith("belt-blue");
+eq("蓝带：单条 12.015/s", gBlue.sources.filter(s => s.item === "coal")[0].perSecondEach, 12.015);
+const gPhase = graphiteWith("phase-bridge");
+near("布桥：电力 18 计入总量", gPhase.power, 18, 1e-9);
+const gPad = graphiteWith("pad");
+eq("接收台：不限速（台数留空）", gPad.sources.filter(s => s.item === "coal")[0].count, null);
+eq("入料方式共 7 种", (DATA.channels || []).length, 7);
+
 console.log(f2 ? `\n${f2} 项新算法断言失败` : "\n新算法断言全部通过");
 process.exit(bad || f2 ? 1 : 0);

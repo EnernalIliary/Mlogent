@@ -22,7 +22,7 @@
 
 ## 四块新功能
 
-### 1. 外部来源可配置
+### 1. 外部来源可配置（含入料方式：灰带 / 蓝带 / 接收台…）
 
 边界表（页面中部"外部来源"）里，每种边界物品可以选：
 
@@ -37,6 +37,21 @@
 
 钻头/多产物的台数和耗电会并进机器表与总电力。
 
+**外部运入再细分**（"参数"列下拉，7 种；不要傻运，选条带子能看出要几路）：
+
+| key | 入料方式 | 方块 | 速率 | 电力/s | 说明 |
+|---|---|---|---|---|---|
+| `belt-grey` | 灰带 | `conveyor` | 6.9/s | 0 | 最便宜，速度 = `speed × 150` |
+| `belt-blue` | 蓝带 | `titanium-conveyor` | 12.015/s | 0 | 主力 |
+| `belt-green` | 绿带 | `plastanium-conveyor` | 40/s | 0 | 大批量 |
+| `phase-bridge` | 布桥 | `phase-conveyor` | 30/s | 18 | 跨距离，要电 |
+| `mass-driver` | 质驱 | `mass-driver` | 36/s | 105 | 跨地图投送 |
+| `pad` | 接收台 | `landing-pad` | 不限 | 0 | 从别的核心接收 |
+| `other` | 其它 | — | 不限 | 0 | 手动 / 逻辑 |
+
+条数 = `ceil(需求 / 单条速率)`，台数与电力并进机器表（`pad`/`other` 不显示条数）。
+数值来自 `Conveyor.java` 的 `itemSpace = 0.4`（吞吐 = `speed × 150`），集中在 `export_data.py` 的 `INPUT_CHANNELS`，要改只改那一处。
+
 ### 2. 发电厂
 
 页面下部"供电"：14 种发电厂按单台净发电排序，选燃料后自动算**要几台**（或手填台数看能供多少）、
@@ -50,7 +65,7 @@
 - 还有 RTG 270、热力 108、大型太阳能 96、太阳能 7.2、涡轮冷凝器 20、热解 1400、化合燃烧室 550、
   通量反应堆 18000、新质反应堆 8400
 
-### 3. 兵厂 T1 → T5 大循环（按"最慢一段"算）
+### 3. 兵厂 T1 → T5 大循环（给台数，例如 `5t5`）
 
 10 条链（6 条原版 + 3 条 Erekir + 1 条 prime-refabricator），选链和顶级单位速率后按层级倒推：
 
@@ -60,7 +75,23 @@
 3. 材料按实际只跑到的产出算：`craft/s = 达成 / 该级每秒产出`，`材料 = 单次消耗 × craft/s`，
    多放的机器只会闲置（表里"利用率"就是这个比值）。
 
-以 `dagger 0.05/s` 为例：`ground-factory ×1 → additive ×1 → multiplicative ×2 → exponential ×5 →
+**输入方式有两种**：给台数（`5t5` = 5 台 T5 厂，满效）或给速率（`0.02` = 每秒 0.02 个 T5 单位）。
+
+以 `5t5` 为例（`<input id="chainexpr">` 里直接写）：
+
+| 层级 | 单位 | 方块 | 台数 | 单台/s | 产能/s | 实际/s |
+|---|---|---|---|---|---|---|
+| T1 | dagger | `ground-factory` | 1 | 0.0667 | 0.0667 | 0.0208 |
+| T2 | mace | `additive-reconstructor` | 1 | 0.1 | 0.1 | 0.0208 |
+| T3 | fortress | `multiplicative-reconstructor` | 1 | 0.0333 | 0.0333 | 0.0208 |
+| T4 | scepter | `exponential-reconstructor` | 2 | 0.0111 | 0.0222 | 0.0208 |
+| T5 | reign | `tetrative-reconstructor` | **5** | 0.00417 | 0.0208 | 0.0208 |
+
+合计 **10 台兵厂、9672 电/s**，达成 **0.021/s**（瓶颈 T5）；资源按每秒：硅 42.292、塑料 26.042、钛 17.292、
+surge-alloy 10.417、相织物 7.292、石墨 0.833、玻璃 0.833、铅 0.208 —— 页面 2 列都给了 `/s` 与 `/min`
+（硅 2537/min）。
+
+另一种口径 `dagger 0.05/s`：`ground-factory ×1 → additive ×1 → multiplicative ×2 → exponential ×5 →
 tetrative ×12`，合计 **21 台兵厂、22872 电/s**，瓶颈在 T5；材料硅 101.5/s、塑料 62.5/s、钛 41.5/s、
 相织物 17.5/s、surge-alloy 25/s …
 
@@ -97,7 +128,8 @@ index.html?mode=building&block=graphite-press&count=2&depth=4
 index.html?block=graphite-press&count=2&src=coal:drill:laser-drill:8:0&gen=combustion-generator&genfuel=coal
 index.html?block=silicon-smelter&count=3&boundary=coal,sand&src=sand:multi:disassembler&gen=steam-generator
 index.html?block=silicon-smelter&count=3&src=sand:drill:laser-drill:8:1&src=water:pump:rotary-pump
-index.html?block=ground-factory&count=2&chain=dagger&chainrate=0.05
+index.html?mode=item&item=silicon&rate=1&chain=dagger&chainexpr=5t5
+index.html?mode=item&item=graphite&rate=1&src=coal:belt:belt-blue
 index.html?mode=item&item=silicon&rate=5&force=silicon=silicon-crucible
 ```
 
@@ -114,7 +146,8 @@ node ratio-calc/cli.cjs --item silicon --rate 5
 node ratio-calc/cli.cjs --block graphite-press --count 2 --format json
 node ratio-calc/cli.cjs --block silicon-smelter --count 3 --boundary coal,sand \
      --src sand=drill:laser-drill:8:1 --gen steam-generator --genfuel coal --format md
-node ratio-calc/cli.cjs --chain dagger --chainrate 0.05
+node ratio-calc/cli.cjs --chain dagger --chainexpr 5t5
+node ratio-calc/cli.cjs --item graphite --rate 1 --src coal=belt:belt-grey
 node ratio-calc/cli.cjs --block silicon-smelter --count 3 --src sand=drill:laser-drill:8 \
      --src water=pump:rotary-pump --format md   # 水自己抽
 node ratio-calc/cli.cjs --list          # 列出物品/工厂/兵厂/发电厂/钻头/多产物/抽水泵/兵厂链
@@ -125,7 +158,9 @@ node ratio-calc/cli.cjs --list          # 列出物品/工厂/兵厂/发电厂/�
 | `--item X --rate N` | 按目标产物速率算（次模式） |
 | `--block X --count N` | 按满效建筑台数算（主模式，工厂与兵厂都行） |
 | `--plan N` | 兵厂有多个生产计划时选第 N 个（默认 0） |
-| `--chain 单位 --chainrate N` | 兵厂 T1→T5 大循环，给顶级单位速率反推每一级 |
+| `--chain 单位 --chainexpr 5t5` | 兵厂大循环，给台数（5 台 T5 厂满效），反推 T4/T3/T2/T1 台数与整链资源 |
+| `--chain 单位 --chainrate N` | 同上，但按每秒几个顶级单位给 |
+| `--src 物品=belt:belt-grey` | 外部运入细分成带子/接收台：`belt-grey`(6.9/s)、`belt-blue`(12.015/s)、`belt-green`(40/s)、`phase-bridge`(30/s，18 电)、`mass-driver`(36/s，105 电)、`pad`(不限)、`other`(不限) |
 | `--boundary a,b` | 外部输入的物品；不写默认 `coal,sand`；`all` = 所有矿，`none` = 全部自产 |
 | `--src 物品=drill:钻头:矿格数:0/1`<br>`--src 物品=multi:分离机/解离机`<br>`--src 物品=import` | 每项边界输入从哪来（可重复） |
 | `--src 液体=pump:抽水机` | 液体（水/油）自己抽，自动补台数并计入电力（可重复） |
@@ -159,7 +194,7 @@ import ratio
 
 d = ratio.query(item="silicon", rate=5)                       # dict
 print(ratio.text(block="graphite-press", count=2))            # 纯文本
-print(ratio.markdown(chain="dagger", chainrate=0.05))          # Markdown 表格
+print(ratio.markdown(chain="dagger", chainexpr="5t5"))          # 5 台 T5 厂满效
 ratio.image("card.png", item="graphite", rate=2)               # 出 PNG 卡片
 d2 = ratio.http_query("http://127.0.0.1:8799", item="graphite", rate=1)   # 走 HTTP 服务
 ```
@@ -177,7 +212,7 @@ python -X utf8 ratio-calc/ratio.py --block ground-factory --count 2 --image gf.p
 python -X utf8 ratio-calc/card.py --item silicon --rate 5 --out card.png
 python -X utf8 ratio-calc/card.py --block ground-factory --count 2 \
     --gen steam-generator --genfuel coal --scale 2 --out gf.png
-python -X utf8 ratio-calc/card.py --chain dagger --chainrate 0.05 --out chain.png
+python -X utf8 ratio-calc/card.py --chain dagger --chainexpr 5t5 --out chain.png
 python -X utf8 ratio-calc/card.py --json result.json --out card.png   # 喂现成 JSON
 ```
 
@@ -231,7 +266,7 @@ python -X utf8 ratio-calc/card.py --json result.json --out card.png   # 喂现�
 | `ratio.py` | **bot 入口**：Python 包装（`query/text/markdown/image/http_query`） |
 | `card.py` | **bot 入口**：把结果画成 PNG 卡片（带原尺寸图标） |
 | `test_core.cjs` | 14 项对拍 `mbo calc` + 断项覆盖钻头/发电/多产物/兵厂链/抽水机 |
-| `test_page.cjs` | 最小 DOM 桩跑页面：42 项断言，不用浏览器 |
+| `test_page.cjs` | 最小 DOM 桩跑页面：49 项断言，不用浏览器 |
 | `test_cli.cjs` | 31 项：CLI/HTTP 与 `core.js` 逐项对拍 + 渲染 + 错误分支 |
 | `docs/screenshot-*.png` | 页面截图（Edge headless） |
 | `docs/card-*.png` | PNG 卡片示例 |
@@ -251,7 +286,7 @@ python -X utf8 ratio-calc/card.py --json result.json --out card.png   # 喂现�
 
 ```
 node ratio-calc/test_core.cjs   → 14 项对拍 mbo calc 全部一致 + 新算法断言全部通过
-node ratio-calc/test_page.cjs   → 42 项页面链路断言通过
+node ratio-calc/test_page.cjs   → 49 项页面链路断言通过
 node ratio-calc/test_cli.cjs    → 31 项 CLI/HTTP 与 core.js 对拍通过
 ```
 

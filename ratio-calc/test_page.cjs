@@ -204,5 +204,25 @@ check("兵厂链：显示瓶颈标记与「实际达成」",
 check("兵厂链：1 台 T4 能带 2.66 台 T5", /2\.66/.test(chain2), chain2.slice(0, 1500));
 check("兵厂链：利用率列出现", /90%/.test(chain2), chain2.slice(0, 1500));
 
+
+// 兵厂链挪到「按目标物品速率」页
+check("兵厂链块属于 item 模式（不是建筑页）",
+  /<div class="mode-item hidden" id="chainsec">[\s\S]{0,600}?id="chainexpr"/.test(html),
+  (html.match(/.{0,80}chainsec.{0,120}/) || [""])[0]);
+
+// 5t5 口径：5 台 T5 厂满效 → 自动反推 T4/T3/T2/T1
+const top5 = window.__ratio.chainTop("dagger", 5, 5);
+check("5t5：表里有「目标」标记", /目标/.test(top5.table), top5.table.slice(0, 200));
+check("5t5：T5 台数 5", /<td class="num">5<\/td>/.test(top5.table), top5.table.slice(0, 800));
+check("5t5：资源表有 silicon", /silicon/.test(top5.res), top5.res.slice(0, 300));
+check("5t5：资源表每分钟列有 2537", /2537/.test(top5.res), top5.res.slice(0, 600));
+
+// 外部入料方式：边界输入旁边有「灰带/蓝带/接收台」下拉
+window.__ratio.src("coal", { type: "import", via: "belt-grey" });
+check("入料方式：来源表出现灰带选项",
+  /data-via-item="coal"/.test($("sources").innerHTML) && /灰带/.test($("sources").innerHTML),
+  $("sources").innerHTML.slice(0, 400));
+check("入料方式：灰带说明带条数", /条/.test($("sources").innerHTML), $("sources").innerHTML.slice(0, 800));
+
 console.log(bad ? `\n${bad} 项失败` : "\n页面链路全部通过");
 process.exit(bad ? 1 : 0);

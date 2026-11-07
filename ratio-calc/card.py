@@ -184,9 +184,11 @@ def build_card(res: dict) -> Card:
     snap = res.get("snapshot") or ""
     if res.get("mode") == "chain":
         ch = res["chain"]
+        goal = ("%s 台 T%s ≈ %s/s" % (ch["topCount"], ch.get("topTier"), fmt(ch.get("rate")))
+                if ch.get("topCount") else "%s 台/s" % fmt(ch.get("rate")))
         c.title("兵厂大循环：%s → %s" % (ch["start"], ch["top"]),
-                None, "目标 %s 台/s · %d 级 · 电力 %s/s · %s" % (fmt(ch.get("rate")), ch.get("tiers", 0),
-                                                                fmt(ch.get("power")), snap))
+                None, "目标 %s · %d 级 · 电力 %s/s · %s" % (goal, ch.get("tiers", 0),
+                                                            fmt(ch.get("power")), snap))
         c.section("各级兵厂（台数按各自建造时间，不必 1:1）")
         for r in ch["rows"]:
             mat = "、".join("%s %s/s" % (i["name"], fmt(i["perSecond"])) for i in r.get("items") or [])
@@ -202,9 +204,9 @@ def build_card(res: dict) -> Card:
         if ch.get("bottleneck"):
             c.note("整链实际达成 %s/s（受最慢的 T%s %s 限制）"
                    % (fmt(ch.get("achieved")), ch.get("bottleneckTier"), ch["bottleneck"]), DIM)
-        c.section("合计材料")
+        c.section("合计材料（/s · /min）")
         for k, v in sorted((ch.get("materials") or {}).items()):
-            c.row(None, k, "%s/s" % fmt(v))
+            c.row(None, k, "%s/s · %s/min" % (fmt(v), fmt(v * 60)))
         return c
 
     if res.get("mode") == "building":

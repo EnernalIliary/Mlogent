@@ -199,6 +199,27 @@ def build_power(raw: dict, power_drill: dict | None, block_index: dict) -> dict:
             "item_props": pd.get("items") or {}}
 
 
+# ---- 外部入料方式（带子/接收台的吞吐）----
+# 带子吞吐 = speed × 150（Conveyor.java:27 itemSpace = 0.4，源码口径）。
+# 数值可在页面上单选切换；如需按别的版本覆盖，改这张表即可。
+INPUT_CHANNELS = [
+    {"key": "belt-grey", "label": "灰带 conveyor", "block": "conveyor",
+     "perSecond": 6.9, "power": 0.0, "note": "最基础，1 格 1 条"},
+    {"key": "belt-blue", "label": "蓝带 titanium-conveyor", "block": "titanium-conveyor",
+     "perSecond": 12.015, "power": 0.0, "note": "钛带，快 1.74 倍"},
+    {"key": "belt-green", "label": "绿带 plastanium-conveyor", "block": "plastanium-conveyor",
+     "perSecond": 40.0, "power": 0.0, "note": "塑料带，一次运 10 件"},
+    {"key": "phase-bridge", "label": "布桥 phase-conveyor", "block": "phase-conveyor",
+     "perSecond": 30.0, "power": 18.0, "note": "隔空传送，要电"},
+    {"key": "mass-driver", "label": "质驱 mass-driver", "block": "mass-driver",
+     "perSecond": 36.0, "power": 105.0, "note": "远距离投送，要电"},
+    {"key": "pad", "label": "接收台 landing-pad", "block": "landing-pad",
+     "perSecond": 0.0, "power": 0.0, "note": "不限速，外部直接投送"},
+    {"key": "other", "label": "其它（不限）", "block": "",
+     "perSecond": 0.0, "power": 0.0, "note": "随意，按不限速处理"},
+]
+
+
 def build_pumps(raw: dict, block_index: dict) -> list:
     """抽水泵（Pump / SolidPump / Fracker）。
 
@@ -348,6 +369,7 @@ def build(raw: dict, block_index: dict, unit_prod: dict | None,
         "drills": power["drills"],
         "multi": power["multi"],
         "pumps": build_pumps(raw, block_index),
+        "channels": [dict(c) for c in INPUT_CHANNELS],
         "names": load_zh_names(),
     }
 

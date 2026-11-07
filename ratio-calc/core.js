@@ -107,6 +107,14 @@
       });
     });
 
+    /* 外部入料方式（灰带/蓝带/接收台…）：perSecond=0 视为不限速 */
+    var channels = (data.channels || []).map(function (c) {
+      return { key: c.key, label: c.label || c.key, block: c.block || "",
+               perSecond: c.perSecond || 0, power: c.power || 0, note: c.note || "" };
+    });
+    var channelsByKey = new Map();
+    channels.forEach(function (c) { channelsByKey.set(c.key, c); });
+
     /* 兵厂大循环：单位 -> 造它的方块；再串成 T1→T5 */
     var unitProducers = new Map();
     var nextOf = new Map();
@@ -152,6 +160,8 @@
       drills: drills,
       multi: multi,
       pumps: pumps,
+      channels: channels,
+      channelsByKey: channelsByKey,
       unitProducers: unitProducers,
       unitChains: chains,
       unitIcons: data.unit_icons || {},
@@ -558,7 +568,6 @@
     var cfg = opts || {};
     var ratios = cfg.ratios || {};
     var outs = cfg.outs || {};
-    var want = Math.max(0, rate || 0);
     var n = chain.tiers.length;
 
     var stages = chain.tiers.map(function (t, k) {
@@ -566,38 +575,56 @@
       var outPer = outs[t.unit] !== undefined ? Number(outs[t.unit]) : 1;
       if (!(inPer >= 0)) inPer = 1;
       if (!(outPer > 0)) outPer = 1;
-      return { t: t, tier: k + 1, inPer: inPer, outPer: outPer };
+      return { t: t, tier: k + 1, inPer: inPer, outPer: outPer,
+               each: t.perSecond * outPer };
     });
+
+    /* 两种口径：
+     *   ① rate  —— 想要顶级单位 x 个/s
+     *   ② topCount/topTier —— 想要 N 台第 T 级的厂满效跑（页面上写「5t5」）
+     */
+    var topIdx = n - 1;
+    var topCount = 0;
+    if (cfg.topCount > 0) {
+      topIdx = Math.max(0, Math.min(n - 1, (cfg.topTier || n) - 1));
+      topCount = Number(cfg.topCount);
+    }
+    var want = topCount > 0 ? topCount * stages[topIdx].each : Math.max(0, rate || 0);
 
     /* 从顶级往下推"每级需要产多少" */
     var need = new Array(n);
-    need[n - 1] = want;
-    for (var k = n - 1; k > 0; k--) need[k - 1] = need[k] * stages[k].inPer;
+    for (var k = 0; k < n; k++) need[k] = 0;
+    need[topIdx] = want;
+    for (var k1 = topIdx; k1 > 0; k1--) need[k1 - 1] = need[k1] * stages[k1].inPer;
 
     /* 每级台数与产能 */
     stages.forEach(function (s, k) {
-      s.each = s.t.perSecond * s.outPer;                       // 每台每秒出几个这级单位
-      s.count = (need[k] > 0 && s.each > 0) ? Math.ceil(need[k] / s.each - 1e-9) : 0;
+      if (topCount > 0 && k === topIdx) {
+        s.count = topCount;                                   // 顶级就是用户点名的那几台
+      } else {
+        s.count = (need[k] > 0 && s.each > 0) ? Math.ceil(need[k] / s.each - 1e-9) : 0;
+      }
       s.capacity = s.count * s.each;
     });
 
     /* 一级单位折算成顶级单位 */
     var factor = new Array(n);
-    factor[n - 1] = 1;
-    for (var k2 = n - 2; k2 >= 0; k2--) {
-      factor[k2] = factor[k2 + 1] / (stages[k2 + 1].inPer || 1);
-    }
+    for (var k3 = 0; k3 < n; k3++) factor[k3] = 0;
+    factor[topIdx] = 1;
+    for (var k2 = topIdx - 1; k2 >= 0; k2--) factor[k2] = factor[k2 + 1] / (stages[k2 + 1].inPer || 1);
 
     var achieved = 0;
     if (want > 0) {
       achieved = Infinity;
-      stages.forEach(function (s, k) { achieved = Math.min(achieved, s.capacity * factor[k]); });
+      for (var k4 = 0; k4 <= topIdx; k4++) {
+        achieved = Math.min(achieved, stages[k4].capacity * factor[k4]);
+      }
       if (!isFinite(achieved)) achieved = 0;
     }
     var bottleneck = 0;
-    stages.forEach(function (s, k) {
-      if (s.capacity * factor[k] < stages[bottleneck].capacity * factor[bottleneck] - 1e-12) bottleneck = k;
-    });
+    for (var k5 = 0; k5 <= topIdx; k5++) {
+      if (stages[k5].capacity * factor[k5] < stages[bottleneck].capacity * factor[bottleneck] - 1e-12) bottleneck = k5;
+    }
 
     var rows = [];
     var materials = {};
@@ -635,12 +662,22 @@
 
     return {
       start: startUnit, top: chain.tiers[chain.tiers.length - 1].unit,
-      tiers: n, rate: rate,
+      tiers: n, rate: round(want) || want,
+      topTier: topIdx + 1, topCount: topCount || null,
       achieved: round(achieved),
       bottleneck: rows[bottleneck] ? rows[bottleneck].unit : null,
       bottleneckTier: rows[bottleneck] ? rows[bottleneck].tier : null,
       rows: rows, materials: sortMachines(materials), power: power
     };
+  }
+
+  /* 「5t5」口径：N 台第 T 级的厂满效跑，反推上面各级要几台、整链要多少资源 */
+  function chainFromTop(data, startUnit, tier, count, opts) {
+    var cfg = {};
+    Object.keys(opts || {}).forEach(function (k) { cfg[k] = opts[k]; });
+    cfg.topTier = tier;
+    cfg.topCount = count;
+    return unitChain(data, startUnit, 0, cfg);
   }
 
   /* 机器清单带来的液体需求（每秒）：方块/兵厂/多产物方块的输入液体 + 钻头加速液 */
@@ -665,9 +702,10 @@
       var mb = anyBlock(idx, name);
       if (mb && mb.kind !== "generator") power += res.machines[name] * mb.power;
     });
-    res.power = power;
+    /* 外部入料方式（布桥/质驱）的电力不算在方块里，单独累加，否则会被这次重算抹掉 */
+    res.power = power + (res.extraPower || 0);
     res.liquids = liquidDemand(idx, res.machines, res.liquidExtra);
-    return power;
+    return res.power;
   }
 
   /* 把"外部输入"逐项换成真实来源：import（运入）/ drill（钻头）/ multi（分离机·解离机）
@@ -712,6 +750,25 @@
         row.inputs = sp.inputs; row.inputLiquids = sp.inputLiquids;
         row.byproducts = sp.outputs.filter(function (o) { return o.name !== item; });
         if (n) res.machines[block] = (res.machines[block] || 0) + n;
+      } else if (type === "import" && c.via) {
+        /* 外部运入细分成 灰带/蓝带/绿带/布桥/质驱/接收台/其它：
+         * perSecond>0 的按吞吐算要几条，perSecond=0 视为不限速（接收台/其它） */
+        var ch = idx.channelsByKey.get(c.via);
+        if (!ch) throw new Error("未知入料方式：" + c.via);
+        row.via = ch.key;
+        row.viaLabel = ch.label;
+        if (ch.perSecond > 0) {
+          row.count = Math.ceil(need / ch.perSecond - 1e-9);
+          row.perSecondEach = ch.perSecond;
+          row.perSecondTotal = round(row.count * ch.perSecond);
+          row.power = round(row.count * ch.power);
+          res.extraPower = (res.extraPower || 0) + row.power;
+        } else {
+          row.count = null;
+          row.perSecondEach = null;
+          row.perSecondTotal = null;
+          row.power = 0;
+        }
       }
       sources.push(row);
     });
@@ -821,7 +878,7 @@
               machineRows: machineRows, anyBlock: anyBlock,
               drillRate: drillRate, drillsNeeded: drillsNeeded,
               generatorPlan: generatorPlan, generatorSupply: generatorSupply,
-              separatorPlan: separatorPlan, unitChain: unitChain,
+              separatorPlan: separatorPlan, unitChain: unitChain, chainFromTop: chainFromTop,
               pumpPlan: pumpPlan,
               applySources: applySources, recalcPower: recalcPower,
               liquidDemand: liquidDemand };

@@ -98,7 +98,8 @@ function parseSources(list) {
     };
     else if (type === "multi") cfg[item] = { type: "multi", block: parts[1] || "separator" };
     else if (type === "pump") cfg[item] = { type: "pump", pump: parts[1] || "mechanical-pump" };
-    else throw new Error("未知来源类型：" + type + "（import / drill / multi / pump）");
+    else if (type === "belt") cfg[item] = { type: "import", via: parts[1] || "belt-grey" };
+    else throw new Error("未知来源类型：" + type + "（import / drill / multi / pump / belt）");
   });
   return cfg;
 }
@@ -126,11 +127,18 @@ function query(opts) {
   };
 
   if (opts.chain) {
-    const rate = num(opts.chainrate !== undefined ? opts.chainrate : opts.rate, 0.05);
     res.mode = "chain";
-    res.chain = R.unitChain(DATA, String(opts.chain), rate);
+    const expr = opts.chainexpr !== undefined ? String(opts.chainexpr) : null;
+    const m = expr ? /^(\d+(?:\.\d+)?)\s*[x×*]?\s*t\s*([1-5])$/i.exec(expr.trim()) : null;
+    if (m) {
+      res.chain = R.chainFromTop(DATA, String(opts.chain), parseInt(m[2], 10), parseFloat(m[1]));
+      res.requested = { topCount: parseFloat(m[1]), topTier: parseInt(m[2], 10) };
+    } else {
+      const rate = num(opts.chainrate !== undefined ? opts.chainrate : opts.rate, 0.05);
+      res.chain = R.unitChain(DATA, String(opts.chain), rate);
+      res.requested = rate;
+    }
     res.target = res.chain.start + " → " + res.chain.top;
-    res.requested = rate;
     return res;
   }
 
@@ -241,7 +249,10 @@ function renderText(res) {
   const L = [];
   if (res.mode === "chain") {
     const c = res.chain;
-    L.push("兵厂大循环：" + c.start + " → " + c.top + "，目标 " + fmtNum(c.rate) + " 台/s");
+    L.push("兵厂大循环：" + c.start + " → " + c.top + "，目标 " +
+      (c.topCount != null
+        ? c.topCount + " 台 T" + c.topTier + "（≈ " + fmtNum(c.rate) + "/s）"
+        : fmtNum(c.rate) + " 台/s"));
     c.rows.forEach(r => {
       L.push("  T" + r.tier + "  " + r.block + " ×" + r.count
         + "  → " + r.unit + " " + fmtNum(r.actual) + "/s"
@@ -259,7 +270,10 @@ function renderText(res) {
       }
     });
     const mats = Object.keys(c.materials);
-    if (mats.length) L.push("  材料：" + mats.map(k => k + " " + fmtNum(c.materials[k]) + "/s").join("、"));
+    if (mats.length) {
+      L.push("  材料：" + mats.map(k => k + " " + fmtNum(c.materials[k]) + "/s").join("、"));
+      L.push("  材料（每分钟）：" + mats.map(k => k + " " + fmtNum(c.materials[k] * 60) + "/min").join("、"));
+    }
     return L.join("\n");
   }
   const head = res.mode === "building"
@@ -302,7 +316,16 @@ function renderText(res) {
   if (res.sources && res.sources.length) {
     res.sources.forEach(s => {
       let line = "  来源 " + s.item + " ← ";
-      if (s.type === "import") line += "外部运入";
+      if (s.type === "import") {
+        if (s.via) {
+          const idx2 = loadData().idx;
+          const ch = idx2.channelsByKey.get(s.via);
+          line += (ch ? ch.label : s.via) +
+            (s.count == null ? "（不限速）"
+              : " ×" + s.count + " 条（单条 " + fmtNum(s.perSecondEach) + "/s，合计 "
+                + fmtNum(s.perSecondTotal) + "/s" + (s.power ? "，电 " + fmtNum(s.power) + "/s" : "") + "）");
+        } else line += "外部运入";
+      }
       else if (s.type === "drill") {
         line += s.drill + " ×" + s.count + "（" + s.tiles + " 格矿"
           + (s.boosted ? "，加水" : "，不加水") + "，单台 " + fmtNum(s.perSecondEach) + "/s）";
@@ -330,7 +353,10 @@ function renderMarkdown(res) {
   const L = [];
   if (res.mode === "chain") {
     const c = res.chain;
-    L.push("**兵厂大循环：" + c.start + " → " + c.top + "（" + fmtNum(c.rate) + " 台/s）**");
+    L.push("**兵厂大循环：" + c.start + " → " + c.top + "（" +
+      (c.topCount != null
+        ? c.topCount + " 台 T" + c.topTier + " ≈ " + fmtNum(c.rate) + "/s"
+        : fmtNum(c.rate) + " 台/s") + "）**");
     L.push("");
     L.push("| 层级 | 方块 | 台数 | 产物 | 材料/s |");
     L.push("|---|---|---|---|---|");
@@ -412,7 +438,8 @@ function usage() {
     "  --item <物品> --rate <每秒>          按物品速率算（默认 1/s）",
     "  --block <方块> --count <台数>        按目标建筑台数算（满效）",
     "  --plan <N>                          兵厂有多个生产计划时选第几个（0 起）",
-    "  --chain <单位> --chainrate <台/s>    兵厂 T1→T5 大循环",
+    "  --chain <单位> --chainexpr 5t5      兵厂 T1→T5 大循环（5t5 = 5 台 T5 厂满效）",
+    "  --chain <单位> --chainrate <台/s>    同上，但按顶级单位速率给",
     "  --boundary a,b                      边界输入（这些物品按外部运入处理）",
     "  --force item=block,...              强制指定配方（如 graphite=multi-press）",
     "  --depth <N>                         递归层数上限（默认 12）",

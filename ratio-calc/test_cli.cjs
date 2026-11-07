@@ -275,5 +275,29 @@ ok("GET /list、GET /nope", () => {
   assert.strictEqual(b.code, 404);
 });
 
+
+ok("--chainexpr 5t5：按台数反推", () => {
+  const t = cli.renderText(cli.query({ chain: "dagger", chainexpr: "5t5" }));
+  assert.ok(t.indexOf("目标 5 台 T5") >= 0, t);
+  assert.ok(/T4 .*×2/.test(t), t);
+  assert.ok(/T5 .*×5/.test(t), t);
+  assert.ok(t.indexOf("材料（每分钟）") >= 0, t);
+});
+ok("--chain dagger --chainrate 0.05 仍按速率", () => {
+  const t = cli.renderText(cli.query({ chain: "dagger", chainrate: "0.05" }));
+  assert.ok(/T5 .*×12/.test(t), t);
+});
+ok("--src coal=belt:belt-grey：算出条数", () => {
+  const r = cli.query({ item: "graphite", rate: "1", src: ["coal=belt:belt-grey"] });
+  const t = cli.renderText(r);
+  assert.ok(t.indexOf("灰带") >= 0, t);
+  assert.ok(t.indexOf("×1 条") >= 0, t);
+});
+ok("--src coal=belt:phase-bridge：电力计入", () => {
+  const r = cli.query({ item: "graphite", rate: "1", src: ["coal=belt:phase-bridge"] });
+  assert.strictEqual(r.power, 18);
+  assert.ok(cli.renderText(r).indexOf("电 18") >= 0);
+});
+
 console.log("\n通过 " + pass + " 项，失败 " + fail + " 项");
 process.exitCode = fail ? 1 : 0;
