@@ -1,0 +1,16 @@
+[11-08-2026 04:45:00] [I] Server loaded. Type 'help' for help.
+[11-08-2026 04:45:01] [I] [none/base.js]: WORLD	64x64
+[11-08-2026 04:45:01] [I] undefined
+[11-08-2026 04:45:01] [I] [none/base.js]: PLACED
+[11-08-2026 04:45:01] [I] undefined
+[11-08-2026 04:45:01] [I] [none/base.js]: @@BEGIN
+[11-08-2026 04:45:01] [I] [none/base.js]: VAR	@counter	2
+[11-08-2026 04:45:01] [I] [none/base.js]: COUNTER	2
+[11-08-2026 04:45:01] [I] [none/base.js]: IPT	2
+[11-08-2026 04:45:01] [I] [none/base.js]: ACC	2
+[11-08-2026 04:45:01] [I] [none/base.js]: TEXT	23
+[11-08-2026 04:45:01] [I] [none/base.js]: @@END
+[11-08-2026 04:45:01] [I] undefined
+[11-08-2026 04:45:01] [I] Game over! Team crux is victorious with 0 players online on map Unknown.
+[11-08-2026 04:45:01] [I] Selected next map to be Fortress.
+[11-08-2026 04:45:01] [I] Shutting down server.

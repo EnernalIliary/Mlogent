@@ -1,0 +1,44 @@
+{
+ "mindustry.ai.WaveSpawner": {
+  "any": {
+   "const": null,
+   "default": 0,
+   "desc": "Z"
+  },
+  "coreMargin": {
+   "const": 16.0,
+   "default": null,
+   "desc": "F"
+  },
+  "firstSpawn": {
+   "const": null,
+   "default": 0,
+   "desc": "Lmindustry/world/Tile;"
+  },
+  "margin": {
+   "const": 0.0,
+   "default": null,
+   "desc": "F"
+  },
+  "maxSteps": {
+   "const": 30.0,
+   "default": null,
+   "desc": "F"
+  },
+  "spawning": {
+   "const": null,
+   "default": 0,
+   "desc": "Z"
+  },
+  "spawns": {
+   "const": null,
+   "default": 0.0,
+   "desc": "Larc/struct/Seq;"
+  },
+  "tmpCount": {
+   "const": null,
+   "default": 0,
+   "desc": "I"
+  }
+ }
+}

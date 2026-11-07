@@ -1,0 +1,212 @@
+--- tools/kb.py
++++ tools/kb.py(new)
+@@ -12,6 +12,10 @@
+     python tools/kb.py search "read @this" --kind doc
+     python tools/kb.py serve                 # MCP server on stdio
+     python tools/kb.py stats
++
++Corpus = 旧的固定文档清单 + docs/游戏速查 + tools/*.py + **knowledge/ 全库**
++（knowledge/**/*.md 文章、00-data/*.json 的 schema 摘要、KB.md/CONVENTIONS.md/
++VERSION.md 契约文档）。knowledge 根可用 KB_KNOWLEDGE 覆盖（默认 <repo>/knowledge）。
+ 
+ Models and libraries are looked up in ``out/_kblibs`` and ``out/_kbmodels``;
+ override with ``KB_LIBS`` / ``KB_MODELS``. On first build set
+@@ -35,7 +39,7 @@
+         pass
+ 
+ HERE = Path(__file__).resolve().parent
+-ROOT = HERE.parent
++ROOT = Path(os.environ.get("KB_ROOT", HERE.parent))
+ KB_DIR = Path(os.environ.get("KB_DIR", ROOT / "out" / "_kb"))
+ DB_PATH = KB_DIR / "kb.sqlite3"
+ _LIBS_DEFAULT = ROOT / "out" / ("_kblibs311" if sys.version_info < (3, 12) else "_kblibs")
+@@ -43,6 +47,10 @@
+ MODELS = Path(os.environ.get("KB_MODELS", ROOT / "out" / "_kbmodels"))
+ EMB_MODEL = os.environ.get("KB_EMB_MODEL", "BAAI/bge-small-zh-v1.5")
+ RERANK_MODEL = os.environ.get("KB_RERANK_MODEL", "BAAI/bge-reranker-base")
++# knowledge/ 全库（文章 + 00-data）。KB_KNOWLEDGE 便于在别处试跑而不动仓库。
++KNOWLEDGE_DIR = Path(os.environ.get("KB_KNOWLEDGE", ROOT / "knowledge"))
++DATA_DIR = KNOWLEDGE_DIR / "00-data"
++KNOWLEDGE_TOOLS_DIR = KNOWLEDGE_DIR / "tools"
+ 
+ DOC_FILES = [
+     "README.md",
+@@ -62,6 +70,10 @@
+     # MBO / ratio-calc: 蓝图优化的真机结论、配比计算器的核心 API 与数值公式、
+     # 反射 dump 铁律、工具链坑（2026-11-07 并入）。
+     "docs/MBO与配比计算器.md",
++    # knowledge/ 的入口与契约（文章正文由 KNOWLEDGE_DIR 递归扫描，见 _corpus）
++    "knowledge/KB.md",
++    "knowledge/CONVENTIONS.md",
++    "knowledge/VERSION.md",
+ ]
+ CODE_GLOBS = ["tools/*.py", "tests/run_tests.py"]
+ DOC_GLOBS = ["docs/游戏速查/*.md"]
+@@ -157,6 +169,87 @@
+     return chunks
+ 
+ 
++def _rel(p: Path) -> str:
++    """path 列统一成仓库相对路径；knowledge 根不在 ROOT 下时补 knowledge/ 前缀。"""
++    try:
++        return p.relative_to(ROOT).as_posix()
++    except ValueError:
++        try:
++            return "knowledge/" + p.relative_to(KNOWLEDGE_DIR).as_posix()
++        except ValueError:
++            return p.name
++
++
++def _knowledge_files() -> list[Path]:
++    """knowledge/ 下的文章（md），排除 tools/ 与 00-data/（后者走 schema 摘要）。"""
++    if not KNOWLEDGE_DIR.is_dir():
++        return []
++    out = []
++    for p in sorted(KNOWLEDGE_DIR.rglob("*.md")):
++        if not p.is_file() or p.name.startswith("_"):
++            continue
++        if KNOWLEDGE_TOOLS_DIR in p.parents or DATA_DIR in p.parents:
++            continue
++        out.append(p)
++    return out
++
++
++def _fmt_val(v) -> str:
++    if isinstance(v, dict):
++        if "v" in v:
++            u = v.get("unit") or ""
++            return f"{v.get('v')}{u}"
++        return json.dumps(v, ensure_ascii=False)[:60]
++    if isinstance(v, (int, float)):
++        return str(v)
++    if isinstance(v, str):
++        return v
++    return json.dumps(v, ensure_ascii=False)[:60]
++
++
++def _data_summaries() -> list[tuple[str, str]]:
++    """把 00-data/*.json 压成可按关键词检索的条目摘要（一条记录一行）。"""
++    out: list[tuple[str, str]] = []
++    if not DATA_DIR.is_dir():
++        return out
++    for p in sorted(DATA_DIR.glob("*.json")):
++        try:
++            obj = json.loads(p.read_text(encoding="utf-8", errors="replace"))
++        except Exception:
++            continue
++        recs = []
++        if isinstance(obj, dict):
++            for k in ("records", "items", "entries", "rows", "data"):
++                if isinstance(obj.get(k), list):
++                    recs = obj[k]
++                    break
++            if not recs:
++                recs = [dict(v, id=k) for k, v in obj.items() if isinstance(v, dict)]
++        elif isinstance(obj, list):
++            recs = obj
++        lines = [f"## 00-data/{p.name}（{len(recs)} 条）"]
++        if isinstance(obj, dict) and isinstance(obj.get("meta"), dict):
++            lines.append("- meta: " + ", ".join(
++                f"{k}={_fmt_val(v)}" for k, v in list(obj["meta"].items())[:12]))
++        for r in recs[:400]:
++            if not isinstance(r, dict):
++                continue
++            rid = r.get("id") or r.get("name") or "?"
++            name = r.get("name") or ""
++            kv = [f"{k}={_fmt_val(v)}" for k, v in r.items()
++                  if k not in ("id", "name", "src", "ver", "tags", "notes", "meta")]
++            line = f"- {rid} {name}: " + ", ".join(kv[:8])
++            if r.get("src"):
++                line += f" [src: {r.get('src')}]"
++            if r.get("ver"):
++                line += f" ver={r.get('ver')}"
++            lines.append(line)
++        if len(recs) > 400:
++            lines.append(f"- … 其余 {len(recs) - 400} 条略")
++        out.append(("00-data/" + p.name, "\n".join(lines)))
++    return out
++
++
+ def _corpus() -> list[tuple[Path, str]]:
+     files: list[tuple[Path, str]] = []
+     for rel in DOC_FILES:
+@@ -171,6 +264,8 @@
+         for p in sorted(ROOT.glob(pattern)):
+             if p.is_file() and not any(part in EXCLUDE_DIRS for part in p.parts):
+                 files.append((p, "doc"))
++    for p in _knowledge_files():
++        files.append((p, "doc"))
+     return files
+ 
+ 
+@@ -190,18 +285,27 @@
+     )
+     rows: list[tuple] = []
+     seen: set[str] = set()
++    data_summaries = _data_summaries()
+     for path, kind in _corpus():
+         try:
+             text = path.read_text(encoding="utf-8-sig")
+         except UnicodeDecodeError:
+             continue
+-        rel = path.relative_to(ROOT).as_posix()
++        rel = _rel(path)
+         for ch in _section_chunks(text, rel, kind):
+             norm = re.sub(r"\s+", "", ch["text"])
+             if len(norm) < 24 or norm in seen:
+                 continue  # 同一段文字在 SKILL/README 等文档里重复出现时只留第一份
+             seen.add(norm)
+             rows.append((ch["path"], ch["start"], ch["end"], ch["kind"],
++                         ch["heading"], ch["text"]))
++    for rel, text in data_summaries:  # 00-data 摘要按 data 类型入库，便于精确查数值
++        for ch in _section_chunks(text, rel, "data"):
++            norm = re.sub(r"\s+", "", ch["text"])
++            if len(norm) < 24 or norm in seen:
++                continue
++            seen.add(norm)
++            rows.append((ch["path"], ch["start"], ch["end"], "data",
+                          ch["heading"], ch["text"]))
+     if not rows:
+         raise SystemExit("no corpus files found")
+@@ -221,7 +325,8 @@
+     conn.commit()
+     n = conn.execute("SELECT count(*) FROM chunks").fetchone()[0]
+     conn.close()
+-    stats = {"chunks": n, "files": len({r[0] for r in rows})}
++    stats = {"chunks": n, "files": len({r[0] for r in rows}),
++             "data_tables": len(data_summaries)}
+     if not quiet:
+         print(json.dumps(stats, ensure_ascii=False))
+     return stats
+@@ -329,7 +434,7 @@
+                     "inputSchema": {"type": "object", "properties": {
+                         "query": {"type": "string"},
+                         "k": {"type": "integer", "default": 6},
+-                        "kind": {"type": "string", "enum": ["doc", "code"]}},
++                        "kind": {"type": "string", "enum": ["doc", "data", "code"]}},
+                         "required": ["query"]}}]}
+             elif method == "tools/call":
+                 params = msg.get("params", {})
+@@ -365,7 +470,7 @@
+     sp = sub.add_parser("search")
+     sp.add_argument("query")
+     sp.add_argument("-k", type=int, default=6)
+-    sp.add_argument("--kind", choices=["doc", "code"])
++    sp.add_argument("--kind", choices=["doc", "data", "code"])
+     sp.add_argument("--rerank", action="store_true",
+                     help="cross-encoder rerank (off by default: bge-reranker-base is weak on short Chinese queries)")
+     sub.add_parser("serve")
+@@ -385,7 +490,12 @@
+         with sqlite3.connect(DB_PATH) as cx:
+             n = cx.execute("select count(*) from chunks").fetchone()[0]
+             files = cx.execute("select count(distinct path) from chunks").fetchone()[0]
+-        print(json.dumps({"chunks": n, "files": files}, ensure_ascii=False))
++            kinds = dict(cx.execute("select kind, count(*) from chunks group by kind").fetchall())
++            files_by_kind = {k: cx.execute("select count(distinct path) from chunks where kind=?",
++                                           (k,)).fetchone()[0] for k in kinds}
++        print(json.dumps({"chunks": n, "files": files, "kinds": kinds,
++                          "files_by_kind": files_by_kind,
++                          "data_tables": files_by_kind.get("data", 0)}, ensure_ascii=False))
+         return 0
+     res = search(args.query, args.k, args.kind, rerank=args.rerank)
+     print(_format(res))

@@ -1,0 +1,954 @@
+{
+ "meta": {
+  "source": "F:\\OneDrive\\桌面\\AtomicStates\\tools\\instr_enums.json (v160.7 jar) + instr_semantics.json ops (v159.3 src) + LogicDisplay.java:290 GraphicsType + LogicRule.java:3 + FetchType.java:3 + ContentType.java:10 + sensor_attrs.json (LAccess 77)",
+  "ver": "v160.7_rt / v159.3_src",
+  "note": "Slot VALUES only. Slot ORDER/arity lives in instructions.json. ContentType 的 *_UNUSED 成员不可作为 lookup 参数，错误类型一律解析为 error。"
+ },
+ "enums": {
+  "RadarTarget": [
+   "any",
+   "enemy",
+   "ally",
+   "player",
+   "attacker",
+   "flying",
+   "boss",
+   "ground"
+  ],
+  "RadarSort": [
+   "distance",
+   "health",
+   "shield",
+   "armor",
+   "maxHealth"
+  ],
+  "LLocate": [
+   "ore",
+   "building",
+   "spawn",
+   "damaged"
+  ],
+  "LUnitControl": [
+   "idle",
+   "stop",
+   "move",
+   "approach",
+   "pathfind",
+   "autoPathfind",
+   "boost",
+   "target",
+   "targetp",
+   "itemDrop",
+   "itemTake",
+   "payDrop",
+   "payTake",
+   "payEnter",
+   "mine",
+   "flag",
+   "build",
+   "deconstruct",
+   "getBlock",
+   "within",
+   "unbind"
+  ],
+  "BlockFlag": [
+   "core",
+   "storage",
+   "generator",
+   "turret",
+   "factory",
+   "repair",
+   "battery",
+   "reactor",
+   "extinguisher",
+   "drill",
+   "shield",
+   "launchPad",
+   "unitCargoUnloadPoint",
+   "unitAssembler",
+   "hasFogRadius",
+   "steamVent",
+   "blockRepair",
+   "synced"
+  ],
+  "ControlType": [
+   "enabled",
+   "config",
+   "color",
+   "shoot",
+   "shootp"
+  ],
+  "ConditionOp": [
+   "equal",
+   "notEqual",
+   "lessThan",
+   "lessThanEq",
+   "greaterThan",
+   "greaterThanEq",
+   "strictEqual",
+   "always"
+  ],
+  "GraphicsType": [
+   "clear",
+   "color",
+   "col",
+   "stroke",
+   "line",
+   "rect",
+   "lineRect",
+   "poly",
+   "linePoly",
+   "triangle",
+   "image",
+   "print",
+   "translate",
+   "scale",
+   "rotate",
+   "reset"
+  ],
+  "LogicRule": [
+   "currentWaveTime",
+   "waveTimer",
+   "waves",
+   "wave",
+   "waveSpacing",
+   "waveSending",
+   "attackMode",
+   "enemyCoreBuildRadius",
+   "dropZoneRadius",
+   "unitCap",
+   "mapArea",
+   "lighting",
+   "canGameOver",
+   "ambientLight",
+   "solarMultiplier",
+   "dragMultiplier",
+   "ban",
+   "unban",
+   "pauseDisabled",
+   "buildSpeed",
+   "unitHealth",
+   "unitBuildSpeed",
+   "unitMineSpeed",
+   "unitCost",
+   "unitDamage",
+   "blockHealth",
+   "blockDamage",
+   "rtsMinWeight",
+   "rtsMinSquad"
+  ],
+  "FetchType": [
+   "unit",
+   "unitCount",
+   "player",
+   "playerCount",
+   "core",
+   "coreCount",
+   "build",
+   "buildCount"
+  ],
+  "ContentType": [
+   "item",
+   "block",
+   "mech_UNUSED",
+   "bullet",
+   "liquid",
+   "status",
+   "unit",
+   "weather",
+   "effect_UNUSED",
+   "sector",
+   "loadout_UNUSED",
+   "typeid_UNUSED",
+   "error",
+   "planet",
+   "ammo_UNUSED",
+   "team",
+   "unitCommand",
+   "unitStance"
+  ],
+  "LogicOp": {
+   "add": {
+    "symbol": "+",
+    "operands": 2,
+    "returns": "number"
+   },
+   "sub": {
+    "symbol": "-",
+    "operands": 2,
+    "returns": "number"
+   },
+   "mul": {
+    "symbol": "*",
+    "operands": 2,
+    "returns": "number"
+   },
+   "div": {
+    "symbol": "/",
+    "operands": 2,
+    "returns": "number"
+   },
+   "idiv": {
+    "symbol": "//",
+    "operands": 2,
+    "returns": "number"
+   },
+   "mod": {
+    "symbol": "%",
+    "operands": 2,
+    "returns": "number"
+   },
+   "emod": {
+    "symbol": "%%",
+    "operands": 2,
+    "returns": "number"
+   },
+   "pow": {
+    "symbol": "^",
+    "operands": 2,
+    "returns": "number"
+   },
+   "equal": {
+    "symbol": "==",
+    "operands": 2,
+    "returns": "number"
+   },
+   "notEqual": {
+    "symbol": "not",
+    "operands": 2,
+    "returns": "number"
+   },
+   "land": {
+    "symbol": "and",
+    "operands": 2,
+    "returns": "number"
+   },
+   "lessThan": {
+    "symbol": "<",
+    "operands": 2,
+    "returns": "number"
+   },
+   "lessThanEq": {
+    "symbol": "<=",
+    "operands": 2,
+    "returns": "number"
+   },
+   "greaterThan": {
+    "symbol": ">",
+    "operands": 2,
+    "returns": "number"
+   },
+   "greaterThanEq": {
+    "symbol": ">=",
+    "operands": 2,
+    "returns": "number"
+   },
+   "strictEqual": {
+    "symbol": "===",
+    "operands": 2,
+    "returns": "number"
+   },
+   "shl": {
+    "symbol": "<<",
+    "operands": 2,
+    "returns": "number"
+   },
+   "shr": {
+    "symbol": ">>",
+    "operands": 2,
+    "returns": "number"
+   },
+   "ushr": {
+    "symbol": ">>>",
+    "operands": 2,
+    "returns": "number"
+   },
+   "or": {
+    "symbol": null,
+    "operands": 2,
+    "returns": "number"
+   },
+   "and": {
+    "symbol": "b-and",
+    "operands": 2,
+    "returns": "number"
+   },
+   "xor": {
+    "symbol": null,
+    "operands": 2,
+    "returns": "number"
+   },
+   "not": {
+    "symbol": "flip",
+    "operands": 1,
+    "returns": "number"
+   },
+   "max": {
+    "symbol": null,
+    "operands": 2,
+    "returns": "number"
+   },
+   "min": {
+    "symbol": null,
+    "operands": 2,
+    "returns": "number"
+   },
+   "angle": {
+    "symbol": null,
+    "operands": 2,
+    "returns": "number"
+   },
+   "angleDiff": {
+    "symbol": "anglediff",
+    "operands": 2,
+    "returns": "number"
+   },
+   "len": {
+    "symbol": null,
+    "operands": 2,
+    "returns": "number"
+   },
+   "noise": {
+    "symbol": null,
+    "operands": 2,
+    "returns": "number"
+   },
+   "abs": {
+    "symbol": null,
+    "operands": 1,
+    "returns": "number"
+   },
+   "sign": {
+    "symbol": null,
+    "operands": 1,
+    "returns": "number"
+   },
+   "log": {
+    "symbol": null,
+    "operands": 1,
+    "returns": "number"
+   },
+   "logn": {
+    "symbol": null,
+    "operands": 2,
+    "returns": "number"
+   },
+   "log10": {
+    "symbol": null,
+    "operands": 1,
+    "returns": "number"
+   },
+   "floor": {
+    "symbol": null,
+    "operands": 1,
+    "returns": "number"
+   },
+   "ceil": {
+    "symbol": null,
+    "operands": 1,
+    "returns": "number"
+   },
+   "round": {
+    "symbol": null,
+    "operands": 1,
+    "returns": "number"
+   },
+   "sqrt": {
+    "symbol": null,
+    "operands": 1,
+    "returns": "number"
+   },
+   "rand": {
+    "symbol": null,
+    "operands": 1,
+    "returns": "number"
+   },
+   "sin": {
+    "symbol": null,
+    "operands": 1,
+    "returns": "number"
+   },
+   "cos": {
+    "symbol": null,
+    "operands": 1,
+    "returns": "number"
+   },
+   "tan": {
+    "symbol": null,
+    "operands": 1,
+    "returns": "number"
+   },
+   "asin": {
+    "symbol": null,
+    "operands": 1,
+    "returns": "number"
+   },
+   "acos": {
+    "symbol": null,
+    "operands": 1,
+    "returns": "number"
+   },
+   "atan": {
+    "symbol": null,
+    "operands": 1,
+    "returns": "number"
+   }
+  },
+  "LAccess": {
+   "totalItems": {
+    "name": "totalItems",
+    "obj": false,
+    "params": [],
+    "target": "building",
+    "desc": "total number of items held"
+   },
+   "firstItem": {
+    "name": "firstItem",
+    "obj": false,
+    "params": [],
+    "target": "building",
+    "desc": "the first item type held (object)"
+   },
+   "totalLiquids": {
+    "name": "totalLiquids",
+    "obj": false,
+    "params": [],
+    "target": "building",
+    "desc": "total liquid amount held"
+   },
+   "totalPower": {
+    "name": "totalPower",
+    "obj": false,
+    "params": [],
+    "target": "building",
+    "desc": "stored power"
+   },
+   "itemCapacity": {
+    "name": "itemCapacity",
+    "obj": false,
+    "params": [],
+    "target": "building",
+    "desc": "item capacity"
+   },
+   "liquidCapacity": {
+    "name": "liquidCapacity",
+    "obj": false,
+    "params": [],
+    "target": "building",
+    "desc": "liquid capacity"
+   },
+   "powerCapacity": {
+    "name": "powerCapacity",
+    "obj": false,
+    "params": [],
+    "target": "building",
+    "desc": "battery capacity"
+   },
+   "powerNetStored": {
+    "name": "powerNetStored",
+    "obj": false,
+    "params": [],
+    "target": "building",
+    "desc": "power stored in the whole grid"
+   },
+   "powerNetCapacity": {
+    "name": "powerNetCapacity",
+    "obj": false,
+    "params": [],
+    "target": "building",
+    "desc": "grid battery capacity"
+   },
+   "powerNetIn": {
+    "name": "powerNetIn",
+    "obj": false,
+    "params": [],
+    "target": "building",
+    "desc": "grid power input per tick"
+   },
+   "powerNetOut": {
+    "name": "powerNetOut",
+    "obj": false,
+    "params": [],
+    "target": "building",
+    "desc": "grid power output per tick"
+   },
+   "ammo": {
+    "name": "ammo",
+    "obj": false,
+    "params": [],
+    "target": "building",
+    "desc": "ammo count"
+   },
+   "ammoCapacity": {
+    "name": "ammoCapacity",
+    "obj": false,
+    "params": [],
+    "target": "building",
+    "desc": "ammo capacity"
+   },
+   "currentAmmoType": {
+    "name": "currentAmmoType",
+    "obj": false,
+    "params": [],
+    "target": "building",
+    "desc": "loaded ammo type (object)"
+   },
+   "memoryCapacity": {
+    "name": "memoryCapacity",
+    "obj": false,
+    "params": [],
+    "target": "building",
+    "desc": "number of cells in this memory block"
+   },
+   "health": {
+    "name": "health",
+    "obj": false,
+    "params": [],
+    "target": "building / unit",
+    "desc": "current health"
+   },
+   "maxHealth": {
+    "name": "maxHealth",
+    "obj": false,
+    "params": [],
+    "target": "building / unit",
+    "desc": "maximum health"
+   },
+   "heat": {
+    "name": "heat",
+    "obj": false,
+    "params": [],
+    "target": "building",
+    "desc": "reactor heat 0..1; on a force projector, the shield it has LOST"
+   },
+   "shield": {
+    "name": "shield",
+    "obj": false,
+    "params": [],
+    "target": "building / unit",
+    "desc": "current shield"
+   },
+   "armor": {
+    "name": "armor",
+    "obj": false,
+    "params": [],
+    "target": "unit",
+    "desc": "armor value"
+   },
+   "efficiency": {
+    "name": "efficiency",
+    "obj": false,
+    "params": [],
+    "target": "building",
+    "desc": "efficiency multiplier 0..1"
+   },
+   "progress": {
+    "name": "progress",
+    "obj": false,
+    "params": [],
+    "target": "building",
+    "desc": "crafting progress 0..1"
+   },
+   "timescale": {
+    "name": "timescale",
+    "obj": false,
+    "params": [],
+    "target": "building",
+    "desc": "processor speed multiplier"
+   },
+   "rotation": {
+    "name": "rotation",
+    "obj": false,
+    "params": [],
+    "target": "building",
+    "desc": "facing, 0..3"
+   },
+   "x": {
+    "name": "x",
+    "obj": false,
+    "params": [],
+    "target": "building / unit",
+    "desc": "tile x"
+   },
+   "y": {
+    "name": "y",
+    "obj": false,
+    "params": [],
+    "target": "building / unit",
+    "desc": "tile y"
+   },
+   "velocityX": {
+    "name": "velocityX",
+    "obj": false,
+    "params": [],
+    "target": "unit",
+    "desc": "horizontal speed"
+   },
+   "velocityY": {
+    "name": "velocityY",
+    "obj": false,
+    "params": [],
+    "target": "unit",
+    "desc": "vertical speed"
+   },
+   "shootX": {
+    "name": "shootX",
+    "obj": false,
+    "params": [],
+    "target": "unit",
+    "desc": "x of the current shoot target"
+   },
+   "shootY": {
+    "name": "shootY",
+    "obj": false,
+    "params": [],
+    "target": "unit",
+    "desc": "y of the current shoot target"
+   },
+   "cameraX": {
+    "name": "cameraX",
+    "obj": false,
+    "params": [],
+    "target": "any",
+    "desc": "camera x (world processors, privileged on some builds)"
+   },
+   "cameraY": {
+    "name": "cameraY",
+    "obj": false,
+    "params": [],
+    "target": "any",
+    "desc": "camera y"
+   },
+   "cameraWidth": {
+    "name": "cameraWidth",
+    "obj": false,
+    "params": [],
+    "target": "any",
+    "desc": "camera width in world units"
+   },
+   "cameraHeight": {
+    "name": "cameraHeight",
+    "obj": false,
+    "params": [],
+    "target": "any",
+    "desc": "camera height in world units"
+   },
+   "displayWidth": {
+    "name": "displayWidth",
+    "obj": false,
+    "params": [],
+    "target": "building",
+    "desc": "canvas width in pixels"
+   },
+   "displayHeight": {
+    "name": "displayHeight",
+    "obj": false,
+    "params": [],
+    "target": "building",
+    "desc": "canvas height in pixels"
+   },
+   "bufferSize": {
+    "name": "bufferSize",
+    "obj": false,
+    "params": [],
+    "target": "building",
+    "desc": "entries a message block can hold"
+   },
+   "operations": {
+    "name": "operations",
+    "obj": false,
+    "params": [],
+    "target": "building",
+    "desc": "instructions executed so far"
+   },
+   "size": {
+    "name": "size",
+    "obj": false,
+    "params": [],
+    "target": "building / content",
+    "desc": "block size in tiles; UTF-16 length when the target is a string"
+   },
+   "solid": {
+    "name": "solid",
+    "obj": false,
+    "params": [],
+    "target": "building",
+    "desc": "1 if the block is solid"
+   },
+   "dead": {
+    "name": "dead",
+    "obj": false,
+    "params": [],
+    "target": "unit",
+    "desc": "1 when the unit is dead AND ALSO when it is null -- not an existence test"
+   },
+   "range": {
+    "name": "range",
+    "obj": false,
+    "params": [],
+    "target": "building / unit",
+    "desc": "attack range in world units"
+   },
+   "shooting": {
+    "name": "shooting",
+    "obj": false,
+    "params": [],
+    "target": "unit",
+    "desc": "1 while firing"
+   },
+   "boosting": {
+    "name": "boosting",
+    "obj": false,
+    "params": [],
+    "target": "unit",
+    "desc": "1 while boosting"
+   },
+   "mineX": {
+    "name": "mineX",
+    "obj": false,
+    "params": [],
+    "target": "unit",
+    "desc": "x of the tile being mined"
+   },
+   "mineY": {
+    "name": "mineY",
+    "obj": false,
+    "params": [],
+    "target": "unit",
+    "desc": "y of the tile being mined"
+   },
+   "mining": {
+    "name": "mining",
+    "obj": false,
+    "params": [],
+    "target": "unit",
+    "desc": "1 while mining"
+   },
+   "buildX": {
+    "name": "buildX",
+    "obj": false,
+    "params": [],
+    "target": "unit",
+    "desc": "x of the tile being built"
+   },
+   "buildY": {
+    "name": "buildY",
+    "obj": false,
+    "params": [],
+    "target": "unit",
+    "desc": "y of the tile being built"
+   },
+   "pingX": {
+    "name": "pingX",
+    "obj": false,
+    "params": [],
+    "target": "any",
+    "desc": "x of the player's last map ping (~157.4+)"
+   },
+   "pingY": {
+    "name": "pingY",
+    "obj": false,
+    "params": [],
+    "target": "any",
+    "desc": "y of the player's last map ping (~157.4+)"
+   },
+   "pingText": {
+    "name": "pingText",
+    "obj": false,
+    "params": [],
+    "target": "any",
+    "desc": "text of the player's last map ping (~157.4+)"
+   },
+   "building": {
+    "name": "building",
+    "obj": false,
+    "params": [],
+    "target": "unit",
+    "desc": "the building the unit is standing on / building (object)"
+   },
+   "breaking": {
+    "name": "breaking",
+    "obj": false,
+    "params": [],
+    "target": "unit",
+    "desc": "1 while deconstructing"
+   },
+   "speed": {
+    "name": "speed",
+    "obj": false,
+    "params": [],
+    "target": "unit",
+    "desc": "movement speed"
+   },
+   "team": {
+    "name": "team",
+    "obj": false,
+    "params": [],
+    "target": "building / unit",
+    "desc": "team (object)"
+   },
+   "type": {
+    "name": "type",
+    "obj": false,
+    "params": [],
+    "target": "building / unit / content",
+    "desc": "content type (object) -- compare with @conveyor etc."
+   },
+   "flag": {
+    "name": "flag",
+    "obj": false,
+    "params": [],
+    "target": "unit",
+    "desc": "the value stored by ucontrol flag"
+   },
+   "flying": {
+    "name": "flying",
+    "obj": false,
+    "params": [],
+    "target": "unit",
+    "desc": "1 while airborne"
+   },
+   "controlled": {
+    "name": "controlled",
+    "obj": false,
+    "params": [],
+    "target": "unit",
+    "desc": "0 none, 1 processor, 2 player, 3 command"
+   },
+   "controller": {
+    "name": "controller",
+    "obj": false,
+    "params": [],
+    "target": "unit",
+    "desc": "controlling entity (object): the processor, or the unit itself"
+   },
+   "name": {
+    "name": "name",
+    "obj": false,
+    "params": [],
+    "target": "building / unit / content",
+    "desc": "content name as a string"
+   },
+   "payloadCount": {
+    "name": "payloadCount",
+    "obj": false,
+    "params": [],
+    "target": "unit",
+    "desc": "number of payloads carried"
+   },
+   "payloadType": {
+    "name": "payloadType",
+    "obj": false,
+    "params": [],
+    "target": "unit",
+    "desc": "first payload's type (object)"
+   },
+   "totalPayload": {
+    "name": "totalPayload",
+    "obj": false,
+    "params": [],
+    "target": "building",
+    "desc": "total number of payload blocks in a container"
+   },
+   "payloadCapacity": {
+    "name": "payloadCapacity",
+    "obj": false,
+    "params": [],
+    "target": "unit",
+    "desc": "payload capacity"
+   },
+   "maxUnits": {
+    "name": "maxUnits",
+    "obj": false,
+    "params": [],
+    "target": "building",
+    "desc": "unit cap; huge when read from a wave team"
+   },
+   "id": {
+    "name": "id",
+    "obj": false,
+    "params": [],
+    "target": "building / unit / content",
+    "desc": "content id"
+   },
+   "selectedBlock": {
+    "name": "selectedBlock",
+    "obj": false,
+    "params": [],
+    "target": "any",
+    "desc": "block selected in the player's build menu (object)"
+   },
+   "selectedRotation": {
+    "name": "selectedRotation",
+    "obj": false,
+    "params": [],
+    "target": "any",
+    "desc": "rotation selected in the build menu"
+   },
+   "bulletLifetime": {
+    "name": "bulletLifetime",
+    "obj": false,
+    "params": [],
+    "target": "unit",
+    "desc": "lifetime of the unit's last bullet"
+   },
+   "bulletTime": {
+    "name": "bulletTime",
+    "obj": false,
+    "params": [],
+    "target": "unit",
+    "desc": "age of the unit's last bullet"
+   },
+   "enabled": {
+    "name": "enabled",
+    "obj": false,
+    "params": [
+     "to"
+    ],
+    "target": "building",
+    "desc": "whether the block is enabled (writable via control)",
+    "source": "_server160.jar!mindustry/logic/LAccess.class (ACC_ENUM field 73/77, v160.7) + Mindustry-Source/core/src/mindustry/logic/LAccess.java (obj/params)"
+   },
+   "shoot": {
+    "name": "shoot",
+    "obj": false,
+    "params": [
+     "x",
+     "y",
+     "shoot"
+    ],
+    "target": "unit",
+    "desc": "issue a shoot at x,y (writable)"
+   },
+   "shootp": {
+    "name": "shootp",
+    "obj": true,
+    "params": [
+     "unit",
+     "shoot"
+    ],
+    "target": "unit",
+    "desc": "issue a shoot at a unit (writable)"
+   },
+   "config": {
+    "name": "config",
+    "obj": true,
+    "params": [
+     "to"
+    ],
+    "target": "building",
+    "desc": "block config (object; writable via control config)"
+   },
+   "color": {
+    "name": "color",
+    "obj": false,
+    "params": [
+     "to"
+    ],
+    "target": "building",
+    "desc": "block colour (writable)",
+    "source": "_server160.jar!mindustry/logic/LAccess.class (ACC_ENUM field 77/77, v160.7) + Mindustry-Source/core/src/mindustry/logic/LAccess.java (obj/params)"
+   }
+  }
+ }
+}

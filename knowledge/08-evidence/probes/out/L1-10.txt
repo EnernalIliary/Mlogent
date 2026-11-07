@@ -1,0 +1,33 @@
+# probe L1-10
+
+claim   : jump N 的指令序号从 0 起算
+mode    : steps=4 (update=none)
+verdict : PASS
+why     : text='BB' (no A => target index is 0-based)
+python  : 3.11.4
+repo    : F:\OneDrive\桌面\AtomicStates
+
+## mlog source (paste into a processor to reproduce)
+
+```
+jump 2 always
+print "A"
+print "B"
+```
+
+## executor readback
+
+```json
+{
+  "vars": {
+    "@counter": "3",
+    "x": "null"
+  },
+  "text": "BB",
+  "counter": 3.0,
+  "mode": "instruction",
+  "steps": 4,
+  "ipt": 2.0
+}
+```
+

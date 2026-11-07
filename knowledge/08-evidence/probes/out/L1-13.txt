@@ -1,0 +1,31 @@
+# probe L1-13
+
+claim   : print 只取 1 个参数
+mode    : steps=4 (update=none)
+verdict : PASS
+why     : text='acac' (extra 2nd arg dropped, no crash)
+python  : 3.11.4
+repo    : F:\OneDrive\桌面\AtomicStates
+
+## mlog source (paste into a processor to reproduce)
+
+```
+print "a" "b"
+print "c"
+```
+
+## executor readback
+
+```json
+{
+  "vars": {
+    "@counter": "2"
+  },
+  "text": "acac",
+  "counter": 2.0,
+  "mode": "instruction",
+  "steps": 4,
+  "ipt": 2.0
+}
+```
+

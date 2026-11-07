@@ -1,0 +1,46 @@
+# probe L1-18
+
+claim   : 记忆格越界读出 0（实测 null，见 README 冲突一节）
+mode    : steps=9 (update=none)
+verdict : FAIL
+why     : cap='64': in-range unset reads 0, but OOB reads null (claim says 0) => claim contradicted
+python  : 3.11.4
+repo    : F:\OneDrive\桌面\AtomicStates
+
+## mlog source (paste into a processor to reproduce)
+
+```
+sensor cap cell1 @memoryCapacity
+read a cell1 0
+read b cell1 63
+read c cell1 64
+read d cell1 -1
+print cap
+print "|"
+print a
+print b
+print c
+print d
+```
+
+## executor readback
+
+```json
+{
+  "vars": {
+    "@counter": "9",
+    "cell1": "Building#228[1,2]:memory-cell",
+    "cap": "64",
+    "a": "0",
+    "b": "0",
+    "c": "null",
+    "d": "null"
+  },
+  "text": "64|00",
+  "counter": 9.0,
+  "mode": "instruction",
+  "steps": 9,
+  "ipt": 2.0
+}
+```
+

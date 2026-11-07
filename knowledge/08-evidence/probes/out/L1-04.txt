@@ -1,0 +1,32 @@
+# probe L1-04
+
+claim   : jump -1 不是 nop：counter<0 被重置为 0，等于从头跑
+mode    : steps=8 (update=none)
+verdict : PASS
+why     : text='AAAA' (counter<0 reset to 0 => rerun from top, not a nop)
+python  : 3.11.4
+repo    : F:\OneDrive\桌面\AtomicStates
+
+## mlog source (paste into a processor to reproduce)
+
+```
+print "A"
+jump -1 always
+```
+
+## executor readback
+
+```json
+{
+  "vars": {
+    "@counter": "2",
+    "x": "null"
+  },
+  "text": "AAAA",
+  "counter": 2.0,
+  "mode": "instruction",
+  "steps": 8,
+  "ipt": 2.0
+}
+```
+

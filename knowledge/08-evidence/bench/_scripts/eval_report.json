@@ -1,0 +1,1900 @@
+{
+  "meta": {
+    "generated": "2026-11-08T04:35:13+08:00",
+    "questions": 300,
+    "topk": 6,
+    "note": "lexical = 纯标准库 BM25（kb-stage 镜像）；hybrid = 仓库 tools/kb.py（dense bge-small-zh + FTS5 + RRF）"
+  },
+  "lexical": {
+    "engine": "lexical BM25 over 1051 chunks / 104 files",
+    "knowledge": "F:\\OneDrive\\文档\\deepseek-harness\\default-workspace\\kb-stage",
+    "questions": 300,
+    "topk": 6,
+    "coverage": 1.0,
+    "hit@1": 0.4533,
+    "hit@k": 0.7867,
+    "mrr@k": 0.5824,
+    "strong@k": 0.9217,
+    "domains": {
+      "世界交互": {
+        "n": 25,
+        "coverage": 1.0,
+        "hit@1": 0.32,
+        "hit@k": 0.8,
+        "mrr@k": 0.511,
+        "strong@k": 1.0
+      },
+      "单位控制": {
+        "n": 25,
+        "coverage": 1.0,
+        "hit@1": 0.32,
+        "hit@k": 0.68,
+        "mrr@k": 0.429,
+        "strong@k": 1.0
+      },
+      "变量与作用域": {
+        "n": 25,
+        "coverage": 1.0,
+        "hit@1": 0.48,
+        "hit@k": 0.88,
+        "mrr@k": 0.638,
+        "strong@k": 0.909
+      },
+      "性能限制": {
+        "n": 25,
+        "coverage": 1.0,
+        "hit@1": 0.52,
+        "hit@k": 0.88,
+        "mrr@k": 0.7,
+        "strong@k": 0.867
+      },
+      "战斗与单位": {
+        "n": 25,
+        "coverage": 1.0,
+        "hit@1": 0.48,
+        "hit@k": 0.84,
+        "mrr@k": 0.577,
+        "strong@k": 0.933
+      },
+      "执行模型": {
+        "n": 25,
+        "coverage": 1.0,
+        "hit@1": 0.48,
+        "hit@k": 1.0,
+        "mrr@k": 0.708,
+        "strong@k": 1.0
+      },
+      "控制流": {
+        "n": 25,
+        "coverage": 1.0,
+        "hit@1": 0.48,
+        "hit@k": 0.88,
+        "mrr@k": 0.648,
+        "strong@k": 0.875
+      },
+      "方块与锚点": {
+        "n": 25,
+        "coverage": 1.0,
+        "hit@1": 0.4,
+        "hit@k": 0.64,
+        "mrr@k": 0.463,
+        "strong@k": 1.0
+      },
+      "液体与物流": {
+        "n": 25,
+        "coverage": 1.0,
+        "hit@1": 0.6,
+        "hit@k": 0.72,
+        "mrr@k": 0.653,
+        "strong@k": 1.0
+      },
+      "电力与热": {
+        "n": 25,
+        "coverage": 1.0,
+        "hit@1": 0.2,
+        "hit@k": 0.44,
+        "mrr@k": 0.283,
+        "strong@k": 0.0
+      },
+      "绘制文本": {
+        "n": 25,
+        "coverage": 1.0,
+        "hit@1": 0.76,
+        "hit@k": 0.88,
+        "mrr@k": 0.82,
+        "strong@k": 1.0
+      },
+      "读写感知": {
+        "n": 25,
+        "coverage": 1.0,
+        "hit@1": 0.4,
+        "hit@k": 0.8,
+        "mrr@k": 0.558,
+        "strong@k": 0.75
+      }
+    },
+    "gaps": [],
+    "misses": [
+      {
+        "id": "BENCH.0036",
+        "domain": "变量与作用域",
+        "src": "tools/instr_semantics.json#builtin_readonly_vars",
+        "q": "@this 表示什么？",
+        "top": [
+          "06-mlog/M04-读写与感知.md",
+          "01-execution/E01-执行模型与预算.md",
+          "04-units/U02-production.md"
+        ]
+      },
+      {
+        "id": "BENCH.0038",
+        "domain": "变量与作用域",
+        "src": "tools/instr_semantics.json#op",
+        "q": "set a 1、set b 2 后执行 op add c a b，c 是多少？",
+        "top": [
+          "08-evidence/claims.jsonl",
+          "08-evidence/claims.jsonl",
+          "01-execution/E01-执行模型与预算.md"
+        ]
+      },
+      {
+        "id": "BENCH.0041",
+        "domain": "变量与作用域",
+        "src": "Mindustry-Source/core/src/mindustry/logic/ConditionOp.java:6",
+        "q": "下面程序输出什么？",
+        "top": [
+          "01-execution/E01-执行模型与预算.md",
+          "03-combat/C09-defense.md",
+          "04-units/U02-production.md"
+        ]
+      },
+      {
+        "id": "BENCH.0052",
+        "domain": "控制流",
+        "src": "tools/instr_semantics.json#jump",
+        "q": "jump 的 index1 槽放什么？",
+        "top": [
+          "06-mlog/M04-读写与感知.md",
+          "01-execution/E01-执行模型与预算.md",
+          "04-units/U02-production.md"
+        ]
+      },
+      {
+        "id": "BENCH.0053",
+        "domain": "控制流",
+        "src": "Mindustry-Source/core/src/mindustry/logic/ConditionOp.java:6-13",
+        "q": "ConditionOp 一共有几个取值？",
+        "top": [
+          "02-world/W01-blocks-multiblock-anchor.md",
+          "02-world/W02-crafting-recipes.md",
+          "tools/check_kb.py"
+        ]
+      },
+      {
+        "id": "BENCH.0065",
+        "domain": "控制流",
+        "src": "Mindustry-Source/core/src/mindustry/logic/LStatements.java:986-1069",
+        "q": "这段代码的 bug 是什么？",
+        "top": [
+          "01-execution/E01-执行模型与预算.md",
+          "03-combat/C09-defense.md",
+          "06-mlog/M04-读写与感知.md"
+        ]
+      },
+      {
+        "id": "BENCH.0078",
+        "domain": "读写感知",
+        "src": "Mindustry-Source/core/src/mindustry/world/blocks/logic/MemoryBlock.java:12",
+        "q": "MemoryBlock 类里 memoryCapacity 的默认值是多少？",
+        "top": [
+          "00-data/README.md",
+          "03-combat/C08-waves.md",
+          "05-campaign/CAMP.SPAWN.001.md"
+        ]
+      },
+      {
+        "id": "BENCH.0084",
+        "domain": "读写感知",
+        "src": "Mindustry-Source/core/src/mindustry/world/blocks/logic/MemoryBlock.java:60",
+        "q": "读别的队伍的记忆库会怎样？",
+        "top": [
+          "06-mlog/instructions.json",
+          "02-world/W04-liquids.md",
+          "08-evidence/claims.jsonl"
+        ]
+      },
+      {
+        "id": "BENCH.0087",
+        "domain": "读写感知",
+        "src": "Mindustry-Source/core/src/mindustry/logic/LAccess.java#controls",
+        "q": "control 语句能操作哪些属性？",
+        "top": [
+          "06-mlog/instructions.json",
+          "04-units/U01-movement.md",
+          "06-mlog/M04-读写与感知.md"
+        ]
+      },
+      {
+        "id": "BENCH.0090",
+        "domain": "读写感知",
+        "src": "Mindustry-Source/core/src/mindustry/logic/GlobalVars.java:45",
+        "q": "@links 表示什么？",
+        "top": [
+          "06-mlog/M04-读写与感知.md",
+          "01-execution/E01-执行模型与预算.md",
+          "04-units/U02-production.md"
+        ]
+      },
+      {
+        "id": "BENCH.0092",
+        "domain": "读写感知",
+        "src": "Mindustry-Source/core/src/mindustry/logic/LAccess.java#settable",
+        "q": "LAccess.settable 直接允许写的属性集合是？",
+        "top": [
+          "01-execution/E05-链接与@常量.md",
+          "06-mlog/instructions.json",
+          "02-world/W03-power.md"
+        ]
+      },
+      {
+        "id": "BENCH.0101",
+        "domain": "绘制文本",
+        "src": "Mindustry-Source/core/src/mindustry/world/blocks/logic/LogicDisplay.java:53",
+        "q": "LogicDisplay 的 displaySize 默认值是多少？",
+        "top": [
+          "03-combat/C08-waves.md",
+          "06-mlog/instructions.json",
+          "00-data/README.md"
+        ]
+      },
+      {
+        "id": "BENCH.0102",
+        "domain": "绘制文本",
+        "src": "Mindustry-Source/core/src/mindustry/world/blocks/logic/LogicDisplay.java:51",
+        "q": "LogicDisplay 的 maxSides 默认值是多少？",
+        "top": [
+          "03-combat/C08-waves.md",
+          "06-mlog/instructions.json",
+          "00-data/README.md"
+        ]
+      },
+      {
+        "id": "BENCH.0106",
+        "domain": "绘制文本",
+        "src": "Mindustry-Source/core/src/mindustry/logic/LStatements.java:388",
+        "q": "printflush 的默认目标方块是？",
+        "top": [
+          "02-world/W04-liquids.md",
+          "03-combat/C03-bullets.md",
+          "02-world/W01-blocks-multiblock-anchor.md"
+        ]
+      },
+      {
+        "id": "BENCH.0129",
+        "domain": "世界交互",
+        "src": "Mindustry-Source/core/src/mindustry/logic/MessageType.java",
+        "q": "message 语句支持哪一种类型不是有效的？",
+        "top": [
+          "06-mlog/instructions.json",
+          "06-mlog/instructions.json",
+          "06-mlog/instructions.json"
+        ]
+      },
+      {
+        "id": "BENCH.0130",
+        "domain": "世界交互",
+        "src": "Mindustry-Source/core/src/mindustry/logic/CutsceneAction.java",
+        "q": "cutscene 语句支持哪些动作？",
+        "top": [
+          "04-units/U01-movement.md",
+          "06-mlog/instructions.json",
+          "06-mlog/instructions.json"
+        ]
+      },
+      {
+        "id": "BENCH.0139",
+        "domain": "世界交互",
+        "src": "Mindustry-Source/core/src/mindustry/logic/LogicRule.java",
+        "q": "setrule 能修改下列哪一组东西？",
+        "top": [
+          "01-execution/E05-链接与@常量.md",
+          "02-world/W02-crafting-recipes.md",
+          "06-mlog/M07-单位与逻辑控制.md"
+        ]
+      },
+      {
+        "id": "BENCH.0145",
+        "domain": "世界交互",
+        "src": "Mindustry-Source/core/src/mindustry/logic/QueryShape.java",
+        "q": "query 语句支持哪些形状？",
+        "top": [
+          "06-mlog/instructions.json",
+          "04-units/U01-movement.md",
+          "08-evidence/claims.jsonl"
+        ]
+      },
+      {
+        "id": "BENCH.0146",
+        "domain": "世界交互",
+        "src": "Mindustry-Source/core/src/mindustry/logic/FetchType.java",
+        "q": "fetch 语句能取哪些计数/对象？",
+        "top": [
+          "04-units/U01-movement.md",
+          "06-mlog/instructions.json",
+          "06-mlog/M03-控制流.md"
+        ]
+      },
+      {
+        "id": "BENCH.0152",
+        "domain": "单位控制",
+        "src": "Mindustry-Source/core/src/mindustry/logic/LLocate.java",
+        "q": "ulocate 支持哪四种查找目标？",
+        "top": [
+          "04-units/U03-ai.md",
+          "03-combat/C03-bullets.md",
+          "06-mlog/instructions.json"
+        ]
+      },
+      {
+        "id": "BENCH.0153",
+        "domain": "单位控制",
+        "src": "Mindustry-Source/core/src/mindustry/logic/RadarTarget.java",
+        "q": "radar/uradar 的 RadarTarget 枚举有多少种目标类型？",
+        "top": [
+          "06-mlog/instructions.json",
+          "06-mlog/M04-读写与感知.md",
+          "06-mlog/instructions.json"
+        ]
+      },
+      {
+        "id": "BENCH.0157",
+        "domain": "单位控制",
+        "src": "Mindustry-Source/core/src/mindustry/logic/LUnitControl.java",
+        "q": "ucontrol move 需要几个参数？",
+        "top": [
+          "06-mlog/instructions.json",
+          "06-mlog/instructions.json",
+          "06-mlog/instructions.json"
+        ]
+      },
+      {
+        "id": "BENCH.0158",
+        "domain": "单位控制",
+        "src": "Mindustry-Source/core/src/mindustry/logic/LUnitControl.java",
+        "q": "ucontrol build 需要的参数是？",
+        "top": [
+          "06-mlog/instructions.json",
+          "06-mlog/instructions.json",
+          "06-mlog/instructions.json"
+        ]
+      },
+      {
+        "id": "BENCH.0164",
+        "domain": "单位控制",
+        "src": "Mindustry-Source/core/src/mindustry/logic/RadarSort.java",
+        "q": "RadarSort 支持哪几种排序依据？",
+        "top": [
+          "06-mlog/instructions.json",
+          "06-mlog/instructions.json",
+          "06-mlog/M04-读写与感知.md"
+        ]
+      },
+      {
+        "id": "BENCH.0170",
+        "domain": "单位控制",
+        "src": "Mindustry-Source/core/src/mindustry/logic/RadarTarget.java",
+        "q": "RadarTarget.enemy 会匹配 derelict（中立残骸）队伍吗？",
+        "top": [
+          "06-mlog/instructions.json",
+          "tools/num_audit.py",
+          "05-campaign/CAMP-RULES.md"
+        ]
+      },
+      {
+        "id": "BENCH.0173",
+        "domain": "单位控制",
+        "src": "Mindustry-Source/core/src/mindustry/logic/LUnitControl.java",
+        "q": "ucontrol approach 与 pathfind 的区别是？",
+        "top": [
+          "02-world/W06-logistics.md",
+          "06-mlog/instructions.json",
+          "06-mlog/instructions.json"
+        ]
+      },
+      {
+        "id": "BENCH.0174",
+        "domain": "单位控制",
+        "src": "Mindustry-Source/core/src/mindustry/logic/LUnitControl.java",
+        "q": "ucontrol target 与 targetp 的区别是？",
+        "top": [
+          "02-world/W06-logistics.md",
+          "06-mlog/instructions.json",
+          "06-mlog/instructions.json"
+        ]
+      },
+      {
+        "id": "BENCH.0178",
+        "domain": "性能限制",
+        "src": "Mindustry-Source/core/src/mindustry/world/blocks/logic/LogicBlock.java:45",
+        "q": "LogicBlock.maxInstructionScale 默认值是多少？",
+        "top": [
+          "03-combat/C08-waves.md",
+          "06-mlog/instructions.json",
+          "00-data/README.md"
+        ]
+      },
+      {
+        "id": "BENCH.0179",
+        "domain": "性能限制",
+        "src": "Mindustry-Source/core/src/mindustry/world/blocks/logic/LogicBlock.java:47-48",
+        "q": "LogicBlock.maxInstructionsPerTick 默认值是多少（仅 privileged）？",
+        "top": [
+          "03-combat/C08-waves.md",
+          "06-mlog/instructions.json",
+          "00-data/README.md"
+        ]
+      },
+      {
+        "id": "BENCH.0190",
+        "domain": "性能限制",
+        "src": "tools/block_attrs.json",
+        "q": "logic-processor 的建造成本是？",
+        "top": [
+          "05-campaign/CAMP-RULES.md",
+          "06-mlog/instructions.json",
+          "05-campaign/CAMP-RULES.md"
+        ]
+      },
+      {
+        "id": "BENCH.0207",
+        "domain": "方块与锚点",
+        "src": "tools/block_attrs.json#core-shard",
+        "q": "core-shard 的物品容量与占地是？",
+        "top": [
+          "06-mlog/instructions.json",
+          "02-world/W06-logistics.md",
+          "04-units/U02-production.md"
+        ]
+      },
+      {
+        "id": "BENCH.0208",
+        "domain": "方块与锚点",
+        "src": "tools/block_attrs.json#container",
+        "q": "container（容器）的物品容量与占地是？",
+        "top": [
+          "02-world/W06-logistics.md",
+          "06-mlog/instructions.json",
+          "02-world/W06-logistics.md"
+        ]
+      },
+      {
+        "id": "BENCH.0209",
+        "domain": "方块与锚点",
+        "src": "tools/block_attrs.json#liquid-tank",
+        "q": "liquid-tank 的液体容量与占地是？",
+        "top": [
+          "02-world/W04-liquids.md",
+          "02-world/W04-liquids.md",
+          "02-world/W02-crafting-recipes.md"
+        ]
+      },
+      {
+        "id": "BENCH.0210",
+        "domain": "方块与锚点",
+        "src": "tools/block_attrs.json#conduit",
+        "q": "conduit（导管）的液体容量是多少？",
+        "top": [
+          "02-world/W04-liquids.md",
+          "02-world/W04-liquids.md",
+          "02-world/W04-liquids.md"
+        ]
+      },
+      {
+        "id": "BENCH.0211",
+        "domain": "方块与锚点",
+        "src": "tools/block_attrs.json#logic-processor",
+        "q": "logic-processor 的占地与建造成本是？",
+        "top": [
+          "05-campaign/CAMP-RULES.md",
+          "05-campaign/CAMP-RULES.md",
+          "02-world/W02-crafting-recipes.md"
+        ]
+      },
+      {
+        "id": "BENCH.0216",
+        "domain": "方块与锚点",
+        "src": "tools/block_attrs.json#conveyor",
+        "q": "下列哪组方块属于 distribution（物流）类别？",
+        "top": [
+          "02-world/W06-logistics.md",
+          "tools/check_kb.py",
+          "02-world/W04-liquids.md"
+        ]
+      },
+      {
+        "id": "BENCH.0217",
+        "domain": "方块与锚点",
+        "src": "tools/block_attrs.json#liquid-container",
+        "q": "liquid-container 的液体容量与占地是？",
+        "top": [
+          "02-world/W04-liquids.md",
+          "02-world/W04-liquids.md",
+          "02-world/W02-crafting-recipes.md"
+        ]
+      },
+      {
+        "id": "BENCH.0218",
+        "domain": "方块与锚点",
+        "src": "Mindustry-Source/core/src/mindustry/world/consumers/",
+        "q": "world/consumers 目录下共有多少个 Consume 相关 java 文件？",
+        "top": [
+          "tools/README.md",
+          "tools/check_kb.py",
+          "05-campaign/CAMP.WAVES.001.md"
+        ]
+      },
+      {
+        "id": "BENCH.0222",
+        "domain": "方块与锚点",
+        "src": "tools/block_attrs.json#core-shard",
+        "q": "为什么 3×3 的核心（core-shard）物品容量远大于 2×2 容器？",
+        "top": [
+          "02-world/W06-logistics.md",
+          "04-units/U02-production.md",
+          "02-world/W02-crafting-recipes.md"
+        ]
+      },
+      {
+        "id": "BENCH.0227",
+        "domain": "电力与热",
+        "src": "Mindustry-Source/core/src/mindustry/world/blocks/power/PowerGenerator.java",
+        "q": "PowerGenerator 的默认血量爆炸半径 explosionRadius 是多少？",
+        "top": [
+          "06-mlog/instructions.json",
+          "02-world/W05-heat.md",
+          "03-combat/C08-waves.md"
+        ]
+      },
+      {
+        "id": "BENCH.0228",
+        "domain": "电力与热",
+        "src": "tools/block_attrs.json#impact-reactor",
+        "q": "impact-reactor 的发电量是多少？",
+        "top": [
+          "02-world/W05-heat.md",
+          "02-world/W03-power.md",
+          "02-world/W03-power.md"
+        ]
+      },
+      {
+        "id": "BENCH.0229",
+        "domain": "电力与热",
+        "src": "Mindustry-Source/core/src/mindustry/world/consumers/ConsumePower.java:10",
+        "q": "ConsumePower 的 usage 字段表示什么？",
+        "top": [
+          "06-mlog/M04-读写与感知.md",
+          "tools/INDEX_CONTRACT.md",
+          "04-units/U02-production.md"
+        ]
+      },
+      {
+        "id": "BENCH.0230",
+        "domain": "电力与热",
+        "src": "Mindustry-Source/core/src/mindustry/world/consumers/ConsumePower.java:12",
+        "q": "ConsumePower 的 capacity 表示什么？",
+        "top": [
+          "06-mlog/M04-读写与感知.md",
+          "04-units/U02-production.md",
+          "01-execution/E01-执行模型与预算.md"
+        ]
+      },
+      {
+        "id": "BENCH.0231",
+        "domain": "电力与热",
+        "src": "Mindustry-Source/core/src/mindustry/world/consumers/ConsumePower.java:14",
+        "q": "ConsumePower 的 buffered 表示什么？",
+        "top": [
+          "06-mlog/M04-读写与感知.md",
+          "04-units/U02-production.md",
+          "01-execution/E01-执行模型与预算.md"
+        ]
+      },
+      {
+        "id": "BENCH.0234",
+        "domain": "电力与热",
+        "src": "tools/block_attrs.json#solar-panel",
+        "q": "solar-panel 的建造成本是？",
+        "top": [
+          "05-campaign/CAMP-RULES.md",
+          "06-mlog/instructions.json",
+          "05-campaign/CAMP-RULES.md"
+        ]
+      },
+      {
+        "id": "BENCH.0235",
+        "domain": "电力与热",
+        "src": "tools/block_attrs.json#battery",
+        "q": "battery 的建造成本是？",
+        "top": [
+          "05-campaign/CAMP-RULES.md",
+          "06-mlog/instructions.json",
+          "05-campaign/CAMP-RULES.md"
+        ]
+      },
+      {
+        "id": "BENCH.0236",
+        "domain": "电力与热",
+        "src": "tools/block_attrs.json#impact-reactor",
+        "q": "impact-reactor 需要什么液体冷却，速率多少？",
+        "top": [
+          "02-world/W05-heat.md",
+          "02-world/W04-liquids.md",
+          "02-world/W02-crafting-recipes.md"
+        ]
+      },
+      {
+        "id": "BENCH.0237",
+        "domain": "电力与热",
+        "src": "tools/block_attrs.json#combustion-generator",
+        "q": "combustion-generator 在 block_attrs 里带有哪两个危险属性？",
+        "top": [
+          "04-units/U03-ai.md",
+          "02-world/W05-heat.md",
+          "02-world/W07-drills-resources.md"
+        ]
+      },
+      {
+        "id": "BENCH.0238",
+        "domain": "电力与热",
+        "src": "Mindustry-Source/core/src/mindustry/world/blocks/power/PowerGenerator.java:25",
+        "q": "PowerGenerator 的 generationType 默认取哪个统计量？",
+        "top": [
+          "tools/INDEX_CONTRACT.md",
+          "06-mlog/instructions.json",
+          "01-execution/E06-跨版本差异.md"
+        ]
+      },
+      {
+        "id": "BENCH.0242",
+        "domain": "电力与热",
+        "src": "tools/block_attrs.json#battery-large",
+        "q": "battery-large 的占地与成本是？",
+        "top": [
+          "02-world/W02-crafting-recipes.md",
+          "05-campaign/CAMP-RULES.md",
+          "06-mlog/instructions.json"
+        ]
+      }
+    ]
+  },
+  "hybrid": {
+    "engine": "kb.py hybrid (dense bge-small-zh + FTS5 BM25 + RRF)",
+    "knowledge": "F:\\OneDrive\\桌面\\AtomicStates\\knowledge",
+    "questions": 300,
+    "topk": 6,
+    "coverage": 1.0,
+    "hit@1": 0.2833,
+    "hit@k": 0.5467,
+    "mrr@k": 0.3718,
+    "strong@k": 0.6218,
+    "domains": {
+      "世界交互": {
+        "n": 25,
+        "coverage": 1.0,
+        "hit@1": 0.28,
+        "hit@k": 0.4,
+        "mrr@k": 0.315,
+        "strong@k": 0.182
+      },
+      "单位控制": {
+        "n": 25,
+        "coverage": 1.0,
+        "hit@1": 0.44,
+        "hit@k": 0.64,
+        "mrr@k": 0.518,
+        "strong@k": 0.556
+      },
+      "变量与作用域": {
+        "n": 25,
+        "coverage": 1.0,
+        "hit@1": 0.28,
+        "hit@k": 0.48,
+        "mrr@k": 0.327,
+        "strong@k": 0.364
+      },
+      "性能限制": {
+        "n": 25,
+        "coverage": 1.0,
+        "hit@1": 0.4,
+        "hit@k": 0.88,
+        "mrr@k": 0.587,
+        "strong@k": 0.933
+      },
+      "战斗与单位": {
+        "n": 25,
+        "coverage": 1.0,
+        "hit@1": 0.36,
+        "hit@k": 0.6,
+        "mrr@k": 0.433,
+        "strong@k": 0.667
+      },
+      "执行模型": {
+        "n": 25,
+        "coverage": 1.0,
+        "hit@1": 0.2,
+        "hit@k": 0.68,
+        "mrr@k": 0.395,
+        "strong@k": 0.692
+      },
+      "控制流": {
+        "n": 25,
+        "coverage": 1.0,
+        "hit@1": 0.2,
+        "hit@k": 0.44,
+        "mrr@k": 0.297,
+        "strong@k": 0.625
+      },
+      "方块与锚点": {
+        "n": 25,
+        "coverage": 1.0,
+        "hit@1": 0.12,
+        "hit@k": 0.28,
+        "mrr@k": 0.158,
+        "strong@k": 0.5
+      },
+      "液体与物流": {
+        "n": 25,
+        "coverage": 1.0,
+        "hit@1": 0.44,
+        "hit@k": 0.64,
+        "mrr@k": 0.51,
+        "strong@k": 1.0
+      },
+      "电力与热": {
+        "n": 25,
+        "coverage": 1.0,
+        "hit@1": 0.12,
+        "hit@k": 0.36,
+        "mrr@k": 0.201,
+        "strong@k": 0.0
+      },
+      "绘制文本": {
+        "n": 25,
+        "coverage": 1.0,
+        "hit@1": 0.36,
+        "hit@k": 0.68,
+        "mrr@k": 0.453,
+        "strong@k": 0.667
+      },
+      "读写感知": {
+        "n": 25,
+        "coverage": 1.0,
+        "hit@1": 0.2,
+        "hit@k": 0.48,
+        "mrr@k": 0.269,
+        "strong@k": 0.714
+      }
+    },
+    "gaps": [],
+    "misses": [
+      {
+        "id": "BENCH.0006",
+        "domain": "执行模型",
+        "src": "tools/instr_semantics.json#instructions",
+        "q": "instr_semantics.json 收录的语句与运算符各多少个？",
+        "top": [
+          "tools/mlogcheck.py",
+          "tools/mlog.py",
+          "tools/mlogcheck.py"
+        ]
+      },
+      {
+        "id": "BENCH.0011",
+        "domain": "执行模型",
+        "src": "Mindustry-Source/core/src/mindustry/logic/LStatements.java:2045-2060",
+        "q": "想修改 @ipt（每 tick 指令数），正确的语句是？",
+        "top": [
+          "tools/mlogsim.py",
+          "knowledge/07-patterns/P01-architecture.md",
+          "knowledge/07-patterns/P01-architecture.md"
+        ]
+      },
+      {
+        "id": "BENCH.0012",
+        "domain": "执行模型",
+        "src": "tools/instr_semantics.json#_notes",
+        "q": "mlog 文本里参数的出现顺序由什么决定？",
+        "top": [
+          "knowledge/01-execution/E03-变量与内存边界.md",
+          "knowledge/01-execution/E02-指令语义陷阱.md",
+          "knowledge/06-mlog/M03-控制流.md"
+        ]
+      },
+      {
+        "id": "BENCH.0013",
+        "domain": "执行模型",
+        "src": "Mindustry-Source/core/src/mindustry/logic/LStatements.java:835-865",
+        "q": "处理器里的 yield 与下列哪种情况直接相关？",
+        "top": [
+          "tools/mlogsim.py",
+          "knowledge/06-mlog/M08-性能与限制.md",
+          "knowledge/06-mlog/M02-变量与作用域.md"
+        ]
+      },
+      {
+        "id": "BENCH.0014",
+        "domain": "执行模型",
+        "src": "tools/instr_semantics.json#op",
+        "q": "op 语句的 4 个参数槽（op,result,a,b）中，被写入的是哪个下标？",
+        "top": [
+          "tools/mlogcheck.py",
+          "tools/mlog.py",
+          "tools/mlogcheck.py"
+        ]
+      },
+      {
+        "id": "BENCH.0015",
+        "domain": "执行模型",
+        "src": "tools/instr_semantics.json#jump",
+        "q": "jump 语句本身不把结果写进普通变量，但它会写哪个特殊变量？",
+        "top": [
+          "knowledge/06-mlog/M03-控制流.md",
+          "tools/aigenerated.py",
+          "knowledge/07-patterns/P02-state-machine.md"
+        ]
+      },
+      {
+        "id": "BENCH.0020",
+        "domain": "执行模型",
+        "src": "Mindustry-Source/core/src/mindustry/logic/LStatements.java:283-303",
+        "q": "下面程序执行完毕后最终 print 的数字是多少？",
+        "top": [
+          "tools/mlog.py",
+          "tools/mlogrange.py",
+          "tools/mlog.py"
+        ]
+      },
+      {
+        "id": "BENCH.0021",
+        "domain": "执行模型",
+        "src": "Mindustry-Source/core/src/mindustry/logic/LStatements.java:986-1069",
+        "q": "下面程序打印几次、每次打印什么？",
+        "top": [
+          "docs/断言表.md",
+          "docs/断言表.md",
+          "docs/断言表.md"
+        ]
+      },
+      {
+        "id": "BENCH.0029",
+        "domain": "变量与作用域",
+        "src": "Mindustry-Source/core/src/mindustry/logic/LStatements.java:2045-2060",
+        "q": "setrate 唯一能修改的特殊变量是哪一个？",
+        "top": [
+          "knowledge/01-execution/E05-链接与@常量.md",
+          "knowledge/06-mlog/M02-变量与作用域.md",
+          "Logic/逻辑代码规范.md"
+        ]
+      },
+      {
+        "id": "BENCH.0031",
+        "domain": "变量与作用域",
+        "src": "tools/instr_semantics.json#sensor",
+        "q": "sensor 语句的第 0 个参数（文本第一个参数）是什么？",
+        "top": [
+          "mindustry-blueprint/SKILL.md",
+          "knowledge/08-evidence/anti-patterns.md",
+          "tools/mlog.py"
+        ]
+      },
+      {
+        "id": "BENCH.0034",
+        "domain": "变量与作用域",
+        "src": "tools/instr_semantics.json#op",
+        "q": "程序结束时 x 和 y 各是多少？",
+        "top": [
+          "tools/msch.py",
+          "tools/mlogval.py",
+          "tools/mlogpack.py"
+        ]
+      },
+      {
+        "id": "BENCH.0035",
+        "domain": "变量与作用域",
+        "src": "Mindustry-Source/core/src/mindustry/logic/LStatements.java:283-303",
+        "q": "变量名在 mlog 里允许带空格或中文吗？",
+        "top": [
+          "knowledge/06-mlog/M02-变量与作用域.md",
+          "knowledge/01-execution/E05-链接与@常量.md",
+          "mindustry-blueprint/SKILL.md"
+        ]
+      },
+      {
+        "id": "BENCH.0037",
+        "domain": "变量与作用域",
+        "src": "Mindustry-Source/core/src/mindustry/logic/LStatements.java:283-303",
+        "q": "用 set 给变量赋字符串（如 set s abc）在 v159.3 会怎样？",
+        "top": [
+          "knowledge/01-execution/E05-链接与@常量.md",
+          "knowledge/06-mlog/M02-变量与作用域.md",
+          "knowledge/01-execution/E03-变量与内存边界.md"
+        ]
+      },
+      {
+        "id": "BENCH.0038",
+        "domain": "变量与作用域",
+        "src": "tools/instr_semantics.json#op",
+        "q": "set a 1、set b 2 后执行 op add c a b，c 是多少？",
+        "top": [
+          "tools/mlogcheck.py",
+          "tools/mlogcheck.py",
+          "tools/mlogcheck.py"
+        ]
+      },
+      {
+        "id": "BENCH.0041",
+        "domain": "变量与作用域",
+        "src": "Mindustry-Source/core/src/mindustry/logic/ConditionOp.java:6",
+        "q": "下面程序输出什么？",
+        "top": [
+          "Logic/逻辑代码规范.md",
+          "knowledge/06-mlog/M01-执行模型总览.md",
+          "docs/本地知识库.md"
+        ]
+      },
+      {
+        "id": "BENCH.0042",
+        "domain": "变量与作用域",
+        "src": "Mindustry-Source/core/src/mindustry/logic/LStatements.java:968-977",
+        "q": "想让处理器保存上一次 tick 的状态，最可靠的方式是？",
+        "top": [
+          "knowledge/06-mlog/M08-性能与限制.md",
+          "knowledge/07-patterns/P06-performance.md",
+          "knowledge/06-mlog/M01-执行模型总览.md"
+        ]
+      },
+      {
+        "id": "BENCH.0044",
+        "domain": "变量与作用域",
+        "src": "Mindustry-Source/core/src/mindustry/logic/LStatements.java:2045-2060",
+        "q": "set rate 2 与 setrate 2 的区别是什么？",
+        "top": [
+          "tools/parallel.py",
+          "tools/mlog.py",
+          "tools/mlogval.py"
+        ]
+      },
+      {
+        "id": "BENCH.0045",
+        "domain": "变量与作用域",
+        "src": "Mindustry-Source/core/src/mindustry/logic/LStatements.java:2045-2060",
+        "q": "变量名区分大小写吗？",
+        "top": [
+          "Logic/逻辑代码规范.md",
+          "Logic/逻辑代码规范.md",
+          "knowledge/06-mlog/M02-变量与作用域.md"
+        ]
+      },
+      {
+        "id": "BENCH.0046",
+        "domain": "变量与作用域",
+        "src": "tools/instr_semantics.json#op",
+        "q": "set i 0 后连续执行 5 次 op add i i 1，i 最终是多少？",
+        "top": [
+          "tools/mlogcheck.py",
+          "tools/mlogcheck.py",
+          "knowledge/06-mlog/M03-控制流.md"
+        ]
+      },
+      {
+        "id": "BENCH.0048",
+        "domain": "变量与作用域",
+        "src": "tools/instr_semantics.json#set",
+        "q": "下列哪种写法最可能不被接受？",
+        "top": [
+          "knowledge/06-mlog/M03-控制流.md",
+          "tools/aigenerated.py",
+          "knowledge/07-patterns/P02-state-machine.md"
+        ]
+      },
+      {
+        "id": "BENCH.0049",
+        "domain": "变量与作用域",
+        "src": "tools/instr_semantics.json#builtin_readonly_vars",
+        "q": "@thisx 与 @thisy 表示什么？",
+        "top": [
+          "tools/mlog_needs.py",
+          "tools/mlogcheck.py",
+          "tools/rule_seed.py"
+        ]
+      },
+      {
+        "id": "BENCH.0052",
+        "domain": "控制流",
+        "src": "tools/instr_semantics.json#jump",
+        "q": "jump 的 index1 槽放什么？",
+        "top": [
+          "tools/mlogprovider.py",
+          "knowledge/02-world/W06-logistics.md",
+          "knowledge/08-evidence/anti-patterns.md"
+        ]
+      },
+      {
+        "id": "BENCH.0053",
+        "domain": "控制流",
+        "src": "Mindustry-Source/core/src/mindustry/logic/ConditionOp.java:6-13",
+        "q": "ConditionOp 一共有几个取值？",
+        "top": [
+          "knowledge/03-combat/C04-status.md",
+          "knowledge/03-combat/C10-numbers.md",
+          "knowledge/08-evidence/bench/README.md"
+        ]
+      },
+      {
+        "id": "BENCH.0056",
+        "domain": "控制流",
+        "src": "tools/instr_semantics.json#select",
+        "q": "select 语句从哪个 build 起才存在？",
+        "top": [
+          "tools/msch.py",
+          "tools/mlogir.py",
+          "tools/mlogsim.py"
+        ]
+      },
+      {
+        "id": "BENCH.0057",
+        "domain": "控制流",
+        "src": "Mindustry-Source/core/src/mindustry/logic/LExecutor.java:875-895",
+        "q": "select 语句的语义是？",
+        "top": [
+          "tools/mlogir.py",
+          "tools/mlog.py",
+          "tools/mlogcheck.py"
+        ]
+      },
+      {
+        "id": "BENCH.0058",
+        "domain": "控制流",
+        "src": "tools/instr_semantics.json#jump",
+        "q": "jump 目标写标签（如 loop:）时由谁换算成行号？",
+        "top": [
+          "knowledge/07-patterns/P02-state-machine.md",
+          "rules/README.md",
+          "Logic/逻辑代码规范.md"
+        ]
+      },
+      {
+        "id": "BENCH.0060",
+        "domain": "控制流",
+        "src": "Mindustry-Source/core/src/mindustry/logic/LStatements.java:986-1069",
+        "q": "下面程序打印什么？",
+        "top": [
+          "tools/mlogprovider.py",
+          "tests/run_tests.py",
+          "tools/mlog.py"
+        ]
+      },
+      {
+        "id": "BENCH.0063",
+        "domain": "控制流",
+        "src": "tools/instr_semantics.json#_notes",
+        "q": "程序第 0-9 行为有效指令，jump 到行号 10 等价于跳到第几条语句？",
+        "top": [
+          "Logic/逻辑代码规范.md",
+          "mindustry-blueprint/REFERENCE.md",
+          "Logic/逻辑代码规范.md"
+        ]
+      },
+      {
+        "id": "BENCH.0065",
+        "domain": "控制流",
+        "src": "Mindustry-Source/core/src/mindustry/logic/LStatements.java:986-1069",
+        "q": "这段代码的 bug 是什么？",
+        "top": [
+          "tools/logicd.py",
+          "tools/mlogprovider.py",
+          "tools/logicd.py"
+        ]
+      },
+      {
+        "id": "BENCH.0066",
+        "domain": "控制流",
+        "src": "Mindustry-Source/core/src/mindustry/logic/ConditionOp.java:7",
+        "q": "notEqual 的文本符号串写作什么？",
+        "top": [
+          "tools/jobqueue.py",
+          "tools/mlogprovider.py",
+          "tools/chats.py"
+        ]
+      },
+      {
+        "id": "BENCH.0067",
+        "domain": "控制流",
+        "src": "tools/instr_semantics.json#jump",
+        "q": "写 jump equal x 0 0 时最容易踩的坑是？",
+        "top": [
+          "knowledge/07-patterns/P02-state-machine.md",
+          "knowledge/06-mlog/M01-执行模型总览.md",
+          "knowledge/01-execution/E02-指令语义陷阱.md"
+        ]
+      },
+      {
+        "id": "BENCH.0069",
+        "domain": "控制流",
+        "src": "tools/instr_semantics.json#jump",
+        "q": "jump 里给 value/compare 传变量名（而非常量）可以吗？",
+        "top": [
+          "mindustry-blueprint/SKILL.md",
+          "tools/mlogcheck.py",
+          "tools/mlogrange.py"
+        ]
+      },
+      {
+        "id": "BENCH.0070",
+        "domain": "控制流",
+        "src": "tools/instr_semantics.json#noop",
+        "q": "把 jump 的 op 写成不存在的名字，v159.3 的行为是？",
+        "top": [
+          "tools/mlogcheck.py",
+          "tools/mlog.py",
+          "mindustry-blueprint/REFERENCE.md"
+        ]
+      },
+      {
+        "id": "BENCH.0071",
+        "domain": "控制流",
+        "src": "Mindustry-Source/core/src/mindustry/logic/LStatements.java:986-1069",
+        "q": "下列哪种写法能实现先判断再执行的 while 语义？",
+        "top": [
+          "tools/review.py",
+          "tools/review.py",
+          "tools/rule_capture.py"
+        ]
+      },
+      {
+        "id": "BENCH.0073",
+        "domain": "控制流",
+        "src": "tools/instr_semantics.json#jump",
+        "q": "标签（label）在 mlog 文本中的形式是？",
+        "top": [
+          "tests/run_tests.py",
+          "tools/logicd.py",
+          "tools/mlogir.py"
+        ]
+      },
+      {
+        "id": "BENCH.0079",
+        "domain": "读写感知",
+        "src": "Mindustry-Source/core/src/mindustry/logic/LStatements.java:63",
+        "q": "read 语句默认读哪个方块？",
+        "top": [
+          "knowledge/06-mlog/M04-读写与感知.md",
+          "mindustry-blueprint/SKILL.md",
+          "mindustry-blueprint/REFERENCE.md"
+        ]
+      },
+      {
+        "id": "BENCH.0080",
+        "domain": "读写感知",
+        "src": "Mindustry-Source/core/src/mindustry/logic/LStatements.java:63",
+        "q": "read 语句的第一个参数（文本里第一段）是什么？",
+        "top": [
+          "tools/mlog.py",
+          "tools/mlogcheck.py",
+          "tools/chats.py"
+        ]
+      },
+      {
+        "id": "BENCH.0081",
+        "domain": "读写感知",
+        "src": "tools/instr_semantics.json#getlink",
+        "q": "getlink 的索引是从 0 开始还是从 1 开始？",
+        "top": [
+          "knowledge/06-mlog/M04-读写与感知.md",
+          "tools/logicd.py",
+          "knowledge/KB.md"
+        ]
+      },
+      {
+        "id": "BENCH.0084",
+        "domain": "读写感知",
+        "src": "Mindustry-Source/core/src/mindustry/world/blocks/logic/MemoryBlock.java:60",
+        "q": "读别的队伍的记忆库会怎样？",
+        "top": [
+          "rules/README.md",
+          "mindustry-blueprint/SKILL.md",
+          "knowledge/04-units/U05-progression.md"
+        ]
+      },
+      {
+        "id": "BENCH.0086",
+        "domain": "读写感知",
+        "src": "Mindustry-Source/core/src/mindustry/logic/LExecutor.java:557",
+        "q": "control 语句的 type 默认值是什么？",
+        "top": [
+          "knowledge/03-combat/C04-status.md",
+          "tools/chats.py",
+          "tools/chats.py"
+        ]
+      },
+      {
+        "id": "BENCH.0087",
+        "domain": "读写感知",
+        "src": "Mindustry-Source/core/src/mindustry/logic/LAccess.java#controls",
+        "q": "control 语句能操作哪些属性？",
+        "top": [
+          "mindustry-blueprint/REFERENCE.md",
+          "knowledge/04-units/U03-ai.md",
+          "tools/chats.py"
+        ]
+      },
+      {
+        "id": "BENCH.0089",
+        "domain": "读写感知",
+        "src": "Mindustry-Source/core/src/mindustry/logic/LStatements.java:283-303",
+        "q": "用 read 读 cell1 的第 0 格并打印，写法正确的是哪段？",
+        "top": [
+          "tools/logicd.py",
+          "tools/mlogcross.py",
+          "tools/mlogprovider.py"
+        ]
+      },
+      {
+        "id": "BENCH.0090",
+        "domain": "读写感知",
+        "src": "Mindustry-Source/core/src/mindustry/logic/GlobalVars.java:45",
+        "q": "@links 表示什么？",
+        "top": [
+          "knowledge/01-execution/E03-变量与内存边界.md",
+          "tools/mlog.py",
+          "tools/jobqueue.py"
+        ]
+      },
+      {
+        "id": "BENCH.0092",
+        "domain": "读写感知",
+        "src": "Mindustry-Source/core/src/mindustry/logic/LAccess.java#settable",
+        "q": "LAccess.settable 直接允许写的属性集合是？",
+        "top": [
+          "knowledge/06-mlog/M06-世界交互.md",
+          "tools/mlog.py",
+          "tools/package.py"
+        ]
+      },
+      {
+        "id": "BENCH.0096",
+        "domain": "读写感知",
+        "src": "Mindustry-Source/core/src/mindustry/logic/LExecutor.java:635-636",
+        "q": "read 的目标是一个字符串（CharSequence）时会读到什么？",
+        "top": [
+          "tools/mlogcross.py",
+          "tools/mlogagent.py",
+          "tools/mlog.py"
+        ]
+      },
+      {
+        "id": "BENCH.0097",
+        "domain": "读写感知",
+        "src": "Mindustry-Source/core/src/mindustry/logic/LExecutor.java:637-638",
+        "q": "read 的目标是一个序列（Seq，如 query 的结果）时会读到什么？",
+        "top": [
+          "tools/mlogagent.py",
+          "tools/mlogcross.py",
+          "tools/map_logic.py"
+        ]
+      },
+      {
+        "id": "BENCH.0098",
+        "domain": "读写感知",
+        "src": "Mindustry-Source/core/src/mindustry/world/blocks/logic/MemoryBlock.java:80",
+        "q": "write 的 value 槽实际写入记忆库的是什么？",
+        "top": [
+          "mindustry-blueprint/SKILL.md",
+          "tools/mlogprovider.py",
+          "knowledge/08-evidence/anti-patterns.md"
+        ]
+      },
+      {
+        "id": "BENCH.0100",
+        "domain": "读写感知",
+        "src": "Mindustry-Source/core/src/mindustry/logic/LStatements.java:2137",
+        "q": "想在多人游戏中同步一个变量给其他玩家，用哪条语句？",
+        "top": [
+          "tools/chats.py",
+          "knowledge/05-campaign/CAMP-RULES.md",
+          "tools/chats.py"
+        ]
+      },
+      {
+        "id": "BENCH.0106",
+        "domain": "绘制文本",
+        "src": "Mindustry-Source/core/src/mindustry/logic/LStatements.java:388",
+        "q": "printflush 的默认目标方块是？",
+        "top": [
+          "knowledge/06-mlog/M05-绘制与文本.md",
+          "mindustry-blueprint/REFERENCE.md",
+          "knowledge/02-world/W01-blocks-multiblock-anchor.md"
+        ]
+      },
+      {
+        "id": "BENCH.0107",
+        "domain": "绘制文本",
+        "src": "Mindustry-Source/core/src/mindustry/logic/LStatements.java:367",
+        "q": "drawflush 的默认目标方块是？",
+        "top": [
+          "knowledge/06-mlog/M05-绘制与文本.md",
+          "knowledge/02-world/W01-blocks-multiblock-anchor.md",
+          "knowledge/02-world/W01-blocks-multiblock-anchor.md"
+        ]
+      }
+    ]
+  },
+  "comparison": {
+    "overall": {
+      "coverage": {
+        "lexical": 1.0,
+        "hybrid": 1.0,
+        "delta": 0.0
+      },
+      "hit@1": {
+        "lexical": 0.4533,
+        "hybrid": 0.2833,
+        "delta": -0.17
+      },
+      "hit@k": {
+        "lexical": 0.7867,
+        "hybrid": 0.5467,
+        "delta": -0.24
+      },
+      "mrr@k": {
+        "lexical": 0.5824,
+        "hybrid": 0.3718,
+        "delta": -0.2106
+      },
+      "strong@k": {
+        "lexical": 0.9217,
+        "hybrid": 0.6218,
+        "delta": -0.2999
+      }
+    },
+    "domains": [
+      {
+        "domain": "世界交互",
+        "n": 25,
+        "coverage": {
+          "lexical": 1.0,
+          "hybrid": 1.0,
+          "delta": 0.0
+        },
+        "hit@1": {
+          "lexical": 0.32,
+          "hybrid": 0.28,
+          "delta": -0.04
+        },
+        "hit@k": {
+          "lexical": 0.8,
+          "hybrid": 0.4,
+          "delta": -0.4
+        },
+        "mrr@k": {
+          "lexical": 0.511,
+          "hybrid": 0.315,
+          "delta": -0.196
+        },
+        "strong@k": {
+          "lexical": 1.0,
+          "hybrid": 0.182,
+          "delta": -0.818
+        }
+      },
+      {
+        "domain": "单位控制",
+        "n": 25,
+        "coverage": {
+          "lexical": 1.0,
+          "hybrid": 1.0,
+          "delta": 0.0
+        },
+        "hit@1": {
+          "lexical": 0.32,
+          "hybrid": 0.44,
+          "delta": 0.12
+        },
+        "hit@k": {
+          "lexical": 0.68,
+          "hybrid": 0.64,
+          "delta": -0.04
+        },
+        "mrr@k": {
+          "lexical": 0.429,
+          "hybrid": 0.518,
+          "delta": 0.089
+        },
+        "strong@k": {
+          "lexical": 1.0,
+          "hybrid": 0.556,
+          "delta": -0.444
+        }
+      },
+      {
+        "domain": "变量与作用域",
+        "n": 25,
+        "coverage": {
+          "lexical": 1.0,
+          "hybrid": 1.0,
+          "delta": 0.0
+        },
+        "hit@1": {
+          "lexical": 0.48,
+          "hybrid": 0.28,
+          "delta": -0.2
+        },
+        "hit@k": {
+          "lexical": 0.88,
+          "hybrid": 0.48,
+          "delta": -0.4
+        },
+        "mrr@k": {
+          "lexical": 0.638,
+          "hybrid": 0.327,
+          "delta": -0.311
+        },
+        "strong@k": {
+          "lexical": 0.909,
+          "hybrid": 0.364,
+          "delta": -0.545
+        }
+      },
+      {
+        "domain": "性能限制",
+        "n": 25,
+        "coverage": {
+          "lexical": 1.0,
+          "hybrid": 1.0,
+          "delta": 0.0
+        },
+        "hit@1": {
+          "lexical": 0.52,
+          "hybrid": 0.4,
+          "delta": -0.12
+        },
+        "hit@k": {
+          "lexical": 0.88,
+          "hybrid": 0.88,
+          "delta": 0.0
+        },
+        "mrr@k": {
+          "lexical": 0.7,
+          "hybrid": 0.587,
+          "delta": -0.113
+        },
+        "strong@k": {
+          "lexical": 0.867,
+          "hybrid": 0.933,
+          "delta": 0.066
+        }
+      },
+      {
+        "domain": "战斗与单位",
+        "n": 25,
+        "coverage": {
+          "lexical": 1.0,
+          "hybrid": 1.0,
+          "delta": 0.0
+        },
+        "hit@1": {
+          "lexical": 0.48,
+          "hybrid": 0.36,
+          "delta": -0.12
+        },
+        "hit@k": {
+          "lexical": 0.84,
+          "hybrid": 0.6,
+          "delta": -0.24
+        },
+        "mrr@k": {
+          "lexical": 0.577,
+          "hybrid": 0.433,
+          "delta": -0.144
+        },
+        "strong@k": {
+          "lexical": 0.933,
+          "hybrid": 0.667,
+          "delta": -0.266
+        }
+      },
+      {
+        "domain": "执行模型",
+        "n": 25,
+        "coverage": {
+          "lexical": 1.0,
+          "hybrid": 1.0,
+          "delta": 0.0
+        },
+        "hit@1": {
+          "lexical": 0.48,
+          "hybrid": 0.2,
+          "delta": -0.28
+        },
+        "hit@k": {
+          "lexical": 1.0,
+          "hybrid": 0.68,
+          "delta": -0.32
+        },
+        "mrr@k": {
+          "lexical": 0.708,
+          "hybrid": 0.395,
+          "delta": -0.313
+        },
+        "strong@k": {
+          "lexical": 1.0,
+          "hybrid": 0.692,
+          "delta": -0.308
+        }
+      },
+      {
+        "domain": "控制流",
+        "n": 25,
+        "coverage": {
+          "lexical": 1.0,
+          "hybrid": 1.0,
+          "delta": 0.0
+        },
+        "hit@1": {
+          "lexical": 0.48,
+          "hybrid": 0.2,
+          "delta": -0.28
+        },
+        "hit@k": {
+          "lexical": 0.88,
+          "hybrid": 0.44,
+          "delta": -0.44
+        },
+        "mrr@k": {
+          "lexical": 0.648,
+          "hybrid": 0.297,
+          "delta": -0.351
+        },
+        "strong@k": {
+          "lexical": 0.875,
+          "hybrid": 0.625,
+          "delta": -0.25
+        }
+      },
+      {
+        "domain": "方块与锚点",
+        "n": 25,
+        "coverage": {
+          "lexical": 1.0,
+          "hybrid": 1.0,
+          "delta": 0.0
+        },
+        "hit@1": {
+          "lexical": 0.4,
+          "hybrid": 0.12,
+          "delta": -0.28
+        },
+        "hit@k": {
+          "lexical": 0.64,
+          "hybrid": 0.28,
+          "delta": -0.36
+        },
+        "mrr@k": {
+          "lexical": 0.463,
+          "hybrid": 0.158,
+          "delta": -0.305
+        },
+        "strong@k": {
+          "lexical": 1.0,
+          "hybrid": 0.5,
+          "delta": -0.5
+        }
+      },
+      {
+        "domain": "液体与物流",
+        "n": 25,
+        "coverage": {
+          "lexical": 1.0,
+          "hybrid": 1.0,
+          "delta": 0.0
+        },
+        "hit@1": {
+          "lexical": 0.6,
+          "hybrid": 0.44,
+          "delta": -0.16
+        },
+        "hit@k": {
+          "lexical": 0.72,
+          "hybrid": 0.64,
+          "delta": -0.08
+        },
+        "mrr@k": {
+          "lexical": 0.653,
+          "hybrid": 0.51,
+          "delta": -0.143
+        },
+        "strong@k": {
+          "lexical": 1.0,
+          "hybrid": 1.0,
+          "delta": 0.0
+        }
+      },
+      {
+        "domain": "电力与热",
+        "n": 25,
+        "coverage": {
+          "lexical": 1.0,
+          "hybrid": 1.0,
+          "delta": 0.0
+        },
+        "hit@1": {
+          "lexical": 0.2,
+          "hybrid": 0.12,
+          "delta": -0.08
+        },
+        "hit@k": {
+          "lexical": 0.44,
+          "hybrid": 0.36,
+          "delta": -0.08
+        },
+        "mrr@k": {
+          "lexical": 0.283,
+          "hybrid": 0.201,
+          "delta": -0.082
+        },
+        "strong@k": {
+          "lexical": 0.0,
+          "hybrid": 0.0,
+          "delta": 0.0
+        }
+      },
+      {
+        "domain": "绘制文本",
+        "n": 25,
+        "coverage": {
+          "lexical": 1.0,
+          "hybrid": 1.0,
+          "delta": 0.0
+        },
+        "hit@1": {
+          "lexical": 0.76,
+          "hybrid": 0.36,
+          "delta": -0.4
+        },
+        "hit@k": {
+          "lexical": 0.88,
+          "hybrid": 0.68,
+          "delta": -0.2
+        },
+        "mrr@k": {
+          "lexical": 0.82,
+          "hybrid": 0.453,
+          "delta": -0.367
+        },
+        "strong@k": {
+          "lexical": 1.0,
+          "hybrid": 0.667,
+          "delta": -0.333
+        }
+      },
+      {
+        "domain": "读写感知",
+        "n": 25,
+        "coverage": {
+          "lexical": 1.0,
+          "hybrid": 1.0,
+          "delta": 0.0
+        },
+        "hit@1": {
+          "lexical": 0.4,
+          "hybrid": 0.2,
+          "delta": -0.2
+        },
+        "hit@k": {
+          "lexical": 0.8,
+          "hybrid": 0.48,
+          "delta": -0.32
+        },
+        "mrr@k": {
+          "lexical": 0.558,
+          "hybrid": 0.269,
+          "delta": -0.289
+        },
+        "strong@k": {
+          "lexical": 0.75,
+          "hybrid": 0.714,
+          "delta": -0.036
+        }
+      }
+    ],
+    "by_source_kind": [
+      {
+        "source_kind": "公式",
+        "lexical": {
+          "n": 22,
+          "coverage": 1.0,
+          "hit@k_lower_bound": 0.909
+        },
+        "hybrid": {
+          "n": 22,
+          "coverage": 1.0,
+          "hit@k_lower_bound": 0.773
+        }
+      },
+      {
+        "source_kind": "实测",
+        "lexical": {
+          "n": 4,
+          "coverage": 1.0,
+          "hit@k_lower_bound": 1.0
+        },
+        "hybrid": {
+          "n": 4,
+          "coverage": 1.0,
+          "hit@k_lower_bound": 1.0
+        }
+      },
+      {
+        "source_kind": "数据表",
+        "lexical": {
+          "n": 14,
+          "coverage": 1.0,
+          "hit@k_lower_bound": 0.929
+        },
+        "hybrid": {
+          "n": 14,
+          "coverage": 1.0,
+          "hit@k_lower_bound": 1.0
+        }
+      },
+      {
+        "source_kind": "源码",
+        "lexical": {
+          "n": 260,
+          "coverage": 1.0,
+          "hit@k_lower_bound": 0.819
+        },
+        "hybrid": {
+          "n": 260,
+          "coverage": 1.0,
+          "hit@k_lower_bound": 0.827
+        }
+      }
+    ],
+    "out_of_kb_hits": {
+      "engine": "kb.py hybrid (dense bge-small-zh + FTS5 BM25 + RRF)",
+      "questions": 300,
+      "covered": 300,
+      "hit@k_recount": 0.5467,
+      "topk_slots": 1800,
+      "topk_slots_outside_knowledge": 942,
+      "outside_slot_share": 0.5233,
+      "questions_with_top1_outside_knowledge": 136,
+      "top1_outside_share": 0.4533,
+      "questions_with_any_knowledge_doc_in_topk": 245,
+      "any_knowledge_doc_share": 0.8167,
+      "top_outside_docs": [
+        [
+          "docs/游戏速查/方块.md",
+          93
+        ],
+        [
+          "tools/mlogcheck.py",
+          92
+        ],
+        [
+          "mindustry-blueprint/REFERENCE.md",
+          68
+        ],
+        [
+          "tools/mlog.py",
+          64
+        ],
+        [
+          "mindustry-blueprint/SKILL.md",
+          60
+        ],
+        [
+          "tools/chats.py",
+          59
+        ],
+        [
+          "tools/logicd.py",
+          53
+        ],
+        [
+          "tools/mlogsim.py",
+          51
+        ],
+        [
+          "docs/断言表.md",
+          28
+        ],
+        [
+          "tools/mlogprovider.py",
+          27
+        ],
+        [
+          "docs/验证记录.md",
+          24
+        ],
+        [
+          "tools/aigenerated.py",
+          23
+        ]
+      ],
+      "inside_prefix": "knowledge/"
+    },
+    "by_source_kind_pq": {
+      "lexical": [
+        {
+          "source_kind": "公式",
+          "n": 22,
+          "coverage": 1.0,
+          "hit@1": 0.409,
+          "hit@k": 0.818
+        },
+        {
+          "source_kind": "实测",
+          "n": 4,
+          "coverage": 1.0,
+          "hit@1": 0.75,
+          "hit@k": 1.0
+        },
+        {
+          "source_kind": "数据表",
+          "n": 14,
+          "coverage": 1.0,
+          "hit@1": 0.643,
+          "hit@k": 0.929
+        },
+        {
+          "source_kind": "源码",
+          "n": 260,
+          "coverage": 1.0,
+          "hit@1": 0.442,
+          "hit@k": 0.773
+        }
+      ],
+      "hybrid": [
+        {
+          "source_kind": "公式",
+          "n": 22,
+          "coverage": 1.0,
+          "hit@1": 0.182,
+          "hit@k": 0.636
+        },
+        {
+          "source_kind": "实测",
+          "n": 4,
+          "coverage": 1.0,
+          "hit@1": 0.5,
+          "hit@k": 1.0
+        },
+        {
+          "source_kind": "数据表",
+          "n": 14,
+          "coverage": 1.0,
+          "hit@1": 0.214,
+          "hit@k": 0.571
+        },
+        {
+          "source_kind": "源码",
+          "n": 260,
+          "coverage": 1.0,
+          "hit@1": 0.292,
+          "hit@k": 0.531
+        }
+      ]
+    }
+  },
+  "engine": "lexical BM25 over 1051 chunks / 104 files",
+  "knowledge": "F:\\OneDrive\\文档\\deepseek-harness\\default-workspace\\kb-stage",
+  "questions": 300,
+  "topk": 6,
+  "coverage": 1.0,
+  "hit@1": 0.4533,
+  "hit@k": 0.7867,
+  "mrr@k": 0.5824,
+  "strong@k": 0.9217
+}

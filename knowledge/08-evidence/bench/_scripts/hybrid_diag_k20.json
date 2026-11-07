@@ -1,0 +1,1873 @@
+{
+  "engine": "kb.py hybrid (dense bge-small-zh + FTS5 BM25 + RRF)",
+  "questions": 299,
+  "as_is": {
+    "hit@1": 0.2843,
+    "hit@k": 0.6689,
+    "mrr": 0.3843
+  },
+  "restricted": {
+    "hit@1": 0.4314,
+    "hit@k": 0.6689,
+    "mrr": 0.5096
+  },
+  "outside": {
+    "topk_slots": 5980,
+    "outside_slots": 3565,
+    "outside_slot_share": 0.5962,
+    "top1_outside_questions": 135,
+    "top1_outside_share": 0.4515,
+    "top_outside_docs": [
+      [
+        "tools/mlogcheck.py",
+        395
+      ],
+      [
+        "docs/游戏速查/方块.md",
+        318
+      ],
+      [
+        "tools/mlog.py",
+        253
+      ],
+      [
+        "tools/chats.py",
+        249
+      ],
+      [
+        "tools/logicd.py",
+        188
+      ],
+      [
+        "mindustry-blueprint/REFERENCE.md",
+        185
+      ],
+      [
+        "mindustry-blueprint/SKILL.md",
+        185
+      ],
+      [
+        "tools/mlogsim.py",
+        172
+      ],
+      [
+        "docs/断言表.md",
+        119
+      ],
+      [
+        "Logic/逻辑代码规范.md",
+        84
+      ],
+      [
+        "tools/mlogir.py",
+        84
+      ],
+      [
+        "docs/验证记录.md",
+        75
+      ],
+      [
+        "tools/mlogprovider.py",
+        73
+      ],
+      [
+        "tools/aigenerated.py",
+        70
+      ],
+      [
+        "tools/review.py",
+        65
+      ]
+    ]
+  },
+  "domains": {
+    "世界交互": {
+      "n": 25,
+      "hit@1": 0.28,
+      "hit@k": 0.64,
+      "hit@1_restricted": 0.44,
+      "hit@k_restricted": 0.64
+    },
+    "单位控制": {
+      "n": 25,
+      "hit@1": 0.44,
+      "hit@k": 0.76,
+      "hit@1_restricted": 0.56,
+      "hit@k_restricted": 0.76
+    },
+    "变量与作用域": {
+      "n": 25,
+      "hit@1": 0.28,
+      "hit@k": 0.68,
+      "hit@1_restricted": 0.36,
+      "hit@k_restricted": 0.68
+    },
+    "性能限制": {
+      "n": 25,
+      "hit@1": 0.4,
+      "hit@k": 0.92,
+      "hit@1_restricted": 0.64,
+      "hit@k_restricted": 0.92
+    },
+    "战斗与单位": {
+      "n": 25,
+      "hit@1": 0.36,
+      "hit@k": 0.68,
+      "hit@1_restricted": 0.4,
+      "hit@k_restricted": 0.68
+    },
+    "执行模型": {
+      "n": 25,
+      "hit@1": 0.2,
+      "hit@k": 0.84,
+      "hit@1_restricted": 0.4,
+      "hit@k_restricted": 0.84
+    },
+    "控制流": {
+      "n": 25,
+      "hit@1": 0.2,
+      "hit@k": 0.52,
+      "hit@1_restricted": 0.4,
+      "hit@k_restricted": 0.52
+    },
+    "方块与锚点": {
+      "n": 24,
+      "hit@1": 0.125,
+      "hit@k": 0.458,
+      "hit@1_restricted": 0.25,
+      "hit@k_restricted": 0.458
+    },
+    "液体与物流": {
+      "n": 25,
+      "hit@1": 0.44,
+      "hit@k": 0.64,
+      "hit@1_restricted": 0.44,
+      "hit@k_restricted": 0.64
+    },
+    "电力与热": {
+      "n": 25,
+      "hit@1": 0.12,
+      "hit@k": 0.36,
+      "hit@1_restricted": 0.28,
+      "hit@k_restricted": 0.36
+    },
+    "绘制文本": {
+      "n": 25,
+      "hit@1": 0.36,
+      "hit@k": 0.84,
+      "hit@1_restricted": 0.56,
+      "hit@k_restricted": 0.84
+    },
+    "读写感知": {
+      "n": 25,
+      "hit@1": 0.2,
+      "hit@k": 0.68,
+      "hit@1_restricted": 0.44,
+      "hit@k_restricted": 0.68
+    }
+  },
+  "restricted_zero": [
+    {
+      "id": "BENCH.0012",
+      "domain": "执行模型",
+      "gold": "instr_semantics.json",
+      "gold_docs": [
+        "01-execution/E05-链接与@常量.md",
+        "01-execution/E06-跨版本差异.md",
+        "06-mlog/enums.json"
+      ],
+      "top": [
+        "E03-变量与内存边界.md",
+        "E02-指令语义陷阱.md",
+        "M03-控制流.md",
+        "逻辑代码规范.md",
+        "README.md",
+        "chats.py"
+      ]
+    },
+    {
+      "id": "BENCH.0014",
+      "domain": "执行模型",
+      "gold": "instr_semantics.json",
+      "gold_docs": [
+        "01-execution/E05-链接与@常量.md",
+        "01-execution/E06-跨版本差异.md",
+        "06-mlog/enums.json"
+      ],
+      "top": [
+        "mlogcheck.py",
+        "mlog.py",
+        "mlogcheck.py",
+        "mlog.py",
+        "mlogcheck.py",
+        "mlog.py"
+      ]
+    },
+    {
+      "id": "BENCH.0020",
+      "domain": "执行模型",
+      "gold": "LStatements.java",
+      "gold_docs": [
+        "04-units/U05-progression.md",
+        "06-mlog/instructions.json",
+        "06-mlog/M03-控制流.md"
+      ],
+      "top": [
+        "mlog.py",
+        "mlogrange.py",
+        "mlog.py",
+        "parallel.py",
+        "game.py",
+        "断言表.md"
+      ]
+    },
+    {
+      "id": "BENCH.0021",
+      "domain": "执行模型",
+      "gold": "LStatements.java",
+      "gold_docs": [
+        "04-units/U05-progression.md",
+        "06-mlog/instructions.json",
+        "06-mlog/M03-控制流.md"
+      ],
+      "top": [
+        "断言表.md",
+        "断言表.md",
+        "断言表.md",
+        "README.md",
+        "验证记录.md",
+        "README.md"
+      ]
+    },
+    {
+      "id": "BENCH.0029",
+      "domain": "变量与作用域",
+      "gold": "LStatements.java",
+      "gold_docs": [
+        "04-units/U05-progression.md",
+        "06-mlog/instructions.json",
+        "06-mlog/M03-控制流.md"
+      ],
+      "top": [
+        "E05-链接与@常量.md",
+        "M02-变量与作用域.md",
+        "逻辑代码规范.md",
+        "E03-变量与内存边界.md",
+        "SKILL.md",
+        "M02-变量与作用域.md"
+      ]
+    },
+    {
+      "id": "BENCH.0034",
+      "domain": "变量与作用域",
+      "gold": "instr_semantics.json",
+      "gold_docs": [
+        "01-execution/E05-链接与@常量.md",
+        "01-execution/E06-跨版本差异.md",
+        "06-mlog/enums.json"
+      ],
+      "top": [
+        "msch.py",
+        "mlogval.py",
+        "mlogpack.py",
+        "parallel.py",
+        "mlogsim.py",
+        "msch.py"
+      ]
+    },
+    {
+      "id": "BENCH.0035",
+      "domain": "变量与作用域",
+      "gold": "LStatements.java",
+      "gold_docs": [
+        "04-units/U05-progression.md",
+        "06-mlog/instructions.json",
+        "06-mlog/M03-控制流.md"
+      ],
+      "top": [
+        "M02-变量与作用域.md",
+        "E05-链接与@常量.md",
+        "SKILL.md",
+        "chats.py",
+        "E03-变量与内存边界.md",
+        "aigenerated.py"
+      ]
+    },
+    {
+      "id": "BENCH.0037",
+      "domain": "变量与作用域",
+      "gold": "LStatements.java",
+      "gold_docs": [
+        "04-units/U05-progression.md",
+        "06-mlog/instructions.json",
+        "06-mlog/M03-控制流.md"
+      ],
+      "top": [
+        "E05-链接与@常量.md",
+        "M02-变量与作用域.md",
+        "E03-变量与内存边界.md",
+        "kb.py",
+        "mlogsim.py",
+        "REFERENCE.md"
+      ]
+    },
+    {
+      "id": "BENCH.0038",
+      "domain": "变量与作用域",
+      "gold": "instr_semantics.json",
+      "gold_docs": [
+        "01-execution/E05-链接与@常量.md",
+        "01-execution/E06-跨版本差异.md",
+        "06-mlog/enums.json"
+      ],
+      "top": [
+        "mlogcheck.py",
+        "mlogcheck.py",
+        "mlogcheck.py",
+        "mlogcheck.py",
+        "mlogcheck.py",
+        "mlogrange.py"
+      ]
+    },
+    {
+      "id": "BENCH.0041",
+      "domain": "变量与作用域",
+      "gold": "ConditionOp.java",
+      "gold_docs": [
+        "06-mlog/M03-控制流.md"
+      ],
+      "top": [
+        "逻辑代码规范.md",
+        "M01-执行模型总览.md",
+        "本地知识库.md",
+        "mlog_mcp.py",
+        "M07-单位与逻辑控制.md",
+        "E01-执行模型与预算.md"
+      ]
+    },
+    {
+      "id": "BENCH.0045",
+      "domain": "变量与作用域",
+      "gold": "LStatements.java",
+      "gold_docs": [
+        "04-units/U05-progression.md",
+        "06-mlog/instructions.json",
+        "06-mlog/M03-控制流.md"
+      ],
+      "top": [
+        "逻辑代码规范.md",
+        "逻辑代码规范.md",
+        "M02-变量与作用域.md",
+        "E05-链接与@常量.md",
+        "M02-变量与作用域.md",
+        "SKILL.md"
+      ]
+    },
+    {
+      "id": "BENCH.0046",
+      "domain": "变量与作用域",
+      "gold": "instr_semantics.json",
+      "gold_docs": [
+        "01-execution/E05-链接与@常量.md",
+        "01-execution/E06-跨版本差异.md",
+        "06-mlog/enums.json"
+      ],
+      "top": [
+        "mlogcheck.py",
+        "mlogcheck.py",
+        "M03-控制流.md",
+        "mlogcheck.py",
+        "mlogprovider.py",
+        "mlogir.py"
+      ]
+    },
+    {
+      "id": "BENCH.0053",
+      "domain": "控制流",
+      "gold": "ConditionOp.java",
+      "gold_docs": [
+        "06-mlog/M03-控制流.md"
+      ],
+      "top": [
+        "C04-status.md",
+        "C10-numbers.md",
+        "README.md",
+        "W07-drills-resources.md",
+        "SKILL.md",
+        "SKILL.md"
+      ]
+    },
+    {
+      "id": "BENCH.0056",
+      "domain": "控制流",
+      "gold": "instr_semantics.json",
+      "gold_docs": [
+        "01-execution/E05-链接与@常量.md",
+        "01-execution/E06-跨版本差异.md",
+        "06-mlog/enums.json"
+      ],
+      "top": [
+        "msch.py",
+        "mlogir.py",
+        "mlogsim.py",
+        "mlogsim.py",
+        "mlog.py",
+        "jobqueue.py"
+      ]
+    },
+    {
+      "id": "BENCH.0057",
+      "domain": "控制流",
+      "gold": "LExecutor.java",
+      "gold_docs": [
+        "01-execution/E01-执行模型与预算.md",
+        "01-execution/E02-指令语义陷阱.md",
+        "01-execution/E03-变量与内存边界.md"
+      ],
+      "top": [
+        "mlogir.py",
+        "mlog.py",
+        "mlogcheck.py",
+        "mlogprovider.py",
+        "logicd.py",
+        "logicd.py"
+      ]
+    },
+    {
+      "id": "BENCH.0058",
+      "domain": "控制流",
+      "gold": "instr_semantics.json",
+      "gold_docs": [
+        "01-execution/E05-链接与@常量.md",
+        "01-execution/E06-跨版本差异.md",
+        "06-mlog/enums.json"
+      ],
+      "top": [
+        "P02-state-machine.md",
+        "README.md",
+        "逻辑代码规范.md",
+        "逻辑代码规范.md",
+        "逻辑代码规范.md",
+        "REFERENCE.md"
+      ]
+    },
+    {
+      "id": "BENCH.0060",
+      "domain": "控制流",
+      "gold": "LStatements.java",
+      "gold_docs": [
+        "04-units/U05-progression.md",
+        "06-mlog/instructions.json",
+        "06-mlog/M03-控制流.md"
+      ],
+      "top": [
+        "mlogprovider.py",
+        "run_tests.py",
+        "mlog.py",
+        "rule_seed.py",
+        "mlogsim.py",
+        "mlog.py"
+      ]
+    },
+    {
+      "id": "BENCH.0063",
+      "domain": "控制流",
+      "gold": "instr_semantics.json",
+      "gold_docs": [
+        "01-execution/E05-链接与@常量.md",
+        "01-execution/E06-跨版本差异.md",
+        "06-mlog/enums.json"
+      ],
+      "top": [
+        "逻辑代码规范.md",
+        "REFERENCE.md",
+        "逻辑代码规范.md",
+        "README.md",
+        "P02-state-machine.md",
+        "P02-state-machine.md"
+      ]
+    },
+    {
+      "id": "BENCH.0065",
+      "domain": "控制流",
+      "gold": "LStatements.java",
+      "gold_docs": [
+        "04-units/U05-progression.md",
+        "06-mlog/instructions.json",
+        "06-mlog/M03-控制流.md"
+      ],
+      "top": [
+        "logicd.py",
+        "mlogprovider.py",
+        "logicd.py",
+        "chats.py",
+        "chats.py",
+        "chats.py"
+      ]
+    },
+    {
+      "id": "BENCH.0066",
+      "domain": "控制流",
+      "gold": "ConditionOp.java",
+      "gold_docs": [
+        "06-mlog/M03-控制流.md"
+      ],
+      "top": [
+        "jobqueue.py",
+        "mlogprovider.py",
+        "chats.py",
+        "aigenerated.py",
+        "msch.py",
+        "aigenerated.py"
+      ]
+    },
+    {
+      "id": "BENCH.0067",
+      "domain": "控制流",
+      "gold": "instr_semantics.json",
+      "gold_docs": [
+        "01-execution/E05-链接与@常量.md",
+        "01-execution/E06-跨版本差异.md",
+        "06-mlog/enums.json"
+      ],
+      "top": [
+        "P02-state-machine.md",
+        "M01-执行模型总览.md",
+        "E02-指令语义陷阱.md",
+        "M03-控制流.md",
+        "M03-控制流.md",
+        "aigenerated.py"
+      ]
+    },
+    {
+      "id": "BENCH.0070",
+      "domain": "控制流",
+      "gold": "instr_semantics.json",
+      "gold_docs": [
+        "01-execution/E05-链接与@常量.md",
+        "01-execution/E06-跨版本差异.md",
+        "06-mlog/enums.json"
+      ],
+      "top": [
+        "mlogcheck.py",
+        "mlog.py",
+        "REFERENCE.md",
+        "P02-state-machine.md",
+        "P02-state-machine.md",
+        "README.md"
+      ]
+    },
+    {
+      "id": "BENCH.0071",
+      "domain": "控制流",
+      "gold": "LStatements.java",
+      "gold_docs": [
+        "04-units/U05-progression.md",
+        "06-mlog/instructions.json",
+        "06-mlog/M03-控制流.md"
+      ],
+      "top": [
+        "review.py",
+        "review.py",
+        "rule_capture.py",
+        "mlogsim.py",
+        "mlog.py",
+        "mlogagent.py"
+      ]
+    },
+    {
+      "id": "BENCH.0073",
+      "domain": "控制流",
+      "gold": "instr_semantics.json",
+      "gold_docs": [
+        "01-execution/E05-链接与@常量.md",
+        "01-execution/E06-跨版本差异.md",
+        "06-mlog/enums.json"
+      ],
+      "top": [
+        "run_tests.py",
+        "logicd.py",
+        "mlogir.py",
+        "run_tests.py",
+        "README.md",
+        "E03-变量与内存边界.md"
+      ]
+    },
+    {
+      "id": "BENCH.0079",
+      "domain": "读写感知",
+      "gold": "LStatements.java",
+      "gold_docs": [
+        "04-units/U05-progression.md",
+        "06-mlog/instructions.json",
+        "06-mlog/M03-控制流.md"
+      ],
+      "top": [
+        "M04-读写与感知.md",
+        "SKILL.md",
+        "REFERENCE.md",
+        "SKILL.md",
+        "SKILL.md",
+        "SKILL.md"
+      ]
+    },
+    {
+      "id": "BENCH.0080",
+      "domain": "读写感知",
+      "gold": "LStatements.java",
+      "gold_docs": [
+        "04-units/U05-progression.md",
+        "06-mlog/instructions.json",
+        "06-mlog/M03-控制流.md"
+      ],
+      "top": [
+        "mlog.py",
+        "mlogcheck.py",
+        "chats.py",
+        "aigenerated.py",
+        "mlogprovider.py",
+        "chats.py"
+      ]
+    },
+    {
+      "id": "BENCH.0081",
+      "domain": "读写感知",
+      "gold": "instr_semantics.json",
+      "gold_docs": [
+        "01-execution/E05-链接与@常量.md",
+        "01-execution/E06-跨版本差异.md",
+        "06-mlog/enums.json"
+      ],
+      "top": [
+        "M04-读写与感知.md",
+        "logicd.py",
+        "KB.md",
+        "mlogcross.py",
+        "README.md",
+        "本地知识库.md"
+      ]
+    },
+    {
+      "id": "BENCH.0084",
+      "domain": "读写感知",
+      "gold": "MemoryBlock.java",
+      "gold_docs": [
+        "01-execution/E02-指令语义陷阱.md",
+        "01-execution/E03-变量与内存边界.md",
+        "06-mlog/M02-变量与作用域.md"
+      ],
+      "top": [
+        "README.md",
+        "SKILL.md",
+        "U05-progression.md",
+        "README.md",
+        "断言表.md",
+        "README.md"
+      ]
+    },
+    {
+      "id": "BENCH.0087",
+      "domain": "读写感知",
+      "gold": "LAccess.java",
+      "gold_docs": [
+        "06-mlog/enums.json"
+      ],
+      "top": [
+        "REFERENCE.md",
+        "U03-ai.md",
+        "chats.py",
+        "mlogcheck.py",
+        "REFERENCE.md",
+        "mlogsim.py"
+      ]
+    },
+    {
+      "id": "BENCH.0089",
+      "domain": "读写感知",
+      "gold": "LStatements.java",
+      "gold_docs": [
+        "04-units/U05-progression.md",
+        "06-mlog/instructions.json",
+        "06-mlog/M03-控制流.md"
+      ],
+      "top": [
+        "logicd.py",
+        "mlogcross.py",
+        "mlogprovider.py",
+        "mlogsim.py",
+        "map_logic.py",
+        "map_logic.py"
+      ]
+    },
+    {
+      "id": "BENCH.0092",
+      "domain": "读写感知",
+      "gold": "LAccess.java",
+      "gold_docs": [
+        "06-mlog/enums.json"
+      ],
+      "top": [
+        "M06-世界交互.md",
+        "mlog.py",
+        "package.py",
+        "mlogir.py",
+        "README.md",
+        "E05-链接与@常量.md"
+      ]
+    },
+    {
+      "id": "BENCH.0100",
+      "domain": "读写感知",
+      "gold": "LStatements.java",
+      "gold_docs": [
+        "04-units/U05-progression.md",
+        "06-mlog/instructions.json",
+        "06-mlog/M03-控制流.md"
+      ],
+      "top": [
+        "chats.py",
+        "CAMP-RULES.md",
+        "chats.py",
+        "REFERENCE.md",
+        "SKILL.md",
+        "验证记录.md"
+      ]
+    },
+    {
+      "id": "BENCH.0112",
+      "domain": "绘制文本",
+      "gold": "LExecutor.java",
+      "gold_docs": [
+        "01-execution/E01-执行模型与预算.md",
+        "01-execution/E02-指令语义陷阱.md",
+        "01-execution/E03-变量与内存边界.md"
+      ],
+      "top": [
+        "game.py",
+        "mlog.py",
+        "find_signature.py",
+        "game.py",
+        "mlog.py",
+        "mlogsearch.py"
+      ]
+    },
+    {
+      "id": "BENCH.0114",
+      "domain": "绘制文本",
+      "gold": "LStatements.java",
+      "gold_docs": [
+        "04-units/U05-progression.md",
+        "06-mlog/instructions.json",
+        "06-mlog/M03-控制流.md"
+      ],
+      "top": [
+        "mlog.py",
+        "mlogagent.py",
+        "rule_capture.py",
+        "game.py",
+        "game.py",
+        "parallel.py"
+      ]
+    },
+    {
+      "id": "BENCH.0116",
+      "domain": "绘制文本",
+      "gold": "LStatements.java",
+      "gold_docs": [
+        "04-units/U05-progression.md",
+        "06-mlog/instructions.json",
+        "06-mlog/M03-控制流.md"
+      ],
+      "top": [
+        "mlog_mcp.py",
+        "mlogprovider.py",
+        "logicd.py",
+        "aigenerated.py",
+        "mlogprovider.py",
+        "sync_mlogagent.py"
+      ]
+    },
+    {
+      "id": "BENCH.0125",
+      "domain": "绘制文本",
+      "gold": "LExecutor.java",
+      "gold_docs": [
+        "01-execution/E01-执行模型与预算.md",
+        "01-execution/E02-指令语义陷阱.md",
+        "01-execution/E03-变量与内存边界.md"
+      ],
+      "top": [
+        "mlog.py",
+        "map_logic.py",
+        "gen_thorium_guard.py",
+        "aigenerated.py",
+        "gen_landing_scheduler.py",
+        "mlog.py"
+      ]
+    },
+    {
+      "id": "BENCH.0131",
+      "domain": "世界交互",
+      "gold": "LStatements.java",
+      "gold_docs": [
+        "04-units/U05-progression.md",
+        "06-mlog/instructions.json",
+        "06-mlog/M03-控制流.md"
+      ],
+      "top": [
+        "mlogsim.py",
+        "mlogsim.py",
+        "mlogsim.py",
+        "mlogsim.py",
+        "mlogsim.py",
+        "mlogsim.py"
+      ]
+    },
+    {
+      "id": "BENCH.0133",
+      "domain": "世界交互",
+      "gold": "LStatements.java",
+      "gold_docs": [
+        "04-units/U05-progression.md",
+        "06-mlog/instructions.json",
+        "06-mlog/M03-控制流.md"
+      ],
+      "top": [
+        "验证记录.md",
+        "M01-执行模型总览.md",
+        "C08-waves.md",
+        "mlogsim.py",
+        "kb.py",
+        "mlogsim.py"
+      ]
+    },
+    {
+      "id": "BENCH.0136",
+      "domain": "世界交互",
+      "gold": "LStatements.java",
+      "gold_docs": [
+        "04-units/U05-progression.md",
+        "06-mlog/instructions.json",
+        "06-mlog/M03-控制流.md"
+      ],
+      "top": [
+        "M04-读写与感知.md",
+        "chats.py",
+        "mlogir.py",
+        "build_cmd_index.py",
+        "mlogir.py",
+        "mschgen.py"
+      ]
+    },
+    {
+      "id": "BENCH.0137",
+      "domain": "世界交互",
+      "gold": "LStatements.java",
+      "gold_docs": [
+        "04-units/U05-progression.md",
+        "06-mlog/instructions.json",
+        "06-mlog/M03-控制流.md"
+      ],
+      "top": [
+        "mlogcheck.py",
+        "mlogcheck.py",
+        "mlog.py",
+        "mlogcheck.py",
+        "mlogcheck.py",
+        "mlogcheck.py"
+      ]
+    },
+    {
+      "id": "BENCH.0138",
+      "domain": "世界交互",
+      "gold": "LStatements.java",
+      "gold_docs": [
+        "04-units/U05-progression.md",
+        "06-mlog/instructions.json",
+        "06-mlog/M03-控制流.md"
+      ],
+      "top": [
+        "jobqueue.py",
+        "mlogcheck.py",
+        "logicd.py",
+        "jobqueue.py",
+        "jobqueue.py",
+        "mlog.py"
+      ]
+    },
+    {
+      "id": "BENCH.0140",
+      "domain": "世界交互",
+      "gold": "LStatements.java",
+      "gold_docs": [
+        "04-units/U05-progression.md",
+        "06-mlog/instructions.json",
+        "06-mlog/M03-控制流.md"
+      ],
+      "top": [
+        "mlogsim.py",
+        "mlogsim.py",
+        "mlogcheck.py",
+        "mlogsim.py",
+        "mlogsim.py",
+        "mlogsim.py"
+      ]
+    },
+    {
+      "id": "BENCH.0146",
+      "domain": "世界交互",
+      "gold": "FetchType.java",
+      "gold_docs": [
+        "06-mlog/enums.json",
+        "06-mlog/M06-世界交互.md"
+      ],
+      "top": [
+        "mlogcheck.py",
+        "mlogprovider.py",
+        "kb.py",
+        "rule_capture.py",
+        "logicd.py",
+        "logicd.py"
+      ]
+    },
+    {
+      "id": "BENCH.0147",
+      "domain": "世界交互",
+      "gold": "LStatements.java",
+      "gold_docs": [
+        "04-units/U05-progression.md",
+        "06-mlog/instructions.json",
+        "06-mlog/M03-控制流.md"
+      ],
+      "top": [
+        "mlogsim.py",
+        "kb.py",
+        "kb.py",
+        "断言表.md",
+        "build_cmd_index.py",
+        "mlogcross.py"
+      ]
+    },
+    {
+      "id": "BENCH.0150",
+      "domain": "世界交互",
+      "gold": "LExecutor.java",
+      "gold_docs": [
+        "01-execution/E01-执行模型与预算.md",
+        "01-execution/E02-指令语义陷阱.md",
+        "01-execution/E03-变量与内存边界.md"
+      ],
+      "top": [
+        "logicd.py",
+        "本地知识库.md",
+        "mlogsim.py",
+        "aigenerated.py",
+        "chats.py",
+        "mlogrange.py"
+      ]
+    },
+    {
+      "id": "BENCH.0153",
+      "domain": "单位控制",
+      "gold": "RadarTarget.java",
+      "gold_docs": [
+        "06-mlog/M07-单位与逻辑控制.md"
+      ],
+      "top": [
+        "M04-读写与感知.md",
+        "验证记录.md",
+        "P05-radar-targeting.md",
+        "mlogcheck.py",
+        "mlogcheck.py",
+        "P05-radar-targeting.md"
+      ]
+    },
+    {
+      "id": "BENCH.0164",
+      "domain": "单位控制",
+      "gold": "RadarSort.java",
+      "gold_docs": [
+        "06-mlog/M07-单位与逻辑控制.md"
+      ],
+      "top": [
+        "本地知识库.md",
+        "C08-waves.md",
+        "验证记录.md",
+        "W01-blocks-multiblock-anchor.md",
+        "M04-读写与感知.md",
+        "P04-data-structures.md"
+      ]
+    },
+    {
+      "id": "BENCH.0165",
+      "domain": "单位控制",
+      "gold": "LStatements.java",
+      "gold_docs": [
+        "04-units/U05-progression.md",
+        "06-mlog/instructions.json",
+        "06-mlog/M03-控制流.md"
+      ],
+      "top": [
+        "M04-读写与感知.md",
+        "mlogcheck.py",
+        "mlogcheck.py",
+        "验证记录.md",
+        "anti-patterns.md",
+        "mlogir.py"
+      ]
+    },
+    {
+      "id": "BENCH.0166",
+      "domain": "单位控制",
+      "gold": "LStatements.java",
+      "gold_docs": [
+        "04-units/U05-progression.md",
+        "06-mlog/instructions.json",
+        "06-mlog/M03-控制流.md"
+      ],
+      "top": [
+        "mlogcheck.py",
+        "mlogsim.py",
+        "logicd.py",
+        "aigenerated.py",
+        "mlog.py",
+        "mlogsim.py"
+      ]
+    },
+    {
+      "id": "BENCH.0170",
+      "domain": "单位控制",
+      "gold": "RadarTarget.java",
+      "gold_docs": [
+        "06-mlog/M07-单位与逻辑控制.md"
+      ],
+      "top": [
+        "CAMP-WINLOSE.md",
+        "C04-status.md",
+        "CAMP-WINLOSE.md",
+        "C07-support.md",
+        "C01-damage-pipeline.md",
+        "U03-ai.md"
+      ]
+    },
+    {
+      "id": "BENCH.0173",
+      "domain": "单位控制",
+      "gold": "LUnitControl.java",
+      "gold_docs": [
+        "06-mlog/M07-单位与逻辑控制.md"
+      ],
+      "top": [
+        "M06-世界交互.md",
+        "REFERENCE.md",
+        "U03-ai.md",
+        "block_sizes.py",
+        "logicd.py",
+        "mlogsim.py"
+      ]
+    },
+    {
+      "id": "BENCH.0182",
+      "domain": "性能限制",
+      "gold": "LogicBlock.java",
+      "gold_docs": [
+        "00-data/constants_rules_difficulty_drill_heat.json",
+        "00-data/formulas.json",
+        "00-data/src_anchors.json"
+      ],
+      "top": [
+        "review.py",
+        "jobqueue.py",
+        "mlogagent.py",
+        "CAMP-WINLOSE.md",
+        "mlogagent.py",
+        "sync_mlogagent.py"
+      ]
+    },
+    {
+      "id": "BENCH.0190",
+      "domain": "性能限制",
+      "gold": "block_attrs.json",
+      "gold_docs": [
+        "02-world/W01-blocks-multiblock-anchor.md"
+      ],
+      "top": [
+        "方块.md",
+        "方块.md",
+        "方块.md",
+        "map_logic.py",
+        "方块.md",
+        "方块.md"
+      ]
+    },
+    {
+      "id": "BENCH.0203",
+      "domain": "方块与锚点",
+      "gold": "block_sizes.json",
+      "gold_docs": [
+        "02-world/W01-blocks-multiblock-anchor.md",
+        "02-world/W07-drills-resources.md"
+      ],
+      "top": [
+        "mlog.py",
+        "chats.py",
+        "logicd.py",
+        "mlogagent.py",
+        "mschgen.py",
+        "mlog.py"
+      ]
+    },
+    {
+      "id": "BENCH.0205",
+      "domain": "方块与锚点",
+      "gold": "block_attrs.json",
+      "gold_docs": [
+        "02-world/W01-blocks-multiblock-anchor.md"
+      ],
+      "top": [
+        "chats.py",
+        "mlog.py",
+        "mlogagent.py",
+        "mlog.py",
+        "mlog.py",
+        "chats.py"
+      ]
+    },
+    {
+      "id": "BENCH.0208",
+      "domain": "方块与锚点",
+      "gold": "block_attrs.json",
+      "gold_docs": [
+        "02-world/W01-blocks-multiblock-anchor.md"
+      ],
+      "top": [
+        "方块.md",
+        "logicd.py",
+        "logicd.py",
+        "logicd.py",
+        "REFERENCE.md",
+        "mlogsim.py"
+      ]
+    },
+    {
+      "id": "BENCH.0209",
+      "domain": "方块与锚点",
+      "gold": "block_attrs.json",
+      "gold_docs": [
+        "02-world/W01-blocks-multiblock-anchor.md"
+      ],
+      "top": [
+        "方块.md",
+        "方块.md",
+        "方块.md",
+        "方块.md",
+        "W04-liquids.md",
+        "方块.md"
+      ]
+    },
+    {
+      "id": "BENCH.0210",
+      "domain": "方块与锚点",
+      "gold": "block_attrs.json",
+      "gold_docs": [
+        "02-world/W01-blocks-multiblock-anchor.md"
+      ],
+      "top": [
+        "方块.md",
+        "方块.md",
+        "W04-liquids.md",
+        "W04-liquids.md",
+        "方块.md",
+        "方块.md"
+      ]
+    },
+    {
+      "id": "BENCH.0211",
+      "domain": "方块与锚点",
+      "gold": "block_attrs.json",
+      "gold_docs": [
+        "02-world/W01-blocks-multiblock-anchor.md"
+      ],
+      "top": [
+        "方块.md",
+        "map_logic.py",
+        "方块.md",
+        "方块.md",
+        "方块.md",
+        "方块.md"
+      ]
+    },
+    {
+      "id": "BENCH.0213",
+      "domain": "方块与锚点",
+      "gold": "block_attrs.json",
+      "gold_docs": [
+        "02-world/W01-blocks-multiblock-anchor.md"
+      ],
+      "top": [
+        "mlogagent.py",
+        "mlog.py",
+        "chats.py",
+        "mlog_mcp.py",
+        "chats.py",
+        "mlogagent.py"
+      ]
+    },
+    {
+      "id": "BENCH.0215",
+      "domain": "方块与锚点",
+      "gold": "block_attrs.json",
+      "gold_docs": [
+        "02-world/W01-blocks-multiblock-anchor.md"
+      ],
+      "top": [
+        "chats.py",
+        "mlog.py",
+        "logicd.py",
+        "mlog.py",
+        "mlog.py",
+        "chats.py"
+      ]
+    },
+    {
+      "id": "BENCH.0217",
+      "domain": "方块与锚点",
+      "gold": "block_attrs.json",
+      "gold_docs": [
+        "02-world/W01-blocks-multiblock-anchor.md"
+      ],
+      "top": [
+        "方块.md",
+        "方块.md",
+        "方块.md",
+        "方块.md",
+        "方块.md",
+        "方块.md"
+      ]
+    },
+    {
+      "id": "BENCH.0222",
+      "domain": "方块与锚点",
+      "gold": "block_attrs.json",
+      "gold_docs": [
+        "02-world/W01-blocks-multiblock-anchor.md"
+      ],
+      "top": [
+        "方块.md",
+        "REFERENCE.md",
+        "REFERENCE.md",
+        "方块.md",
+        "方块.md",
+        "方块.md"
+      ]
+    },
+    {
+      "id": "BENCH.0223",
+      "domain": "方块与锚点",
+      "gold": "Blocks.java",
+      "gold_docs": [
+        "00-data/constants_rules_difficulty_drill_heat.json",
+        "00-data/formulas.json",
+        "00-data/src_anchors.json"
+      ],
+      "top": [
+        "mlog.py",
+        "mlogsearch.py",
+        "chats.py",
+        "chats.py",
+        "mlog.py",
+        "mlog_mcp.py"
+      ]
+    },
+    {
+      "id": "BENCH.0224",
+      "domain": "方块与锚点",
+      "gold": "blocks.json",
+      "gold_docs": [
+        "00-data/README.md",
+        "02-world/W01-blocks-multiblock-anchor.md",
+        "02-world/W02-crafting-recipes.md"
+      ],
+      "top": [
+        "game.py",
+        "mlog.py",
+        "chats.py",
+        "mlog_mcp.py",
+        "mlog.py",
+        "mlog_mcp.py"
+      ]
+    },
+    {
+      "id": "BENCH.0225",
+      "domain": "方块与锚点",
+      "gold": "blocks.json",
+      "gold_docs": [
+        "00-data/README.md",
+        "02-world/W01-blocks-multiblock-anchor.md",
+        "02-world/W02-crafting-recipes.md"
+      ],
+      "top": [
+        "mlogcheck.py",
+        "E03-变量与内存边界.md",
+        "logicd.py",
+        "classify_signature.py",
+        "chats.py",
+        "mlogsim.py"
+      ]
+    },
+    {
+      "id": "BENCH.0227",
+      "domain": "电力与热",
+      "gold": "PowerGenerator.java",
+      "gold_docs": [
+        "02-world/W03-power.md"
+      ],
+      "top": [
+        "C05-armor.md",
+        "gen_thorium_guard.py",
+        "X01-fixture.md",
+        "gen_thorium_guard.py",
+        "C01-damage-pipeline.md",
+        "C02-turrets.md"
+      ]
+    },
+    {
+      "id": "BENCH.0228",
+      "domain": "电力与热",
+      "gold": "block_attrs.json",
+      "gold_docs": [
+        "02-world/W01-blocks-multiblock-anchor.md"
+      ],
+      "top": [
+        "方块.md",
+        "W03-power.md",
+        "方块.md",
+        "方块.md",
+        "方块.md",
+        "方块.md"
+      ]
+    },
+    {
+      "id": "BENCH.0229",
+      "domain": "电力与热",
+      "gold": "ConsumePower.java",
+      "gold_docs": [
+        "00-data/formulas.json",
+        "00-data/src_anchors.json",
+        "02-world/W03-power.md"
+      ],
+      "top": [
+        "mlogprovider.py",
+        "mlogprovider.py",
+        "logicd.py",
+        "logicd.py",
+        "E03-变量与内存边界.md",
+        "mlogprovider.py"
+      ]
+    },
+    {
+      "id": "BENCH.0231",
+      "domain": "电力与热",
+      "gold": "ConsumePower.java",
+      "gold_docs": [
+        "00-data/formulas.json",
+        "00-data/src_anchors.json",
+        "02-world/W03-power.md"
+      ],
+      "top": [
+        "mlogsim.py",
+        "rule_seed.py",
+        "mlogsim.py",
+        "mlogsim.py",
+        "msch.py",
+        "map_logic.py"
+      ]
+    },
+    {
+      "id": "BENCH.0234",
+      "domain": "电力与热",
+      "gold": "block_attrs.json",
+      "gold_docs": [
+        "02-world/W01-blocks-multiblock-anchor.md"
+      ],
+      "top": [
+        "方块.md",
+        "方块.md",
+        "方块.md",
+        "方块.md",
+        "方块.md",
+        "方块.md"
+      ]
+    },
+    {
+      "id": "BENCH.0235",
+      "domain": "电力与热",
+      "gold": "block_attrs.json",
+      "gold_docs": [
+        "02-world/W01-blocks-multiblock-anchor.md"
+      ],
+      "top": [
+        "方块.md",
+        "方块.md",
+        "M06-世界交互.md",
+        "方块.md",
+        "方块.md",
+        "REFERENCE.md"
+      ]
+    },
+    {
+      "id": "BENCH.0236",
+      "domain": "电力与热",
+      "gold": "block_attrs.json",
+      "gold_docs": [
+        "02-world/W01-blocks-multiblock-anchor.md"
+      ],
+      "top": [
+        "C02-turrets.md",
+        "W05-heat.md",
+        "W04-liquids.md",
+        "W05-heat.md",
+        "W05-heat.md",
+        "C02-turrets.md"
+      ]
+    },
+    {
+      "id": "BENCH.0237",
+      "domain": "电力与热",
+      "gold": "block_attrs.json",
+      "gold_docs": [
+        "02-world/W01-blocks-multiblock-anchor.md"
+      ],
+      "top": [
+        "logicd.py",
+        "mlog.py",
+        "map_logic.py",
+        "jobqueue.py",
+        "mlogprovider.py",
+        "fetch_wiki_ids.py"
+      ]
+    },
+    {
+      "id": "BENCH.0238",
+      "domain": "电力与热",
+      "gold": "PowerGenerator.java",
+      "gold_docs": [
+        "02-world/W03-power.md"
+      ],
+      "top": [
+        "SKILL.md",
+        "U03-ai.md",
+        "E03-变量与内存边界.md",
+        "SKILL.md",
+        "验证记录.md",
+        "E02-指令语义陷阱.md"
+      ]
+    },
+    {
+      "id": "BENCH.0241",
+      "domain": "电力与热",
+      "gold": "block_attrs.json",
+      "gold_docs": [
+        "02-world/W01-blocks-multiblock-anchor.md"
+      ],
+      "top": [
+        "方块.md",
+        "方块.md",
+        "mschgen.py",
+        "package.py",
+        "方块.md",
+        "方块.md"
+      ]
+    },
+    {
+      "id": "BENCH.0242",
+      "domain": "电力与热",
+      "gold": "block_attrs.json",
+      "gold_docs": [
+        "02-world/W01-blocks-multiblock-anchor.md"
+      ],
+      "top": [
+        "方块.md",
+        "blocks.json",
+        "方块.md",
+        "mschgen.py",
+        "REFERENCE.md",
+        "W03-power.md"
+      ]
+    },
+    {
+      "id": "BENCH.0244",
+      "domain": "电力与热",
+      "gold": "block_attrs.json",
+      "gold_docs": [
+        "02-world/W01-blocks-multiblock-anchor.md"
+      ],
+      "top": [
+        "mlogcheck.py",
+        "C03-bullets.md",
+        "物品.md",
+        "C02-turrets.md",
+        "方块.md",
+        "W07-drills-resources.md"
+      ]
+    },
+    {
+      "id": "BENCH.0245",
+      "domain": "电力与热",
+      "gold": "PowerGenerator.java",
+      "gold_docs": [
+        "02-world/W03-power.md"
+      ],
+      "top": [
+        "W04-liquids.md",
+        "gen_thorium_guard.py",
+        "W04-liquids.md",
+        "W04-liquids.md",
+        "W04-liquids.md",
+        "W05-heat.md"
+      ]
+    },
+    {
+      "id": "BENCH.0246",
+      "domain": "电力与热",
+      "gold": "PowerGenerator.java",
+      "gold_docs": [
+        "02-world/W03-power.md"
+      ],
+      "top": [
+        "C03-bullets.md",
+        "gen_thorium_guard.py",
+        "C01-damage-pipeline.md",
+        "C08-waves.md",
+        "C03-bullets.md",
+        "C04-status.md"
+      ]
+    },
+    {
+      "id": "BENCH.0248",
+      "domain": "电力与热",
+      "gold": "Rules.java",
+      "gold_docs": [
+        "00-data/constants_rules_difficulty_drill_heat.json",
+        "00-data/formulas.json",
+        "00-data/src_anchors.json"
+      ],
+      "top": [
+        "logicd.py",
+        "parallel.py",
+        "C03-bullets.md",
+        "mlogsim.py",
+        "M07-单位与逻辑控制.md",
+        "logicd.py"
+      ]
+    },
+    {
+      "id": "BENCH.0250",
+      "domain": "电力与热",
+      "gold": "PowerGenerator.java",
+      "gold_docs": [
+        "02-world/W03-power.md"
+      ],
+      "top": [
+        "C04-status.md",
+        "CAMP-RULES.md",
+        "E02-指令语义陷阱.md",
+        "C04-status.md",
+        "X01-fixture.md",
+        "C08-waves.md"
+      ]
+    },
+    {
+      "id": "BENCH.0255",
+      "domain": "液体与物流",
+      "gold": "block_attrs.json",
+      "gold_docs": [
+        "02-world/W01-blocks-multiblock-anchor.md"
+      ],
+      "top": [
+        "方块.md",
+        "方块.md",
+        "W04-liquids.md",
+        "W04-liquids.md",
+        "方块.md",
+        "方块.md"
+      ]
+    },
+    {
+      "id": "BENCH.0256",
+      "domain": "液体与物流",
+      "gold": "Liquid.java",
+      "gold_docs": [
+        "02-world/W02-crafting-recipes.md",
+        "02-world/W04-liquids.md",
+        "02-world/W05-heat.md"
+      ],
+      "top": [
+        "jobqueue.py",
+        "jobqueue.py",
+        "sync_mlogagent.py",
+        "mlog.py",
+        "run_tests.py",
+        "logicd.py"
+      ]
+    },
+    {
+      "id": "BENCH.0261",
+      "domain": "液体与物流",
+      "gold": "Liquids.java",
+      "gold_docs": [
+        "02-world/W04-liquids.md"
+      ],
+      "top": [
+        "W05-heat.md",
+        "C02-turrets.md",
+        "方块.md",
+        "W03-power.md",
+        "方块.md",
+        "方块.md"
+      ]
+    },
+    {
+      "id": "BENCH.0263",
+      "domain": "液体与物流",
+      "gold": "block_attrs.json",
+      "gold_docs": [
+        "02-world/W01-blocks-multiblock-anchor.md"
+      ],
+      "top": [
+        "mlog.py",
+        "chats.py",
+        "SKILL.md",
+        "mlog.py",
+        "mlog.py",
+        "W04-liquids.md"
+      ]
+    },
+    {
+      "id": "BENCH.0264",
+      "domain": "液体与物流",
+      "gold": "block_attrs.json",
+      "gold_docs": [
+        "02-world/W01-blocks-multiblock-anchor.md"
+      ],
+      "top": [
+        "方块.md",
+        "方块.md",
+        "方块.md",
+        "方块.md",
+        "方块.md",
+        "方块.md"
+      ]
+    },
+    {
+      "id": "BENCH.0267",
+      "domain": "液体与物流",
+      "gold": "block_attrs.json",
+      "gold_docs": [
+        "02-world/W01-blocks-multiblock-anchor.md"
+      ],
+      "top": [
+        "W04-liquids.md",
+        "W04-liquids.md",
+        "W04-liquids.md",
+        "W07-drills-resources.md",
+        "W04-liquids.md",
+        "W04-liquids.md"
+      ]
+    },
+    {
+      "id": "BENCH.0269",
+      "domain": "液体与物流",
+      "gold": "block_attrs.json",
+      "gold_docs": [
+        "02-world/W01-blocks-multiblock-anchor.md"
+      ],
+      "top": [
+        "msch.py",
+        "mlogsearch.py",
+        "package.py",
+        "mlogsearch.py",
+        "msch.py",
+        "package.py"
+      ]
+    },
+    {
+      "id": "BENCH.0271",
+      "domain": "液体与物流",
+      "gold": "liquids.json",
+      "gold_docs": [
+        "00-data/README.md",
+        "02-world/W04-liquids.md",
+        "index.repo.json"
+      ],
+      "top": [
+        "game.py",
+        "mlogsim.py",
+        "mlog.py",
+        "mlogsearch.py",
+        "VERSION.md",
+        "chats.py"
+      ]
+    },
+    {
+      "id": "BENCH.0273",
+      "domain": "液体与物流",
+      "gold": "Liquids.java",
+      "gold_docs": [
+        "02-world/W04-liquids.md"
+      ],
+      "top": [
+        "mlog.py",
+        "mlogsim.py",
+        "mlogsim.py",
+        "rule_seed.py",
+        "rule_seed.py",
+        "rule_seed.py"
+      ]
+    },
+    {
+      "id": "BENCH.0281",
+      "domain": "战斗与单位",
+      "gold": "BulletType.java",
+      "gold_docs": [
+        "00-data/constants_rules_difficulty_drill_heat.json",
+        "00-data/formulas.json",
+        "00-data/README.md"
+      ],
+      "top": [
+        "C04-status.md",
+        "CAMP-RULES.md",
+        "CAMP-RULES.md",
+        "chats.py",
+        "E04-时间与wait精度.md",
+        "CAMP.WAVES.001.md"
+      ]
+    },
+    {
+      "id": "BENCH.0283",
+      "domain": "战斗与单位",
+      "gold": "BulletType.java",
+      "gold_docs": [
+        "00-data/constants_rules_difficulty_drill_heat.json",
+        "00-data/formulas.json",
+        "00-data/README.md"
+      ],
+      "top": [
+        "C04-status.md",
+        "CAMP-RULES.md",
+        "CAMP-RULES.md",
+        "chats.py",
+        "E04-时间与wait精度.md",
+        "CAMP.WAVES.001.md"
+      ]
+    },
+    {
+      "id": "BENCH.0284",
+      "domain": "战斗与单位",
+      "gold": "BulletType.java",
+      "gold_docs": [
+        "00-data/constants_rules_difficulty_drill_heat.json",
+        "00-data/formulas.json",
+        "00-data/README.md"
+      ],
+      "top": [
+        "CAMP-RULES.md",
+        "C04-status.md",
+        "review.py",
+        "CAMP-RULES.md",
+        "P02-state-machine.md",
+        "chats.py"
+      ]
+    },
+    {
+      "id": "BENCH.0290",
+      "domain": "战斗与单位",
+      "gold": "UnitType.java",
+      "gold_docs": [
+        "00-data/README.md",
+        "03-combat/C06-unit-weapons.md",
+        "04-units/U01-movement.md"
+      ],
+      "top": [
+        "C04-status.md",
+        "CAMP-RULES.md",
+        "CAMP-RULES.md",
+        "chats.py",
+        "E04-时间与wait精度.md",
+        "CAMP.WAVES.001.md"
+      ]
+    },
+    {
+      "id": "BENCH.0291",
+      "domain": "战斗与单位",
+      "gold": "UnitType.java",
+      "gold_docs": [
+        "00-data/README.md",
+        "03-combat/C06-unit-weapons.md",
+        "04-units/U01-movement.md"
+      ],
+      "top": [
+        "C04-status.md",
+        "CAMP-RULES.md",
+        "CAMP-RULES.md",
+        "chats.py",
+        "E04-时间与wait精度.md",
+        "CAMP.WAVES.001.md"
+      ]
+    },
+    {
+      "id": "BENCH.0294",
+      "domain": "战斗与单位",
+      "gold": "Waves.java",
+      "gold_docs": [
+        "00-data/src_anchors.json",
+        "03-combat/C08-waves.md",
+        "04-units/U05-progression.md"
+      ],
+      "top": [
+        "M03-控制流.md",
+        "C05-armor.md",
+        "mlogcheck.py",
+        "kb.py",
+        "mlogrange.py",
+        "aigenerated.py"
+      ]
+    },
+    {
+      "id": "BENCH.0295",
+      "domain": "战斗与单位",
+      "gold": "Waves.java",
+      "gold_docs": [
+        "00-data/src_anchors.json",
+        "03-combat/C08-waves.md",
+        "04-units/U05-progression.md"
+      ],
+      "top": [
+        "aigenerated.py",
+        "run_tests.py",
+        "aigenerated.py",
+        "mlogcheck.py",
+        "logicd.py",
+        "mlogpack.py"
+      ]
+    },
+    {
+      "id": "BENCH.0297",
+      "domain": "战斗与单位",
+      "gold": "BulletType.java",
+      "gold_docs": [
+        "00-data/constants_rules_difficulty_drill_heat.json",
+        "00-data/formulas.json",
+        "00-data/README.md"
+      ],
+      "top": [
+        "C04-status.md",
+        "EMULATOR-CROSSCHECK.md",
+        "review.py",
+        "mlogcheck.py",
+        "mlogpack.py",
+        "chats.py"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,41 @@
+# probe L1-19
+
+claim   : @x/@y/@range 以 tile 为单位（fortress range 29.5/health 900）
+mode    : ticks=3 (update=all)
+verdict : INCONCLUSIVE
+why     : no @fortress on the headless map; ubind found no unit (needs a scene with fortress)
+python  : 3.11.4
+repo    : F:\OneDrive\桌面\AtomicStates
+
+## mlog source (paste into a processor to reproduce)
+
+```
+ubind @fortress
+sensor rg @unit @range
+sensor hp @unit @health
+sensor ux @unit @x
+print rg
+print "|"
+print hp
+print "|"
+print ux
+```
+
+## executor readback
+
+```json
+{
+  "vars": {
+    "@counter": "4",
+    "rg": "null",
+    "hp": "null",
+    "ux": "null"
+  },
+  "text": "",
+  "counter": 4.0,
+  "mode": "tick",
+  "steps": 3,
+  "ipt": 2.0
+}
+```
+

@@ -1,0 +1,37 @@
+# probe L1-09
+
+claim   : sin/cos/angle 以度为单位
+mode    : steps=6 (update=none)
+verdict : PASS
+why     : text='1|-1' (expect 1|-1; radians would give 0.894/-0.598)
+python  : 3.11.4
+repo    : F:\OneDrive\桌面\AtomicStates
+
+## mlog source (paste into a processor to reproduce)
+
+```
+op sin r 90
+op cos s 180
+print r
+print "|"
+print s
+```
+
+## executor readback
+
+```json
+{
+  "vars": {
+    "@counter": "1",
+    "b": "null",
+    "r": "1",
+    "s": "-1"
+  },
+  "text": "1|-1",
+  "counter": 1.0,
+  "mode": "instruction",
+  "steps": 6,
+  "ipt": 2.0
+}
+```
+

@@ -1,0 +1,36 @@
+# probe L1-16
+
+claim   : read/write 对 @this 指向的处理器变量
+mode    : steps=5 (update=none)
+verdict : PASS
+why     : vars.r='7' text='7'
+python  : 3.11.4
+repo    : F:\OneDrive\桌面\AtomicStates
+
+## mlog source (paste into a processor to reproduce)
+
+```
+set z 7
+write z cell1 0
+read r cell1 0
+print r
+```
+
+## executor readback
+
+```json
+{
+  "vars": {
+    "@counter": "1",
+    "z": "7",
+    "cell1": "Building#226[0,2]:memory-cell",
+    "r": "7"
+  },
+  "text": "7",
+  "counter": 1.0,
+  "mode": "instruction",
+  "steps": 5,
+  "ipt": 2.0
+}
+```
+

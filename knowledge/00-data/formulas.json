@@ -1,0 +1,375 @@
+[
+ {
+  "id": "DATA.FORMULA.001",
+  "name": "护甲减伤（applyArmor）",
+  "formula": "伤害_入血 = max(D − A, minArmorDamage × D)，minArmorDamage = 0.1\n之后再除：healthMultiplier（状态）与 rules.unitHealth(team)（阵营血量倍率）",
+  "vars": [
+   "D=原始伤害（damage 单位）",
+   "A=目标护甲 armor",
+   "minArmorDamage=0.1（Vars.java:133）"
+  ],
+  "src": "Mindustry-Source/core/src/mindustry/entities/Damage.java:659-661；entities/comp/ShieldComp.java:28-31；Vars.java:133",
+  "ver": [
+   "v159.3",
+   "v160.7"
+  ],
+  "conf": "S",
+  "example": "D=100, A=30 → max(70, 10) = 70；A=95 → max(5, 10) = 10（10% 保底）；A=300 → 10。eradication 难度下 unitHealth(crux)=1.5，同一发 70 实际只扣 46.67 血。",
+  "rt": "[verified v160.7 · 服务端 js 实时读取] minArmorDamage=0.1 已用 v160.7 jar 常量池核对（rt_values_raw.json）",
+  "verified_v1607": "runtime"
+ },
+ {
+  "id": "DATA.FORMULA.002",
+  "name": "溅射衰减（对单位，线性 falloff=0.4）",
+  "formula": "dmg(d) = D × (falloff + (1−falloff) × (1 − d/r)) = D × (0.4 + 0.6 × (1 − d/r))，d ≥ r 时为 0；r ≤ 1e-5 时恒为 D\nscaledSplashDamage=true 时 d 取 max(0, 中心距 − hitSize/2)（按外缘算）",
+  "vars": [
+   "D=溅射伤害值",
+   "r=溅射半径（世界单位，1 格=8 单位）",
+   "d=爆心到目标距离",
+   "falloff=0.4（Damage.java:653）"
+  ],
+  "src": "Mindustry-Source/core/src/mindustry/entities/Damage.java:652-656（calculateDamage）；Damage.java:505-518（scaled 距离修正）",
+  "ver": [
+   "v159.3",
+   "v160.7"
+  ],
+  "conf": "S",
+  "example": "D=100, r=32（4 格）, d=8（1 格）→ 100×(0.4+0.6×0.75)=85；d=32（贴边）→ 40；d=40 → 0。",
+  "rt": "falloff=0.4 为源码常量；v160.7 slam 伤害仍需真机实测确认（见 CAMP 文档反例）",
+  "verified_v1607": false
+ },
+ {
+  "id": "DATA.FORMULA.003",
+  "name": "溅射衰减（对建筑，平方距离 + 沿射线穿透）",
+  "formula": "mult(d) = (1 − d²/r² + edgeScale) / (1 + edgeScale)，edgeScale = 0.6 ⇒ mult = 0.625 + 0.375 × (1 − d²/r²)\n沿射线的建筑按 Bresenham 顺序逐个吃伤，且累计 dealt += 已造成的总血伤：next = damage × mult − dealt，next ≤ 0 时停止",
+  "vars": [
+   "d=爆心到建筑中心距离",
+   "r=半径",
+   "edgeScale=0.6（Damage.java:600）",
+   "dealt=同一次溅射已消耗的伤害预算"
+  ],
+  "src": "Mindustry-Source/core/src/mindustry/entities/Damage.java:553-637（tileDamage，:600-607 为公式）；Damage.java:639-650（completeDamage 全量）",
+  "ver": [
+   "v159.3",
+   "v160.7"
+  ],
+  "conf": "S",
+  "example": "D=100, r=32, d=16（2 格）→ mult=0.625+0.375×0.75=0.90625 → 90.6 伤；同一发打到第二栋（血量 80）时 dealt=80，next=90.6−80=10.6，只溢出 10.6（不是两栋各 90.6）。",
+  "rt": "edgeScale=0.6 为源码常量（extract_src.py 锚 damage.edgeScale 已定位并核行号）",
+  "verified_v1607": false
+ },
+ {
+  "id": "DATA.FORMULA.004",
+  "name": "弹道射程 = lifetime × speed（含 drag 修正）",
+  "formula": "drag = 0：R = speed × lifetime\n否则：R = speed × (1 − (1 − drag)^lifetime) / drag\n最终：R = max(上式, maxRange)；rangeOverride > 0 时直接返回 rangeOverride\nspawnUnit / despawnUnit 弹种固定 R = speed × lifetime",
+  "vars": [
+   "speed=每 tick 位移（世界单位/tick）",
+   "lifetime=存活 tick 数",
+   "drag=每 tick 速度衰减比例",
+   "maxRange=下限兜底",
+   "rangeOverride=强制覆盖值"
+  ],
+  "src": "Mindustry-Source/core/src/mindustry/entities/bullet/BulletType.java:435-440（protected float calculateRange()）",
+  "ver": [
+   "v159.3",
+   "v160.7"
+  ],
+  "conf": "S",
+  "example": "speed=5/tick, lifetime=60 tick, drag=0 → 300 单位 = 37.5 格；drag=0.05 → 5×(1−0.95^60)/0.05 = 95.39 单位 ≈ 11.9 格（射程几乎砍到 1/3，这是 drag 弹道最常被误判的地方）。",
+  "rt": "公式结构已用 v160.7 jar 反编译常量（BulletType 字段默认 damage=1、hitSize=4、splashDamage=0、buildingDamageMultiplier=1）核对；射程需按弹种实例值代入",
+  "verified_v1607": false
+ },
+ {
+  "id": "DATA.FORMULA.005",
+  "name": "穿透掉伤（pierceDamageFactor）",
+  "formula": "每命中并穿透一个目标后：damage ← damage − min(damage, initialHealth × pierceDamageFactor)\ninitialHealth = 子弹初始伤害；pierceDamageFactor=0（默认）时穿透不掉伤，仅由 pierceCap 限制穿透目标数（-1=无限）\nremoveAfterPierce=true 且 damage ≤ 0 时子弹立即销毁",
+  "vars": [
+   "initialHealth=子弹初始伤害",
+   "pierceDamageFactor=每穿透一层掉伤比例（BulletType.java:59，默认 0）",
+   "pierceCap=穿透上限（默认 -1）"
+  ],
+  "src": "Mindustry-Source/core/src/mindustry/entities/bullet/BulletType.java:523-531（handlePierce）",
+  "ver": [
+   "v159.3",
+   "v160.7"
+  ],
+  "conf": "S",
+  "example": "pierceDamageFactor=0.05, initialHealth=1000 ⇒ 每层 −50：damage 60 → 10 → 0；第二层后 damage=0，removeAfterPierce 时销毁（即最多穿 2 个）。pierceDamageFactor=0 时同一发 60 伤可以穿 10 个目标，每个都吃满 60。",
+  "rt": "pierceDamageFactor 默认 0 已用 v160.7 jar 常量池核对",
+  "verified_v1607": false
+ },
+ {
+  "id": "DATA.FORMULA.006",
+  "name": "子弹伤害倍率来源（damageMultiplier）",
+  "formula": "owner 是 Unit：mult = u.damageMultiplier() × rules.unitDamage(b.team)\nowner 是 Building：mult = rules.blockDamage(b.team)\n否则：mult = 1\n其中 rules.unitDamage(team) = rules.unitDamageMultiplier × teams.get(team).unitDamageMultiplier",
+  "vars": [
+   "u.damageMultiplier()=单位自身（状态/升级）倍率",
+   "rules.unitDamageMultiplier=全局规则倍率",
+   "teams.get(team).unitDamageMultiplier=阵营倍率"
+  ],
+  "src": "Mindustry-Source/core/src/mindustry/entities/bullet/BulletType.java:534-539；game/Rules.java:294-300（unitDamage/blockDamage）",
+  "ver": [
+   "v159.3",
+   "v160.7"
+  ],
+  "conf": "S",
+  "example": "普通难度（rules 全 1、crux 阵营倍率全 1）→ 敌人子弹 mult=1；如果 map 把 rules.unitDamageMultiplier 设为 2，同一发 30 伤子弹对玩家单位记 60 伤。注意：难度（Difficulty）**不改**伤害倍率，只改敌人血量/数量/波次时间（CampaignRules.java:39-42）。",
+  "rt": "[verified v160.7 · 服务端 js 实时读取] Rules.unitDamageMultiplier 默认 1、blockHealthMultiplier 默认 1 已用 v160.7 反射核对",
+  "verified_v1607": "runtime"
+ },
+ {
+  "id": "DATA.FORMULA.007",
+  "name": "状态倍率合成（逐项相乘，护甲覆盖）",
+  "formula": "每 tick 重置为 1，然后对每个生效状态逐项相乘：\nspeed = Π speedMultiplier_i；health = Π healthMultiplier_i；damage = Π damageMultiplier_i；reload = Π reloadMultiplier_i；buildSpeed = Π buildSpeedMultiplier_i；drag = Π dragMultiplier_i\narmorOverride = 最后一个 ≥0 的覆盖值（**不是**相乘）；disarmed = OR(disarm)\n乘法交换 ⇒ 状态施加顺序不影响结果",
+  "vars": [
+   "speedMultiplier/healthMultiplier/damageMultiplier/reloadMultiplier/buildSpeedMultiplier/dragMultiplier=各状态字段（默认 1）",
+   "armorOverride=护甲固定覆盖值（默认 -1 表示不覆盖）"
+  ],
+  "src": "Mindustry-Source/core/src/mindustry/entities/comp/StatusComp.java:186-233（:186-189 重置，:212-228 相乘，:220 覆盖护甲，:230 disarmed）；type/StatusEffect.java:19-43（字段默认值）",
+  "ver": [
+   "v159.3",
+   "v160.7"
+  ],
+  "conf": "S",
+  "example": "wet(speed×0.94) + muddy(speed×0.94) → speed=0.8836；freezing(speed×0.6, health×0.8) + burning(damage 0.167/tick) → speed 0.6×剩余倍率、最大生命 ×0.8、每 tick 另吃 0.167 伤（0.167×60 ≈ 10 伤/s）。三个状态相乘时不会取最小/最大，只会连乘。",
+  "rt": "[verified v160.7 · jar 类字段解析] StatusEffect.damageMultiplier/healthMultiplier 默认 1 已用 v160.7 反射核对",
+  "verified_v1607": "jar"
+ },
+ {
+  "id": "DATA.FORMULA.008",
+  "name": "状态反应伤害（transition / affinity）",
+  "formula": "施加状态时先问旧状态：entry.effect.applyTransition(unit, from, entry, time) —— 命中 affinity 表则执行反应回调，回调里通常 damagePierce(transitionDamage) 或 damage(transitionDamage)，并**阻止**新状态正常施加\nburning.transitionDamage=8（+tarred → damagePierce 8）；freezing=18（+blasted → damagePierce 18）；wet=14（+shocked → damage 14）",
+  "vars": [
+   "transitionDamage=反应伤害（StatusEffect.java:31，默认 0）",
+   "affinity=状态对（Map）",
+   "time=本次施加时长"
+  ],
+  "src": "Mindustry-Source/core/src/mindustry/type/StatusEffect.java:221-228；content/StatusEffects.java（burning/freezing/wet 的 transitionDamage 与 affinity）",
+  "ver": [
+   "v159.3",
+   "v160.7"
+  ],
+  "conf": "S",
+  "example": "先 wet（潮湿）再吃电击 → 反应伤害 14（普通伤害，吃护甲减免）；先 freezing 再爆炸 → 18 点 **无视护甲** 伤害。同一目标反复 wet+shock 每次都能触发 14 伤，DPS 远高于单状态。",
+  "rt": "transitionDamage 默认 0 已核；具体 8/14/18 为 v159.3 源码值，v160.7 待真机核对",
+  "verified_v1607": false
+ },
+ {
+  "id": "DATA.FORMULA.009",
+  "name": "每波刷怪数量（SpawnGroup.getSpawned）",
+  "formula": "w = state.wave − 1（刷怪时用「上一波」编号）\n若 w < begin 或 w > end 或 (w − begin) % spacing ≠ 0 → n = 0\n否则 n = min(unitAmount + floor( floor((w − begin)/spacing) / unitScaling ), max)\n实际刷出 = round(n × enemySpawnMultiplier)（boss 组为 max(1, int(n × mult))）",
+  "vars": [
+   "begin/end=生效波次区间（end 默认 never=Integer.MAX_VALUE）",
+   "spacing=每隔几波刷一次",
+   "unitAmount=基础数量",
+   "unitScaling=数量增长分母（默认 never ⇒ 不增长）",
+   "max=上限（默认 40）",
+   "enemySpawnMultiplier=难度系数"
+  ],
+  "src": "Mindustry-Source/core/src/mindustry/game/SpawnGroup.java:67-73；ai/WaveSpawner.java:77-82（难度乘法与 round）；ai/WaveSpawner.java:62-109",
+  "ver": [
+   "v159.3",
+   "v160.7"
+  ],
+  "conf": "S",
+  "example": "serpulo 首发 dagger 组（unitAmount=1, unitScaling=2, begin=0, spacing=1, max=30）：w=10 → 1+floor(10/2)=6 只；w=59 → 1+floor(59/2)=30（触顶）；eradication（×2）同一波刷 12 只。",
+  "rt": "[verified v160.7 · jar 类字段解析] SpawnGroup.max=40、unitAmount=1 默认值已用 v160.7 反射核对；数量公式结构未变（类字段集与源码 15 字段完全一致）",
+  "verified_v1607": "jar"
+ },
+ {
+  "id": "DATA.FORMULA.010",
+  "name": "每波单位护盾（SpawnGroup.getShield）",
+  "formula": "shield(w) = max(shields + shieldScaling × (w − begin), 0)，w = state.wave − 1",
+  "vars": [
+   "shields=基础护盾（默认 0）",
+   "shieldScaling=每波护盾增量（默认 0）"
+  ],
+  "src": "Mindustry-Source/core/src/mindustry/game/SpawnGroup.java:76-78",
+  "ver": [
+   "v159.3",
+   "v160.7"
+  ],
+  "conf": "S",
+  "example": "serpulo spiroct 组（begin=45, shields=100, shieldScaling=30）：w=45 → 100；w=46 → 130；w=60 → 550。护盾先于血量吸收（ShieldComp.rawDamage），所以带盾波的等效血量 = 血量 + shield。",
+  "rt": "结构化公式，v160.7 SpawnGroup 字段集与源码完全一致（jar 15 字段）",
+  "verified_v1607": false
+ },
+ {
+  "id": "DATA.FORMULA.011",
+  "name": "波次计时（wavetime）",
+  "formula": "首波：wavetime = (initialWaveSpacing ≤ 0 ? 2 × waveSpacing : initialWaveSpacing) × waveTimeMultiplier\n之后每波：wavetime = waveSpacing × waveTimeMultiplier\nwaveTimeMultiplier 只在战役（isCampaign）生效，取 planet.campaignRules.difficulty",
+  "vars": [
+   "waveSpacing=波次间隔（默认 7200 tick = 120 s）",
+   "initialWaveSpacing=首波前摇（默认 0 ⇒ 用 2×waveSpacing 的宽限期）",
+   "waveTimeMultiplier=难度时间系数"
+  ],
+  "src": "Mindustry-Source/core/src/mindustry/core/Logic.java:269-297（play）、:315-325（runWave）；game/Rules.java:151-153；game/Difficulty.java",
+  "ver": [
+   "v159.3",
+   "v160.7"
+  ],
+  "conf": "S",
+  "example": "normal（×1）：首波 2×7200=14400 tick=240 s，之后每波 120 s；eradication（×0.6）：首波 8640 tick=144 s，之后 72 s；hard（×0.8）：96 s。勾掉 waveTimer（rules.waveTimer=false）后倒计时停，但波次仍靠 skipWave 手动推进。",
+  "rt": "[verified v160.7 · 服务端 js 实时读取] waveSpacing=7200、initialWaveSpacing=0 已用 v160.7 反射核对（rt_semantics.json）",
+  "verified_v1607": "runtime"
+ },
+ {
+  "id": "DATA.FORMULA.012",
+  "name": "波次血量缩放（敌人有效血量倍率）",
+  "formula": "有效血量 = 单位类型 health × rules.unitHealth(waveTeam)\nrules.unitHealth(team) = max(rules.unitHealthMultiplier × teams.get(team).unitHealthMultiplier, 1e-6)\n战役中 CampaignRules 把 team(waveTeam).unitHealthMultiplier 设为 difficulty.enemyHealthMultiplier\n⇒ **v159.3/v160.7 没有「随波次线性增长」的血量公式**：同一单位在任何波血量相同，只随难度整体缩放",
+  "vars": [
+   "type.health=单位类型基础血量（常数）",
+   "difficulty.enemyHealthMultiplier=casual 0.5 / easy 1 / normal 1 / hard 1.25 / eradication 1.5",
+   "team.unitHealthMultiplier=阵营倍率"
+  ],
+  "src": "Mindustry-Source/core/src/mindustry/game/Rules.java:302-304；game/CampaignRules.java:39-40；entities/comp/ShieldComp.java:28-31（伤害除以 unitHealth）",
+  "ver": [
+   "v159.3",
+   "v160.7"
+  ],
+  "conf": "S",
+  "example": "某单位 type.health=200：normal 200；hard 250；eradication 300。第 1 波和第 50 波用同一难度刷出的同类单位血量不同？不 —— 完全相同（200/250/300）。玩家感到「越打越硬」来自数量（F.009 的 unitScaling）与护盾（F.010），不是血量。",
+  "rt": "[verified v160.7 · 服务端 js 实时读取] unitHealthMultiplier 默认 1 已反射核对；difficulty 三元组已用 v160.7 jar <clinit> 逐项核对",
+  "verified_v1607": "runtime"
+ },
+ {
+  "id": "DATA.FORMULA.013",
+  "name": "难度系数表（Difficulty 三元组）",
+  "formula": "枚举顺序 casual < easy < normal < hard < eradication；每档 (enemyHealthMultiplier, enemySpawnMultiplier, waveTimeMultiplier)\n派生：team(waveTeam).blockHealthMultiplier = enemyHealthMultiplier；unitHealthMultiplier = enemyHealthMultiplier；unitCostMultiplier = 1/enemySpawnMultiplier；unitBuildSpeedMultiplier = enemySpawnMultiplier",
+  "vars": [
+   "enemyHealthMultiplier=敌人血/建筑血倍率",
+   "enemySpawnMultiplier=刷怪数量倍率（同时让敌方造兵更快、更便宜）",
+   "waveTimeMultiplier=波次间隔倍率"
+  ],
+  "src": "Mindustry-Source/core/src/mindustry/game/Difficulty.java:5-21；game/CampaignRules.java:39-42",
+  "ver": [
+   "v159.3",
+   "v160.7"
+  ],
+  "conf": "S",
+  "example": "hard：敌血 ×1.25、数量 ×1.5（round 取整）、间隔 ×0.8 ⇒ 同一波既更多又更硬、来得更快；eradication：×1.5 / ×2 / ×0.6。",
+  "rt": "[verified v160.7 · 服务端 js 实时读取] [verified v160.7] jar 《Difficulty》<clinit> 常量加载序列：casual 0.5/0.5/2.0；easy 1.0/0.75/1.5；normal 1.0/1.0/1.0；hard 1.25/1.5/0.8；eradication 1.5/2.0/0.6 —— 与 v159.3 源码逐值一致",
+  "verified_v1607": "runtime"
+ },
+ {
+  "id": "DATA.FORMULA.014",
+  "name": "钻头产出速率",
+  "formula": "getDrillTime(item) = (drillTime + hardnessDrillMultiplier × item.hardness) / drillMultipliers.get(item, 1)　[hardnessDrillMultiplier=50]\nspeed = lerp(1, liquidBoostIntensity, optionalEfficiency) × efficiency　[liquidBoostIntensity=1.6]\nprogress += delta × dominantItems × speed × warmup；warmup → speed（approachDelta 速率 warmupSpeed=0.015）\nitems/s ≈ 60 × dominantItems × speed × warmup / getDrillTime\n游戏内 Stat 显示 = 60/drillTime × size²（忽略硬度与液体，见 Drill.java:181）",
+  "vars": [
+   "drillTime=基础钻孔时间（默认 300 tick）",
+   "hardnessDrillMultiplier=50",
+   "dominantItems=覆盖到的有效矿格数（满覆盖 = size²）",
+   "optionalEfficiency=液体加速比例(0..1)",
+   "efficiency=电力/超速效率",
+   "warmup=0..1 预热"
+  ],
+  "src": "Mindustry-Source/core/src/mindustry/world/blocks/production/Drill.java:170-172（getDrillTime）；:286-321（updateTile 产出）；:28-40（常量）",
+  "ver": [
+   "v159.3",
+   "v160.7"
+  ],
+  "conf": "S",
+  "example": "机械钻（size=2, drillTime=300）挖铜（hardness=1），4 格满覆盖、无液体、warmup=1：getDrillTime=300+50×1=350 tick ⇒ 60×4×1/350 = 0.686 铜/s。加满水（speed=1.6）⇒ 1.097/s。同一钻挖钛（hardness=3）：getDrillTime=450 ⇒ 0.533/s —— 硬度惩罚是分母项，不是乘数。",
+  "rt": "[verified v160.7 · jar 类字段解析] drillTime=300、hardnessDrillMultiplier=50、liquidBoostIntensity=1.6 已用 v160.7 反射核对",
+  "verified_v1607": "jar"
+ },
+ {
+  "id": "DATA.FORMULA.015",
+  "name": "传送带吞吐（items/s）",
+  "formula": "块内位移坐标 0..1 表示 1 格；每 tick 移动 moved = speed × edelta，物品间距 itemSpace=0.4\n饱和吞吐 items/s = speed × 60 / itemSpace = speed × 150（capacity=3 只影响块内存量，不改饱和流）\n上游一次最多塞进 floor(minitem / itemSpace) 件（acceptStack）",
+  "vars": [
+   "speed=格/tick（conveyor 0.046、titanium 0.0801、armored 0.08）",
+   "itemSpace=0.4",
+   "capacity=3"
+  ],
+  "src": "Mindustry-Source/core/src/mindustry/world/blocks/distribution/Conveyor.java:27-28（itemSpace/capacity）、:266-274（moved/nextpos）、:333-335（acceptStack）；content/Blocks.java:2071-2072 等",
+  "ver": [
+   "v159.3",
+   "v160.7"
+  ],
+  "conf": "S",
+  "example": "基础带 0.046×150 = 6.9 件/s（游戏内 Stat 显示 6.5/s）；钛带 0.0801×150 = 12.0/s（显示 10/s）；装甲带 0.08×150 = 12.0/s（显示 11/s）。显示值是作者手填的 displayedSpeed，不是公式产物，所以两者会差 6%~20%。",
+  "rt": "Conveyor.speed 类默认 0（实块值在 Blocks.<clinit>）；itemSpace=0.4、capacity=3 为源码常量",
+  "verified_v1607": false
+ },
+ {
+  "id": "DATA.FORMULA.016",
+  "name": "电网功率覆盖与电池",
+  "formula": "coverage = needed == 0 ? 1 : min(1, produced / needed)；非 buffered 设备 power.status = coverage\nbuffered 设备（电池/电容）power.status += clamp(maximumRate / capacity)\n充电：chargedPercent = min(excess / capacity, 1)；battery.power.status += (1 − status) × chargedPercent\n放电：status 按消耗比例扣减\n设备实际效率 = power.status；每 tick 请求功率 requestedPower = usage（不 buffered）",
+  "vars": [
+   "produced=本网发电/ tick",
+   "needed=本网需求/tick",
+   "capacity=电池容量",
+   "excess=多余功率",
+   "status=0..1 电量"
+  ],
+  "src": "Mindustry-Source/core/src/mindustry/world/blocks/power/PowerGraph.java:170-209（充/放/覆盖）、:227-255（update 分配）；world/consumers/ConsumePower.java:10-59（requestedPower/efficiency）",
+  "ver": [
+   "v159.3",
+   "v160.7"
+  ],
+  "conf": "S",
+  "example": "发电 1000/tick、需求 1250/tick → coverage=0.8，全网用电设备按 80% 效率跑（不是断电）。电池 status=0.5、excess=500、capacity=2000 → 0.5 + 0.5×0.25 = 0.625。",
+  "rt": "ConsumePower 语义来自源码；功率字段单位是 power/tick，×60 才是 /s",
+  "verified_v1607": false
+ },
+ {
+  "id": "DATA.FORMULA.017",
+  "name": "热量传递（接触点模型）",
+  "formula": "add = heater.heat() / build.block.size × contactPoints\ncontactPoints = min( (int)(本块半尺寸 + 邻居半尺寸 − diff), min(邻居size, 本块size) )，diff = min(|Δx|, |Δy|)/tilesize\nsplitHeat 的导热体再 add /= 3\n本块 heat = Σ 各侧面 add（sideHeat[4] 记录每侧供热量）；heatFrac = heat / visualMaxHeat（split 时再 /3）",
+  "vars": [
+   "heater.heat()=邻居已有热量",
+   "diff=两建筑中心在较小轴上的距离（格）",
+   "contactPoints=接触点数量",
+   "visualMaxHeat=导热体上限（默认 15）"
+  ],
+  "src": "Mindustry-Source/core/src/mindustry/entities/comp/BuildingComp.java:412-464（calculateHeat）；world/blocks/heat/HeatProducer.java:14-57；HeatConductor.java:17-110",
+  "ver": [
+   "v159.3",
+   "v160.7"
+  ],
+  "conf": "S",
+  "example": "3×3 产热器（heatOutput=10，贴满）与 3×3 导热体同轴相邻：diff=0 ⇒ contactPoints=min(3,3)=3 ⇒ add = 10/3×3 = 10（整份热量）；若中间是 splitHeat 路由器则 10/3 = 3.33，热量被分成三面。3×3 产热器带 1×1 方块：contactPoints=min((int)(1.5+0.5−0)=2, 1)=1 ⇒ add=10/1×1=10。",
+  "rt": "[verified v160.7 · jar 类字段解析] HeatProducer.heatOutput=10、warmupRate=0.15、HeatConductor.visualMaxHeat=15 已用 v160.7 反射核对",
+  "verified_v1607": "jar"
+ },
+ {
+  "id": "DATA.FORMULA.018",
+  "name": "处理器指令预算",
+  "formula": "每 tick：accumulator += edelta × ipt；accumulator 上限 5 × ipt（maxInstructionScale=5）\nwhile(accumulator ≥ 1) 执行一条指令并 accumulator −= 1；yield 立即跳出该 tick\n普通处理器 ipt 固定 = instructionsPerTick = 1 ⇒ 60 指令/s\n世界处理器可写 @ipt，clamp(1, maxInstructionsPerTick=40) ⇒ 上限 40/tick = 2400/s",
+  "vars": [
+   "ipt=instructionsPerTick（默认 1/tick）",
+   "maxInstructionScale=5（积压上限倍数）",
+   "maxInstructionsPerTick=40",
+   "edelta()=本 tick 时间倍率"
+  ],
+  "src": "Mindustry-Source/core/src/mindustry/world/blocks/logic/LogicBlock.java:45-49、:558-579、:826、:887、:174",
+  "ver": [
+   "v159.3",
+   "v160.7"
+  ],
+  "conf": "S",
+  "example": "普通处理器：1 指令/tick × 60 tick/s = 60 指令/s，积压最多 5 条（5×1）。世界处理器 @ipt=40：40/tick=2400/s，积压上限 200 条。stats 面板的 instructions 值就是 instructionsPerTick×60。",
+  "rt": "[verified v160.7 · jar 类字段解析] instructionsPerTick=1、maxInstructionScale=5、maxInstructionsPerTick=40、range=80 已用 v160.7 反射核对",
+  "verified_v1607": "jar"
+ },
+ {
+  "id": "DATA.FORMULA.019",
+  "name": "方块血量与每格血量（scaledHealth）",
+  "formula": "若 health == -1（未显式指定）：\nscaledHealth < 0 时取默认 40，并乘需求加成：scaledHealth ×= (1 + Σ requirements[i].item.healthScaling)\nhealth = round(size² × scaledHealth, 5)（走了默认路径时）；否则 health = (int)(size² × scaledHealth)\n建筑受到伤害时先除以 rules.blockHealth(team) = blockHealthMultiplier × 阵营倍率",
+  "vars": [
+   "size=方块边长（格）",
+   "scaledHealth=每格血量（默认 -1 表示自动 40×(1+ΣhealthScaling)）",
+   "health=总血量"
+  ],
+  "src": "Mindustry-Source/core/src/mindustry/world/Block.java:188-192、:1377-1395；entities/comp/BuildingComp.java:2065-2075；game/Rules.java:306-308",
+  "ver": [
+   "v159.3",
+   "v160.7"
+  ],
+  "conf": "S",
+  "example": "无需求物的 2×2 方块：health = 4×40 = 160；3×3：9×40 = 360（边长翻倍血量×4）。带 30 钍（healthScaling=0.2）的方块：scaledHealth=40×(1+0.2)=48 ⇒ 2×2 血 192。hard 难度下敌方建筑 unitHealth/blockHealth ×1.25 ⇒ 等效 200/240。",
+  "rt": "[verified v160.7 · jar 类字段解析] Block.scaledHealth 默认 -1 已用 v160.7 反射核对",
+  "verified_v1607": "jar"
+ }
+]

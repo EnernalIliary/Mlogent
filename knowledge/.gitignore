@@ -1,0 +1,7 @@
+# 生成物与临时缓存，不纳入版本库
+_kb/
+_report/
+_raw/
+__pycache__/
+*.pyc
+.probe

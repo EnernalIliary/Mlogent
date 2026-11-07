@@ -1,0 +1,32 @@
+# probe L1-03
+
+claim   : jump 0 always 与 end 等价（都归 0）
+mode    : ticks=3 (update=all)
+verdict : PASS
+why     : text='56' (same shape as L1-01 => jump 0 always == end)
+python  : 3.11.4
+repo    : F:\OneDrive\桌面\AtomicStates
+
+## mlog source (paste into a processor to reproduce)
+
+```
+print @tick
+jump 0 always
+```
+
+## executor readback
+
+```json
+{
+  "vars": {
+    "@counter": "0",
+    "x": "null"
+  },
+  "text": "56",
+  "counter": 0.0,
+  "mode": "tick",
+  "steps": 3,
+  "ipt": 2.0
+}
+```
+

@@ -1,0 +1,20 @@
+id	name	src_lines	verified_v1607
+DATA.FORMULA.001	护甲减伤（applyArmor）	Mindustry-Source/core/src/mindustry/entities/Damage.java:659-661；entities/comp/ShieldComp.java:28-31；Vars.java:133	runtime
+DATA.FORMULA.002	溅射衰减（对单位，线性 falloff=0.4）	Mindustry-Source/core/src/mindustry/entities/Damage.java:652-656（calculateDamage）；Damage.java:505-518（scaled 距离修正）	no
+DATA.FORMULA.003	溅射衰减（对建筑，平方距离 + 沿射线穿透）	Mindustry-Source/core/src/mindustry/entities/Damage.java:553-637（tileDamage，:600-607 为公式）；Damage.java:639-650（completeDamage 全量）	no
+DATA.FORMULA.004	弹道射程 = lifetime × speed（含 drag 修正）	Mindustry-Source/core/src/mindustry/entities/bullet/BulletType.java:435-440（protected float calculateRange()）	no
+DATA.FORMULA.005	穿透掉伤（pierceDamageFactor）	Mindustry-Source/core/src/mindustry/entities/bullet/BulletType.java:523-531（handlePierce）	no
+DATA.FORMULA.006	子弹伤害倍率来源（damageMultiplier）	Mindustry-Source/core/src/mindustry/entities/bullet/BulletType.java:534-539；game/Rules.java:294-300（unitDamage/blockDamage）	runtime
+DATA.FORMULA.007	状态倍率合成（逐项相乘，护甲覆盖）	Mindustry-Source/core/src/mindustry/entities/comp/StatusComp.java:186-233（:186-189 重置，:212-228 相乘，:220 覆盖护甲，:230 disarmed）；type/StatusEffect.java:19-43（字段默认值）	jar
+DATA.FORMULA.008	状态反应伤害（transition / affinity）	Mindustry-Source/core/src/mindustry/type/StatusEffect.java:221-228；content/StatusEffects.java（burning/freezing/wet 的 transitionDamage 与 affinity）	no
+DATA.FORMULA.009	每波刷怪数量（SpawnGroup.getSpawned）	Mindustry-Source/core/src/mindustry/game/SpawnGroup.java:67-73；ai/WaveSpawner.java:77-82（难度乘法与 round）；ai/WaveSpawner.java:62-109	jar
+DATA.FORMULA.010	每波单位护盾（SpawnGroup.getShield）	Mindustry-Source/core/src/mindustry/game/SpawnGroup.java:76-78	no
+DATA.FORMULA.011	波次计时（wavetime）	Mindustry-Source/core/src/mindustry/core/Logic.java:269-297（play）、:315-325（runWave）；game/Rules.java:151-153；game/Difficulty.java	runtime
+DATA.FORMULA.012	波次血量缩放（敌人有效血量倍率）	Mindustry-Source/core/src/mindustry/game/Rules.java:302-304；game/CampaignRules.java:39-40；entities/comp/ShieldComp.java:28-31（伤害除以 unitHealth）	runtime
+DATA.FORMULA.013	难度系数表（Difficulty 三元组）	Mindustry-Source/core/src/mindustry/game/Difficulty.java:5-21；game/CampaignRules.java:39-42	runtime
+DATA.FORMULA.014	钻头产出速率	Mindustry-Source/core/src/mindustry/world/blocks/production/Drill.java:170-172（getDrillTime）；:286-321（updateTile 产出）；:28-40（常量）	jar
+DATA.FORMULA.015	传送带吞吐（items/s）	Mindustry-Source/core/src/mindustry/world/blocks/distribution/Conveyor.java:27-28（itemSpace/capacity）、:266-274（moved/nextpos）、:333-335（acceptStack）；content/Blocks.java:2071-2072 等	no
+DATA.FORMULA.016	电网功率覆盖与电池	Mindustry-Source/core/src/mindustry/world/blocks/power/PowerGraph.java:170-209（充/放/覆盖）、:227-255（update 分配）；world/consumers/ConsumePower.java:10-59（requestedPower/efficiency）	no
+DATA.FORMULA.017	热量传递（接触点模型）	Mindustry-Source/core/src/mindustry/entities/comp/BuildingComp.java:412-464（calculateHeat）；world/blocks/heat/HeatProducer.java:14-57；HeatConductor.java:17-110	jar
+DATA.FORMULA.018	处理器指令预算	Mindustry-Source/core/src/mindustry/world/blocks/logic/LogicBlock.java:45-49、:558-579、:826、:887、:174	jar
+DATA.FORMULA.019	方块血量与每格血量（scaledHealth）	Mindustry-Source/core/src/mindustry/world/Block.java:188-192、:1377-1395；entities/comp/BuildingComp.java:2065-2075；game/Rules.java:306-308	jar

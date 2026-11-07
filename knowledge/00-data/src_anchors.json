@@ -1,0 +1,689 @@
+{
+ "generated": "2026-11-08T04:18:37+08:00",
+ "src_root": "F:\\OneDrive\\桌面\\AtomicStates\\Mindustry-Source\\core\\src",
+ "ver": "v159.3",
+ "counts": {
+  "vars.tilesize": 8,
+  "vars.minArmorDamage": 0.1,
+  "vars.tilePayload": null,
+  "damage.calculateDamage": 652,
+  "damage.falloff": 0.4,
+  "damage.applyArmor": 659,
+  "damage.tileDamage": 553,
+  "damage.edgeScale": 0.6,
+  "damage.scaledHitSize": 513,
+  "shield.damage": 28,
+  "shield.damagePierce": 35,
+  "shield.rawDamage": 57,
+  "bullet.calculateRange": 435,
+  "bullet.handlePierce": 523,
+  "bullet.damageMultiplier": 534,
+  "bullet.hitSplash": 595,
+  "bullet.pierceDamageFactor": 0,
+  "bullet.splashDamage": 0,
+  "status.fieldDefaults": 1,
+  "status.applyTransition": 221,
+  "statuscomp.reset": 186,
+  "statuscomp.multiply": 213,
+  "statuscomp.armorOverride": 220,
+  "spawngroup.getSpawned": 67,
+  "spawngroup.getShield": 76,
+  "spawngroup.max": 40,
+  "spawngroup.unitAmount": 1,
+  "spawngroup.unitScaling": 36,
+  "difficulty.enum": 5,
+  "waves.version": 7,
+  "waves.spawnGroupCount": 35,
+  "wavespawner.consts": 30,
+  "wavespawner.spawnEnemies": 62,
+  "wavespawner.spawnEffect": 229,
+  "logic.play": 269,
+  "logic.runWave": 319,
+  "logic.checkGameState": 327,
+  "logic.waitEnemies": 617,
+  "rules.waveSpacing": 151,
+  "rules.initialWaveSpacing": 0,
+  "rules.winWave": 0,
+  "rules.dropZoneRadius": 300,
+  "rules.enemyCoreBuildRadius": 400,
+  "rules.unitHealthFn": 302,
+  "rules.unitDamageFn": 298,
+  "power.chargeBatteries": 170,
+  "power.distributePower": 187,
+  "power.consumePower": 56,
+  "heat.producer": 13,
+  "heat.heatOutput": 10,
+  "heat.warmupRate": 0.15,
+  "heat.conductor": 15,
+  "heat.calculateHeat": 412,
+  "drill.getDrillTime": 170,
+  "drill.drillTime": 300,
+  "drill.hardnessMul": 50,
+  "drill.liquidBoost": 1.6,
+  "drill.warmup": 0.015,
+  "conveyor.itemSpace": 0.4,
+  "conveyor.capacity": 3,
+  "conveyor.moved": 266,
+  "conveyor.block.speed": 2068,
+  "conveyor.conveyor.speed": 0.046,
+  "conveyor.conveyor.displayed": 6.5,
+  "conveyor.titanium.speed": 0.0801,
+  "conveyor.titanium.displayed": 10,
+  "conveyor.armored.speed": 0.08,
+  "conveyor.armored.displayed": 11,
+  "block.scaledHealth": -1,
+  "block.size": 1,
+  "block.healthCalc": 1378,
+  "logicblock.budget": 5,
+  "logicblock.loop": 565,
+  "building.damageBlockHealth": 2068,
+  "building.armorHit": 1768
+ },
+ "items": [
+  {
+   "id": "vars.tilesize",
+   "path": "Mindustry-Source/core/src/mindustry/Vars.java",
+   "line": 135,
+   "note": "一个 tile 的像素/世界单位数",
+   "ver": "v159.3",
+   "value": 8
+  },
+  {
+   "id": "vars.minArmorDamage",
+   "path": "Mindustry-Source/core/src/mindustry/Vars.java",
+   "line": 133,
+   "note": "护甲后伤害下限比例",
+   "ver": "v159.3",
+   "value": 0.1
+  },
+  {
+   "id": "vars.tilePayload",
+   "path": "Mindustry-Source/core/src/mindustry/Vars.java",
+   "line": 137,
+   "note": "单格载荷上限",
+   "ver": "v159.3",
+   "value": null
+  },
+  {
+   "id": "damage.calculateDamage",
+   "path": "Mindustry-Source/core/src/mindustry/entities/Damage.java",
+   "line": 652,
+   "note": "溅射衰减（单位）",
+   "ver": "v159.3",
+   "code": "    private static float calculateDamage(float dist, float radius, float damage){\n        float falloff = 0.4f;\n        float scaled = radius <= 0.00001f ? 1f : Mathf.lerp(1f - dist / radius, 1f, falloff);\n        return damage * scaled;\n    }"
+  },
+  {
+   "id": "damage.falloff",
+   "path": "Mindustry-Source/core/src/mindustry/entities/Damage.java",
+   "line": 653,
+   "note": "溅射衰减权重 falloff",
+   "ver": "v159.3",
+   "value": 0.4
+  },
+  {
+   "id": "damage.applyArmor",
+   "path": "Mindustry-Source/core/src/mindustry/entities/Damage.java",
+   "line": 659,
+   "note": "护甲减伤",
+   "ver": "v159.3",
+   "code": "    public static float applyArmor(float damage, float armor){\n        return Math.max(damage - armor, minArmorDamage * damage);\n    }"
+  },
+  {
+   "id": "damage.tileDamage",
+   "path": "Mindustry-Source/core/src/mindustry/entities/Damage.java",
+   "line": 553,
+   "note": "建筑溅射入口",
+   "ver": "v159.3",
+   "code": "public static void tileDamage(Team team, int x, int y, float baseRadius, float damage){"
+  },
+  {
+   "id": "damage.edgeScale",
+   "path": "Mindustry-Source/core/src/mindustry/entities/Damage.java",
+   "line": 600,
+   "note": "建筑溅射边缘权重",
+   "ver": "v159.3",
+   "value": 0.6
+  },
+  {
+   "id": "damage.scaledHitSize",
+   "path": "Mindustry-Source/core/src/mindustry/entities/Damage.java",
+   "line": 513,
+   "note": "scaled 溅射按外缘距离",
+   "ver": "v159.3",
+   "code": "float amount = calculateDamage(scaled ? Math.max(0, unit.dst(x, y) - unit.type.hitSize/2) : unit.dst(x, y), radius, damage);"
+  },
+  {
+   "id": "shield.damage",
+   "path": "Mindustry-Source/core/src/mindustry/entities/comp/ShieldComp.java",
+   "line": 28,
+   "note": "单位受伤主路径",
+   "ver": "v159.3",
+   "code": "    public void damage(float amount){\n        //apply armor and scaling effects\n        rawDamage(Damage.applyArmor(amount, armorOverride >= 0f ? armorOverride : armor) / healthMultiplier / Vars.state.rules.unitHealth(team));\n    }"
+  },
+  {
+   "id": "shield.damagePierce",
+   "path": "Mindustry-Source/core/src/mindustry/entities/comp/ShieldComp.java",
+   "line": 35,
+   "note": "无视护甲",
+   "ver": "v159.3",
+   "code": "    public void damagePierce(float amount, boolean withEffect){\n        float pre = hitTime;\n\n        rawDamage(amount / healthMultiplier / Vars.state.rules.unitHealth(team));\n\n        if(!withEffect){\n            hitTime = pre;\n        }\n    }"
+  },
+  {
+   "id": "shield.rawDamage",
+   "path": "Mindustry-Source/core/src/mindustry/entities/comp/ShieldComp.java",
+   "line": 57,
+   "note": "护盾先扣",
+   "ver": "v159.3",
+   "code": "    protected void rawDamage(float amount){\n        boolean hadShields = shield > 0.0001f;\n\n        if(Float.isNaN(health)) health = 0f;\n\n        if(hadShields){\n            shieldAlpha = 1f;\n        }\n\n        float shieldDamage = Math.min(Math.max(shield, 0), amount);\n        shield -= shieldDamage;\n        hitTime = 1f;\n        amount -= shieldDamage;\n\n        if(amount > 0 && type.killable){\n            health -= amount;\n            if(health <= 0 && !dead){\n                kill();\n            }\n\n            if(hadShields && shield <= 0.0001f){\n                Fx.unitShieldBreak.at(x, y, 0, type.shieldColor(self()), this);\n            }\n        }"
+  },
+  {
+   "id": "bullet.calculateRange",
+   "path": "Mindustry-Source/core/src/mindustry/entities/bullet/BulletType.java",
+   "line": 435,
+   "note": "射程=lifetime*speed(含 drag)",
+   "ver": "v159.3",
+   "code": "    protected float calculateRange(){\n        if(rangeOverride > 0) return rangeOverride;\n        if(spawnUnit != null) return spawnUnit.lifetime * spawnUnit.speed;\n        if(despawnUnit != null) return despawnUnit.lifetime * despawnUnit.speed;\n        return Math.max(Mathf.zero(drag) ? speed * lifetime : speed * (1f - Mathf.pow(1f - drag, lifetime)) / drag, maxRange);\n    }"
+  },
+  {
+   "id": "bullet.handlePierce",
+   "path": "Mindustry-Source/core/src/mindustry/entities/bullet/BulletType.java",
+   "line": 523,
+   "note": "穿透掉伤",
+   "ver": "v159.3",
+   "code": "    public void handlePierce(Bullet b, float initialHealth, float x, float y){\n        float sub = Mathf.zero(pierceDamageFactor) ? 0f : Math.max(initialHealth * pierceDamageFactor, 0);\n        //subtract health from each consecutive pierce\n        b.damage -= Float.isNaN(sub) ? b.damage : Math.min(b.damage, sub);\n\n        if(removeAfterPierce && b.damage <= 0){\n            b.hit = true;\n            b.remove();\n        }\n    }"
+  },
+  {
+   "id": "bullet.damageMultiplier",
+   "path": "Mindustry-Source/core/src/mindustry/entities/bullet/BulletType.java",
+   "line": 534,
+   "note": "伤害倍率来源",
+   "ver": "v159.3",
+   "code": "    public float damageMultiplier(Bullet b){\n        if(b.owner instanceof Unit u) return u.damageMultiplier() * state.rules.unitDamage(b.team);\n        if(b.owner instanceof Building) return state.rules.blockDamage(b.team);\n\n        return 1f;\n    }"
+  },
+  {
+   "id": "bullet.hitSplash",
+   "path": "Mindustry-Source/core/src/mindustry/entities/bullet/BulletType.java",
+   "line": 595,
+   "note": "命中时溅射调用",
+   "ver": "v159.3",
+   "code": "Damage.damage(b.team, x, y, splashDamageRadius, splashDamage * b.damageMultiplier(), splashDamagePierce, collidesAir, collidesGround, scaledSplashDamage, b, armorMultiplier);"
+  },
+  {
+   "id": "bullet.pierceDamageFactor",
+   "path": "Mindustry-Source/core/src/mindustry/entities/bullet/BulletType.java",
+   "line": 59,
+   "note": "穿透每层掉伤比例",
+   "ver": "v159.3",
+   "value": 0
+  },
+  {
+   "id": "bullet.splashDamage",
+   "path": "Mindustry-Source/core/src/mindustry/entities/bullet/BulletType.java",
+   "line": 109,
+   "note": "默认溅射伤害",
+   "ver": "v159.3",
+   "value": 0
+  },
+  {
+   "id": "status.fieldDefaults",
+   "path": "Mindustry-Source/core/src/mindustry/type/StatusEffect.java",
+   "line": 19,
+   "note": "状态倍率字段默认 1",
+   "ver": "v159.3",
+   "code": "public float damageMultiplier = 1f;",
+   "value": 1
+  },
+  {
+   "id": "status.applyTransition",
+   "path": "Mindustry-Source/core/src/mindustry/type/StatusEffect.java",
+   "line": 221,
+   "note": "反应伤害入口",
+   "ver": "v159.3",
+   "code": "    public boolean applyTransition(Unit unit, StatusEffect to, StatusEntry entry, float time){\n        var trans = transitions.get(to);\n        if(trans != null){\n            trans.handle(unit, entry, time);\n            return true;\n        }\n        return false;\n    }"
+  },
+  {
+   "id": "statuscomp.reset",
+   "path": "Mindustry-Source/core/src/mindustry/entities/comp/StatusComp.java",
+   "line": 186,
+   "note": "每 tick 重置倍率",
+   "ver": "v159.3",
+   "code": "applied.clear();"
+  },
+  {
+   "id": "statuscomp.multiply",
+   "path": "Mindustry-Source/core/src/mindustry/entities/comp/StatusComp.java",
+   "line": 213,
+   "note": "倍率逐项相乘",
+   "ver": "v159.3",
+   "code": "                    speedMultiplier *= entry.speedMultiplier;\n                    healthMultiplier *= entry.healthMultiplier;\n                    damageMultiplier *= entry.damageMultiplier;\n                    reloadMultiplier *= entry.reloadMultiplier;\n                    buildSpeedMultiplier *= entry.buildSpeedMultiplier;\n                    dragMultiplier *= entry.dragMultiplier;\n                    //armor is a special case; many units have it set it to 0, so an override at values >= 0 is used\n                    if(entry.armorOverride >= 0f) armorOverride = entry.armorOverride;\n                }else{"
+  },
+  {
+   "id": "statuscomp.armorOverride",
+   "path": "Mindustry-Source/core/src/mindustry/entities/comp/StatusComp.java",
+   "line": 220,
+   "note": "护甲覆盖而非相乘",
+   "ver": "v159.3",
+   "code": "if(entry.armorOverride >= 0f) armorOverride = entry.armorOverride;"
+  },
+  {
+   "id": "spawngroup.getSpawned",
+   "path": "Mindustry-Source/core/src/mindustry/game/SpawnGroup.java",
+   "line": 67,
+   "note": "每波数量",
+   "ver": "v159.3",
+   "code": "    public int getSpawned(int wave){\n        if(spacing == 0) spacing = 1;\n        if(wave < begin || wave > end || (wave - begin) % spacing != 0){\n            return 0;\n        }\n        return Math.min(unitAmount + (int)(((wave - begin) / spacing) / unitScaling), max);\n    }"
+  },
+  {
+   "id": "spawngroup.getShield",
+   "path": "Mindustry-Source/core/src/mindustry/game/SpawnGroup.java",
+   "line": 76,
+   "note": "每波护盾",
+   "ver": "v159.3",
+   "code": "    public float getShield(int wave){\n        return Math.max(shields + shieldScaling*(wave - begin), 0);\n    }"
+  },
+  {
+   "id": "spawngroup.max",
+   "path": "Mindustry-Source/core/src/mindustry/game/SpawnGroup.java",
+   "line": 34,
+   "note": "数量上限",
+   "ver": "v159.3",
+   "value": 40
+  },
+  {
+   "id": "spawngroup.unitAmount",
+   "path": "Mindustry-Source/core/src/mindustry/game/SpawnGroup.java",
+   "line": 42,
+   "note": "基础数量",
+   "ver": "v159.3",
+   "value": 1
+  },
+  {
+   "id": "spawngroup.unitScaling",
+   "path": "Mindustry-Source/core/src/mindustry/game/SpawnGroup.java",
+   "line": 36,
+   "note": "数量缩放分母(默认 never)",
+   "ver": "v159.3",
+   "code": "public float unitScaling = never;"
+  },
+  {
+   "id": "difficulty.enum",
+   "path": "Mindustry-Source/core/src/mindustry/game/Difficulty.java",
+   "line": 5,
+   "note": "五档难度三元组",
+   "ver": "v159.3",
+   "code": "public enum Difficulty{\n    casual(0.5f, 0.5f, 2f),\n    easy(1f, 0.75f, 1.5f),\n    normal(1f, 1f, 1f),\n    hard(1.25f, 1.5f, 0.8f),\n    eradication(1.5f, 2f, 0.6f);\n\n    public static final Difficulty[] all = values();\n\n    //TODO add more fields\n    public float enemyHealthMultiplier, enemySpawnMultiplier, waveTimeMultiplier;\n\n    Difficulty(float enemyHealthMultiplier, float enemySpawnMultiplier, float waveTimeMultiplier){\n        this.enemySpawnMultiplier = enemySpawnMultiplier;\n        this.waveTimeMultiplier = waveTimeMultiplier;\n        this.enemyHealthMultiplier = enemyHealthMultiplier;\n    }\n\n    public String info(){\n        String res =\n        (enemyHealthMultiplier == 1f ? \"\" : Core.bundle.format(\"difficulty.enemyHealthMultiplier\", percentStat(enemyHealthMultiplier)) + \"\\n\") +\n        (enemySpawnMultiplier == 1f ? \"\" : Core.bundle.format(\"difficulty.enemySpawnMultiplier\", percentStat(enemySpawnMultiplier)) + \"\\n\") +\n        (waveTimeMultiplier == 1f ? \"\" : Core.bundle.format(\"difficulty.waveTimeMultiplier\", percentStatNeg(waveTimeMultiplier)) + \"\\n\");\n"
+  },
+  {
+   "id": "waves.version",
+   "path": "Mindustry-Source/core/src/mindustry/game/Waves.java",
+   "line": 13,
+   "note": "波次表版本号",
+   "ver": "v159.3",
+   "value": 7
+  },
+  {
+   "id": "waves.spawnGroupCount",
+   "path": "Mindustry-Source/core/src/mindustry/game/Waves.java",
+   "line": 20,
+   "note": "内置刷怪组条数",
+   "ver": "v159.3",
+   "value": 35
+  },
+  {
+   "id": "wavespawner.consts",
+   "path": "Mindustry-Source/core/src/mindustry/ai/WaveSpawner.java",
+   "line": 23,
+   "note": "margin/coreMargin/maxSteps",
+   "ver": "v159.3",
+   "code": "private static final float margin = 0f, coreMargin = tilesize * 2f, maxSteps = 30;",
+   "value": 30
+  },
+  {
+   "id": "wavespawner.spawnEnemies",
+   "path": "Mindustry-Source/core/src/mindustry/ai/WaveSpawner.java",
+   "line": 62,
+   "note": "刷怪主流程",
+   "ver": "v159.3",
+   "code": "    public void spawnEnemies(){\n        spawning = true;\n\n        eachGroundSpawn(-1, (spawnX, spawnY, doShockwave) -> {\n            if(doShockwave){\n                doShockwave(spawnX, spawnY);\n            }\n        });\n\n        for(SpawnGroup group : state.rules.spawns){\n            if(group.type == null) continue;\n\n            int spawned = group.getSpawned(state.wave - 1);\n            if(spawned == 0) continue;\n\n            if(state.isCampaign()){\n                //when spawning a boss, round down, so 1.5x (hard) * 1 boss does not result in 2 bosses\n                spawned = Math.max(1, group.effect == StatusEffects.boss ?\n                          (int)(spawned * state.getPlanet().campaignRules.difficulty.enemySpawnMultiplier) :\n                    Mathf.round(spawned * state.getPlanet().campaignRules.difficulty.enemySpawnMultiplier));\n            }\n\n            int spawnedf = spawned;\n"
+  },
+  {
+   "id": "wavespawner.spawnEffect",
+   "path": "Mindustry-Source/core/src/mindustry/ai/WaveSpawner.java",
+   "line": 229,
+   "note": "出生 unmoving/invincible",
+   "ver": "v159.3",
+   "code": "    public void spawnEffect(Unit unit){\n        unit.apply(StatusEffects.unmoving, 30f);\n        unit.apply(StatusEffects.invincible, 60f);\n        unit.unloaded();\n\n        Events.fire(new UnitSpawnEvent(unit));\n        Call.spawnEffect(unit.x, unit.y, unit.rotation, unit.type);\n    }"
+  },
+  {
+   "id": "logic.play",
+   "path": "Mindustry-Source/core/src/mindustry/core/Logic.java",
+   "line": 269,
+   "note": "首波 grace = 2x waveSpacing",
+   "ver": "v159.3",
+   "code": "    public void play(){\n        state.set(State.playing);\n        //grace period of 2x wave time before game starts\n        state.wavetime = (state.rules.initialWaveSpacing <= 0 ? state.rules.waveSpacing * 2 : state.rules.initialWaveSpacing) * (state.isCampaign() ? state.getPlanet().campaignRules.difficulty.waveTimeMultiplier : 1f);\n        state.stats = new GameStats();\n        Events.fire(new PlayEvent());\n\n        //add starting items\n        if(!state.isCampaign() || !state.rules.sector.planet.allowLaunchLoadout || (state.rules.sector.preset != null && state.rules.sector.preset.addStartingItems)){\n            for(TeamData team : state.teams.getActive()){\n                if(team.hasCore()){\n                    CoreBuild entity = team.core();\n                    entity.items.clear();\n\n                    for(ItemStack stack : state.rules.loadout){\n                        //make sure to cap storage\n                        entity.items.add(stack.item, Math.min(stack.amount, entity.storageCapacity - entity.items.get(stack.item)));\n                    }\n                }\n            }\n        }\n\n        //heal all cores on game start\n        for(TeamData team : state.teams.getActive()){"
+  },
+  {
+   "id": "logic.runWave",
+   "path": "Mindustry-Source/core/src/mindustry/core/Logic.java",
+   "line": 319,
+   "note": "推进波次与 wavetime",
+   "ver": "v159.3",
+   "code": "    public void runWave(){\n        spawner.spawnEnemies();\n        state.wave++;\n        state.wavetime = state.rules.waveSpacing * (state.isCampaign() ? state.getPlanet().campaignRules.difficulty.waveTimeMultiplier : 1f);\n\n        Events.fire(new WaveEvent());\n    }"
+  },
+  {
+   "id": "logic.checkGameState",
+   "path": "Mindustry-Source/core/src/mindustry/core/Logic.java",
+   "line": 327,
+   "note": "胜负判定",
+   "ver": "v159.3",
+   "code": "    private void checkGameState(){\n        //campaign maps do not have a 'win' state!\n        if(state.isCampaign()){\n            //gameover only when cores are dead\n            if(state.teams.playerCores().size == 0 && !state.gameOver){\n                state.gameOver = true;\n                Events.fire(new GameOverEvent(state.rules.waveTeam));\n            }\n\n            //check if there are no enemy spawns\n            if(state.rules.waves && spawner.countSpawns() + state.teams.cores(state.rules.waveTeam).size <= 0){\n                //if yes, waves get disabled\n                state.rules.waves = false;\n            }\n\n            //if there's a \"win\" wave and no enemies are present, win automatically\n            if(state.rules.waves && (state.enemies == 0 && state.rules.winWave > 0 && state.wave >= state.rules.winWave && !spawner.isSpawning()) ||\n                (state.rules.attackMode && !state.rules.waveTeam.isAlive())){\n\n                if(state.rules.sector.preset != null && state.rules.sector.preset.attackAfterWaves && !state.rules.attackMode){\n                    //activate attack mode to destroy cores after waves are done.\n                    state.rules.attackMode = true;\n                    state.rules.waves = false;\n                    Call.setRules(state.rules);"
+  },
+  {
+   "id": "logic.waitEnemies",
+   "path": "Mindustry-Source/core/src/mindustry/core/Logic.java",
+   "line": 617,
+   "note": "暂停倒计时条件",
+   "ver": "v159.3",
+   "code": "return (state.rules.waitEnemies || (state.wave >= state.rules.winWave && state.rules.winWave > 0)) && state.enemies > 0;"
+  },
+  {
+   "id": "rules.waveSpacing",
+   "path": "Mindustry-Source/core/src/mindustry/game/Rules.java",
+   "line": 151,
+   "note": "默认波次间隔",
+   "ver": "v159.3",
+   "code": "public float waveSpacing = 2 * Time.toMinutes;"
+  },
+  {
+   "id": "rules.initialWaveSpacing",
+   "path": "Mindustry-Source/core/src/mindustry/game/Rules.java",
+   "line": 153,
+   "note": "首波间隔",
+   "ver": "v159.3",
+   "value": 0
+  },
+  {
+   "id": "rules.winWave",
+   "path": "Mindustry-Source/core/src/mindustry/game/Rules.java",
+   "line": 155,
+   "note": "胜利波次 0=不限",
+   "ver": "v159.3",
+   "value": 0
+  },
+  {
+   "id": "rules.dropZoneRadius",
+   "path": "Mindustry-Source/core/src/mindustry/game/Rules.java",
+   "line": 149,
+   "note": "降落区半径",
+   "ver": "v159.3",
+   "value": 300
+  },
+  {
+   "id": "rules.enemyCoreBuildRadius",
+   "path": "Mindustry-Source/core/src/mindustry/game/Rules.java",
+   "line": 123,
+   "note": "敌核禁建半径",
+   "ver": "v159.3",
+   "value": 400
+  },
+  {
+   "id": "rules.unitHealthFn",
+   "path": "Mindustry-Source/core/src/mindustry/game/Rules.java",
+   "line": 302,
+   "note": "单位血量倍率合成",
+   "ver": "v159.3",
+   "code": "    public float unitHealth(Team team){\n        //a 0 here would be a very bad idea.\n        return Math.max(unitHealthMultiplier * teams.get(team).unitHealthMultiplier, 0.000001f);\n    }"
+  },
+  {
+   "id": "rules.unitDamageFn",
+   "path": "Mindustry-Source/core/src/mindustry/game/Rules.java",
+   "line": 298,
+   "note": "单位伤害倍率合成",
+   "ver": "v159.3",
+   "code": "    public float unitDamage(Team team){\n        return unitDamageMultiplier * teams.get(team).unitDamageMultiplier;\n    }"
+  },
+  {
+   "id": "power.chargeBatteries",
+   "path": "Mindustry-Source/core/src/mindustry/world/blocks/power/PowerGraph.java",
+   "line": 170,
+   "note": "电池充电",
+   "ver": "v159.3",
+   "code": "    public float chargeBatteries(float excess){\n        float capacity = getBatteryCapacity();\n        //how much of the missing in each battery % is charged\n        float chargedPercent = Math.min(excess/capacity, 1f);\n        if(Mathf.equal(capacity, 0f)) return 0f;\n\n        var items = batteries.items;\n        for(int i = 0; i < batteries.size; i++){\n            var battery = items[i];\n            //TODO why would it be 0\n            if(battery.enabled && battery.block.consPower.capacity > 0f){\n                battery.power.status += (1f - battery.power.status) * chargedPercent;\n            }\n        }\n        return Math.min(excess, capacity);\n    }"
+  },
+  {
+   "id": "power.distributePower",
+   "path": "Mindustry-Source/core/src/mindustry/world/blocks/power/PowerGraph.java",
+   "line": 187,
+   "note": "覆盖度=min(1,produced/needed)",
+   "ver": "v159.3",
+   "code": "    public void distributePower(float needed, float produced, boolean charged){\n        //distribute even if not needed. this is because some might be requiring power but not using it; it updates consumers\n        float coverage = Mathf.zero(needed) && Mathf.zero(produced) && !charged && Mathf.zero(lastPowerStored) ? 0f : Mathf.zero(needed) ? 1f : Math.min(1, produced / needed);\n        var items = consumers.items;\n        for(int i = 0; i < consumers.size; i++){\n            var consumer = items[i];\n            //TODO how would it even be null\n            var cons = consumer.block.consPower;\n            if(cons.buffered){\n                if(!Mathf.zero(cons.capacity)){\n                    // Add an equal percentage of power to all buffers, based on the global power coverage in this graph\n                    float maximumRate = cons.requestedPower(consumer) * coverage * consumer.delta();\n                    consumer.power.status = Mathf.clamp(consumer.power.status + maximumRate / cons.capacity);\n                }\n            }else{\n                //valid consumers get power as usual\n                if(consumer.shouldConsumePower){\n                    consumer.power.status = coverage;\n                }else{ //invalid consumers get an estimate, if they were to activate\n                    consumer.power.status = Math.min(1, produced / (needed + cons.usage * consumer.delta()));\n                    //just in case\n                    if(Float.isNaN(consumer.power.status)){\n                        consumer.power.status = 0f;\n                    }"
+  },
+  {
+   "id": "power.consumePower",
+   "path": "Mindustry-Source/core/src/mindustry/world/consumers/ConsumePower.java",
+   "line": 56,
+   "note": "每 tick 请求功率",
+   "ver": "v159.3",
+   "code": "    public float requestedPower(Building entity){\n        return buffered ?\n            (1f - entity.power.status) * capacity :\n            usage * (entity.shouldConsume() ? 1f : 0f);\n    }"
+  },
+  {
+   "id": "heat.producer",
+   "path": "Mindustry-Source/core/src/mindustry/world/blocks/heat/HeatProducer.java",
+   "line": 13,
+   "note": "heatOutput/warmupRate",
+   "ver": "v159.3",
+   "code": "public class HeatProducer extends GenericCrafter{\n    public float heatOutput = 10f;\n    public float warmupRate = 0.15f;\n\n    public HeatProducer(String name){\n        super(name);\n\n        drawer = new DrawMulti(new DrawDefault(), new DrawHeatOutput());\n        rotateDraw = false;\n        rotate = true;\n        canOverdrive = false;\n        drawArrow = true;\n        //it doesn't count as a standard crafter\n        flags = EnumSet.of();\n    }\n\n    @Override\n    public void setStats(){\n        super.setStats();\n\n        stats.add(Stat.output, heatOutput, StatUnit.heatUnits);\n    }\n\n    @Override"
+  },
+  {
+   "id": "heat.heatOutput",
+   "path": "Mindustry-Source/core/src/mindustry/world/blocks/heat/HeatProducer.java",
+   "line": 14,
+   "note": "默认产热",
+   "ver": "v159.3",
+   "value": 10
+  },
+  {
+   "id": "heat.warmupRate",
+   "path": "Mindustry-Source/core/src/mindustry/world/blocks/heat/HeatProducer.java",
+   "line": 15,
+   "note": "升温速率",
+   "ver": "v159.3",
+   "value": 0.15
+  },
+  {
+   "id": "heat.conductor",
+   "path": "Mindustry-Source/core/src/mindustry/world/blocks/heat/HeatConductor.java",
+   "line": 17,
+   "note": "导热体上限",
+   "ver": "v159.3",
+   "value": 15
+  },
+  {
+   "id": "heat.calculateHeat",
+   "path": "Mindustry-Source/core/src/mindustry/entities/comp/BuildingComp.java",
+   "line": 412,
+   "note": "接触点传热",
+   "ver": "v159.3",
+   "code": "    public float calculateHeat(float[] sideHeat){\n        return calculateHeat(sideHeat, null);\n    }"
+  },
+  {
+   "id": "drill.getDrillTime",
+   "path": "Mindustry-Source/core/src/mindustry/world/blocks/production/Drill.java",
+   "line": 170,
+   "note": "钻速分母=drillTime+50*硬度",
+   "ver": "v159.3",
+   "code": "    public float getDrillTime(Item item){\n        return (drillTime + hardnessDrillMultiplier * item.hardness) / drillMultipliers.get(item, 1f);\n    }"
+  },
+  {
+   "id": "drill.drillTime",
+   "path": "Mindustry-Source/core/src/mindustry/world/blocks/production/Drill.java",
+   "line": 36,
+   "note": "基础钻孔时间",
+   "ver": "v159.3",
+   "value": 300
+  },
+  {
+   "id": "drill.hardnessMul",
+   "path": "Mindustry-Source/core/src/mindustry/world/blocks/production/Drill.java",
+   "line": 28,
+   "note": "硬度惩罚系数",
+   "ver": "v159.3",
+   "value": 50
+  },
+  {
+   "id": "drill.liquidBoost",
+   "path": "Mindustry-Source/core/src/mindustry/world/blocks/production/Drill.java",
+   "line": 38,
+   "note": "液体加速上限",
+   "ver": "v159.3",
+   "value": 1.6
+  },
+  {
+   "id": "drill.warmup",
+   "path": "Mindustry-Source/core/src/mindustry/world/blocks/production/Drill.java",
+   "line": 40,
+   "note": "预热速率",
+   "ver": "v159.3",
+   "value": 0.015
+  },
+  {
+   "id": "conveyor.itemSpace",
+   "path": "Mindustry-Source/core/src/mindustry/world/blocks/distribution/Conveyor.java",
+   "line": 27,
+   "note": "物品间距(格)",
+   "ver": "v159.3",
+   "value": 0.4
+  },
+  {
+   "id": "conveyor.capacity",
+   "path": "Mindustry-Source/core/src/mindustry/world/blocks/distribution/Conveyor.java",
+   "line": 28,
+   "note": "同时容纳件数",
+   "ver": "v159.3",
+   "value": 3
+  },
+  {
+   "id": "conveyor.moved",
+   "path": "Mindustry-Source/core/src/mindustry/world/blocks/distribution/Conveyor.java",
+   "line": 266,
+   "note": "位置推进",
+   "ver": "v159.3",
+   "code": "float moved = speed * edelta();"
+  },
+  {
+   "id": "conveyor.block.speed",
+   "path": "Mindustry-Source/core/src/mindustry/content/Blocks.java",
+   "line": 2068,
+   "note": "基础带实例参数起始行",
+   "ver": "v159.3",
+   "code": "conveyor = new Conveyor(\"conveyor\"){{"
+  },
+  {
+   "id": "conveyor.conveyor.speed",
+   "path": "Mindustry-Source/core/src/mindustry/content/Blocks.java",
+   "line": 2071,
+   "note": "基础带 0.046 格/tick",
+   "ver": "v159.3",
+   "value": 0.046
+  },
+  {
+   "id": "conveyor.conveyor.displayed",
+   "path": "Mindustry-Source/core/src/mindustry/content/Blocks.java",
+   "line": 2072,
+   "note": "基础带展示吞吐",
+   "ver": "v159.3",
+   "value": 6.5
+  },
+  {
+   "id": "conveyor.titanium.speed",
+   "path": "Mindustry-Source/core/src/mindustry/content/Blocks.java",
+   "line": 2079,
+   "note": "钛带 0.0801 格/tick",
+   "ver": "v159.3",
+   "value": 0.0801
+  },
+  {
+   "id": "conveyor.titanium.displayed",
+   "path": "Mindustry-Source/core/src/mindustry/content/Blocks.java",
+   "line": 2080,
+   "note": "钛带展示吞吐",
+   "ver": "v159.3",
+   "value": 10
+  },
+  {
+   "id": "conveyor.armored.speed",
+   "path": "Mindustry-Source/core/src/mindustry/content/Blocks.java",
+   "line": 2093,
+   "note": "装甲带 0.08 格/tick",
+   "ver": "v159.3",
+   "value": 0.08
+  },
+  {
+   "id": "conveyor.armored.displayed",
+   "path": "Mindustry-Source/core/src/mindustry/content/Blocks.java",
+   "line": 2094,
+   "note": "装甲带展示吞吐",
+   "ver": "v159.3",
+   "value": 11
+  },
+  {
+   "id": "block.scaledHealth",
+   "path": "Mindustry-Source/core/src/mindustry/world/Block.java",
+   "line": 188,
+   "note": "每格血量占位 -1",
+   "ver": "v159.3",
+   "value": -1
+  },
+  {
+   "id": "block.size",
+   "path": "Mindustry-Source/core/src/mindustry/world/Block.java",
+   "line": 215,
+   "note": "默认 1x1",
+   "ver": "v159.3",
+   "value": 1
+  },
+  {
+   "id": "block.healthCalc",
+   "path": "Mindustry-Source/core/src/mindustry/world/Block.java",
+   "line": 1378,
+   "note": "health=size*size*scaledHealth",
+   "ver": "v159.3",
+   "code": "        if(health == -1){\n            boolean round = false;\n            if(scaledHealth < 0){\n                scaledHealth = 40;\n\n                float scaling = 1f;\n                for(var stack : requirements){\n                    scaling += stack.item.healthScaling;\n                }\n\n                scaledHealth *= scaling;\n                round = true;\n            }\n\n            health = round ?\n                Mathf.round(size * size * scaledHealth, 5) :\n                (int)(size * size * scaledHealth);\n        }"
+  },
+  {
+   "id": "logicblock.budget",
+   "path": "Mindustry-Source/core/src/mindustry/world/blocks/logic/LogicBlock.java",
+   "line": 45,
+   "note": "预算常量",
+   "ver": "v159.3",
+   "code": "public int maxInstructionScale = 5;",
+   "value": 5
+  },
+  {
+   "id": "logicblock.loop",
+   "path": "Mindustry-Source/core/src/mindustry/world/blocks/logic/LogicBlock.java",
+   "line": 565,
+   "note": "每 tick 执行循环",
+   "ver": "v159.3",
+   "code": "                if(accumulator > maxInstructionScale * ipt) accumulator = maxInstructionScale * ipt;\n\n                while(accumulator >= 1f){\n                    executor.runOnce();\n                    if(executor.yield){\n                        executor.yield = false;\n                        break;\n                    }\n                    accumulator --;\n                }"
+  },
+  {
+   "id": "building.damageBlockHealth",
+   "path": "Mindustry-Source/core/src/mindustry/entities/comp/BuildingComp.java",
+   "line": 2068,
+   "note": "建筑伤害/血量倍率",
+   "ver": "v159.3",
+   "code": "float dm = state.rules.blockHealth(team);"
+  },
+  {
+   "id": "building.armorHit",
+   "path": "Mindustry-Source/core/src/mindustry/entities/comp/BuildingComp.java",
+   "line": 1768,
+   "note": "建筑护甲减免",
+   "ver": "v159.3",
+   "code": "damage = Damage.applyArmor(damage, block.armor * t.armorMultiplier * t.blockArmorMultiplier);"
+  }
+ ],
+ "warnings": [],
+ "note": "公式锚点表: 只做正则定位 + 括号配平, 不解析 Java AST; 重跑即可核对行号漂移。"
+}

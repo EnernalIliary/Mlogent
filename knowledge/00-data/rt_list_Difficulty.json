@@ -1,0 +1,54 @@
+{
+ "mindustry.game.Difficulty": {
+  "$VALUES": {
+   "const": null,
+   "default": null,
+   "desc": "[Lmindustry/game/Difficulty;"
+  },
+  "all": {
+   "const": null,
+   "default": null,
+   "desc": "[Lmindustry/game/Difficulty;"
+  },
+  "casual": {
+   "const": null,
+   "default": null,
+   "desc": "Lmindustry/game/Difficulty;"
+  },
+  "easy": {
+   "const": null,
+   "default": null,
+   "desc": "Lmindustry/game/Difficulty;"
+  },
+  "enemyHealthMultiplier": {
+   "const": null,
+   "default": null,
+   "desc": "F"
+  },
+  "enemySpawnMultiplier": {
+   "const": null,
+   "default": 1,
+   "desc": "F"
+  },
+  "eradication": {
+   "const": null,
+   "default": null,
+   "desc": "Lmindustry/game/Difficulty;"
+  },
+  "hard": {
+   "const": null,
+   "default": null,
+   "desc": "Lmindustry/game/Difficulty;"
+  },
+  "normal": {
+   "const": null,
+   "default": null,
+   "desc": "Lmindustry/game/Difficulty;"
+  },
+  "waveTimeMultiplier": {
+   "const": null,
+   "default": 2,
+   "desc": "F"
+  }
+ }
+}

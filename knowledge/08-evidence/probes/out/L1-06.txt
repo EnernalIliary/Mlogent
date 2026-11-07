@@ -1,0 +1,31 @@
+# probe L1-06
+
+claim   : @dead 对 null 单位返回 1
+mode    : steps=2 (update=none)
+verdict : PASS
+why     : d='1' (no ubind => @unit null; @dead of null unit is 1)
+python  : 3.11.4
+repo    : F:\OneDrive\桌面\AtomicStates
+
+## mlog source (paste into a processor to reproduce)
+
+```
+sensor d @unit @dead
+```
+
+## executor readback
+
+```json
+{
+  "vars": {
+    "@counter": "1",
+    "d": "1"
+  },
+  "text": "",
+  "counter": 1.0,
+  "mode": "instruction",
+  "steps": 2,
+  "ipt": 2.0
+}
+```
+

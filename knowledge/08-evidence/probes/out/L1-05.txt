@@ -1,0 +1,31 @@
+# probe L1-05
+
+claim   : 未赋值变量是 null；print 输出 null
+mode    : steps=2 (update=none)
+verdict : PASS
+why     : text='nullnull' (unset variable is null; print emits null)
+python  : 3.11.4
+repo    : F:\OneDrive\桌面\AtomicStates
+
+## mlog source (paste into a processor to reproduce)
+
+```
+print foo
+```
+
+## executor readback
+
+```json
+{
+  "vars": {
+    "@counter": "1",
+    "foo": "null"
+  },
+  "text": "nullnull",
+  "counter": 1.0,
+  "mode": "instruction",
+  "steps": 2,
+  "ipt": 2.0
+}
+```
+

@@ -1,0 +1,36 @@
+# probe L1-08
+
+claim   : logn 0 2 与 1/0 均得 null
+mode    : steps=6 (update=none)
+verdict : PASS
+why     : text='null|null' r='null' s='null' (logn 0 and 1/0 both yield null)
+python  : 3.11.4
+repo    : F:\OneDrive\桌面\AtomicStates
+
+## mlog source (paste into a processor to reproduce)
+
+```
+op logn r 0 2
+op div s 1 0
+print r
+print "|"
+print s
+```
+
+## executor readback
+
+```json
+{
+  "vars": {
+    "@counter": "1",
+    "r": "null",
+    "s": "null"
+  },
+  "text": "null|null",
+  "counter": 1.0,
+  "mode": "instruction",
+  "steps": 6,
+  "ipt": 2.0
+}
+```
+

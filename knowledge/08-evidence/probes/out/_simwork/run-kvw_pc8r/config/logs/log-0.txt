@@ -1,0 +1,93 @@
+[11-08-2026 04:31:22] [I] Server loaded. Type 'help' for help.
+[11-08-2026 04:31:22] [I] [none/base.js]: WORLD	64x64
+[11-08-2026 04:31:22] [I] undefined
+[11-08-2026 04:31:24] [I] [none/base.js]: PLACED
+[11-08-2026 04:31:24] [I] undefined
+[11-08-2026 04:31:24] [I] [none/base.js]: @@BEGIN
+[11-08-2026 04:31:24] [I] [none/base.js]: VAR	@counter	2
+[11-08-2026 04:31:24] [I] [none/base.js]: COUNTER	2
+[11-08-2026 04:31:24] [I] [none/base.js]: IPT	2
+[11-08-2026 04:31:24] [I] [none/base.js]: ACC	2
+[11-08-2026 04:31:24] [I] [none/base.js]: TEXT	23
+[11-08-2026 04:31:24] [I] [none/base.js]: @@END
+[11-08-2026 04:31:24] [I] undefined
+[11-08-2026 04:31:24] [I] Game over! Team crux is victorious with 0 players online on map Unknown.
+[11-08-2026 04:31:24] [I] Selected next map to be Mud Flats.
+[11-08-2026 04:31:25] [I] [none/base.js]: PLACED
+[11-08-2026 04:31:25] [I] undefined
+[11-08-2026 04:31:25] [I] [none/base.js]: @@BEGIN
+[11-08-2026 04:31:25] [I] [none/base.js]: VAR	@counter	2
+[11-08-2026 04:31:25] [I] [none/base.js]: COUNTER	2
+[11-08-2026 04:31:25] [I] [none/base.js]: IPT	2
+[11-08-2026 04:31:25] [I] [none/base.js]: ACC	0
+[11-08-2026 04:31:25] [I] [none/base.js]: TEXT	XXXX
+[11-08-2026 04:31:25] [I] [none/base.js]: @@END
+[11-08-2026 04:31:25] [I] undefined
+[11-08-2026 04:31:25] [I] [none/base.js]: PLACED
+[11-08-2026 04:31:25] [I] undefined
+[11-08-2026 04:31:25] [I] [none/base.js]: @@BEGIN
+[11-08-2026 04:31:25] [I] [none/base.js]: VAR	@counter	0
+[11-08-2026 04:31:25] [I] [none/base.js]: VAR	x	null
+[11-08-2026 04:31:25] [I] [none/base.js]: COUNTER	0
+[11-08-2026 04:31:25] [I] [none/base.js]: IPT	2
+[11-08-2026 04:31:25] [I] [none/base.js]: ACC	2
+[11-08-2026 04:31:25] [I] [none/base.js]: TEXT	56
+[11-08-2026 04:31:25] [I] [none/base.js]: @@END
+[11-08-2026 04:31:25] [I] undefined
+[11-08-2026 04:31:25] [I] [none/base.js]: PLACED
+[11-08-2026 04:31:25] [I] undefined
+[11-08-2026 04:31:25] [I] [none/base.js]: @@BEGIN
+[11-08-2026 04:31:25] [I] [none/base.js]: VAR	@counter	2
+[11-08-2026 04:31:25] [I] [none/base.js]: VAR	x	null
+[11-08-2026 04:31:25] [I] [none/base.js]: COUNTER	2
+[11-08-2026 04:31:25] [I] [none/base.js]: IPT	2
+[11-08-2026 04:31:25] [I] [none/base.js]: ACC	0
+[11-08-2026 04:31:25] [I] [none/base.js]: TEXT	AAAA
+[11-08-2026 04:31:25] [I] [none/base.js]: @@END
+[11-08-2026 04:31:25] [I] undefined
+[11-08-2026 04:31:25] [I] [none/base.js]: PLACED
+[11-08-2026 04:31:25] [I] undefined
+[11-08-2026 04:31:25] [I] [none/base.js]: @@BEGIN
+[11-08-2026 04:31:25] [I] [none/base.js]: VAR	@counter	1
+[11-08-2026 04:31:25] [I] [none/base.js]: VAR	foo	null
+[11-08-2026 04:31:25] [I] [none/base.js]: COUNTER	1
+[11-08-2026 04:31:25] [I] [none/base.js]: IPT	2
+[11-08-2026 04:31:25] [I] [none/base.js]: ACC	0
+[11-08-2026 04:31:25] [I] [none/base.js]: TEXT	nullnull
+[11-08-2026 04:31:25] [I] [none/base.js]: @@END
+[11-08-2026 04:31:25] [I] undefined
+[11-08-2026 04:31:25] [I] [none/base.js]: PLACED
+[11-08-2026 04:31:25] [I] undefined
+[11-08-2026 04:31:25] [I] [none/base.js]: @@BEGIN
+[11-08-2026 04:31:25] [I] [none/base.js]: VAR	@counter	1
+[11-08-2026 04:31:25] [I] [none/base.js]: VAR	d	1
+[11-08-2026 04:31:25] [I] [none/base.js]: COUNTER	1
+[11-08-2026 04:31:25] [I] [none/base.js]: IPT	2
+[11-08-2026 04:31:25] [I] [none/base.js]: ACC	0
+[11-08-2026 04:31:25] [I] [none/base.js]: TEXT	
+[11-08-2026 04:31:25] [I] [none/base.js]: @@END
+[11-08-2026 04:31:25] [I] undefined
+[11-08-2026 04:31:25] [I] [none/base.js]: PLACED
+[11-08-2026 04:31:25] [I] undefined
+[11-08-2026 04:31:25] [I] [none/base.js]: @@BEGIN
+[11-08-2026 04:31:25] [I] [none/base.js]: VAR	@counter	4
+[11-08-2026 04:31:25] [I] [none/base.js]: VAR	x	null
+[11-08-2026 04:31:25] [I] [none/base.js]: COUNTER	4
+[11-08-2026 04:31:25] [I] [none/base.js]: IPT	2
+[11-08-2026 04:31:25] [I] [none/base.js]: ACC	0
+[11-08-2026 04:31:25] [I] [none/base.js]: TEXT	TT
+[11-08-2026 04:31:25] [I] [none/base.js]: @@END
+[11-08-2026 04:31:25] [I] undefined
+[11-08-2026 04:31:26] [I] [none/base.js]: PLACED
+[11-08-2026 04:31:26] [I] undefined
+[11-08-2026 04:31:26] [I] [none/base.js]: @@BEGIN
+[11-08-2026 04:31:26] [I] [none/base.js]: VAR	@counter	1
+[11-08-2026 04:31:26] [I] [none/base.js]: VAR	r	null
+[11-08-2026 04:31:26] [I] [none/base.js]: VAR	s	null
+[11-08-2026 04:31:26] [I] [none/base.js]: COUNTER	1
+[11-08-2026 04:31:26] [I] [none/base.js]: IPT	2
+[11-08-2026 04:31:26] [I] [none/base.js]: ACC	0
+[11-08-2026 04:31:26] [I] [none/base.js]: TEXT	null|null
+[11-08-2026 04:31:26] [I] [none/base.js]: @@END
+[11-08-2026 04:31:26] [I] undefined
+[11-08-2026 04:31:26] [I] Shutting down server.

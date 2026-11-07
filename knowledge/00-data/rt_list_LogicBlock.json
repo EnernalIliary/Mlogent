@@ -1,0 +1,59 @@
+{
+ "mindustry.world.blocks.logic.LogicBlock": {
+  "instructionsPerTick": {
+   "const": null,
+   "default": 1,
+   "desc": "I"
+  },
+  "maxByteLen": {
+   "const": 102400,
+   "default": null,
+   "desc": "I"
+  },
+  "maxCompressedLen": {
+   "const": 16000,
+   "default": null,
+   "desc": "I"
+  },
+  "maxInstructionScale": {
+   "const": null,
+   "default": 5,
+   "desc": "I"
+  },
+  "maxInstructionsPerTick": {
+   "const": null,
+   "default": 40,
+   "desc": "I"
+  },
+  "maxLinks": {
+   "const": 6000,
+   "default": null,
+   "desc": "I"
+  },
+  "maxNameLength": {
+   "const": 32,
+   "default": null,
+   "desc": "I"
+  },
+  "range": {
+   "const": null,
+   "default": 80.0,
+   "desc": "F"
+  },
+  "usedBuildings": {
+   "const": null,
+   "default": null,
+   "desc": "Larc/struct/IntSet;"
+  },
+  "waitIndices": {
+   "const": null,
+   "default": null,
+   "desc": "Larc/struct/IntSeq;"
+  },
+  "waitValues": {
+   "const": null,
+   "default": null,
+   "desc": "Larc/struct/FloatSeq;"
+  }
+ }
+}

@@ -1,0 +1,30 @@
+# probe L1-12
+
+claim   : 处理器首 tick 不执行指令
+mode    : ticks=1 (update=all)
+verdict : PASS
+why     : text='' with ticks=1 (empty => first tick consumes without executing)
+python  : 3.11.4
+repo    : F:\OneDrive\桌面\AtomicStates
+
+## mlog source (paste into a processor to reproduce)
+
+```
+print "x"
+```
+
+## executor readback
+
+```json
+{
+  "vars": {
+    "@counter": "0"
+  },
+  "text": "",
+  "counter": 0.0,
+  "mode": "tick",
+  "steps": 1,
+  "ipt": 2.0
+}
+```
+

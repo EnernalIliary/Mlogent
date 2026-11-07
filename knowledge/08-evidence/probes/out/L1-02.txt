@@ -1,0 +1,32 @@
+# probe L1-02
+
+claim   : end 之后的语句永不执行
+mode    : steps=8 (update=none)
+verdict : PASS
+why     : text='XXXX' (no Y => statements after end never execute)
+python  : 3.11.4
+repo    : F:\OneDrive\桌面\AtomicStates
+
+## mlog source (paste into a processor to reproduce)
+
+```
+print "X"
+end
+print "Y"
+```
+
+## executor readback
+
+```json
+{
+  "vars": {
+    "@counter": "3"
+  },
+  "text": "XXXX",
+  "counter": 3.0,
+  "mode": "instruction",
+  "steps": 8,
+  "ipt": 2.0
+}
+```
+

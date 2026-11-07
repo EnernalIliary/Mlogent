@@ -1,0 +1,32 @@
+# probe L1-15
+
+claim   : format 用 {0}/{1} 占位（正文需先 print，format 每次只填一个）
+mode    : steps=3 (update=none)
+verdict : PASS
+why     : text='a-b' (expect a-b; single-digit placeholders only)
+python  : 3.11.4
+repo    : F:\OneDrive\桌面\AtomicStates
+
+## mlog source (paste into a processor to reproduce)
+
+```
+print "{0}-{1}"
+format "a"
+format "b"
+```
+
+## executor readback
+
+```json
+{
+  "vars": {
+    "@counter": "3"
+  },
+  "text": "a-b",
+  "counter": 3.0,
+  "mode": "instruction",
+  "steps": 3,
+  "ipt": 2.0
+}
+```
+

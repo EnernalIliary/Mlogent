@@ -1,0 +1,32 @@
+# probe L1-20
+
+claim   : select 需要 build >= 150（headless 不可判定）
+mode    : steps=4 (update=none)
+verdict : INCONCLUSIVE
+why     : text='|3': ran without crash, but build>=150 precondition is not observable headless
+python  : 3.11.4
+repo    : F:\OneDrive\桌面\AtomicStates
+
+## mlog source (paste into a processor to reproduce)
+
+```
+select 1 0 0 0 0
+print "|"
+print @counter
+```
+
+## executor readback
+
+```json
+{
+  "vars": {
+    "@counter": "1"
+  },
+  "text": "|3",
+  "counter": 1.0,
+  "mode": "instruction",
+  "steps": 4,
+  "ipt": 2.0
+}
+```
+

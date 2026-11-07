@@ -1,0 +1,32 @@
+# probe L1-11
+
+claim   : op add @counter 的基址是 i+1
+mode    : steps=4 (update=none)
+verdict : PASS
+why     : text='BB' (B only => base i+1; A would mean base i)
+python  : 3.11.4
+repo    : F:\OneDrive\桌面\AtomicStates
+
+## mlog source (paste into a processor to reproduce)
+
+```
+op add @counter @counter 1
+print "A"
+print "B"
+```
+
+## executor readback
+
+```json
+{
+  "vars": {
+    "@counter": "3"
+  },
+  "text": "BB",
+  "counter": 3.0,
+  "mode": "instruction",
+  "steps": 4,
+  "ipt": 2.0
+}
+```
+
