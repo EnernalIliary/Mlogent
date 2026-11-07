@@ -121,6 +121,11 @@ anyBlock(idx, name)                   统一 blocks/drills/multi/generators 视�
 - 中文名来自 `assetsraw/assets/bundles/bundle_zh_CN.properties`（key 形如 `item.<名>.name` / `block.<名>.name` / `unit.<名>.name`），导出成 `data.names = {items, blocks, units}`；页面标签显示「英文名 + 灰字中文名」，选择格 tooltip 也带中文。
 - 实例：`graphite-press ×2` → 石墨 1.333/s、煤 2.667/s、电力 0；煤改激光钻 8 格 → 3 台激光钻、电力 198 → 燃烧发电机 4 台、烧煤 2/s；`silicon-smelter ×3` + 沙用解离机 → 6 台解离机、电力 1530、副产石墨/钛/钍各 4.8/s、吃废料 24/s；`silicon-smelter ×3` + 沙用激光钻（加水）+ 水用 rotary-pump → 水 14.4/s、泵 2 台（电力 +36）、总电力 324；`dagger 0.05/s` → **1/1/2/5/12** 台、**22872** 电、硅 101.5/s、瓶颈 T5 reign。
 
+**发电设备当目标建筑（2026-11-08 加）**：建筑页第三组选单是 14 个发电厂，选中后按台数算
+总发电/燃料/液体/自耗电，**不做电力递归**（`expandGenerator`，`DEFAULT_GENERATOR="combustion-generator"`、
+`DEFAULT_FUEL="coal"`；`supply.netTotal = (gross - powerUsage) * count`）。
+对应测试：`test_core` 98 行 ok、`test_page` 62、`test_cli` 42、`test_card` 6。
+
 ### 5.1 接入 bot 的四个入口（2026-11-07 加）
 
 算法只有一份（`core.js`），四个壳都只是调它，`test_cli.cjs` 里有逐项对拍：

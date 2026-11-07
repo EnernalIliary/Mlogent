@@ -188,5 +188,22 @@ eq("chainFromBlock 指定 flare 线", cb3.start, "flare");
 eq("flare 线 T5 是 eclipse", cb3.rows[4].unit, "eclipse");
 eq("chainFromBlock(物品工厂) 返回 null", R.chainFromBlock(DATA, "graphite-press", 1), null);
 
+/* ---- 发电设备当目标建筑（按台数算发电，不做电力递归） ---- */
+const gen1 = R.expandGenerator(DATA, "steam-generator", 2);
+near("expandGenerator(steam ×2)：发电 660/s", gen1.products[0].rate, 660, 1e-9);
+eq("expandGenerator：产出类型是 power", gen1.products[0].type, "power");
+near("expandGenerator：烧煤 1.333/s", gen1.demand.coal, 1.333, 1e-6);
+near("expandGenerator：抽水 12/s", gen1.liquids[0].perSecond, 12, 1e-9);
+near("expandGenerator：自身不计耗电", gen1.power, 0, 1e-9);
+near("expandGenerator：supply.netTotal 660", gen1.supply.netTotal, 660, 1e-9);
+near("expandGenerator：单台净发电 330", gen1.supply.netEach, 330, 1e-9);
+const gen2 = R.expandBuilding(DATA, "combustion-generator", 1);
+near("expandBuilding(combustion ×1) 走发电分支：60/s", gen2.products[0].rate, 60, 1e-9);
+const gen3 = R.expandGenerator(DATA, "impact-reactor", 2, { fuel: "blast-compound" });
+near("expandGenerator(impact ×2, blast-compound)：12600/s", gen3.products[0].rate, 12600, 1e-9);
+near("expandGenerator(impact)：单台自耗 1500/s", gen3.supply.selfUseEach, 1500, 1e-9);
+near("expandGenerator(impact)：两台自耗 3000/s", gen3.supply.selfUse, 3000, 1e-9);
+near("expandGenerator(impact)：净发电已扣自耗", gen3.supply.netEach, 6300, 1e-9);
+
 console.log(f2 ? `\n${f2} 项新算法断言失败` : "\n新算法断言全部通过");
 process.exit(bad || f2 ? 1 : 0);

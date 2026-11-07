@@ -17,6 +17,8 @@ shots = [
     ("screenshot-multi-power.png",
      "?mode=building&block=silicon-smelter&count=3&depth=4&boundary=coal,sand"
      "&src=sand:multi:disassembler&gen=steam-generator&genfuel=coal&gencount=0", "1180,2200"),
+    ("screenshot-generator.png",
+     "?mode=building&block=steam-generator&count=2&genfuel=coal", "1180,2000"),
     ("screenshot-unit-factory.png", "?mode=building&block=ground-factory&count=2&depth=4", "1180,2200"),
     ("screenshot-unit-chain.png",
      "?mode=building&block=tetrative-reconstructor&count=5&depth=4", "1180,2700"),

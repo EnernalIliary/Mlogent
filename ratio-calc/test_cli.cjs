@@ -341,5 +341,28 @@ ok("兵厂链也带外部入料（蓝带条数）", () => {
   assert.ok(r.sources.some((s) => s.item === "silicon" && s.count >= 4), JSON.stringify(r.sources));
 });
 
+ok("发电设备当目标建筑：--block steam-generator ×2 出 660/s", () => {
+  const r = cli.query({ block: "steam-generator", count: "2" });
+  assert.strictEqual(r.mode, "building");
+  assert.strictEqual(r.products[0].type, "power");
+  assert.strictEqual(r.products[0].rate, 660);
+  assert.ok(r.supply && r.supply.netTotal === 660, JSON.stringify(r.supply));
+  assert.strictEqual(r.power, 0);
+  const t = cli.renderText(r);
+  assert.ok(t.indexOf("660/s") >= 0, t);
+  assert.ok(t.indexOf("供电") >= 0, t);
+});
+ok("发电设备：--genfuel 选燃料", () => {
+  const r = cli.query({ block: "impact-reactor", count: "2", genfuel: "blast-compound" });
+  assert.strictEqual(r.products[0].rate, 12600);
+  assert.ok(r.supply.fuel && r.supply.fuel.name === "blast-compound", JSON.stringify(r.supply.fuel));
+});
+ok("发电设备：不做电力递归（不多算发电机台数）", () => {
+  const r = cli.query({ block: "steam-generator", count: "2" });
+  const names = (r.machines || []).map((m) => m.name);
+  assert.deepStrictEqual(names, ["steam-generator"], JSON.stringify(names));
+  assert.strictEqual(r.power, 0);
+});
+
 console.log("\n通过 " + pass + " 项，失败 " + fail + " 项");
 process.exitCode = fail ? 1 : 0;

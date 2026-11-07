@@ -187,7 +187,8 @@ function query(opts) {
     }
     const r = R.expandBuilding(DATA, String(opts.block), count, {
       boundary: boundary, force: force, maxDepth: depth,
-      plan: num(opts.plan, 0), sources: sources
+      plan: num(opts.plan, 0), sources: sources,
+      fuel: opts.genfuel ? String(opts.genfuel) : null
     });
     res.mode = "building";
     res.target = String(opts.block);
@@ -197,6 +198,7 @@ function query(opts) {
     res.machines = flattenMachines(DATA, R, r);
     res.demand = Object.keys(r.demand || {}).sort().map(k => ({ name: k, perSecond: r.demand[k] }));
     res.power = r.power || 0;
+    res.supply = r.supply || null;
     res.liquids = r.liquids || [];
     res.warnings = r.warnings || [];
     res.sources = r.sources || [];
@@ -212,6 +214,7 @@ function query(opts) {
     res.machines = flattenMachines(DATA, R, r);
     res.demand = Object.keys(r.demand || {}).sort().map(k => ({ name: k, perSecond: r.demand[k] }));
     res.power = r.power || 0;
+    res.supply = r.supply || null;
     res.liquids = r.liquids || [];
     res.warnings = r.warnings || [];
     res.sources = r.sources || [];

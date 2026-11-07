@@ -144,6 +144,8 @@
       <div class="bgrid" id="bgrid-item"></div>
       <div class="grp">选择目标建筑（兵厂：单位工厂 / 升级厂 / 组装厂）</div>
       <div class="bgrid" id="bgrid-unit"></div>
+      <div class="grp">选择目标建筑（发电设备：发电厂 · 按台数算发电，不做电力递归）</div>
+      <div class="bgrid" id="bgrid-power"></div>
     </div>
 
     <div class="mode-item hidden">
@@ -216,7 +218,7 @@
   var names = idx.items;
   var itemIcon = idx.itemIcons;
   var blockIcon = function (n) { var b = idx.blocks.get(n); return b ? b.icon : ""; };
-  var blockOf = function (n) { return idx.blocks.get(n); };
+  var blockOf = function (n) { return idx.blocks.get(n) || R.anyBlock(idx, n) || null; };
 
   var mode = "building";
   var curBlock = "graphite-press";
@@ -464,7 +466,8 @@
   }
 
   /* ---- 供电表 ---- */
-  function renderPower(demand) {
+  function renderPower(demand, supply) {
+    if (supply) { renderSupply(supply, demand); return; }
     var gname = el("gen").value;
     if (!gname) { el("powertable").innerHTML = ""; return; }
     var fuel = el("genfuel").value;
@@ -490,6 +493,29 @@
         num(l.perSecondEach) + "）"]);
     });
     if (g && g.powerUsage) rows.push(["发电厂自耗电", num(plan.selfUse * (plan.count || 0)) + " /s"]);
+    el("powertable").innerHTML = '<tr><th>项目</th><th>数值</th></tr>' + rows.map(function (r) {
+      return "<tr><td>" + r[0] + '</td><td>' + r[1] + "</td></tr>";
+    }).join("");
+  }
+
+  /* 目标建筑本身是发电厂时：只报发电量/燃料/液体，不去倒推"还要几台发电机"（不做电力递归） */
+  function renderSupply(sup, demand) {
+    var rows = [];
+    rows.push(["本建筑", blockLabel(sup.name, "sm") + " × " + sup.count]);
+    rows.push(["单台净发电", num(sup.netEach) + " /s" + (sup.selfUse ? "（自耗 " + num(sup.selfUse) + "）" : "")]);
+    rows.push(["总发电", num(sup.netTotal || sup.net) + " /s"]);
+    if (sup.fuel) {
+      rows.push(["燃料", itemLabel(sup.fuel.name, "sm") + " " + num(sup.fuel.perSecond) + " /s（单台 " +
+        num(sup.fuel.perSecondEach) + "）"]);
+    } else {
+      rows.push(["燃料", '<span class="dim">不需要燃料（被动发电）</span>']);
+    }
+    (sup.liquids || []).forEach(function (l) {
+      rows.push(["液体", itemLabel(l.name, "sm") + " " + num(l.perSecond) + " /s（单台 " +
+        num(l.perSecondEach) + "）"]);
+    });
+    if (sup.selfUse) rows.push(["自耗电", num(sup.selfUse * sup.count) + " /s"]);
+    rows.push(["说明", '<span class="dim">发电设备不做电力递归：这里只按台数算发电量</span>']);
     el("powertable").innerHTML = '<tr><th>项目</th><th>数值</th></tr>' + rows.map(function (r) {
       return "<tr><td>" + r[0] + '</td><td>' + r[1] + "</td></tr>";
     }).join("");
@@ -613,7 +639,7 @@
   /* ---------------- 建筑选择器 ---------------- */
   var blockCells = {};
   function buildBlockPickers() {
-    var itemBlocks = [], unitBlocks = [];
+    var itemBlocks = [], unitBlocks = [], powerBlocks = [];
     idx.blocks.forEach(function (b) {
       if (b.kind === "unit") unitBlocks.push(b); else itemBlocks.push(b);
     });
@@ -627,13 +653,21 @@
       return list.map(function (b) {
         return '<div class="bcell" data-block="' + esc(b.name) + '" title="' + esc(b.name)
           + (zhOf("blocks", b.name) ? " · " + esc(zhOf("blocks", b.name)) : "") +
-          " · " + b.size + "×" + b.size + (b.power ? " · " + b.power + " 电力/s" : "") + '">' +
+          " · " + b.size + "×" + b.size +
+          (b.gen ? " · 发电 " + num(b.gen) + " 电力/s" : "") +
+          (b.power ? " · " + b.power + " 电力/s" : "") + '">' +
           blockImg(b.name, 22) + '<span class="cn">' + esc(b.name) + '</span></div>';
       }).join("");
     }
+    idx.generators.forEach(function (g) {
+      powerBlocks.push({ name: g.name, size: g.size, icon: g.icon, power: g.powerUsage,
+                         gen: g.perSecond, kind: "generator" });
+    });
+    powerBlocks.sort(function (a, b) { return a.gen - b.gen || (a.name < b.name ? -1 : 1); });
     el("bgrid-item").innerHTML = html(itemBlocks);
     el("bgrid-unit").innerHTML = html(unitBlocks);
-    ["bgrid-item", "bgrid-unit"].forEach(function (id) {
+    el("bgrid-power").innerHTML = html(powerBlocks);
+    ["bgrid-item", "bgrid-unit", "bgrid-power"].forEach(function (id) {
       Array.prototype.slice.call(el(id).children || []).forEach(function (c) {
         if (c.getAttribute && c.getAttribute("data-block")) blockCells[c.getAttribute("data-block")] = c;
       });
@@ -850,7 +884,8 @@
         var selB = blockOf(curBlock);
         var ch = (selB && selB.kind === "unit") ? R.chainFromBlock(DATA, curBlock, count) : null;
         res = ch ? chainToRes(ch)
-                 : R.expandBuilding(DATA, curBlock, count, { boundary: boundary, force: forced, plan: plan, maxDepth: depth });
+                 : R.expandBuilding(DATA, curBlock, count, { boundary: boundary, force: forced, plan: plan, maxDepth: depth,
+                                                   fuel: (el("genfuel") && el("genfuel").value) || null });
       } else {
         var rate = parseFloat(el("rate").value);
         if (!(rate > 0)) { alert("速率要大于 0"); return; }
@@ -869,7 +904,7 @@
     var cards;
     if (mode === "building") {
       var prodText = (res.products || []).map(function (p) {
-        return (p.type === "unit" ? "⚔ " : "") + (p.type === "unit"
+        return (p.type === "unit" ? "⚔ " : p.type === "power" ? "⚡ " : "") + (p.type !== "item"
           ? esc(p.name) + " " + num(p.rate) + "/s"
           : itemLabel(p.name, "sm") + " " + num(p.rate) + "/s");
       }).join(" · ");
@@ -922,7 +957,7 @@
     renderSources(res);
     renderLiquids(res);
     bindSourceEvents();
-    renderPower(res.power);
+    renderPower(res.power, res.supply);
     renderChain();
 
     el("tree").innerHTML = res.tree
@@ -972,8 +1007,10 @@
     var cmd;
     if (mode === "building") {
       var b = blockOf(curBlock);
-      if (b && b.kind !== "unit") {
-        var rate2 = b.outputs[0] ? b.outputs[0].amount * b.cps * (parseInt(el("count").value, 10) || 1) : 0;
+      if (b && b.kind === "generator") {
+        cmd = "# 发电设备：按台数算发电量（" + num(res.supply && res.supply.net) + "/s），没有等价的 mbo calc 命令";
+      } else if (b && b.kind !== "unit" && b.outputs && b.outputs.length) {
+        var rate2 = b.outputs[0].amount * b.cps * (parseInt(el("count").value, 10) || 1);
         cmd = "python -X utf8 -m mbo calc " + b.outputs[0].name + ":" + num(rate2) + "/s" +
           (boundary.length ? " --boundary " + boundary.join(",") : "") +
           " --force " + b.outputs[0].name + "=" + curBlock;
@@ -1046,9 +1083,9 @@
   el("count").addEventListener("change", run);
   el("plan").addEventListener("change", run);
   el("depth").addEventListener("change", run);
-  el("gen").addEventListener("change", function () { syncGenFuel(); if (lastRes) renderPower(lastRes.power); });
-  el("genfuel").addEventListener("change", function () { if (lastRes) renderPower(lastRes.power); });
-  el("gencount").addEventListener("change", function () { if (lastRes) renderPower(lastRes.power); });
+  el("gen").addEventListener("change", function () { syncGenFuel(); if (lastRes) renderPower(lastRes.power, lastRes.supply); });
+  el("genfuel").addEventListener("change", function () { if (lastRes) renderPower(lastRes.power, lastRes.supply); });
+  el("gencount").addEventListener("change", function () { if (lastRes) renderPower(lastRes.power, lastRes.supply); });
   el("chainline").addEventListener("change", function () { renderChain(); });
 
   // 测试钩子：无浏览器环境里手动切模式 / 触发计算
@@ -1064,7 +1101,7 @@
                        syncGenFuel();
                        if (fuel) el("genfuel").value = fuel;
                        if (count != null) el("gencount").value = String(count);
-                       if (lastRes) renderPower(lastRes.power);
+                       if (lastRes) renderPower(lastRes.power, lastRes.supply);
                        return el("powertable").innerHTML;
                      },
                      chain: function (start, rate) {

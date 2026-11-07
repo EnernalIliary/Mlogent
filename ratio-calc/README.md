@@ -85,6 +85,19 @@
 - 还有 RTG 270、热力 108、大型太阳能 96、太阳能 7.2、涡轮冷凝器 20、热解 1400、化合燃烧室 550、
   通量反应堆 18000、新质反应堆 8400
 
+**发电设备也能当目标建筑**：「按目标建筑台数」页第三组选单里直接选发电厂（14 种），填台数，
+就按 100% 效率算**总发电 / 燃料 / 液体 / 自耗电**；此时**不做电力递归**——不会把发电厂自耗的 1500/s
+再去换算成"还要几台发电机"，只报这台建筑自己的账。
+
+```
+node ratio-calc/cli.cjs --block steam-generator --count 2
+#   产出：电力 660/s
+#   供电：steam-generator ×2（净 660/s，烧 coal 1.333/s，water 12/s）
+
+node ratio-calc/cli.cjs --block impact-reactor --count 2 --genfuel blast-compound
+#   产出：电力 12600/s（单台毛 7800、自耗 1500 → 净 6300）
+```
+
 ### 3. 兵厂 T1 → T5 大循环（**在「按目标建筑台数」页选兵厂就行**）
 
 不必单开一类：左侧选一个兵厂、填台数，选中兵厂的那一刻就直接按大循环算——
@@ -310,10 +323,10 @@ python -X utf8 ratio-calc/card.py --json result.json --out card.png   # 喂现�
 | `serve.cjs` | **bot 入口**：HTTP 服务（`/calc` `/list` `/healthz`） |
 | `ratio.py` | **bot 入口**：Python 包装（`query/text/markdown/image/http_query`） |
 | `card.py` | **bot 入口**：把结果画成 PNG 卡片（带原尺寸图标） |
-| `test_core.cjs` | 14 项对拍 `mbo calc` + 72 项断言：钻头/发电/多产物/兵厂链/抽水机/入料方式 |
-| `test_page.cjs` | 最小 DOM 桩跑页面：58 项断言，不用浏览器 |
-| `test_cli.cjs` | 39 项：CLI/HTTP 与 `core.js` 逐项对拍 + 渲染 + 默认蓝带 + 错误分支 |
-| `test_card.py` | 5 项：卡片结构（配比在前）/ 默认蓝带条数 / 0 台不建 / 行不重叠 / PNG 可渲染 |
+| `test_core.cjs` | 14 项对拍 `mbo calc` + 84 项断言：钻头/发电/多产物/兵厂链/抽水机/入料方式/发电设备当目标 |
+| `test_page.cjs` | 最小 DOM 桩跑页面：62 项断言，不用浏览器 |
+| `test_cli.cjs` | 42 项：CLI/HTTP 与 `core.js` 逐项对拍 + 渲染 + 默认蓝带 + 错误分支 |
+| `test_card.py` | 6 项：卡片结构（配比在前）/ 默认蓝带条数 / 0 台不建 / 行不重叠 / PNG 可渲染 / 发电卡片 |
 | `docs/screenshot-*.png` | 页面截图（Edge headless） |
 | `docs/card-*.png` | PNG 卡片示例 |
 
@@ -331,17 +344,17 @@ python -X utf8 ratio-calc/card.py --json result.json --out card.png   # 喂现�
 ## 已验证
 
 ```
-node ratio-calc/test_core.cjs   → 14 项对拍 mbo calc 全部一致 + 72 项新算法断言通过（共 86 行 ok）
-node ratio-calc/test_page.cjs   → 58 项页面链路断言通过
-node ratio-calc/test_cli.cjs    → 39 项 CLI/HTTP 与 core.js 对拍通过
-python -X utf8 ratio-calc/test_card.py → 5 项卡片结构/排版断言通过
+node ratio-calc/test_core.cjs   → 14 项对拍 mbo calc 全部一致 + 84 项新算法断言通过（共 98 行 ok）
+node ratio-calc/test_page.cjs   → 62 项页面链路断言通过
+node ratio-calc/test_cli.cjs    → 42 项 CLI/HTTP 与 core.js 对拍通过
+python -X utf8 ratio-calc/test_card.py → 6 项卡片结构/排版断言通过
 ```
 
 对拍用例覆盖石墨/硅/合金/玻璃/塑料/爆炸物/燃烧物/相织物/孢子荚 + 3 个 `--force`；
 新算法断言覆盖钻头速率（含加水、煤硬度 2）、发电台数与燃料、分离机/解离机加权产物、
 来源替换后的机器表与电力重算、抽水机台数与液体来源、入料方式 7 种、`5t5` 反推（1/1/1/2/5）、
 `chainsForBlock`/`chainFromBlock`（同一重建厂多线、默认 dagger、指定 flare → eclipse）、
-dagger 与 stell 两条升级链。
+dagger 与 stell 两条升级链、发电设备当目标建筑（蒸汽 ×2 → 660/s、冲击堆扣自耗、不做电力递归）。
 
 截图用 Edge headless（Chrome headless 在这台机器上会超时被 kill）：
 `--headless=new --disable-gpu --no-sandbox --window-size=1180,2000 --virtual-time-budget=5000 --screenshot=...`

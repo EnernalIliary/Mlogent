@@ -155,7 +155,18 @@ ok("建筑模式：配比在前、外部入料在后、默认蓝带带条数", c
 ok("物品模式：配比在前，电力写对", case_item)
 ok("兵厂链：标题/各级/总额，配比在前", case_chain)
 ok("兵厂链只建 T1：0 台层级写「×0（不建）」", case_chain_partial)
+def case_generator():
+    r = run_cli(["--block", "steam-generator", "--count", "2"])
+    t = flat(r)
+    assert "工厂配比" in t, t
+    assert "电力 660/s" in t, t
+    assert idx_of(r, "外部入料") > idx_of(r, "工厂配比"), texts(r)
+    assert "供电" in t, t
+    check_width(r)
+
+
 ok("渲染：尺寸一致、PNG 非空", case_png)
+ok("发电设备：配比在前、发电量正确、带供电段", case_generator)
 
 print("\n通过 %d 项，失败 %d 项" % (pass_n, fail_n))
 sys.exit(1 if fail_n else 0)

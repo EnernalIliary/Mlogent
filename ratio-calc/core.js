@@ -22,6 +22,11 @@
    * 网页下拉 / CLI / 卡片都读这一个常量；要换成绿带或接收台只改这一行。 */
   var DEFAULT_CHANNEL = "belt-blue";
 
+  /* 发电设备：建筑页选中发电厂时的默认燃料（不做电力递归——发电厂自己耗的电只用"自耗"字段展示，
+   * 不再倒推需要更多发电厂，避免无限套娃）。 */
+  var DEFAULT_GENERATOR = "combustion-generator";
+  var DEFAULT_FUEL = "coal";
+
   function buildIndex(data) {
     var blocks = new Map();
     (data.blocks || []).forEach(function (b) {
@@ -313,9 +318,59 @@
    * opts = { boundary:[], force:{}, plan: 0, maxDepth: 12 }
    * 返回 { block, count, products:[{name,type,rate}], inputs:[{name,amount}], machines, ... }
    */
+  /* 发电设备当"目标建筑"：算总发电、燃料、液体、自耗电。
+   * 不递归电力：发电厂的自耗只显示，不再换算成更多发电厂。 */
+  function expandGenerator(data, genName, count, opts) {
+    var idx = indexOf(data);
+    opts = opts || {};
+    var g = idx.generators.get(genName);
+    if (!g) throw new Error("未知发电厂：" + genName);
+    count = Math.max(1, Math.floor(count));
+    var fuel = null;
+    if ((g.fuels || []).length) {
+      var want = opts.fuel || DEFAULT_FUEL;
+      fuel = g.fuels.filter(function (f) { return f[0] === want; })[0]
+          || g.fuels.filter(function (f) { return f[0] === g.fuels[0][0]; })[0];
+    }
+    var grossEach = fuel ? fuel[2] : g.perSecond;
+    var netEach = grossEach - (g.powerUsage || 0);
+    var res = {
+      mode: "building", block: genName, count: count, plan: 0, planTotal: 0,
+      products: [{ name: "电力", type: "power", rate: round(netEach * count) }],
+      inputs: [], tree: null, warnings: [], order: [], liquidExtra: {},
+      machines: {}, demand: {}, power: 0, extraPower: 0
+    };
+    if (fuel) {
+      res.inputs.push({ name: fuel[0], amount: round(fuel[1] * count) });
+      res.demand[fuel[0]] = round(fuel[1] * count);
+    }
+    (g.liquids || []).forEach(function (l) {
+      res.liquidExtra[l[0]] = (res.liquidExtra[l[0]] || 0) + l[1] * count;
+    });
+    res.machines[genName] = count;
+    res.machines = sortMachines(res.machines);
+    res.supply = {
+      name: genName, icon: g.icon, count: count,
+      grossEach: round(grossEach), netEach: round(netEach),
+      gross: round(grossEach * count), net: round(netEach * count),
+      grossTotal: round(grossEach * count), netTotal: round(netEach * count),
+      surplus: round(netEach * count),
+      selfUse: round((g.powerUsage || 0) * count),
+      selfUseEach: round(g.powerUsage || 0),
+      fuel: fuel ? { name: fuel[0], perSecondEach: fuel[1], perSecond: round(fuel[1] * count) } : null,
+      liquids: (g.liquids || []).map(function (l) {
+        return { name: l[0], perSecondEach: l[1], perSecond: round(l[1] * count) };
+      })
+    };
+    recalcPower(idx, res);          // 发电厂 power 记 0，这里只汇总液体
+    if (opts.sources) applySources(data, res, opts.sources);
+    return res;
+  }
+
   function expandBuilding(data, blockName, count, opts) {
     var idx = indexOf(data);
     opts = opts || {};
+    if (idx.generators && idx.generators.get(blockName)) return expandGenerator(data, blockName, count, opts);
     var b = idx.blocks.get(blockName);
     if (!b) throw new Error("未知方块：" + blockName);
     if (!(count > 0)) throw new Error("台数要大于 0");
@@ -411,7 +466,8 @@
     if (g) {
       return { name: name, kind: "generator", size: g.size, power: 0, icon: g.icon,
                craftTime: 0, cps: 0, inputs: [], outputs: [], plans: [], upgrades: [],
-               factoryKind: "", perSecond: g.perSecond };
+               factoryKind: "", perSecond: g.perSecond, powerUsage: g.powerUsage,
+               fuels: g.fuels || [], liquids: g.liquids || [] };
     }
     var p = idx.pumps.get(name);
     if (p) {
@@ -877,6 +933,10 @@
       var outputs = [];
       if (b && b.kind === "drill") {
         outputs = ["采集（见外部来源）"];
+      } else if (b && b.kind === "generator") {
+        var sup = result.supply || {};
+        outputs = ["发电 " + round((sup.net || 0)) + "/s" +
+                   (sup.fuel ? "，烧 " + sup.fuel.name + " " + round(sup.fuel.perSecond) + "/s" : "")];
       } else if (b && b.kind === "pump") {
         outputs = ["抽 " + b.liquid + " " + round(b.perSecond * count) + "/s"];
       } else if (b && b.kind === "unit") {
@@ -901,9 +961,11 @@
         size: b ? b.size : 0,
         powerEach: b ? b.power : 0,
         powerTotal: b ? b.power * count : 0,
-        outItems: b ? b.outputs.map(function (o) {
-          return { name: o.name, type: "item", perSecond: o.amount * b.cps * count };
-        }) : [],
+        outItems: b ? (b.kind === "generator"
+          ? [{ name: "电力", type: "power", perSecond: round((result.supply && result.supply.net) || 0) }]
+          : b.outputs.map(function (o) {
+              return { name: o.name, type: "item", perSecond: o.amount * b.cps * count };
+            })) : [],
         rateEach: b ? (b.kind === "unit"
           ? ((b.plans && b.plans[0]) ? b.plans[0].perSecond : b.cps)
           : (b.outputs.length ? b.outputs[0].amount * b.cps : 0)) : 0,
@@ -914,7 +976,10 @@
 
   function round(x) { return Math.round(x * 1000) / 1000; }
 
-  var api = { buildIndex: buildIndex, indexOf: indexOf,
+  var api = { DEFAULT_CHANNEL: DEFAULT_CHANNEL,
+              DEFAULT_GENERATOR: DEFAULT_GENERATOR, DEFAULT_FUEL: DEFAULT_FUEL,
+              expandGenerator: expandGenerator,
+              buildIndex: buildIndex, indexOf: indexOf,
               expand: expand, expandBuilding: expandBuilding,
               machineRows: machineRows, anyBlock: anyBlock,
               drillRate: drillRate, drillsNeeded: drillsNeeded,

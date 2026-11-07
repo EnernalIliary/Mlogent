@@ -272,5 +272,20 @@ check("默认入料：蓝带显示条数（×1 条）",
 check("默认入料：合计吞吐 12.015/s",
   /12\.015/.test($("sources").innerHTML), $("sources").innerHTML.slice(0, 900));
 
+// 发电设备：第三组选单 + 选中后只算发电量，不做电力递归
+check("发电设备：建筑选单出现 14 个发电厂", ($("bgrid-power").innerHTML.match(/data-block=/g) || []).length === 14,
+  String(($("bgrid-power").innerHTML.match(/data-block=/g) || []).length));
+window.__ratio.block("steam-generator");
+$("count").value = "2";
+$("genfuel").value = "coal";
+window.__ratio.setMode("building");
+window.__ratio.run();
+check("发电设备：卡片产出是「⚡ 电力 660/s」", /⚡[^<]*660\/s/.test(txt("cards")), txt("cards").slice(0, 400));
+check("发电设备：供电表写总发电 660 且不做递归",
+  /总发电[^<]*<\/td><td>660/.test(txt("powertable")) && /不做电力递归/.test(txt("powertable")),
+  txt("powertable").slice(0, 600));
+check("发电设备：机器清单只有发电机自己不倒推", /steam-generator/.test(txt("machines")) &&
+  !/combustion-generator/.test(txt("machines")), txt("machines").slice(0, 400));
+
 console.log(bad ? `\n${bad} 项失败` : "\n页面链路全部通过");
 process.exit(bad ? 1 : 0);
