@@ -200,15 +200,18 @@ def build_power(raw: dict, power_drill: dict | None, block_index: dict) -> dict:
 
 
 # ---- 外部入料方式（带子/接收台的吞吐）----
-# 带子吞吐 = speed × 150（Conveyor.java:27 itemSpace = 0.4，源码口径）。
+# 带子吞吐 = speed × 60 / itemSpace(0.4)（Conveyor.java:27-32）。
+# 数值以 v160.7 jar 为准（knowledge/00-data/blocks.json：conveyor.speed = 0.035 ⇒ 5.25/s，
+# titanium-conveyor 0.0801 ⇒ 12.015/s）；v159.3 源码的 0.046 已不再使用。
 # 数值可在页面上单选切换；如需按别的版本覆盖，改这张表即可。
 INPUT_CHANNELS = [
     {"key": "belt-grey", "label": "灰带 conveyor", "block": "conveyor",
-     "perSecond": 6.9, "power": 0.0, "note": "最基础，1 格 1 条"},
+     "perSecond": 5.25, "power": 0.0,
+     "note": "最基础，1 格 1 条（v160.7 jar speed 0.035 → speed×60/0.4 = 5.25/s）"},
     {"key": "belt-blue", "label": "蓝带 titanium-conveyor", "block": "titanium-conveyor",
-     "perSecond": 12.015, "power": 0.0, "note": "钛带，快 1.74 倍"},
+     "perSecond": 12.015, "power": 0.0, "note": "钛带，约 2.3 倍灰带"},
     {"key": "belt-green", "label": "绿带 plastanium-conveyor", "block": "plastanium-conveyor",
-     "perSecond": 40.0, "power": 0.0, "note": "塑料带，一次运 10 件"},
+     "perSecond": 40.0, "power": 0.0, "note": "塑料带，一次运 10 件（约 7.6 倍灰带）"},
     {"key": "phase-bridge", "label": "布桥 phase-conveyor", "block": "phase-conveyor",
      "perSecond": 30.0, "power": 18.0, "note": "隔空传送，要电"},
     {"key": "mass-driver", "label": "质驱 mass-driver", "block": "mass-driver",

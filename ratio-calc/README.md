@@ -61,7 +61,7 @@
 
 | key | 入料方式 | 方块 | 速率 | 电力/s | 说明 |
 |---|---|---|---|---|---|
-| `belt-grey` | 灰带 | `conveyor` | 6.9/s | 0 | 最便宜，速度 = `speed × 150` |
+| `belt-grey` | 灰带 | `conveyor` | 5.25/s | 0 | 最便宜；v160.7 jar `speed 0.035` → `speed×60/0.4` |
 | `belt-blue` | 蓝带 | `titanium-conveyor` | 12.015/s | 0 | 主力 |
 | `belt-green` | 绿带 | `plastanium-conveyor` | 40/s | 0 | 大批量 |
 | `phase-bridge` | 布桥 | `phase-conveyor` | 30/s | 18 | 跨距离，要电 |
@@ -70,7 +70,7 @@
 | `other` | 其它 | — | 不限 | 0 | 手动 / 逻辑 |
 
 条数 = `ceil(需求 / 单条速率)`，台数与电力并进机器表（`pad`/`other` 不显示条数）。
-数值来自 `Conveyor.java` 的 `itemSpace = 0.4`（吞吐 = `speed × 150`），集中在 `export_data.py` 的 `INPUT_CHANNELS`，要改只改那一处。
+数值来自 `Conveyor.java:27-32` 的 `itemSpace = 0.4`（吞吐 = `speed × 60 / 0.4`），**以 v160.7 jar 为准**（`knowledge/00-data/blocks.json#conveyor.speed = 0.035` ⇒ 5.25/s），集中在 `export_data.py` 的 `INPUT_CHANNELS`，要改只改那一处。
 
 ### 2. 发电厂
 
@@ -205,7 +205,7 @@ node ratio-calc/cli.cjs --list          # 列出物品/工厂/兵厂/发电厂/�
 | `--chainline 单位` | 一台重建厂能升多条线时指定升级线（默认优先 dagger 线） |
 | `--chain 单位 --chainexpr 5t5` | 兵厂大循环，给台数（5 台 T5 厂满效），反推 T4/T3/T2/T1 台数与整链资源 |
 | `--chain 单位 --chainrate N` | 同上，但按每秒几个顶级单位给 |
-| `--src 物品=belt:belt-grey` | 外部运入细分成带子/接收台：`belt-grey`(6.9/s)、`belt-blue`(12.015/s)、`belt-green`(40/s)、`phase-bridge`(30/s，18 电)、`mass-driver`(36/s，105 电)、`pad`(不限)、`other`(不限) |
+| `--src 物品=belt:belt-grey` | 外部运入细分成带子/接收台：`belt-grey`(5.25/s)、`belt-blue`(12.015/s)、`belt-green`(40/s)、`phase-bridge`(30/s，18 电)、`mass-driver`(36/s，105 电)、`pad`(不限)、`other`(不限) |
 | `--boundary a,b` | 外部输入的物品；不写默认 `coal,sand`；`all` = 所有矿，`none` = 全部自产 |
 | `--src 物品=drill:钻头:矿格数:0/1`<br>`--src 物品=multi:分离机/解离机`<br>`--src 物品=import` | 每项边界输入从哪来（可重复） |
 | `--src 液体=pump:抽水机` | 液体（水/油）自己抽，自动补台数并计入电力（可重复） |

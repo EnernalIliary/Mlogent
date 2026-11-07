@@ -161,7 +161,7 @@ function graphiteWith(via) {
 const gGrey = graphiteWith("belt-grey");
 const coalGrey = gGrey.sources.filter(s => s.item === "coal")[0];
 eq("灰带：煤 2.667/s 要 1 条", coalGrey.count, 1);
-near("灰带：单条 6.9/s", coalGrey.perSecondEach, 6.9, 1e-9);
+near("灰带：单条 5.25/s", coalGrey.perSecondEach, 5.25, 1e-9);
 near("灰带：不耗电", gGrey.power, 0, 1e-9);
 const gBlue = graphiteWith("belt-blue");
 eq("蓝带：单条 12.015/s", gBlue.sources.filter(s => s.item === "coal")[0].perSecondEach, 12.015);
