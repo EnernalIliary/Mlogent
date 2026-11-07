@@ -528,14 +528,14 @@
   "table": "Conveyor",
   "id": "DATA.CONST.CONV.004",
   "name": "conveyor 实块 speed / displayedSpeed",
-  "value": "0.046 / 6.5",
+  "value": "0.035 / 5（v160.7 jar）｜0.046 / 6.5（v159.3 源码，旧值）",
   "unit": "格/tick / items/s",
-  "src": "Mindustry-Source/core/src/mindustry/content/Blocks.java（conveyor 定义）",
-  "rt": "src_anchors.json: conveyor.speed=0.046, displayed=6.5",
-  "verified": "source-only",
+  "src": "jar:v160.7#mindustry.content.Blocks$202（speed/displayedSpeed）；Mindustry-Source/core/src/mindustry/content/Blocks.java（v159.3 旧值 0.046）",
+  "rt": "blocks.json#conveyor: speed=0.035、displayedSpeed=5（jar:v160.7#mindustry.content.Blocks$202）；src_anchors.json 的 0.046 是 v159.3 源码值",
+  "verified": "jar+source",
   "ver": [
-   "v159.3",
-   "v160.7"
+   "v160.7",
+   "v159.3"
   ],
   "conf": "S"
  },

@@ -1,6 +1,6 @@
 {
  "version": "1",
- "generated": "2026-11-08T06:10:56+08:00",
+ "generated": "2026-11-08T06:15:44+08:00",
  "root": "knowledge",
  "read_order": [
   "index.json",
@@ -1031,7 +1031,7 @@
    "path": "knowledge/00-data/constants_rules_difficulty_drill_heat.json",
    "kind": "canonical",
    "records": 58,
-   "bytes": 18895,
+   "bytes": 19117,
    "keys": [
     "conf",
     "id",
@@ -1049,7 +1049,7 @@
    "path": "knowledge/00-data/formulas.json",
    "kind": "canonical",
    "records": 19,
-   "bytes": 23530,
+   "bytes": 23798,
    "keys": [
     "conf",
     "example",

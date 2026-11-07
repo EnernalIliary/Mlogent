@@ -278,19 +278,19 @@
   "name": "传送带吞吐（items/s）",
   "formula": "块内位移坐标 0..1 表示 1 格；每 tick 移动 moved = speed × edelta，物品间距 itemSpace=0.4\n饱和吞吐 items/s = speed × 60 / itemSpace = speed × 150（capacity=3 只影响块内存量，不改饱和流）\n上游一次最多塞进 floor(minitem / itemSpace) 件（acceptStack）",
   "vars": [
-   "speed=格/tick（conveyor 0.046、titanium 0.0801、armored 0.08）",
+   "speed=格/tick（conveyor 0.035、titanium-conveyor 0.0801、armored-conveyor 0.08；均为 v160.7 jar 值）",
    "itemSpace=0.4",
    "capacity=3"
   ],
-  "src": "Mindustry-Source/core/src/mindustry/world/blocks/distribution/Conveyor.java:27-28（itemSpace/capacity）、:266-274（moved/nextpos）、:333-335（acceptStack）；content/Blocks.java:2071-2072 等",
+  "src": "Mindustry-Source/core/src/mindustry/world/blocks/distribution/Conveyor.java:27-28（itemSpace/capacity）、:266-274（moved/nextpos）、:333-335（acceptStack）；content/Blocks.java:2071-2072 等；jar:v160.7#mindustry.content.Blocks$202（conveyor speed=0.035、displayedSpeed=5、itemCapacity=3）",
   "ver": [
-   "v159.3",
-   "v160.7"
+   "v160.7",
+   "v159.3"
   ],
   "conf": "S",
-  "example": "基础带 0.046×150 = 6.9 件/s（游戏内 Stat 显示 6.5/s）；钛带 0.0801×150 = 12.0/s（显示 10/s）；装甲带 0.08×150 = 12.0/s（显示 11/s）。显示值是作者手填的 displayedSpeed，不是公式产物，所以两者会差 6%~20%。",
+  "example": "基础带 0.035×150 = 5.25 件/s（displayedSpeed 5）；钛带 0.0801×150 ≈ 12.0/s（显示 10）；装甲带 0.08×150 = 12.0/s（显示 10）。显示值是作者手填的 displayedSpeed，不是公式产物，两者会差 5%~20%。注意：v159.3 源码的 conveyor speed=0.046（按它算得 6.9/s）是旧值，v160.7 jar 已改成 0.035，数值一律以 jar 为准。",
   "rt": "Conveyor.speed 类默认 0（实块值在 Blocks.<clinit>）；itemSpace=0.4、capacity=3 为源码常量",
-  "verified_v1607": false
+  "verified_v1607": true
  },
  {
   "id": "DATA.FORMULA.016",
