@@ -1,0 +1,65 @@
+{
+ "blueprint": "MBO/spikes/gen/out/e1_silicon.msch",
+ "bytes": 175,
+ "canvas": [
+  24,
+  24
+ ],
+ "tiles": 19,
+ "occupied_cells": 31,
+ "predicted_yield": 3.0,
+ "predicted_demand": {
+  "coal": 3.0,
+  "sand": 6.0
+ },
+ "predicted_power_need": 60.0,
+ "predicted_power_supply": null,
+ "power": {
+  "nodes": [
+   [
+    5,
+    13
+   ],
+   [
+    5,
+    11
+   ]
+  ],
+  "source": [
+   2,
+   12
+  ],
+  "components": 1,
+  "links": {
+   "(5, 13)": [
+    "(2, 12)",
+    "(5, 11)"
+   ],
+   "(5, 11)": [
+    "(5, 13)"
+   ]
+  }
+ },
+ "static": {
+  "power_blocks": 3,
+  "components": 1
+ },
+ "belt_rate": 4.9,
+ "ticks": 1800,
+ "wall_s": 45.8,
+ "samples_n": 97,
+ "measured_yield": 3.0519611610980704,
+ "relative_error": 0.01732038703269012,
+ "smelters_last": {
+  "s5_14": {
+   "eff": 1.0,
+   "prog": 0.17,
+   "items": 19.0
+  },
+  "s5_9": {
+   "eff": 1.0,
+   "prog": 0.17,
+   "items": 19.0
+  }
+ }
+}

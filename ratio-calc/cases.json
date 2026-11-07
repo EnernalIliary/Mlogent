@@ -1,0 +1,274 @@
+[
+  {
+    "label": "graphite 2/s",
+    "target": "graphite",
+    "rate": 2,
+    "boundary": [
+      "coal"
+    ],
+    "force": {},
+    "expect": {
+      "machines": {
+        "graphite-press": 3
+      },
+      "demand": {
+        "coal": 4.0
+      },
+      "power": 0.0
+    }
+  },
+  {
+    "label": "silicon 5/s",
+    "target": "silicon",
+    "rate": 5,
+    "boundary": [
+      "coal",
+      "sand"
+    ],
+    "force": {},
+    "expect": {
+      "machines": {
+        "silicon-smelter": 4
+      },
+      "demand": {
+        "coal": 6.0,
+        "sand": 12.0
+      },
+      "power": 120.0
+    }
+  },
+  {
+    "label": "surge-alloy 1/s",
+    "target": "surge-alloy",
+    "rate": 1,
+    "boundary": [],
+    "force": {},
+    "expect": {
+      "machines": {
+        "surge-crucible": 1,
+        "silicon-smelter": 3,
+        "coal-centrifuge": 3,
+        "pulverizer": 6
+      },
+      "demand": {
+        "scrap": 9.0
+      },
+      "power": 486.0
+    }
+  },
+  {
+    "label": "metaglass 4/s",
+    "target": "metaglass",
+    "rate": 4,
+    "boundary": [
+      "sand",
+      "lead"
+    ],
+    "force": {},
+    "expect": {
+      "machines": {
+        "kiln": 2
+      },
+      "demand": {
+        "lead": 4.0,
+        "sand": 4.0
+      },
+      "power": 72.0
+    }
+  },
+  {
+    "label": "plastanium 1/s",
+    "target": "plastanium",
+    "rate": 1,
+    "boundary": [],
+    "force": {},
+    "expect": {
+      "machines": {
+        "plastanium-compressor": 1
+      },
+      "demand": {
+        "titanium": 2.0
+      },
+      "power": 180.0
+    }
+  },
+  {
+    "label": "blast-compound 1/s",
+    "target": "blast-compound",
+    "rate": 1,
+    "boundary": [],
+    "force": {},
+    "expect": {
+      "machines": {
+        "blast-mixer": 2,
+        "pyratite-mixer": 2,
+        "coal-centrifuge": 1,
+        "pulverizer": 2,
+        "cultivator": 3
+      },
+      "demand": {
+        "lead": 3.0,
+        "scrap": 3.0
+      },
+      "power": 414.0
+    }
+  },
+  {
+    "label": "pyratite 1/s",
+    "target": "pyratite",
+    "rate": 1,
+    "boundary": [],
+    "force": {},
+    "expect": {
+      "machines": {
+        "pyratite-mixer": 2,
+        "coal-centrifuge": 1,
+        "pulverizer": 2
+      },
+      "demand": {
+        "lead": 3.0,
+        "scrap": 3.0
+      },
+      "power": 126.0
+    }
+  },
+  {
+    "label": "graphite 1/s",
+    "target": "graphite",
+    "rate": 1,
+    "boundary": [
+      "coal"
+    ],
+    "force": {},
+    "expect": {
+      "machines": {
+        "graphite-press": 2
+      },
+      "demand": {
+        "coal": 2.6667
+      },
+      "power": 0.0
+    }
+  },
+  {
+    "label": "silicon 3/s",
+    "target": "silicon",
+    "rate": 3,
+    "boundary": [
+      "coal",
+      "sand"
+    ],
+    "force": {},
+    "expect": {
+      "machines": {
+        "silicon-smelter": 2
+      },
+      "demand": {
+        "coal": 3.0,
+        "sand": 6.0
+      },
+      "power": 60.0
+    }
+  },
+  {
+    "label": "phase-fabric 0.5/s",
+    "target": "phase-fabric",
+    "rate": 0.5,
+    "boundary": [],
+    "force": {},
+    "expect": {
+      "machines": {
+        "phase-weaver": 1,
+        "pulverizer": 4
+      },
+      "demand": {
+        "thorium": 2.0,
+        "scrap": 6.0
+      },
+      "power": 420.0
+    }
+  },
+  {
+    "label": "spore-pod 2/s",
+    "target": "spore-pod",
+    "rate": 2,
+    "boundary": [],
+    "force": {},
+    "expect": {
+      "machines": {
+        "cultivator": 4
+      },
+      "demand": {},
+      "power": 320.0
+    }
+  },
+  {
+    "label": "graphite 2/s [force graphite=multi-press]",
+    "target": "graphite",
+    "rate": 2,
+    "boundary": [
+      "coal"
+    ],
+    "force": {
+      "graphite": "multi-press"
+    },
+    "expect": {
+      "machines": {
+        "multi-press": 1
+      },
+      "demand": {
+        "coal": 6.0
+      },
+      "power": 108.0
+    }
+  },
+  {
+    "label": "silicon 3/s [force silicon=silicon-crucible]",
+    "target": "silicon",
+    "rate": 3,
+    "boundary": [
+      "coal",
+      "sand"
+    ],
+    "force": {
+      "silicon": "silicon-crucible"
+    },
+    "expect": {
+      "machines": {
+        "silicon-crucible": 1,
+        "pyratite-mixer": 1
+      },
+      "demand": {
+        "coal": 3.4167,
+        "sand": 5.5,
+        "lead": 1.5
+      },
+      "power": 252.0
+    }
+  },
+  {
+    "label": "surge-alloy 1/s [force surge-alloy=surge-smelter]",
+    "target": "surge-alloy",
+    "rate": 1,
+    "boundary": [],
+    "force": {
+      "surge-alloy": "surge-smelter"
+    },
+    "expect": {
+      "machines": {
+        "surge-smelter": 2,
+        "silicon-arc-furnace": 1,
+        "graphite-press": 2,
+        "coal-centrifuge": 2,
+        "pulverizer": 4
+      },
+      "demand": {
+        "copper": 4.8,
+        "lead": 6.4,
+        "titanium": 3.2,
+        "scrap": 6.0
+      },
+      "power": 984.0
+    }
+  }
+]

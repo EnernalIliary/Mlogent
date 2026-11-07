@@ -1,0 +1,342 @@
+{
+  "run_id": "q-single",
+  "mbo_version": "0.1.0",
+  "python": "3.11.4",
+  "platform": "Windows-10-10.0.22631-SP0",
+  "snapshot_id": "v160.7@400da43e8580",
+  "gamedata_path": "F:\\OneDrive\\桌面\\AtomicStates\\MBO\\gamedata\\v160.7\\gamedata.json",
+  "gamedata_sha256": "400da43e85807124171925eca3486e2948b4d8c87307eb80de9135b320063509",
+  "target": "graphite",
+  "requested_rate": 2.45,
+  "boundary": [
+    "coal"
+  ],
+  "canvas": [
+    14,
+    5
+  ],
+  "layout_name": "",
+  "layout_description": "",
+  "layout": [
+    {
+      "block": "graphite-press",
+      "x": 1,
+      "y": 2,
+      "rotation": 0,
+      "config": null
+    },
+    {
+      "block": "graphite-press",
+      "x": 4,
+      "y": 2,
+      "rotation": 0,
+      "config": null
+    },
+    {
+      "block": "graphite-press",
+      "x": 7,
+      "y": 2,
+      "rotation": 0,
+      "config": null
+    },
+    {
+      "block": "graphite-press",
+      "x": 10,
+      "y": 2,
+      "rotation": 0,
+      "config": null
+    },
+    {
+      "block": "underflow-gate",
+      "x": 2,
+      "y": 1,
+      "rotation": 3,
+      "config": null
+    },
+    {
+      "block": "underflow-gate",
+      "x": 5,
+      "y": 1,
+      "rotation": 3,
+      "config": null
+    },
+    {
+      "block": "underflow-gate",
+      "x": 8,
+      "y": 1,
+      "rotation": 3,
+      "config": null
+    },
+    {
+      "block": "underflow-gate",
+      "x": 11,
+      "y": 1,
+      "rotation": 3,
+      "config": null
+    },
+    {
+      "block": "router",
+      "x": 2,
+      "y": 0,
+      "rotation": 0,
+      "config": null
+    },
+    {
+      "block": "router",
+      "x": 5,
+      "y": 0,
+      "rotation": 0,
+      "config": null
+    },
+    {
+      "block": "router",
+      "x": 8,
+      "y": 0,
+      "rotation": 0,
+      "config": null
+    },
+    {
+      "block": "router",
+      "x": 11,
+      "y": 0,
+      "rotation": 0,
+      "config": null
+    },
+    {
+      "block": "item-source",
+      "x": 0,
+      "y": 0,
+      "rotation": 0,
+      "config": {
+        "__dict__": {
+          "__content__": "item",
+          "id": 5
+        }
+      }
+    },
+    {
+      "block": "conveyor",
+      "x": 1,
+      "y": 0,
+      "rotation": 0,
+      "config": null
+    },
+    {
+      "block": "conveyor",
+      "x": 3,
+      "y": 0,
+      "rotation": 0,
+      "config": null
+    },
+    {
+      "block": "conveyor",
+      "x": 4,
+      "y": 0,
+      "rotation": 0,
+      "config": null
+    },
+    {
+      "block": "conveyor",
+      "x": 6,
+      "y": 0,
+      "rotation": 0,
+      "config": null
+    },
+    {
+      "block": "conveyor",
+      "x": 7,
+      "y": 0,
+      "rotation": 0,
+      "config": null
+    },
+    {
+      "block": "conveyor",
+      "x": 9,
+      "y": 0,
+      "rotation": 0,
+      "config": null
+    },
+    {
+      "block": "conveyor",
+      "x": 10,
+      "y": 0,
+      "rotation": 0,
+      "config": null
+    },
+    {
+      "block": "conveyor",
+      "x": 1,
+      "y": 4,
+      "rotation": 0,
+      "config": null
+    },
+    {
+      "block": "conveyor",
+      "x": 2,
+      "y": 4,
+      "rotation": 0,
+      "config": null
+    },
+    {
+      "block": "conveyor",
+      "x": 3,
+      "y": 4,
+      "rotation": 0,
+      "config": null
+    },
+    {
+      "block": "conveyor",
+      "x": 4,
+      "y": 4,
+      "rotation": 0,
+      "config": null
+    },
+    {
+      "block": "conveyor",
+      "x": 5,
+      "y": 4,
+      "rotation": 0,
+      "config": null
+    },
+    {
+      "block": "conveyor",
+      "x": 6,
+      "y": 4,
+      "rotation": 0,
+      "config": null
+    },
+    {
+      "block": "conveyor",
+      "x": 7,
+      "y": 4,
+      "rotation": 0,
+      "config": null
+    },
+    {
+      "block": "conveyor",
+      "x": 8,
+      "y": 4,
+      "rotation": 0,
+      "config": null
+    },
+    {
+      "block": "conveyor",
+      "x": 9,
+      "y": 4,
+      "rotation": 0,
+      "config": null
+    },
+    {
+      "block": "conveyor",
+      "x": 10,
+      "y": 4,
+      "rotation": 0,
+      "config": null
+    },
+    {
+      "block": "conveyor",
+      "x": 11,
+      "y": 4,
+      "rotation": 0,
+      "config": null
+    },
+    {
+      "block": "router",
+      "x": 12,
+      "y": 4,
+      "rotation": 0,
+      "config": null
+    },
+    {
+      "block": "item-void",
+      "x": 13,
+      "y": 4,
+      "rotation": 0,
+      "config": null
+    }
+  ],
+  "layout_stats": {
+    "blocks": 33,
+    "tiles": 45,
+    "footprint": 70,
+    "counts": {
+      "graphite-press": 4,
+      "underflow-gate": 4,
+      "router": 5,
+      "item-source": 1,
+      "conveyor": 18,
+      "item-void": 1
+    }
+  },
+  "plan": {
+    "target": "graphite",
+    "requested_rate": 2.45,
+    "achieved_rate": 2.45,
+    "machines": {
+      "graphite-press": 4
+    },
+    "boundary_demand": {
+      "coal": 5.3333
+    },
+    "power_need": 0.0,
+    "warnings": []
+  },
+  "prediction": {
+    "expected_rate": 2.45,
+    "plan_rate": 2.45,
+    "power_need": 0.0,
+    "boundary": {
+      "coal": 5.333
+    },
+    "tiles": 45,
+    "footprint": 70,
+    "ports": 2,
+    "clusters": 2,
+    "search": {
+      "candidates": 1,
+      "feasible": 1,
+      "pareto": [
+        [
+          2,
+          43,
+          60,
+          2.45
+        ]
+      ]
+    }
+  },
+  "engine": {
+    "ok": true,
+    "ticks": 1801.5061872777296,
+    "wall_s": 45.4,
+    "placed": "BP\t0\tPLACED\tindexed=50\tbbox=7,7..70,66\tbuildings=30",
+    "samples_n": 97,
+    "metrics": {
+      "rate": 1.2849,
+      "measured_by": "cycles",
+      "rate_containers": 0.0,
+      "rate_cycles": 1.2849,
+      "cycles": 32,
+      "cycles_frac": 31.987,
+      "window": [
+        307.8,
+        1801.5
+      ],
+      "window_s": 24.9,
+      "containers_delta": 0.0,
+      "machines": 4,
+      "eff_avg": 0.466,
+      "eff_low": 173,
+      "progress_sum": 77.76,
+      "power_sat_min": 1.0,
+      "deadlock": false,
+      "sample_n": 81
+    }
+  },
+  "params": {
+    "layout": "flow-single"
+  },
+  "reproduce": [
+    "python -m mbo gen graphite:2.45 --boundary coal --layout flow-single --out q-single"
+  ]
+}

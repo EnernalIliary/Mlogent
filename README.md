@@ -55,13 +55,15 @@ python tools/mlogsim.py logic.mlog --save scene.msav --units mono:1 --core-items
 | `gate.py` | 一键门禁（mirror 一致性 / tests / lint / 语句形状 / 全局副本 / KB 新鲜度） |
 | `rules/` | 41 条规则（33 条在报，8 条 SUPPRESSED），一条一个 JSON，供 `review.py` 逐条审计 |
 | `tests/` | 43 个 golden 用例，`python tests/run_tests.py`（副本陈旧时直接拒绝运行）；`tests/probes/` 是真执行器的运行期断言，`tests/shapes/` 是检查器自身的语句形状不变量（7 形状 x 4 变体），`tests/ruleids/` 断言没有死规则 |
-| `docs/` | 本地知识库说明、`断言表.md`、`验证记录.md`、`速查卡.md`、`Mlog辅助-设计.md`、`游戏速查/`（物品/方块/单位/配方） |
+| `docs/` | 本地知识库说明、`断言表.md`、`验证记录.md`、`速查卡.md`、`Mlog辅助-设计.md`、`MBO与配比计算器.md`（MBO/ratio-calc 的结论、公式、数值表）、`游戏速查/`（物品/方块/单位/配方） |
 | `data/game/` | 从 v160.7 真执行器导出的游戏事实（物品/液体/方块/单位/别名），供 `game.py` 与知识库使用 |
 | `Logic/` | `逻辑代码规范.md` 与示例逻辑（个人程序） |
 | `out/scenes/` | 5 张现实场景 `.msav`、3 个合成台（`benches/`：core / memory / processor）、快照 |
 | `.dsh/skills/` | `mlog-agentskill`（可独立拷走）与 `mindustry-blueprint` 安装副本 |
 | `MlogAuxiliary/` | 游戏内模组（Rhino JS）：F4 一句话 → 本地 sidecar 选模板生成 + 预检 → 走原版 config 通道写进处理器；原版逻辑编辑器底部自动挂审查栏 |
 | `dsh-preset-mlog/` | DeepSeek Harness 的 `mlog` Agent 预设（persona + 技能根 + 工具集） |
+| `MBO/` | 蓝图生成/搜索/优化/真机验证（`python -m mbo …`，`docs/00-23`，`runs/` 里是真机实测的蓝图与画廊） |
+| `ratio-calc/` | 自动配比计算器单页网页（双击 `index.html`；`core.js` 内核与 MBO 规则一致） |
 
 ## 规则与边界
 

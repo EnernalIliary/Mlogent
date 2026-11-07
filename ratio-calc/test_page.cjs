@@ -1,0 +1,178 @@
+/* 无浏览器验证 index.html 的内联脚本：用最小 DOM 桩把页面逻辑跑一遍。
+ * 目的不是像素级渲染，而是确认「选建筑/物品 → 计算 → 填表格」这条链路不报错、数字正确。
+ * 用法：node ratio-calc/test_page.cjs
+ */
+const fs = require("fs");
+const path = require("path");
+
+const dir = __dirname;
+const html = fs.readFileSync(path.join(dir, "index.html"), "utf8");
+const inline = html.match(/<script>([\s\S]*?)<\/script>/)[1];
+
+/* ---------------- 最小 DOM 桩 ---------------- */
+function makeEl(id, tag) {
+  const el = {
+    id, tag: tag || "div", value: "", textContent: "", innerHTML: "", style: {},
+    children: [], disabled: false, _attrs: {},
+    classList: {
+      _s: new Set(),
+      add(c) { this._s.add(c); },
+      remove(c) { this._s.delete(c); },
+      toggle(c, on) { if (on === undefined) { this._s.has(c) ? this._s.delete(c) : this._s.add(c); } else if (on) { this._s.add(c); } else { this._s.delete(c); } return this._s.has(c); },
+      contains(c) { return this._s.has(c); }
+    },
+    get firstChild() { return el.children[0] || null; },
+    appendChild(c) { el.children.push(c); return c; },
+    removeChild(c) { const i = el.children.indexOf(c); if (i >= 0) el.children.splice(i, 1); return c; },
+    addEventListener() {},
+    setAttribute(k, v) { el._attrs[k] = String(v); },
+    getAttribute(k) { return k in el._attrs ? el._attrs[k] : null; },
+    querySelectorAll() { return []; },
+    insertAdjacentHTML(_pos, h) { el.innerHTML += h; }
+  };
+  return el;
+}
+
+const registry = new Map();
+const document = {
+  getElementById(id) {
+    if (!registry.has(id)) registry.set(id, makeEl(id));
+    return registry.get(id);
+  },
+  createElement(tag) { return makeEl("", tag); },
+  querySelectorAll() { return []; }
+};
+
+// HTML 里写死的 input 初值，桩不会自动读属性，这里补上
+document.getElementById("rate").value = "1";
+document.getElementById("count").value = "1";
+document.getElementById("depth").value = "6";
+
+global.window = global;
+global.document = document;
+global.location = { search: "" };
+global.alert = (m) => { throw new Error("alert: " + m); };
+
+require(path.join(dir, "data", "gamedata.js"));
+require(path.join(dir, "core.js"));
+
+// 执行页面脚本
+new Function(inline)();
+
+/* ---------------- 断言 ---------------- */
+let bad = 0;
+function check(name, cond, extra) {
+  if (cond) { console.log("ok  ", name); }
+  else { bad++; console.log("FAIL", name, extra || ""); }
+}
+const $ = (id) => document.getElementById(id);
+const txt = (id) => $(id).innerHTML || $(id).textContent || "";
+
+/* --- 默认：建筑模式（graphite-press × 1，满效） --- */
+check("数据摘要已填充", /release-160/.test($("meta").textContent) && /33/.test($("meta").textContent) &&
+      /17/.test($("meta").textContent), $("meta").textContent);
+check("物品下拉已填充", $("target").children.length === 22, String($("target").children.length));
+check("默认边界含 coal/sand 与无配方物品",
+      /coal/.test($("boundary").value) && /scrap/.test($("boundary").value), $("boundary").value);
+
+check("输出区已展开", !$("out").classList.contains("hidden"));
+check("建筑模式：机器表有 graphite-press × 1",
+      /graphite-press/.test(txt("machines")) && />1</.test(txt("machines")), txt("machines").slice(0, 200));
+check("建筑模式：产出卡片有石墨 0.667/s", /graphite/.test(txt("cards")) && /0\.667/.test(txt("cards")),
+      txt("cards").slice(0, 240));
+check("建筑模式：边界表含煤 1.333/s", /coal/.test(txt("demand")) && /1\.333/.test(txt("demand")),
+      txt("demand").slice(0, 200));
+check("建筑模式：复现命令指向 mbo calc",
+      /mbo calc graphite:0\.667\/s/.test($("cmd").textContent) && /--force graphite=graphite-press/.test($("cmd").textContent),
+      $("cmd").textContent);
+check("递归树有层级（根是建筑、下有煤）",
+      /graphite-press/.test(txt("tree")) && /coal/.test(txt("tree")) &&
+      (txt("tree").match(/class="row"/g) || []).length >= 2, txt("tree").slice(0, 200));
+check("机器表带图标", /<img class="ic/.test(txt("machines")) && /data:image\/png;base64/.test(txt("machines")));
+check("边界表带物品图标", /<img class="ic/.test(txt("demand")));
+check("建筑选择器：工厂 + 兵厂都在",
+      (txt("bgrid-item").match(/class="bcell"/g) || []).length === 33 &&
+      (txt("bgrid-unit").match(/class="bcell"/g) || []).length === 17,
+      (txt("bgrid-item").match(/class="bcell"/g) || []).length + "/" + (txt("bgrid-unit").match(/class="bcell"/g) || []).length);
+check("建筑贴图按原尺寸（graphite-press 2×2 → 44px）",
+      /width:44px;height:44px/.test(txt("bgrid-item")), txt("bgrid-item").slice(0, 160));
+
+/* --- 切到兵厂：ground-factory × 2 计划 dagger --- */
+window.__ratio.block("ground-factory");
+$("count").value = "2";
+$("plan").value = "0";
+$("plan").children = [makeEl("", "option"), makeEl("", "option"), makeEl("", "option")];
+window.__ratio.run();
+check("兵厂模式：机器表有 ground-factory × 2",
+      /ground-factory/.test(txt("machines")) && />2</.test(txt("machines")), txt("machines").slice(0, 260));
+check("兵厂模式：产出卡片是 dagger",
+      /dagger/.test(txt("cards")) && /0\.133/.test(txt("cards")), txt("cards").slice(0, 260));
+check("兵厂模式：硅被继续展开成硅炉（不是直接当边界）",
+      /silicon-smelter/.test(txt("machines")) && /coal/.test(txt("demand")),
+      txt("machines").slice(0, 300) + " || " + txt("demand").slice(0, 160));
+check("兵厂模式：同型号兵厂只出现一次",
+      (txt("machines").match(/ground-factory<\/span>/g) || []).length === 1, txt("machines").slice(0, 300));
+
+/* --- 切回物品模式：graphite 1/s --- */
+window.__ratio.setMode("item");
+$("target").value = "graphite";
+$("rate").value = "1";
+window.__ratio.run();
+check("物品模式：机器表 graphite-press × 2",
+      /graphite-press/.test(txt("machines")) && />2</.test(txt("machines")), txt("machines").slice(0, 200));
+check("物品模式：复现命令正确",
+      /mbo calc graphite:1\/s/.test($("cmd").textContent), $("cmd").textContent);
+check("物品模式：递归树有层级",
+      /graphite-press/.test(txt("tree")) && (txt("tree").match(/class="row"/g) || []).length >= 2);
+check("物品图标格有 22 个", (txt("grid").match(/class="cell"/g) || []).length === 22,
+      String((txt("grid").match(/class="cell"/g) || []).length));
+
+/* --- 递归层数可编辑：层数=1 时树里不再出现压机（上游被截断） --- */
+$("depth").value = "1";
+window.__ratio.run();
+const tree1 = txt("tree");
+check("递归层数=1：上游被截断成外部输入",
+      /超过递归层数/.test(tree1) || /外部输入/.test(tree1), tree1.slice(0, 240));
+$("depth").value = "6";
+window.__ratio.run();
+
+/* --- 新：外部来源（钻头 / 多产物）+ 供电表 + 兵厂 T1~T5 大循环 --- */
+window.__ratio.setMode("building");
+window.__ratio.block("graphite-press");
+$("count").value = "2";
+window.__ratio.run();
+check("外部来源表：coal 可选来源", /data-src-item="coal"/.test(txt("sources")), txt("sources").slice(0, 200));
+check("外部来源表：默认是接收", /接收/.test(txt("sources")), txt("sources").slice(0, 200));
+check("供电表：有需要电力一行", /需要电力/.test(txt("powertable")), txt("powertable").slice(0, 160));
+check("供电表：默认燃烧发电机（0 电 → 0 台）", /combustion|需要电力/.test(txt("powertable")));
+
+window.__ratio.src("coal", { type: "drill", drill: "laser-drill", tiles: 8 });
+check("钻头来源：机器表出现 laser-drill × 3",
+      /laser-drill/.test(txt("machines")) && />3</.test(txt("machines")), txt("machines").slice(0, 300));
+check("钻头来源：来源表显示单台 1.263/s",
+      /1\.263/.test(txt("sources")), txt("sources").slice(0, 400));
+
+const pt = window.__ratio.setGen("combustion-generator", "coal", 0);
+check("供电表：燃烧发电机 4 台覆盖 198/s", /198/.test(pt) && /4/.test(pt), pt);
+check("供电表：燃料煤 2 /s", /coal/.test(pt) && /2 \/s/.test(pt), pt);
+const pt2 = window.__ratio.setGen("steam-generator", "coal", 2);
+check("供电表：蒸汽发电机 2 台烧煤 1.333/s 并要水 12/s",
+      /1\.333/.test(pt2) && /water/.test(pt2) && /12/.test(pt2), pt2);
+
+const chainHtml = window.__ratio.chain("dagger", 0.05);
+check("兵厂大循环：五级都在（ground-factory → reign）",
+      /ground-factory/.test(chainHtml) && /additive-reconstructor/.test(chainHtml) &&
+      /tetrative-reconstructor/.test(chainHtml) && /reign/.test(chainHtml), chainHtml.slice(0, 300));
+check("兵厂大循环：T5 需要 12 台 tetrative", /12/.test(chainHtml) && /T5/.test(chainHtml));
+
+window.__ratio.block("silicon-smelter");
+$("count").value = "3";
+$("boundary").value = "coal, sand";
+window.__ratio.src("sand", { type: "multi", block: "disassembler" });
+check("多产物来源：机器表出现 disassembler × 6",
+      /disassembler/.test(txt("machines")) && />6</.test(txt("machines")), txt("machines").slice(0, 400));
+check("多产物来源：副产物钍出现在来源表",
+      /thorium/.test(txt("sources")) && /4\.8/.test(txt("sources")), txt("sources").slice(0, 500));
+
+console.log(bad ? `\n${bad} 项失败` : "\n页面链路全部通过");
+process.exit(bad ? 1 : 0);

@@ -1,0 +1,273 @@
+{
+  "run_id": "p-in",
+  "mbo_version": "0.1.0",
+  "python": "3.11.4",
+  "platform": "Windows-10-10.0.22631-SP0",
+  "snapshot_id": "v160.7@400da43e8580",
+  "gamedata_path": "F:\\OneDrive\\桌面\\AtomicStates\\MBO\\gamedata\\v160.7\\gamedata.json",
+  "gamedata_sha256": "400da43e85807124171925eca3486e2948b4d8c87307eb80de9135b320063509",
+  "target": "graphite",
+  "requested_rate": 2.45,
+  "boundary": [
+    "coal"
+  ],
+  "canvas": [
+    12,
+    5
+  ],
+  "layout_name": "",
+  "layout_description": "",
+  "layout": [
+    {
+      "block": "graphite-press",
+      "x": 1,
+      "y": 2,
+      "rotation": 0,
+      "config": null
+    },
+    {
+      "block": "underflow-gate",
+      "x": 2,
+      "y": 1,
+      "rotation": 3,
+      "config": null
+    },
+    {
+      "block": "router",
+      "x": 2,
+      "y": 0,
+      "rotation": 0,
+      "config": null
+    },
+    {
+      "block": "item-void",
+      "x": 1,
+      "y": 4,
+      "rotation": 0,
+      "config": null
+    },
+    {
+      "block": "graphite-press",
+      "x": 4,
+      "y": 2,
+      "rotation": 0,
+      "config": null
+    },
+    {
+      "block": "underflow-gate",
+      "x": 5,
+      "y": 1,
+      "rotation": 3,
+      "config": null
+    },
+    {
+      "block": "router",
+      "x": 5,
+      "y": 0,
+      "rotation": 0,
+      "config": null
+    },
+    {
+      "block": "item-void",
+      "x": 4,
+      "y": 4,
+      "rotation": 0,
+      "config": null
+    },
+    {
+      "block": "graphite-press",
+      "x": 7,
+      "y": 2,
+      "rotation": 0,
+      "config": null
+    },
+    {
+      "block": "underflow-gate",
+      "x": 8,
+      "y": 1,
+      "rotation": 3,
+      "config": null
+    },
+    {
+      "block": "router",
+      "x": 8,
+      "y": 0,
+      "rotation": 0,
+      "config": null
+    },
+    {
+      "block": "item-void",
+      "x": 7,
+      "y": 4,
+      "rotation": 0,
+      "config": null
+    },
+    {
+      "block": "graphite-press",
+      "x": 10,
+      "y": 2,
+      "rotation": 0,
+      "config": null
+    },
+    {
+      "block": "underflow-gate",
+      "x": 11,
+      "y": 1,
+      "rotation": 3,
+      "config": null
+    },
+    {
+      "block": "router",
+      "x": 11,
+      "y": 0,
+      "rotation": 0,
+      "config": null
+    },
+    {
+      "block": "item-void",
+      "x": 10,
+      "y": 4,
+      "rotation": 0,
+      "config": null
+    },
+    {
+      "block": "item-source",
+      "x": 0,
+      "y": 0,
+      "rotation": 0,
+      "config": {
+        "__dict__": {
+          "__content__": "item",
+          "id": 5
+        }
+      }
+    },
+    {
+      "block": "conveyor",
+      "x": 1,
+      "y": 0,
+      "rotation": 0,
+      "config": null
+    },
+    {
+      "block": "conveyor",
+      "x": 3,
+      "y": 0,
+      "rotation": 0,
+      "config": null
+    },
+    {
+      "block": "conveyor",
+      "x": 4,
+      "y": 0,
+      "rotation": 0,
+      "config": null
+    },
+    {
+      "block": "conveyor",
+      "x": 6,
+      "y": 0,
+      "rotation": 0,
+      "config": null
+    },
+    {
+      "block": "conveyor",
+      "x": 7,
+      "y": 0,
+      "rotation": 0,
+      "config": null
+    },
+    {
+      "block": "conveyor",
+      "x": 9,
+      "y": 0,
+      "rotation": 0,
+      "config": null
+    },
+    {
+      "block": "conveyor",
+      "x": 10,
+      "y": 0,
+      "rotation": 0,
+      "config": null
+    }
+  ],
+  "layout_stats": {
+    "blocks": 24,
+    "tiles": 36,
+    "footprint": 60,
+    "counts": {
+      "graphite-press": 4,
+      "underflow-gate": 4,
+      "router": 4,
+      "item-void": 4,
+      "item-source": 1,
+      "conveyor": 7
+    }
+  },
+  "plan": {
+    "target": "graphite",
+    "requested_rate": 2.45,
+    "achieved_rate": 2.45,
+    "machines": {
+      "graphite-press": 4
+    },
+    "boundary_demand": {
+      "coal": 5.3333
+    },
+    "power_need": 0.0,
+    "warnings": []
+  },
+  "prediction": {
+    "expected_rate": 2.45,
+    "plan_rate": 2.45,
+    "power_need": 0.0,
+    "boundary": {
+      "coal": 5.333
+    },
+    "tiles": 36,
+    "footprint": 60,
+    "ports": 5,
+    "clusters": 5,
+    "search": {
+      "candidates": 1,
+      "feasible": 1,
+      "pareto": []
+    }
+  },
+  "engine": {
+    "ok": true,
+    "ticks": 1818.071616976289,
+    "wall_s": 45.7,
+    "placed": "BP\t0\tPLACED\tindexed=41\tbbox=7,7..69,66\tbuildings=21",
+    "samples_n": 98,
+    "metrics": {
+      "rate": 1.0708,
+      "measured_by": "cycles",
+      "rate_containers": 0.0,
+      "rate_cycles": 1.0708,
+      "cycles": 27,
+      "cycles_frac": 26.99,
+      "window": [
+        305.8,
+        1818.1
+      ],
+      "window_s": 25.2,
+      "containers_delta": 0.0,
+      "machines": 4,
+      "eff_avg": 0.387,
+      "eff_low": 201,
+      "progress_sum": 66.31,
+      "power_sat_min": 1.0,
+      "deadlock": false,
+      "sample_n": 82
+    }
+  },
+  "params": {
+    "layout": "flow-probe",
+    "mode": "input"
+  },
+  "reproduce": [
+    "python -m mbo gen graphite:2.45 --boundary coal --layout flow-probe --out p-in"
+  ]
+}

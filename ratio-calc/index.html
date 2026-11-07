@@ -1,0 +1,878 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mindustry 自动配比计算器</title>
+<style>
+  :root {
+    --bg: #0f1419; --panel: #171e26; --panel2: #1e2731; --line: #2b3742;
+    --fg: #dbe5ee; --dim: #8b9bab; --acc: #58c1ff; --warn: #ffb454; --ok: #7ddc8f;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; padding: 24px; background: var(--bg); color: var(--fg);
+         font: 14px/1.6 "Segoe UI", "Microsoft YaHei", system-ui, sans-serif; }
+  h1 { font-size: 19px; margin: 0 0 4px; }
+  .sub { color: var(--dim); font-size: 12px; margin-bottom: 14px; }
+  .wrap { max-width: 1120px; margin: 0 auto; }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; }
+  .tabs { display: flex; gap: 8px; margin-bottom: 10px; }
+  .tab { padding: 6px 14px; border-radius: 8px 8px 0 0; border: 1px solid var(--line);
+         border-bottom: 0; background: var(--panel2); color: var(--dim); cursor: pointer; font-size: 13px; }
+  .tab.on { background: var(--panel); color: var(--fg); border-color: var(--acc); }
+  .bar { display: flex; gap: 14px; flex-wrap: wrap; align-items: flex-end; padding: 14px 16px; }
+  label { display: block; font-size: 12px; color: var(--dim); margin-bottom: 4px; }
+  input, select, textarea {
+    background: var(--panel2); color: var(--fg); border: 1px solid var(--line);
+    border-radius: 6px; padding: 7px 9px; font: inherit;
+  }
+  input[type=number] { width: 104px; }
+  textarea { min-width: 250px; height: 80px; resize: vertical; font-family: Consolas, monospace; font-size: 12px; }
+  button { background: var(--acc); color: #08131c; border: 0; border-radius: 6px;
+           padding: 8px 16px; font: inherit; font-weight: 600; cursor: pointer; }
+  button:hover { filter: brightness(1.1); }
+
+  img.ic { width: 20px; height: 20px; vertical-align: -4px; image-rendering: pixelated; }
+  img.ic.sm { width: 16px; height: 16px; vertical-align: -3px; }
+  img.ic.lg { width: 34px; height: 34px; vertical-align: middle; }
+  .name { display: inline-flex; align-items: center; gap: 6px; }
+
+  /* 建筑选择：按原尺寸贴图排布（1 格 = 22px） */
+  .bgrid { display: flex; flex-wrap: wrap; gap: 6px; align-items: flex-end; flex: 1; }
+  .bcell { display: flex; flex-direction: column; align-items: center; justify-content: flex-end;
+           gap: 3px; padding: 5px; background: var(--panel2); border: 1px solid transparent;
+           border-radius: 8px; cursor: pointer; }
+  .bcell:hover { border-color: var(--line); background: #26303c; }
+  .bcell.on { border-color: var(--acc); background: #1d3846; }
+  .bcell img { image-rendering: pixelated; }
+  .bcell .cn { font-size: 10px; color: var(--dim); max-width: 120px; overflow: hidden;
+               text-overflow: ellipsis; white-space: nowrap; }
+  .grp { font-size: 12px; color: var(--dim); margin: 10px 16px 4px; letter-spacing: .04em; }
+
+  .cur { display: flex; align-items: center; gap: 12px; min-width: 220px;
+         background: var(--panel2); border: 1px solid var(--line); border-radius: 8px; padding: 8px 12px; }
+  .cur img { image-rendering: pixelated; }
+  .cur .t { font-size: 15px; font-weight: 600; }
+  .cur .s { font-size: 11px; color: var(--dim); }
+
+  .picker { display: flex; gap: 12px; align-items: flex-start; padding: 0 16px 14px; flex-wrap: wrap; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(46px, 1fr)); gap: 4px; flex: 1; }
+  .cell { display: flex; align-items: center; justify-content: center; height: 42px;
+          background: var(--panel2); border: 1px solid transparent; border-radius: 6px; cursor: pointer; }
+  .cell:hover { border-color: var(--line); background: #26303c; }
+  .cell.on { border-color: var(--acc); background: #1d3846; }
+  .cell img { width: 30px; height: 30px; image-rendering: pixelated; }
+
+  .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin: 16px 0; }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; }
+  .card.wrap .v { font-size: 15px; flex-wrap: wrap; white-space: normal; }
+  .card.wrap .v .name { overflow: visible; text-overflow: clip; }
+  .card .k { font-size: 11px; color: var(--dim); }
+  .card .v { font-size: 19px; font-weight: 600; font-variant-numeric: tabular-nums;
+             display: flex; align-items: center; gap: 6px; white-space: nowrap;
+             overflow: hidden; text-overflow: ellipsis; }
+  .card.wide .v { font-size: 16px; flex-wrap: wrap; white-space: normal; }
+  .card .v .name { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+  .card .v img { width: 24px; height: 24px; image-rendering: pixelated; }
+  table { width: 100%; border-collapse: collapse; background: var(--panel);
+          border: 1px solid var(--line); border-radius: 10px; overflow: hidden; margin-bottom: 16px; }
+  th, td { text-align: left; padding: 8px 12px; border-bottom: 1px solid var(--line); font-size: 13px; }
+  th { background: var(--panel2); color: var(--dim); font-weight: 500; font-size: 12px; }
+  td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+  tr:last-child td { border-bottom: 0; }
+  .sec { font-size: 13px; color: var(--dim); margin: 18px 0 8px; letter-spacing: .04em; }
+  .warn { color: var(--warn); }
+  .dim { color: var(--dim); }
+  .chosen { color: var(--ok); }
+  code { background: var(--panel2); padding: 1px 5px; border-radius: 4px; font-size: 12px; }
+  .tbl-sel { max-width: 175px; padding: 3px 6px; font-size: 12px; }
+  .tbl-num { width: 78px; padding: 3px 6px; font-size: 12px; }
+  .sub2 { color: var(--dim); font-size: 12px; }
+  .tree { background: var(--panel); border: 1px solid var(--line); border-radius: 10px;
+          padding: 12px 16px; font-family: Consolas, monospace; font-size: 12.5px; overflow-x: auto; }
+  .tree .row { white-space: nowrap; }
+  .tree .amt { color: var(--acc); display: inline-block; min-width: 72px; text-align: right; }
+  .tree .tag { color: var(--ok); }
+  .hidden { display: none; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>自动配比计算器</h1>
+  <div class="sub" id="meta">数据：加载中…</div>
+
+  <div class="tabs">
+    <div class="tab on" id="tab-building" data-mode="building">按目标建筑台数（满效）</div>
+    <div class="tab" id="tab-item" data-mode="item">按目标物品速率</div>
+  </div>
+
+  <div class="panel">
+    <div class="bar">
+      <div class="mode-block">
+        <label for="count">目标台数（满效运行）</label>
+        <input id="count" type="number" min="1" step="1" value="1">
+      </div>
+      <div class="mode-block">
+        <label for="plan">生产计划</label>
+        <select id="plan"></select>
+      </div>
+      <div class="mode-item hidden">
+        <label for="rate">目标速率（个/秒）</label>
+        <input id="rate" type="number" min="0.01" step="0.01" value="1">
+      </div>
+      <div>
+        <label for="boundary">边界（外部输入，逗号分隔）</label>
+        <textarea id="boundary" spellcheck="false"></textarea>
+      </div>
+      <div>
+        <label for="force">指定配方（可选，如 silicon=silicon-crucible）</label>
+        <textarea id="force" spellcheck="false"></textarea>
+      </div>
+      <div>
+        <label for="depth">递归层数</label>
+        <input id="depth" type="number" min="1" max="12" step="1" value="6">
+      </div>
+      <div>
+        <label>&nbsp;</label>
+        <button id="run">计算</button>
+      </div>
+    </div>
+
+    <div class="mode-block">
+      <div class="grp">选择目标建筑（工厂）</div>
+      <div class="bgrid" id="bgrid-item"></div>
+      <div class="grp">选择目标建筑（兵厂：单位工厂 / 升级厂 / 组装厂）</div>
+      <div class="bgrid" id="bgrid-unit"></div>
+    </div>
+
+    <div class="mode-item hidden">
+      <div class="picker">
+        <div class="cur" id="cur"></div>
+        <div class="grid" id="grid"></div>
+      </div>
+    </div>
+  </div>
+
+  <div id="out" class="hidden">
+    <div id="warn" class="sec warn hidden"></div>
+    <div class="cards" id="cards"></div>
+
+    <div class="sec">建造清单</div>
+    <table id="machines"></table>
+
+    <div class="sec">边界输入</div>
+    <table id="demand"></table>
+
+    <div class="sec">外部来源（每项边界输入从哪来：运入 / 钻头 / 分离机·解离机）</div>
+    <table id="sources"></table>
+
+    <div class="sec">供电（按上面的电力需求配发电厂）</div>
+    <div class="bar" id="powerbar">
+      <div><label for="gen">发电厂</label><select id="gen"></select></div>
+      <div><label for="genfuel">燃料</label><select id="genfuel"></select></div>
+      <div><label for="gencount">台数（0 = 自动补足）</label><input id="gencount" type="number" min="0" step="1" value="0"></div>
+    </div>
+    <table id="powertable"></table>
+
+    <div class="sec">兵厂大循环 T1→T5（给顶级单位速率，反推每一级要几台、吃多少料）</div>
+    <div class="bar" id="chainbar">
+      <div><label for="chain">升级链</label><select id="chain"></select></div>
+      <div><label for="chainrate">顶级单位（台/秒）</label><input id="chainrate" type="number" min="0.0001" step="0.001" value="0.01"></div>
+    </div>
+    <table id="chaintable"></table>
+
+    <div class="sec">递归树（层数可改；超过层数的部分按外部输入统计）</div>
+    <div class="tree" id="tree"></div>
+
+    <div class="sec">这些产物有多个配方（点一下换配方再算）</div>
+    <table id="alts"></table>
+
+    <div class="sec">等价命令行（MBO 内核，结果应与本页一致）</div>
+    <div class="tree" id="cmd"></div>
+  </div>
+</div>
+
+<!-- 保留原生 select 作为取值的单一来源（测试也盯它） -->
+<select id="target" class="hidden"></select>
+
+<script src="data/gamedata.js"></script>
+<script src="core.js"></script>
+<script>
+(function () {
+  "use strict";
+  var DATA = window.MBO_DATA;
+  var R = window.RatioCore;
+  var el = function (id) { return document.getElementById(id); };
+
+  var idx = R.buildIndex(DATA);
+  DATA.__index = idx;
+  var names = idx.items;
+  var itemIcon = idx.itemIcons;
+  var blockIcon = function (n) { var b = idx.blocks.get(n); return b ? b.icon : ""; };
+  var blockOf = function (n) { return idx.blocks.get(n); };
+
+  var mode = "building";
+  var curBlock = "graphite-press";
+
+  function img(src, cls, alt) {
+    if (!src) return "";
+    return '<img class="ic ' + (cls || "") + '" src="' + src + '" alt="' + (alt || "") + '" title="' + (alt || "") + '">';
+  }
+  function itemLabel(n, cls) {
+    return '<span class="name">' + img(itemIcon.get(n), cls || "sm", n) + esc(n) + '</span>';
+  }
+  function blockLabel(n, cls) {
+    return '<span class="name">' + img(blockIcon(n), cls || "sm", n) + esc(n) + '</span>';
+  }
+  /* 原尺寸贴图：1 格 = tilePx 像素 */
+  function blockImg(n, tilePx, cls) {
+    var b = blockOf(n);
+    var px = Math.max(1, (b ? b.size : 1)) * tilePx;
+    var src = blockIcon(n);
+    if (!src) return "";
+    return '<img class="' + (cls || "") + '" src="' + src + '" alt="' + esc(n) + '" title="' + esc(n) +
+      '" style="width:' + px + "px;height:" + px + 'px">';
+  }
+
+  // 默认边界：没有配方产出的物品 + coal/sand
+  var defaults = new Set(
+    names.filter(function (n) { return !idx.producersOf(n).length; }).concat(["coal", "sand"])
+  );
+  el("boundary").value = Array.from(defaults).sort().join(", ");
+
+  // 物品下拉（物品模式的取值来源）
+  var targetSel = el("target");
+  names.slice().sort().forEach(function (n) {
+    var o = document.createElement("option");
+    o.value = n; o.textContent = n;
+    targetSel.appendChild(o);
+  });
+  targetSel.value = "graphite";
+
+  /* ---------------- 发电厂 / 钻头 / 升级链 / 外部来源 ---------------- */
+  var srcCfg = {};            // item -> {type:"import"|"drill"|"multi", drill, tiles, boosted, block}
+
+  function drillList() {
+    var out = [];
+    idx.drills.forEach(function (d) { out.push(d); });
+    out.sort(function (a, b) { return (a.tier - b.tier) || (a.name < b.name ? -1 : 1); });
+    return out;
+  }
+  function unitIcon(n) { return idx.unitIcons[n] || ""; }
+  function unitLabel(n, cls) {
+    return '<span class="name">' + img(unitIcon(n), cls || "sm", n) + esc(n) + '</span>';
+  }
+
+  function syncGenFuel() {
+    var g = idx.generators.get(el("gen").value);
+    var fuels = (g && g.fuels) || [];
+    var sel = el("genfuel");
+    if (!sel) return;
+    sel.innerHTML = fuels.length
+      ? fuels.map(function (f) {
+          return '<option value="' + esc(f[0]) + '">' + esc(f[0]) + ' · ' + num(f[2]) + ' 电/s</option>';
+        }).join("")
+      : '<option value="">（无燃料）</option>';
+    sel.disabled = !fuels.length;
+  }
+
+  (function buildNewPickers() {
+    var gens = [];
+    idx.generators.forEach(function (g) { gens.push(g); });
+    gens.sort(function (a, b) { return (a.perSecond - b.perSecond) || (a.name < b.name ? -1 : 1); });
+    el("gen").innerHTML = gens.map(function (g) {
+      return '<option value="' + esc(g.name) + '">' + esc(g.name) + ' · ' + num(g.perSecond) + "/s</option>";
+    }).join("");
+    if (idx.generators.has("combustion-generator")) el("gen").value = "combustion-generator";
+    syncGenFuel();
+
+    el("chain").innerHTML = idx.unitChains.map(function (c) {
+      return '<option value="' + esc(c.start) + '">' + esc(c.start) + " → " +
+        esc(c.tiers[c.tiers.length - 1].unit) + "（T" + c.tiers.length + "）</option>";
+    }).join("");
+  })();
+
+  /* ---- 外部来源表：每项边界输入选 运入 / 钻头 / 分离机·解离机 ---- */
+  function renderSources(res) {
+    var items = Object.keys(res.demand || {}).sort();
+    if (!items.length) {
+      el("sources").innerHTML = '<tr><td class="dim">无外部输入（全部自产）</td></tr>';
+      return;
+    }
+    var byItem = {};
+    (res.sources || []).forEach(function (s) { byItem[s.item] = s; });
+
+    var h = '<tr><th>物品</th><th class="num">需求/s</th><th>来源</th><th>参数</th>' +
+            '<th class="num">台数</th><th class="num">单台/s</th><th class="num">合计/s</th>' +
+            '<th class="num">电力/s</th><th>消耗 / 副产物</th></tr>';
+    var body = items.map(function (item) {
+      var cfg = srcCfg[item] || (srcCfg[item] = { type: "import" });
+      var opts = [["import", "接收（外部运入）"], ["drill", "钻头采集"]];
+      idx.multi.forEach(function (m) {
+        var hit = false;
+        m.outputs.forEach(function (o) { if (o[0] === item) hit = true; });
+        if (hit) opts.push(["multi:" + m.name, "多产物 · " + m.name]);
+      });
+      var val = cfg.type === "multi" ? "multi:" + (cfg.block || "separator") : cfg.type;
+      var sel = '<select class="tbl-sel" data-src-item="' + esc(item) + '">' + opts.map(function (o) {
+        return '<option value="' + esc(o[0]) + '"' + (o[0] === val ? " selected" : "") + ">" +
+          esc(o[1]) + "</option>";
+      }).join("") + "</select>";
+
+      var param = "";
+      if (cfg.type === "drill") {
+        var dname = cfg.drill || "mechanical-drill";
+        param = '<select class="tbl-sel" data-drill-item="' + esc(item) + '">' +
+          drillList().map(function (d) {
+            return '<option value="' + esc(d.name) + '"' + (d.name === dname ? " selected" : "") + ">" +
+              esc(d.name) + (d.boostLiquid ? "（可加 " + d.boostLiquid + "）" : "") + "</option>";
+          }).join("") + "</select>" +
+          ' <input class="tbl-num" type="number" min="1" step="1" data-tiles-item="' + esc(item) +
+          '" value="' + (cfg.tiles || 8) + '" title="矿格数">' +
+          ' <label style="display:inline;font-size:12px"><input type="checkbox" data-boost-item="' +
+          esc(item) + '"' + (cfg.boosted ? " checked" : "") + "> 加水</label>";
+      }
+
+      var s = byItem[item] || {};
+      var note = "";
+      if (s.type === "drill") {
+        var bits = [];
+        if (s.liquid) bits.push("加 " + s.liquid.name + " " + num(s.liquid.perSecond) + "/s");
+        if (s.power) bits.push("钻头耗电 " + num(s.power) + "/s");
+        note = bits.join(" · ") || "—";
+      } else if (s.type === "multi") {
+        var b1 = (s.byproducts || []).map(function (b) { return itemLabel(b.name, "sm") + " " + num(b.perSecond) + "/s"; });
+        var b2 = (s.inputs || []).map(function (i) { return "吃 " + itemLabel(i.name, "sm") + " " + num(i.perSecond) + "/s"; });
+        note = b2.concat(b1).join(" · ");
+      } else {
+        note = '<span class="dim">外部运入</span>';
+      }
+
+      return '<tr><td>' + itemLabel(item) + '</td><td class="num">' + num(res.demand[item]) +
+        '</td><td>' + sel + '</td><td>' + param + '</td>' +
+        '<td class="num">' + (s.count == null ? "—" : s.count) + '</td>' +
+        '<td class="num">' + (s.perSecondEach == null ? "—" : num(s.perSecondEach)) + '</td>' +
+        '<td class="num">' + (s.perSecondTotal == null ? "—" : num(s.perSecondTotal)) + '</td>' +
+        '<td class="num">' + (s.power == null ? "—" : num(s.power)) + '</td>' +
+        '<td>' + note + '</td></tr>';
+    }).join("");
+    el("sources").innerHTML = h + body;
+    bindSourceEvents();
+  }
+
+  function bindSourceEvents() {
+    var tbl = el("sources");
+    var nodes = Array.prototype.slice.call(tbl.querySelectorAll ? tbl.querySelectorAll("select,input") : []);
+    nodes.forEach(function (n) {
+      n.addEventListener("change", function () {
+        var item = n.getAttribute("data-src-item") || n.getAttribute("data-drill-item") ||
+                   n.getAttribute("data-tiles-item") || n.getAttribute("data-boost-item");
+        if (!item) return;
+        var cfg = srcCfg[item] || (srcCfg[item] = { type: "import" });
+        if (n.hasAttribute("data-src-item")) {
+          var v = n.value;
+          if (v === "import") { cfg.type = "import"; }
+          else if (v === "drill") { cfg.type = "drill"; cfg.drill = cfg.drill || "mechanical-drill"; cfg.tiles = cfg.tiles || 8; }
+          else if (v.indexOf("multi:") === 0) { cfg.type = "multi"; cfg.block = v.slice(6); }
+        } else if (n.hasAttribute("data-drill-item")) {
+          cfg.drill = n.value;
+        } else if (n.hasAttribute("data-tiles-item")) {
+          cfg.tiles = Math.max(1, parseInt(n.value, 10) || 1);
+        } else if (n.hasAttribute("data-boost-item")) {
+          cfg.boosted = !!n.checked;
+        }
+        run();
+      });
+    });
+  }
+
+  /* ---- 供电表 ---- */
+  function renderPower(demand) {
+    var gname = el("gen").value;
+    if (!gname) { el("powertable").innerHTML = ""; return; }
+    var fuel = el("genfuel").value;
+    var manual = Math.max(0, parseInt(el("gencount").value, 10) || 0);
+    var plan = manual > 0
+      ? R.generatorSupply(DATA, gname, fuel, manual)
+      : R.generatorPlan(DATA, demand, gname, fuel);
+    var g = idx.generators.get(gname);
+    var rows = [];
+    rows.push(["需要电力", num(demand) + " /s"]);
+    rows.push(["单台净发电", num(plan.netEach) + " /s" + (plan.selfUse ? "（自耗 " + num(plan.selfUse) + "）" : "")]);
+    rows.push(["台数", String(plan.count) + (manual > 0 ? "（手填）" : "（自动补足）")]);
+    rows.push(["净发电合计", num(plan.netTotal) + " /s" +
+      (manual > 0 ? " · 余量 " + num(plan.netTotal - demand) + " /s" : " · 需求 " + num(demand) + " /s")]);
+    if (plan.fuel) {
+      rows.push(["燃料", itemLabel(plan.fuel.name, "sm") + " " + num(plan.fuel.perSecond) + " /s" +
+        "（单台 " + num(plan.fuel.perSecondEach) + "）"]);
+    } else {
+      rows.push(["燃料", '<span class="dim">' + (g && g.fuels.length ? "选燃料" : "不需要燃料（被动发电）") + "</span>"]);
+    }
+    (plan.liquids || []).forEach(function (l) {
+      rows.push(["液体", itemLabel(l.name, "sm") + " " + num(l.perSecond) + " /s（单台 " +
+        num(l.perSecondEach) + "）"]);
+    });
+    if (g && g.powerUsage) rows.push(["发电厂自耗电", num(plan.selfUse * (plan.count || 0)) + " /s"]);
+    el("powertable").innerHTML = '<tr><th>项目</th><th>数值</th></tr>' + rows.map(function (r) {
+      return "<tr><td>" + r[0] + '</td><td>' + r[1] + "</td></tr>";
+    }).join("");
+  }
+
+  /* ---- 兵厂 T1→T5 大循环表 ---- */
+  function renderChain() {
+    var start = el("chain").value;
+    if (!start) { el("chaintable").innerHTML = ""; return; }
+    var rate = parseFloat(el("chainrate").value);
+    if (!(rate > 0)) rate = 0.01;
+    var ch;
+    try { ch = R.unitChain(DATA, start, rate); }
+    catch (e) { el("chaintable").innerHTML = '<tr><td class="dim">' + esc(e.message) + "</td></tr>"; return; }
+    var h = '<tr><th>层级</th><th>单位</th><th>方块</th><th class="num">台数</th>' +
+            '<th class="num">单台/s</th><th class="num">产出/s</th><th class="num">电力/s</th>' +
+            '<th>每级材料（/s）</th></tr>';
+    var rows = ch.rows.map(function (r) {
+      return "<tr><td>T" + r.tier + '</td><td>' + unitLabel(r.unit) + '</td><td>' + blockLabel(r.block) + "</td>" +
+        '<td class="num">' + r.count + '</td><td class="num">' + num(r.perSecond) + "</td>" +
+        '<td class="num">' + num(r.actual) + '</td><td class="num">' + num(r.power) + "</td>" +
+        "<td>" + (r.items.length ? r.items.map(function (i) {
+          return itemLabel(i.name, "sm") + " " + num(i.perSecond);
+        }).join(" · ") : "—") + "</td></tr>";
+    }).join("");
+    var totalMachines = ch.rows.reduce(function (a, r) { return a + r.count; }, 0);
+    var mats = Object.keys(ch.materials).map(function (k) {
+      return itemLabel(k, "sm") + " " + num(ch.materials[k]) + "/s";
+    }).join(" · ");
+    rows += '<tr><td colspan="3" class="dim">合计（' + ch.top + " " + num(rate) + '/s）</td>' +
+      '<td class="num">' + totalMachines + '</td><td></td><td class="num">' + num(rate) + "</td>" +
+      '<td class="num">' + num(ch.power) + "</td><td>" + mats + "</td></tr>";
+    el("chaintable").innerHTML = h + rows;
+  }
+
+
+  /* ---------------- 建筑选择器 ---------------- */
+  var blockCells = {};
+  function buildBlockPickers() {
+    var itemBlocks = [], unitBlocks = [];
+    idx.blocks.forEach(function (b) {
+      if (b.kind === "unit") unitBlocks.push(b); else itemBlocks.push(b);
+    });
+    var key = function (a, b) { return (a.size - b.size) || (a.name < b.name ? -1 : 1); };
+    itemBlocks.sort(key);
+    unitBlocks.sort(function (a, b) {
+      if (a.factoryKind !== b.factoryKind) return a.factoryKind < b.factoryKind ? -1 : 1;
+      return key(a, b);
+    });
+    function html(list) {
+      return list.map(function (b) {
+        return '<div class="bcell" data-block="' + esc(b.name) + '" title="' + esc(b.name) +
+          " · " + b.size + "×" + b.size + (b.power ? " · " + b.power + " 电力/s" : "") + '">' +
+          blockImg(b.name, 22) + '<span class="cn">' + esc(b.name) + '</span></div>';
+      }).join("");
+    }
+    el("bgrid-item").innerHTML = html(itemBlocks);
+    el("bgrid-unit").innerHTML = html(unitBlocks);
+    ["bgrid-item", "bgrid-unit"].forEach(function (id) {
+      Array.prototype.slice.call(el(id).children || []).forEach(function (c) {
+        if (c.getAttribute && c.getAttribute("data-block")) blockCells[c.getAttribute("data-block")] = c;
+      });
+    });
+  }
+
+  function syncBlockSel() {
+    Object.keys(blockCells).forEach(function (n) { blockCells[n].classList.remove("on"); });
+    if (blockCells[curBlock]) blockCells[curBlock].classList.add("on");
+    var b = blockOf(curBlock);
+    var plans = (b && b.plans) || [];
+    var sel = el("plan");
+    while (sel.firstChild) sel.removeChild(sel.firstChild);
+    if (b && b.kind === "unit" && b.factoryKind !== "reconstructor") {
+      plans.forEach(function (p, i) {
+        var o = document.createElement("option");
+        o.value = String(i);
+        o.textContent = p.unit + " · " + num(p.perSecond) + "/s";
+        sel.appendChild(o);
+      });
+      sel.disabled = false;
+    } else if (b && b.factoryKind === "reconstructor") {
+      var o2 = document.createElement("option");
+      o2.value = "0";
+      o2.textContent = "升级 " + b.upgrades.length + " 种 · " + num(b.cps) + " 次/s";
+      sel.appendChild(o2);
+      sel.disabled = true;
+    } else {
+      var o3 = document.createElement("option");
+      o3.value = "0";
+      o3.textContent = (b ? (b.outputs.map(function (x) { return x.name + " " + num(x.amount * b.cps) + "/s"; }).join(" · ") || "—") : "—");
+      sel.appendChild(o3);
+      sel.disabled = true;
+    }
+    renderCur();
+  }
+
+  function renderCur() {
+    var b = blockOf(curBlock);
+    if (!b) { el("cur") && (el("cur").innerHTML = ""); return; }
+    var desc;
+    if (b.kind === "unit") {
+      desc = b.factoryKind === "reconstructor"
+        ? ("升级厂 · " + b.craftTime + " 帧/次 · " + num(b.cps) + " 次/s")
+        : ("单位工厂 · " + (b.plans || []).length + " 个计划");
+    } else {
+      desc = b.size + "×" + b.size + " · " + num(b.cps) + " 次/s";
+    }
+    var html = blockImg(curBlock, 32) +
+      '<div><div class="t">' + esc(b.name) + '</div><div class="s">' + desc +
+      (b.power ? " · " + b.power + " 电力/s" : "") + '</div></div>';
+    var node = el("cur");
+    if (node) node.innerHTML = html;
+  }
+
+  /* ---------------- 物品选择器 ---------------- */
+  var cells = {};
+  var sortedNames = names.slice().sort();
+  el("grid").innerHTML = sortedNames.map(function (n) {
+    return '<div class="cell" data-item="' + esc(n) + '" title="' + esc(n) + '">' +
+      img(itemIcon.get(n), "", n) + '</div>';
+  }).join("");
+
+  function syncPicker() {
+    var cur = targetSel.value;
+    var prods = idx.producersOf(cur);
+    var per = prods.length ? Math.max.apply(null, prods.map(function (b) { return idx.perSecond(b, cur); })) : 0;
+    var node = el("cur");
+    if (node) {
+      node.innerHTML = '<img class="ic lg" src="' + (itemIcon.get(cur) || "") + '" alt="' + esc(cur) + '">' +
+        '<div><div class="t">' + esc(cur) + '</div><div class="s">' +
+        (prods.length ? prods.length + " 种配方 · 单台最高 " + num(per) + "/s" : "无配方（只能外部输入）") +
+        '</div></div>';
+    }
+    Object.keys(cells).forEach(function (n) { cells[n].classList.remove("on"); });
+    if (cells[cur]) cells[cur].classList.add("on");
+  }
+
+  el("grid").addEventListener("click", function (ev) {
+    var t = ev.target;
+    while (t && t !== el("grid") && !(t.getAttribute && t.getAttribute("data-item"))) t = t.parentNode;
+    if (!t || t === el("grid")) return;
+    targetSel.value = t.getAttribute("data-item");
+    syncPicker();
+    run();
+  });
+  targetSel.addEventListener("change", function () { syncPicker(); run(); });
+
+  ["bgrid-item", "bgrid-unit"].forEach(function (id) {
+    el(id).addEventListener("click", function (ev) {
+      var t = ev.target;
+      while (t && t !== el(id) && !(t.getAttribute && t.getAttribute("data-block"))) t = t.parentNode;
+      if (!t || t === el(id)) return;
+      curBlock = t.getAttribute("data-block");
+      syncBlockSel();
+      run();
+    });
+  });
+
+  function setMode(m) {
+    mode = m;
+    el("tab-building").classList.toggle("on", m === "building");
+    el("tab-item").classList.toggle("on", m === "item");
+    Array.prototype.forEach.call(document.querySelectorAll ? document.querySelectorAll(".mode-block") : [], function (n) { n.classList.toggle("hidden", m !== "building"); });
+    Array.prototype.forEach.call(document.querySelectorAll ? document.querySelectorAll(".mode-item") : [], function (n) { n.classList.toggle("hidden", m !== "item"); });
+    run();
+  }
+  el("tab-building").addEventListener("click", function () { setMode("building"); });
+  el("tab-item").addEventListener("click", function () { setMode("item"); });
+
+  // URL 预设：?mode=building&block=ground-factory&count=2&depth=4 | ?mode=item&item=silicon&rate=5
+  (function applyUrl() {
+    var q = {};
+    (location.search || "").replace(/^\?/, "").split("&").forEach(function (kv) {
+      if (!kv) return;
+      var i = kv.indexOf("=");
+      var k = decodeURIComponent(i < 0 ? kv : kv.slice(0, i));
+      var v = i < 0 ? "" : decodeURIComponent(kv.slice(i + 1).replace(/\+/g, " "));
+      q[k] = v;
+    });
+    if (q.item && names.indexOf(q.item) >= 0) targetSel.value = q.item;
+    if (q.block && blockOf(q.block)) curBlock = q.block;
+    if (q.count && parseInt(q.count, 10) > 0) el("count").value = q.count;
+    if (q.rate && parseFloat(q.rate) > 0) el("rate").value = q.rate;
+    if (q.depth && parseInt(q.depth, 10) > 0) el("depth").value = q.depth;
+    if (q.boundary) el("boundary").value = q.boundary.replace(/\+/g, " ");
+    if (q.force) el("force").value = q.force.replace(/\+/g, " ");
+    if (q.mode === "item") mode = "item";
+    // 发电：?gen=steam-generator&genfuel=coal&gencount=3
+    if (q.gen && idx.generators.has(q.gen)) { el("gen").value = q.gen; syncGenFuel(); }
+    if (q.genfuel) el("genfuel").value = q.genfuel;
+    if (q.gencount) el("gencount").value = q.gencount;
+    if (q.chain) el("chain").value = q.chain;
+    if (q.chainrate) el("chainrate").value = q.chainrate;
+    // 外部来源：?src=sand:drill:laser-drill:8:1,scrap:multi:disassembler,coal:import
+    (q.src ? q.src.split(",") : []).forEach(function (part) {
+      var p = part.split(":");
+      if (p.length < 2) return;
+      if (p[1] === "drill") {
+        srcCfg[p[0]] = { type: "drill", drill: p[2] || "mechanical-drill",
+                         tiles: parseInt(p[3], 10) || 8, boosted: p[4] === "1" };
+      } else if (p[1] === "multi") {
+        srcCfg[p[0]] = { type: "multi", block: p[2] || "separator" };
+      } else {
+        srcCfg[p[0]] = { type: "import" };
+      }
+    });
+  })();
+
+  el("meta").textContent = "数据：" + (DATA.snapshot || "?") + " · " +
+    (DATA.blocks.filter(function (b) { return b.kind !== "unit"; }).length) + " 个工厂 / " +
+    (DATA.blocks.filter(function (b) { return b.kind === "unit"; }).length) + " 个兵厂 / " +
+    (DATA.generators || []).length + " 个发电厂 / " + (DATA.drills || []).length + " 个钻头 / " +
+    (DATA.multi || []).length + " 个多产物方块 / " +
+    names.length + " 个物品 · 图标为原版贴图原尺寸";
+
+  function splitList(text) {
+    return text.split(/[,，\s]+/).map(function (s) { return s.trim(); }).filter(Boolean);
+  }
+  function parseForce(text) {
+    var out = {};
+    splitList(text).forEach(function (part) {
+      var eq = part.indexOf("=");
+      if (eq > 0) out[part.slice(0, eq).trim()] = part.slice(eq + 1).trim();
+    });
+    return out;
+  }
+  function num(x) { return (Math.round(x * 1000) / 1000).toString(); }
+  function esc(s) { return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;"); }
+
+  var lastRes = null;
+
+  function run() {
+    var boundary = splitList(el("boundary").value);
+    var forced = parseForce(el("force").value);
+    var depth = Math.max(1, Math.min(12, parseInt(el("depth").value, 10) || 6));
+    var res;
+    try {
+      if (mode === "building") {
+        var count = Math.max(1, parseInt(el("count").value, 10) || 1);
+        var plan = parseInt(el("plan").value || "0", 10) || 0;
+        res = R.expandBuilding(DATA, curBlock, count, { boundary: boundary, force: forced, plan: plan, maxDepth: depth });
+      } else {
+        var rate = parseFloat(el("rate").value);
+        if (!(rate > 0)) { alert("速率要大于 0"); return; }
+        res = R.expand(DATA, targetSel.value, rate, boundary, forced, { maxDepth: depth });
+      }
+    } catch (e) {
+      alert("算不出来：" + e.message);
+      return;
+    }
+    lastRes = res;
+    R.applySources(DATA, res, srcCfg);       // 边界输入换成钻头/多产物后，台数与电力要重算
+    el("out").classList.remove("hidden");
+
+    var rows = R.machineRows(DATA, res);
+    var totalMachines = rows.reduce(function (a, r) { return a + r.count; }, 0);
+    var cards;
+    if (mode === "building") {
+      var prodText = (res.products || []).map(function (p) {
+        return (p.type === "unit" ? "⚔ " : "") + (p.type === "unit"
+          ? esc(p.name) + " " + num(p.rate) + "/s"
+          : itemLabel(p.name, "sm") + " " + num(p.rate) + "/s");
+      }).join(" · ");
+      cards = [
+        ["目标建筑", blockImg(curBlock, 18) + ' <span class="name">' + esc(curBlock) + '</span>', "wrap"],
+        ["台数", "× " + res.count + "（满效）"],
+        ["产出", prodText || "—", "wrap"],
+        ["机器总数", String(totalMachines)],
+        ["电力需求", num(res.power) + "/s"],
+        ["边界种类", String(Object.keys(res.demand).length)]
+      ];
+    } else {
+      cards = [
+        ["目标", itemLabel(targetSel.value, "sm") + " " + el("rate").value + "/s"],
+        ["实际产出", img(itemIcon.get(targetSel.value), "sm", targetSel.value) + " " + num(res.achieved) + "/s"],
+        ["机器总数", String(totalMachines)],
+        ["电力需求", num(res.power) + "/s"],
+        ["边界种类", String(Object.keys(res.demand).length)]
+      ];
+    }
+    el("cards").innerHTML = cards.map(function (c) {
+      return '<div class="card' + (c[2] ? " " + c[2] : "") + '"><div class="k">' + c[0] +
+        '</div><div class="v">' + c[1] + '</div></div>';
+    }).join("");
+
+    var mh = '<tr><th>方块</th><th class="num">台数</th><th class="num">占地</th>' +
+             '<th class="num">单台产出</th><th class="num">合计产出</th><th class="num">电力/s</th></tr>';
+    el("machines").innerHTML = mh + rows.map(function (r) {
+      var right = (r.outItems || []).length
+        ? r.outItems.map(function (o) {
+            return itemLabel(o.name, "sm") + " " + num(o.perSecond) + "/s";
+          }).join(" · ")
+        : (r.kind === "unit" ? (r.outputs || []).map(esc).join(" · ") : "—");
+      return '<tr><td>' + blockLabel(r.name) + '</td>' +
+        '<td class="num">' + r.count + '</td>' +
+        '<td class="num">' + (r.size * r.size) + '</td>' +
+        '<td class="num">' + num(r.rateEach) + '/s</td>' +
+        '<td class="num">' + right + '</td>' +
+        '<td class="num">' + num(r.powerTotal) + '</td></tr>';
+    }).join("");
+
+    var dh = '<tr><th>物品</th><th class="num">每秒</th><th class="num">每分钟</th></tr>';
+    var dk = Object.keys(res.demand).sort();
+    el("demand").innerHTML = dh + (dk.length ? dk.map(function (k) {
+      return '<tr><td>' + itemLabel(k) + '</td><td class="num">' + num(res.demand[k]) +
+        '</td><td class="num">' + num(res.demand[k] * 60) + '</td></tr>';
+    }).join("") : '<tr><td colspan="3" class="dim">无（全部自产）</td></tr>');
+
+    renderSources(res);
+    renderPower(res.power);
+    renderChain();
+
+    el("tree").innerHTML = renderTree(res.tree, 0, true);
+
+    // 多配方物品：哪个被选中、备选是谁
+    var used = Object.keys(res.machines);
+    var altRows = [];
+    names.forEach(function (item) {
+      var prods = idx.producersOf(item);
+      if (prods.length < 2) return;
+      var picked = null;
+      prods.forEach(function (b) {
+        if (used.indexOf(b.name) >= 0) {
+          var hit = (res.order || []).filter(function (o) { return o.item === item && o.block === b.name; })[0];
+          if (hit) picked = b.name;
+        }
+      });
+      if (!picked) return;
+      altRows.push({ item: item, picked: picked, prods: prods });
+    });
+    var ah = '<tr><th>物品</th><th>当前选用</th><th>备选（单台速率）</th></tr>';
+    el("alts").innerHTML = ah + (altRows.length ? altRows.map(function (r) {
+      var opts = r.prods.map(function (b) {
+        var per = idx.perSecond(b, r.item);
+        var label = blockLabel(b.name, "sm") + " · " + num(per) + "/s";
+        if (b.name === r.picked) return '<span class="chosen">' + label + '</span>';
+        return '<a href="#" data-f="' + esc(r.item + "=" + b.name) + '" style="color:var(--acc);text-decoration:none">' +
+          label + '</a>';
+      }).join(" ｜ ");
+      return '<tr><td>' + itemLabel(r.item) + '</td><td>' + blockLabel(r.picked, "sm") + '</td><td>' + opts + '</td></tr>';
+    }).join("") : '<tr><td colspan="3" class="dim">本次没有多配方物品</td></tr>');
+
+    Array.prototype.forEach.call(el("alts").querySelectorAll ? el("alts").querySelectorAll("a[data-f]") : [], function (a) {
+      a.addEventListener("click", function (ev) {
+        ev.preventDefault();
+        var f = a.getAttribute("data-f");
+        var parts = f.split("=");
+        var cur = parseForce(el("force").value);
+        cur[parts[0]] = parts[1];
+        el("force").value = Object.keys(cur).map(function (k) { return k + "=" + cur[k]; }).join(", ");
+        run();
+      });
+    });
+
+    var cmd;
+    if (mode === "building") {
+      var b = blockOf(curBlock);
+      if (b && b.kind !== "unit") {
+        var rate2 = b.outputs[0] ? b.outputs[0].amount * b.cps * (parseInt(el("count").value, 10) || 1) : 0;
+        cmd = "python -X utf8 -m mbo calc " + b.outputs[0].name + ":" + num(rate2) + "/s" +
+          (boundary.length ? " --boundary " + boundary.join(",") : "") +
+          " --force " + b.outputs[0].name + "=" + curBlock;
+      } else {
+        cmd = "python -X utf8 -m mbo calc " + ((res.products || [])[0] ? (res.products[0].type === "item"
+          ? res.products[0].name + ":" + num(res.products[0].rate) + "/s" : "") : "") +
+          "\n# 兵厂没有 mbo calc 等价命令：内核规则相同，台数见上表";
+      }
+    } else {
+      cmd = "python -X utf8 -m mbo calc " + targetSel.value + ":" + el("rate").value + "/s" +
+        (boundary.length ? " --boundary " + boundary.join(",") : "") +
+        (Object.keys(forced).length ? " --force " +
+          Object.keys(forced).map(function (k) { return k + "=" + forced[k]; }).join(",") : "");
+    }
+    el("cmd").textContent = cmd;
+
+    var warnBox = el("warn");
+    if (res.warnings.length) {
+      warnBox.textContent = "⚠ " + res.warnings.join("；");
+      warnBox.classList.remove("hidden");
+    } else {
+      warnBox.classList.add("hidden");
+    }
+  }
+
+  /* 递归树：图标 + 台数 + 需求，缩进代替制表符 */
+  function renderTree(node, depth, last) {
+    if (!node) return "";
+    var pad = depth * 22;
+    var guide = depth === 0 ? "" : (last ? "└ " : "├ ");
+    var tag;
+    if (node.block) {
+      tag = '<span class="tag">' + node.count + '× ' + blockLabel(node.block, "sm") + '</span>';
+    } else if (node.reason === "no-recipe") {
+      tag = '<span class="dim">（无配方 → 外部输入）</span>';
+    } else if (node.reason === "depth") {
+      tag = '<span class="dim">（超过递归层数）</span>';
+    } else {
+      tag = '<span class="dim">（外部输入）</span>';
+    }
+    var head = node.item ? (itemLabel(node.item, "sm") + ' ' + tag)
+      : (blockImg(node.block, 12) + ' ' + esc(node.block) + ' <span class="tag">× ' + node.count + '</span>');
+    var line = '<div class="row" style="padding-left:' + pad + 'px">' +
+      '<span class="dim">' + guide + '</span>' +
+      '<span class="amt">' + (node.item ? num(node.amount) + "/s" : "满效") + '</span> ' + head + '</div>';
+    var kids = node.children || [];
+    return line + kids.map(function (k, i) {
+      return renderTree(k, depth + 1, i === kids.length - 1);
+    }).join("");
+  }
+
+  (function bindCells() {
+    var grid = el("grid");
+    if (grid.querySelectorAll) {
+      Array.prototype.forEach.call(grid.querySelectorAll(".cell"), function (c) {
+        cells[c.getAttribute("data-item")] = c;
+      });
+    }
+    Array.prototype.slice.call(grid.children || []).forEach(function (c) {
+      if (c.getAttribute && c.getAttribute("data-item")) cells[c.getAttribute("data-item")] = c;
+    });
+  })();
+
+  buildBlockPickers();
+  syncBlockSel();
+  syncPicker();
+  if (mode === "item") setMode("item"); else run();
+  el("run").addEventListener("click", run);
+  el("rate").addEventListener("keydown", function (e) { if (e.key === "Enter") run(); });
+  el("count").addEventListener("change", run);
+  el("plan").addEventListener("change", run);
+  el("depth").addEventListener("change", run);
+  el("gen").addEventListener("change", function () { syncGenFuel(); if (lastRes) renderPower(lastRes.power); });
+  el("genfuel").addEventListener("change", function () { if (lastRes) renderPower(lastRes.power); });
+  el("gencount").addEventListener("change", function () { if (lastRes) renderPower(lastRes.power); });
+  el("chain").addEventListener("change", renderChain);
+  el("chainrate").addEventListener("change", renderChain);
+
+  // 测试钩子：无浏览器环境里手动切模式 / 触发计算
+  window.__ratio = { setMode: setMode, run: run, mode: function () { return mode; },
+                     block: function (n) { if (n) { curBlock = n; syncBlockSel(); } return curBlock; },
+                     src: function (item, cfg) {
+                       if (item) { srcCfg[item] = cfg || { type: "import" }; run(); }
+                       return srcCfg;
+                     },
+                     setGen: function (name, fuel, count) {
+                       if (name) el("gen").value = name;
+                       syncGenFuel();
+                       if (fuel) el("genfuel").value = fuel;
+                       if (count != null) el("gencount").value = String(count);
+                       if (lastRes) renderPower(lastRes.power);
+                       return el("powertable").innerHTML;
+                     },
+                     chain: function (start, rate) {
+                       if (start) el("chain").value = start;
+                       if (rate) el("chainrate").value = String(rate);
+                       renderChain();
+                       return el("chaintable").innerHTML;
+                     },
+                     last: function () { return lastRes; } };
+})();
+</script>
+</body>
+</html>

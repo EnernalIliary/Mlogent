@@ -1,0 +1,10 @@
+[11-04-2026 19:43:36] [I] Server loaded. Type 'help' for help.
+[11-04-2026 19:43:36] [I] [none/base.js]: A|copper|mindustry.type.Item
+[11-04-2026 19:43:36] [I] [none/base.js]: B|mindustry.content.Items$1
+[11-04-2026 19:43:36] [I] [none/base.js]: C|false
+[11-04-2026 19:43:36] [I] [none/base.js]: D|false
+[11-04-2026 19:43:36] [I] [none/base.js]: E|copper
+[11-04-2026 19:43:36] [I] [none/base.js]: F|true
+[11-04-2026 19:43:36] [I] [none/base.js]: G|true
+[11-04-2026 19:43:36] [I] undefined
+[11-04-2026 19:43:36] [I] Shutting down server.

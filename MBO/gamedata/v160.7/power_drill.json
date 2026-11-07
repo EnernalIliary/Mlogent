@@ -1,0 +1,1186 @@
+{
+ "meta": {
+  "gameVersion": "release-160",
+  "source": "jar reflection dump (out/_dump_power_drill.py)",
+  "lines": 93
+ },
+ "generators": [
+  {
+   "name": "flux-reactor",
+   "size": 5,
+   "perSecond": 18000.0,
+   "itemDuration": -1.0,
+   "durationMultipliers": {},
+   "consumers": [
+    {
+     "class": "ConsumeLiquid",
+     "items": {},
+     "filter": [],
+     "amount": 0.15000000596046448,
+     "usagePerSecond": 0.0,
+     "durationMultipliers": {},
+     "booster": false,
+     "liquid": "cyanogen"
+    }
+   ],
+   "fuels": [],
+   "liquids": [
+    {
+     "name": "cyanogen",
+     "perSecond": 9.0
+    }
+   ],
+   "powerUsagePerSecond": 0.0,
+   "kind": "fuel"
+  },
+  {
+   "name": "neoplasia-reactor",
+   "size": 5,
+   "perSecond": 8400.0,
+   "itemDuration": 180.0,
+   "durationMultipliers": {},
+   "consumers": [
+    {
+     "class": "ConsumeLiquid",
+     "items": {},
+     "filter": [],
+     "amount": 1.3333333730697632,
+     "usagePerSecond": 0.0,
+     "durationMultipliers": {},
+     "booster": false,
+     "liquid": "arkycite"
+    },
+    {
+     "class": "ConsumeLiquid",
+     "items": {},
+     "filter": [],
+     "amount": 0.1666666716337204,
+     "usagePerSecond": 0.0,
+     "durationMultipliers": {},
+     "booster": false,
+     "liquid": "water"
+    },
+    {
+     "class": "ConsumeItems",
+     "items": {
+      "phase-fabric": 1.0
+     },
+     "filter": [],
+     "amount": 0.0,
+     "usagePerSecond": 0.0,
+     "durationMultipliers": {},
+     "booster": false
+    }
+   ],
+   "fuels": [
+    {
+     "name": "phase-fabric",
+     "seconds": 3.0,
+     "perSecond": 0.333333,
+     "powerPerSecond": 8400.0
+    }
+   ],
+   "liquids": [
+    {
+     "name": "arkycite",
+     "perSecond": 80.000002
+    },
+    {
+     "name": "water",
+     "perSecond": 10.0
+    }
+   ],
+   "powerUsagePerSecond": 0.0,
+   "kind": "fuel"
+  },
+  {
+   "name": "impact-reactor",
+   "size": 4,
+   "perSecond": 7800.0,
+   "itemDuration": 140.0,
+   "durationMultipliers": {},
+   "consumers": [
+    {
+     "class": "ConsumePower",
+     "items": {},
+     "filter": [],
+     "amount": 0.0,
+     "usagePerSecond": 1500.0,
+     "durationMultipliers": {},
+     "booster": false
+    },
+    {
+     "class": "ConsumeItems",
+     "items": {
+      "blast-compound": 1.0
+     },
+     "filter": [],
+     "amount": 0.0,
+     "usagePerSecond": 0.0,
+     "durationMultipliers": {},
+     "booster": false
+    },
+    {
+     "class": "ConsumeLiquid",
+     "items": {},
+     "filter": [],
+     "amount": 0.25,
+     "usagePerSecond": 0.0,
+     "durationMultipliers": {},
+     "booster": false,
+     "liquid": "cryofluid"
+    }
+   ],
+   "fuels": [
+    {
+     "name": "blast-compound",
+     "seconds": 2.3333,
+     "perSecond": 0.428571,
+     "powerPerSecond": 7800.0
+    }
+   ],
+   "liquids": [
+    {
+     "name": "cryofluid",
+     "perSecond": 15.0
+    }
+   ],
+   "powerUsagePerSecond": 1500.0,
+   "kind": "fuel"
+  },
+  {
+   "name": "pyrolysis-generator",
+   "size": 3,
+   "perSecond": 1400.0,
+   "itemDuration": 120.0,
+   "durationMultipliers": {},
+   "consumers": [
+    {
+     "class": "ConsumeLiquids",
+     "items": {},
+     "filter": [],
+     "amount": 0.0,
+     "usagePerSecond": 0.0,
+     "durationMultipliers": {},
+     "booster": false,
+     "liquids": {
+      "slag": 0.3333333432674408,
+      "arkycite": 0.6666666865348816
+     }
+    }
+   ],
+   "fuels": [],
+   "liquids": [
+    {
+     "name": "slag",
+     "perSecond": 20.000001
+    },
+    {
+     "name": "arkycite",
+     "perSecond": 40.000001
+    }
+   ],
+   "powerUsagePerSecond": 0.0,
+   "kind": "fuel"
+  },
+  {
+   "name": "differential-generator",
+   "size": 3,
+   "perSecond": 1080.0,
+   "itemDuration": 220.0,
+   "durationMultipliers": {},
+   "consumers": [
+    {
+     "class": "ConsumeItems",
+     "items": {
+      "pyratite": 1.0
+     },
+     "filter": [],
+     "amount": 0.0,
+     "usagePerSecond": 0.0,
+     "durationMultipliers": {},
+     "booster": false
+    },
+    {
+     "class": "ConsumeLiquid",
+     "items": {},
+     "filter": [],
+     "amount": 0.10000000149011612,
+     "usagePerSecond": 0.0,
+     "durationMultipliers": {},
+     "booster": false,
+     "liquid": "cryofluid"
+    }
+   ],
+   "fuels": [
+    {
+     "name": "pyratite",
+     "seconds": 3.6667,
+     "perSecond": 0.272727,
+     "powerPerSecond": 1080.0
+    }
+   ],
+   "liquids": [
+    {
+     "name": "cryofluid",
+     "perSecond": 6.0
+    }
+   ],
+   "powerUsagePerSecond": 0.0,
+   "kind": "fuel"
+  },
+  {
+   "name": "thorium-reactor",
+   "size": 3,
+   "perSecond": 900.0,
+   "itemDuration": 360.0,
+   "durationMultipliers": {},
+   "consumers": [
+    {
+     "class": "ConsumeItems",
+     "items": {
+      "thorium": 1.0
+     },
+     "filter": [],
+     "amount": 0.0,
+     "usagePerSecond": 0.0,
+     "durationMultipliers": {},
+     "booster": false
+    },
+    {
+     "class": "ConsumeLiquid",
+     "items": {},
+     "filter": [],
+     "amount": 0.03999999910593033,
+     "usagePerSecond": 0.0,
+     "durationMultipliers": {},
+     "booster": false,
+     "liquid": "cryofluid"
+    }
+   ],
+   "fuels": [
+    {
+     "name": "thorium",
+     "seconds": 6.0,
+     "perSecond": 0.166667,
+     "powerPerSecond": 900.0
+    }
+   ],
+   "liquids": [
+    {
+     "name": "cryofluid",
+     "perSecond": 2.4
+    }
+   ],
+   "powerUsagePerSecond": 0.0,
+   "kind": "fuel"
+  },
+  {
+   "name": "chemical-combustion-chamber",
+   "size": 3,
+   "perSecond": 550.0,
+   "itemDuration": 120.0,
+   "durationMultipliers": {},
+   "consumers": [
+    {
+     "class": "ConsumeLiquids",
+     "items": {},
+     "filter": [],
+     "amount": 0.0,
+     "usagePerSecond": 0.0,
+     "durationMultipliers": {},
+     "booster": false,
+     "liquids": {
+      "ozone": 0.03333333507180214,
+      "arkycite": 0.6666666865348816
+     }
+    }
+   ],
+   "fuels": [],
+   "liquids": [
+    {
+     "name": "ozone",
+     "perSecond": 2.0
+    },
+    {
+     "name": "arkycite",
+     "perSecond": 40.000001
+    }
+   ],
+   "powerUsagePerSecond": 0.0,
+   "kind": "fuel"
+  },
+  {
+   "name": "steam-generator",
+   "size": 2,
+   "perSecond": 330.0,
+   "itemDuration": 90.0,
+   "durationMultipliers": {
+    "pyratite": 3.0
+   },
+   "consumers": [
+    {
+     "class": "ConsumeLiquid",
+     "items": {},
+     "filter": [],
+     "amount": 0.10000000149011612,
+     "usagePerSecond": 0.0,
+     "durationMultipliers": {},
+     "booster": false,
+     "liquid": "water"
+    },
+    {
+     "class": "ConsumeItemFlammable",
+     "items": {},
+     "filter": [
+      "coal",
+      "spore-pod",
+      "blast-compound",
+      "pyratite"
+     ],
+     "amount": 0.0,
+     "usagePerSecond": 0.0,
+     "durationMultipliers": {
+      "pyratite": 3.0
+     },
+     "booster": false
+    },
+    {
+     "class": "ConsumeItemExplode",
+     "items": {},
+     "filter": [
+      "blast-compound"
+     ],
+     "amount": 0.0,
+     "usagePerSecond": 0.0,
+     "durationMultipliers": {},
+     "booster": false
+    }
+   ],
+   "fuels": [
+    {
+     "name": "coal",
+     "seconds": 1.5,
+     "perSecond": 0.666667,
+     "powerPerSecond": 330.0
+    },
+    {
+     "name": "spore-pod",
+     "seconds": 1.5,
+     "perSecond": 0.666667,
+     "powerPerSecond": 379.5
+    },
+    {
+     "name": "blast-compound",
+     "seconds": 1.5,
+     "perSecond": 0.666667,
+     "powerPerSecond": 132.0
+    },
+    {
+     "name": "pyratite",
+     "seconds": 4.5,
+     "perSecond": 0.222222,
+     "powerPerSecond": 462.0
+    }
+   ],
+   "liquids": [
+    {
+     "name": "water",
+     "perSecond": 6.0
+    }
+   ],
+   "powerUsagePerSecond": 0.0,
+   "kind": "fuel"
+  },
+  {
+   "name": "rtg-generator",
+   "size": 2,
+   "perSecond": 270.0,
+   "itemDuration": 840.0,
+   "durationMultipliers": {
+    "phase-fabric": 15.0
+   },
+   "consumers": [
+    {
+     "class": "ConsumeItemRadioactive",
+     "items": {},
+     "filter": [
+      "thorium",
+      "phase-fabric",
+      "fissile-matter"
+     ],
+     "amount": 0.0,
+     "usagePerSecond": 0.0,
+     "durationMultipliers": {
+      "phase-fabric": 15.0
+     },
+     "booster": false
+    }
+   ],
+   "fuels": [
+    {
+     "name": "thorium",
+     "seconds": 14.0,
+     "perSecond": 0.071429,
+     "powerPerSecond": 270.0
+    },
+    {
+     "name": "phase-fabric",
+     "seconds": 210.0,
+     "perSecond": 0.004762,
+     "powerPerSecond": 162.0
+    },
+    {
+     "name": "fissile-matter",
+     "seconds": 14.0,
+     "perSecond": 0.071429,
+     "powerPerSecond": 405.0
+    }
+   ],
+   "liquids": [],
+   "powerUsagePerSecond": 0.0,
+   "kind": "fuel"
+  },
+  {
+   "name": "thermal-generator",
+   "size": 2,
+   "perSecond": 108.0,
+   "itemDuration": -1.0,
+   "durationMultipliers": {},
+   "consumers": [],
+   "fuels": [],
+   "liquids": [],
+   "powerUsagePerSecond": 0.0,
+   "kind": "passive"
+  },
+  {
+   "name": "solar-panel-large",
+   "size": 3,
+   "perSecond": 96.0,
+   "itemDuration": -1.0,
+   "durationMultipliers": {},
+   "consumers": [],
+   "fuels": [],
+   "liquids": [],
+   "powerUsagePerSecond": 0.0,
+   "kind": "solar"
+  },
+  {
+   "name": "combustion-generator",
+   "size": 1,
+   "perSecond": 60.0,
+   "itemDuration": 120.0,
+   "durationMultipliers": {
+    "pyratite": 3.0
+   },
+   "consumers": [
+    {
+     "class": "ConsumeItemFlammable",
+     "items": {},
+     "filter": [
+      "coal",
+      "spore-pod",
+      "blast-compound",
+      "pyratite"
+     ],
+     "amount": 0.0,
+     "usagePerSecond": 0.0,
+     "durationMultipliers": {
+      "pyratite": 3.0
+     },
+     "booster": false
+    },
+    {
+     "class": "ConsumeItemExplode",
+     "items": {},
+     "filter": [
+      "blast-compound"
+     ],
+     "amount": 0.0,
+     "usagePerSecond": 0.0,
+     "durationMultipliers": {},
+     "booster": false
+    }
+   ],
+   "fuels": [
+    {
+     "name": "coal",
+     "seconds": 2.0,
+     "perSecond": 0.5,
+     "powerPerSecond": 60.0
+    },
+    {
+     "name": "spore-pod",
+     "seconds": 2.0,
+     "perSecond": 0.5,
+     "powerPerSecond": 69.0
+    },
+    {
+     "name": "blast-compound",
+     "seconds": 2.0,
+     "perSecond": 0.5,
+     "powerPerSecond": 24.0
+    },
+    {
+     "name": "pyratite",
+     "seconds": 6.0,
+     "perSecond": 0.166667,
+     "powerPerSecond": 84.0
+    }
+   ],
+   "liquids": [],
+   "powerUsagePerSecond": 0.0,
+   "kind": "fuel"
+  },
+  {
+   "name": "turbine-condenser",
+   "size": 3,
+   "perSecond": 20.0,
+   "itemDuration": -1.0,
+   "durationMultipliers": {},
+   "consumers": [],
+   "fuels": [],
+   "liquids": [],
+   "powerUsagePerSecond": 0.0,
+   "kind": "passive"
+  },
+  {
+   "name": "solar-panel",
+   "size": 1,
+   "perSecond": 7.2,
+   "itemDuration": -1.0,
+   "durationMultipliers": {},
+   "consumers": [],
+   "fuels": [],
+   "liquids": [],
+   "powerUsagePerSecond": 0.0,
+   "kind": "solar"
+  }
+ ],
+ "drills": [
+  {
+   "name": "blast-drill",
+   "size": 4,
+   "tier": 5,
+   "drillTime": 280.0,
+   "hardnessMult": 50.0,
+   "boostIntensity": 1.7999999523162842,
+   "itemCapacity": 20,
+   "multipliers": {},
+   "boostLiquid": "water",
+   "boostLiquidPerSecond": 6.0,
+   "consumers": [
+    {
+     "class": "ConsumePower",
+     "items": {},
+     "filter": [],
+     "amount": 0.0,
+     "usagePerSecond": 180.0,
+     "durationMultipliers": {},
+     "booster": false
+    },
+    {
+     "class": "ConsumeLiquid",
+     "items": {},
+     "filter": [],
+     "amount": 0.10000000149011612,
+     "usagePerSecond": 0.0,
+     "durationMultipliers": {},
+     "booster": true,
+     "liquid": "water"
+    }
+   ]
+  },
+  {
+   "name": "cliff-crusher",
+   "size": 2,
+   "tier": 0,
+   "drillTime": 110.0,
+   "hardnessMult": 50,
+   "boostIntensity": 1.600000023841858,
+   "itemCapacity": 10,
+   "multipliers": {},
+   "boostLiquid": "",
+   "boostLiquidPerSecond": 0.0,
+   "consumers": [
+    {
+     "class": "ConsumePower",
+     "items": {},
+     "filter": [],
+     "amount": 0.0,
+     "usagePerSecond": 11.0,
+     "durationMultipliers": {},
+     "booster": false
+    }
+   ]
+  },
+  {
+   "name": "eruption-drill",
+   "size": 5,
+   "tier": 7,
+   "drillTime": 281.25,
+   "hardnessMult": 0.0,
+   "boostIntensity": 2.0,
+   "itemCapacity": 60,
+   "multipliers": {
+    "beryllium": 2.0
+   },
+   "boostLiquid": "cyanogen",
+   "boostLiquidPerSecond": 0.75,
+   "consumers": [
+    {
+     "class": "ConsumePower",
+     "items": {},
+     "filter": [],
+     "amount": 0.0,
+     "usagePerSecond": 360.0,
+     "durationMultipliers": {},
+     "booster": false
+    },
+    {
+     "class": "ConsumeLiquid",
+     "items": {},
+     "filter": [],
+     "amount": 0.06666667014360428,
+     "usagePerSecond": 0.0,
+     "durationMultipliers": {},
+     "booster": false,
+     "liquid": "hydrogen"
+    },
+    {
+     "class": "ConsumeLiquid",
+     "items": {},
+     "filter": [],
+     "amount": 0.012500000186264515,
+     "usagePerSecond": 0.0,
+     "durationMultipliers": {},
+     "booster": true,
+     "liquid": "cyanogen"
+    }
+   ]
+  },
+  {
+   "name": "impact-drill",
+   "size": 4,
+   "tier": 6,
+   "drillTime": 720.0,
+   "hardnessMult": 0.0,
+   "boostIntensity": 1.75,
+   "itemCapacity": 40,
+   "multipliers": {
+    "beryllium": 2.0
+   },
+   "boostLiquid": "ozone",
+   "boostLiquidPerSecond": 3.0,
+   "consumers": [
+    {
+     "class": "ConsumePower",
+     "items": {},
+     "filter": [],
+     "amount": 0.0,
+     "usagePerSecond": 160.0,
+     "durationMultipliers": {},
+     "booster": false
+    },
+    {
+     "class": "ConsumeLiquid",
+     "items": {},
+     "filter": [],
+     "amount": 0.1666666716337204,
+     "usagePerSecond": 0.0,
+     "durationMultipliers": {},
+     "booster": false,
+     "liquid": "water"
+    },
+    {
+     "class": "ConsumeLiquid",
+     "items": {},
+     "filter": [],
+     "amount": 0.05000000074505806,
+     "usagePerSecond": 0.0,
+     "durationMultipliers": {},
+     "booster": true,
+     "liquid": "ozone"
+    }
+   ]
+  },
+  {
+   "name": "large-cliff-crusher",
+   "size": 3,
+   "tier": 0,
+   "drillTime": 48.0,
+   "hardnessMult": 50,
+   "boostIntensity": 1.600000023841858,
+   "itemCapacity": 20,
+   "multipliers": {},
+   "boostLiquid": "",
+   "boostLiquidPerSecond": 0.0,
+   "consumers": [
+    {
+     "class": "ConsumePower",
+     "items": {},
+     "filter": [],
+     "amount": 0.0,
+     "usagePerSecond": 60.0,
+     "durationMultipliers": {},
+     "booster": false
+    },
+    {
+     "class": "ConsumeLiquid",
+     "items": {},
+     "filter": [],
+     "amount": 0.01666666753590107,
+     "usagePerSecond": 0.0,
+     "durationMultipliers": {},
+     "booster": false,
+     "liquid": "hydrogen"
+    },
+    {
+     "class": "ConsumeItems",
+     "items": {
+      "graphite": 1.0
+     },
+     "filter": [],
+     "amount": 0.0,
+     "usagePerSecond": 0.0,
+     "durationMultipliers": {},
+     "booster": true
+    }
+   ]
+  },
+  {
+   "name": "large-plasma-bore",
+   "size": 3,
+   "tier": 5,
+   "drillTime": 100.0,
+   "hardnessMult": 50,
+   "boostIntensity": 1,
+   "itemCapacity": 20,
+   "multipliers": {},
+   "boostLiquid": "nitrogen",
+   "boostLiquidPerSecond": 3.0,
+   "consumers": [
+    {
+     "class": "ConsumePower",
+     "items": {},
+     "filter": [],
+     "amount": 0.0,
+     "usagePerSecond": 48.0,
+     "durationMultipliers": {},
+     "booster": false
+    },
+    {
+     "class": "ConsumeLiquid",
+     "items": {},
+     "filter": [],
+     "amount": 0.008333333767950535,
+     "usagePerSecond": 0.0,
+     "durationMultipliers": {},
+     "booster": false,
+     "liquid": "hydrogen"
+    },
+    {
+     "class": "ConsumeLiquid",
+     "items": {},
+     "filter": [],
+     "amount": 0.05000000074505806,
+     "usagePerSecond": 0.0,
+     "durationMultipliers": {},
+     "booster": true,
+     "liquid": "nitrogen"
+    }
+   ]
+  },
+  {
+   "name": "laser-drill",
+   "size": 3,
+   "tier": 4,
+   "drillTime": 280.0,
+   "hardnessMult": 50.0,
+   "boostIntensity": 1.600000023841858,
+   "itemCapacity": 10,
+   "multipliers": {},
+   "boostLiquid": "water",
+   "boostLiquidPerSecond": 4.8,
+   "consumers": [
+    {
+     "class": "ConsumePower",
+     "items": {},
+     "filter": [],
+     "amount": 0.0,
+     "usagePerSecond": 66.0,
+     "durationMultipliers": {},
+     "booster": false
+    },
+    {
+     "class": "ConsumeLiquid",
+     "items": {},
+     "filter": [],
+     "amount": 0.07999999821186066,
+     "usagePerSecond": 0.0,
+     "durationMultipliers": {},
+     "booster": true,
+     "liquid": "water"
+    }
+   ]
+  },
+  {
+   "name": "mechanical-drill",
+   "size": 2,
+   "tier": 2,
+   "drillTime": 600.0,
+   "hardnessMult": 50.0,
+   "boostIntensity": 1.600000023841858,
+   "itemCapacity": 10,
+   "multipliers": {},
+   "boostLiquid": "water",
+   "boostLiquidPerSecond": 3.0,
+   "consumers": [
+    {
+     "class": "ConsumeLiquid",
+     "items": {},
+     "filter": [],
+     "amount": 0.05000000074505806,
+     "usagePerSecond": 0.0,
+     "durationMultipliers": {},
+     "booster": true,
+     "liquid": "water"
+    }
+   ]
+  },
+  {
+   "name": "plasma-bore",
+   "size": 2,
+   "tier": 3,
+   "drillTime": 160.0,
+   "hardnessMult": 50,
+   "boostIntensity": 1,
+   "itemCapacity": 10,
+   "multipliers": {},
+   "boostLiquid": "hydrogen",
+   "boostLiquidPerSecond": 0.25,
+   "consumers": [
+    {
+     "class": "ConsumePower",
+     "items": {},
+     "filter": [],
+     "amount": 0.0,
+     "usagePerSecond": 9.0,
+     "durationMultipliers": {},
+     "booster": false
+    },
+    {
+     "class": "ConsumeLiquid",
+     "items": {},
+     "filter": [],
+     "amount": 0.004166666883975267,
+     "usagePerSecond": 0.0,
+     "durationMultipliers": {},
+     "booster": true,
+     "liquid": "hydrogen"
+    }
+   ]
+  },
+  {
+   "name": "pneumatic-drill",
+   "size": 2,
+   "tier": 3,
+   "drillTime": 400.0,
+   "hardnessMult": 50.0,
+   "boostIntensity": 1.600000023841858,
+   "itemCapacity": 10,
+   "multipliers": {},
+   "boostLiquid": "water",
+   "boostLiquidPerSecond": 3.5,
+   "consumers": [
+    {
+     "class": "ConsumeLiquid",
+     "items": {},
+     "filter": [],
+     "amount": 0.05833333358168602,
+     "usagePerSecond": 0.0,
+     "durationMultipliers": {},
+     "booster": true,
+     "liquid": "water"
+    }
+   ]
+  }
+ ],
+ "separators": [
+  {
+   "name": "disassembler",
+   "size": 3,
+   "craftTime": 15.0,
+   "results": {
+    "sand": 2.0,
+    "graphite": 1.0,
+    "titanium": 1.0,
+    "thorium": 1.0
+   },
+   "consumers": [
+    {
+     "class": "ConsumePower",
+     "items": {},
+     "filter": [],
+     "amount": 0.0,
+     "usagePerSecond": 240.0,
+     "durationMultipliers": {},
+     "booster": false
+    },
+    {
+     "class": "ConsumeItems",
+     "items": {
+      "scrap": 1.0
+     },
+     "filter": [],
+     "amount": 0.0,
+     "usagePerSecond": 0.0,
+     "durationMultipliers": {},
+     "booster": false
+    },
+    {
+     "class": "ConsumeLiquid",
+     "items": {},
+     "filter": [],
+     "amount": 0.11999999731779099,
+     "usagePerSecond": 0.0,
+     "durationMultipliers": {},
+     "booster": false,
+     "liquid": "slag"
+    }
+   ],
+   "cps": 4.0,
+   "inputs": {
+    "scrap": 4.0
+   },
+   "inputLiquids": {
+    "slag": 7.2
+   },
+   "power": 240.0,
+   "outputs": [
+    {
+     "name": "sand",
+     "amount": 2.0,
+     "share": 0.4,
+     "perSecond": 1.6
+    },
+    {
+     "name": "graphite",
+     "amount": 1.0,
+     "share": 0.2,
+     "perSecond": 0.8
+    },
+    {
+     "name": "titanium",
+     "amount": 1.0,
+     "share": 0.2,
+     "perSecond": 0.8
+    },
+    {
+     "name": "thorium",
+     "amount": 1.0,
+     "share": 0.2,
+     "perSecond": 0.8
+    }
+   ]
+  },
+  {
+   "name": "separator",
+   "size": 2,
+   "craftTime": 35.0,
+   "results": {
+    "copper": 5.0,
+    "lead": 3.0,
+    "graphite": 2.0,
+    "titanium": 2.0
+   },
+   "consumers": [
+    {
+     "class": "ConsumePower",
+     "items": {},
+     "filter": [],
+     "amount": 0.0,
+     "usagePerSecond": 66.0,
+     "durationMultipliers": {},
+     "booster": false
+    },
+    {
+     "class": "ConsumeLiquid",
+     "items": {},
+     "filter": [],
+     "amount": 0.06666667014360428,
+     "usagePerSecond": 0.0,
+     "durationMultipliers": {},
+     "booster": false,
+     "liquid": "slag"
+    }
+   ],
+   "cps": 1.714286,
+   "inputs": {},
+   "inputLiquids": {
+    "slag": 4.0
+   },
+   "power": 66.0,
+   "outputs": [
+    {
+     "name": "copper",
+     "amount": 5.0,
+     "share": 0.416667,
+     "perSecond": 0.714286
+    },
+    {
+     "name": "lead",
+     "amount": 3.0,
+     "share": 0.25,
+     "perSecond": 0.428571
+    },
+    {
+     "name": "graphite",
+     "amount": 2.0,
+     "share": 0.166667,
+     "perSecond": 0.285714
+    },
+    {
+     "name": "titanium",
+     "amount": 2.0,
+     "share": 0.166667,
+     "perSecond": 0.285714
+    }
+   ]
+  }
+ ],
+ "items": {
+  "copper": {
+   "flammability": 0.0,
+   "radioactivity": 0.0,
+   "explosiveness": 0.0,
+   "hardness": 1.0
+  },
+  "lead": {
+   "flammability": 0.0,
+   "radioactivity": 0.0,
+   "explosiveness": 0.0,
+   "hardness": 1.0
+  },
+  "metaglass": {
+   "flammability": 0.0,
+   "radioactivity": 0.0,
+   "explosiveness": 0.0,
+   "hardness": 0.0
+  },
+  "graphite": {
+   "flammability": 0.0,
+   "radioactivity": 0.0,
+   "explosiveness": 0.0,
+   "hardness": 0.0
+  },
+  "sand": {
+   "flammability": 0.0,
+   "radioactivity": 0.0,
+   "explosiveness": 0.0,
+   "hardness": 0.0
+  },
+  "coal": {
+   "flammability": 1.0,
+   "radioactivity": 0.0,
+   "explosiveness": 0.20000000298023224,
+   "hardness": 2.0
+  },
+  "titanium": {
+   "flammability": 0.0,
+   "radioactivity": 0.0,
+   "explosiveness": 0.0,
+   "hardness": 3.0
+  },
+  "thorium": {
+   "flammability": 0.0,
+   "radioactivity": 1.0,
+   "explosiveness": 0.20000000298023224,
+   "hardness": 4.0
+  },
+  "scrap": {
+   "flammability": 0.0,
+   "radioactivity": 0.0,
+   "explosiveness": 0.0,
+   "hardness": 0.0
+  },
+  "silicon": {
+   "flammability": 0.0,
+   "radioactivity": 0.0,
+   "explosiveness": 0.0,
+   "hardness": 0.0
+  },
+  "plastanium": {
+   "flammability": 0.10000000149011612,
+   "radioactivity": 0.0,
+   "explosiveness": 0.20000000298023224,
+   "hardness": 0.0
+  },
+  "phase-fabric": {
+   "flammability": 0.0,
+   "radioactivity": 0.6000000238418579,
+   "explosiveness": 0.0,
+   "hardness": 0.0
+  },
+  "surge-alloy": {
+   "flammability": 0.0,
+   "radioactivity": 0.0,
+   "explosiveness": 0.0,
+   "hardness": 0.0
+  },
+  "spore-pod": {
+   "flammability": 1.149999976158142,
+   "radioactivity": 0.0,
+   "explosiveness": 0.0,
+   "hardness": 0.0
+  },
+  "blast-compound": {
+   "flammability": 0.4000000059604645,
+   "radioactivity": 0.0,
+   "explosiveness": 1.2000000476837158,
+   "hardness": 0.0
+  },
+  "pyratite": {
+   "flammability": 1.399999976158142,
+   "radioactivity": 0.0,
+   "explosiveness": 0.4000000059604645,
+   "hardness": 0.0
+  },
+  "beryllium": {
+   "flammability": 0.0,
+   "radioactivity": 0.0,
+   "explosiveness": 0.0,
+   "hardness": 3.0
+  },
+  "tungsten": {
+   "flammability": 0.0,
+   "radioactivity": 0.0,
+   "explosiveness": 0.0,
+   "hardness": 5.0
+  },
+  "oxide": {
+   "flammability": 0.0,
+   "radioactivity": 0.0,
+   "explosiveness": 0.0,
+   "hardness": 0.0
+  },
+  "carbide": {
+   "flammability": 0.0,
+   "radioactivity": 0.0,
+   "explosiveness": 0.0,
+   "hardness": 0.0
+  },
+  "fissile-matter": {
+   "flammability": 0.0,
+   "radioactivity": 1.5,
+   "explosiveness": 0.0,
+   "hardness": 0.0
+  },
+  "dormant-cyst": {
+   "flammability": 0.10000000149011612,
+   "radioactivity": 0.0,
+   "explosiveness": 0.0,
+   "hardness": 0.0
+  }
+ }
+}
