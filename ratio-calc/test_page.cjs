@@ -174,5 +174,18 @@ check("多产物来源：机器表出现 disassembler × 6",
 check("多产物来源：副产物钍出现在来源表",
       /thorium/.test(txt("sources")) && /4\.8/.test(txt("sources")), txt("sources").slice(0, 500));
 
+/* --- 液体需求表 --- */
+window.__ratio.block("graphite-press");
+$("count").value = "2";
+$("boundary").value = "coal, sand";
+window.__ratio.src("coal", { type: "import" });
+window.__ratio.run();
+check("液体需求表：没有液体时显示「无」",
+      /无（不需要液体）/.test(txt("liquids")), txt("liquids").slice(0, 200));
+
+window.__ratio.src("coal", { type: "drill", drill: "laser-drill", tiles: 8, boosted: true });
+check("液体需求表：钻头加水后出现 water 4.8/s",
+      /water/.test(txt("liquids")) && /4\.8/.test(txt("liquids")), txt("liquids").slice(0, 300));
+
 console.log(bad ? `\n${bad} 项失败` : "\n页面链路全部通过");
 process.exit(bad ? 1 : 0);

@@ -163,6 +163,9 @@
     <div class="sec">边界输入</div>
     <table id="demand"></table>
 
+    <div class="sec" id="liqsec">液体需求（水 / 油 / 冷冻液…，要自己接管线）</div>
+    <table id="liquids"></table>
+
     <div class="sec">外部来源（每项边界输入从哪来：运入 / 钻头 / 分离机·解离机）</div>
     <table id="sources"></table>
 
@@ -291,6 +294,20 @@
         esc(c.tiers[c.tiers.length - 1].unit) + "（T" + c.tiers.length + "）</option>";
     }).join("");
   })();
+
+  /* ---- 液体需求表：水 / 油 / 冷冻液…，这些得自己接管线 ---- */
+  function renderLiquids(res) {
+    var list = (res.liquids || []).slice();
+    var h = '<tr><th>液体</th><th class="num">每秒</th><th class="num">每分钟</th></tr>';
+    if (!list.length) {
+      el("liquids").innerHTML = h + '<tr><td colspan="3" class="dim">无（不需要液体）</td></tr>';
+      return;
+    }
+    el("liquids").innerHTML = h + list.map(function (l) {
+      return '<tr><td>' + esc(l.name) + '</td><td class="num">' + num(l.perSecond) +
+        '</td><td class="num">' + num(l.perSecond * 60) + '</td></tr>';
+    }).join("");
+  }
 
   /* ---- 外部来源表：每项边界输入选 运入 / 钻头 / 分离机·解离机 ---- */
   function renderSources(res) {
@@ -722,6 +739,7 @@
     }).join("") : '<tr><td colspan="3" class="dim">无（全部自产）</td></tr>');
 
     renderSources(res);
+    renderLiquids(res);
     renderPower(res.power);
     renderChain();
 

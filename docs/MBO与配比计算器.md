@@ -76,7 +76,7 @@
 - `estimate()` 返回 `rate = min(machine_cap, in_limited, out_limited)` + `bottleneck`；对 7 张历史图复算全部 1.3333、bottleneck=machine，与实测差 <2%。
 - **单格物流上限 4.9/s**：4 台压机需煤 5.3333/s ⇒ **单源最多供 2.45 石墨/s**，缺的 8% 是约束内必然。
 - 拆分探针（`MBO/spikes/gen/`）：源→带→容器 4.61/s、加 3 台路由器 4.69/s（**路由器不劈流量**）、单门 4.90/s、源→主干→4 门→4 容器 **4.9324/s**（输入网络本身能送满）；4 源合并输出 → 唯一黑洞 **2.5718/s**。
-- **模型盲区**：`logistics.py` 是纯容量模型，把压机四邻都当理想汇点，没建模"压机推料会占掉紧贴它的干线/输出带容量"——这正是 `q-tap1` 只到 78.5% 的原因（门喂压机与产物合流同时挂在 2×2 压机四邻上会掉 21%）。
+- **模型盲区（两类）**：①纯容量模型把压机四邻都当理想汇点，没建模"压机推料会占掉紧贴它的干线/输出带容量"——这正是 `q-tap1` 只到 78.5% 的原因（门喂压机与产物合流同时挂在 2×2 压机四邻上会掉 21%）；②它表达不了**方向性回吐死锁**：送料带指向压机时，压机把产物吐回脚下那格带子，带子又推回机器 ⇒ 吞吐 0，而模型仍报 2.45/s（实测 `runs/q-gap1` 死锁、`runs/q-gate-trunk` 只有 0.6794/s）。
 - 门的语义（`OverflowGate`，同类的 `invert` 字段）：**overflow 直行优先、堵了走两侧；underflow 两侧优先（都通则按 rotation 交替）、两侧都堵才直行。**
 - `DIRV = {0:(1,0), 1:(0,-1), 2:(-1,0), 3:(0,1)}` ⇒ `ROT["S"]` 指向 −y、`ROT["N"]` 才指向 +y（**极易搞反**）；`Layout(width, height, sizes)`、`add(name,x,y,rot,config)`、2×2 方块的 `(x,y)` 是左上角。
 
@@ -108,6 +108,22 @@ anyBlock(idx, name)                   统一 blocks/drills/multi/generators 视�
 - URL 参数：`?mode=building|item&block=&count=&item=&rate=&boundary=&force=&depth=&gen=&genfuel=&gencount=&chain=&chainrate=&src=sand:drill:laser-drill:8:1,scrap:multi:disassembler`。
 - 贴图为**原尺寸**（`size×32px`），全部内联 base64：`data/gamedata.js` = 33 工厂 / 17 兵厂 / 14 发电厂 / 10 钻头 / 2 多产物 / 22 物品 / 129 图标 / 438 KB。
 - 实例：`graphite-press ×2` → 石墨 1.333/s、煤 2.667/s、电力 0；煤改激光钻 8 格 → 3 台激光钻、电力 198 → 燃烧发电机 4 台、烧煤 2/s；`silicon-smelter ×3` + 沙用解离机 → 6 台解离机、电力 1530、副产石墨/钛/钍各 4.8/s、吃废料 24/s；`dagger 0.05/s` → 2/1/2/5/12 台、22944 电、硅 111.2/s。
+
+### 5.1 接入 bot 的四个入口（2026-11-07 加）
+
+算法只有一份（`core.js`），四个壳都只是调它，`test_cli.cjs` 里有逐项对拍：
+
+| 入口 | 文件 | 用法 | 适合 |
+|---|---|---|---|
+| 命令行 | `cli.cjs` | `node cli.cjs --item silicon --rate 5 --format json` | bot subprocess |
+| HTTP | `serve.cjs` | `GET /calc?item=silicon&rate=5&format=md`、`/list`、`/healthz` | 常驻服务、跨语言 |
+| Python | `ratio.py` | `ratio.query(...)` / `ratio.text(...)` / `ratio.image("c.png", ...)` | Python bot 直接 import |
+| 图 | `card.py` | `python card.py --item silicon --rate 5 --out card.png` | bot 发图（PIL 画、原尺寸图标内联） |
+
+- `cli.cjs` 的 `--boundary` 不写时默认 `coal,sand`（与网页一致，避免算出 `coal-centrifuge` 吃油的绕路链）；`all` = 所有矿外部输入，`none` = 全自产。
+- JSON 默认**剔除** base64 图标（`--icons` 保留）：体积能小一半以上；要发图就用 `card.py`。
+- 液体单独成表：方块条目的 `input_liquids`/`output_liquids` 来自 dump 的 per-tick `amount`×60；`res.liquids` 汇总全链液体（含水钻加速液）。
+- 卡片用 `C:\Windows\Fonts\msyh.ttc`，700px 宽、深色；`--scale 2` 出 2 倍图。示例 `ratio-calc/docs/card-{graphite,unit,chain,bot}.png`。
 
 ---
 

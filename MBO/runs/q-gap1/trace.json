@@ -1,0 +1,331 @@
+{
+  "run_id": "q-gap1",
+  "mbo_version": "0.1.0",
+  "python": "3.11.4",
+  "platform": "Windows-10-10.0.22631-SP0",
+  "snapshot_id": "v160.7@400da43e8580",
+  "gamedata_path": "F:\\OneDrive\\桌面\\AtomicStates\\MBO\\gamedata\\v160.7\\gamedata.json",
+  "gamedata_sha256": "400da43e85807124171925eca3486e2948b4d8c87307eb80de9135b320063509",
+  "target": "graphite",
+  "requested_rate": 2.45,
+  "boundary": [
+    "coal"
+  ],
+  "canvas": [
+    14,
+    5
+  ],
+  "layout_name": "",
+  "layout_description": "",
+  "layout": [
+    {
+      "block": "item-source",
+      "x": 0,
+      "y": 0,
+      "rotation": 0,
+      "config": {
+        "__dict__": {
+          "__content__": "item",
+          "id": 5
+        }
+      }
+    },
+    {
+      "block": "conveyor",
+      "x": 1,
+      "y": 0,
+      "rotation": 0,
+      "config": null
+    },
+    {
+      "block": "underflow-gate",
+      "x": 2,
+      "y": 0,
+      "rotation": 0,
+      "config": null
+    },
+    {
+      "block": "conveyor",
+      "x": 3,
+      "y": 0,
+      "rotation": 0,
+      "config": null
+    },
+    {
+      "block": "conveyor",
+      "x": 4,
+      "y": 0,
+      "rotation": 0,
+      "config": null
+    },
+    {
+      "block": "underflow-gate",
+      "x": 5,
+      "y": 0,
+      "rotation": 0,
+      "config": null
+    },
+    {
+      "block": "conveyor",
+      "x": 6,
+      "y": 0,
+      "rotation": 0,
+      "config": null
+    },
+    {
+      "block": "conveyor",
+      "x": 7,
+      "y": 0,
+      "rotation": 0,
+      "config": null
+    },
+    {
+      "block": "underflow-gate",
+      "x": 8,
+      "y": 0,
+      "rotation": 0,
+      "config": null
+    },
+    {
+      "block": "conveyor",
+      "x": 9,
+      "y": 0,
+      "rotation": 0,
+      "config": null
+    },
+    {
+      "block": "conveyor",
+      "x": 10,
+      "y": 0,
+      "rotation": 0,
+      "config": null
+    },
+    {
+      "block": "underflow-gate",
+      "x": 11,
+      "y": 0,
+      "rotation": 0,
+      "config": null
+    },
+    {
+      "block": "conveyor",
+      "x": 2,
+      "y": 1,
+      "rotation": 3,
+      "config": null
+    },
+    {
+      "block": "graphite-press",
+      "x": 2,
+      "y": 2,
+      "rotation": 0,
+      "config": null
+    },
+    {
+      "block": "conveyor",
+      "x": 5,
+      "y": 1,
+      "rotation": 3,
+      "config": null
+    },
+    {
+      "block": "graphite-press",
+      "x": 5,
+      "y": 2,
+      "rotation": 0,
+      "config": null
+    },
+    {
+      "block": "conveyor",
+      "x": 8,
+      "y": 1,
+      "rotation": 3,
+      "config": null
+    },
+    {
+      "block": "graphite-press",
+      "x": 8,
+      "y": 2,
+      "rotation": 0,
+      "config": null
+    },
+    {
+      "block": "conveyor",
+      "x": 11,
+      "y": 1,
+      "rotation": 3,
+      "config": null
+    },
+    {
+      "block": "graphite-press",
+      "x": 11,
+      "y": 2,
+      "rotation": 0,
+      "config": null
+    },
+    {
+      "block": "conveyor",
+      "x": 2,
+      "y": 4,
+      "rotation": 0,
+      "config": null
+    },
+    {
+      "block": "conveyor",
+      "x": 3,
+      "y": 4,
+      "rotation": 0,
+      "config": null
+    },
+    {
+      "block": "conveyor",
+      "x": 4,
+      "y": 4,
+      "rotation": 0,
+      "config": null
+    },
+    {
+      "block": "conveyor",
+      "x": 5,
+      "y": 4,
+      "rotation": 0,
+      "config": null
+    },
+    {
+      "block": "conveyor",
+      "x": 6,
+      "y": 4,
+      "rotation": 0,
+      "config": null
+    },
+    {
+      "block": "conveyor",
+      "x": 7,
+      "y": 4,
+      "rotation": 0,
+      "config": null
+    },
+    {
+      "block": "conveyor",
+      "x": 8,
+      "y": 4,
+      "rotation": 0,
+      "config": null
+    },
+    {
+      "block": "conveyor",
+      "x": 9,
+      "y": 4,
+      "rotation": 0,
+      "config": null
+    },
+    {
+      "block": "conveyor",
+      "x": 10,
+      "y": 4,
+      "rotation": 0,
+      "config": null
+    },
+    {
+      "block": "conveyor",
+      "x": 11,
+      "y": 4,
+      "rotation": 0,
+      "config": null
+    },
+    {
+      "block": "router",
+      "x": 12,
+      "y": 4,
+      "rotation": 0,
+      "config": null
+    },
+    {
+      "block": "item-void",
+      "x": 13,
+      "y": 4,
+      "rotation": 0,
+      "config": null
+    }
+  ],
+  "layout_stats": {
+    "blocks": 32,
+    "tiles": 44,
+    "footprint": 70,
+    "counts": {
+      "item-source": 1,
+      "conveyor": 21,
+      "underflow-gate": 4,
+      "graphite-press": 4,
+      "router": 1,
+      "item-void": 1
+    }
+  },
+  "plan": {
+    "target": "graphite",
+    "requested_rate": 2.45,
+    "achieved_rate": 2.45,
+    "machines": {
+      "graphite-press": 4
+    },
+    "boundary_demand": {
+      "coal": 5.3333
+    },
+    "power_need": 0.0,
+    "warnings": []
+  },
+  "prediction": {
+    "expected_rate": 2.45,
+    "plan_rate": 2.45,
+    "power_need": 0.0,
+    "boundary": {
+      "coal": 5.333
+    },
+    "tiles": 44,
+    "footprint": 70,
+    "ports": 2,
+    "clusters": 2,
+    "search": {
+      "candidates": 1,
+      "feasible": 1,
+      "pareto": []
+    }
+  },
+  "engine": {
+    "ok": true,
+    "ticks": 1811.8743293769658,
+    "wall_s": 45.4,
+    "placed": "BP\t0\tPLACED\tindexed=49\tbbox=7,7..70,66\tbuildings=29",
+    "samples_n": 96,
+    "metrics": {
+      "rate": 0.0,
+      "measured_by": "cycles",
+      "rate_containers": 0.0,
+      "rate_cycles": 0.0,
+      "cycles": 0,
+      "cycles_frac": 0.0,
+      "window": [
+        310.9,
+        1811.9
+      ],
+      "window_s": 25.02,
+      "containers_delta": 0.0,
+      "machines": 4,
+      "eff_avg": 0.0,
+      "eff_low": 320,
+      "progress_sum": 0.0,
+      "power_sat_min": 1.0,
+      "deadlock": true,
+      "sample_n": 80
+    }
+  },
+  "params": {
+    "layout": "flow-tap",
+    "sink": "merged",
+    "trunk": "belts",
+    "gap": 1
+  },
+  "reproduce": [
+    "python -m mbo gen graphite:2.45 --boundary coal --layout flow-tap --out q-gap1"
+  ]
+}

@@ -155,10 +155,21 @@ def build(raw: dict, block_index: dict, unit_prod: dict | None,
         if frames <= 0:
             continue
         inputs = []
+        in_liquids = []
         for cons in r.get("inputs") or []:
             for it in cons.get("items") or []:
                 inputs.append([it["name"], float(it["amount"])])
+            for lq in cons.get("liquids") or []:
+                # consumers 里的液体量是 per-tick
+                in_liquids.append([lq["name"], float(lq["amount"]) * 60.0])
         outputs = [[it["name"], float(it["amount"])] for it in r.get("outputItems") or []]
+        out_liquids = []
+        for lq in r.get("outputLiquidsPerSecond") or []:
+            out_liquids.append([lq["name"], float(lq["amount"])])
+        if not out_liquids:
+            cps = float(r.get("cyclesPerSecond") or 0.0)
+            for lq in r.get("outputLiquids") or []:
+                out_liquids.append([lq["name"], float(lq["amount"]) * cps])
         pw = b.get("power") or {}
         blocks.append({
             "name": b["name"],
@@ -168,6 +179,8 @@ def build(raw: dict, block_index: dict, unit_prod: dict | None,
             "craft_time": int(frames),
             "inputs": inputs,
             "outputs": outputs,
+            "input_liquids": in_liquids,
+            "output_liquids": out_liquids,
             "icon": icon_data_uri(block_index.get(b["name"])),
         })
 

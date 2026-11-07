@@ -31,6 +31,8 @@
         icon: b.icon || "",
         inputs: (b.inputs || []).map(function (p) { return { name: p[0], amount: p[1] }; }),
         outputs: (b.outputs || []).map(function (p) { return { name: p[0], amount: p[1] }; }),
+        inputLiquids: (b.input_liquids || []).map(function (p) { return { name: p[0], perSecond: p[1] }; }),
+        outputLiquids: (b.output_liquids || []).map(function (p) { return { name: p[0], perSecond: p[1] }; }),
         plans: (b.plans || []).map(function (p) {
           return {
             unit: p.unit,
@@ -257,6 +259,7 @@
           order: order,
           demand: demand,
           power: power,
+          liquids: liquidDemand(idx, machines),
           warnings: warnings,
           snapshot: idx.snapshot || ""
         };
@@ -327,14 +330,14 @@
         ? Math.min(Math.max(0, opts.plan || 0), Math.max(0, (b.plans || []).length - 1)) : 0,
       planTotal: b.kind === "unit" && b.factoryKind !== "reconstructor" ? (b.plans || []).length : 0
     });
-    // 目标建筑自身也进建造清单（电力要一起算进去：ex.result 里还没有它）
+    // 目标建筑自身也进建造清单（电力/液体要一起算进去：ex.result 里还没有它）
     res.machines[blockName] = (res.machines[blockName] || 0) + count;
     res.machines = sortMachines(res.machines);
-    res.power = 0;
-    Object.keys(res.machines).forEach(function (name) {
-      var mb = idx.blocks.get(name);
-      if (mb) res.power += res.machines[name] * mb.power;
+    (b.inputLiquids || []).forEach(function (l) {
+      res.liquidExtra = res.liquidExtra || {};
+      res.liquidExtra[l.name] = (res.liquidExtra[l.name] || 0) + count * l.perSecond;
     });
+    recalcPower(idx, res);
     if (b.factoryKind === "assembler") {
       res.warnings.push("组装厂消耗的是方块（Payload），这里按外部输入处理，不展开成工厂");
     }
@@ -525,6 +528,22 @@
     };
   }
 
+  /* 机器清单带来的液体需求（每秒）：方块/兵厂/多产物方块的输入液体 + 钻头加速液 */
+  function liquidDemand(idx, machines, extra) {
+    var acc = {};
+    Object.keys(machines || {}).forEach(function (name) {
+      var b = anyBlock(idx, name);
+      if (!b) return;
+      (b.inputLiquids || []).forEach(function (l) {
+        var nm = l.name !== undefined ? l.name : l[0];
+        var ps = l.perSecond !== undefined ? l.perSecond : l[1];
+        acc[nm] = (acc[nm] || 0) + machines[name] * ps;
+      });
+    });
+    Object.keys(extra || {}).forEach(function (k) { acc[k] = (acc[k] || 0) + extra[k]; });
+    return Object.keys(acc).sort().map(function (k) { return { name: k, perSecond: round(acc[k]) }; });
+  }
+
   function recalcPower(idx, res) {
     var power = 0;
     Object.keys(res.machines).forEach(function (name) {
@@ -532,6 +551,7 @@
       if (mb && mb.kind !== "generator") power += res.machines[name] * mb.power;
     });
     res.power = power;
+    res.liquids = liquidDemand(idx, res.machines, res.liquidExtra);
     return power;
   }
 
@@ -558,6 +578,10 @@
         row.power = plan.power; row.liquid = plan.liquid;
         row.icon = (idx.drills.get(plan.drill) || {}).icon || "";
         if (plan.count) res.machines[plan.drill] = (res.machines[plan.drill] || 0) + plan.count;
+        if (plan.liquid) {
+          res.liquidExtra = res.liquidExtra || {};
+          res.liquidExtra[plan.liquid.name] = (res.liquidExtra[plan.liquid.name] || 0) + plan.liquid.perSecond;
+        }
       } else if (type === "multi") {
         var block = c.block || "separator";
         var m = idx.multi.get(block);
@@ -632,7 +656,8 @@
               drillRate: drillRate, drillsNeeded: drillsNeeded,
               generatorPlan: generatorPlan, generatorSupply: generatorSupply,
               separatorPlan: separatorPlan, unitChain: unitChain,
-              applySources: applySources, recalcPower: recalcPower };
+              applySources: applySources, recalcPower: recalcPower,
+              liquidDemand: liquidDemand };
   global.RatioCore = api;
   if (typeof module !== "undefined" && module.exports) module.exports = api;
 })(typeof window !== "undefined" ? window : globalThis);

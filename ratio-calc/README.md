@@ -1,10 +1,11 @@
-# 自动配比计算器（网页版）
+# 自动配比计算器（网页 + 命令行 + HTTP + PNG 卡片）
 
 算 Mindustry v160.7 的产线配比：给一个**目标**，算出要几台什么机器、上游每种物品多少/秒、总电力、
 要几台发电厂烧多少燃料、外部原料用哪种钻头/要不要加水、兵厂 T1→T5 整条升级链要几台。
 界面上的工厂、兵厂、单位、物品、发电厂、钻头全部用**原版贴图图标**（原尺寸内联 base64，不依赖外部图片）。
 
-双击 `index.html` 就能开（不需要服务器、不需要联网）。
+双击 `index.html` 就能开（不需要服务器、不需要联网）；要接到 bot 上就看下面的
+[接入 bot（四种接法）](#接入-bot四种接法)：命令行、HTTP、Python、直接出图。
 
 ## 三种输入方式
 
@@ -75,18 +76,131 @@ index.html?mode=item&item=silicon&rate=5&force=silicon=silicon-crucible
 
 `src` 格式：`物品:drill:钻头:矿格数:是否加水(0/1)` 或 `物品:multi:方块` 或 `物品:import`，多项用逗号分隔。
 
+## 接入 bot（四种接法）
+
+网页只是壳，算法在 `core.js`；bot 侧随便用下面任意一种，**结果完全一致**（同一份 `core.js`，`test_cli.cjs` 里有逐项对拍）。
+
+### 1. 命令行（最省事，subprocess 直接调）
+
+```bash
+node ratio-calc/cli.cjs --item silicon --rate 5
+node ratio-calc/cli.cjs --block graphite-press --count 2 --format json
+node ratio-calc/cli.cjs --block silicon-smelter --count 3 --boundary coal,sand \
+     --src sand=drill:laser-drill:8:1 --gen steam-generator --genfuel coal --format md
+node ratio-calc/cli.cjs --chain dagger --chainrate 0.05
+node ratio-calc/cli.cjs --list          # 列出物品/工厂/兵厂/发电厂/钻头/多产物/兵厂链
+```
+
+| 参数 | 说明 |
+|---|---|
+| `--item X --rate N` | 按目标产物速率算（次模式） |
+| `--block X --count N` | 按满效建筑台数算（主模式，工厂与兵厂都行） |
+| `--plan N` | 兵厂有多个生产计划时选第 N 个（默认 0） |
+| `--chain 单位 --chainrate N` | 兵厂 T1→T5 大循环，给顶级单位速率反推每一级 |
+| `--boundary a,b` | 外部输入的物品；不写默认 `coal,sand`；`all` = 所有矿，`none` = 全部自产 |
+| `--src 物品=drill:钻头:矿格数:0/1`<br>`--src 物品=multi:分离机/解离机`<br>`--src 物品=import` | 每项边界输入从哪来（可重复） |
+| `--force 物品=方块` | 指定多配方物品用哪个方块 |
+| `--depth N` | 递归层数（超过的按外部输入） |
+| `--gen 发电厂 --genfuel 燃料 [--gencount N]` | 供电方案；台数 0/省略 = 自动补足 |
+| `--format text\|md\|json` | 输出格式（`md` 是表格，适合 bot 卡片） |
+| `--icons` | JSON 里保留 base64 图标（默认剔除，JSON 会小一半以上） |
+| `--data 文件` | 换数据文件（默认 `data/gamedata.js`） |
+
+退出码：成功 0，参数/数据错误 2（`--format json` 时错误也是 `{ok:false,error}`）。
+
+### 2. HTTP（常驻服务）
+
+```bash
+node ratio-calc/serve.cjs --port 8799 --host 127.0.0.1
+curl "http://127.0.0.1:8799/calc?item=graphite&rate=1"
+curl "http://127.0.0.1:8799/calc?block=ground-factory&count=2&gen=steam-generator&genfuel=coal&format=md"
+curl "http://127.0.0.1:8799/list?format=json"
+curl "http://127.0.0.1:8799/healthz"
+```
+
+- `/calc` 接受与 CLI 同名的参数（`src` 可重复），缺 `item/block/chain` 返回 400；
+- `/list` 返回清单；`/healthz` 返回 `{"ok":true}`；`Access-Control-Allow-Origin: *` 已开。
+
+### 3. Python（bot 是 Python 时最顺）
+
+```python
+import sys; sys.path.insert(0, "ratio-calc")
+import ratio
+
+d = ratio.query(item="silicon", rate=5)                       # dict
+print(ratio.text(block="graphite-press", count=2))            # 纯文本
+print(ratio.markdown(chain="dagger", chainrate=0.05))          # Markdown 表格
+ratio.image("card.png", item="graphite", rate=2)               # 出 PNG 卡片
+d2 = ratio.http_query("http://127.0.0.1:8799", item="graphite", rate=1)   # 走 HTTP 服务
+```
+
+```bash
+python -X utf8 ratio-calc/ratio.py --item silicon --rate 5
+python -X utf8 ratio-calc/ratio.py --block ground-factory --count 2 --image gf.png
+```
+
+`ratio.py` 用 `RATIO_NODE` 环境变量指定 node（默认 `node`），本身只用标准库。
+
+### 4. 图（bot 直接发图）
+
+```bash
+python -X utf8 ratio-calc/card.py --item silicon --rate 5 --out card.png
+python -X utf8 ratio-calc/card.py --block ground-factory --count 2 \
+    --gen steam-generator --genfuel coal --scale 2 --out gf.png
+python -X utf8 ratio-calc/card.py --chain dagger --chainrate 0.05 --out chain.png
+python -X utf8 ratio-calc/card.py --json result.json --out card.png   # 喂现成 JSON
+```
+
+深色主题、700px 宽（`--width` 可改，`--scale` 出 2 倍图），建筑/物品**原尺寸图标**（`size×32px`）随卡片一起画好，
+不依赖 emoji 或外部字体；示例见 `docs/card-graphite.png`、`docs/card-unit.png`、`docs/card-chain.png`、`docs/card-bot.png`。
+
+### JSON 结构（三种模式统一）
+
+```jsonc
+{
+  "ok": true,
+  "mode": "item | building | chain",
+  "target": "silicon 5/s" ,              // 一句话描述
+  "products": [{ "name": "silicon", "type": "item", "rate": 5 }],
+  "machines": [{ "name": "silicon-smelter", "count": 3, "kind": "item",
+                 "size": 2, "powerEach": 60, "powerTotal": 180,
+                 "icon": "data:image/png;base64,…",        // --icons 时才有
+                 "outItems": [{ "name": "silicon", "perSecond": 2.5, "icon": "…" }] }],
+  "demand":  [{ "name": "coal", "perSecond": 3.6, "icon": "…" }],
+  "liquids": [{ "name": "water", "perSecond": 12 }],       // 要自己接管线
+  "power": 180,
+  "sources": [{ "item": "sand", "type": "drill", "drill": "laser-drill", "count": 3,
+                "perSecondEach": 1.263, "liquid": { "name": "water", "perSecond": 4.8 },
+                "power": 198, "byproducts": [] }],
+  "supply":  { "name": "steam-generator", "count": 1, "netTotal": 330,
+               "fuel": { "name": "coal", "perSecondEach": 0.667, "perSecond": 0.667 },
+               "liquids": [{ "name": "water", "perSecond": 6 }] },
+  "chain":   { "rows": [{ "tier": 1, "unit": "dagger", "block": "ground-factory",
+                          "count": 2, "actual": 0.0667 }],
+               "materials": { "silicon": 111.2, "lead": 1.33 },
+               "power": 22944 },
+  "warnings": ["…"]
+}
+```
+
 ## 文件
 
 | 文件 | 作用 |
 |---|---|
-| `index.html` | 单页应用（样式 + 三个模式 + 来源/供电/兵厂链三块表，无第三方库） |
-| `core.js` | 内核：展开、钻头/发电/多产物/兵厂链算法（浏览器 + node 通用，`module.exports`） |
-| `data/gamedata.js` | 导出数据 + 内联图标：33 工厂 / 17 兵厂 / 14 发电厂 / 10 钻头 / 2 多产物 / 22 物品 / 129 图标 / 438 KB |
+| `index.html` | 单页应用（样式 + 三个模式 + 来源/供电/兵厂链/液体四块表，无第三方库） |
+| `core.js` | 内核：展开、钻头/发电/多产物/兵厂链/液体算法（浏览器 + node 通用，`module.exports`） |
+| `data/gamedata.js` | 导出数据 + 内联图标：33 工厂 / 17 兵厂 / 14 发电厂 / 10 钻头 / 2 多产物 / 22 物品 / 129 图标 / 439.6 KB |
 | `export_data.py` | 重新导出：`python -X utf8 ratio-calc/export_data.py` |
 | `make_cases.py` | 用 `mbo calc --json` 生成对拍用例 |
+| `cli.cjs` | **bot 入口**：命令行 + 文本/Markdown/JSON 渲染 |
+| `serve.cjs` | **bot 入口**：HTTP 服务（`/calc` `/list` `/healthz`） |
+| `ratio.py` | **bot 入口**：Python 包装（`query/text/markdown/image/http_query`） |
+| `card.py` | **bot 入口**：把结果画成 PNG 卡片（带原尺寸图标） |
 | `test_core.cjs` | 14 项对拍 `mbo calc` + 29 项新算法断言 |
-| `test_page.cjs` | 最小 DOM 桩跑页面：34 项断言，不用浏览器 |
+| `test_page.cjs` | 最小 DOM 桩跑页面：36 项断言，不用浏览器 |
+| `test_cli.cjs` | 28 项：CLI/HTTP 与 `core.js` 逐项对拍 + 渲染 + 错误分支 |
 | `docs/screenshot-*.png` | 页面截图（Edge headless） |
+| `docs/card-*.png` | PNG 卡片示例 |
 
 ## 数据从哪来
 
@@ -101,7 +215,8 @@ index.html?mode=item&item=silicon&rate=5&force=silicon=silicon-crucible
 
 ```
 node ratio-calc/test_core.cjs   → 14 项对拍 mbo calc 全部一致 + 29 项新算法断言通过
-node ratio-calc/test_page.cjs   → 34 项页面链路断言通过
+node ratio-calc/test_page.cjs   → 36 项页面链路断言通过
+node ratio-calc/test_cli.cjs    → 28 项 CLI/HTTP 与 core.js 对拍通过
 ```
 
 对拍用例覆盖石墨/硅/合金/玻璃/塑料/爆炸物/燃烧物/相织物/孢子荚 + 3 个 `--force`；
