@@ -165,8 +165,32 @@ def case_generator():
     check_width(r)
 
 
+def case_mixed():
+    r = run_cli(["--mix", "silicon-arc-furnace:1,carbide-crucible:1"])
+    assert r.get("mode") == "mixed", r.get("mode")
+    t = flat(r)
+    assert "混合厂" in texts(r)[0][1], texts(r)[0]
+    assert "多个目标合并算上游" in texts(r)[0][1], texts(r)[0]
+    assert "目标" in t, t
+    assert idx_of(r, "目标") < idx_of(r, "工厂配比"), t
+    assert "共享" in t and "11" in t, t        # 分别建 11 台石墨压机
+    assert "对比分别建：机器 13 → 12" in t, t
+    assert "graphite-press" in t, t
+    check_width(r)
+
+
+def case_mixed_generator():
+    r = run_cli(["--mix", "silicon-smelter:2,combustion-generator:1"])
+    t = flat(r)
+    assert "厂内发电 60/s" in t, t
+    assert "净电力 0/s" in t, t
+    check_width(r)
+
+
 ok("渲染：尺寸一致、PNG 非空", case_png)
 ok("发电设备：配比在前、发电量正确、带供电段", case_generator)
+ok("混合厂：标题/目标表/共享省台数/对比分别建", case_mixed)
+ok("混合厂：发电设备当目标时写厂内发电与净电力", case_mixed_generator)
 
 print("\n通过 %d 项，失败 %d 项" % (pass_n, fail_n))
 sys.exit(1 if fail_n else 0)

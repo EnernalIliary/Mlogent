@@ -139,6 +139,20 @@ function chainResult(env, ch, count) {
 
 /* ---------------- 查询 ---------------- */
 
+/* --mix "silicon-smelter:2,graphite-press:3" → [{block,count}]（第三段可选，兵厂的生产计划号） */
+function parseMix(v) {
+  if (!v || v === true) throw new Error("--mix 要写成 block:count,block:count（例如 silicon-smelter:2,graphite-press:3）");
+  const list = String(v).split(",").map(s => s.trim()).filter(Boolean).map(spec => {
+    const p = spec.split(":").map(x => x.trim());
+    if (!p[0]) throw new Error("--mix 里有一段没写方块名：" + spec);
+    const count = p[1] === undefined || p[1] === "" ? 1 : Number(p[1]);
+    if (!Number.isFinite(count) || count <= 0) throw new Error("--mix 台数要大于 0：" + spec);
+    return { block: p[0], count: count, plan: p[2] ? Number(p[2]) : 0 };
+  });
+  if (!list.length) throw new Error("--mix 至少要一个目标");
+  return list;
+}
+
 function query(opts) {
   const env = loadData(opts.data);
   const DATA = env.DATA, R = env.R, idx = env.idx;
@@ -175,7 +189,36 @@ function query(opts) {
     return out;
   }
 
-  if (opts.block) {
+  if (opts.mix) {
+    /* 混合厂：多个目标（物品工厂 / 发电设备）合并算上游，共享中间产物只建一份 */
+    const targets = parseMix(opts.mix);
+    const r = R.expandMixed(DATA, targets, {
+      boundary: boundary, force: force, maxDepth: depth, sources: sources
+    });
+    res.mode = "mixed";
+    res.targets = r.targets.map(t => ({
+      block: t.block, count: t.count, kind: t.kind,
+      products: (t.products || []).map(p => ({ name: p.name, type: p.type, rate: round(p.rate) })),
+      inputs: (t.inputs || []).map(i => ({ name: i.name, amount: round(i.amount) })),
+      power: round(t.power), powerOut: round(t.powerOut)
+    }));
+    res.target = targets.map(t => t.block + "×" + t.count).join(" + ");
+    res.requested = targets.reduce((a, t) => a + t.count, 0);
+    res.products = r.products;
+    res.inputs = r.inputs;
+    res.machines = flattenMachines(DATA, R, r);
+    res.demand = Object.keys(r.demand).sort().map(k => ({ name: k, perSecond: r.demand[k] }));
+    res.power = r.power;
+    res.powerOut = r.powerOut;
+    res.netPower = r.netPower;
+    res.shared = (r.shared || []).map(s => Object.assign({}, s));
+    res.internals = r.internals || [];
+    res.compare = r.compare || null;
+    res.liquids = r.liquids || [];
+    res.warnings = r.warnings || [];
+    res.sources = r.sources || [];
+    res.liquidSources = r.liquidSources || [];
+  } else if (opts.block) {
     const count = num(opts.count, 1);
     /* 选中的是兵厂 → 直接走 T1→T5 大循环（和页面「按目标建筑台数」一致） */
     const selB = env.idx ? R.anyBlock(env.idx, String(opts.block)) : null;
@@ -323,8 +366,18 @@ function renderText(res) {
   }
   const head = res.mode === "building"
     ? "配比：" + res.target + " ×" + fmtNum(res.requested) + "（建筑模式，满效）"
-    : "配比：" + res.target + " " + fmtNum(res.requested) + "/s（物品模式）";
+    : res.mode === "mixed"
+      ? "混合厂：" + res.target + "（" + res.targets.length + " 个目标，合并算上游，共享产物只建一份）"
+      : "配比：" + res.target + " " + fmtNum(res.requested) + "/s（物品模式）";
   L.push(head);
+  if (res.mode === "mixed" && res.targets) {
+    res.targets.forEach(t => {
+      const outs = (t.products || []).map(p => p.name + " " + fmtNum(p.rate) + "/s").join("、");
+      const ins = (t.inputs || []).map(i => i.name + " " + fmtNum(i.amount) + "/s").join("、");
+      L.push("  · " + t.block + " ×" + t.count + (outs ? " → " + outs : "")
+        + (ins ? "（吃 " + ins + "）" : "") + (t.powerOut ? "（发电 " + fmtNum(t.powerOut) + "/s）" : ""));
+    });
+  }
   if (res.products.length) {
     L.push("  产出：" + res.products.map(p => p.name + " " + fmtNum(p.rate) + "/s").join("、"));
   }
@@ -339,7 +392,25 @@ function renderText(res) {
     });
   }
   const total = res.machines.reduce((a, m) => a + m.count, 0);
-  L.push("  机器合计：" + total + " 台，电力 " + fmtNum(res.power) + "/s");
+  L.push("  机器合计：" + total + " 台，电力 " + fmtNum(res.power) + "/s" +
+         (res.mode === "mixed" && res.powerOut ? "，厂内发电 " + fmtNum(res.powerOut) +
+           "/s，净 " + fmtNum(res.netPower) + "/s" : ""));
+  if (res.mode === "mixed" && res.shared && res.shared.length) {
+    const hit = res.shared.filter(s => s.saved > 0);
+    res.shared.forEach(s => {
+      let line = "  共享 " + s.item + "：" + s.block + " ×" + s.mixedCount + "（混合）";
+      if (s.fromTargets > 0) line += "，目标自产抵扣 " + fmtNum(s.fromTargets) + "/s";
+      if (s.separateCount) line += "，分别建要 ×" + s.separateCount + (s.saved ? "（省 " + s.saved + " 台）" : "");
+      L.push(line);
+    });
+    if (res.compare) {
+      L.push("  对比分别建：机器 " + res.compare.machinesSeparate + " → " + res.compare.machinesMixed +
+             "（省 " + res.compare.savedMachines + "），占地 " + res.compare.tilesSeparate + " → " +
+             res.compare.tilesMixed + "（省 " + res.compare.savedTiles + " 格）" +
+             (res.compare.savedPower ? "，电力省 " + fmtNum(res.compare.savedPower) + "/s" : ""));
+    }
+    if (!hit.length) L.push("  （这组目标没有共享的中间产物，混合只省了取整误差）");
+  }
   if (res.demand.length) {
     L.push("  边界输入：" + res.demand.map(d => d.name + " " + fmtNum(d.perSecond) + "/s").join("、"));
   }
@@ -420,14 +491,40 @@ function renderMarkdown(res) {
   }
   L.push("**" + (res.mode === "building"
     ? "配比：" + res.target + " ×" + fmtNum(res.requested)
-    : "配比：" + res.target + " " + fmtNum(res.requested) + "/s") + "**");
+    : res.mode === "mixed"
+      ? "混合厂：" + res.target + "（" + res.targets.length + " 个目标，合并算上游）"
+      : "配比：" + res.target + " " + fmtNum(res.requested) + "/s") + "**");
   L.push("");
+  if (res.mode === "mixed" && res.targets) {
+    L.push("| 目标 | 台数 | 产出/s | 吃料/s |");
+    L.push("|---|---|---|---|");
+    res.targets.forEach(t => {
+      L.push("| " + t.block + " | " + t.count + " | " +
+        ((t.products || []).map(p => p.name + " " + fmtNum(p.rate)).join("<br>") || "—") + " | " +
+        ((t.inputs || []).map(i => i.name + " " + fmtNum(i.amount)).join("<br>") || "—") + " |");
+    });
+    L.push("");
+  }
   if (res.products.length) L.push("产出：" + res.products.map(p => p.name + " " + fmtNum(p.rate) + "/s").join("、"));
   L.push("");
   L.push("| 建筑 | 台数 | 电力/s |");
   L.push("|---|---|---|");
   res.machines.forEach(m => L.push("| " + m.name + " | " + m.count + " | " + (m.powerTotal ? fmtNum(m.powerTotal) : "—") + " |"));
   L.push("");
+  if (res.mode === "mixed" && res.compare) {
+    L.push("电力 **" + fmtNum(res.power) + "/s**" +
+      (res.powerOut ? "，厂内发电 " + fmtNum(res.powerOut) + "/s，净 **" + fmtNum(res.netPower) + "/s**" : "") +
+      "；对比分别建：机器 " + res.compare.machinesSeparate + " → " + res.compare.machinesMixed +
+      "（省 " + res.compare.savedMachines + "），占地 " + res.compare.tilesSeparate + " → " +
+      res.compare.tilesMixed + " 格（省 " + res.compare.savedTiles + "）。");
+    const sh = (res.shared || []).filter(s => s.separateCount && s.saved > 0);
+    if (sh.length) {
+      L.push("");
+      L.push("共享产物（混合只建一份）：" + sh.map(s =>
+        s.item + " ×" + s.mixedCount + "（分别建 ×" + s.separateCount + "，省 " + s.saved + "）").join("、"));
+    }
+    L.push("");
+  }
   if (res.demand.length) L.push("边界输入：" + res.demand.map(d => d.name + " " + fmtNum(d.perSecond) + "/s").join("、"));
   if (res.liquids && res.liquids.length) {
     L.push("液体需求：" + res.liquids.map(d => {
@@ -482,6 +579,7 @@ function usage() {
     "",
     "  --item <物品> --rate <每秒>          按物品速率算（默认 1/s）",
     "  --block <方块> --count <台数>        按目标建筑台数算（满效）",
+    "  --mix \"a:2,b:3\"                     混合厂：多个目标合并算上游（共享中间产物只建一份）",
     "  --plan <N>                          兵厂有多个生产计划时选第几个（0 起）",
     "  --chain <单位> --chainexpr 5t5      兵厂 T1→T5 大循环（5t5 = 5 台 T5 厂满效）",
     "  --chain <单位> --chainrate <台/s>    同上，但按顶级单位速率给",

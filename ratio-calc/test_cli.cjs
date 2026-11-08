@@ -364,5 +364,44 @@ ok("发电设备：不做电力递归（不多算发电机台数）", () => {
   assert.strictEqual(r.power, 0);
 });
 
+/* ---- 混合厂：--mix 多个目标合并算上游 ---- */
+ok("--mix：两个目标合并，石墨压机 10 台（分别建 11）", () => {
+  const r = cli.query({ mix: "silicon-arc-furnace:1,carbide-crucible:1" });
+  assert.strictEqual(r.mode, "mixed");
+  assert.strictEqual(r.targets.length, 2);
+  const gp = r.machines.filter((m) => m.name === "graphite-press")[0];
+  assert.ok(gp && gp.count === 10, JSON.stringify(r.machines));
+  assert.strictEqual(r.compare.savedMachines, 1);
+  assert.strictEqual(r.power, 420);
+});
+ok("--mix：文本里写清目标/共享/对比", () => {
+  const r = cli.query({ mix: "silicon-arc-furnace:1,carbide-crucible:1" });
+  const t = cli.renderText(r);
+  assert.ok(t.indexOf("混合厂") >= 0, t);
+  assert.ok(t.indexOf("共享 graphite") >= 0, t);
+  assert.ok(t.indexOf("对比分别建") >= 0, t);
+});
+ok("--mix：目标互供抵扣（石墨压机 3 台 + 硅电弧炉 1 台 → 不再另建压机）", () => {
+  const r = cli.query({ mix: "graphite-press:3,silicon-arc-furnace:1" });
+  const gp = r.machines.filter((m) => m.name === "graphite-press")[0];
+  assert.strictEqual(gp.count, 3);
+  assert.strictEqual(r.compare.machinesMixed, 4);
+  assert.strictEqual(r.compare.savedMachines, 2);
+});
+ok("--mix：发电设备当目标，电力和发电都算", () => {
+  const r = cli.query({ mix: "silicon-smelter:2,combustion-generator:1" });
+  assert.strictEqual(r.power, 60);
+  assert.strictEqual(r.powerOut, 60);
+  assert.strictEqual(r.netPower, 0);
+});
+ok("--mix：兵厂给出明确报错", () => {
+  try { cli.query({ mix: "ground-factory:1" }); throw new Error("expected throw"); }
+  catch (e) { assert.ok(/兵厂/.test(e.message), e.message); }
+});
+ok("--mix：格式错误时报错清楚", () => {
+  try { cli.query({ mix: "graphite-press:0" }); throw new Error("expected throw"); }
+  catch (e) { assert.ok(/台数/.test(e.message), e.message); }
+});
+
 console.log("\n通过 " + pass + " 项，失败 " + fail + " 项");
 process.exitCode = fail ? 1 : 0;

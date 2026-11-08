@@ -287,5 +287,38 @@ check("发电设备：供电表写总发电 660 且不做递归",
 check("发电设备：机器清单只有发电机自己不倒推", /steam-generator/.test(txt("machines")) &&
   !/combustion-generator/.test(txt("machines")), txt("machines").slice(0, 400));
 
+/* --- 混合厂：多个目标合并算上游，共享产物只建一份 --- */
+$("mixcount").value = "1";
+window.__ratio.mix([["silicon-arc-furnace", 1], ["carbide-crucible", 1]]);
+check("混合厂：模式切过去", window.__ratio.mode() === "mixed", window.__ratio.mode());
+check("混合厂：输出区展开且目标清单有 2 项",
+      !$("out").classList.contains("hidden") &&
+      (($("mixlist").innerHTML.match(/chiptag/g) || []).length === 2), $("mixlist").innerHTML.slice(0, 300));
+check("混合厂：共享石墨 10 台、分别建 11 台",
+      /graphite/.test($("mixtable").innerHTML) && /×10</.test($("mixtable").innerHTML) &&
+      /×11/.test($("mixtable").innerHTML), $("mixtable").innerHTML.slice(0, 1200));
+check("混合厂：卡片写「对比分别建」省 1 台",
+      /对比分别建/.test(txt("cards")) && /机器 −1/.test(txt("cards")), txt("cards").slice(0, 500));
+check("混合厂：机器表含 10 台石墨压机",
+      /graphite-press/.test(txt("machines")) && />10</.test(txt("machines")), txt("machines").slice(0, 400));
+check("混合厂：等价命令是 cli --mix",
+      /cli\.cjs --mix "/.test($("cmd").textContent) && /carbide-crucible:1/.test($("cmd").textContent),
+      $("cmd").textContent);
+
+// 目标互供抵扣：3 台石墨压机 + 1 台硅电弧炉（硅炉吃石墨 1.2/s），石墨全由目标自产
+window.__ratio.mix([["graphite-press", 3], ["silicon-arc-furnace", 1]]);
+check("混合厂：目标自产抵扣后不再建石墨压机（省 2 台）",
+      /省 2/.test($("mixtable").innerHTML) && !/>10</.test(txt("machines")),
+      $("mixtable").innerHTML.slice(0, 900));
+
+// 发电设备当目标：只进清单，照样并入总电
+window.__ratio.mix([["silicon-smelter", 2], ["combustion-generator", 1]]);
+check("混合厂：发电设备当目标（电力 60、发电 60）",
+      /60\/s/.test(txt("cards")) && /combustion-generator/.test(txt("machines")), txt("cards").slice(0, 400));
+
+// 空清单不崩（会隐藏输出区）
+window.__ratio.mix([]);
+check("混合厂：空清单隐藏输出区且不报错", $("out").classList.contains("hidden"));
+
 console.log(bad ? `\n${bad} 项失败` : "\n页面链路全部通过");
 process.exit(bad ? 1 : 0);

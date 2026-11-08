@@ -196,6 +196,36 @@
     return data.__index || (data.__index = buildIndex(data));
   }
 
+  /* 选配方（两个入口共用：单目标展开 / 混合厂）
+   * 优先"不引入新物品"的配方（免得绕出奇怪的长链），其次总产出刚好盖住需求的，
+   * 再其次方块占地小的，最后按名字定序（保证确定性）。 */
+  function chooseProducer(idx, item, amount, fmap, servable) {
+    var cands = idx.producersOf(item);
+    var forced = fmap && fmap[item];
+    if (forced) {
+      var only = cands.filter(function (b) { return b.name === forced; });
+      if (!only.length) throw new Error(forced + " 不产 " + item);
+      cands = only;
+    }
+    var scored = [];
+    cands.forEach(function (b) {
+      var per = idx.perSecond(b, item);
+      if (per <= 0) return;
+      var n = Math.max(1, Math.ceil(amount / per - 1e-9));
+      var introduces = !b.inputs.every(function (i) { return servable(i.name, new Set()); });
+      scored.push({ block: b, n: n, introduces: introduces, actual: n * per });
+    });
+    if (!scored.length) throw new Error(item + " 没有可用配方");
+    scored.sort(function (a, b) {
+      if (a.introduces !== b.introduces) return a.introduces ? 1 : -1;
+      if (Math.abs(a.actual - b.actual) > 1e-9) return a.actual - b.actual;
+      var as = a.block.size * a.block.size, bs = b.block.size * b.block.size;
+      if (as !== bs) return as - bs;
+      return a.block.name < b.block.name ? -1 : a.block.name > b.block.name ? 1 : 0;
+    });
+    return scored[0];
+  }
+
   /* ---------------------------------------------------------------- *
    * 物品需求的递归展开（两种入口共用）
    * ---------------------------------------------------------------- */
@@ -220,30 +250,7 @@
     }
 
     function choose(item, amount) {
-      var cands = idx.producersOf(item);
-      var forced = fmap[item];
-      if (forced) {
-        var only = cands.filter(function (b) { return b.name === forced; });
-        if (!only.length) throw new Error(forced + " 不产 " + item);
-        cands = only;
-      }
-      var scored = [];
-      cands.forEach(function (b) {
-        var per = idx.perSecond(b, item);
-        if (per <= 0) return;
-        var n = Math.max(1, Math.ceil(amount / per - 1e-9));
-        var introduces = !b.inputs.every(function (i) { return servable(i.name, new Set()); });
-        scored.push({ block: b, n: n, introduces: introduces, actual: n * per });
-      });
-      if (!scored.length) throw new Error(item + " 没有可用配方");
-      scored.sort(function (a, b) {
-        if (a.introduces !== b.introduces) return a.introduces ? 1 : -1;
-        if (Math.abs(a.actual - b.actual) > 1e-9) return a.actual - b.actual;
-        var as = a.block.size * a.block.size, bs = b.block.size * b.block.size;
-        if (as !== bs) return as - bs;
-        return a.block.name < b.block.name ? -1 : a.block.name > b.block.name ? 1 : 0;
-      });
-      return scored[0];
+      return chooseProducer(idx, item, amount, fmap, servable);
     }
 
     function need(item, amount, depth, parentNode) {
@@ -423,6 +430,287 @@
     recalcPower(idx, res);
     if (b.factoryKind === "assembler") {
       res.warnings.push("组装厂消耗的是方块（Payload），这里按外部输入处理，不展开成工厂");
+    }
+    if (opts.sources) applySources(data, res, opts.sources);
+    return res;
+  }
+
+  /* ---------------------------------------------------------------- *
+   * 混合厂：多个目标方块（物品工厂 / 发电设备）合成一份计划
+   *   1) 先算每个目标"满效"的表面量（产什么、吃什么、要什么液体）；
+   *   2) 所有目标的物品输入汇总成速率，再统一反推上游 —— 同一中间产物只建一份，
+   *      取整只在汇总后做一次（分别建时每张图各取整一次，会多买机器）；
+   *   3) 目标之间自产自销（A 产的石墨喂给 B）先抵扣，不重复建；
+   *   4) 同图里的发电设备按净发电抵扣，给出 netPower；
+   *   5) 附带 compare：同一组目标"分别建"要多少机器/电/占地，省了多少。
+   * 兵厂不在这里算（它自带 T1→T5 大循环），选兵厂请用大循环页。
+   * ---------------------------------------------------------------- */
+
+  /* 一个目标方块满效时的表面量（不含上游展开） */
+  function surfaceOf(idx, blockName, count, planIdx) {
+    count = Math.max(1, Math.floor(count || 1));
+    var b = idx.blocks.get(blockName);
+    if (!b) {
+      var g = idx.generators && idx.generators.get(blockName);
+      if (!g) throw new Error("未知方块：" + blockName);
+      var fuel = (g.fuels || [])[0];
+      var grossEach = fuel ? fuel[2] : g.perSecond;
+      var netEach = grossEach - (g.powerUsage || 0);
+      return {
+        block: blockName, kind: "generator", count: count, power: 0,
+        powerOut: round(netEach * count), selfUse: round((g.powerUsage || 0) * count),
+        products: [{ name: "电力", type: "power", rate: round(netEach * count) }],
+        inputs: fuel ? [{ name: fuel[0], amount: round(fuel[1] * count) }] : [],
+        inputLiquids: (g.liquids || []).map(function (l) {
+          return { name: l[0], perSecond: round(l[1] * count) };
+        })
+      };
+    }
+    if (b.kind === "unit") {
+      throw new Error("混合厂只算物品工厂与发电设备；兵厂自带 T1→T5 大循环，请用「按目标建筑台数」页选兵厂");
+    }
+    var products = [];
+    var inputs = [];
+    b.outputs.forEach(function (o) {
+      products.push({ name: o.name, type: "item", rate: round(o.amount * b.cps * count) });
+    });
+    b.inputs.forEach(function (i) {
+      inputs.push({ name: i.name, amount: round(i.amount * b.cps * count) });
+    });
+    return {
+      block: blockName, kind: "item", count: count, power: round(b.power * count), powerOut: 0,
+      products: products, inputs: inputs,
+      inputLiquids: b.inputLiquids.map(function (l) {
+        return { name: l.name, perSecond: round(l.perSecond * count) };
+      })
+    };
+  }
+
+  /* targets = [{block:"silicon-smelter", count:2}, {block:"graphite-press", count:3}] */
+  function expandMixed(data, targets, opts) {
+    var idx = indexOf(data);
+    opts = opts || {};
+    var list = (targets || []).map(function (t) {
+      if (!t || !t.block) throw new Error("混合厂的每个目标都要写方块名");
+      return surfaceOf(idx, t.block, t.count, t.plan);
+    });
+    if (!list.length) throw new Error("混合厂至少要一个目标");
+    var bset = new Set(opts.boundary || []);
+    var fmap = opts.force || {};
+    var maxDepth_ = opts.maxDepth || MAX_DEPTH;
+    var warnings = [];
+
+    /* "这个物品能不能一路接到边界/自产到底"——与单目标展开同一套判定 */
+    function servable(item, seen) {
+      if (bset.has(item)) return true;
+      if (seen.has(item)) return false;
+      var cands = idx.producersOf(item);
+      if (!cands.length) return false;
+      var next = new Set(seen); next.add(item);
+      return cands.some(function (b) {
+        return b.inputs.every(function (i) { return servable(i.name, next); });
+      });
+    }
+
+    var roots = [];
+    list.forEach(function (s) {
+      s.inputs.forEach(function (i) { roots.push({ item: i.name, amount: i.amount, depth: 1 }); });
+    });
+
+    /* 一遍"按速率展开"：rate[item] 是汇总后的每秒需求，配方按累计量选 */
+    var rate = {}, graph = {}, picks = {}, boundaryRate = {}, noRecipe = {}, overflow = {};
+
+    function runPass() {
+      rate = {}; graph = {}; boundaryRate = {}; noRecipe = {}; overflow = {};
+      var queue = roots.slice();
+      var guard = 0;
+      while (queue.length && guard++ < 500000) {
+        var cur = queue.shift();
+        var item = cur.item, amount = cur.amount;
+        if (!(amount > 1e-9)) continue;
+        if (bset.has(item)) { boundaryRate[item] = (boundaryRate[item] || 0) + amount; continue; }
+        if (!idx.producersOf(item).length) {
+          noRecipe[item] = true; boundaryRate[item] = (boundaryRate[item] || 0) + amount; continue;
+        }
+        if (cur.depth > maxDepth_) {
+          overflow[item] = true; boundaryRate[item] = (boundaryRate[item] || 0) + amount; continue;
+        }
+        rate[item] = (rate[item] || 0) + amount;
+        if (!picks[item]) picks[item] = chooseProducer(idx, item, rate[item], fmap, servable).block.name;
+        var blk = idx.blocks.get(picks[item]);
+        var per = idx.perSecond(blk, item);
+        graph[item] = { block: picks[item], per: per, inputs: idx.inputPerSecond(blk) };
+        graph[item].inputs.forEach(function (i) {
+          queue.push({ item: i.name, amount: amount / per * i.amount, depth: cur.depth + 1 });
+        });
+      }
+    }
+
+    /* 用汇总后的速率复核配方；配方变了就整轮重来（最多 6 轮，实际 1~2 轮就稳） */
+    var iter = 0;
+    for (; iter < 6; iter++) {
+      runPass();
+      var changed = false;
+      Object.keys(rate).forEach(function (item) {
+        var best = chooseProducer(idx, item, rate[item], fmap, servable).block.name;
+        if (best !== picks[item]) { picks[item] = best; changed = true; }
+      });
+      if (!changed) break;
+    }
+    if (iter >= 6) warnings.push("混合厂配方 6 轮内没有收敛，按最后一轮结果算");
+
+    Object.keys(overflow).forEach(function (it) {
+      warnings.push(it + " 递归超过 " + maxDepth_ + " 层，按外部输入处理");
+    });
+    Object.keys(noRecipe).forEach(function (it) {
+      warnings.push(it + " 没有配方产出，按外部输入处理");
+    });
+
+    /* 目标之间自产自销：一个目标的产出先抵扣别的目标的需求 */
+    var producedByTargets = {};
+    var generatorNet = {};
+    list.forEach(function (s) {
+      s.products.forEach(function (p) {
+        if (p.type !== "item") return;
+        producedByTargets[p.name] = (producedByTargets[p.name] || 0) + p.rate;
+      });
+      if (s.kind === "generator") generatorNet[s.block] = (generatorNet[s.block] || 0) + s.powerOut;
+    });
+
+    var internals = [];   // 目标之间共享的中间产物（A 产 B 用）
+    var netRate = {};
+    Object.keys(rate).forEach(function (item) {
+      var need = rate[item];
+      var have = producedByTargets[item] || 0;
+      var used = Math.min(need, have);
+      if (used > 1e-9) internals.push({ item: item, need: round(need), fromTargets: round(used), stillNeed: round(Math.max(0, need - have)) });
+      netRate[item] = Math.max(0, need - have);
+    });
+
+    /* 汇总后一次性取整：每种物品的机器只买一次 */
+    var machines = {};
+    var order = [];
+    var allocByItem = {};
+    var sharedItems = [];
+    Object.keys(netRate).sort().forEach(function (item) {
+      var g = graph[item];
+      if (!g) return;
+      if (!(netRate[item] > 1e-9)) { allocByItem[item] = 0; return; }
+      var n = Math.max(1, Math.ceil(netRate[item] / g.per - 1e-9));
+      allocByItem[item] = n;
+      machines[g.block] = (machines[g.block] || 0) + n;
+      order.push({ block: g.block, count: n, item: item, rate: round(netRate[item]), per: round(g.per) });
+      sharedItems.push({ item: item, block: g.block, perMachine: round(g.per),
+                         need: round(rate[item]), fromTargets: round(producedByTargets[item] || 0),
+                         netNeed: round(netRate[item]), count: n });
+    });
+    /* 一个方块产多种被需要的物品时，机器数会重复记，给个提示（当前原版物品工厂基本都是单一产物） */
+    var blockUse = {};
+    order.forEach(function (o) { blockUse[o.block] = (blockUse[o.block] || 0) + 1; });
+
+    var products = [], inputs = [], liquidExtra = {}, powerOut = 0, targetRows = [];
+    list.forEach(function (s) {
+      machines[s.block] = (machines[s.block] || 0) + s.count;
+      s.products.forEach(function (p) {
+        products.push({ name: p.name, type: p.type, rate: p.rate, block: s.block });
+      });
+      s.inputs.forEach(function (i) {
+        inputs.push({ name: i.name, amount: i.amount, block: s.block });
+      });
+      (s.inputLiquids || []).forEach(function (l) {
+        liquidExtra[l.name] = (liquidExtra[l.name] || 0) + l.perSecond;
+      });
+      powerOut += s.powerOut || 0;
+      targetRows.push({ block: s.block, count: s.count, kind: s.kind, products: s.products,
+                        inputs: s.inputs, inputLiquids: s.inputLiquids || [],
+                        power: s.power, powerOut: s.powerOut || 0 });
+    });
+
+    /* 分别建：每个目标各展开一遍，用来对比混合省了多少 */
+    var sep = { machines: {}, power: 0, tiles: 0 };
+    var sepByItem = {};
+    list.forEach(function (s) {
+      if (s.kind === "generator") {
+        sep.machines[s.block] = (sep.machines[s.block] || 0) + s.count;
+        sep.power += 0;
+        var gb = anyBlock(idx, s.block);
+        sep.tiles += (gb && gb.size ? gb.size * gb.size : 1) * s.count;
+        return;
+      }
+      var one = expandBuilding(data, s.block, s.count, {
+        boundary: opts.boundary, force: opts.force, maxDepth: maxDepth_
+      });
+      Object.keys(one.machines).forEach(function (k) {
+        sep.machines[k] = (sep.machines[k] || 0) + one.machines[k];
+      });
+      sep.power += one.power || 0;
+      (one.order || []).forEach(function (o) {
+        sepByItem[o.item] = (sepByItem[o.item] || 0) + o.count;
+      });
+      Object.keys(one.machines).forEach(function (k) {
+        var b = anyBlock(idx, k);
+        sep.tiles += (b && b.size ? b.size * b.size : 1) * one.machines[k];
+      });
+    });
+
+    var res = {
+      mode: "mixed",
+      targets: targetRows,
+      products: products,
+      inputs: inputs,
+      machines: machines,
+      order: order,
+      demand: {},
+      power: 0,
+      powerOut: round(powerOut),
+      liquids: [],
+      liquidExtra: liquidExtra,
+      generatorNet: generatorNet,
+      shared: sharedItems,
+      internals: internals,
+      warnings: warnings,
+      tree: null,
+      snapshot: idx.snapshot || ""
+    };
+    Object.keys(boundaryRate).sort().forEach(function (k) {
+      res.demand[k] = round(boundaryRate[k]);
+    });
+    res.machines = sortMachines(res.machines);
+    recalcPower(idx, res);
+    res.netPower = round(res.power - powerOut);
+
+    /* 对比表 */
+    var mixedTiles = 0;
+    Object.keys(res.machines).forEach(function (k) {
+      var b = anyBlock(idx, k);
+      mixedTiles += (b && b.size ? b.size * b.size : 1) * res.machines[k];
+    });
+    var sepTiles = sep.tiles;
+    var sumCount = function (m) { return Object.keys(m).reduce(function (a, k) { return a + m[k]; }, 0); };
+    var shared = sharedItems.map(function (s) {
+      var pool = sepByItem[s.item] || 0;
+      return {
+        item: s.item, block: s.block, perMachine: s.perMachine,
+        need: s.need, fromTargets: s.fromTargets, netNeed: s.netNeed,
+        mixedCount: s.count, separateCount: pool, saved: Math.max(0, pool - s.count),
+        tileEach: (function () { var b = anyBlock(idx, s.block); return b && b.size ? b.size * b.size : 1; })()
+      };
+    });
+    res.shared = shared;
+    res.compare = {
+      machinesMixed: sumCount(res.machines),
+      machinesSeparate: sumCount(sep.machines),
+      savedMachines: sumCount(sep.machines) - sumCount(res.machines),
+      powerMixed: round(res.power),
+      powerSeparate: round(sep.power),
+      savedPower: round(sep.power - res.power),
+      tilesMixed: mixedTiles,
+      tilesSeparate: sepTiles,
+      savedTiles: sepTiles - mixedTiles,
+      detail: sep.machines
+    };
+    if (shared.some(function (s) { return s.separateCount > 0 && s.saved > 0; })) {
+      // 有共享产物被省下来，前端/命令行会把 compare 打出来
     }
     if (opts.sources) applySources(data, res, opts.sources);
     return res;
@@ -935,7 +1223,11 @@
         outputs = ["采集（见外部来源）"];
       } else if (b && b.kind === "generator") {
         var sup = result.supply || {};
-        outputs = ["发电 " + round((sup.net || 0)) + "/s" +
+        /* 混合厂里一台发电设备的净发电记在 result.generatorNet 上；单目标展开用 result.supply */
+        var genNet = (result.generatorNet && result.generatorNet[name] != null)
+          ? result.generatorNet[name] - b.power * 0
+          : (sup.net || 0);
+        outputs = ["发电 " + round(genNet) + "/s" +
                    (sup.fuel ? "，烧 " + sup.fuel.name + " " + round(sup.fuel.perSecond) + "/s" : "")];
       } else if (b && b.kind === "pump") {
         outputs = ["抽 " + b.liquid + " " + round(b.perSecond * count) + "/s"];
@@ -962,7 +1254,7 @@
         powerEach: b ? b.power : 0,
         powerTotal: b ? b.power * count : 0,
         outItems: b ? (b.kind === "generator"
-          ? [{ name: "电力", type: "power", perSecond: round((result.supply && result.supply.net) || 0) }]
+          ? [{ name: "电力", type: "power", perSecond: round(genNet || 0) }]
           : b.outputs.map(function (o) {
               return { name: o.name, type: "item", perSecond: o.amount * b.cps * count };
             })) : [],
@@ -981,6 +1273,7 @@
               expandGenerator: expandGenerator,
               buildIndex: buildIndex, indexOf: indexOf,
               expand: expand, expandBuilding: expandBuilding,
+              expandMixed: expandMixed, surfaceOf: surfaceOf,
               machineRows: machineRows, anyBlock: anyBlock,
               drillRate: drillRate, drillsNeeded: drillsNeeded,
               generatorPlan: generatorPlan, generatorSupply: generatorSupply,

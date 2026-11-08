@@ -313,6 +313,45 @@ def build_card(res: dict) -> Card:
         _warn_section(c, res)
         return c
 
+    if mode == "mixed":
+        targets = res.get("targets") or []
+        head = "混合厂：" + " + ".join("%s ×%s" % (t.get("block"), fmt(t.get("count"))) for t in targets[:3])
+        if len(targets) > 3:
+            head += " 等 %d 项" % len(targets)
+        icon = None
+        for m in res.get("machines") or []:
+            if m.get("name") == (targets[0] or {}).get("block"):
+                icon = m.get("icon")
+                break
+        c.title(head, icon, "多个目标合并算上游（共享产物只建一份）· %s" % snap)
+        c.section("目标")
+        for t in targets:
+            outs = [p for p in (t.get("products") or []) if p.get("rate")]
+            pos = "、".join("%s %s/s" % (p["name"], fmt(p["rate"])) for p in outs[:2]) or "—"
+            c.row(None, t.get("block") or "?", "×%s" % fmt(t.get("count")), "产出 " + pos,
+                  ORANGE if t.get("kind") == "generator" else None)
+        _machine_section(c, res)
+        sh = [s for s in (res.get("shared") or []) if (s.get("saved") or 0) > 0]
+        if sh:
+            c.note("共享：「%s」，分别建要 ×%s（混合省 %s 台）"
+                   % ("、".join(s["item"] for s in sh[:2]),
+                      "/".join(str(s.get("separateCount")) for s in sh[:2]),
+                      "/".join(str(s.get("saved")) for s in sh[:2])), GREEN)
+        cmp_ = res.get("compare") or {}
+        if cmp_:
+            c.note("对比分别建：机器 %s → %s（省 %s），占地 %s → %s 格（省 %s）"
+                   % (fmt(cmp_.get("machinesSeparate")), fmt(cmp_.get("machinesMixed")),
+                      fmt(cmp_.get("savedMachines")), fmt(cmp_.get("tilesSeparate")),
+                      fmt(cmp_.get("tilesMixed")), fmt(cmp_.get("savedTiles"))), DIM)
+        if res.get("powerOut"):
+            c.note("厂内发电 %s/s，净电力 %s/s"
+                   % (fmt(res.get("powerOut")), fmt(res.get("netPower"))), DIM)
+        _import_section(c, res)
+        _liquid_section(c, res)
+        _power_section(c, res)
+        _warn_section(c, res)
+        return c
+
     if mode == "building":
         head = "%s ×%s" % (res.get("target"), fmt(res.get("requested")))
         sub = "建筑模式（满效）· %s" % snap

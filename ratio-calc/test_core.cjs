@@ -205,5 +205,45 @@ near("expandGenerator(impact)：单台自耗 1500/s", gen3.supply.selfUseEach, 1
 near("expandGenerator(impact)：两台自耗 3000/s", gen3.supply.selfUse, 3000, 1e-9);
 near("expandGenerator(impact)：净发电已扣自耗", gen3.supply.netEach, 6300, 1e-9);
 
+/* ---- 混合厂：多个目标合并算上游，共享中间产物只建一份 ---- */
+const MIXB = { boundary: ["coal", "sand", "tungsten"] };   // 与网页/CLI 的默认边界同口径
+const mix1 = R.expandMixed(DATA, [
+  { block: "silicon-arc-furnace", count: 1 },
+  { block: "carbide-crucible", count: 1 }
+], MIXB);
+eq("expandMixed：模式是 mixed", mix1.mode, "mixed");
+eq("expandMixed：目标数 2", mix1.targets.length, 2);
+eq("expandMixed：石墨压机合并后 10 台", mix1.machines["graphite-press"], 10);
+near("expandMixed：石墨需求合计 6.655/s", mix1.shared.filter(s => s.item === "graphite")[0].need, 6.655, 1e-3);
+eq("expandMixed：分别建要 11 台石墨压机", mix1.compare.detail["graphite-press"], 11);
+eq("expandMixed：省 1 台", mix1.compare.savedMachines, 1);
+near("expandMixed：电力 420/s", mix1.power, 420, 1e-9);
+near("expandMixed：边界 coal 13.31/s", mix1.demand.coal, 13.31, 1e-2);
+
+// 目标互供：3 台石墨压机自产 2/s 石墨，硅电弧炉只吃 1.2/s ⇒ 不再另建石墨压机
+const mix2 = R.expandMixed(DATA, [
+  { block: "graphite-press", count: 3 },
+  { block: "silicon-arc-furnace", count: 1 }
+], MIXB);
+eq("expandMixed：目标自产后不再建石墨压机", mix2.machines["graphite-press"] || 0, 3);
+eq("expandMixed：石墨被目标抵扣完（stillNeed 0）",
+   mix2.internals.filter(i => i.item === "graphite")[0].stillNeed, 0);
+eq("expandMixed：分别建 6 台 → 混合 4 台（省 2 台）", mix2.compare.machinesMixed, 4);
+eq("expandMixed：省 2 台", mix2.compare.savedMachines, 2);
+
+// 发电设备当目标：只进清单，并入总电，不做电力递归
+const mix3 = R.expandMixed(DATA, [
+  { block: "silicon-smelter", count: 2 },
+  { block: "combustion-generator", count: 1 }
+], MIXB);
+near("expandMixed：电力 60/s", mix3.power, 60, 1e-9);
+near("expandMixed：发电 60/s", mix3.powerOut, 60, 1e-9);
+near("expandMixed：净电 0", mix3.netPower, 0, 1e-9);
+
+// 兵厂不能进混合厂（自带 T1→T5 大循环）
+let mixBoom = null;
+try { R.expandMixed(DATA, [{ block: "ground-factory", count: 1 }]); } catch (e) { mixBoom = e.message; }
+eq("expandMixed：兵厂给出明确报错", /兵厂/.test(mixBoom || ""), true);
+
 console.log(f2 ? `\n${f2} 项新算法断言失败` : "\n新算法断言全部通过");
 process.exit(bad || f2 ? 1 : 0);

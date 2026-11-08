@@ -82,6 +82,14 @@
   td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
   tr:last-child td { border-bottom: 0; }
   .sec { font-size: 13px; color: var(--dim); margin: 18px 0 8px; letter-spacing: .04em; }
+  /* 混合厂目标清单 */
+  .mixlist { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; min-height: 26px; }
+  .chiptag { display: inline-flex; align-items: center; gap: 4px; padding: 3px 8px; font-size: 12px;
+             background: var(--panel2); border: 1px solid var(--line); border-radius: 999px; }
+  .chiptag img { image-rendering: pixelated; }
+  .chiptag a { color: var(--dim); text-decoration: none; margin-left: 4px; font-weight: 700; }
+  .chiptag a:hover { color: var(--warn); }
+  #mixcount { width: 80px; }
   .warn { color: var(--warn); }
   .dim { color: var(--dim); }
   .chosen { color: var(--ok); }
@@ -105,15 +113,16 @@
   <div class="tabs">
     <div class="tab on" id="tab-building" data-mode="building">按目标建筑台数（满效）</div>
     <div class="tab" id="tab-item" data-mode="item">按目标物品速率</div>
+    <div class="tab" id="tab-mixed" data-mode="mixed">混合厂（多个目标）</div>
   </div>
 
   <div class="panel">
     <div class="bar">
-      <div class="mode-block">
+      <div class="mode-block b-only">
         <label for="count">目标台数（满效运行）</label>
         <input id="count" type="number" min="1" step="1" value="1">
       </div>
-      <div class="mode-block">
+      <div class="mode-block b-only">
         <label for="plan">生产计划</label>
         <select id="plan"></select>
       </div>
@@ -154,11 +163,42 @@
         <div class="grid" id="grid"></div>
       </div>
     </div>
+
+    <div class="mode-mixed hidden">
+      <div class="bar">
+        <div style="flex:2;min-width:280px">
+          <label>混合厂目标清单（点上面建筑选中，再点"加入清单"；同一方块加两次会合并台数）</label>
+          <div id="mixlist" class="mixlist"></div>
+        </div>
+        <div>
+          <label for="mixcount">加入台数</label>
+          <input id="mixcount" type="number" min="1" step="1" value="1">
+        </div>
+        <div>
+          <label>&nbsp;</label>
+          <button id="mixadd">加入清单</button>
+        </div>
+        <div>
+          <label>&nbsp;</label>
+          <button id="mixclear">清空</button>
+        </div>
+        <div>
+          <label>&nbsp;</label>
+          <button id="mixrun">计算混合厂</button>
+        </div>
+      </div>
+      <div class="dim" id="mixhint"></div>
+    </div>
   </div>
 
   <div id="out" class="hidden">
     <div id="warn" class="sec warn hidden"></div>
     <div class="cards" id="cards"></div>
+
+    <div class="mode-mixed hidden" id="mixsec">
+      <div class="sec">混合厂目标 · 共享产物 · 对比分别建</div>
+      <table id="mixtable"></table>
+    </div>
 
     <div class="sec">建造清单</div>
     <table id="machines"></table>
@@ -222,6 +262,7 @@
 
   var mode = "building";
   var curBlock = "graphite-press";
+  var mixTargets = [];        // 混合厂目标清单：[{block, count}]
 
   function img(src, cls, alt) {
     if (!src) return "";
@@ -757,27 +798,82 @@
   });
   targetSel.addEventListener("change", function () { syncPicker(); run(); });
 
-  ["bgrid-item", "bgrid-unit"].forEach(function (id) {
+  ["bgrid-item", "bgrid-unit", "bgrid-power"].forEach(function (id) {
+    if (!el(id)) return;
     el(id).addEventListener("click", function (ev) {
       var t = ev.target;
       while (t && t !== el(id) && !(t.getAttribute && t.getAttribute("data-block"))) t = t.parentNode;
       if (!t || t === el(id)) return;
       curBlock = t.getAttribute("data-block");
       syncBlockSel();
+      if (mode === "mixed") { renderMixList(); return; }   // 混合厂：只选中，点"加入清单"才加
       run();
     });
   });
+
+  /* ---------------- 混合厂目标清单 ---------------- */
+  function renderMixList() {
+    var box = el("mixlist");
+    if (!box) return;
+    if (!mixTargets.length) {
+      box.innerHTML = '<span class="dim">还没有目标：先在上面点一个建筑，再点"加入清单"。</span>';
+    } else {
+      box.innerHTML = mixTargets.map(function (t, i) {
+        return '<span class="chiptag">' + blockImg(t.block, 14) + " " + esc(t.block) + " ×" + t.count +
+          '<a href="#" data-i="' + i + '" title="移除">×</a></span>';
+      }).join(" ");
+    }
+    Array.prototype.forEach.call(box.querySelectorAll ? box.querySelectorAll("a[data-i]") : [], function (a) {
+      a.addEventListener("click", function (ev) {
+        ev.preventDefault();
+        removeMixTarget(parseInt(a.getAttribute("data-i"), 10));
+      });
+    });
+    var hint = el("mixhint");
+    if (hint) {
+      var b = blockOf(curBlock);
+      hint.innerHTML = "当前选中：" + (b ? blockLabel(curBlock, "sm") : "—") +
+        "　·　清单 " + mixTargets.length + " 项（" +
+        mixTargets.reduce(function (a, t) { return a + t.count; }, 0) + " 台）" +
+        "　·　同一方块加两次会合并台数；共享的中间产物只建一份。";
+    }
+  }
+  function addMixTarget() {
+    if (!blockOf(curBlock)) return;
+    var n = Math.max(1, parseInt(el("mixcount").value, 10) || 1);
+    var hit = null;
+    mixTargets.forEach(function (t) { if (t.block === curBlock) hit = t; });
+    if (hit) hit.count += n; else mixTargets.push({ block: curBlock, count: n });
+    renderMixList();
+    run();
+  }
+  function removeMixTarget(i) {
+    if (!(i >= 0 && i < mixTargets.length)) return;
+    mixTargets.splice(i, 1);
+    renderMixList();
+    run();
+  }
+  function clearMix() { mixTargets = []; renderMixList(); run(); }
+  el("mixadd").addEventListener("click", addMixTarget);
+  el("mixclear").addEventListener("click", clearMix);
+  el("mixrun").addEventListener("click", function () { run(); });
 
   function setMode(m) {
     mode = m;
     el("tab-building").classList.toggle("on", m === "building");
     el("tab-item").classList.toggle("on", m === "item");
-    Array.prototype.forEach.call(document.querySelectorAll ? document.querySelectorAll(".mode-block") : [], function (n) { n.classList.toggle("hidden", m !== "building"); });
+    el("tab-mixed").classList.toggle("on", m === "mixed");
+    // .mode-block = 建筑格区（building/mixed 都要显示）；.b-only = 只看单个目标的控件
+    Array.prototype.forEach.call(document.querySelectorAll ? document.querySelectorAll(".mode-block") : [], function (n) { n.classList.toggle("hidden", m === "item"); });
+    Array.prototype.forEach.call(document.querySelectorAll ? document.querySelectorAll(".b-only") : [], function (n) { n.classList.toggle("hidden", m !== "building"); });
     Array.prototype.forEach.call(document.querySelectorAll ? document.querySelectorAll(".mode-item") : [], function (n) { n.classList.toggle("hidden", m !== "item"); });
+    Array.prototype.forEach.call(document.querySelectorAll ? document.querySelectorAll(".mode-mixed") : [], function (n) { n.classList.toggle("hidden", m !== "mixed"); });
+    if (m === "mixed") renderMixList();
     run();
   }
   el("tab-building").addEventListener("click", function () { setMode("building"); });
   el("tab-item").addEventListener("click", function () { setMode("item"); });
+  el("tab-mixed").addEventListener("click", function () { setMode("mixed"); });
 
   // URL 预设：?mode=building&block=ground-factory&count=2&depth=4 | ?mode=item&item=silicon&rate=5
   (function applyUrl() {
@@ -797,6 +893,16 @@
     if (q.boundary) el("boundary").value = q.boundary.replace(/\+/g, " ");
     if (q.force) el("force").value = q.force.replace(/\+/g, " ");
     if (q.mode === "item") mode = "item";
+    if (q.mode === "mixed") mode = "mixed";
+    // 混合厂：?mode=mixed&mix=silicon-arc-furnace:1,carbide-crucible:1
+    if (q.mix) {
+      mixTargets = String(Array.isArray(q.mix) ? q.mix.join(",") : q.mix).split(",").map(function (sp) {
+        var p = sp.split(":");
+        var cnt = parseInt(p[1], 10);
+        return { block: (p[0] || "").trim(), count: (cnt > 0 ? cnt : 1) };
+      }).filter(function (t) { return t.block && blockOf(t.block); });
+      if (mixTargets.length) mode = "mixed";
+    }
     // 发电：?gen=steam-generator&genfuel=coal&gencount=3
     if (q.gen && idx.generators.has(q.gen)) { el("gen").value = q.gen; syncGenFuel(); }
     if (q.genfuel) el("genfuel").value = q.genfuel;
@@ -873,12 +979,21 @@
   var lastRes = null;
 
   function run() {
+    if (mode === "mixed" && !mixTargets.length) {
+      el("out").classList.add("hidden");
+      renderMixList();
+      return;
+    }
     var boundary = splitList(el("boundary").value);
     var forced = parseForce(el("force").value);
     var depth = Math.max(1, Math.min(12, parseInt(el("depth").value, 10) || 6));
     var res;
     try {
-      if (mode === "building") {
+      if (mode === "mixed") {
+        if (!mixTargets.length) { alert("先往清单里加至少一个目标"); return; }
+        res = R.expandMixed(DATA, mixTargets.map(function (t) { return { block: t.block, count: t.count }; }),
+                            { boundary: boundary, force: forced, maxDepth: depth });
+      } else if (mode === "building") {
         var count = Math.max(1, parseInt(el("count").value, 10) || 1);
         var plan = parseInt(el("plan").value || "0", 10) || 0;
         var selB = blockOf(curBlock);
@@ -917,6 +1032,18 @@
         ["电力需求", num(res.power) + "/s"],
         ["边界种类", String(Object.keys(res.demand).length)]
       ];
+    } else if (mode === "mixed") {
+      var cmp = res.compare || {};
+      var savedText = (cmp.savedMachines > 0 || cmp.savedTiles > 0)
+        ? "机器 −" + cmp.savedMachines + "、占地 −" + cmp.savedTiles + " 格"
+        : "无共享（只省取整误差）";
+      cards = [
+        ["混合厂目标", String(mixTargets.length) + " 项 / " + res.requested + " 台", "wrap"],
+        ["合并机器总数", String(totalMachines)],
+        ["电力 / 厂内发电", num(res.power) + "/s" + (res.powerOut ? " · " + num(res.powerOut) + "/s（净 " + num(res.netPower) + "/s）" : ""), "wrap"],
+        ["对比分别建", savedText, "wrap"],
+        ["边界种类", String(Object.keys(res.demand).length)]
+      ];
     } else {
       cards = [
         ["目标", itemLabel(targetSel.value, "sm") + " " + el("rate").value + "/s"],
@@ -947,6 +1074,46 @@
         '<td class="num">' + num(r.powerTotal) + '</td></tr>';
     }).join("");
 
+    /* 混合厂：目标 / 共享产物 / 对比分别建 */
+    if (mode === "mixed") {
+      var H = '<tr><th>目标</th><th class="num">台数</th><th>产出/s</th><th>吃料/s</th></tr>';
+      var body = (res.targets || []).map(function (t) {
+        var outs = (t.products || []).map(function (p) {
+          return p.name + " " + num(p.rate) + "/s";
+        }).join("<br>") || "—";
+        var ins = (t.inputs || []).map(function (p) {
+          return itemLabel(p.name, "sm") + " " + num(p.amount) + "/s";
+        }).join("<br>") || "—";
+        return '<tr><td>' + blockLabel(t.block) + '</td><td class="num">' + t.count +
+          '</td><td class="dim">' + outs + '</td><td class="dim">' + ins + '</td></tr>';
+      }).join("");
+      var sh = (res.shared || []).filter(function (s) { return s.saved > 0 || s.fromTargets; });
+      if (sh.length) {
+        body += '<tr><td colspan="4" class="dim" style="padding-top:10px">共享的中间产物（混合只建一份）</td></tr>';
+        body += sh.map(function (s) {
+          return '<tr><td>' + itemLabel(s.item, "sm") + " ← " + blockLabel(s.block, "sm") + '</td>' +
+            '<td class="num">×' + s.mixedCount + '</td>' +
+            '<td class="dim">需求 ' + num(s.need) + "/s" +
+            (s.fromTargets ? "（目标自产抵扣 " + num(s.fromTargets) + "）" : "") + '</td>' +
+            '<td class="dim">分别建 ×' + (s.separateCount || 0) +
+            (s.saved ? "（省 " + s.saved + " 台）" : "") + '</td></tr>';
+        }).join("");
+      }
+      var cmp2 = res.compare;
+      if (cmp2) {
+        body += '<tr><td colspan="4" class="dim" style="padding-top:10px">对比：同一组目标分别建</td></tr>' +
+          '<tr><td>机器总数</td><td class="num" colspan="3">' + cmp2.machinesSeparate + ' → ' + cmp2.machinesMixed +
+          '（省 ' + cmp2.savedMachines + ' 台）</td></tr>' +
+          '<tr><td>占地</td><td class="num" colspan="3">' + cmp2.tilesSeparate + ' → ' + cmp2.tilesMixed +
+          ' 格（省 ' + cmp2.savedTiles + '）</td></tr>' +
+          '<tr><td>电力</td><td class="num" colspan="3">' + num(cmp2.powerSeparate) + " → " + num(cmp2.powerMixed) +
+          '/s</td></tr>';
+      }
+      el("mixtable").innerHTML = H + body;
+    } else {
+      el("mixtable").innerHTML = "";
+    }
+
     var dh = '<tr><th>物品</th><th class="num">每秒</th><th class="num">每分钟</th></tr>';
     var dk = Object.keys(res.demand).sort();
     el("demand").innerHTML = dh + (dk.length ? dk.map(function (k) {
@@ -962,7 +1129,9 @@
 
     el("tree").innerHTML = res.tree
       ? renderTree(res.tree, 0, true)
-      : '<div class="dim">兵厂链没有物品递归树，见上方大循环表。</div>';
+      : (mode === "mixed"
+        ? '<div class="dim">混合厂没有单棵树：共享上游已合并成一份，见上方目标表与机器清单。</div>'
+        : '<div class="dim">兵厂链没有物品递归树，见上方大循环表。</div>');
 
     // 多配方物品：哪个被选中、备选是谁
     var used = Object.keys(res.machines);
@@ -1005,7 +1174,9 @@
     });
 
     var cmd;
-    if (mode === "building") {
+    if (mode === "mixed") {
+      cmd = 'node cli.cjs --mix "' + mixTargets.map(function (t) { return t.block + ":" + t.count; }).join(",") + '"';
+    } else if (mode === "building") {
       var b = blockOf(curBlock);
       if (b && b.kind === "generator") {
         cmd = "# 发电设备：按台数算发电量（" + num(res.supply && res.supply.net) + "/s），没有等价的 mbo calc 命令";
@@ -1077,7 +1248,7 @@
   buildBlockPickers();
   syncBlockSel();
   syncPicker();
-  if (mode === "item") setMode("item"); else run();
+  if (mode === "item" || mode === "mixed") setMode(mode); else run();
   el("run").addEventListener("click", run);
   el("rate").addEventListener("keydown", function (e) { if (e.key === "Enter") run(); });
   el("count").addEventListener("change", run);
@@ -1123,6 +1294,19 @@
                        return { table: el("chaintable").innerHTML, res: el("chainres").innerHTML };
                      },
                      chainRes: function () { return el("chainres").innerHTML; },
+                     /* 混合厂：__ratio.mix([[block,count],...]) */
+                     mix: function (list) {
+                       if (list) {
+                         mixTargets = list.map(function (x) {
+                           return { block: x[0], count: Math.max(1, x[1] || 1) };
+                         });
+                         setMode("mixed");
+                         renderMixList();
+                         run();
+                       }
+                       return mixTargets;
+                     },
+                     mixTable: function () { return el("mixtable").innerHTML; },
                      last: function () { return lastRes; } };
 })();
 </script>

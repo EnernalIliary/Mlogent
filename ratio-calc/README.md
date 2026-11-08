@@ -14,6 +14,7 @@
 | **按建筑台数（满效）** | 选一个工厂 / 兵厂 + 台数 | "我要 4 台石墨压机满效跑" → 反推上下游 |
 | **按物品速率** | 选物品 + 每秒产量 | 传统玩法："我要 5 硅/s" |
 | **兵厂大循环** | 选一条 T1~T5 链 + 顶级速率 | "我要 0.05 reign/s" → 五级各要几台、材料多少 |
+| **混合厂** | 多个目标（工厂 / 发电厂，不含兵厂）+ 各自台数 | "石墨压机 3 台 + 硅电弧炉 1 台一起建，共享上游怎么配" → 合并后机器清单、省了多少 |
 
 各模式下都能改：
 - **递归层数**：上游展开到第几层（超过就当外部输入），默认 4
@@ -37,7 +38,7 @@
 规矩：
 
 1. **默认值只在一处**：外部入料默认蓝带写在 `core.js` 的 `DEFAULT_CHANNEL`，网页下拉、`cli.cjs`、`card.py`、`ratio.py` 全部读它；
-2. **三种模式的 JSON 同构**（`mode: item | building | chain`），字段见下文「JSON 结构」；
+2. **四种模式的 JSON 同构**（`mode: item | building | chain | mixed`），字段见下文「JSON 结构」；
 3. `--chain X --chainexpr 5t5` 与 `--block <T5 兵厂> --count 5` 走**同一段装配**（`cli.cjs` 的 `chainResult`），结果按字段逐项相同；
 4. 改算法只改 `core.js`；改数据只改 `export_data.py`。
 
@@ -161,6 +162,41 @@ tetrative ×12`，合计 **21 台兵厂、22872 电/s**，瓶颈在 T5；材料�
 同时导出中文名（`assets/bundles/bundle_zh_CN.properties`，493 条），页面标签显示「英文名 + 灰字中文名」，
 物品/建筑选择格的 tooltip 也带中文。
 
+### 5. 混合厂（多个目标合并算上游，共享产物只建一份）
+
+前三个模式一次只算**一个**目标。混合厂一次给**多个目标**（可以混物品工厂和发电厂，不能混兵厂），
+把它们的上游需求**合并成一份**再取整，所以两边都要用的中间产物只建一份，而不是各建一份再相加。
+
+```bash
+# 硅电弧炉 1 台 + 碳化物坩埚 1 台：两边都要吃石墨
+node cli.cjs --mix "silicon-arc-furnace:1,carbide-crucible:1"
+node cli.cjs --mix "graphite-press:3,silicon-arc-furnace:1"          # 目标之间互供
+node cli.cjs --mix "silicon-smelter:2,combustion-generator:1"        # 混一台发电厂
+python -X utf8 card.py --mix "silicon-arc-furnace:1,carbide-crucible:1" --out mix.png
+```
+
+网页上是第三个页签「混合厂（多个目标）」：点建筑格只选中、点「加入清单」进目标列表，再点「算」。
+URL 预设：`index.html?mode=mixed&mix=silicon-arc-furnace:1,carbide-crucible:1`
+
+算法（`core.js` 的 `expandMixed`，和单目标共用同一套 `servable` / `chooseProducer`）：
+
+1. **先合并、后取整**：按速率把各目标的上游需求累加成一张 `rate[物品]` 表，然后在**汇总速率**上
+   一次性 `ceil` 出机器台数。单目标各算各的时，两边各 `ceil` 一次会把小数部分浪费掉，这是混合厂省机器的来源。
+2. **目标互供抵扣**：一个目标的产出先顶掉别的目标对同一物品的需求（`internals`），扣完还缺才另外建。
+3. **配方复核**：汇总速率可能改变"哪个配方更划算"（比如石墨够多时改用 multi-press），所以整轮重算，
+   直到配方不再变化（实际 1~2 轮收敛，上限 6 轮，不收敛会给 warning）。
+4. **对比分别建**：同时把每个目标单独展开一遍，给出「机器 13 → 12（省 1）、占地 62 → 58 格（省 4）」。
+
+实测（默认边界 `coal, sand, tungsten`，蓝带入料）：
+
+| 目标 | 合并后机器 | 电力 | 分别建 | 省 |
+|---|---|---|---|---|
+| `silicon-arc-furnace×1 + carbide-crucible×1` | `graphite-press×10` + 两个目标 = 12 台 | 420/s | 13 台 | 石墨压机 11 → 10（省 1 台、4 格） |
+| `graphite-press×3 + silicon-arc-furnace×1` | `graphite-press×3` + 电弧炉 = 4 台 | 300/s | 6 台 | 目标自产石墨 2/s 已够吃 1.2/s，省 2 台 |
+| `silicon-smelter×2 + combustion-generator×1` | 硅炉×2 + 发电机×1 | 用 60、发 60、净 0 | 3 台 | 无共享，只核电力 |
+
+边界输入也算在一起：上表第一行 `coal 13.31/s + sand 4.8/s + tungsten 3.636/s`。
+
 ## URL 预设
 
 ```
@@ -174,6 +210,8 @@ index.html?mode=building&block=tetrative-reconstructor&count=5
 index.html?mode=item&item=silicon&rate=1
 index.html?mode=item&item=graphite&rate=1&src=coal:belt:belt-blue
 index.html?mode=item&item=silicon&rate=5&force=silicon=silicon-crucible
+# 混合厂（多个目标合并算上游）
+index.html?mode=mixed&mix=silicon-arc-furnace:1,carbide-crucible:1
 ```
 
 `src` 格式：`物品:drill:钻头:矿格数:是否加水(0/1)` / `物品:multi:方块` / `物品:import` / **`液体:pump:抽水机`**，多项用逗号分隔（页面上的液体来源下拉就是往这里写 `pump:`）。
@@ -275,14 +313,14 @@ python -X utf8 ratio-calc/card.py --json result.json --out card.png   # 喂现�
 示例：`docs/card-graphite.png`(700×248)、`docs/card-silicon.png`(700×282)、
 `docs/card-chain.png`(700×622)、`docs/card-chain-t1.png`(700×378)、
 `docs/card-via.png`(700×248，蓝带入料)、`docs/card-pump.png`(700×414，钻头 + 抽水机)、
-`docs/card-unit.png`(700×378，兵厂单级)。
+`docs/card-unit.png`(700×378，兵厂单级)、`docs/mix.png`(700×376，混合厂卡片)、`docs/page-mixed.png`（混合厂页签整页截图）。
 
-### JSON 结构（三种模式统一）
+### JSON 结构（四种模式统一）
 
 ```jsonc
 {
   "ok": true,
-  "mode": "item | building | chain",
+  "mode": "item | building | chain | mixed",
   "target": "silicon 5/s" ,              // 一句话描述
   "products": [{ "name": "silicon", "type": "item", "rate": 5 }],
   "machines": [{ "name": "silicon-smelter", "count": 3, "kind": "item",
@@ -306,6 +344,20 @@ python -X utf8 ratio-calc/card.py --json result.json --out card.png   # 喂现�
                           "feedsNext": 0.667, "bottleneck": false }],
                "achieved": 0.05, "bottleneck": "reign", "bottleneckTier": 5,
                "materials": { "silicon": 101.5 }, "power": 22872 },  // 按最慢一段算
+  // ---- 只有 mixed 模式才有的字段 ----
+  "targets": [{ "block": "silicon-arc-furnace", "count": 1, "kind": "item",
+                "products": [{ "name": "silicon", "type": "item", "rate": 4.8 }],
+                "inputs": [{ "name": "graphite", "amount": 1.2 }],
+                "power": 300, "powerOut": 0 }],
+  "shared":  [{ "item": "graphite", "block": "graphite-press", "perMachine": 0.667,
+                "need": 6.655, "fromTargets": 0, "netNeed": 6.655,
+                "mixedCount": 10, "separateCount": 11, "saved": 1, "tileEach": 4 }],
+  "internals": [{ "item": "graphite", "need": 1.2, "fromTargets": 1.2, "stillNeed": 0 }],
+  "compare": { "machinesMixed": 12, "machinesSeparate": 13, "savedMachines": 1,
+               "powerMixed": 420, "powerSeparate": 420, "savedPower": 0,
+               "tilesMixed": 58, "tilesSeparate": 62, "savedTiles": 4,
+               "detail": { "graphite-press": 11, "arc": 1 } },
+  "powerOut": 0, "netPower": 420,        // 厂内发电 / 净电力（mixed 才有）
   "warnings": ["…"]
 }
 ```
@@ -314,7 +366,7 @@ python -X utf8 ratio-calc/card.py --json result.json --out card.png   # 喂现�
 
 | 文件 | 作用 |
 |---|---|
-| `index.html` | 单页应用（样式 + 三个模式 + 来源/供电/兵厂链/液体四块表，无第三方库） |
+| `index.html` | 单页应用（样式 + 四个模式 + 来源/供电/兵厂链/液体四块表，无第三方库） |
 | `core.js` | 内核：展开、钻头/发电/多产物/兵厂链/液体算法（浏览器 + node 通用，`module.exports`） |
 | `data/gamedata.js` | 导出数据 + 内联图标 + 中文名：33 工厂 / 17 兵厂 / 14 发电厂 / 10 钻头 / 2 多产物 / 6 抽水泵 / 22 物品 / 139 图标 / 493 中文名 / 1130.8 KB |
 | `export_data.py` | 重新导出：`python -X utf8 ratio-calc/export_data.py` |
@@ -344,17 +396,18 @@ python -X utf8 ratio-calc/card.py --json result.json --out card.png   # 喂现�
 ## 已验证
 
 ```
-node ratio-calc/test_core.cjs   → 14 项对拍 mbo calc 全部一致 + 84 项新算法断言通过（共 98 行 ok）
-node ratio-calc/test_page.cjs   → 62 项页面链路断言通过
-node ratio-calc/test_cli.cjs    → 42 项 CLI/HTTP 与 core.js 对拍通过
-python -X utf8 ratio-calc/test_card.py → 6 项卡片结构/排版断言通过
+node ratio-calc/test_core.cjs   → 14 项对拍 mbo calc 全部一致 + 100 项新算法断言通过（共 114 行 ok）
+node ratio-calc/test_page.cjs   → 71 项页面链路断言通过（含混合厂 9 项）
+node ratio-calc/test_cli.cjs    → 48 项 CLI/HTTP 与 core.js 对拍通过（含 `--mix` 6 项）
+python -X utf8 ratio-calc/test_card.py → 8 项卡片结构/排版断言通过（含混合厂 2 项）
 ```
 
 对拍用例覆盖石墨/硅/合金/玻璃/塑料/爆炸物/燃烧物/相织物/孢子荚 + 3 个 `--force`；
 新算法断言覆盖钻头速率（含加水、煤硬度 2）、发电台数与燃料、分离机/解离机加权产物、
 来源替换后的机器表与电力重算、抽水机台数与液体来源、入料方式 7 种、`5t5` 反推（1/1/1/2/5）、
 `chainsForBlock`/`chainFromBlock`（同一重建厂多线、默认 dagger、指定 flare → eclipse）、
-dagger 与 stell 两条升级链、发电设备当目标建筑（蒸汽 ×2 → 660/s、冲击堆扣自耗、不做电力递归）。
+dagger 与 stell 两条升级链、发电设备当目标建筑（蒸汽 ×2 → 660/s、冲击堆扣自耗、不做电力递归）、
+混合厂（合并上游后石墨压机 10 台 vs 分别建 11 台、目标互供抵扣省 2 台、发电厂当目标并入净电力）。
 
 截图用 Edge headless（Chrome headless 在这台机器上会超时被 kill）：
 `--headless=new --disable-gpu --no-sandbox --window-size=1180,2000 --virtual-time-budget=5000 --screenshot=...`
@@ -374,4 +427,7 @@ dagger 与 stell 两条升级链、发电设备当目标建筑（蒸汽 ×2 → 
 - 液体默认按外部输入，不展开抽水/混合机；
 - 组装厂（`UnitAssembler`）消耗的是**方块 Payload**，这里按外部输入处理，不展开；
 - 多产物是"随机出一件"的期望值，实际有波动；
-- 电力不展开成燃料链的闭环（发电厂烧的煤仍需自己配来源，不会自动接到钻头）。
+- 电力不展开成燃料链的闭环（发电厂烧的煤仍需自己配来源，不会自动接到钻头）；
+- 混合厂不收兵厂（兵厂自带 T1→T5 大循环，请用「按目标建筑台数」页），也不收组装厂；
+- 混合厂的"对比分别建"是按每个目标**各自独立展开**算的，不是按最优顺序分批建；先合并速率再取整，
+  所以结果是"最少机器"口径，不保证最少占地（占地只作对比展示）。
