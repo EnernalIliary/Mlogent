@@ -227,9 +227,12 @@ INPUT_CHANNELS = [
 def build_pumps(raw: dict, block_index: dict) -> list:
     """抽水泵（Pump / SolidPump / Fracker）。
 
-    数值口径：`raw.pumpAmount` 是 **每 tick** 的量 ⇒ ×60 = 每秒；
-    `raw.result` 是产出液体（Pump 基类没有该字段，默认水）；
-    `Fracker`（oil-extractor）每 `itemUseTime` 帧吃一次物品 ⇒ 每秒 = amount × 60 / itemUseTime。
+    数值口径：`raw.pumpAmount` 是 **每 tick、每格** 的量 ⇒ ×60 = 每格每秒；
+      · `Pump`（mechanical/rotary/impulse/reinforced，吃地形水）：`liquids.add(amount * pumpAmount * edelta)`，
+        其中 amount = 有效水格数 ⇒ 整台 = pumpAmount × 60 × size²（按满格水面算，深水还要 ×1.5）；
+      · `SolidPump`（water-extractor）/ `Fracker`（oil-extractor）：`pumpAmount * delta() * fraction`，
+        与格数无关 ⇒ 整台 = pumpAmount × 60 × 效率（这里按满效率）。
+    `Fracker` 每 `itemUseTime` 帧吃一次物品 ⇒ 每秒 = amount × 60 / itemUseTime。
     """
     pumps = []
     for b in raw.get("blocks", []):
@@ -249,13 +252,19 @@ def build_pumps(raw: dict, block_index: dict) -> list:
             for lq in cons.get("liquids") or []:
                 # consumers 里的液体量是 per-tick
                 input_liquids.append([lq["name"], float(lq["amount"]) * 60.0])
+        kind = (rr.get("subclass") or "").rsplit(".", 1)[-1]
+        size = int(b.get("size") or 1)
+        # 多格 Pump 的产出与"有效水格数"成正比（Pump.java:162  amount * pumpAmount * edelta）
+        tiles = size * size if kind == "Pump" else 1
         pumps.append({
             "name": b["name"],
-            "size": int(b.get("size") or 1),
+            "size": size,
             "icon": block_icon(b["name"], block_index),
-            "perSecond": round(float(pa) * 60.0, 6),
+            "perSecond": round(float(pa) * 60.0 * tiles, 6),
+            "perTile": round(float(pa) * 60.0, 6),
+            "tiles": tiles,
             "liquid": liquid,
-            "kind": (rr.get("subclass") or "").rsplit(".", 1)[-1],
+            "kind": kind,
             "power": float((b.get("power") or {}).get("usagePerSecond") or 0.0),
             "inputs": inputs,
             "inputLiquids": input_liquids,

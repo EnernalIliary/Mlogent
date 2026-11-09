@@ -167,7 +167,7 @@ ok("--src water=pump:rotary-pump 自动补台数并计入电力", () => {
   assert.ok(pump, "机器表应有 rotary-pump");
   const need = res.liquids.filter(l => l.name === "water")[0];
   assert.ok(need.perSecond > 0);
-  assert.ok(pump.count >= need.perSecond / 12 - 1e-6);
+  assert.ok(pump.count >= need.perSecond / 48 - 1e-6);
   assert.ok(res.liquidSources.length === 1);
   close(res.liquidSources[0].power, pump.count * 18);
   assert.ok(res.power > 0);
@@ -419,9 +419,9 @@ ok("--liquids auto：文本有「液体自产」，oil 不再算外部净需求"
 ok("--liquids auto：文本带泵换算（加和口径）", () => {
   const t = run(["--item", "coal", "--rate", "2", "--boundary", "none", "--liquids", "auto"]);
   assert.ok(t.indexOf("泵换算") >= 0, t);
-  /* 水 9/s：加和口径下"中泵 1 台（12/s）"最省 */
+  /* 水 9/s：加和口径下"中泵 1 台（48/s）"台数最少 */
   assert.ok(/中泵 1 台/.test(t), t);
-  assert.ok(/合计 12\/s/.test(t), t);
+  assert.ok(/合计 48\/s/.test(t), t);
   /* 抽水机从工厂配比里拆出来，单独一行 */
   assert.ok(t.indexOf("工厂合计：2 台") >= 0, t);
   assert.ok(t.indexOf("抽水：") >= 0, t);

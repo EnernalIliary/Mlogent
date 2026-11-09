@@ -117,9 +117,9 @@ eq("erekir 链瓶颈是 T1 stell", ch2.bottleneck, "stell");
 
 // 抽水泵（液体来源）
 const pp = R.pumpPlan(DATA, "water", 14.4, "rotary-pump");
-eq("rotary-pump 补 14.4/s 水要 2 台", pp.count, 2);
-near("rotary-pump 单台 12/s", pp.perSecondEach, 12, 1e-6);
-near("rotary-pump 2 台电 36/s", pp.power, 36, 1e-9);
+eq("rotary-pump 补 14.4/s 水要 1 台", pp.count, 1);
+near("rotary-pump 单台 48/s（2×2=4 格 × 0.2/tick × 60）", pp.perSecondEach, 48, 1e-4);
+near("rotary-pump 1 台电 18/s", pp.power, 18, 1e-9);
 eq("mechanical-pump 7/s 要 3 台", R.pumpPlan(DATA, "water", 14.4, "mechanical-pump").count, 3);
 near("mechanical-pump 不耗电", R.pumpPlan(DATA, "water", 14.4, "mechanical-pump").power, 0, 1e-9);
 const po = R.pumpPlan(DATA, "oil", 30, "oil-extractor");
@@ -137,8 +137,8 @@ const wres = R.expandBuilding(DATA, "silicon-smelter", 3,
     sources: { sand: { type: "drill", drill: "laser-drill", tiles: 8, boosted: true },
                water: { type: "pump", pump: "rotary-pump" } } });
 near("抽水机：水需求 14.4/s", wres.liquids.find(l => l.name === "water").perSecond, 14.4, 1e-6);
-eq("抽水机：补 2 台 rotary-pump", wres.machines["rotary-pump"], 2);
-near("抽水机：电力 90+198+36 = 324", wres.power, 324, 1e-6);
+eq("抽水机：补 1 台 rotary-pump", wres.machines["rotary-pump"], 1);
+near("抽水机：电力 90+198+18 = 306", wres.power, 306, 1e-6);
 eq("抽水机：liquidSources 有 1 条", (wres.liquidSources || []).length, 1);
 
 
@@ -271,8 +271,8 @@ eq("泵换算：水有 5 种泵", eqs.length, 5);
 eq("泵换算：按每秒从少到多排（第一个是最小的地下水抽取器 6.6）", eqs[0].perSecondEach, 6.6);
 eq("泵换算：地下水抽取器要 96 台", eqs[0].count, 96);
 eq("泵换算：小泵（机械泵 7/s）要 90 台", (eqs.find(p => p.pump === "mechanical-pump") || {}).count, 90);
-eq("泵换算：中泵（回转泵 12/s）要 53 台", (eqs.find(p => p.pump === "rotary-pump") || {}).count, 53);
-eq("泵换算：大泵（脉冲泵 13.2/s）要 48 台", (eqs.find(p => p.pump === "impulse-pump") || {}).count, 48);
+eq("泵换算：中泵（回转泵 48/s）要 14 台", (eqs.find(p => p.pump === "rotary-pump") || {}).count, 14);
+eq("泵换算：大泵（脉冲泵 118.8/s）要 6 台", (eqs.find(p => p.pump === "impulse-pump") || {}).count, 6);
 eq("泵换算：油只有钻井一种", R.pumpEquivalents(DATA, "oil", 6).length, 1);
 
 /* 出液量单位回归：dump 的 outputLiquids 是 per-tick，每秒 = amount×60（不是 ×cyclesPerSecond） */
@@ -292,12 +292,12 @@ eq("泵换算：油只有钻井一种", R.pumpEquivalents(DATA, "oil", 6).length
 /* 泵的"加和"计量：最终结果是几台小泵 + 几台中泵 + 几台大泵 */
 {
   const m9 = R.pumpMix(DATA, "water", 9);
-  eq("泵加和：9/s 用中泵 1 台（12/s）", [m9.count, m9.pumps[0].pump], [1, "rotary-pump"]);
+  eq("泵加和：9/s 用中泵 1 台（48/s）", [m9.count, m9.pumps[0].pump], [1, "rotary-pump"]);
   const m630 = R.pumpMix(DATA, "water", 630);
-  eq("泵加和：630/s = 大泵 45 台", [m630.pumps[0].pump, m630.pumps[0].count], ["impulse-pump", 45]);
-  eq("泵加和：630/s + 中泵 3 台", [m630.pumps[1].pump, m630.pumps[1].count], ["rotary-pump", 3]);
-  near("泵加和：合计正好 630/s", m630.total, 630, 1e-6);
-  eq("泵加和：650 → 台数最少的组合", s2sum(R.pumpMix(DATA, "water", 650)), 50);
+  eq("泵加和：630/s = 大泵 5 台", [m630.pumps[0].pump, m630.pumps[0].count], ["impulse-pump", 5]);
+  eq("泵加和：630/s + 中泵 1 台", [m630.pumps[1].pump, m630.pumps[1].count], ["rotary-pump", 1]);
+  near("泵加和：合计 642/s（富余 12）", m630.total, 642, 1e-4);
+  eq("泵加和：650 → 台数最少的组合", s2sum(R.pumpMix(DATA, "water", 650)), 6);
 }
 function s2sum(m) { return m.pumps.reduce((a, p) => a + p.count, 0); }
 
