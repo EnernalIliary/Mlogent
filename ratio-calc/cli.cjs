@@ -327,11 +327,13 @@ function query(opts) {
 /* 给产出/边界输入/液体补图标（卡片渲染和 bot 富文本都用得上）。
  * 液体没有贴图，icon 留空、另给 color 让卡片画色点。 */
 function attachIcons(res) {
-  const idx = loadData().idx;
+  const env = loadData();
+  const idx = env.idx, DATA = env.DATA;
   res.products.forEach(p => { p.icon = iconOfIndex(idx, p.name, p.type); });
   res.demand.forEach(d => { d.icon = iconOfIndex(idx, d.name, "item"); });
   const paint = (l) => {
-    l.icon = "";
+    /* 原版液体贴图：sprites/items/liquid-<名>.png（export_data 已内联） */
+    l.icon = (idx.liquidIcons && idx.liquidIcons[l.name]) || "";
     const meta = (idx.liquidColors && idx.liquidColors[l.name]) || null;
     if (meta) l.color = meta;
   };
@@ -340,8 +342,48 @@ function attachIcons(res) {
   Object.keys(res.liquidFrom || {}).forEach(k => paint(res.liquidFrom[k]));
   if (res.liquidSources) res.liquidSources.forEach(paint);
   res.liquidColors = (idx && idx.liquidColors) || {};
+  res.liquidIcons = (idx && idx.liquidIcons) || {};
+  /* 泵换算：水这类液体按"几台泵"计量更直观（小泵→中泵→大泵） */
+  res.liquidEquiv = {};
+  const amountOf = {};
+  (res.liquidNet && res.liquidNet.length ? res.liquidNet : (res.liquids || [])).forEach(l => {
+    amountOf[l.name] = l.perSecond;
+  });
+  Object.keys(res.liquidFrom || {}).forEach(k => {
+    const a = res.liquidFrom[k];
+    if (amountOf[k] === undefined) amountOf[k] = round((a.count || 0) * (a.perSecondEach || 0));
+  });
+  if (env.R && env.R.pumpEquivalents) {
+    Object.keys(amountOf).forEach(name => {
+      const pumps = env.R.pumpEquivalents(DATA, name, amountOf[name]) || [];
+      if (pumps.length) res.liquidEquiv[name] = { need: amountOf[name], pumps: pumps };
+    });
+  }
   if (res.supply && res.supply.fuel) res.supply.fuel.icon = iconOfIndex(idx, res.supply.fuel.name, "item");
   return res;
+}
+
+/* 泵的叫法：机械泵=小泵、回转泵=中泵、脉冲泵=大泵；其它泵写自己的特点 */
+const PUMP_LABEL = {
+  "mechanical-pump": "小泵",
+  "rotary-pump": "中泵",
+  "impulse-pump": "大泵",
+  "reinforced-pump": "强化泵",
+  "water-extractor": "地下水抽取器",
+  "oil-extractor": "石油钻井"
+};
+
+/* 「water 630/s ≈ 小泵 90 台（mechanical-pump）/ 中泵 53 台（rotary-pump）/ 大泵 48 台（impulse-pump）」 */
+function equivText(name, eq) {
+  if (!eq || !eq.pumps || !eq.pumps.length) return "";
+  if (eq.pumps.length === 1) return "";   /* 只有一种泵（比如石油只有钻井）不必换算 */
+  return name + " " + fmtNum(eq.need) + "/s ≈ " + eq.pumps.map(p => {
+    const label = PUMP_LABEL[p.pump] || p.pump;
+    const extra = p.pump === "reinforced-pump" ? "，要氢"
+      : p.pump === "water-extractor" ? "，要地下水"
+      : "";
+    return label + " " + p.count + " 台（" + p.pump + " " + fmtNum(p.perSecondEach) + "/s" + extra + "）";
+  }).join(" / ");
 }
 
 function iconOfIndex(idx, name, type) {
@@ -370,7 +412,8 @@ function stripIcons(v) {
   if (v && typeof v === "object") {
     const o = {};
     Object.keys(v).forEach(k => {
-      if (k === "icon" || k === "blockIcon" || k === "unitIcon") return;
+      if (k === "icon" || k === "blockIcon" || k === "unitIcon"
+        || k === "liquidIcons" || k === "liquidColors") return;
       o[k] = stripIcons(v[k]);
     });
     return o;
@@ -483,6 +526,10 @@ function renderText(res) {
   if (res.liquidNet && res.liquidNet.length) {
     L.push("  还要外部进的液体：" + res.liquidNet.map(l => l.name + " " + fmtNum(l.perSecond) + "/s").join("、"));
   }
+  Object.keys(res.liquidEquiv || {}).forEach(k => {
+    const t = equivText(k, res.liquidEquiv[k]);
+    if (t) L.push("  泵换算：" + t);
+  });
   (res.liquidSources || []).forEach(s => {
     let line = "  液体 " + s.liquid + " ← " + s.pump + " ×" + s.count
       + "（单台 " + fmtNum(s.perSecondEach) + "/s，合计 " + fmtNum(s.perSecondTotal) + "/s";
@@ -604,6 +651,10 @@ function renderMarkdown(res) {
   if (res.liquidNet && res.liquidNet.length) {
     L.push("还要外部进的液体：" + res.liquidNet.map(l => l.name + " " + fmtNum(l.perSecond) + "/s").join("、"));
   }
+  Object.keys(res.liquidEquiv || {}).forEach(k => {
+    const t = equivText(k, res.liquidEquiv[k]);
+    if (t) L.push("泵换算：" + t);
+  });
   (res.liquidSources || []).forEach(s => {
     L.push("液体 " + s.liquid + "：" + s.pump + " ×" + s.count + "（单台 " + fmtNum(s.perSecondEach)
       + "/s，电 " + fmtNum(s.power) + "/s" + (s.inputLiquids && s.inputLiquids.length

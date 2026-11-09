@@ -188,7 +188,7 @@ def case_mixed_generator():
 
 
 def case_liquid_self():
-    """煤炭不允许外部输入 + 液体自产：卡片要把煤炭处理线写出来、液体行带色点图标。"""
+    """煤炭不允许外部输入 + 液体自产：卡片要把煤炭处理线写出来、液体行用原版液体贴图 + 泵换算。"""
     r = run_cli(["--item", "coal", "--rate", "2", "--boundary", "none", "--liquids", "auto"])
     t = flat(r)
     assert "coal-centrifuge" in t, t
@@ -200,6 +200,12 @@ def case_liquid_self():
     assert liq, t
     for b in liq:
         assert b[1] and b[1].startswith("data:image/png;base64,"), b
+    """液体行用的是原版 liquid-<名>.png 而不是色点"""
+    icons = r.get("liquidIcons") or {}
+    water = [b for b in liq if b[2] == "water"][0]
+    assert icons.get("water") and water[1] == icons["water"], "水行图标不是原版贴图"
+    """水滴：泵换算写进 sub（小泵 / 中泵 / 大泵）"""
+    assert "小泵" in t and "中泵" in t and "大泵" in t, t[:400]
     check_width(r)
 
 
@@ -222,7 +228,7 @@ def case_mixed_icons():
         assert b[1], "目标行缺图标：" + str(b[2])
 
 
-ok("液体自产：煤炭处理线写进卡片、液体行带色点图标", case_liquid_self)
+ok("液体自产：煤炭处理线写进卡片、液体行用原版贴图 + 泵换算", case_liquid_self)
 ok("图标：兵厂链入料行不再缺图标", case_chain_icons)
 ok("图标：混合厂目标行带方块图标", case_mixed_icons)
 ok("发电设备：配比在前、发电量正确、带供电段", case_generator)

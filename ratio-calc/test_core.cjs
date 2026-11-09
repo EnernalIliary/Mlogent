@@ -265,5 +265,15 @@ const liq3 = R.expand(DATA, "coal", 2, [], {}, {});
 eq("不开启时只建分离机", liq3.machines["coal-centrifuge"], 1);
 eq("不开启时 oil 仍是外部净需求", (liq3.liquidNet || []).filter(l => l.name === "oil").length, 1);
 
+// 泵换算：液体需求按"几台泵"计量（小泵→中泵→大泵），水有 5 种泵可用
+const eqs = R.pumpEquivalents(DATA, "water", 630);
+eq("泵换算：水有 5 种泵", eqs.length, 5);
+eq("泵换算：按每秒从少到多排（第一个是最小的地下水抽取器 6.6）", eqs[0].perSecondEach, 6.6);
+eq("泵换算：地下水抽取器要 96 台", eqs[0].count, 96);
+eq("泵换算：小泵（机械泵 7/s）要 90 台", (eqs.find(p => p.pump === "mechanical-pump") || {}).count, 90);
+eq("泵换算：中泵（回转泵 12/s）要 53 台", (eqs.find(p => p.pump === "rotary-pump") || {}).count, 53);
+eq("泵换算：大泵（脉冲泵 13.2/s）要 48 台", (eqs.find(p => p.pump === "impulse-pump") || {}).count, 48);
+eq("泵换算：油只有钻井一种", R.pumpEquivalents(DATA, "oil", 6).length, 1);
+
 console.log(f2 ? `\n${f2} 项新算法断言失败` : "\n新算法断言全部通过");
 process.exit(bad || f2 ? 1 : 0);

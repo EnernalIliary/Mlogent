@@ -234,8 +234,27 @@ def _import_section(c, res):
         c.row(d.get("icon"), d["name"], "%s/s" % fmt(d.get("perSecond")), sub)
 
 
+PUMP_LABEL = {
+    "mechanical-pump": "小泵", "rotary-pump": "中泵", "impulse-pump": "大泵",
+    "reinforced-pump": "强化泵", "water-extractor": "地下水", "oil-extractor": "钻井",
+}
+
+
+def _equiv_text(eq: dict | None) -> str | None:
+    """泵换算：水这类液体按"几台泵"计量更直观（小泵 → 中泵 → 大泵）。
+
+    卡片一行放不下 5 档，只留主线的三档（机械泵/回转泵/脉冲泵），其余档位命令行里还有。"""
+    if not isinstance(eq, dict):
+        return None
+    main = [p for p in (eq.get("pumps") or [])
+            if p.get("pump") in ("mechanical-pump", "rotary-pump", "impulse-pump")]
+    if len(main) < 2:
+        return None
+    return " / ".join("%s %s 台" % (PUMP_LABEL[p["pump"]], p["count"]) for p in main)
+
+
 def _liquid_icon(color: str | None, px: int = 16) -> str | None:
-    """液体在原版没有独立贴图：按 knowledge 的 colorHex 画个色点，走和方块图标同一条 paste 通路。"""
+    """兜底色点：按 knowledge 的 colorHex 画圆点（原版液体贴图优先，见 liquid_icons）。"""
     if not color or not color.startswith("#") or len(color) < 7:
         return None
     try:
@@ -258,23 +277,32 @@ def _liquid_section(c, res):
     if not need and not auto:
         return
     colors = (res.get("liquidColors") or {}) if isinstance(res.get("liquidColors"), dict) else {}
+    icons = (res.get("liquidIcons") or {}) if isinstance(res.get("liquidIcons"), dict) else {}
+    equiv = (res.get("liquidEquiv") or {}) if isinstance(res.get("liquidEquiv"), dict) else {}
     pumps = {s["liquid"]: s for s in (res.get("liquidSources") or [])}
     c.section("液体需求" + ("（净）" if auto else ""))
     for l in need:
         name = l.get("name")
         src = pumps.get(name)
-        icon = _liquid_icon(colors.get(name) or l.get("color"))
+        icon = l.get("icon") or icons.get(name) or _liquid_icon(colors.get(name) or l.get("color"))
         sub = ("自产 %s ×%s" % (auto[name]["block"], auto[name]["count"]) if name in auto else
                ("%s ×%s（电 %s/s）" % (src["pump"], src["count"], fmt(src.get("power")))
                 if src else "外部运入"))
         c.row(icon, name, "%s/s" % fmt(l.get("perSecond")), sub, LIQUID)
+        eq = _equiv_text(equiv.get(name))
+        if eq:
+            c.note("泵换算：%s %s/s ≈ %s" % (name, fmt(l.get("perSecond")), eq))
     for name, a in auto.items():
         if any(l.get("name") == name for l in need):
             continue
-        icon = _liquid_icon(colors.get(name))
+        icon = a.get("icon") or icons.get(name) or _liquid_icon(colors.get(name))
         kind = "转化方块" if a.get("type") == "make" else "钻井"
         c.row(icon, name, "%s/s" % fmt((a.get("count") or 0) * (a.get("perSecondEach") or 0)),
               "自产 %s ×%s（%s）" % (a.get("block"), a.get("count"), kind), LIQUID)
+        eq = _equiv_text(equiv.get(name))
+        if eq:
+            need = (a.get("count") or 0) * (a.get("perSecondEach") or 0)
+            c.note("泵换算：%s %s/s ≈ %s" % (name, fmt(need), eq))
 
 
 def _power_section(c, res):

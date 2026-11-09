@@ -362,19 +362,28 @@ def build(raw: dict, block_index: dict, unit_prod: dict | None,
     for u in (unit_prod or {}).get("units") or []:
         unit_icons[u["name"]] = unit_icon(u["name"])
 
-    # ---- 液体颜色（液体在原版没有独立贴图，用 knowledge 里 jar 导出的 colorHex 画色点）----
-    liquid_colors = {}
+    # ---- 液体图标（原版贴图在 sprites/items/liquid-<名>.png，另有 ui/liquid-<名>-ui.png 兜底）----
+    #      颜色另从 knowledge/00-data/liquids.json 的 colorHex 取，给没有贴图的地方画色点。
+    liquid_icons, liquid_colors = {}, {}
     lq_path = os.path.join(KNOWLEDGE, "00-data", "liquids.json")
+    liquid_names = []
     if os.path.isfile(lq_path):
         with io.open(lq_path, encoding="utf-8") as fh:
             for lq in json.load(fh):
+                liquid_names.append(lq["name"])
                 hx = (lq.get("colorHex") or "").strip()
                 if hx:
                     liquid_colors[lq["name"]] = "#" + hx[:6].lower()
+    for name in liquid_names:
+        uri = icon_data_uri(os.path.join(SPRITES, "items", "liquid-%s.png" % name))
+        if not uri:
+            uri = icon_data_uri(os.path.join(SPRITES, "ui", "liquid-%s-ui.png" % name))
+        if uri:
+            liquid_icons[name] = uri
 
     return {
         "snapshot": (raw.get("meta") or {}).get("gameVersion") or "",
-        "generated_from": "MBO/gamedata + assetsraw sprites + knowledge/00-data/liquids.json",
+        "generated_from": "MBO/gamedata + assetsraw sprites（含 liquid-<名>.png）+ knowledge/00-data/liquids.json",
         "items": items,
         "blocks": blocks,
         "units": (unit_prod or {}).get("units") or [],
@@ -384,6 +393,7 @@ def build(raw: dict, block_index: dict, unit_prod: dict | None,
         "multi": power["multi"],
         "pumps": build_pumps(raw, block_index),
         "channels": [dict(c) for c in INPUT_CHANNELS],
+        "liquid_icons": liquid_icons,
         "liquid_colors": liquid_colors,
         "names": load_zh_names(),
     }

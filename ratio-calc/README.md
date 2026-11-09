@@ -186,7 +186,11 @@ node cli.cjs --item coal --rate 2 --boundary none --liquid oil=make
 - 产线数据（`data/gamedata.js`）：`coal-centrifuge` 30 帧、吃 oil 6/s、出 coal 2/s（3 油换 1 煤）；
   `oil-extractor` 15/s（吃沙 1/s + 水 9/s，要油田）；`spore-press` 20 帧、吃 spore-pod 1、出 oil 0.9/s。
 - 输出里会写「液体自产：oil ← oil-extractor ×1（单台 15/s，钻井）」和「还要外部进的液体」；
-  卡片上液体行带**色点**（颜色来自 `knowledge/00-data/liquids.json` 的 `colorHex`，原版液体没有独立贴图）。
+  液体图标用原版 `sprites/items/liquid-<名>.png`（11 种全有，UI 用 `ui/liquid-<名>-ui.png` 兜底），
+  拿不到贴图时才退回 `knowledge/00-data/liquids.json` 的 `colorHex` 色点。
+- **泵换算**：水这类液体按「几台泵」计量更直观，输出会补一行
+  `泵换算：water 9/s ≈ 小泵 2 台（mechanical-pump 7/s） / 中泵 1 台（rotary-pump 12/s） / 大泵 1 台（impulse-pump 13.2/s） …`
+  （机械泵=小泵、回转泵=中泵、脉冲泵=大泵；强化泵标"要氢"、地下水抽取器标"要地下水"）。
 - 钻井/泵/转化方块都进**机器表**（台数、电力都算进去），不是白给的。
 - 局限：混合厂里转化方块的物品入料按**外部输入**计并给一条 warning（混合厂不展开液体源的物品链）。
 
@@ -352,7 +356,7 @@ python -X utf8 ratio-calc/card.py --json result.json --out card.png   # 喂现�
 `docs/card-chain.png`(700×622)、`docs/card-chain-t1.png`(700×378)、
 `docs/card-via.png`(700×248，蓝带入料)、`docs/card-pump.png`(700×414，钻头 + 抽水机)、
 `docs/card-unit.png`(700×378，兵厂单级)、`docs/mix.png`(700×376，混合厂卡片)、`docs/page-mixed.png`（混合厂页签整页截图）、
-`docs/card-coal.png`(700×502，煤炭处理线：煤炭分离机 + 石油钻井 + 液体色点)。
+`docs/card-coal.png`(700×408，煤炭处理线：煤炭分离机 + 孢子压缩产油 + 液体原版贴图 + 泵换算)。
 
 ### JSON 结构（四种模式统一）
 
@@ -407,7 +411,7 @@ python -X utf8 ratio-calc/card.py --json result.json --out card.png   # 喂现�
 |---|---|
 | `index.html` | 单页应用（样式 + 四个模式 + 来源/供电/兵厂链/液体四块表，无第三方库） |
 | `core.js` | 内核：展开、钻头/发电/多产物/兵厂链/液体算法（浏览器 + node 通用，`module.exports`） |
-| `data/gamedata.js` | 导出数据 + 内联图标 + 中文名：33 工厂 / 17 兵厂 / 14 发电厂 / 10 钻头 / 2 多产物 / 6 抽水泵 / 22 物品 / 139 图标 / 11 液体颜色 / 493 中文名 / 1132.1 KB |
+| `data/gamedata.js` | 导出数据 + 内联图标 + 中文名：33 工厂 / 17 兵厂 / 14 发电厂 / 10 钻头 / 2 多产物 / 6 抽水泵 / 22 物品 / 139 图标 / 11 液体图标+颜色 / 493 中文名 / 1140.9 KB |
 | `export_data.py` | 重新导出：`python -X utf8 ratio-calc/export_data.py` |
 | `make_cases.py` | 用 `mbo calc --json` 生成对拍用例 |
 | `cli.cjs` | **bot 入口**：命令行 + 文本/Markdown/JSON 渲染 |
@@ -429,16 +433,17 @@ python -X utf8 ratio-calc/card.py --json result.json --out card.png   # 喂现�
 | 兵厂 plans / 升级链 / 组装厂 | `MBO/gamedata/v160.7/units_production.json`（Rhino 反射 dump） |
 | 发电厂 / 钻头 / 多产物 / 物品属性 | `MBO/gamedata/v160.7/power_drill.json`（Rhino 反射 dump） |
 | 抽水泵 | `power_drill.json` 的 Pump 段（`pumpAmount` per-tick ×60；源码 `Blocks.java` 核对） |
-| 液体颜色 | `knowledge/00-data/liquids.json` 的 `colorHex`（原版液体没有独立贴图，用色点代替） |
+| 液体贴图 | `assetsraw/assets-raw/sprites/items/liquid-<名>.png`（11 种），UI 版 `ui/liquid-<名>-ui.png` 兜底 |
+| 液体颜色 | `knowledge/00-data/liquids.json` 的 `colorHex`（贴图缺失时才画色点） |
 | 图标 | `assetsraw/assets-raw/sprites/generated/*-full.png`（优先）、`blocks/**`、`units/**`、`items/**`（原尺寸） |
 | 中文名 | `assetsraw/assets/bundles/bundle_zh_CN.properties`（`item/block/unit.<名>.name`） |
 
 ## 已验证
 
 ```
-node ratio-calc/test_core.cjs   → 14 项对拍 mbo calc 全部一致 + 112 项新算法断言通过（共 126 行 ok）
-node ratio-calc/test_page.cjs   → 75 项页面链路断言通过（含混合厂 9 项、液体自产 4 项）
-node ratio-calc/test_cli.cjs    → 53 项 CLI/HTTP 与 core.js 对拍通过（含 `--mix` 6 项、液体自产 5 项）
+node ratio-calc/test_core.cjs   → 14 项对拍 mbo calc 全部一致 + 119 项新算法断言通过（共 133 行 ok）
+node ratio-calc/test_page.cjs   → 76 项页面链路断言通过（含混合厂 9 项、液体自产 5 项）
+node ratio-calc/test_cli.cjs    → 54 项 CLI/HTTP 与 core.js 对拍通过（含 `--mix` 6 项、液体自产 6 项）
 python -X utf8 ratio-calc/test_card.py → 10 项卡片结构/排版断言通过（含混合厂 2 项、液体自产 1 项、图标 2 项）
 ```
 

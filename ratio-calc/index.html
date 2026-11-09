@@ -92,6 +92,7 @@
   #mixcount { width: 80px; }
   .liqdot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 5px;
             vertical-align: -1px; border: 1px solid rgba(255,255,255,.35); }
+  .liqimg { width: 16px; height: 16px; image-rendering: pixelated; vertical-align: -3px; margin-right: 5px; }
   label.chk { display: inline-flex; align-items: center; gap: 6px; color: var(--dim); font-size: 12px; }
   label.chk input { width: auto; }
   .warn { color: var(--warn); }
@@ -376,6 +377,21 @@
     (res.liquidSources || []).forEach(function (s) { byLiq[s.liquid] = s; });
     var net = {};
     (res.liquidNet || []).forEach(function (l) { net[l.name] = l.perSecond; });
+    /* 泵换算：网页不经过 cli.attachIcons，所以这里自己按净需求/自产量算一遍 */
+    var eqMap = {};
+    var amountOf = {};
+    (res.liquidNet && res.liquidNet.length ? res.liquidNet : list).forEach(function (l) {
+      amountOf[l.name] = l.perSecond;
+    });
+    autoKeys.forEach(function (k) {
+      if (amountOf[k] === undefined) {
+        amountOf[k] = (auto[k].count || 0) * (auto[k].perSecondEach || 0);
+      }
+    });
+    Object.keys(amountOf).forEach(function (k) {
+      var ps = R.pumpEquivalents(DATA, k, amountOf[k]) || [];
+      if (ps.length) eqMap[k] = { need: amountOf[k], pumps: ps };
+    });
     var rows = list.map(function (l) {
       var cfg = srcCfg[l.name] || (srcCfg[l.name] = { type: "import" });
       var pumps = [];
@@ -403,8 +419,10 @@
         pw = '<span class="dim">—</span>';
       }
       var need = net[l.name] === undefined ? "（自产够用）" : "";
+      var eq = equivLine(l.name, eqMap[l.name] || (res.liquidEquiv || {})[l.name]);
       return '<tr><td>' + liqDot(l.name) + esc(l.name) + need + '</td><td class="num">' + num(l.perSecond) +
         '</td><td class="num">' + num(l.perSecond * 60) + '</td><td>' + (a ? '<span class="dim">自产</span>' : sel) +
+        (eq ? '<div class="dim">' + esc(eq) + '</div>' : "") +
         '</td><td class="num">' + cnt + '</td><td class="num">' + pw + "</td></tr>";
     });
     /* 只自产、不消耗的液体（比如顺带的副产）也列出来，避免看不明白电力从哪来 */
@@ -418,11 +436,23 @@
     el("liquids").innerHTML = h + rows.join("");
   }
 
-  /* 液体没有贴图：用 knowledge 里的 jar 颜色画个色点 */
+  /* 液体图标：原版 sprites/items/liquid-<名>.png（已内联进 data）；没有就退回色点 */
   function liqDot(name) {
+    var ic = (DATA.liquid_icons || {})[name];
+    if (ic) return '<img class="liqimg" src="' + ic + '" alt="">';
     var c = (DATA.liquid_colors || {})[name];
     if (!c) return "";
     return '<i class="liqdot" style="background:' + esc(c) + '"></i>';
+  }
+
+  /* 泵换算：水常按"几台泵"计（小泵/中泵/大泵） */
+  var PUMP_LABEL = { "mechanical-pump": "小泵", "rotary-pump": "中泵", "impulse-pump": "大泵",
+                     "reinforced-pump": "强化泵", "water-extractor": "地下水", "oil-extractor": "钻井" };
+  function equivLine(name, eq) {
+    if (!eq || !eq.pumps || eq.pumps.length < 2) return "";
+    return "≈ " + eq.pumps.map(function (p) {
+      return (PUMP_LABEL[p.pump] || p.pump) + " " + p.count + " 台";
+    }).join(" / ");
   }
 
   /* ---- 外部来源表：每项边界输入选 运入 / 钻头 / 分离机·解离机 ---- */

@@ -327,8 +327,11 @@ $("rate").value = "2";
 window.__ratio.autoliq(true, "");
 check("液体自产：带出煤炭分离机和石油钻井",
   /coal-centrifuge/.test(txt("machines")) && /oil-extractor/.test(txt("machines")), txt("machines").slice(0, 500));
-check("液体自产：液体表写「自产」并带色点",
-  /自产/.test($("liquids").innerHTML) && /liqdot/.test($("liquids").innerHTML), $("liquids").innerHTML.slice(0, 800));
+check("液体自产：液体表写「自产」并带原版液体贴图",
+  /自产/.test($("liquids").innerHTML) && /liqimg/.test($("liquids").innerHTML), $("liquids").innerHTML.slice(0, 800));
+check("液体自产：水按泵台数换算（小泵/中泵/大泵）",
+  /小泵/.test($("liquids").innerHTML) && /中泵/.test($("liquids").innerHTML) && /大泵/.test($("liquids").innerHTML),
+  $("liquids").innerHTML.slice(0, 1200));
 check("液体自产：等价命令带 --liquids auto", /--liquids auto/.test($("cmd").textContent), $("cmd").textContent);
 window.__ratio.autoliq(false, "");
 check("关掉液体自产：回到只建分离机", !/oil-extractor/.test(txt("machines")), txt("machines").slice(0, 400));

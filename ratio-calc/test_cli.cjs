@@ -416,6 +416,13 @@ ok("--liquids auto：文本有「液体自产」，oil 不再算外部净需求"
   assert.ok(t.indexOf("液体自产") >= 0, t);
   assert.ok(t.indexOf("液体净需求：oil") < 0, t);
 });
+ok("--liquids auto：文本带泵换算（小泵/中泵/大泵）", () => {
+  const t = run(["--item", "coal", "--rate", "2", "--boundary", "none", "--liquids", "auto"]);
+  assert.ok(t.indexOf("泵换算") >= 0, t);
+  assert.ok(t.indexOf("小泵") >= 0 && t.indexOf("中泵") >= 0 && t.indexOf("大泵") >= 0, t);
+  /* 水 9/s：小泵 2 台 / 中泵 1 台 / 大泵 1 台 */
+  assert.ok(/小泵 2 台/.test(t), t);
+});
 ok("--liquid oil=make：走孢子压缩（spore-press + 种植机）", () => {
   const r = cli.query({ item: "coal", rate: "2", boundary: "none", liquids: "auto", liquid: ["oil=make"] });
   const names = r.machines.map((m) => m.name);

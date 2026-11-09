@@ -209,6 +209,7 @@
       liquidPumps: liquidPumps,
       liquidMakers: liquidMakers,
       liquidColors: data.liquid_colors || {},
+      liquidIcons: data.liquid_icons || {},
       channels: channels,
       channelsByKey: channelsByKey,
       defaultChannel: DEFAULT_CHANNEL,
@@ -1074,6 +1075,23 @@
     };
   }
 
+  /* 液体需求换算成抽水机台数：小泵(机械泵)→中泵(回转泵)→大泵(脉冲泵)…
+   * 用户口径里水常按"几台泵"计，所以每种液体都给出各档泵要几台（向上取整）。 */
+  function pumpEquivalents(data, liquidName, amount) {
+    var idx = indexOf(data);
+    var out = [];
+    idx.pumps.forEach(function (p) {
+      if (p.liquid !== liquidName || !(p.perSecond > 0)) return;
+      out.push({
+        pump: p.name, size: p.size, perSecondEach: p.perSecond, powerEach: p.power,
+        count: Math.max(0, Math.ceil((amount || 0) / p.perSecond - 1e-9))
+      });
+    });
+    /* 小 → 大：先按每秒排，再按尺寸 */
+    out.sort(function (a, b) { return (a.perSecondEach - b.perSecondEach) || (a.size - b.size); });
+    return out;
+  }
+
   /* 兵厂 T1→T5 大循环：要产 rate 个/s 的顶级单位，每级要几台、吃多少料。
    *
    * 模型（不是简单 1:1）：
@@ -1488,7 +1506,7 @@
               generatorPlan: generatorPlan, generatorSupply: generatorSupply,
               separatorPlan: separatorPlan, unitChain: unitChain, chainFromTop: chainFromTop,
               chainFromBlock: chainFromBlock, chainsForBlock: chainsForBlock,
-              pumpPlan: pumpPlan,
+              pumpPlan: pumpPlan, pumpEquivalents: pumpEquivalents,
               applySources: applySources, recalcPower: recalcPower,
               liquidDemand: liquidDemand, DEFAULT_CHANNEL: DEFAULT_CHANNEL };
   global.RatioCore = api;
