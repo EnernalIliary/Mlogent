@@ -452,5 +452,41 @@ ok("钻头在机器清单里写「→ coal 3.234/s」", () => {
   assert.ok(/工厂合计：3 台/.test(t), t);
 });
 
+/* 多产物方块：分离机 / 解离机进递归（指定配方或 --multi 才用） */
+ok("多产物：--force graphite=separator → 4 台分离机、吃矿渣、写顺带产物", () => {
+  const t = run(["--item", "graphite", "--rate", "1", "--boundary", "coal,sand",
+                 "--force", "graphite=separator"]);
+  assert.ok(/separator ×4/.test(t), t);
+  assert.ok(/边界输入：slag 16(\.008)?\/s/.test(t), t);
+  assert.ok(/顺带产物：.*copper 2\.857\/s/.test(t), t);
+  assert.ok(/电 264\/s/.test(t), t);
+});
+ok("多产物：--force sand=disassembler → 1 台、吃废料 4/s", () => {
+  const t = run(["--item", "sand", "--rate", "1", "--boundary", "coal",
+                 "--force", "sand=disassembler"]);
+  assert.ok(/disassembler ×1/.test(t), t);
+  assert.ok(/边界输入：scrap 4\/s/.test(t), t);
+});
+ok("多产物：默认不自动用分离机（lead 走外部输入 + 提示）", () => {
+  const t = run(["--item", "lead", "--rate", "2", "--boundary", "coal,sand"]);
+  assert.ok(/边界输入：lead 2\/s/.test(t), t);
+  assert.ok(/分离机/.test(t), t);           // 提示里告诉你能用分离机
+  assert.ok(!/separator ×/.test(t), t);
+});
+ok("多产物：--multi 才让 lead 由分离机产（5 台）", () => {
+  const t = run(["--item", "lead", "--rate", "2", "--boundary", "coal,sand", "--multi"]);
+  assert.ok(/separator ×5/.test(t), t);
+  assert.ok(!/边界输入：lead/.test(t), t);
+  assert.ok(/顺带产物：/.test(t), t);
+});
+ok("多产物：json 里有 byproducts 字段", () => {
+  const out = run(["--item", "graphite", "--rate", "1", "--boundary", "coal,sand",
+                   "--force", "graphite=separator", "--format", "json"]);
+  const d = JSON.parse(out);
+  assert.ok(Array.isArray(d.byproducts), out.slice(0, 200));
+  const cu = d.byproducts.filter(b => b.name === "copper")[0];
+  close(cu.perSecond, 2.857, 0.01);
+});
+
 console.log("\n通过 " + pass + " 项，失败 " + fail + " 项");
 process.exitCode = fail ? 1 : 0;

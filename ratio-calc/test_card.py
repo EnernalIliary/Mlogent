@@ -236,6 +236,21 @@ ok("液体自产：煤炭处理线写进卡片、液体行用原版贴图 + 泵�
 ok("图标：兵厂链入料行不再缺图标", case_chain_icons)
 ok("图标：混合厂目标行带方块图标", case_mixed_icons)
 ok("发电设备：配比在前、发电量正确、带供电段", case_generator)
+def case_multi():
+    # 分离机：指定配方才用；卡片要写台数/份额产出/顺带产物
+    r = run_cli(["--item", "graphite", "--rate", "1", "--boundary", "coal,sand",
+                 "--force", "graphite=separator"])
+    t = flat(r)
+    assert "separator" in t, t
+    assert "顺带产物" in t, t
+    assert "copper" in t and "2.857" in t, t
+    i_mix = idx_of(r, "工厂配比")
+    i_byp = idx_of(r, "顺带产物")
+    assert i_mix >= 0 and i_byp > i_mix, t
+    check_width(r)
+
+
+ok("多产物：分离机卡片写台数、副产单列一节且带图标", case_multi)
 ok("混合厂：标题/目标表/共享省台数/对比分别建", case_mixed)
 ok("混合厂：发电设备当目标时写厂内发电与净电力", case_mixed_generator)
 

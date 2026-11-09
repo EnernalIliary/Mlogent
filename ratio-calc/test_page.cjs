@@ -387,5 +387,33 @@ check("配方选择：指定 silicon-crucible 后机器表就是它",
 check("配方选择：等价命令带 --force",
   /--force silicon=silicon-crucible/.test($("cmd").textContent), $("cmd").textContent);
 
+/* 多产物方块（分离机 / 解离机）进递归树 */
+check("多产物：页面有「分离机/解离机参与递归」开关", /id="multichk"/.test(html));
+check("多产物：配方下拉里能选到 separator",
+  /value="separator"/.test(txt("forcelist")), txt("forcelist").slice(0, 600));
+
+window.__ratio.setMode("item");
+$("target").value = "lead";
+$("rate").value = "2";
+window.__ratio.autoliq(false, "coal, sand");
+window.__ratio.multi(false);
+check("多产物：默认 lead 仍走外部输入（机器表没有 separator）",
+  !/separator/.test(txt("machines")), txt("machines").slice(0, 300));
+window.__ratio.multi(true);
+check("多产物：打开开关后 lead 由分离机产（5 台）",
+  /separator/.test(txt("machines")) && />5</.test(txt("machines")), txt("machines").slice(0, 300));
+check("多产物：递归树写出份额与顺带产物",
+  /份额/.test(txt("tree")) && /顺带/.test(txt("tree")), txt("tree").slice(0, 500));
+
+window.__ratio.multi(false);
+$("target").value = "graphite";
+$("rate").value = "1";
+window.__ratio.force("graphite", "separator");
+check("多产物：指定配方 separator 后机器表出现 separator",
+  /separator/.test(txt("machines")), txt("machines").slice(0, 300));
+check("多产物：指定配方时树节点带份额（1/6）", /份额 16\.7%/.test(txt("tree")), txt("tree").slice(0, 500));
+window.__ratio.force("graphite", "");
+window.__ratio.autoliq(false, "coal, sand");
+
 console.log(bad ? `\n${bad} 项失败` : "\n页面链路全部通过");
 process.exit(bad ? 1 : 0);

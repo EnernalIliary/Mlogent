@@ -201,7 +201,7 @@ def _machine_section(c, res):
         if m.get("powerTotal"):
             bits.append("电 %s/s" % fmt(m["powerTotal"]))
         outs = [o for o in (m.get("outItems") or []) if o.get("perSecond")]
-        if outs and m.get("kind") in ("item", "unit", "generator", "drill"):
+        if outs and m.get("kind") in ("item", "unit", "generator", "drill", "multi"):
             bits.append("、".join("%s %s/s" % (o["name"], fmt(o["perSecond"])) for o in outs[:2]))
         c.row(m.get("icon"), m.get("name") or "?", "×%d" % int(m.get("count") or 0),
               " · ".join(bits) or None)
@@ -215,6 +215,16 @@ def _machine_section(c, res):
                 bits.append("单台 %s/s" % fmt(m["rateEach"]))
             c.row(m.get("icon"), m.get("name") or "?", "×%d" % int(m.get("count") or 0),
                   " · ".join(bits) or None)
+
+
+def _byproduct_section(c, res):
+    """多产物方块（分离机/解离机）的副产：只是提示会多出来，不算进需求。"""
+    bp = [b for b in (res.get("byproducts") or []) if (b.get("perSecond") or 0) > 0]
+    if not bp:
+        return
+    c.section("顺带产物（多产物方块副产，不算进需求）")
+    for b in bp:
+        c.row(b.get("icon"), b.get("name") or "?", "%s/s" % fmt(b["perSecond"]))
 
 
 def _import_section(c, res):
@@ -422,6 +432,7 @@ def build_card(res: dict) -> Card:
         if ch.get("bottleneck"):
             c.note("整链实际达成 %s/s（受最慢的 T%s %s 限制）"
                    % (fmt(ch.get("achieved")), ch.get("bottleneckTier"), ch["bottleneck"]), DIM)
+        _byproduct_section(c, res)
         _import_section(c, res)
         _liquid_section(c, res)
         _power_section(c, res)
@@ -463,6 +474,7 @@ def build_card(res: dict) -> Card:
         if res.get("powerOut"):
             c.note("厂内发电 %s/s，净电力 %s/s"
                    % (fmt(res.get("powerOut")), fmt(res.get("netPower"))), DIM)
+        _byproduct_section(c, res)
         _import_section(c, res)
         _liquid_section(c, res)
         _power_section(c, res)
@@ -497,6 +509,7 @@ def build_card(res: dict) -> Card:
             parts.append("%s %s/s（%s）" % (p["name"], fmt(p.get("rate")), kind))
         c.note("产出：" + "、".join(parts), GREEN)
 
+    _byproduct_section(c, res)
     _import_section(c, res)
     _liquid_section(c, res)
     _power_section(c, res)

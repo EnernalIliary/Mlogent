@@ -206,6 +206,35 @@ node cli.cjs --item coal --rate 6 --boundary none --liquid oil=make
   **液体也是边界**：写进 `--boundary` 就不再抽/压（煤处理线止于分离机），页面上点液体芯片即可切换；
   液体图标用原版 `sprites/items/liquid-<名>.png`（11 种全有，UI 用 `ui/liquid-<名>-ui.png` 兜底），
   拿不到贴图时才退回 `knowledge/00-data/liquids.json` 的 `colorHex` 色点。
+
+### 3.7 分离机 / 解离机也在递归树里（默认不自动用）
+
+这两台是"一次随机出一件、按份额加权"的多产物方块，以前只能当 `--src` 的来源，**不进递归树**。
+现在它们正式成为候选配方：页面的「指定配方」下拉里能看到 `separator` / `disassembler`，
+选了就会展开它自己的输入（矿渣 / 废料），递归树上标出**份额**和**顺带产物**。
+
+```bash
+node ratio-calc/cli.cjs --item graphite --rate 1 --boundary "coal,sand" --force graphite=separator
+#   产出：graphite 1.143/s
+#   separator ×4（电 264/s）
+#   边界输入：slag 16/s（液体，外部运入）
+#   顺带产物：copper 2.857/s、lead 1.714/s、titanium 1.143/s（多产物方块副产，不算进需求）
+```
+
+算法口径（`core.js`）：
+
+| 环节 | 怎么算 |
+|---|---|
+| 台数 | 按目标产物的**份额**反推：`ceil(需求 / (cps × share))`，如石墨占分离机 16.67% ⇒ 1/s 要 4 台 |
+| 输入 | 按**台数**展开（每台吃一份），不吃"份额"；分离机吃矿渣 4/s、解离机吃废料 4/s + 矿渣 7.2/s |
+| 副产 | 其它产物记成 `byproducts`（页面/命令行/卡片都单列），**不进需求**、不会递归展开 |
+| 电力 | 台数 × 单台耗电（分离机 66、解离机 240），进总电力 |
+
+- **默认不自动参与**：铜/铅/钛、沙子这些"没有普通工厂能干"的物品，如果自动用分离机，`lead 2/s`
+  就会被算成"建 5 台吃 20/s 矿渣的分离机"，把本该挖矿的产物全带偏。所以只有两种方式让它上：
+  - 在页面「指定配方」里把它选给某个物品（或 CLI `--force item=separator`）；
+  - CLI `--multi` / 页面「分离机/解离机参与递归」开关 —— 打开后才允许自动挑选。
+- 不指定时，`lead 2/s` 仍按外部输入处理，并提示「分离机/解离机能产它，要展开请指定配方或加 --multi」。
 - **泵按加和计量、富余优先**：水这类液体按「几台小泵 + 几台中泵 + 几台大泵」算，先让**富余最小**、富余相同再比台数少（`core.pumpMix`）。
   例：`water 9/s ≈ 小泵 2 台（合计 14/s，富余 5/s）`、`18/s ≈ 小泵 3 台（21/s，富余 3/s）`、
   `90/s ≈ 中泵 1 台 + 小泵 6 台（合计 90/s，富余 0）`、`630/s ≈ 中泵 7 台 + 小泵 42 台（630/s，富余 0）`
@@ -386,8 +415,10 @@ python -X utf8 ratio-calc/card.py --json result.json --out card.png   # 喂现�
 `docs/card-via.png`(700×248，蓝带入料)、`docs/card-pump.png`(700×414，钻头 + 抽水机)、
 `docs/card-unit.png`(700×378，兵厂单级)、`docs/mix.png`(700×376，混合厂卡片)、`docs/page-mixed.png`（混合厂页签整页截图）、
 `docs/card-coal.png`(700×580，煤炭处理线：煤炭分离机 + 孢子压缩产油 + 液体原版贴图 + 泵换算 + 外部电力换算)、
-`docs/page-coal.png`（1180×2100，页面截图：边界全物品/液体开关 + 配方下拉 + 液体自产 + 边界表带液体行）、
-`docs/card-drill.png`(700×394，钻头并入工厂配比：机器行写 coal 3.234/s)。
+`docs/page-coal.png`（1180×2150，页面截图：边界全物品/液体开关 + 配方下拉 + 多产物方块开关 + 液体自产 + 边界表带液体行）、
+`docs/card-drill.png`(700×394，钻头并入工厂配比：机器行写 coal 3.234/s)、
+`docs/card-separator.png`（分离机进递归：台数按份额反推、顺带产物单列一节）、
+`docs/page-multi.png`（1180×2150，页面截图：指定配方选 separator，递归树带份额与顺带产物）。
 
 ### JSON 结构（四种模式统一）
 
@@ -472,10 +503,10 @@ python -X utf8 ratio-calc/card.py --json result.json --out card.png   # 喂现�
 ## 已验证
 
 ```
-node ratio-calc/test_core.cjs   → 14 项对拍 mbo calc 全部一致 + 134 项新算法断言通过（共 148 行 ok）
-node ratio-calc/test_page.cjs   → 88 项页面链路断言通过（含混合厂 9 项、液体自产 5 项、边界开关/配方下拉、钻头并入工厂配比）
-node ratio-calc/test_cli.cjs    → 55 项 CLI/HTTP 与 core.js 对拍通过（含 `--mix` 6 项、液体自产 6 项、钻头写入机器清单）
-python -X utf8 ratio-calc/test_card.py → 10 项卡片结构/排版断言通过（含混合厂 2 项、液体自产 1 项、图标 2 项）
+node ratio-calc/test_core.cjs   → 14 项对拍 mbo calc 全部一致 + 148 项新算法断言通过（共 162 行 ok）
+node ratio-calc/test_page.cjs   → 95 项页面链路断言通过（含混合厂 9 项、液体自产 5 项、边界开关/配方下拉、钻头并入工厂配比、多产物方块进递归树 6 项）
+node ratio-calc/test_cli.cjs    → 60 项 CLI/HTTP 与 core.js 对拍通过（含 `--mix` 6 项、液体自产 6 项、钻头写入机器清单、分离机/解离机 5 项）
+python -X utf8 ratio-calc/test_card.py → 11 项卡片结构/排版断言通过（含混合厂 2 项、液体自产 1 项、图标 2 项、多产物副产 1 项）
 ```
 
 对拍用例覆盖石墨/硅/合金/玻璃/塑料/爆炸物/燃烧物/相织物/孢子荚 + 3 个 `--force`；
@@ -485,7 +516,9 @@ python -X utf8 ratio-calc/test_card.py → 10 项卡片结构/排版断言通过
 dagger 与 stell 两条升级链、发电设备当目标建筑（蒸汽 ×2 → 660/s、冲击堆扣自耗、不做电力递归）、
 混合厂（合并上游后石墨压机 10 台 vs 分别建 11 台、目标互供抵扣省 2 台、发电厂当目标并入净电力）、
 泵富余优先（9/s → 小泵 2 台富余 5、18/s → 小泵 3 台富余 3、90/s 富余 0）、外部电力按发电厂加和
-（646/s → 蒸汽 2 台、1080/s → 差速 1 台）、液体也是边界（oil 进边界就不再建石油钻井）。
+（646/s → 蒸汽 2 台、1080/s → 差速 1 台）、液体也是边界（oil 进边界就不再建石油钻井）、
+多产物进递归树（`graphite` 的候选含 separator、默认仍走压机、`--force graphite=separator` → 4 台/电 264/矿渣 16/s、
+`--force sand=disassembler` → 1 台/废料 4/s、`--multi` 时 lead 2/s → 分离机 5 台、默认仍按外部输入）。
 
 截图用 Edge headless（Chrome headless 在这台机器上会超时被 kill）：
 `--headless=new --disable-gpu --no-sandbox --window-size=1180,2000 --virtual-time-budget=5000 --screenshot=...`
@@ -506,7 +539,7 @@ dagger 与 stell 两条升级链、发电设备当目标建筑（蒸汽 ×2 → 
 - 液体自产只认"一种方块供一种液体"：`reinforced-pump` 要氢这类自反馈被排序规避（优先选不吃液体的泵），不保证全局最优；
 - 混合厂里的液体自产：转化方块的**物品**入料按外部输入计并给 warning（不展开那一层物品链）；
 - 组装厂（`UnitAssembler`）消耗的是**方块 Payload**，这里按外部输入处理，不展开；
-- 多产物是"随机出一件"的期望值，实际有波动；
+- 多产物是"随机出一件"的期望值，实际有波动；它默认不参与自动递归（见 §3.7），指定配方或 `--multi` 才上；
 - 电力不展开成燃料链的闭环（发电厂烧的煤仍需自己配来源，不会自动接到钻头）；
 - 混合厂不收兵厂（兵厂自带 T1→T5 大循环，请用「按目标建筑台数」页），也不收组装厂；
 - 混合厂的"对比分别建"是按每个目标**各自独立展开**算的，不是按最优顺序分批建；先合并速率再取整，

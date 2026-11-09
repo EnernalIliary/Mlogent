@@ -337,5 +337,42 @@ eq("泵换算：油只有钻井一种", R.pumpEquivalents(DATA, "oil", 6).length
 }
 function s2sum(m) { return m.pumps.reduce((a, p) => a + p.count, 0); }
 
+/* 多产物方块：分离机 / 解离机必须进递归树（候选里能看见、选了能展开、副产单独记） */
+{
+  const names = DATA.__index.producersOf("graphite").map(b => b.name);
+  ok("多产物：graphite 的候选里有 separator（进递归候选）", names.indexOf("separator") >= 0, JSON.stringify(names));
+  ok("多产物：graphite 的候选里有 disassembler", names.indexOf("disassembler") >= 0, JSON.stringify(names));
+
+  const d0 = R.expand(DATA, "graphite", 1, ["coal", "sand"], {});
+  ok("多产物：默认仍走石墨压机，不会自作主张改建分离机",
+     d0.machines["graphite-press"] === 2 && !d0.machines["separator"], JSON.stringify(d0.machines));
+
+  const ds = R.expand(DATA, "graphite", 1, ["coal", "sand"], { graphite: "separator" });
+  eq("多产物：指定 separator 后按份额反推台数（1/0.285714 → 4 台）", ds.machines, { separator: 4 });
+  near("多产物：分离机电力 4 × 66 = 264", ds.power, 264, 1.5);
+  const byp = {};
+  (ds.byproducts || []).forEach(b => { byp[b.name] = Math.round(b.perSecond * 1000) / 1000; });
+  eq("多产物：顺带产物 copper 2.857/s", byp.copper, 2.857);
+  ok("多产物：顺带产物不进需求", !ds.demand["copper"] && !ds.demand["lead"], JSON.stringify(ds.demand));
+  const slag = (ds.liquids || []).filter(l => l.name === "slag")[0];
+  ok("多产物：分离机吃矿渣 16/s（进液体需求）", !!slag && Math.abs(slag.perSecond - 16.008) < 0.01,
+     JSON.stringify(ds.liquids));
+  ok("多产物：树节点带份额（1/6）", !!ds.tree && Math.abs((ds.tree.share || 0) - 1 / 6) < 0.01,
+     String(ds.tree && ds.tree.share));
+
+  const dd = R.expand(DATA, "sand", 1, ["coal"], { sand: "disassembler" });
+  eq("多产物：解离机产沙 1/s → 1 台", dd.machines, { disassembler: 1 });
+  near("多产物：解离机吃废料 4/s", dd.demand["scrap"] || 0, 4, 0.01);
+  near("多产物：解离机电力 240", dd.power, 240, 1.5);
+
+  const lead = R.expand(DATA, "lead", 2, ["coal", "sand"], {});
+  ok("多产物：不指定时 lead 仍按外部输入（不自动建分离机）",
+     !lead.machines["separator"] && Math.abs((lead.demand["lead"] || 0) - 2) < 1e-6,
+     JSON.stringify(lead.machines) + " " + JSON.stringify(lead.demand));
+  const leadM = R.expand(DATA, "lead", 2, ["coal", "sand"], {}, { multi: true });
+  ok("多产物：--multi 时 lead 才由分离机产（ceil(2/0.4286)=5 台）",
+     leadM.machines["separator"] === 5 && !leadM.demand["lead"], JSON.stringify(leadM.machines));
+}
+
 console.log(f2 ? `\n${f2} 项新算法断言失败` : "\n新算法断言全部通过");
 process.exit(bad || f2 ? 1 : 0);

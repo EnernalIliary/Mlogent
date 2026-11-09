@@ -195,6 +195,8 @@ function query(opts) {
   const depth = num(opts.depth, 12);
   const sources = parseSources(opts.src || []);
   const liqOpts = liquidOptions(opts);
+  /* --multi：允许分离机/解离机自动参与递归（默认关，否则铜/铅/钛会被自动改建成吃矿渣的分离机） */
+  const multiOn = opts.multi === true || opts.multi === "on" || opts.multi === "1" || opts.multi === "yes";
 
   const res = {
     ok: true, snapshot: DATA.snapshot || "", mode: null, target: null, requested: null,
@@ -224,7 +226,7 @@ function query(opts) {
     /* 混合厂：多个目标（物品工厂 / 发电设备）合并算上游，共享中间产物只建一份 */
     const targets = parseMix(opts.mix);
     const r = R.expandMixed(DATA, targets, Object.assign({
-      boundary: boundary, force: force, maxDepth: depth, sources: sources
+      boundary: boundary, force: force, maxDepth: depth, sources: sources, multi: multiOn
     }, liqOpts));
     res.mode = "mixed";
     res.targets = r.targets.map(t => ({
@@ -251,6 +253,7 @@ function query(opts) {
     res.liquidSources = r.liquidSources || [];
     res.liquidFrom = r.liquidFrom || {};
     res.liquidNet = r.liquidNet || [];
+    res.byproducts = r.byproducts || [];
   } else if (opts.block) {
     const count = num(opts.count, 1);
     /* 选中的是兵厂 → 直接走 T1→T5 大循环（和页面「按目标建筑台数」一致） */
@@ -264,7 +267,7 @@ function query(opts) {
     const r = R.expandBuilding(DATA, String(opts.block), count, Object.assign({
       boundary: boundary, force: force, maxDepth: depth,
       plan: num(opts.plan, 0), sources: sources,
-      fuel: opts.genfuel ? String(opts.genfuel) : null
+      fuel: opts.genfuel ? String(opts.genfuel) : null, multi: multiOn
     }, liqOpts));
     res.mode = "building";
     res.target = String(opts.block);
@@ -281,11 +284,12 @@ function query(opts) {
     res.liquidSources = r.liquidSources || [];
     res.liquidFrom = r.liquidFrom || {};
     res.liquidNet = r.liquidNet || [];
+    res.byproducts = r.byproducts || [];
     if (r.planTotal > 1) res.warnings.push("该兵厂有 " + r.planTotal + " 个生产计划，用的是第 " + (r.plan + 1) + " 个（--plan 可换）");
   } else if (opts.item) {
     const rate = num(opts.rate, 1);
     const r = R.expand(DATA, String(opts.item), rate, boundary, force,
-      Object.assign({ maxDepth: depth, sources: sources }, liqOpts));
+      Object.assign({ maxDepth: depth, sources: sources, multi: multiOn }, liqOpts));
     res.mode = "item";
     res.target = String(opts.item);
     res.requested = rate;
@@ -300,6 +304,7 @@ function query(opts) {
     res.liquidSources = r.liquidSources || [];
     res.liquidFrom = r.liquidFrom || {};
     res.liquidNet = r.liquidNet || [];
+    res.byproducts = r.byproducts || [];
   } else {
     throw new Error("要给 --item <物品> --rate <每秒> 或 --block <方块> --count <台数>");
   }
@@ -330,6 +335,8 @@ function attachIcons(res) {
   const env = loadData();
   const idx = env.idx, DATA = env.DATA;
   res.products.forEach(p => { p.icon = iconOfIndex(idx, p.name, p.type); });
+  /* 多产物方块的副产：也补图标（卡片/富文本里一目了然） */
+  (res.byproducts || []).forEach(b => { b.icon = iconOfIndex(idx, b.name, "item"); });
   res.demand.forEach(d => { d.icon = iconOfIndex(idx, d.name, "item"); });
   const paint = (l) => {
     /* 原版液体贴图：sprites/items/liquid-<名>.png（export_data 已内联） */
@@ -584,6 +591,10 @@ function renderText(res) {
     const t = mixText(k, res.pumpMix[k]);
     if (t) L.push("  泵换算：" + t);
   });
+  if ((res.byproducts || []).length) {
+    L.push("  顺带产物：" + res.byproducts.map(b => b.name + " " + fmtNum(b.perSecond) + "/s").join("、")
+      + "（多产物方块副产，不算进需求）");
+  }
   (res.liquidSources || []).forEach(s => {
     let line = "  液体 " + s.liquid + " ← " + s.pump + " ×" + s.count
       + "（单台 " + fmtNum(s.perSecondEach) + "/s，合计 " + fmtNum(s.perSecondTotal) + "/s";
@@ -759,6 +770,7 @@ function usage() {
     "  --depth <N>                         递归层数上限（默认 12）",
     "  --src item=import|drill:<钻头>:<矿格数>:<0|1>|multi:<方块>   外部来源（可重复）",
     "  --liquids auto                      液体自产：机器吃的液体没人供时自动接钻井/转化方块",
+    "  --multi                             分离机/解离机也参与自动递归（默认只在“指定配方”里选才用）",
     "  --liquid oil=make|pump|import[:方块]  逐种液体指定自产方式（oil=make:spore-press）",
     "  --liquidname oil=<方块>              只指定产液方块（方式按 auto 判）",
     "  --gen <发电厂> --genfuel <燃料> [--gencount N] [--gendemand X]  供电方案（N=0/省略则自动补足）",

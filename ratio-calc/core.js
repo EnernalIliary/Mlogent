@@ -105,6 +105,27 @@
       });
     });
 
+    /* 多产物方块（分离机 / 解离机）也是"能产某物品的方块"，要能进递归候选：
+     * 视图与 anyBlock 的 multi 分支同形（inputs/outputs 归一成每 craft 量），
+     * 于是 perSecond(视图, item) = 数据里的每秒量（= cps × 份额），need() 按台数反推即可。
+     * 液体输入（分离机的矿渣）单独放 inputLiquids，交给液体自产那一层去补。 */
+    var multiViews = new Map();
+    var multiByOutput = new Map();
+    multi.forEach(function (m) {
+      var view = { name: m.name, kind: "multi", isMulti: true, size: m.size, power: m.power,
+                   icon: m.icon, craftTime: m.craftTime, cps: m.cps,
+                   inputs: m.inputs.map(function (i) { return { name: i[0], amount: i[1] / (m.cps || 1) }; }),
+                   inputLiquids: m.inputLiquids.map(function (l) { return { name: l[0], perSecond: l[1] }; }),
+                   outputLiquids: [],
+                   outputs: m.outputs.map(function (o) { return { name: o[0], amount: o[1] / (m.cps || 1), share: o[2] }; }),
+                   plans: [], upgrades: [], factoryKind: "" };
+      multiViews.set(m.name, view);
+      m.outputs.forEach(function (o) {
+        if (!multiByOutput.has(o[0])) multiByOutput.set(o[0], []);
+        multiByOutput.get(o[0]).push(view);
+      });
+    });
+
     var pumps = new Map();
     (data.pumps || []).forEach(function (p) {
       pumps.set(p.name, {
@@ -219,7 +240,27 @@
       snapshot: data.snapshot || "",
       itemSet: new Set(items),
       blocks: blocks,
-      producersOf: function (item) { return byOutput.get(item) || []; },
+      multiViews: multiViews,
+      /* 列出用：物品工厂 + 多产物方块（分离机/解离机）——配方下拉、递归树里能看到它们 */
+      producersOf: function (item) {
+        return (byOutput.get(item) || []).concat(multiByOutput.get(item) || []);
+      },
+      /* 自动展开用：只有单一产物工厂。多产物方块要"指定配方"或 opts.multi 才参与，
+       * 否则铜/铅/钛这类本该挖矿来的物品会被自动改建成"吃矿渣的分离机"，把默认结果全带偏。 */
+      autoProducersOf: function (item) { return byOutput.get(item) || []; },
+      hasMultiProducer: function (item) { return (multiByOutput.get(item) || []).length > 0; },
+      multiProducersOf: function (item) { return multiByOutput.get(item) || []; },
+      shareOf: function (block, item) {
+        var hit = (block.outputs || []).filter(function (o) { return o.name === item; })[0];
+        return hit && hit.share != null ? hit.share : null;
+      },
+      /* 多产物方块的"顺带产物"：同一台机器一起出、但不是本次需求的东西 */
+      byproductsOf: function (block, item, n) {
+        if (!block || !block.isMulti) return null;
+        return (block.outputs || []).filter(function (o) { return o.name !== item; })
+          .map(function (o) { return { name: o.name, share: o.share || 0,
+                                       perSecond: round(o.amount * block.cps * (n || 0)) }; });
+      },
       perSecond: function (block, item) {
         var hit = block.outputs.filter(function (o) { return o.name === item; })[0];
         return hit ? hit.amount * block.cps : 0;
@@ -240,9 +281,9 @@
   /* 选配方（两个入口共用：单目标展开 / 混合厂）
    * 优先"不引入新物品"的配方（免得绕出奇怪的长链），其次总产出刚好盖住需求的，
    * 再其次方块占地小的，最后按名字定序（保证确定性）。 */
-  function chooseProducer(idx, item, amount, fmap, servable) {
-    var cands = idx.producersOf(item);
+  function chooseProducer(idx, item, amount, fmap, servable, liqOk, allowMulti) {
     var forced = fmap && fmap[item];
+    var cands = (forced || allowMulti) ? idx.producersOf(item) : idx.autoProducersOf(item);
     if (forced) {
       var only = cands.filter(function (b) { return b.name === forced; });
       if (!only.length) throw new Error(forced + " 不产 " + item);
@@ -254,11 +295,17 @@
       if (per <= 0) return;
       var n = Math.max(1, Math.ceil(amount / per - 1e-9));
       var introduces = !b.inputs.every(function (i) { return servable(i.name, new Set()); });
+      if (!introduces && liqOk) {
+        introduces = !(b.inputLiquids || []).every(function (l) { return liqOk(l.name); });
+      }
       scored.push({ block: b, n: n, introduces: introduces, actual: n * per });
     });
     if (!scored.length) throw new Error(item + " 没有可用配方");
     scored.sort(function (a, b) {
       if (a.introduces !== b.introduces) return a.introduces ? 1 : -1;
+      /* 同样"不引入新东西"时，优先单一产物工厂，多产物方块只在被指定/没别的配方时用 */
+      var am = a.block.isMulti ? 1 : 0, bm = b.block.isMulti ? 1 : 0;
+      if (am !== bm) return am - bm;
       if (Math.abs(a.actual - b.actual) > 1e-9) return a.actual - b.actual;
       var as = a.block.size * a.block.size, bs = b.block.size * b.block.size;
       if (as !== bs) return as - bs;
@@ -327,19 +374,20 @@
   /* ---------------------------------------------------------------- *
    * 物品需求的递归展开（两种入口共用）
    * ---------------------------------------------------------------- */
-  function makeExpander(idx, boundary, force, maxDepth) {
+  function makeExpander(idx, boundary, force, maxDepth, allowMulti) {
     var bset = new Set(boundary || []);
     var fmap = force || {};
     var machines = {};
     var order = [];
     var demand = {};
+    var byprod = {};
     var warnings = [];
     var maxDepth_ = maxDepth || MAX_DEPTH;
 
     function servable(item, seen) {
       if (bset.has(item)) return true;
       if (seen.has(item)) return false;
-      var cands = idx.producersOf(item);
+      var cands = allowMulti ? idx.producersOf(item) : idx.autoProducersOf(item);
       if (!cands.length) return false;
       var next = new Set(seen); next.add(item);
       return cands.some(function (b) {
@@ -347,8 +395,14 @@
       });
     }
 
+    /* 液体能不能自给：在边界里，或者有钻井/转化方块能产（矿渣这种没来源的就算"引入"） */
+    function liqOk(name) {
+      if (bset.has(name)) return true;
+      return !!liquidSourcePlan(idx, name, 1, "auto");
+    }
+
     function choose(item, amount) {
-      return chooseProducer(idx, item, amount, fmap, servable);
+      return chooseProducer(idx, item, amount, fmap, servable, liqOk, allowMulti);
     }
 
     function need(item, amount, depth, parentNode) {
@@ -360,20 +414,32 @@
         demand[item] = (demand[item] || 0) + amount;
         return node;
       }
-      var cands = idx.producersOf(item);
+      var cands = allowMulti ? idx.producersOf(item) : idx.autoProducersOf(item);
       if (!cands.length) {
         node.reason = "no-recipe";
         demand[item] = (demand[item] || 0) + amount;
-        warnings.push(item + " 没有配方产出，按外部输入处理");
+        /* 只有多产物方块能产（铜/铅/钛/沙…）时给个提示：想让它进递归树就在"指定配方"里选 */
+        warnings.push(item + " 没有配方产出，按外部输入处理"
+          + (idx.hasMultiProducer(item)
+             ? "（分离机/解离机能产它，要展开请在“指定配方”里选，或加 --multi）" : ""));
         return node;
       }
       var pick = choose(item, amount);
       var b = pick.block;
       var n = Math.max(1, Math.ceil(amount / idx.perSecond(b, item) - 1e-9));
       node.block = b.name;
+      node.kind = b.kind || "item";
       node.count = n;
       node.per = idx.perSecond(b, item);
       node.actual = n * node.per;
+      /* 多产物方块：记下"这个物品占多少份额"和同一批机器顺带出的其它产物（不进需求，只做展示） */
+      if (b.isMulti) {
+        node.share = idx.shareOf(b, item);
+        node.byproducts = idx.byproductsOf(b, item, n);
+        (node.byproducts || []).forEach(function (o) {
+          byprod[o.name] = (byprod[o.name] || 0) + o.perSecond;
+        });
+      }
       machines[b.name] = (machines[b.name] || 0) + n;
       order.push({ block: b.name, count: n, item: item });
       idx.inputPerSecond(b).forEach(function (i) {
@@ -441,8 +507,8 @@
       result: function (extra) {
         var power = 0;
         Object.keys(machines).forEach(function (name) {
-          var b = idx.blocks.get(name);
-          if (b) power += machines[name] * b.power;
+          var b = anyBlock(idx, name);        // 多产物方块/钻井也要计电（以前只查 idx.blocks 会漏）
+          if (b && b.kind !== "generator") power += machines[name] * b.power;
         });
         var out = {
           machines: machines,
@@ -450,6 +516,9 @@
           demand: demand,
           power: power,
           liquids: liquidDemand(idx, machines),
+          byproducts: Object.keys(byprod).sort().map(function (k) {
+            return { name: k, perSecond: round(byprod[k]) };
+          }),
           warnings: warnings,
           snapshot: idx.snapshot || ""
         };
@@ -465,7 +534,7 @@
   function expand(data, target, rate, boundary, force, opts) {
     var idx = indexOf(data);
     if (!idx.itemSet.has(target)) throw new Error("未知物品：" + target);
-    var ex = makeExpander(idx, boundary, force, (opts && opts.maxDepth) || MAX_DEPTH);
+    var ex = makeExpander(idx, boundary, force, (opts && opts.maxDepth) || MAX_DEPTH, !!(opts && opts.multi));
     var root = ex.need(target, rate, 0, null);
     var liquidFrom = (opts && opts.liquids) ? ex.resolveLiquids(opts) : {};
     var res = ex.result({ target: target, requested: rate, tree: root, liquidFrom: liquidFrom });
@@ -656,6 +725,7 @@
     if (!list.length) throw new Error("混合厂至少要一个目标");
     var bset = new Set(opts.boundary || []);
     var fmap = opts.force || {};
+    var allowMulti = !!opts.multi;
     var maxDepth_ = opts.maxDepth || MAX_DEPTH;
     var warnings = [];
 
@@ -688,15 +758,17 @@
         var item = cur.item, amount = cur.amount;
         if (!(amount > 1e-9)) continue;
         if (bset.has(item)) { boundaryRate[item] = (boundaryRate[item] || 0) + amount; continue; }
-        if (!idx.producersOf(item).length) {
+        if (!(allowMulti ? idx.producersOf(item) : idx.autoProducersOf(item)).length) {
           noRecipe[item] = true; boundaryRate[item] = (boundaryRate[item] || 0) + amount; continue;
         }
         if (cur.depth > maxDepth_) {
           overflow[item] = true; boundaryRate[item] = (boundaryRate[item] || 0) + amount; continue;
         }
         rate[item] = (rate[item] || 0) + amount;
-        if (!picks[item]) picks[item] = chooseProducer(idx, item, rate[item], fmap, servable).block.name;
-        var blk = idx.blocks.get(picks[item]);
+        if (!picks[item]) picks[item] = chooseProducer(idx, item, rate[item], fmap, servable, function (liq) {
+          return bset.has(liq) || !!liquidSourcePlan(idx, liq, 1, "auto");
+        }, allowMulti).block.name;
+        var blk = anyBlock(idx, picks[item]);
         var per = idx.perSecond(blk, item);
         graph[item] = { block: picks[item], per: per, inputs: idx.inputPerSecond(blk) };
         graph[item].inputs.forEach(function (i) {
@@ -711,7 +783,9 @@
       runPass();
       var changed = false;
       Object.keys(rate).forEach(function (item) {
-        var best = chooseProducer(idx, item, rate[item], fmap, servable).block.name;
+        var best = chooseProducer(idx, item, rate[item], fmap, servable, function (liq) {
+          return bset.has(liq) || !!liquidSourcePlan(idx, liq, 1, "auto");
+        }, allowMulti).block.name;
         if (best !== picks[item]) { picks[item] = best; changed = true; }
       });
       if (!changed) break;
@@ -766,6 +840,17 @@
     /* 一个方块产多种被需要的物品时，机器数会重复记，给个提示（当前原版物品工厂基本都是单一产物） */
     var blockUse = {};
     order.forEach(function (o) { blockUse[o.block] = (blockUse[o.block] || 0) + 1; });
+    /* 多产物方块（分离机/解离机）一台就同时出所有产物：台数取各需求项里的最大值，别累加 */
+    Object.keys(blockUse).forEach(function (blkName) {
+      var mb = anyBlock(idx, blkName);
+      if (!mb || !mb.isMulti) return;
+      var mx = 0, which = null;
+      order.forEach(function (o) { if (o.block === blkName && o.count > mx) { mx = o.count; which = o.item; } });
+      if (mx) {
+        machines[blkName] = mx;
+        warnings.push(blkName + " 是多产物方块，台数按最大的那项（" + which + "）算 " + mx + " 台，其余产物顺带出");
+      }
+    });
 
     var products = [], inputs = [], liquidExtra = {}, powerOut = 0, targetRows = [];
     list.forEach(function (s) {
@@ -942,6 +1027,18 @@
 
   /* 统一的"方块"视图：物品工厂 / 兵厂 / 钻头 / 多产物 / 发电厂 */
   function anyBlock(idx, name) {
+    /* 多产物方块（分离机/解离机）在 gamedata 里同时有 blocks 条目（产出为空）和 multi 条目，
+     * 这里优先返回 multi 视图，否则机器表会写成"没有产出"，电力/份额也拿不到。 */
+    var mv = idx.multi.get(name);
+    if (mv) {
+      return { name: name, kind: "multi", isMulti: true, size: mv.size, power: mv.power, icon: mv.icon,
+               craftTime: mv.craftTime, cps: mv.cps,
+               inputs: mv.inputs.map(function (i) { return { name: i[0], amount: i[1] / (mv.cps || 1) }; }),
+               inputLiquids: mv.inputLiquids.map(function (l) { return { name: l[0], perSecond: l[1] }; }),
+               outputLiquids: [],
+               outputs: mv.outputs.map(function (o) { return { name: o[0], amount: o[1] / (mv.cps || 1), share: o[2] }; }),
+               plans: [], upgrades: [], factoryKind: "" };
+    }
     var b = idx.blocks.get(name);
     if (b) return b;
     var d = idx.drills.get(name);
@@ -949,14 +1046,6 @@
       return { name: name, kind: "drill", size: d.size, power: d.power, icon: d.icon,
                craftTime: d.drillTime, cps: 0, inputs: [], outputs: [],
                plans: [], upgrades: [], factoryKind: "", tier: d.tier };
-    }
-    var m = idx.multi.get(name);
-    if (m) {
-      return { name: name, kind: "multi", size: m.size, power: m.power, icon: m.icon,
-               craftTime: m.craftTime, cps: m.cps,
-               inputs: m.inputs.map(function (i) { return { name: i[0], amount: i[1] / (m.cps || 1) }; }),
-               outputs: m.outputs.map(function (o) { return { name: o[0], amount: o[1] / (m.cps || 1), share: o[2] }; }),
-               plans: [], upgrades: [], factoryKind: "" };
     }
     var g = idx.generators.get(name);
     if (g) {
