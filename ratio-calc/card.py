@@ -206,9 +206,15 @@ def _machine_section(c, res):
         c.row(m.get("icon"), m.get("name") or "?", "×%d" % int(m.get("count") or 0),
               " · ".join(bits) or None)
     if plist:
-        c.note("抽水：" + " + ".join(
-            "%s ×%d（电 %s/s）" % (m.get("name"), int(m.get("count") or 0), fmt(m.get("powerTotal")))
-            for m in plist), DIM)
+        c.section("抽水（钻井 / 泵）")
+        for m in plist:
+            bits = []
+            if m.get("powerTotal"):
+                bits.append("电 %s/s" % fmt(m["powerTotal"]))
+            if m.get("rateEach"):
+                bits.append("单台 %s/s" % fmt(m["rateEach"]))
+            c.row(m.get("icon"), m.get("name") or "?", "×%d" % int(m.get("count") or 0),
+                  " · ".join(bits) or None)
 
 
 def _import_section(c, res):
@@ -247,6 +253,11 @@ def _import_section(c, res):
         c.row(d.get("icon"), d["name"], "%s/s" % fmt(d.get("perSecond")), sub)
 
 
+GEN_LABEL = {
+    "combustion-generator": "燃烧发电机", "steam-generator": "蒸汽发电机",
+    "differential-generator": "差速发电机",
+}
+
 PUMP_LABEL = {
     "mechanical-pump": "小泵", "rotary-pump": "中泵", "impulse-pump": "大泵",
     "reinforced-pump": "强化泵", "water-extractor": "地下水", "oil-extractor": "钻井",
@@ -270,6 +281,30 @@ def _equiv_text(eq: dict | None) -> str | None:
             text += "，富余 %s/s" % fmt(extra)
         text += "）"
     return text
+
+
+def _power_mix_text(mix: dict | None) -> str | None:
+    """外部电力换算成"几台发电厂"（与泵同一套口径：先富余小、再台数少）。"""
+    if not isinstance(mix, dict):
+        return None
+    gens = mix.get("gens") or []
+    if not gens:
+        return None
+    text = " + ".join("%s %s 台" % (GEN_LABEL.get(g["block"], g["block"]), g["count"]) for g in gens)
+    total, extra = mix.get("total"), mix.get("extra") or 0
+    text += "（合计 %s/s" % fmt(total)
+    if extra > 1e-6:
+        text += "，富余 %s/s" % fmt(extra)
+    return text + "）"
+
+
+def _power_mix_row(c, res):
+    """外部电力（自己没发电、从外面接进来的电）补一行"换算成几台发电厂"。"""
+    mix = res.get("powerMix")
+    text = _power_mix_text(mix)
+    if not text:
+        return
+    c.note("外部电力：电力 %s/s ≈ %s" % (fmt((mix or {}).get("need")), text), DIM)
 
 
 def _liquid_icon(color: str | None, px: int = 16) -> str | None:
@@ -299,7 +334,7 @@ def _liquid_section(c, res):
     icons = (res.get("liquidIcons") or {}) if isinstance(res.get("liquidIcons"), dict) else {}
     equiv = (res.get("pumpMix") or {}) if isinstance(res.get("pumpMix"), dict) else {}
     pumps = {s["liquid"]: s for s in (res.get("liquidSources") or [])}
-    c.section("液体需求" + ("（净）" if auto else ""))
+    c.section("边界液体" + ("（净）" if auto else ""))
     for l in need:
         name = l.get("name")
         src = pumps.get(name)
@@ -334,8 +369,11 @@ def _power_section(c, res):
           "净 %s/s" % fmt(sup.get("netTotal")),
           ("烧 %s %s/s" % (fuel.get("name"), fmt(fuel.get("perSecond")))) if fuel.get("name") else None,
           GREEN)
+    icons = (res.get("liquidIcons") or {}) if isinstance(res.get("liquidIcons"), dict) else {}
+    colors = (res.get("liquidColors") or {}) if isinstance(res.get("liquidColors"), dict) else {}
     for l in sup.get("liquids") or []:
-        c.row(None, "%s（液体）" % l["name"], "%s/s" % fmt(l.get("perSecond")), None, LIQUID)
+        c.row(l.get("icon") or icons.get(l["name"]) or _liquid_icon(colors.get(l["name"])),
+              "%s（液体）" % l["name"], "%s/s" % fmt(l.get("perSecond")), None, LIQUID)
 
 
 def _warn_section(c, res):
@@ -409,6 +447,7 @@ def build_card(res: dict) -> Card:
             c.row(blk_icon.get(t.get("block")), t.get("block") or "?", "×%s" % fmt(t.get("count")), "产出 " + pos,
                   ORANGE if t.get("kind") == "generator" else None)
         _machine_section(c, res)
+        _power_mix_row(c, res)
         sh = [s for s in (res.get("shared") or []) if (s.get("saved") or 0) > 0]
         if sh:
             c.note("共享：「%s」，分别建要 ×%s（混合省 %s 台）"
@@ -448,6 +487,7 @@ def build_card(res: dict) -> Card:
     c.title(head, icon, sub)
 
     _machine_section(c, res)
+    _power_mix_row(c, res)
 
     prods = [p for p in (res.get("products") or []) if p.get("rate")]
     if prods:

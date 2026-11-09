@@ -138,6 +138,7 @@
       <div>
         <label for="boundary">边界（外部输入，逗号分隔）</label>
         <textarea id="boundary" spellcheck="false"></textarea>
+        <div class="mixlist" id="bndliq"></div>
       </div>
       <div>
         <label for="force">指定配方（可选，如 silicon=silicon-crucible）</label>
@@ -312,6 +313,7 @@
     names.filter(function (n) { return !idx.producersOf(n).length; }).concat(["coal", "sand"])
   );
   el("boundary").value = Array.from(defaults).sort().join(", ");
+  renderBndLiq();
 
   // 物品下拉（物品模式的取值来源）
   var targetSel = el("target");
@@ -582,7 +584,7 @@
   }
 
   /* ---- 供电表 ---- */
-  function renderPower(demand, supply) {
+  function renderPower(demand, supply, res) {
     if (supply) { renderSupply(supply, demand); return; }
     var gname = el("gen").value;
     if (!gname) { el("powertable").innerHTML = ""; return; }
@@ -609,6 +611,16 @@
         num(l.perSecondEach) + "）"]);
     });
     if (g && g.powerUsage) rows.push(["发电厂自耗电", num(plan.selfUse * (plan.count || 0)) + " /s"]);
+    var imported = Math.max(0, (demand || 0) - ((res && res.powerOut) || 0));
+    if (imported > 1e-9 && R.powerMix) {
+      var pm = R.powerMix(DATA, imported);
+      if (pm && pm.gens && pm.gens.length) {
+        rows.push(["外部电力换算", pm.gens.map(function (x) {
+          return blockLabel(x.block, "sm") + " × " + x.count;
+        }).join(" + ") + ' <span class="dim">（合计 ' + num(pm.total) + "/s" +
+          (pm.extra > 1e-6 ? "，富余 " + num(pm.extra) + "/s" : "") + "）</span>"]);
+      }
+    }
     el("powertable").innerHTML = '<tr><th>项目</th><th>数值</th></tr>' + rows.map(function (r) {
       return "<tr><td>" + r[0] + '</td><td>' + r[1] + "</td></tr>";
     }).join("");
@@ -1029,6 +1041,26 @@
     (DATA.channels || []).length + " 种入料方式 / " +
     names.length + " 个物品 · 图标为原版贴图原尺寸";
 
+  /* 边界液体：点芯片把液体名加进/移出「边界」文本域（液体也是边界，列出来才知道煤处理线断在哪） */
+  function boundaryNames() { return splitList(el("boundary").value); }
+  function renderBndLiq() {
+    var cur = boundaryNames();
+    var liqs = Object.keys(DATA.liquid_icons || {}).sort();
+    el("bndliq").innerHTML = liqs.map(function (n) {
+      var on = cur.indexOf(n) >= 0;
+      return '<a class="chiptag' + (on ? " on" : "") + '" data-liq="' + n + '" title="' +
+        (on ? "从边界里去掉" : "加进边界（按外部运入，不再抽/压）") + '">' + liqDot(n) + " " + esc(n) + "</a>";
+    }).join("");
+  }
+  function toggleBndLiq(n) {
+    var cur = boundaryNames();
+    var at = cur.indexOf(n);
+    if (at >= 0) cur.splice(at, 1); else cur.push(n);
+    el("boundary").value = cur.join(", ");
+    renderBndLiq();
+    run();
+  }
+
   function splitList(text) {
     return text.split(/[,，\s]+/).map(function (s) { return s.trim(); }).filter(Boolean);
   }
@@ -1107,7 +1139,7 @@
         ["产出", prodText || "—", "wrap"],
         ["机器总数", String(totalMachines)],
         ["电力需求", num(res.power) + "/s"],
-        ["边界种类", String(Object.keys(res.demand).length)]
+        ["边界种类", String(Object.keys(res.demand).length + (res.liquidNet || []).length)]
       ];
     } else if (mode === "mixed") {
       var cmp = res.compare || {};
@@ -1119,7 +1151,7 @@
         ["合并机器总数", String(totalMachines)],
         ["电力 / 厂内发电", num(res.power) + "/s" + (res.powerOut ? " · " + num(res.powerOut) + "/s（净 " + num(res.netPower) + "/s）" : ""), "wrap"],
         ["对比分别建", savedText, "wrap"],
-        ["边界种类", String(Object.keys(res.demand).length)]
+        ["边界种类", String(Object.keys(res.demand).length + (res.liquidNet || []).length)]
       ];
     } else {
       cards = [
@@ -1127,7 +1159,7 @@
         ["实际产出", img(itemIcon.get(targetSel.value), "sm", targetSel.value) + " " + num(res.achieved) + "/s"],
         ["机器总数", String(totalMachines)],
         ["电力需求", num(res.power) + "/s"],
-        ["边界种类", String(Object.keys(res.demand).length)]
+        ["边界种类", String(Object.keys(res.demand).length + (res.liquidNet || []).length)]
       ];
     }
     el("cards").innerHTML = cards.map(function (c) {
@@ -1203,17 +1235,21 @@
       el("mixtable").innerHTML = "";
     }
 
-    var dh = '<tr><th>物品</th><th class="num">每秒</th><th class="num">每分钟</th></tr>';
+    var dh = '<tr><th>物品 / 液体</th><th class="num">每秒</th><th class="num">每分钟</th></tr>';
     var dk = Object.keys(res.demand).sort();
+    var ln = res.liquidNet || [];
     el("demand").innerHTML = dh + (dk.length ? dk.map(function (k) {
       return '<tr><td>' + itemLabel(k) + '</td><td class="num">' + num(res.demand[k]) +
         '</td><td class="num">' + num(res.demand[k] * 60) + '</td></tr>';
-    }).join("") : '<tr><td colspan="3" class="dim">无（全部自产）</td></tr>');
+    }).join("") : "") + ln.map(function (l) {
+      return '<tr><td>' + liqDot(l.name) + esc(l.name) + ' <span class="dim">（液体）</span></td>' +
+        '<td class="num">' + num(l.perSecond) + '</td><td class="num">' + num(l.perSecond * 60) + '</td></tr>';
+    }).join("") + (dk.length || ln.length ? "" : '<tr><td colspan="3" class="dim">无（全部自产）</td></tr>');
 
     renderSources(res);
     renderLiquids(res);
     bindSourceEvents();
-    renderPower(res.power, res.supply);
+    renderPower(res.power, res.supply, res);
     renderChain();
 
     el("tree").innerHTML = res.tree
@@ -1339,14 +1375,18 @@
   syncBlockSel();
   syncPicker();
   if (mode === "item" || mode === "mixed") setMode(mode); else run();
+  el("bndliq").addEventListener("click", function (ev) {
+    var a = ev.target.closest("[data-liq]");
+    if (a) { ev.preventDefault(); toggleBndLiq(a.getAttribute("data-liq")); }
+  });
   el("run").addEventListener("click", run);
   el("rate").addEventListener("keydown", function (e) { if (e.key === "Enter") run(); });
   el("count").addEventListener("change", run);
   el("plan").addEventListener("change", run);
   el("depth").addEventListener("change", run);
-  el("gen").addEventListener("change", function () { syncGenFuel(); if (lastRes) renderPower(lastRes.power, lastRes.supply); });
-  el("genfuel").addEventListener("change", function () { if (lastRes) renderPower(lastRes.power, lastRes.supply); });
-  el("gencount").addEventListener("change", function () { if (lastRes) renderPower(lastRes.power, lastRes.supply); });
+  el("gen").addEventListener("change", function () { syncGenFuel(); if (lastRes) renderPower(lastRes.power, lastRes.supply, lastRes); });
+  el("genfuel").addEventListener("change", function () { if (lastRes) renderPower(lastRes.power, lastRes.supply, lastRes); });
+  el("gencount").addEventListener("change", function () { if (lastRes) renderPower(lastRes.power, lastRes.supply, lastRes); });
   el("chainline").addEventListener("change", function () { renderChain(); });
 
   // 测试钩子：无浏览器环境里手动切模式 / 触发计算
@@ -1384,6 +1424,12 @@
                        return { table: el("chaintable").innerHTML, res: el("chainres").innerHTML };
                      },
                      chainRes: function () { return el("chainres").innerHTML; },
+                     /* 边界液体芯片：__ratio.bndliq("oil") 切换、__ratio.bndliq() 只看不切 */
+                     bndliq: function (n) {
+                       if (n) { toggleBndLiq(n); return el("boundary").value; }
+                       renderBndLiq();
+                       return el("bndliq").innerHTML;
+                     },
                      /* 液体自产开关：__ratio.autoliq(true) */
                      autoliq: function (on, boundaryText) {
                        if (on != null) el("autoliq").checked = !!on;

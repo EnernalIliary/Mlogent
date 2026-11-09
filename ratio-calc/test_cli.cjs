@@ -409,7 +409,7 @@ ok("--liquids auto：带出石油钻井和煤炭分离机", () => {
   assert.ok(names.indexOf("coal-centrifuge") >= 0, names.join(","));
   assert.ok(names.indexOf("oil-extractor") >= 0, names.join(","));
   assert.strictEqual(r.liquidFrom.oil.block, "oil-extractor");
-  close(r.power, 270, 1e-6);
+  close(r.power, 252, 1e-6);
 });
 ok("--liquids auto：文本有「液体自产」，oil 不再算外部净需求", () => {
   const t = run(["--item", "coal", "--rate", "2", "--boundary", "none", "--liquids", "auto"]);
@@ -419,9 +419,10 @@ ok("--liquids auto：文本有「液体自产」，oil 不再算外部净需求"
 ok("--liquids auto：文本带泵换算（加和口径）", () => {
   const t = run(["--item", "coal", "--rate", "2", "--boundary", "none", "--liquids", "auto"]);
   assert.ok(t.indexOf("泵换算") >= 0, t);
-  /* 水 9/s：加和口径下"中泵 1 台（48/s）"台数最少 */
-  assert.ok(/中泵 1 台/.test(t), t);
-  assert.ok(/合计 48\/s/.test(t), t);
+  /* 水 9/s：加和口径 + 富余优先 ⇒ 小泵 2 台（14/s，富余 5） */
+  assert.ok(/小泵 2 台/.test(t), t);
+  assert.ok(/合计 14\/s/.test(t), t);
+  assert.ok(/外部电力/.test(t), t);
   /* 抽水机从工厂配比里拆出来，单独一行 */
   assert.ok(t.indexOf("工厂合计：2 台") >= 0, t);
   assert.ok(t.indexOf("抽水：") >= 0, t);

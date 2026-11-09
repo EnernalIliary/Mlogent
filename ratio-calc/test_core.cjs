@@ -252,7 +252,7 @@ eq("液体自产：带出液体钻井", liq1.machines["oil-extractor"], 1);
 eq("液体自产：oil 记在 liquidFrom 里", (liq1.liquidFrom.oil || {}).block, "oil-extractor");
 near("液体自产：oil 自产速率 15/s", liq1.liquidFrom.oil.perSecondEach, 15, 1e-9);
 eq("液体自产：oil 不再算外部净需求", (liq1.liquidNet || []).filter(l => l.name === "oil").length, 0);
-near("液体自产：电力含钻井 270/s", liq1.power, 270, 1e-9);
+near("液体自产：电力含钻井 252/s（水走 2 台机械泵不耗电）", liq1.power, 252, 1e-9);
 
 // 换成孢子压缩路线：liquid oil=make ⇒ spore-press（吃 spore-pod），再往上展开种植机
 const liq2 = R.expand(DATA, "coal", 2, [], {}, { liquids: "auto", liquid: { oil: "make" } });
@@ -268,6 +268,16 @@ eq("不开启时 oil 仍是外部净需求", (liq3.liquidNet || []).filter(l => 
 // 泵换算：液体需求按"几台泵"计量（小泵→中泵→大泵），水有 5 种泵可用
 const eqs = R.pumpEquivalents(DATA, "water", 630);
 eq("泵换算：水有 5 种泵", eqs.length, 5);
+
+/* 液体也是边界：oil 写进 boundary 就不该再抽/压，煤炭处理线到分离机为止 */
+{
+  const b1 = R.expand(DATA, "coal", 2, ["oil"], {}, { liquids: "auto" });
+  eq("边界液体：oil 在边界里就不建石油钻井", b1.machines["oil-extractor"] || 0, 0);
+  eq("边界液体：oil 仍算外部净需求", (b1.liquidNet || []).filter(function (l) { return l.name === "oil"; }).length, 1);
+  const b2 = R.expand(DATA, "coal", 2, [], {}, {});
+  eq("边界液体：不开自产时 oil 也在净需求里（按外部运入）",
+     (b2.liquidNet || []).filter(function (l) { return l.name === "oil"; }).length, 1);
+}
 eq("泵换算：按每秒从少到多排（第一个是最小的地下水抽取器 6.6）", eqs[0].perSecondEach, 6.6);
 eq("泵换算：地下水抽取器要 96 台", eqs[0].count, 96);
 eq("泵换算：小泵（机械泵 7/s）要 90 台", (eqs.find(p => p.pump === "mechanical-pump") || {}).count, 90);
@@ -291,13 +301,25 @@ eq("泵换算：油只有钻井一种", R.pumpEquivalents(DATA, "oil", 6).length
 
 /* 泵的"加和"计量：最终结果是几台小泵 + 几台中泵 + 几台大泵 */
 {
+  /* 口径（用户 2026-11-09）：先让富余尽量小，富余相同再比台数 */
   const m9 = R.pumpMix(DATA, "water", 9);
-  eq("泵加和：9/s 用中泵 1 台（48/s）", [m9.count, m9.pumps[0].pump], [1, "rotary-pump"]);
-  const m630 = R.pumpMix(DATA, "water", 630);
-  eq("泵加和：630/s = 大泵 5 台", [m630.pumps[0].pump, m630.pumps[0].count], ["impulse-pump", 5]);
-  eq("泵加和：630/s + 中泵 1 台", [m630.pumps[1].pump, m630.pumps[1].count], ["rotary-pump", 1]);
-  near("泵加和：合计 642/s（富余 12）", m630.total, 642, 1e-4);
-  eq("泵加和：650 → 台数最少的组合", s2sum(R.pumpMix(DATA, "water", 650)), 6);
+  eq("泵加和：9/s → 小泵 2 台（14/s，富余 5）", [m9.count, m9.pumps[0].pump, m9.total, m9.extra],
+     [2, "mechanical-pump", 14, 5]);
+  const m18 = R.pumpMix(DATA, "water", 18);
+  eq("泵加和：18/s → 小泵 3 台（21/s，富余 3）", [m18.count, m18.pumps[0].pump, m18.total, m18.extra],
+     [3, "mechanical-pump", 21, 3]);
+  const m90 = R.pumpMix(DATA, "water", 90);
+  near("泵加和：90/s 凑整不富余（合计 90）", m90.total, 90, 1e-4);
+  near("泵加和：90/s 富余 0", m90.extra, 0, 1e-4);
+}
+/* 外部电力按"几台发电厂"计量（与泵同一套逻辑：先富余小，再台数少） */
+{
+  const p646 = R.powerMix(DATA, 646);
+  eq("外部电力：646/s → 蒸汽 2 台", [p646.gens[0].block, p646.gens[0].count], ["steam-generator", 2]);
+  eq("外部电力：646/s 合计 660（富余 14）", [p646.total, p646.extra], [660, 14]);
+  const p1080 = R.powerMix(DATA, 1080);
+  eq("外部电力：1080/s → 差速 1 台（不富余）",
+     [p1080.gens[0].block, p1080.gens[0].count, p1080.extra], ["differential-generator", 1, 0]);
 }
 function s2sum(m) { return m.pumps.reduce((a, p) => a + p.count, 0); }
 

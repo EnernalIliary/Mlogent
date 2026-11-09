@@ -363,7 +363,34 @@ function attachIcons(res) {
     });
   }
   if (res.supply && res.supply.fuel) res.supply.fuel.icon = iconOfIndex(idx, res.supply.fuel.name, "item");
+  /* 液体自产来源做成"能用图标就用图标"：方块图标给钻井/转化方块，parts 里每档泵也带图标 */
+  const blockIcon = (name) => {
+    const b = env.R && env.R.anyBlock ? env.R.anyBlock(idx, name) : null;
+    return (b && b.icon) || "";
+  };
+  Object.keys(res.liquidFrom || {}).forEach(k => {
+    const a = res.liquidFrom[k];
+    a.icon = (idx.liquidIcons && idx.liquidIcons[k]) || "";
+    a.blockIcon = blockIcon(a.block);
+    (a.parts || []).forEach(pt => { pt.icon = blockIcon(pt.pump); });
+  });
+  (res.liquidSources || []).forEach(src => { src.icon = (idx.liquidIcons && idx.liquidIcons[src.liquid]) || ""; src.pumpIcon = blockIcon(src.pump); });
+  /* 外部电力：自己没发电（或发电不够）时要接进来的电，按"几台发电厂"计量（与泵同一套逻辑） */
+  res.powerMix = null;
+  const imported = round((res.power || 0) - (res.powerOut || 0));
+  if (env.R && env.R.powerMix && imported > 1e-9) {
+    const pm = env.R.powerMix(DATA, imported);
+    if (pm) res.powerMix = pm;
+  }
   return res;
+}
+
+/* 「电力 646/s ≈ 蒸汽发电机 2 台（合计 660/s，富余 14/s）」 */
+function powerMixText(mix) {
+  if (!mix || !mix.gens || !mix.gens.length) return "";
+  const parts = mix.gens.map(g => g.block + " " + g.count + " 台");
+  return "电力 " + fmtNum(mix.need) + "/s ≈ " + parts.join(" + ") +
+    "（合计 " + fmtNum(mix.total) + "/s" + (mix.extra > 1e-6 ? "，富余 " + fmtNum(mix.extra) + "/s" : "") + "）";
 }
 
 /* 泵的叫法：机械泵=小泵、回转泵=中泵、脉冲泵=大泵；其它泵写自己的特点 */
@@ -522,6 +549,7 @@ function renderText(res) {
     L.push("  抽水：" + pl.map(m => m.name + " ×" + m.count
       + (m.powerTotal ? "（电 " + fmtNum(m.powerTotal) + "/s）" : "")).join(" + "));
   }
+  if (res.powerMix) L.push("  外部电力：" + powerMixText(res.powerMix));
   if (res.mode === "mixed" && res.shared && res.shared.length) {
     const hit = res.shared.filter(s => s.saved > 0);
     res.shared.forEach(s => {
@@ -538,23 +566,20 @@ function renderText(res) {
     }
     if (!hit.length) L.push("  （这组目标没有共享的中间产物，混合只省了取整误差）");
   }
-  if (res.demand.length) {
-    L.push("  边界输入：" + res.demand.map(d => d.name + " " + fmtNum(d.perSecond) + "/s").join("、"));
-  }
+  /* 边界输入：物品 + 液体一起列（液体也是边界，不列出来就不知道煤处理线断在哪一环） */
   const needLiq = Array.isArray(res.liquidNet) ? res.liquidNet : (res.liquids || []);
-  if (needLiq.length) {
-    L.push("  液体净需求：" + needLiq.map(d => {
+  if (res.demand.length || needLiq.length) {
+    const items = res.demand.map(d => d.name + " " + fmtNum(d.perSecond) + "/s");
+    const liqs = needLiq.map(d => {
       const pump = (res.liquidSources || []).filter(s => s.liquid === d.name)[0];
-      return d.name + " " + fmtNum(d.perSecond) + "/s" + (pump ? "（" + pump.pump + " 抽）" : "（外部运入）");
-    }).join("、"));
+      return d.name + " " + fmtNum(d.perSecond) + "/s（液体" + (pump ? "，" + pump.pump + " 抽" : "，外部运入") + "）";
+    });
+    L.push("  边界输入：" + items.concat(liqs).join("、"));
   }
   /* 液体自产（--liquids auto）：oil ← oil-extractor / spore-press 这类 */
   Object.keys(res.liquidFrom || {}).forEach(k => {
     L.push("  液体自产：" + k + " ← " + selfText(res.liquidFrom[k]));
   });
-  if (res.liquidNet && res.liquidNet.length) {
-    L.push("  还要外部进的液体：" + res.liquidNet.map(l => l.name + " " + fmtNum(l.perSecond) + "/s").join("、"));
-  }
   Object.keys(res.pumpMix || {}).forEach(k => {
     const t = mixText(k, res.pumpMix[k]);
     if (t) L.push("  泵换算：" + t);
@@ -664,23 +689,19 @@ function renderMarkdown(res) {
     }
     L.push("");
   }
-  if (res.demand.length) L.push("边界输入：" + res.demand.map(d => d.name + " " + fmtNum(d.perSecond) + "/s").join("、"));
   const needLiqMd = Array.isArray(res.liquidNet) ? res.liquidNet : (res.liquids || []);
-  if (needLiqMd.length) {
-    L.push("液体净需求：" + needLiqMd.map(d => {
-      const pump = (res.liquidSources || []).filter(s => s.liquid === d.name)[0];
-      return d.name + " " + fmtNum(d.perSecond) + "/s" + (pump ? "（" + pump.pump + " 抽）" : "（外部运入）");
-    }).join("、"));
+  if (res.demand.length || needLiqMd.length) {
+    const items = res.demand.map(d => d.name + " " + fmtNum(d.perSecond) + "/s");
+    const liqs = needLiqMd.map(d => d.name + " " + fmtNum(d.perSecond) + "/s（液体）");
+    L.push("边界输入：" + items.concat(liqs).join("、"));
   }
   Object.keys(res.liquidFrom || {}).forEach(k => {
     L.push("液体自产：" + k + " ← " + selfText(res.liquidFrom[k]));
   });
-  if (res.liquidNet && res.liquidNet.length) {
-    L.push("还要外部进的液体：" + res.liquidNet.map(l => l.name + " " + fmtNum(l.perSecond) + "/s").join("、"));
-  }
   Object.keys(res.liquidEquiv || {}).forEach(k => {
     const t = equivText(k, res.liquidEquiv[k]);
     if (t) L.push("泵换算：" + t);
+  if (res.powerMix) L.push("外部电力：" + powerMixText(res.powerMix));
   });
   (res.liquidSources || []).forEach(s => {
     L.push("液体 " + s.liquid + "：" + s.pump + " ×" + s.count + "（单台 " + fmtNum(s.perSecondEach)
@@ -733,7 +754,7 @@ function usage() {
     "  --plan <N>                          兵厂有多个生产计划时选第几个（0 起）",
     "  --chain <单位> --chainexpr 5t5      兵厂 T1→T5 大循环（5t5 = 5 台 T5 厂满效）",
     "  --chain <单位> --chainrate <台/s>    同上，但按顶级单位速率给",
-    "  --boundary a,b                      边界输入（这些物品按外部运入处理）",
+    "  --boundary a,b                      边界输入（物品或液体，都按外部运入处理；液体写进来就不再抽/压）",
     "  --force item=block,...              强制指定配方（如 graphite=multi-press）",
     "  --depth <N>                         递归层数上限（默认 12）",
     "  --src item=import|drill:<钻头>:<矿格数>:<0|1>|multi:<方块>   外部来源（可重复）",

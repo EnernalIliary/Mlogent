@@ -1118,8 +1118,9 @@
   }
 
   /* 泵组合：把液体需求摊成"小泵 N 台 + 中泵 M 台 + 大泵 K 台"的加和（用户口径）。
-   * 只用主线的三档（机械泵 7/s、回转泵 12/s、脉冲泵 13.2/s），
-   * 在"台数最少"的前提下再挑"富余最少"的组合。 */
+   * 只用主线的三档（机械泵 7/s、回转泵 48/s、脉冲泵 118.8/s）。
+   * 目标顺序（用户 2026-11-09 指定）：先让**富余尽量小**，富余相同再比台数。
+   * 例：18/s 水 → 小泵 3 台（合计 21/s，富余 3/s），而不是中泵 1 台（48/s，富余 30/s）。 */
   var PUMP_TIERS = ["mechanical-pump", "rotary-pump", "impulse-pump"];
   function pumpMix(data, liquidName, amount) {
     return pumpMixIdx(indexOf(data), liquidName, amount);
@@ -1162,9 +1163,68 @@
     return { need: amount, pumps: best.list, total: round(best.total),
              extra: round(best.total - amount), count: best.count };
 
+    /* 富余优先（量化到 0.01 免得浮点噪声），富余相同再比台数少 */
     function better(cur, list, total) {
       var count = list.reduce(function (a, b) { return a + b.count; }, 0);
       if (!cur) return { list: list, total: total, count: count };
+      var e1 = Math.round((total - amount) * 100) / 100;
+      var e2 = Math.round((cur.total - amount) * 100) / 100;
+      if (e1 !== e2) return e1 < e2 ? { list: list, total: total, count: count } : cur;
+      if (count !== cur.count) return count < cur.count ? { list: list, total: total, count: count } : cur;
+      return (total - amount) < (cur.total - amount) ? { list: list, total: total, count: count } : cur;
+    }
+  }
+
+  /* 电力组合：外部电力（自己没发电、要从外面接进来）按"几台发电厂"计量，
+   * 逻辑与泵一致：燃烧发电机 60/s（小）、蒸汽发电机 330/s（中）、差速发电机 1080/s（大），
+   * 先让富余小，再让台数少。 */
+  var POWER_TIERS = ["combustion-generator", "steam-generator", "differential-generator"];
+  function powerMix(data, amount) {
+    return powerMixIdx(indexOf(data), amount);
+  }
+  function powerMixIdx(idx, amount) {
+    var tiers = [];
+    POWER_TIERS.forEach(function (n) {
+      var g = idx.generators.get(n);
+      if (g && g.perSecond > 0) {
+        tiers.push({ block: n, perSecondEach: g.perSecond, size: g.size,
+                     fuel: (g.fuels && g.fuels[0]) ? g.fuels[0][0] : null });
+      }
+    });
+    if (tiers.length < 2 || !(amount > 0)) return null;
+    tiers.sort(function (a, b) { return b.perSecondEach - a.perSecondEach; });
+    var big = tiers[0], mid = tiers[1], small = tiers[2] || tiers[1];
+    var perBig = big.perSecondEach, perMid = mid.perSecondEach, perSmall = small.perSecondEach;
+    var best = null;
+    var maxBig = Math.ceil(amount / perBig - 1e-9);
+    for (var nb = 0; nb <= maxBig; nb++) {
+      var rem1 = amount - nb * perBig;
+      var addBig = function (list, total) {
+        best = better(best, list, total);
+      };
+      if (rem1 <= 1e-9) { addBig([{ block: big.block, count: nb || 1, perSecondEach: perBig }], (nb || 1) * perBig); continue; }
+      var maxMid = Math.ceil(rem1 / perMid - 1e-9);
+      for (var nm = 0; nm <= maxMid; nm++) {
+        var rem2 = rem1 - nm * perMid;
+        var ns = rem2 > 1e-9 ? Math.ceil(rem2 / perSmall - 1e-9) : 0;
+        var list = [];
+        if (nb) list.push({ block: big.block, count: nb, perSecondEach: perBig });
+        if (nm) list.push({ block: mid.block, count: nm, perSecondEach: perMid });
+        if (ns) list.push({ block: small.block, count: ns, perSecondEach: perSmall });
+        if (!list.length) continue;
+        addBig(list, nb * perBig + nm * perMid + ns * perSmall);
+      }
+    }
+    if (!best) return null;
+    return { need: amount, gens: best.list, total: round(best.total),
+             extra: round(best.total - amount), count: best.count };
+
+    function better(cur, list, total) {
+      var count = list.reduce(function (a, b) { return a + b.count; }, 0);
+      if (!cur) return { list: list, total: total, count: count };
+      var e1 = Math.round((total - amount) * 100) / 100;
+      var e2 = Math.round((cur.total - amount) * 100) / 100;
+      if (e1 !== e2) return e1 < e2 ? { list: list, total: total, count: count } : cur;
       if (count !== cur.count) return count < cur.count ? { list: list, total: total, count: count } : cur;
       return (total - amount) < (cur.total - amount) ? { list: list, total: total, count: count } : cur;
     }
@@ -1585,6 +1645,7 @@
               separatorPlan: separatorPlan, unitChain: unitChain, chainFromTop: chainFromTop,
               chainFromBlock: chainFromBlock, chainsForBlock: chainsForBlock,
               pumpPlan: pumpPlan, pumpEquivalents: pumpEquivalents, pumpMix: pumpMix,
+              powerMix: powerMix,
               applySources: applySources, recalcPower: recalcPower,
               liquidDemand: liquidDemand, DEFAULT_CHANNEL: DEFAULT_CHANNEL };
   global.RatioCore = api;

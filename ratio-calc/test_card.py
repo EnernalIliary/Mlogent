@@ -193,7 +193,7 @@ def case_liquid_self():
     t = flat(r)
     assert "coal-centrifuge" in t, t
     assert "oil-extractor" in t, t
-    assert "液体需求（净）" in t or "液体需求" in t, t
+    assert "边界液体（净）" in t, t
     assert "自产" in t, t
     rows = [b for b in C.build_card(r).blocks if b[0] == "row"]
     liq = [b for b in rows if b[2] in ("oil", "water")]
@@ -204,10 +204,12 @@ def case_liquid_self():
     icons = r.get("liquidIcons") or {}
     water = [b for b in liq if b[2] == "water"][0]
     assert icons.get("water") and water[1] == icons["water"], "水行图标不是原版贴图"
-    """泵换算：加和口径（这台用到中泵 1 台就够 9/s 水）"""
-    assert "泵换算" in t and "中泵 1 台" in t and "合计 48/s" in t, t[:400]
-    """抽水机不算工厂机器：单列「抽水：」一行"""
-    assert "工厂配比：2 台" in t and "抽水：" in t, t[:400]
+    """泵换算：加和口径 + 富余优先（9/s 水 → 小泵 2 台，合计 14/s，富余 5/s）"""
+    assert "泵换算" in t and "小泵 2 台" in t and "合计 14/s" in t, t[:400]
+    """抽水机不算工厂机器：单列「抽水（钻井 / 泵）」一节"""
+    assert "工厂配比：2 台" in t and "抽水（钻井 / 泵）" in t, t[:400]
+    """外部电力换算成发电厂"""
+    assert "外部电力" in t and "燃烧发电机" in t, t[:400]
     check_width(r)
 
 

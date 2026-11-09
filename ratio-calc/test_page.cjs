@@ -329,12 +329,32 @@ check("液体自产：带出煤炭分离机和石油钻井",
   /coal-centrifuge/.test(txt("machines")) && /oil-extractor/.test(txt("machines")), txt("machines").slice(0, 500));
 check("液体自产：液体表写「自产」并带原版液体贴图",
   /自产/.test($("liquids").innerHTML) && /liqimg/.test($("liquids").innerHTML), $("liquids").innerHTML.slice(0, 800));
-check("液体自产：水按泵台数换算（加和口径：中泵 1 台就够 9/s）",
-  /中泵 1 台/.test($("liquids").innerHTML) && /合计 48\/s/.test($("liquids").innerHTML),
+check("液体自产：水按泵台数换算（加和口径、富余优先：9/s → 小泵 2 台富余 5）",
+  /小泵 2 台/.test($("liquids").innerHTML) && /合计 14\/s/.test($("liquids").innerHTML),
   $("liquids").innerHTML.slice(0, 1200));
 check("液体自产：等价命令带 --liquids auto", /--liquids auto/.test($("cmd").textContent), $("cmd").textContent);
 window.__ratio.autoliq(false, "");
 check("关掉液体自产：回到只建分离机", !/oil-extractor/.test(txt("machines")), txt("machines").slice(0, 400));
+
+/* --- 液体也是边界：煤炭分离机要的油能从边界接进来（就不建钻井了），边界表要带液体图标 --- */
+window.__ratio.autoliq(false, "");
+window.__ratio.setMode("item");
+$("target").value = "coal";
+$("rate").value = "2";
+window.__ratio.run();
+check("边界液体：煤炭分离机要油，默认按外部运入写在边界表里",
+  /oil/.test(txt("demand")) && /（液体）/.test(txt("demand")), txt("demand").slice(0, 500));
+check("边界液体：液体行带原版液体贴图", /liqimg/.test(txt("demand")), txt("demand").slice(0, 500));
+check("边界液体：芯片列出 11 种液体", (txt("bndliq").match(/data-liq=/g) || []).length === 11,
+  String((txt("bndliq").match(/data-liq=/g) || []).length));
+
+window.__ratio.autoliq(true, "");
+check("边界液体：开启自产时先建石油钻井", /oil-extractor/.test(txt("machines")), txt("machines").slice(0, 400));
+window.__ratio.bndliq("oil");
+check("边界液体：把 oil 点进边界后不再建钻井（煤处理线到分离机为止）",
+  !/oil-extractor/.test(txt("machines")) && /oil/.test(txt("demand")), txt("machines").slice(0, 400));
+check("边界液体：芯片写着 oil 已选中", /chiptag on[^>]*data-liq="oil"|data-liq="oil"[^>]*class="chiptag on"/.test(txt("bndliq")) ||
+  /class="chiptag on"[^>]*data-liq="oil"/.test(txt("bndliq")), txt("bndliq").slice(0, 600));
 
 console.log(bad ? `\n${bad} 项失败` : "\n页面链路全部通过");
 process.exit(bad ? 1 : 0);

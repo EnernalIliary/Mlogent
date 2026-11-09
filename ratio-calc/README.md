@@ -169,18 +169,23 @@ tetrative ×12`，合计 **21 台兵厂、22872 电/s**，瓶颈在 T5；材料�
 node cli.cjs --item coal --rate 2 --boundary none --liquids auto
 #   产出：coal 2/s
 #   coal-centrifuge ×1（电 42/s）
-#   oil-extractor ×1（电 180/s）
 #   pulverizer ×1（电 30/s）         ← 钻井要沙，沙没边界就走粉碎机（吃废料）
-#   工厂合计：2 台，电力 270/s（含抽水 198/s）
-#   抽水：oil-extractor ×1（电 180/s） + rotary-pump ×1（电 18/s）
+#   工厂合计：2 台，电力 252/s（含抽水 180/s）
+#   抽水：mechanical-pump ×2 + oil-extractor ×1（电 180/s）
+#   外部电力：电力 252/s ≈ combustion-generator 5 台（合计 300/s，富余 48/s）
+#   边界输入：scrap 1.5/s
 #   液体自产：oil ← oil-extractor ×1（钻井 15/s）
-#   液体自产：water ← 中泵 1 台（钻井合计 48/s）
+#   液体自产：water ← 小泵 2 台（钻井合计 14/s）
+#   泵换算：water 9/s ≈ 小泵 2 台（合计 14/s，富余 5/s）
 
 # 换孢子压缩：石油不钻井，用孢子压（spore-press 吃 spore-pod，再往上自动展开种植机）
 node cli.cjs --item coal --rate 6 --boundary none --liquid oil=make
-#   coal-centrifuge ×3 / cultivator ×5 / spore-press ×1
-#   工厂合计：9 台，电力 646/s（含抽水 78/s）
-#   液体自产：water ← 大泵 1 台（钻井合计 118.8/s）
+#   coal-centrifuge ×3 / cultivator ×5 / spore-press ×1（coal 6/s 时）
+#   coal 2/s 时：coal-centrifuge ×1 / cultivator ×5 / spore-press ×1
+#   工厂合计：7 台，电力 502/s（含抽水 18/s）
+#   外部电力：电力 502/s ≈ 蒸汽发电机 1 台 + 燃烧发电机 3 台（合计 510/s，富余 8/s）
+#   液体自产：oil ← spore-press ×1（转化方块 18/s）
+#   液体自产：water ← 中泵 1 台 + 小泵 6 台（钻井合计 90/s）
 ```
 
 | 参数 | 作用 |
@@ -193,13 +198,20 @@ node cli.cjs --item coal --rate 6 --boundary none --liquid oil=make
 - 产线数据（`data/gamedata.js`）：`coal-centrifuge` 30 帧、吃 oil 6/s、出 coal 2/s（3 油换 1 煤）；
   `oil-extractor` 15/s（吃沙 1/s + 水 9/s，要油田）；`spore-press` 20 帧、吃 spore-pod 1、**出 oil 18/s**
   （数据里 `outputLiquids` 是 **per-tick**：0.3/tick × 60 = 18/s，不是 ×cyclesPerSecond 的 0.9/s）。
-- 输出里会写「液体自产：oil ← oil-extractor ×1（单台 15/s，钻井）」和「还要外部进的液体」；
+- 输出里会写「边界输入：…、oil 6/s（液体，外部运入）」和「液体自产：oil ← oil-extractor ×1（单台 15/s，钻井）」——
+  **液体也是边界**：写进 `--boundary` 就不再抽/压（煤处理线止于分离机），页面上点液体芯片即可切换；
   液体图标用原版 `sprites/items/liquid-<名>.png`（11 种全有，UI 用 `ui/liquid-<名>-ui.png` 兜底），
   拿不到贴图时才退回 `knowledge/00-data/liquids.json` 的 `colorHex` 色点。
-- **泵按加和计量**：水这类液体按「几台小泵 + 几台中泵 + 几台大泵」算，先在台数最少、再在富余最少上挑组合（`core.pumpMix`）。
-  例：`water 9/s ≈ 中泵 1 台（合计 48/s，富余 39/s）`、`water 630/s ≈ 大泵 5 台 + 中泵 1 台（合计 642/s）`；
+- **泵按加和计量、富余优先**：水这类液体按「几台小泵 + 几台中泵 + 几台大泵」算，先让**富余最小**、富余相同再比台数少（`core.pumpMix`）。
+  例：`water 9/s ≈ 小泵 2 台（合计 14/s，富余 5/s）`、`18/s ≈ 小泵 3 台（21/s，富余 3/s）`、
+  `90/s ≈ 中泵 1 台 + 小泵 6 台（合计 90/s，富余 0）`、`630/s ≈ 中泵 7 台 + 小泵 42 台（630/s，富余 0）`
+  （2026-11-09 按用户口径从"台数最少"改成"富余最小"，两者对 9/s 的差别是 中泵 1 台富余 39 vs 小泵 2 台富余 5）；
   机械泵=小泵（7/s，不吃电）、回转泵=中泵（48/s，18 电）、脉冲泵=大泵（118.8/s，78 电），
   强化泵（80/s，要氢）与地下水抽取器（6.6/s，要地下水）只在命令行里出现，不进卡片的加和行。
+- **外部电力也按发电厂加和计量**：`powerMix`（`core.js`）把「还要从外面接多少电」换算成
+  `燃烧发电机 / 蒸汽发电机 / 差速发电机` 的最省组合，同样是富余优先、再台数少。
+  例：`电力 252/s ≈ 燃烧发电机 5 台（合计 300/s，富余 48/s）`、`646/s ≈ 蒸汽发电机 2 台（660/s，富余 14/s）`、
+  `1080/s ≈ 差速发电机 1 台（1080/s，富余 0）`。页面供电表、CLI、卡片都显示这一行。
 - **抽水机不算工厂配比**：钻井/泵在机器表里单列一行「抽水：…」（电力仍计入合计，写在「含抽水 X/s」里），
   所以「工厂合计 N 台」只数真正的工厂机器。
 - **孢子路线的配比（即"513"）**：3 台分离机吃 18 油/s ⇒ 1 台压缩机（18 油/s，同时吃 3 孢子/s）⇒ 5 台培养基（0.6 孢子/s 各）
@@ -369,7 +381,8 @@ python -X utf8 ratio-calc/card.py --json result.json --out card.png   # 喂现�
 `docs/card-chain.png`(700×622)、`docs/card-chain-t1.png`(700×378)、
 `docs/card-via.png`(700×248，蓝带入料)、`docs/card-pump.png`(700×414，钻头 + 抽水机)、
 `docs/card-unit.png`(700×378，兵厂单级)、`docs/mix.png`(700×376，混合厂卡片)、`docs/page-mixed.png`（混合厂页签整页截图）、
-`docs/card-coal.png`(700×408，煤炭处理线：煤炭分离机 + 孢子压缩产油 + 液体原版贴图 + 泵换算)。
+`docs/card-coal.png`(700×580，煤炭处理线：煤炭分离机 + 孢子压缩产油 + 液体原版贴图 + 泵换算 + 外部电力换算)、
+`docs/page-coal.png`（1180×1900，页面截图：液体自产 + 边界液体芯片 + 边界表带液体行）。
 
 ### JSON 结构（四种模式统一）
 
@@ -454,8 +467,8 @@ python -X utf8 ratio-calc/card.py --json result.json --out card.png   # 喂现�
 ## 已验证
 
 ```
-node ratio-calc/test_core.cjs   → 14 项对拍 mbo calc 全部一致 + 119 项新算法断言通过（共 133 行 ok）
-node ratio-calc/test_page.cjs   → 76 项页面链路断言通过（含混合厂 9 项、液体自产 5 项）
+node ratio-calc/test_core.cjs   → 14 项对拍 mbo calc 全部一致 + 131 项新算法断言通过（共 145 行 ok）
+node ratio-calc/test_page.cjs   → 82 项页面链路断言通过（含混合厂 9 项、液体自产 5 项、边界液体 6 项）
 node ratio-calc/test_cli.cjs    → 54 项 CLI/HTTP 与 core.js 对拍通过（含 `--mix` 6 项、液体自产 6 项）
 python -X utf8 ratio-calc/test_card.py → 10 项卡片结构/排版断言通过（含混合厂 2 项、液体自产 1 项、图标 2 项）
 ```
@@ -465,7 +478,9 @@ python -X utf8 ratio-calc/test_card.py → 10 项卡片结构/排版断言通过
 来源替换后的机器表与电力重算、抽水机台数与液体来源、入料方式 7 种、`5t5` 反推（1/1/1/2/5）、
 `chainsForBlock`/`chainFromBlock`（同一重建厂多线、默认 dagger、指定 flare → eclipse）、
 dagger 与 stell 两条升级链、发电设备当目标建筑（蒸汽 ×2 → 660/s、冲击堆扣自耗、不做电力递归）、
-混合厂（合并上游后石墨压机 10 台 vs 分别建 11 台、目标互供抵扣省 2 台、发电厂当目标并入净电力）。
+混合厂（合并上游后石墨压机 10 台 vs 分别建 11 台、目标互供抵扣省 2 台、发电厂当目标并入净电力）、
+泵富余优先（9/s → 小泵 2 台富余 5、18/s → 小泵 3 台富余 3、90/s 富余 0）、外部电力按发电厂加和
+（646/s → 蒸汽 2 台、1080/s → 差速 1 台）、液体也是边界（oil 进边界就不再建石油钻井）。
 
 截图用 Edge headless（Chrome headless 在这台机器上会超时被 kill）：
 `--headless=new --disable-gpu --no-sandbox --window-size=1180,2000 --virtual-time-budget=5000 --screenshot=...`
