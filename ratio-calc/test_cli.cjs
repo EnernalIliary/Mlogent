@@ -507,6 +507,22 @@ ok("外部电力：仍写源发电厂名（命令行无图标）", () => {
   const t = run(["--item", "coal", "--rate", "6", "--boundary", "none,sand", "--liquids", "auto"]);
   assert.ok(/外部电力：电力 306\/s ≈ steam-generator 1 台/.test(t), t);
 });
+ok("油田属性：默认写「油田属性：1.5（darksand 满黑沙」", () => {
+  const t = run(["--item", "coal", "--rate", "6", "--boundary", "none,sand", "--liquids", "auto"]);
+  assert.ok(/油田属性：1\.5（darksand/.test(t), t);
+});
+ok("油田属性：--oilfloor 0.7 → 2 台钻井、10.5 油/s", () => {
+  const t = run(["--item", "coal", "--rate", "6", "--boundary", "none,sand", "--liquids", "auto", "--oilfloor", "0.7"]);
+  assert.ok(/oil-extractor ×2/.test(t), t);
+  assert.ok(/10\.5 油\/s/.test(t), t);
+  assert.ok(/油田属性：0\.7/.test(t), t);
+});
+ok("混合厂：自产的油不再报「外部运入」", () => {
+  const t = run(["--mix", "coal-centrifuge:3", "--liquids", "auto", "--boundary", "none"]);
+  assert.ok(/oil-extractor/.test(t), t);
+  assert.ok(!/oil 13\.5\/s/.test(t), t);
+  assert.ok(!/油 13\.5/.test(t), t);
+});
 
 console.log("\n通过 " + pass + " 项，失败 " + fail + " 项");
 process.exitCode = fail ? 1 : 0;

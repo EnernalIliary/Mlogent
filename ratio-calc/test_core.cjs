@@ -388,6 +388,23 @@ function s2sum(m) { return m.pumps.reduce((a, p) => a + p.count, 0); }
   ok("吃料：离心机行写出 oil 18/s",
      ((rows6.filter(x => x.name === "coal-centrifuge")[0] || {}).inItems || [])
        .some(i => i.name === "oil" && Math.abs(i.perSecond - 18) < 1e-6), eats);
+
+  /* 油田属性可选：默认 1.5（满黑沙）、沙地 0.7、油页岩 2.0。 */
+  near("油田属性：默认 1.5", R.indexOf(DATA).oilFloor, 1.5, 1e-9);
+  const coal7 = R.expand(DATA, "coal", 6, ["none", "sand"], {}, { liquids: "auto", floor: 0.7 });
+  near("油田属性：0.7 → 钻井 10.5 油/s", (coal7.liquidFrom.oil || {}).perSecondEach, 10.5, 1e-6);
+  eq("油田属性：0.7 时要 2 台钻井", coal7.machines["oil-extractor"], 2);
+  eq("油田属性：0.7 时吃沙翻倍", coal7.demand["sand"], 2);
+  const coal20 = R.expand(DATA, "coal", 6, ["none", "sand"], {}, { liquids: "auto", floor: 2.0 });
+  near("油田属性：2.0 → 钻井 30 油/s", (coal20.liquidFrom.oil || {}).perSecondEach, 30, 1e-6);
+  eq("油田属性：2.0 仍只需 1 台钻井", coal20.machines["oil-extractor"], 1);
+
+  /* 混合厂液体重复计：目标方块的输入液体既走 machines 又走 liquidExtra 会算两遍（oil 36） */
+  const mixLiq = R.expandMixed(DATA, [{ block: "coal-centrifuge", count: 3 }], { boundary: [], liquids: "auto" });
+  const mixOil = (mixLiq.liquids || []).filter(l => l.name === "oil")[0] || {};
+  near("混合厂：3 台离心机的油只算一遍（18/s）", mixOil.perSecond, 18, 1e-6);
+  ok("混合厂：自产的油不再报外部运入", !(mixLiq.liquidNet || []).some(l => l.name === "oil"),
+     JSON.stringify(mixLiq.liquidNet));
 }
 
 console.log(f2 ? `\n${f2} 项新算法断言失败` : "\n新算法断言全部通过");

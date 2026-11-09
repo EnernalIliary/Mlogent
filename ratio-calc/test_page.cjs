@@ -47,6 +47,7 @@ const document = {
 document.getElementById("rate").value = "1";
 document.getElementById("count").value = "1";
 document.getElementById("depth").value = "6";
+document.getElementById("oilfloor").value = "1.5";
 
 global.window = global;
 global.document = document;
@@ -429,6 +430,17 @@ check("发电厂图标：外部电力换算行带发电机贴图",
   /外部电力换算/.test($("powertable").innerHTML) &&
   /<img[^>]+alt="(combustion|steam|differential)-generator"/.test($("powertable").innerHTML),
   $("powertable").innerHTML.slice(0, 600));
+
+/* 油田属性（Attribute.oil）：页面上能改，改完钻井台数跟着变 */
+check("油田属性：页面有 #oilfloor 输入框（默认 1.5）",
+  !!$("oilfloor") && $("oilfloor").value === "1.5", $("oilfloor") && $("oilfloor").value);
+window.__ratio.oilfloor(0.7);
+check("油田属性：改成 0.7 后钻井变 2 台、单台 10.5 油/s",
+  ((window.__ratio.last() || {}).machines || {})["oil-extractor"] === 2 &&
+  /10\.5\/s/.test(txt("machines")), txt("machines").replace(/<img[^>]*>/g, "").slice(0, 400));
+window.__ratio.oilfloor(1.5);
+check("油田属性：调回 1.5 后钻井回到 1 台", /22\.5\/s/.test(txt("machines")),
+  txt("machines").slice(0, 400));
 window.__ratio.autoliq(false, "coal, sand");
 
 console.log(bad ? `\n${bad} 项失败` : "\n页面链路全部通过");

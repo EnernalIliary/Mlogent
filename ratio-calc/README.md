@@ -204,9 +204,11 @@ node cli.cjs --item coal --rate 6 --boundary none --liquid oil=make
 | `--liquid oil=make` | 逐种指定：`auto` / `pump`（钻井）/ `make`（转化方块）/ `import`（外部运入） |
 | `--liquid oil=make:spore-press` | 方式 + 方块名 |
 | `--liquidname oil=spore-press` | 只指定方块名，方式仍按 auto 判 |
+| `--oilfloor 0.7` | 油田地板属性（`Attribute.oil`，默认 1.5 = 满黑沙）；石油钻井每秒 = `0.25×60×该值` |
 
 - 产线数据（`data/gamedata.js`）：`coal-centrifuge` 30 帧、吃 oil 6/s、出 coal 2/s（3 油换 1 煤）；
-  `oil-extractor` 15/s（吃沙 1/s + 水 9/s，要油田）；`spore-press` 20 帧、吃 spore-pod 1、**出 oil 18/s**
+  `oil-extractor` **22.5/s**（吃沙 1/s + 水 9/s，要油田，按满黑沙属性 1.5 算；游戏 UI 印的 15/s 是
+  `0.25×60` 的乐观值，见 §3.5）；`spore-press` 20 帧、吃 spore-pod 1、**出 oil 18/s**
   （数据里 `outputLiquids` 是 **per-tick**：0.3/tick × 60 = 18/s，不是 ×cyclesPerSecond 的 0.9/s）。
 - 输出里会写「边界输入：…、oil 6/s（液体，外部运入）」和「液体自产：oil ← oil-extractor ×1（单台 15/s，钻井）」——
   **液体也是边界**：写进 `--boundary` 就不再抽/压（煤处理线止于分离机），页面上点液体芯片即可切换；
@@ -261,6 +263,16 @@ node ratio-calc/cli.cjs --item graphite --rate 1 --boundary "coal,sand" --force 
 - **钻井吃的沙本来就计算在内**：钻井的 `inputs`（sand）从一开始就进了递归需求
   （沙没进边界就自动接粉碎机吃 scrap；进了边界就写在「边界输入」），
   只是以前机器行不显示，看起来像没算。
+- **油田属性可调（`--oilfloor`）**：石油钻井是 `Fracker`（继承 `SolidPump`），每秒 =
+  `pumpAmount × 60 × Attribute.oil`，默认 **1.5（满黑沙）= 22.5 油/s**。改成 0.7（沙地）
+  就变 10.5 油/s，CLI 会多打一行「油田属性：0.7（自定义；石油钻井 10.5 油/s）」，
+  页面上是「油田属性」数字框（`?oilfloor=0.7` 也能预设），卡片的抽水节会注一行。
+- **物品工厂现在会写产出**：以前产出行被 `kind !== "item"` 挡掉，`pulverizer` 只写「吃 scrap 1.5/s」
+  不写「→ sand」，看起来沙凭空消失（用户 2026-11-09 就因此问过"油井的沙算了吗"）。
+  现在写成「吃 scrap 1.5/s → sand 1.5/s」。
+- **混合厂的液体不再算两遍**：`expandMixed` 曾把目标方块的输入液体同时记进 `machines`（`liquidDemand` 读）
+  和 `liquidExtra`（`recalcPower` 也读），3 台离心机的油算成 36/s，于是同时打「外部运入 oil 13.5/s」
+  和「液体自产 oil 22.5/s」。现在只走 `machines` 一条路（与 `expandBuilding` 第 705 行同一个坑的注释一致）。
 - **抽水机不算工厂配比**：钻井/泵在机器表里单列一行「抽水：…」（电力仍计入合计，写在「含抽水 X/s」里），
   所以「工厂合计 N 台」只数真正的工厂机器。
 - **孢子路线的配比（即"513"）**：3 台分离机吃 18 油/s ⇒ 1 台压缩机（18 油/s，同时吃 3 孢子/s）⇒ 5 台培养基（0.6 孢子/s 各）
@@ -430,8 +442,8 @@ python -X utf8 ratio-calc/card.py --json result.json --out card.png   # 喂现�
 `docs/card-chain.png`(700×622)、`docs/card-chain-t1.png`(700×378)、
 `docs/card-via.png`(700×248，蓝带入料)、`docs/card-pump.png`(700×414，钻头 + 抽水机)、
 `docs/card-unit.png`(700×378，兵厂单级)、`docs/mix.png`(700×376，混合厂卡片)、`docs/page-mixed.png`（混合厂页签整页截图）、
-`docs/card-coal.png`(700×502，煤炭 6/s：离心机×3 + 石油钻井×1（22.5 油/s）+ 吃料 sand/water + 泵换算 + 带图标的外部电力换算)、
-`docs/page-coal.png`（1180×2150，页面截图：边界全物品/液体开关 + 配方下拉 + 多产物方块开关 + 机器表「吃料/s」列 + 带发电厂图标的外部电力换算）、
+`docs/card-coal.png`(700×526，煤炭 6/s：离心机×3 + 石油钻井×1（22.5 油/s）+ 吃料 sand/water + 泵换算 + 带图标的外部电力换算)、
+`docs/page-coal.png`（1180×2150，页面截图：边界全物品/液体开关 + 配方下拉 + 多产物方块开关 + 油田属性输入框 + 机器表「吃料/s」列 + 带发电厂图标的外部电力换算）、
 `docs/card-drill.png`(700×394，钻头并入工厂配比：机器行写 coal 3.234/s)、
 `docs/card-separator.png`（分离机进递归：台数按份额反推、顺带产物单列一节）、
 `docs/page-multi.png`（1180×2150，页面截图：指定配方选 separator，递归树带份额与顺带产物）。
@@ -519,9 +531,9 @@ python -X utf8 ratio-calc/card.py --json result.json --out card.png   # 喂现�
 ## 已验证
 
 ```
-node ratio-calc/test_core.cjs   → 14 项对拍 mbo calc 全部一致 + 148 项新算法断言通过（共 162 行 ok）
-node ratio-calc/test_page.cjs   → 98 项页面链路断言通过（含混合厂 9 项、液体自产 5 项、边界开关/配方下拉、钻头并入工厂配比、多产物方块进递归树 6 项）
-node ratio-calc/test_cli.cjs    → 64 项 CLI/HTTP 与 core.js 对拍通过（含 `--mix` 6 项、液体自产 6 项、钻头写入机器清单、分离机/解离机 5 项）
+node ratio-calc/test_core.cjs   → 14 项对拍 mbo calc 全部一致 + 162 项新算法断言通过（共 176 行 ok）
+node ratio-calc/test_page.cjs   → 101 项页面链路断言通过（含混合厂 9 项、液体自产 5 项、边界开关/配方下拉、钻头并入工厂配比、多产物方块进递归树 6 项）
+node ratio-calc/test_cli.cjs    → 67 项 CLI/HTTP 与 core.js 对拍通过（含 `--mix` 6 项、液体自产 6 项、钻头写入机器清单、分离机/解离机 5 项）
 python -X utf8 ratio-calc/test_card.py → 12 项卡片结构/排版断言通过（含混合厂 2 项、液体自产 1 项、图标 2 项、多产物副产 1 项）
 ```
 
@@ -533,6 +545,8 @@ dagger 与 stell 两条升级链、发电设备当目标建筑（蒸汽 ×2 → 
 混合厂（合并上游后石墨压机 10 台 vs 分别建 11 台、目标互供抵扣省 2 台、发电厂当目标并入净电力）、
 泵富余优先（9/s → 小泵 2 台富余 5、18/s → 小泵 3 台富余 3、90/s 富余 0）、外部电力按发电厂加和
 （646/s → 蒸汽 2 台、1080/s → 差速 1 台）、液体也是边界（oil 进边界就不再建石油钻井）、
+石油钻井地板属性（默认 1.5 → 22.5 油/s、3 台离心机只要 1 台钻井、0.7 → 2 台 10.5/s、2.0 → 1 台 30/s）、
+混合厂液体只算一遍（3 台离心机 18 油/s、不再报外部运入）、
 多产物进递归树（`graphite` 的候选含 separator、默认仍走压机、`--force graphite=separator` → 4 台/电 264/矿渣 16/s、
 `--force sand=disassembler` → 1 台/废料 4/s、`--multi` 时 lead 2/s → 分离机 5 台、默认仍按外部输入）。
 

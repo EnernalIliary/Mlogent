@@ -231,6 +231,12 @@
       liquidPumps: liquidPumps,
       liquidMakers: liquidMakers,
       liquidColors: data.liquid_colors || {},
+      /* 油田属性默认值（数据里 Fracker 的 perSecond 就是按这个属性算的） */
+      oilFloor: (function () {
+        var f = 0;
+        pumps.forEach(function (p) { if (p.kind === "Fracker" && p.floorAttr > 0) f = p.floorAttr; });
+        return f || 1.5;
+      })(),
       liquidIcons: data.liquid_icons || {},
       channels: channels,
       channelsByKey: channelsByKey,
@@ -318,6 +324,47 @@
   /* 液体来源方案：要 amount 个/s 的某种液体，用钻井还是转化方块、要几台、吃什么。
    * how  = "auto"（钻井优先）| "pump"（钻井）| "make"（转化方块）| "import"（不自产）
    * name 可选：指定泵 / 转化方块的方块名（如 oil 用 spore-press 而不是 oil-extractor）。 */
+  /* 油田属性（Attribute.oil）覆盖：Fracker 每秒 = pumpAmount×60×属性，
+   * 数据里存的是「满黑沙 1.5」的值，属性不同就按比例缩放。
+   * 返回一份浅拷贝的 index（pumps 与 liquidPumps 都换成缩放后的对象），不污染缓存。
+   * floor 不传或与默认相同时直接返回原 index。 */
+  function applyFloor(idx, floor) {
+    var base = idx.oilFloor || 1.5;
+    if (!(floor > 0) || Math.abs(floor - base) < 1e-9) return idx;
+    var pumps = new Map();
+    idx.pumps.forEach(function (p, k) {
+      if (p.kind === "Fracker" && p.floorAttr > 0) {
+        var q = {};
+        Object.keys(p).forEach(function (key) { q[key] = p[key]; });
+        q.perSecond = round(p.perSecond * floor / p.floorAttr);
+        q.floorAttr = floor;
+        pumps.set(k, q);
+      } else {
+        pumps.set(k, p);
+      }
+    });
+    var liquidPumps = new Map();
+    pumps.forEach(function (p) {
+      if (!(p.perSecond > 0)) return;
+      if (!liquidPumps.has(p.liquid)) liquidPumps.set(p.liquid, []);
+      liquidPumps.get(p.liquid).push(p);
+    });
+    liquidPumps.forEach(function (arr) {
+      arr.sort(function (a, b) {
+        var al = a.inputLiquids.length ? 1 : 0, bl = b.inputLiquids.length ? 1 : 0;
+        if (al !== bl) return al - bl;
+        return (b.perSecond - a.perSecond) || (a.power - b.power)
+            || (a.name < b.name ? -1 : a.name > b.name ? 1 : 0);
+      });
+    });
+    var out = {};
+    Object.keys(idx).forEach(function (key) { out[key] = idx[key]; });
+    out.pumps = pumps;
+    out.liquidPumps = liquidPumps;
+    out.oilFloor = floor;
+    return out;
+  }
+
   function liquidSourcePlan(idx, liquid, amount, how, name) {
     var pumps = idx.liquidPumps.get(liquid) || [];
     var makers = idx.liquidMakers.get(liquid) || [];
@@ -533,12 +580,13 @@
    * opts.liquids = "auto" 时，机器吃但没人供的液体（如 coal-centrifuge 的 oil）自动接钻井/转化方块，
    * 这就是"不允许外部输入"时把煤炭处理线（coal-centrifuge → oil-extractor）带出来的开关。 */
   function expand(data, target, rate, boundary, force, opts) {
-    var idx = indexOf(data);
+    var idx = applyFloor(indexOf(data), opts && opts.floor);
     if (!idx.itemSet.has(target)) throw new Error("未知物品：" + target);
     var ex = makeExpander(idx, boundary, force, (opts && opts.maxDepth) || MAX_DEPTH, !!(opts && opts.multi));
     var root = ex.need(target, rate, 0, null);
     var liquidFrom = (opts && opts.liquids) ? ex.resolveLiquids(opts) : {};
     var res = ex.result({ target: target, requested: rate, tree: root, liquidFrom: liquidFrom });
+    res.oilFloor = idx.oilFloor;
     res.achieved = root && root.actual ? root.actual : 0;
     recalcPower(idx, res);          // 液体自产会把钻井/抽水泵塞进 machines，电力和液体都要重算一次
     if (opts && opts.sources) applySources(data, res, opts.sources);
@@ -552,7 +600,7 @@
   /* 发电设备当"目标建筑"：算总发电、燃料、液体、自耗电。
    * 不递归电力：发电厂的自耗只显示，不再换算成更多发电厂。 */
   function expandGenerator(data, genName, count, opts) {
-    var idx = indexOf(data);
+    var idx = applyFloor(indexOf(data), opts && opts.floor);
     opts = opts || {};
     var g = idx.generators.get(genName);
     if (!g) throw new Error("未知发电厂：" + genName);
@@ -569,7 +617,7 @@
       mode: "building", block: genName, count: count, plan: 0, planTotal: 0,
       products: [{ name: "电力", type: "power", rate: round(netEach * count) }],
       inputs: [], tree: null, warnings: [], order: [], liquidExtra: {},
-      machines: {}, demand: {}, power: 0, extraPower: 0
+      machines: {}, demand: {}, power: 0, extraPower: 0, oilFloor: idx.oilFloor
     };
     if (fuel) {
       res.inputs.push({ name: fuel[0], amount: round(fuel[1] * count) });
@@ -599,7 +647,7 @@
   }
 
   function expandBuilding(data, blockName, count, opts) {
-    var idx = indexOf(data);
+    var idx = applyFloor(indexOf(data), opts && opts.floor);
     opts = opts || {};
     if (idx.generators && idx.generators.get(blockName)) return expandGenerator(data, blockName, count, opts);
     var b = idx.blocks.get(blockName);
@@ -651,6 +699,7 @@
         ? Math.min(Math.max(0, opts.plan || 0), Math.max(0, (b.plans || []).length - 1)) : 0,
       planTotal: b.kind === "unit" && b.factoryKind !== "reconstructor" ? (b.plans || []).length : 0
     });
+    res.oilFloor = idx.oilFloor;
     // 目标建筑自身也进建造清单（电力/液体要一起算进去：ex.result 里还没有它）
     res.machines[blockName] = (res.machines[blockName] || 0) + count;
     res.machines = sortMachines(res.machines);
@@ -717,7 +766,7 @@
 
   /* targets = [{block:"silicon-smelter", count:2}, {block:"graphite-press", count:3}] */
   function expandMixed(data, targets, opts) {
-    var idx = indexOf(data);
+    var idx = applyFloor(indexOf(data), opts && opts.floor);
     opts = opts || {};
     var list = (targets || []).map(function (t) {
       if (!t || !t.block) throw new Error("混合厂的每个目标都要写方块名");
@@ -862,9 +911,8 @@
       s.inputs.forEach(function (i) {
         inputs.push({ name: i.name, amount: i.amount, block: s.block });
       });
-      (s.inputLiquids || []).forEach(function (l) {
-        liquidExtra[l.name] = (liquidExtra[l.name] || 0) + l.perSecond;
-      });
+      /* 注意：目标方块的输入液体已经通过上面那行 machines[s.block] 进 liquidDemand，
+       * 再塞 liquidExtra 就会重复计一遍（mixed 模式 coal-centrifuge 3 台的油曾算成 36/s）。 */
       powerOut += s.powerOut || 0;
       targetRows.push({ block: s.block, count: s.count, kind: s.kind, products: s.products,
                         inputs: s.inputs, inputLiquids: s.inputLiquids || [],
@@ -916,6 +964,7 @@
       internals: internals,
       warnings: warnings,
       tree: null,
+      oilFloor: idx.oilFloor,
       snapshot: idx.snapshot || ""
     };
     Object.keys(boundaryRate).sort().forEach(function (k) {
@@ -1172,8 +1221,8 @@
   }
 
   /* 抽水泵：要 rate 个/s 的某种液体，要几台泵、多少电、吃什么 */
-  function pumpPlan(data, liquidName, amount, pumpName) {
-    var idx = indexOf(data);
+  function pumpPlan(data, liquidName, amount, pumpName, floor) {
+    var idx = applyFloor(indexOf(data), floor);
     var p = idx.pumps.get(pumpName);
     if (!p) throw new Error("未知抽水泵：" + pumpName);
     if (p.liquid !== liquidName) {
@@ -1192,8 +1241,8 @@
 
   /* 液体需求换算成抽水机台数：小泵(机械泵)→中泵(回转泵)→大泵(脉冲泵)…
    * 用户口径里水常按"几台泵"计，所以每种液体都给出各档泵要几台（向上取整）。 */
-  function pumpEquivalents(data, liquidName, amount) {
-    var idx = indexOf(data);
+  function pumpEquivalents(data, liquidName, amount, floor) {
+    var idx = applyFloor(indexOf(data), floor);
     var out = [];
     idx.pumps.forEach(function (p) {
       if (p.liquid !== liquidName || !(p.perSecond > 0)) return;
@@ -1212,8 +1261,8 @@
    * 目标顺序（用户 2026-11-09 指定）：先让**富余尽量小**，富余相同再比台数。
    * 例：18/s 水 → 小泵 3 台（合计 21/s，富余 3/s），而不是中泵 1 台（48/s，富余 30/s）。 */
   var PUMP_TIERS = ["mechanical-pump", "rotary-pump", "impulse-pump"];
-  function pumpMix(data, liquidName, amount) {
-    return pumpMixIdx(indexOf(data), liquidName, amount);
+  function pumpMix(data, liquidName, amount, floor) {
+    return pumpMixIdx(applyFloor(indexOf(data), floor), liquidName, amount);
   }
   function pumpMixIdx(idx, liquidName, amount) {
     var tiers = [];
@@ -1669,7 +1718,8 @@
 
   /* 便捷：把结果摊平成表格行 */
   function machineRows(data, result) {
-    var idx = indexOf(data);
+    /* 油田属性会改石油钻井的每秒产量，所以这里也要按 result.oilFloor 重算索引 */
+    var idx = applyFloor(indexOf(data), result && result.oilFloor);
     return Object.keys(result.machines).map(function (name) {
       var b = anyBlock(idx, name);
       var count = result.machines[name];
@@ -1765,6 +1815,7 @@
               separatorPlan: separatorPlan, unitChain: unitChain, chainFromTop: chainFromTop,
               chainFromBlock: chainFromBlock, chainsForBlock: chainsForBlock,
               pumpPlan: pumpPlan, pumpEquivalents: pumpEquivalents, pumpMix: pumpMix,
+      applyFloor: applyFloor,
               powerMix: powerMix,
               applySources: applySources, recalcPower: recalcPower,
               liquidDemand: liquidDemand, DEFAULT_CHANNEL: DEFAULT_CHANNEL };

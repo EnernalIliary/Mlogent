@@ -193,6 +193,11 @@ function query(opts) {
   else boundary = given;
   const force = parseForce(opts.force);
   const depth = num(opts.depth, 12);
+  /* --oilfloor：油田属性（Attribute.oil）。默认 1.5 = 满黑沙；0.7 沙地、0.3 盐地、2.0 页岩。
+   * 石油钻井每秒 = pumpAmount×60×属性，所以属性不同钻井台数也不同。 */
+  const oilFloor = num(opts.oilfloor, 0);
+  /* 不传 --oilfloor 时用数据里的默认属性（满黑沙 1.5） */
+  const floorVal = oilFloor > 0 ? oilFloor : ((env.idx && env.idx.oilFloor) || 1.5);
   const sources = parseSources(opts.src || []);
   const liqOpts = liquidOptions(opts);
   /* --multi：允许分离机/解离机自动参与递归（默认关，否则铜/铅/钛会被自动改建成吃矿渣的分离机） */
@@ -226,7 +231,8 @@ function query(opts) {
     /* 混合厂：多个目标（物品工厂 / 发电设备）合并算上游，共享中间产物只建一份 */
     const targets = parseMix(opts.mix);
     const r = R.expandMixed(DATA, targets, Object.assign({
-      boundary: boundary, force: force, maxDepth: depth, sources: sources, multi: multiOn
+      boundary: boundary, force: force, maxDepth: depth, sources: sources, multi: multiOn,
+      floor: oilFloor > 0 ? oilFloor : undefined
     }, liqOpts));
     res.mode = "mixed";
     res.targets = r.targets.map(t => ({
@@ -267,7 +273,8 @@ function query(opts) {
     const r = R.expandBuilding(DATA, String(opts.block), count, Object.assign({
       boundary: boundary, force: force, maxDepth: depth,
       plan: num(opts.plan, 0), sources: sources,
-      fuel: opts.genfuel ? String(opts.genfuel) : null, multi: multiOn
+      fuel: opts.genfuel ? String(opts.genfuel) : null, multi: multiOn,
+      floor: oilFloor > 0 ? oilFloor : undefined
     }, liqOpts));
     res.mode = "building";
     res.target = String(opts.block);
@@ -289,7 +296,8 @@ function query(opts) {
   } else if (opts.item) {
     const rate = num(opts.rate, 1);
     const r = R.expand(DATA, String(opts.item), rate, boundary, force,
-      Object.assign({ maxDepth: depth, sources: sources, multi: multiOn }, liqOpts));
+      Object.assign({ maxDepth: depth, sources: sources, multi: multiOn,
+        floor: oilFloor > 0 ? oilFloor : undefined }, liqOpts));
     res.mode = "item";
     res.target = String(opts.item);
     res.requested = rate;
@@ -326,6 +334,7 @@ function query(opts) {
     }
   }
   res.warnings = Array.from(new Set(res.warnings));
+  res.oilFloor = floorVal;
   return attachIcons(res);
 }
 
@@ -365,7 +374,7 @@ function attachIcons(res) {
   res.pumpMix = {};
   if (env.R && env.R.pumpMix) {
     Object.keys(amountOf).forEach(name => {
-      const mix = env.R.pumpMix(DATA, name, amountOf[name]);
+      const mix = env.R.pumpMix(DATA, name, amountOf[name], res.oilFloor);
       if (mix) res.pumpMix[name] = mix;
     });
   }
@@ -552,7 +561,9 @@ function renderText(res) {
       if (m.inItems && m.inItems.length) {
         line += "，吃 " + m.inItems.map(i => i.name + " " + fmtNum(i.perSecond) + "/s").join(" + ");
       }
-      if (m.outItems && m.outItems.length && m.kind !== "item") {
+      /* 产出一律写出来（之前物品工厂不写：看不到 pulverizer → sand，
+       * 就会误以为「油井吃的沙没算进去」） */
+      if (m.outItems && m.outItems.length) {
         line += " → " + m.outItems.map(o => o.name + " " + fmtNum(o.perSecond) + "/s").join("、");
       }
       L.push(line);
@@ -604,6 +615,13 @@ function renderText(res) {
     const t = mixText(k, res.pumpMix[k]);
     if (t) L.push("  泵换算：" + t);
   });
+  /* 油田属性（Fracker 产油 = pumpAmount×60×Attribute.oil）：用到石油钻井或非默认值时提一句 */
+  const frac = Object.keys(res.liquidFrom || {}).filter(k => (res.liquidFrom[k] || {}).block === "oil-extractor");
+  if (res.oilFloor && (frac.length || Math.abs(res.oilFloor - 1.5) > 1e-9)) {
+    L.push("  油田属性：" + fmtNum(res.oilFloor) + (Math.abs(res.oilFloor - 1.5) < 1e-9
+      ? "（darksand 满黑沙，石油钻井 " + fmtNum(22.5) + " 油/s）"
+      : "（自定义；石油钻井 " + fmtNum(22.5 * res.oilFloor / 1.5) + " 油/s）"));
+  }
   if ((res.byproducts || []).length) {
     L.push("  顺带产物：" + res.byproducts.map(b => b.name + " " + fmtNum(b.perSecond) + "/s").join("、")
       + "（多产物方块副产，不算进需求）");
@@ -784,6 +802,7 @@ function usage() {
     "  --src item=import|drill:<钻头>:<矿格数>:<0|1>|multi:<方块>   外部来源（可重复）",
     "  --liquids auto                      液体自产：机器吃的液体没人供时自动接钻井/转化方块",
     "  --multi                             分离机/解离机也参与自动递归（默认只在“指定配方”里选才用）",
+    "  --oilfloor <X>                      油田属性（Attribute.oil，默认 1.5 = 满黑沙；石油钻井 = 0.25×60×X）",
     "  --liquid oil=make|pump|import[:方块]  逐种液体指定自产方式（oil=make:spore-press）",
     "  --liquidname oil=<方块>              只指定产液方块（方式按 auto 判）",
     "  --gen <发电厂> --genfuel <燃料> [--gencount N] [--gendemand X]  供电方案（N=0/省略则自动补足）",

@@ -172,6 +172,12 @@
         </label>
       </div>
       <div>
+        <label for="oilfloor">油田属性</label>
+        <input id="oilfloor" type="number" min="0.1" max="3" step="0.1" value="1.5"
+               title="Attribute.oil：满黑沙 1.5（石油钻井 22.5 油/s = 0.25×60×1.5）；沙地 0.7、盐地 0.3、油页岩 2.0">
+        <div class="hint">1.5 = 满黑沙（影响石油钻井产量）</div>
+      </div>
+      <div>
         <label>&nbsp;</label>
         <button id="run">计算</button>
       </div>
@@ -1022,6 +1028,8 @@
     if (q.mode === "item") mode = "item";
     // 多产物方块参与递归：?multi=1
     if (q.multi === "1" || q.multi === "on" || q.multi === "true") el("multichk").checked = true;
+    // 油田属性：?oilfloor=0.7
+    if (q.oilfloor && parseFloat(q.oilfloor) > 0) el("oilfloor").value = q.oilfloor;
     if (q.mode === "mixed") mode = "mixed";
     // 混合厂：?mode=mixed&mix=silicon-arc-furnace:1,carbide-crucible:1
     if (q.mix) {
@@ -1157,6 +1165,8 @@
     }
     var boundary = boundaryNames();
     var multiOn = !!(el("multichk") && el("multichk").checked);
+    var floorIn = parseFloat(el("oilfloor") && el("oilfloor").value);
+    var floorOpt = floorIn > 0 ? floorIn : undefined;
     var depth = Math.max(1, Math.min(12, parseInt(el("depth").value, 10) || 6));
     var liqOpt = el("autoliq") && el("autoliq").checked ? { liquids: "auto" } : {};
     var res;
@@ -1164,19 +1174,19 @@
       if (mode === "mixed") {
         if (!mixTargets.length) { alert("先往清单里加至少一个目标"); return; }
         res = R.expandMixed(DATA, mixTargets.map(function (t) { return { block: t.block, count: t.count }; }),
-                            Object.assign({ boundary: boundary, force: forced, maxDepth: depth, multi: multiOn }, liqOpt));
+                            Object.assign({ boundary: boundary, force: forced, maxDepth: depth, multi: multiOn, floor: floorOpt }, liqOpt));
       } else if (mode === "building") {
         var count = Math.max(1, parseInt(el("count").value, 10) || 1);
         var plan = parseInt(el("plan").value || "0", 10) || 0;
         var selB = blockOf(curBlock);
         var ch = (selB && selB.kind === "unit") ? R.chainFromBlock(DATA, curBlock, count) : null;
         res = ch ? chainToRes(ch)
-                 : R.expandBuilding(DATA, curBlock, count, Object.assign({ boundary: boundary, force: forced, plan: plan, maxDepth: depth, multi: multiOn,
+                 : R.expandBuilding(DATA, curBlock, count, Object.assign({ boundary: boundary, force: forced, plan: plan, maxDepth: depth, multi: multiOn, floor: floorOpt,
                                                    fuel: (el("genfuel") && el("genfuel").value) || null }, liqOpt));
       } else {
         var rate = parseFloat(el("rate").value);
         if (!(rate > 0)) { alert("速率要大于 0"); return; }
-        res = R.expand(DATA, targetSel.value, rate, boundary, forced, Object.assign({ maxDepth: depth, multi: multiOn }, liqOpt));
+        res = R.expand(DATA, targetSel.value, rate, boundary, forced, Object.assign({ maxDepth: depth, multi: multiOn, floor: floorOpt }, liqOpt));
       }
     } catch (e) {
       alert("算不出来：" + e.message);
@@ -1533,6 +1543,11 @@
                      multi: function (on) {
                        if (on != null) { el("multichk").checked = !!on; run(); }
                        return el("multichk").checked;
+                     },
+                     /* 油田属性（Attribute.oil）：__ratio.oilfloor(0.7) 改完重算 */
+                     oilfloor: function (v) {
+                       if (v != null && parseFloat(v) > 0) { el("oilfloor").value = v; run(); }
+                       return parseFloat(el("oilfloor").value) || 1.5;
                      },
                      /* 液体自产开关：__ratio.autoliq(true) */
                      autoliq: function (on, boundaryText) {

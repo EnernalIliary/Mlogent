@@ -221,6 +221,10 @@ def _machine_section(c, res):
                 bits.append("吃 " + "+".join("%s %s/s" % (i["name"], fmt(i["perSecond"])) for i in ins[:3]))
             c.row(m.get("icon"), m.get("name") or "?", "×%d" % int(m.get("count") or 0),
                   " · ".join(bits) or None)
+        # 石油钻井的产量取决于地板属性（Attribute.oil）：把口径写在抽水节里
+        if any((m.get("name") or "") == "oil-extractor" for m in plist) and res.get("oilFloor"):
+            c.note("· 油田属性 %s（Attribute.oil，满黑沙 1.5 ⇒ 石油钻井 22.5 油/s）"
+                   % fmt(res["oilFloor"]), DIM)
 
 
 def _byproduct_section(c, res):
