@@ -320,5 +320,18 @@ check("混合厂：发电设备当目标（电力 60、发电 60）",
 window.__ratio.mix([]);
 check("混合厂：空清单隐藏输出区且不报错", $("out").classList.contains("hidden"));
 
+/* --- 液体自产：煤炭不允许外部输入时，自动带出煤炭处理线 --- */
+window.__ratio.setMode("item");
+$("target").value = "coal";
+$("rate").value = "2";
+window.__ratio.autoliq(true, "");
+check("液体自产：带出煤炭分离机和石油钻井",
+  /coal-centrifuge/.test(txt("machines")) && /oil-extractor/.test(txt("machines")), txt("machines").slice(0, 500));
+check("液体自产：液体表写「自产」并带色点",
+  /自产/.test($("liquids").innerHTML) && /liqdot/.test($("liquids").innerHTML), $("liquids").innerHTML.slice(0, 800));
+check("液体自产：等价命令带 --liquids auto", /--liquids auto/.test($("cmd").textContent), $("cmd").textContent);
+window.__ratio.autoliq(false, "");
+check("关掉液体自产：回到只建分离机", !/oil-extractor/.test(txt("machines")), txt("machines").slice(0, 400));
+
 console.log(bad ? `\n${bad} 项失败` : "\n页面链路全部通过");
 process.exit(bad ? 1 : 0);

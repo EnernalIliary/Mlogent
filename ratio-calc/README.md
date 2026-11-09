@@ -29,7 +29,7 @@
 
 | 层 | 文件 | 入口 | 返回 |
 |---|---|---|---|
-| 内核（唯一算法） | `core.js` | `buildIndex(data)`、`expand`、`expandBuilding`、`chainFromTop`、`chainFromBlock`、`chainsForBlock`、`applySources`、`generatorPlan`、`pumpPlan`、`separatorPlan`、`drillRate`、`unitChain`、`DEFAULT_CHANNEL` | 纯 JS 对象 |
+| 内核（唯一算法） | `core.js` | `buildIndex(data)`、`expand`、`expandBuilding`、`expandMixed`、`chainFromTop`、`chainFromBlock`、`chainsForBlock`、`applySources`、`generatorPlan`、`pumpPlan`、`separatorPlan`、`drillRate`、`unitChain`、`liquidSourcePlan`、`DEFAULT_CHANNEL` | 纯 JS 对象 |
 | 命令行 / HTTP 逻辑 | `cli.cjs` | **`query(opts)`** → JSON；`renderText` / `renderMarkdown` / `renderList`；`loadData` | JSON / 文本 |
 | HTTP | `serve.cjs` | `handle(req, res)`、`optsFromQuery(q)`（内部就是 `cli.query`） | HTTP 响应 |
 | Python | `ratio.py` | **`calc(**kw)`**（= `query`）、`text`、`markdown`、`image`、`card`、`http_query` | dict / str / PNG |
@@ -154,6 +154,43 @@ tetrative ×12`，合计 **21 台兵厂、22872 电/s**，瓶颈在 T5；材料�
 > 泵的台数会迭代收敛：泵自己也吃液体（抽油机吃水、强化泵吃氢），所以补台数时会重算几轮。
 
 
+### 3.6 液体自产（不允许外部输入时，自动带出「煤炭处理线」）
+
+机器要的液体**没人供**时，可以让它自己产：`--liquids auto`（网页上是「液体自产」勾选）。
+默认**钻井优先**（有钻井就用钻井，没有钻井才用转化方块），也可以逐种指定：
+
+```bash
+# 煤炭 2/s：原版没有"煤矿"，煤只能靠煤炭分离机（3 油 → 1 煤），于是自动接石油钻井
+node cli.cjs --item coal --rate 2 --boundary none --liquids auto
+#   产出：coal 2/s
+#   coal-centrifuge ×1（电 42/s）
+#   impulse-pump ×1（电 78/s）       ← 抽油机自己吃水
+#   oil-extractor ×1（电 180/s）
+#   pulverizer ×1（电 30/s）         ← 钻井要沙，沙没边界就走粉碎机（吃废料）
+#   机器合计：4 台，电力 330/s
+#   液体自产：oil ← oil-extractor ×1（单台 15/s，钻井）
+#   液体自产：water ← impulse-pump ×1（单台 13.2/s，钻井）
+
+# 换孢子压缩：石油不钻井，用孢子压（spore-press 吃 spore-pod，再往上自动展开种植机）
+node cli.cjs --item coal --rate 2 --boundary none --liquid oil=make
+#   机器合计：91 台，电力 6880/s   ← 便宜的是钻井，孢子线是"没有油田"时的兜底
+```
+
+| 参数 | 作用 |
+|---|---|
+| `--liquids auto` | 打开液体自产（不打开时行为和以前一样：液体只算外部运入） |
+| `--liquid oil=make` | 逐种指定：`auto` / `pump`（钻井）/ `make`（转化方块）/ `import`（外部运入） |
+| `--liquid oil=make:spore-press` | 方式 + 方块名 |
+| `--liquidname oil=spore-press` | 只指定方块名，方式仍按 auto 判 |
+
+- 产线数据（`data/gamedata.js`）：`coal-centrifuge` 30 帧、吃 oil 6/s、出 coal 2/s（3 油换 1 煤）；
+  `oil-extractor` 15/s（吃沙 1/s + 水 9/s，要油田）；`spore-press` 20 帧、吃 spore-pod 1、出 oil 0.9/s。
+- 输出里会写「液体自产：oil ← oil-extractor ×1（单台 15/s，钻井）」和「还要外部进的液体」；
+  卡片上液体行带**色点**（颜色来自 `knowledge/00-data/liquids.json` 的 `colorHex`，原版液体没有独立贴图）。
+- 钻井/泵/转化方块都进**机器表**（台数、电力都算进去），不是白给的。
+- 局限：混合厂里转化方块的物品入料按**外部输入**计并给一条 warning（混合厂不展开液体源的物品链）。
+
+
 ### 4. 贴图原尺寸（优先 `-full` 大图）
 
 方块/兵厂/发电厂/单位优先用 `sprites/generated/block-<名>-full.png`、`unit-<名>-full.png`（原版高清整图，
@@ -177,6 +214,7 @@ python -X utf8 card.py --mix "silicon-arc-furnace:1,carbide-crucible:1" --out mi
 
 网页上是第三个页签「混合厂（多个目标）」：点建筑格只选中、点「加入清单」进目标列表，再点「算」。
 URL 预设：`index.html?mode=mixed&mix=silicon-arc-furnace:1,carbide-crucible:1`
+液体自产：`index.html?item=coal&rate=2&liquids=auto`
 
 算法（`core.js` 的 `expandMixed`，和单目标共用同一套 `servable` / `chooseProducer`）：
 
@@ -313,7 +351,8 @@ python -X utf8 ratio-calc/card.py --json result.json --out card.png   # 喂现�
 示例：`docs/card-graphite.png`(700×248)、`docs/card-silicon.png`(700×282)、
 `docs/card-chain.png`(700×622)、`docs/card-chain-t1.png`(700×378)、
 `docs/card-via.png`(700×248，蓝带入料)、`docs/card-pump.png`(700×414，钻头 + 抽水机)、
-`docs/card-unit.png`(700×378，兵厂单级)、`docs/mix.png`(700×376，混合厂卡片)、`docs/page-mixed.png`（混合厂页签整页截图）。
+`docs/card-unit.png`(700×378，兵厂单级)、`docs/mix.png`(700×376，混合厂卡片)、`docs/page-mixed.png`（混合厂页签整页截图）、
+`docs/card-coal.png`(700×502，煤炭处理线：煤炭分离机 + 石油钻井 + 液体色点)。
 
 ### JSON 结构（四种模式统一）
 
@@ -368,17 +407,17 @@ python -X utf8 ratio-calc/card.py --json result.json --out card.png   # 喂现�
 |---|---|
 | `index.html` | 单页应用（样式 + 四个模式 + 来源/供电/兵厂链/液体四块表，无第三方库） |
 | `core.js` | 内核：展开、钻头/发电/多产物/兵厂链/液体算法（浏览器 + node 通用，`module.exports`） |
-| `data/gamedata.js` | 导出数据 + 内联图标 + 中文名：33 工厂 / 17 兵厂 / 14 发电厂 / 10 钻头 / 2 多产物 / 6 抽水泵 / 22 物品 / 139 图标 / 493 中文名 / 1130.8 KB |
+| `data/gamedata.js` | 导出数据 + 内联图标 + 中文名：33 工厂 / 17 兵厂 / 14 发电厂 / 10 钻头 / 2 多产物 / 6 抽水泵 / 22 物品 / 139 图标 / 11 液体颜色 / 493 中文名 / 1132.1 KB |
 | `export_data.py` | 重新导出：`python -X utf8 ratio-calc/export_data.py` |
 | `make_cases.py` | 用 `mbo calc --json` 生成对拍用例 |
 | `cli.cjs` | **bot 入口**：命令行 + 文本/Markdown/JSON 渲染 |
 | `serve.cjs` | **bot 入口**：HTTP 服务（`/calc` `/list` `/healthz`） |
 | `ratio.py` | **bot 入口**：Python 包装（`query/text/markdown/image/http_query`） |
 | `card.py` | **bot 入口**：把结果画成 PNG 卡片（带原尺寸图标） |
-| `test_core.cjs` | 14 项对拍 `mbo calc` + 84 项断言：钻头/发电/多产物/兵厂链/抽水机/入料方式/发电设备当目标 |
-| `test_page.cjs` | 最小 DOM 桩跑页面：62 项断言，不用浏览器 |
-| `test_cli.cjs` | 42 项：CLI/HTTP 与 `core.js` 逐项对拍 + 渲染 + 默认蓝带 + 错误分支 |
-| `test_card.py` | 6 项：卡片结构（配比在前）/ 默认蓝带条数 / 0 台不建 / 行不重叠 / PNG 可渲染 / 发电卡片 |
+| `test_core.cjs` | 14 项对拍 `mbo calc` + 96 项断言：钻头/发电/多产物/兵厂链/抽水机/入料方式/发电设备当目标/混合厂/液体自产 |
+| `test_page.cjs` | 最小 DOM 桩跑页面：75 项断言，不用浏览器 |
+| `test_cli.cjs` | 53 项：CLI/HTTP 与 `core.js` 逐项对拍 + 渲染 + 默认蓝带 + 液体自产 + 错误分支 |
+| `test_card.py` | 10 项：卡片结构（配比在前）/ 默认蓝带条数 / 0 台不建 / 行不重叠 / PNG 可渲染 / 发电卡片 / 混合厂 / 液体自产 / 图标齐全 |
 | `docs/screenshot-*.png` | 页面截图（Edge headless） |
 | `docs/card-*.png` | PNG 卡片示例 |
 
@@ -390,16 +429,17 @@ python -X utf8 ratio-calc/card.py --json result.json --out card.png   # 喂现�
 | 兵厂 plans / 升级链 / 组装厂 | `MBO/gamedata/v160.7/units_production.json`（Rhino 反射 dump） |
 | 发电厂 / 钻头 / 多产物 / 物品属性 | `MBO/gamedata/v160.7/power_drill.json`（Rhino 反射 dump） |
 | 抽水泵 | `power_drill.json` 的 Pump 段（`pumpAmount` per-tick ×60；源码 `Blocks.java` 核对） |
+| 液体颜色 | `knowledge/00-data/liquids.json` 的 `colorHex`（原版液体没有独立贴图，用色点代替） |
 | 图标 | `assetsraw/assets-raw/sprites/generated/*-full.png`（优先）、`blocks/**`、`units/**`、`items/**`（原尺寸） |
 | 中文名 | `assetsraw/assets/bundles/bundle_zh_CN.properties`（`item/block/unit.<名>.name`） |
 
 ## 已验证
 
 ```
-node ratio-calc/test_core.cjs   → 14 项对拍 mbo calc 全部一致 + 100 项新算法断言通过（共 114 行 ok）
-node ratio-calc/test_page.cjs   → 71 项页面链路断言通过（含混合厂 9 项）
-node ratio-calc/test_cli.cjs    → 48 项 CLI/HTTP 与 core.js 对拍通过（含 `--mix` 6 项）
-python -X utf8 ratio-calc/test_card.py → 8 项卡片结构/排版断言通过（含混合厂 2 项）
+node ratio-calc/test_core.cjs   → 14 项对拍 mbo calc 全部一致 + 112 项新算法断言通过（共 126 行 ok）
+node ratio-calc/test_page.cjs   → 75 项页面链路断言通过（含混合厂 9 项、液体自产 4 项）
+node ratio-calc/test_cli.cjs    → 53 项 CLI/HTTP 与 core.js 对拍通过（含 `--mix` 6 项、液体自产 5 项）
+python -X utf8 ratio-calc/test_card.py → 10 项卡片结构/排版断言通过（含混合厂 2 项、液体自产 1 项、图标 2 项）
 ```
 
 对拍用例覆盖石墨/硅/合金/玻璃/塑料/爆炸物/燃烧物/相织物/孢子荚 + 3 个 `--force`；
@@ -424,7 +464,9 @@ dagger 与 stell 两条升级链、发电设备当目标建筑（蒸汽 ×2 → 
 ## 已知局限
 
 - 只算配比，不算布局/物流/传送带容量；
-- 液体默认按外部输入，不展开抽水/混合机；
+- 液体默认按外部输入；要自产就加 `--liquids auto`（或网页勾「液体自产」），此时钻井优先、没有钻井才用转化方块；
+- 液体自产只认"一种方块供一种液体"：`reinforced-pump` 要氢这类自反馈被排序规避（优先选不吃液体的泵），不保证全局最优；
+- 混合厂里的液体自产：转化方块的**物品**入料按外部输入计并给 warning（不展开那一层物品链）；
 - 组装厂（`UnitAssembler`）消耗的是**方块 Payload**，这里按外部输入处理，不展开；
 - 多产物是"随机出一件"的期望值，实际有波动；
 - 电力不展开成燃料链的闭环（发电厂烧的煤仍需自己配来源，不会自动接到钻头）；

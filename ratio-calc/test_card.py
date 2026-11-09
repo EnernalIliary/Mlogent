@@ -187,7 +187,44 @@ def case_mixed_generator():
     check_width(r)
 
 
-ok("渲染：尺寸一致、PNG 非空", case_png)
+def case_liquid_self():
+    """煤炭不允许外部输入 + 液体自产：卡片要把煤炭处理线写出来、液体行带色点图标。"""
+    r = run_cli(["--item", "coal", "--rate", "2", "--boundary", "none", "--liquids", "auto"])
+    t = flat(r)
+    assert "coal-centrifuge" in t, t
+    assert "oil-extractor" in t, t
+    assert "液体需求（净）" in t or "液体需求" in t, t
+    assert "自产" in t, t
+    rows = [b for b in C.build_card(r).blocks if b[0] == "row"]
+    liq = [b for b in rows if b[2] in ("oil", "water")]
+    assert liq, t
+    for b in liq:
+        assert b[1] and b[1].startswith("data:image/png;base64,"), b
+    check_width(r)
+
+
+def case_chain_icons():
+    """兵厂链是另一条提前 return 的分支，曾经把入料图标全丢了。"""
+    r = run_cli(["--chain", "dagger", "--chainrate", "0.05"])
+    rows = [b for b in C.build_card(r).blocks if b[0] == "row"]
+    assert rows, "chain 卡片没有任何 row"
+    missing = [b[2] for b in rows if not b[1]]
+    assert not missing, "这些行缺图标：%s" % missing
+
+
+def case_mixed_icons():
+    """混合厂的「目标」行以前传的是 None 图标。"""
+    r = run_cli(["--mix", "silicon-arc-furnace:1,carbide-crucible:1"])
+    rows = [b for b in C.build_card(r).blocks if b[0] == "row"]
+    targets = [b for b in rows if b[2] in ("silicon-arc-furnace", "carbide-crucible")]
+    assert len(targets) >= 2, [b[2] for b in rows]
+    for b in targets:
+        assert b[1], "目标行缺图标：" + str(b[2])
+
+
+ok("液体自产：煤炭处理线写进卡片、液体行带色点图标", case_liquid_self)
+ok("图标：兵厂链入料行不再缺图标", case_chain_icons)
+ok("图标：混合厂目标行带方块图标", case_mixed_icons)
 ok("发电设备：配比在前、发电量正确、带供电段", case_generator)
 ok("混合厂：标题/目标表/共享省台数/对比分别建", case_mixed)
 ok("混合厂：发电设备当目标时写厂内发电与净电力", case_mixed_generator)

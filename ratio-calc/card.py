@@ -234,17 +234,47 @@ def _import_section(c, res):
         c.row(d.get("icon"), d["name"], "%s/s" % fmt(d.get("perSecond")), sub)
 
 
+def _liquid_icon(color: str | None, px: int = 16) -> str | None:
+    """液体在原版没有独立贴图：按 knowledge 的 colorHex 画个色点，走和方块图标同一条 paste 通路。"""
+    if not color or not color.startswith("#") or len(color) < 7:
+        return None
+    try:
+        rgb = tuple(int(color[i:i + 2], 16) for i in (1, 3, 5))
+    except ValueError:
+        return None
+    im = Image.new("RGBA", (px, px), (0, 0, 0, 0))
+    ImageDraw.Draw(im).ellipse([1, 1, px - 2, px - 2], fill=rgb + (255,))
+    buf = io.BytesIO()
+    im.save(buf, "PNG")
+    return "data:image/png;base64," + base64.b64encode(buf.getvalue()).decode()
+
+
 def _liquid_section(c, res):
-    liquids = res.get("liquids") or []
-    if not liquids:
+    """液体段：自产之后还要从外面进的（liquidNet）才算需求；自产的写明是钻井还是转化方块。"""
+    all_liq = res.get("liquids") or []
+    auto = res.get("liquidFrom") or {}
+    net = res.get("liquidNet")
+    need = list(net) if isinstance(net, list) else all_liq
+    if not need and not auto:
         return
+    colors = (res.get("liquidColors") or {}) if isinstance(res.get("liquidColors"), dict) else {}
     pumps = {s["liquid"]: s for s in (res.get("liquidSources") or [])}
-    c.section("液体需求")
-    for l in liquids:
-        src = pumps.get(l["name"])
-        sub = ("%s ×%s（电 %s/s）" % (src["pump"], src["count"], fmt(src.get("power")))
-               if src else "外部运入")
-        c.row(None, l["name"], "%s/s" % fmt(l.get("perSecond")), sub, LIQUID)
+    c.section("液体需求" + ("（净）" if auto else ""))
+    for l in need:
+        name = l.get("name")
+        src = pumps.get(name)
+        icon = _liquid_icon(colors.get(name) or l.get("color"))
+        sub = ("自产 %s ×%s" % (auto[name]["block"], auto[name]["count"]) if name in auto else
+               ("%s ×%s（电 %s/s）" % (src["pump"], src["count"], fmt(src.get("power")))
+                if src else "外部运入"))
+        c.row(icon, name, "%s/s" % fmt(l.get("perSecond")), sub, LIQUID)
+    for name, a in auto.items():
+        if any(l.get("name") == name for l in need):
+            continue
+        icon = _liquid_icon(colors.get(name))
+        kind = "转化方块" if a.get("type") == "make" else "钻井"
+        c.row(icon, name, "%s/s" % fmt((a.get("count") or 0) * (a.get("perSecondEach") or 0)),
+              "自产 %s ×%s（%s）" % (a.get("block"), a.get("count"), kind), LIQUID)
 
 
 def _power_section(c, res):
@@ -325,10 +355,11 @@ def build_card(res: dict) -> Card:
                 break
         c.title(head, icon, "多个目标合并算上游（共享产物只建一份）· %s" % snap)
         c.section("目标")
+        blk_icon = {m.get("name"): m.get("icon") for m in (res.get("machines") or [])}
         for t in targets:
             outs = [p for p in (t.get("products") or []) if p.get("rate")]
             pos = "、".join("%s %s/s" % (p["name"], fmt(p["rate"])) for p in outs[:2]) or "—"
-            c.row(None, t.get("block") or "?", "×%s" % fmt(t.get("count")), "产出 " + pos,
+            c.row(blk_icon.get(t.get("block")), t.get("block") or "?", "×%s" % fmt(t.get("count")), "产出 " + pos,
                   ORANGE if t.get("kind") == "generator" else None)
         _machine_section(c, res)
         sh = [s for s in (res.get("shared") or []) if (s.get("saved") or 0) > 0]

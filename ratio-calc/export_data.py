@@ -32,6 +32,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)          # AtomicStates
 MBO = os.path.join(ROOT, "MBO")
 SPRITES = os.path.join(ROOT, "assetsraw", "assets-raw", "sprites")
+KNOWLEDGE = os.path.join(ROOT, "knowledge")
 GENERATED = os.path.join(SPRITES, "generated")
 ZH_BUNDLE = os.path.join(ROOT, "assetsraw", "assets", "bundles", "bundle_zh_CN.properties")
 FULL_SPRITES = {"block": {}, "unit": {}}
@@ -361,9 +362,19 @@ def build(raw: dict, block_index: dict, unit_prod: dict | None,
     for u in (unit_prod or {}).get("units") or []:
         unit_icons[u["name"]] = unit_icon(u["name"])
 
+    # ---- 液体颜色（液体在原版没有独立贴图，用 knowledge 里 jar 导出的 colorHex 画色点）----
+    liquid_colors = {}
+    lq_path = os.path.join(KNOWLEDGE, "00-data", "liquids.json")
+    if os.path.isfile(lq_path):
+        with io.open(lq_path, encoding="utf-8") as fh:
+            for lq in json.load(fh):
+                hx = (lq.get("colorHex") or "").strip()
+                if hx:
+                    liquid_colors[lq["name"]] = "#" + hx[:6].lower()
+
     return {
         "snapshot": (raw.get("meta") or {}).get("gameVersion") or "",
-        "generated_from": "MBO/gamedata + assetsraw sprites",
+        "generated_from": "MBO/gamedata + assetsraw sprites + knowledge/00-data/liquids.json",
         "items": items,
         "blocks": blocks,
         "units": (unit_prod or {}).get("units") or [],
@@ -373,6 +384,7 @@ def build(raw: dict, block_index: dict, unit_prod: dict | None,
         "multi": power["multi"],
         "pumps": build_pumps(raw, block_index),
         "channels": [dict(c) for c in INPUT_CHANNELS],
+        "liquid_colors": liquid_colors,
         "names": load_zh_names(),
     }
 

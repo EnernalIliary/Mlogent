@@ -403,5 +403,34 @@ ok("--mix：格式错误时报错清楚", () => {
   catch (e) { assert.ok(/台数/.test(e.message), e.message); }
 });
 
+ok("--liquids auto：带出石油钻井和煤炭分离机", () => {
+  const r = cli.query({ item: "coal", rate: "2", boundary: "none", liquids: "auto" });
+  const names = r.machines.map((m) => m.name);
+  assert.ok(names.indexOf("coal-centrifuge") >= 0, names.join(","));
+  assert.ok(names.indexOf("oil-extractor") >= 0, names.join(","));
+  assert.strictEqual(r.liquidFrom.oil.block, "oil-extractor");
+  close(r.power, 330, 1e-6);
+});
+ok("--liquids auto：文本有「液体自产」，oil 不再算外部净需求", () => {
+  const t = run(["--item", "coal", "--rate", "2", "--boundary", "none", "--liquids", "auto"]);
+  assert.ok(t.indexOf("液体自产") >= 0, t);
+  assert.ok(t.indexOf("液体净需求：oil") < 0, t);
+});
+ok("--liquid oil=make：走孢子压缩（spore-press + 种植机）", () => {
+  const r = cli.query({ item: "coal", rate: "2", boundary: "none", liquids: "auto", liquid: ["oil=make"] });
+  const names = r.machines.map((m) => m.name);
+  assert.ok(names.indexOf("spore-press") >= 0, names.join(","));
+  assert.ok(names.indexOf("cultivator") >= 0, names.join(","));
+  assert.ok(names.indexOf("oil-extractor") < 0, names.join(","));
+});
+ok("--liquidname oil=spore-press：只换方块名", () => {
+  const r = cli.query({ item: "coal", rate: "2", boundary: "none", liquidname: ["oil=spore-press"] });
+  assert.strictEqual(r.liquidFrom.oil.block, "spore-press");
+});
+ok("--liquid 写法错误时报错清楚", () => {
+  try { cli.query({ item: "coal", rate: "2", liquid: ["oil"] }); throw new Error("expected throw"); }
+  catch (e) { assert.ok(/--liquid/.test(e.message), e.message); }
+});
+
 console.log("\n通过 " + pass + " 项，失败 " + fail + " 项");
 process.exitCode = fail ? 1 : 0;

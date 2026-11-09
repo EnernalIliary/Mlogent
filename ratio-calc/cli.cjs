@@ -153,6 +153,34 @@ function parseMix(v) {
   return list;
 }
 
+/* 液体自产参数
+ *   --liquids auto              机器吃的液体没人供时自动接钻井（没有钻井就用转化方块）
+ *   --liquid oil=make           逐种指定方式：auto | pump | make | import
+ *   --liquid oil=make:spore-press  方式 + 方块名
+ *   --liquidname oil=spore-press   只指定方块名（方式仍按 auto 判）
+ * 只传 --liquid / --liquidname 时会自动把 --liquids 打开。 */
+function liquidOptions(opts) {
+  const out = {};
+  const on = opts.liquids !== undefined && opts.liquids !== true
+    ? String(opts.liquids) : (opts.liquids === true ? "auto" : "");
+  if (on && on !== "off" && on !== "no") out.liquids = on;
+  const how = {}, name = {};
+  csv(opts.liquid).forEach(spec => {
+    const m = /^([^=]+)=([^:]+)(?::(.+))?$/.exec(String(spec));
+    if (!m) throw new Error("--liquid 要写成 液体=方式[:方块名]（例如 oil=make 或 oil=make:spore-press）");
+    how[m[1].trim()] = m[2].trim();
+    if (m[3]) name[m[1].trim()] = m[3].trim();
+  });
+  csv(opts.liquidname).forEach(spec => {
+    const p = String(spec).split("=");
+    if (p.length !== 2) throw new Error("--liquidname 要写成 液体=方块名（例如 oil=spore-press）");
+    name[p[0].trim()] = p[1].trim();
+  });
+  if (Object.keys(how).length) { out.liquid = how; out.liquids = out.liquids || "auto"; }
+  if (Object.keys(name).length) { out.liquidName = name; out.liquids = out.liquids || "auto"; }
+  return out;
+}
+
 function query(opts) {
   const env = loadData(opts.data);
   const DATA = env.DATA, R = env.R, idx = env.idx;
@@ -166,6 +194,7 @@ function query(opts) {
   const force = parseForce(opts.force);
   const depth = num(opts.depth, 12);
   const sources = parseSources(opts.src || []);
+  const liqOpts = liquidOptions(opts);
 
   const res = {
     ok: true, snapshot: DATA.snapshot || "", mode: null, target: null, requested: null,
@@ -180,21 +209,23 @@ function query(opts) {
     let ch;
     if (m) {
       ch = R.chainFromTop(DATA, String(opts.chain), parseInt(m[2], 10), parseFloat(m[1]));
-      return Object.assign(res, chainResult(env, ch, parseFloat(m[1])));
+      Object.assign(res, chainResult(env, ch, parseFloat(m[1])));
+    } else {
+      const rate = num(opts.chainrate !== undefined ? opts.chainrate : opts.rate, 0.05);
+      ch = R.unitChain(DATA, String(opts.chain), rate);
+      const out = Object.assign(res, chainResult(env, ch, ch.topCount || null));
+      out.requested = rate;
     }
-    const rate = num(opts.chainrate !== undefined ? opts.chainrate : opts.rate, 0.05);
-    ch = R.unitChain(DATA, String(opts.chain), rate);
-    const out = Object.assign(res, chainResult(env, ch, ch.topCount || null));
-    out.requested = rate;
-    return out;
   }
 
-  if (opts.mix) {
+  if (res.mode === "chain") {
+    /* 兵厂链：chainResult 已经装好，这里只等下面统一补图标（不能再 return，否则图标会缺） */
+  } else if (opts.mix) {
     /* 混合厂：多个目标（物品工厂 / 发电设备）合并算上游，共享中间产物只建一份 */
     const targets = parseMix(opts.mix);
-    const r = R.expandMixed(DATA, targets, {
+    const r = R.expandMixed(DATA, targets, Object.assign({
       boundary: boundary, force: force, maxDepth: depth, sources: sources
-    });
+    }, liqOpts));
     res.mode = "mixed";
     res.targets = r.targets.map(t => ({
       block: t.block, count: t.count, kind: t.kind,
@@ -218,6 +249,8 @@ function query(opts) {
     res.warnings = r.warnings || [];
     res.sources = r.sources || [];
     res.liquidSources = r.liquidSources || [];
+    res.liquidFrom = r.liquidFrom || {};
+    res.liquidNet = r.liquidNet || [];
   } else if (opts.block) {
     const count = num(opts.count, 1);
     /* 选中的是兵厂 → 直接走 T1→T5 大循环（和页面「按目标建筑台数」一致） */
@@ -226,13 +259,13 @@ function query(opts) {
       const planIdx = num(opts.plan, 0);
       const line = selB.plans && selB.plans[planIdx] ? selB.plans[planIdx].unit : (opts.chainline ? String(opts.chainline) : null);
       const ch = R.chainFromBlock(DATA, String(opts.block), count, line ? { chainStart: line } : null);
-      if (ch) return Object.assign(res, chainResult(env, ch, count));
+      if (ch) return attachIcons(Object.assign(res, chainResult(env, ch, count)));
     }
-    const r = R.expandBuilding(DATA, String(opts.block), count, {
+    const r = R.expandBuilding(DATA, String(opts.block), count, Object.assign({
       boundary: boundary, force: force, maxDepth: depth,
       plan: num(opts.plan, 0), sources: sources,
       fuel: opts.genfuel ? String(opts.genfuel) : null
-    });
+    }, liqOpts));
     res.mode = "building";
     res.target = String(opts.block);
     res.requested = count;
@@ -246,10 +279,13 @@ function query(opts) {
     res.warnings = r.warnings || [];
     res.sources = r.sources || [];
     res.liquidSources = r.liquidSources || [];
+    res.liquidFrom = r.liquidFrom || {};
+    res.liquidNet = r.liquidNet || [];
     if (r.planTotal > 1) res.warnings.push("该兵厂有 " + r.planTotal + " 个生产计划，用的是第 " + (r.plan + 1) + " 个（--plan 可换）");
   } else if (opts.item) {
     const rate = num(opts.rate, 1);
-    const r = R.expand(DATA, String(opts.item), rate, boundary, force, { maxDepth: depth, sources: sources });
+    const r = R.expand(DATA, String(opts.item), rate, boundary, force,
+      Object.assign({ maxDepth: depth, sources: sources }, liqOpts));
     res.mode = "item";
     res.target = String(opts.item);
     res.requested = rate;
@@ -262,6 +298,8 @@ function query(opts) {
     res.warnings = r.warnings || [];
     res.sources = r.sources || [];
     res.liquidSources = r.liquidSources || [];
+    res.liquidFrom = r.liquidFrom || {};
+    res.liquidNet = r.liquidNet || [];
   } else {
     throw new Error("要给 --item <物品> --rate <每秒> 或 --block <方块> --count <台数>");
   }
@@ -283,10 +321,25 @@ function query(opts) {
     }
   }
   res.warnings = Array.from(new Set(res.warnings));
-  // 给产出/边界输入补图标（卡片渲染和 bot 富文本都用得上）
+  return attachIcons(res);
+}
+
+/* 给产出/边界输入/液体补图标（卡片渲染和 bot 富文本都用得上）。
+ * 液体没有贴图，icon 留空、另给 color 让卡片画色点。 */
+function attachIcons(res) {
+  const idx = loadData().idx;
   res.products.forEach(p => { p.icon = iconOfIndex(idx, p.name, p.type); });
   res.demand.forEach(d => { d.icon = iconOfIndex(idx, d.name, "item"); });
-  res.liquids.forEach(l => { l.icon = ""; });
+  const paint = (l) => {
+    l.icon = "";
+    const meta = (idx.liquidColors && idx.liquidColors[l.name]) || null;
+    if (meta) l.color = meta;
+  };
+  (res.liquids || []).forEach(paint);
+  (res.liquidNet || []).forEach(paint);
+  Object.keys(res.liquidFrom || {}).forEach(k => paint(res.liquidFrom[k]));
+  if (res.liquidSources) res.liquidSources.forEach(paint);
+  res.liquidColors = (idx && idx.liquidColors) || {};
   if (res.supply && res.supply.fuel) res.supply.fuel.icon = iconOfIndex(idx, res.supply.fuel.name, "item");
   return res;
 }
@@ -414,11 +467,21 @@ function renderText(res) {
   if (res.demand.length) {
     L.push("  边界输入：" + res.demand.map(d => d.name + " " + fmtNum(d.perSecond) + "/s").join("、"));
   }
-  if (res.liquids && res.liquids.length) {
-    L.push("  液体需求：" + res.liquids.map(d => {
+  const needLiq = Array.isArray(res.liquidNet) ? res.liquidNet : (res.liquids || []);
+  if (needLiq.length) {
+    L.push("  液体净需求：" + needLiq.map(d => {
       const pump = (res.liquidSources || []).filter(s => s.liquid === d.name)[0];
       return d.name + " " + fmtNum(d.perSecond) + "/s" + (pump ? "（" + pump.pump + " 抽）" : "（外部运入）");
     }).join("、"));
+  }
+  /* 液体自产（--liquids auto）：oil ← oil-extractor / spore-press 这类 */
+  Object.keys(res.liquidFrom || {}).forEach(k => {
+    const s = res.liquidFrom[k];
+    L.push("  液体自产：" + s.liquid + " ← " + s.block + " ×" + s.count
+      + "（单台 " + fmtNum(s.perSecondEach) + "/s" + (s.type === "make" ? "，转化方块" : "，钻井") + "）");
+  });
+  if (res.liquidNet && res.liquidNet.length) {
+    L.push("  还要外部进的液体：" + res.liquidNet.map(l => l.name + " " + fmtNum(l.perSecond) + "/s").join("、"));
   }
   (res.liquidSources || []).forEach(s => {
     let line = "  液体 " + s.liquid + " ← " + s.pump + " ×" + s.count
@@ -526,11 +589,20 @@ function renderMarkdown(res) {
     L.push("");
   }
   if (res.demand.length) L.push("边界输入：" + res.demand.map(d => d.name + " " + fmtNum(d.perSecond) + "/s").join("、"));
-  if (res.liquids && res.liquids.length) {
-    L.push("液体需求：" + res.liquids.map(d => {
+  const needLiqMd = Array.isArray(res.liquidNet) ? res.liquidNet : (res.liquids || []);
+  if (needLiqMd.length) {
+    L.push("液体净需求：" + needLiqMd.map(d => {
       const pump = (res.liquidSources || []).filter(s => s.liquid === d.name)[0];
       return d.name + " " + fmtNum(d.perSecond) + "/s" + (pump ? "（" + pump.pump + " 抽）" : "（外部运入）");
     }).join("、"));
+  }
+  Object.keys(res.liquidFrom || {}).forEach(k => {
+    const s = res.liquidFrom[k];
+    L.push("液体自产：" + s.liquid + " ← " + s.block + " ×" + s.count
+      + "（单台 " + fmtNum(s.perSecondEach) + "/s" + (s.type === "make" ? "，转化方块" : "，钻井") + "）");
+  });
+  if (res.liquidNet && res.liquidNet.length) {
+    L.push("还要外部进的液体：" + res.liquidNet.map(l => l.name + " " + fmtNum(l.perSecond) + "/s").join("、"));
   }
   (res.liquidSources || []).forEach(s => {
     L.push("液体 " + s.liquid + "：" + s.pump + " ×" + s.count + "（单台 " + fmtNum(s.perSecondEach)
@@ -587,6 +659,9 @@ function usage() {
     "  --force item=block,...              强制指定配方（如 graphite=multi-press）",
     "  --depth <N>                         递归层数上限（默认 12）",
     "  --src item=import|drill:<钻头>:<矿格数>:<0|1>|multi:<方块>   外部来源（可重复）",
+    "  --liquids auto                      液体自产：机器吃的液体没人供时自动接钻井/转化方块",
+    "  --liquid oil=make|pump|import[:方块]  逐种液体指定自产方式（oil=make:spore-press）",
+    "  --liquidname oil=<方块>              只指定产液方块（方式按 auto 判）",
     "  --gen <发电厂> --genfuel <燃料> [--gencount N] [--gendemand X]  供电方案（N=0/省略则自动补足）",
     "  --format text|md|json               输出格式（默认 text）",
     "  --icons                             JSON 里保留 base64 图标（默认剔掉，省体积）",

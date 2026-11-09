@@ -161,6 +161,43 @@
       if (tiers.length > 1) chains.push({ start: u, tiers: tiers });
     });
 
+    /* 液体来源索引（自产液体用）
+     *   liquidPumps —— 钻井：pumps 里 perSecond>0 的（oil-extractor 15/s，吃 sand 1/s）
+     *   liquidMakers —— 转化方块：output_liquids 非空的物品工厂（spore-press 0.9/s，吃 spore-pod 1）
+     * 两者都按"单位产能高、入料少"排好序，挑选时取第一个。 */
+    var liquidPumps = new Map();
+    pumps.forEach(function (p) {
+      if (!(p.perSecond > 0)) return;
+      if (!liquidPumps.has(p.liquid)) liquidPumps.set(p.liquid, []);
+      liquidPumps.get(p.liquid).push(p);
+    });
+    liquidPumps.forEach(function (arr) {
+      arr.sort(function (a, b) {
+        /* 优先不喝液体的泵（reinforced-pump 要 hydrogen 1.5/s，会绕出氢氧互供的死循环），
+         * 再比单位产能（越大越省地方），最后比耗电与名字。 */
+        var al = a.inputLiquids.length ? 1 : 0, bl = b.inputLiquids.length ? 1 : 0;
+        if (al !== bl) return al - bl;
+        return (b.perSecond - a.perSecond) || (a.power - b.power)
+            || (a.name < b.name ? -1 : a.name > b.name ? 1 : 0);
+      });
+    });
+    var liquidMakers = new Map();
+    blocks.forEach(function (b) {
+      b.outputLiquids.forEach(function (l) {
+        if (!liquidMakers.has(l.name)) liquidMakers.set(l.name, []);
+        liquidMakers.get(l.name).push({
+          block: b, perSecond: l.perSecond,
+          inputs: b.inputs.map(function (i) { return { name: i.name, amount: i.amount * b.cps }; })
+        });
+      });
+    });
+    liquidMakers.forEach(function (arr) {
+      arr.sort(function (a, b) {
+        return (a.block.inputs.length - b.block.inputs.length) || (b.perSecond - a.perSecond)
+            || (a.block.name < b.block.name ? -1 : a.block.name > b.block.name ? 1 : 0);
+      });
+    });
+
     return {
       items: items,
       itemIcons: itemIcons,
@@ -169,6 +206,9 @@
       drills: drills,
       multi: multi,
       pumps: pumps,
+      liquidPumps: liquidPumps,
+      liquidMakers: liquidMakers,
+      liquidColors: data.liquid_colors || {},
       channels: channels,
       channelsByKey: channelsByKey,
       defaultChannel: DEFAULT_CHANNEL,
@@ -224,6 +264,47 @@
       return a.block.name < b.block.name ? -1 : a.block.name > b.block.name ? 1 : 0;
     });
     return scored[0];
+  }
+
+  /* 液体来源方案：要 amount 个/s 的某种液体，用钻井还是转化方块、要几台、吃什么。
+   * how  = "auto"（钻井优先）| "pump"（钻井）| "make"（转化方块）| "import"（不自产）
+   * name 可选：指定泵 / 转化方块的方块名（如 oil 用 spore-press 而不是 oil-extractor）。 */
+  function liquidSourcePlan(idx, liquid, amount, how, name) {
+    var pumps = idx.liquidPumps.get(liquid) || [];
+    var makers = idx.liquidMakers.get(liquid) || [];
+    var pump = null, maker = null;
+    if (how === "pump") {
+      pump = pumps.filter(function (p) { return !name || p.name === name; })[0] || null;
+      if (!pump) throw new Error("没有钻井能抽液体 " + liquid + (name ? "（" + name + "）" : ""));
+    } else if (how === "make" || how === "press") {
+      maker = makers.filter(function (m) { return !name || m.block.name === name; })[0] || null;
+      if (!maker) throw new Error("没有方块能把物品转成液体 " + liquid + (name ? "（" + name + "）" : ""));
+    } else {
+      /* auto：指定了方块名就先按名字找（钻井或转化方块都行），否则钻井优先、没有钻井再用转化方块 */
+      if (name) {
+        pump = pumps.filter(function (p) { return p.name === name; })[0] || null;
+        if (!pump) maker = makers.filter(function (m) { return m.block.name === name; })[0] || null;
+        if (!pump && !maker) throw new Error("没有钻井或转化方块能产液体 " + liquid + "（" + name + "）");
+      } else {
+        pump = pumps[0] || null;
+        if (!pump) maker = makers[0] || null;
+      }
+    }
+    if (pump) {
+      var n = Math.max(1, Math.ceil(amount / pump.perSecond - 1e-9));
+      return {
+        type: "pump", block: pump.name, count: n, perSecond: pump.perSecond,
+        inputs: pump.inputs.map(function (i) { return { name: i[0], amount: i[1] }; })
+      };
+    }
+    if (maker) {
+      var m = Math.max(1, Math.ceil(amount / maker.perSecond - 1e-9));
+      return {
+        type: "make", block: maker.block.name, count: m, perSecond: maker.perSecond,
+        inputs: maker.inputs.map(function (i) { return { name: i.name, amount: i.amount }; })
+      };
+    }
+    return null;
   }
 
   /* ---------------------------------------------------------------- *
@@ -284,10 +365,53 @@
       return node;
     }
 
+    /* 液体自产：机器清单里没人供、又不在 boundary 的液体，用钻井或转化方块补机器。
+     * opts.liquid = {oil:"make"|"pump"|"import"} 指定方式；opts.liquidName = {oil:"spore-press"} 指定方块；
+     * 补出来的机器如果吃物品（钻井吃 sand、spore-press 吃 spore-pod），走 need() 继续往上展开。 */
+    function resolveLiquids(opts, extraLiquids) {
+      opts = opts || {};
+      var howMap = opts.liquid || {};
+      var nameMap = opts.liquidName || {};
+      var used = {};
+      for (var pass = 0; pass < 6; pass++) {
+        var net = {};
+        Object.keys(extraLiquids || {}).forEach(function (k) { net[k] = extraLiquids[k]; });
+        Object.keys(machines).forEach(function (name) {
+          var b = anyBlock(idx, name);   // 钻井类液体源也在 machines 里，要一起算（oil-extractor 吃 water 9/s）
+          if (!b) return;
+          (b.inputLiquids || []).forEach(function (l) { net[l.name] = (net[l.name] || 0) + machines[name] * l.perSecond; });
+          (b.outputLiquids || []).forEach(function (l) { net[l.name] = (net[l.name] || 0) - machines[name] * l.perSecond; });
+        });
+        var changed = false;
+        Object.keys(net).sort().forEach(function (liq) {
+          if (!(net[liq] > 1e-9)) return;
+          if (bset.has(liq)) return;
+          var how = howMap[liq] || "auto";
+          if (how === "import" || how === "off") return;
+          var plan = liquidSourcePlan(idx, liq, net[liq], how, nameMap[liq]);
+          if (!plan) return;
+          var cur = machines[plan.block] || 0;
+          var add = plan.count - cur;
+          if (add <= 0) return;
+          machines[plan.block] = cur + add;
+          order.push({ block: plan.block, count: add, item: null, liquid: liq });
+          changed = true;
+          if (!used[liq]) {
+            used[liq] = { liquid: liq, type: plan.type, block: plan.block, count: 0, perSecondEach: plan.perSecond };
+          }
+          used[liq].count += add;
+          plan.inputs.forEach(function (i) { need(i.name, add * i.amount, 1, null); });
+        });
+        if (!changed) break;
+      }
+      return used;
+    }
+
     return {
       need: need,
       machines: machines,
       order: order,
+      resolveLiquids: resolveLiquids,
       result: function (extra) {
         var power = 0;
         Object.keys(machines).forEach(function (name) {
@@ -309,14 +433,18 @@
     };
   }
 
-  /* 按目标物品速率（旧口径） */
+  /* 按目标物品速率（旧口径）
+   * opts.liquids = "auto" 时，机器吃但没人供的液体（如 coal-centrifuge 的 oil）自动接钻井/转化方块，
+   * 这就是"不允许外部输入"时把煤炭处理线（coal-centrifuge → oil-extractor）带出来的开关。 */
   function expand(data, target, rate, boundary, force, opts) {
     var idx = indexOf(data);
     if (!idx.itemSet.has(target)) throw new Error("未知物品：" + target);
     var ex = makeExpander(idx, boundary, force, (opts && opts.maxDepth) || MAX_DEPTH);
     var root = ex.need(target, rate, 0, null);
-    var res = ex.result({ target: target, requested: rate, tree: root });
+    var liquidFrom = (opts && opts.liquids) ? ex.resolveLiquids(opts) : {};
+    var res = ex.result({ target: target, requested: rate, tree: root, liquidFrom: liquidFrom });
     res.achieved = root && root.actual ? root.actual : 0;
+    recalcPower(idx, res);          // 液体自产会把钻井/抽水泵塞进 machines，电力和液体都要重算一次
     if (opts && opts.sources) applySources(data, res, opts.sources);
     return res;
   }
@@ -414,8 +542,15 @@
     var root = { block: blockName, count: count, item: null, amount: 0, children: [] };
     inputs.forEach(function (i) { ex.need(i.name, i.amount, 1, root); });
 
+    /* 目标建筑自己吃的液体也要先算进去，液体自产才知道要不要接钻井 */
+    var extraLiq = {};
+    (b.inputLiquids || []).forEach(function (l) {
+      extraLiq[l.name] = (extraLiq[l.name] || 0) + l.perSecond * count;
+    });
+    var liquidFrom = opts.liquids ? ex.resolveLiquids(opts, extraLiq) : {};
+
     var res = ex.result({
-      block: blockName, count: count, products: products, inputs: inputs, tree: root,
+      block: blockName, count: count, products: products, inputs: inputs, tree: root, liquidFrom: liquidFrom,
       plan: (b.kind === "unit" && b.factoryKind !== "reconstructor")
         ? Math.min(Math.max(0, opts.plan || 0), Math.max(0, (b.plans || []).length - 1)) : 0,
       planTotal: b.kind === "unit" && b.factoryKind !== "reconstructor" ? (b.plans || []).length : 0
@@ -423,10 +558,8 @@
     // 目标建筑自身也进建造清单（电力/液体要一起算进去：ex.result 里还没有它）
     res.machines[blockName] = (res.machines[blockName] || 0) + count;
     res.machines = sortMachines(res.machines);
-    (b.inputLiquids || []).forEach(function (l) {
-      res.liquidExtra = res.liquidExtra || {};
-      res.liquidExtra[l.name] = (res.liquidExtra[l.name] || 0) + count * l.perSecond;
-    });
+    /* 注意：目标建筑的液体已经通过 machines 进 liquidDemand，别再塞 liquidExtra，否则会重复计一遍
+     * （expandBuilding(coal-centrifuge,2) 曾经因此把 15/s 的油显示成 9/s）。 */
     recalcPower(idx, res);
     if (b.factoryKind === "assembler") {
       res.warnings.push("组装厂消耗的是方块（Payload），这里按外部输入处理，不展开成工厂");
@@ -638,7 +771,8 @@
         return;
       }
       var one = expandBuilding(data, s.block, s.count, {
-        boundary: opts.boundary, force: opts.force, maxDepth: maxDepth_
+        boundary: opts.boundary, force: opts.force, maxDepth: maxDepth_,
+        liquids: opts.liquids, liquid: opts.liquid, liquidName: opts.liquidName
       });
       Object.keys(one.machines).forEach(function (k) {
         sep.machines[k] = (sep.machines[k] || 0) + one.machines[k];
@@ -675,6 +809,54 @@
     Object.keys(boundaryRate).sort().forEach(function (k) {
       res.demand[k] = round(boundaryRate[k]);
     });
+    /* 液体自产（混合厂）：机器清单里没人供的液体接钻井/转化方块。
+     * 转化方块（spore-press）自己的物品入料在混合厂里不继续展开，直接记为外部输入并给提示；
+     * 要完整展开（spore-pod ← cultivator）请用单目标页 / --item。 */
+    if (opts.liquids) {
+      var howMap = opts.liquid || {};
+      var nameMap = opts.liquidName || {};
+      var usedLiq = {};
+      for (var lp = 0; lp < 4; lp++) {
+        var supply = {};
+        Object.keys(res.machines).forEach(function (name) {
+          var mb = anyBlock(idx, name);
+          if (!mb) return;
+          (mb.outputLiquids || []).forEach(function (l) {
+            supply[l.name] = (supply[l.name] || 0) + res.machines[name] * l.perSecond;
+          });
+        });
+        var changed = false;
+        liquidDemand(idx, res.machines, {}).forEach(function (l) {
+          var net = l.perSecond - (supply[l.name] || 0);
+          if (!(net > 1e-9)) return;
+          if ((opts.boundary || []).indexOf(l.name) >= 0) return;
+          var how = howMap[l.name] || "auto";
+          if (how === "import" || how === "off") return;
+          var plan = liquidSourcePlan(idx, l.name, net, how, nameMap[l.name]);
+          if (!plan) return;
+          var cur = res.machines[plan.block] || 0;
+          var add = plan.count - cur;
+          if (add <= 0) return;
+          res.machines[plan.block] = cur + add;
+          order.push({ block: plan.block, count: add, item: null, liquid: l.name });
+          changed = true;
+          if (!usedLiq[l.name]) {
+            usedLiq[l.name] = { liquid: l.name, type: plan.type, block: plan.block, count: 0, perSecondEach: plan.perSecond };
+          }
+          usedLiq[l.name].count += add;
+          plan.inputs.forEach(function (i) {
+            var amt = add * i.amount;
+            if ((opts.boundary || []).indexOf(i.name) < 0) {
+              warnings.push("混合厂液体自产： " + plan.block + " 吃 " + i.name + " " + round(amt) + "/s，按外部输入计");
+            }
+            res.demand[i.name] = round((res.demand[i.name] || 0) + amt);
+          });
+        });
+        if (!changed) break;
+      }
+      res.liquidFrom = usedLiq;
+    }
+
     res.machines = sortMachines(res.machines);
     recalcPower(idx, res);
     res.netPower = round(res.power - powerOut);
@@ -760,7 +942,9 @@
     var p = idx.pumps.get(name);
     if (p) {
       return { name: name, kind: "pump", size: p.size, power: p.power, icon: p.icon,
-               craftTime: 0, cps: 0, inputs: [], outputs: [],
+               craftTime: 0, cps: 0,
+               inputs: p.inputs.map(function (i) { return { name: i[0], amount: i[1] }; }),
+               outputs: [],
                inputLiquids: p.inputLiquids.map(function (l) { return { name: l[0], perSecond: l[1] }; }),
                plans: [], upgrades: [], factoryKind: "",
                perSecond: p.perSecond, liquid: p.liquid };
@@ -1080,6 +1264,29 @@
     return Object.keys(acc).sort().map(function (k) { return { name: k, perSecond: round(acc[k]) }; });
   }
 
+  /* 机器清单带来的液体产出（转化方块 outputLiquids + 钻井 liquid 字段），用于算净需求 */
+  function liquidSupply(idx, machines) {
+    var acc = {};
+    Object.keys(machines || {}).forEach(function (name) {
+      var b = anyBlock(idx, name);
+      if (!b) return;
+      (b.outputLiquids || []).forEach(function (l) {
+        if (l.perSecond === undefined) return;
+        acc[l.name] = (acc[l.name] || 0) + machines[name] * l.perSecond;
+      });
+      if (b.liquid && b.perSecond > 0) acc[b.liquid] = (acc[b.liquid] || 0) + machines[name] * b.perSecond;
+    });
+    return acc;
+  }
+
+  /* 净需求：需求 − 自产，只要还要从外面进的（负数和 0 过滤掉） */
+  function liquidNetDemand(idx, machines, extra) {
+    var sup = liquidSupply(idx, machines);
+    return liquidDemand(idx, machines, extra)
+      .map(function (l) { return { name: l.name, perSecond: round(l.perSecond - (sup[l.name] || 0)) }; })
+      .filter(function (l) { return l.perSecond > 1e-9; });
+  }
+
   function recalcPower(idx, res) {
     var power = 0;
     Object.keys(res.machines).forEach(function (name) {
@@ -1089,6 +1296,8 @@
     /* 外部入料方式（布桥/质驱）的电力不算在方块里，单独累加，否则会被这次重算抹掉 */
     res.power = power + (res.extraPower || 0);
     res.liquids = liquidDemand(idx, res.machines, res.liquidExtra);
+    /* 净液体需求（自产抵掉之后还要从外面进的）：液体自产时卡片/命令行优先显示这个 */
+    res.liquidNet = liquidNetDemand(idx, res.machines, res.liquidExtra);
     return res.power;
   }
 

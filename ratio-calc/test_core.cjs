@@ -245,5 +245,25 @@ let mixBoom = null;
 try { R.expandMixed(DATA, [{ block: "ground-factory", count: 1 }]); } catch (e) { mixBoom = e.message; }
 eq("expandMixed：兵厂给出明确报错", /兵厂/.test(mixBoom || ""), true);
 
+// 液体自产：煤炭不在外部输入时，coal-centrifuge 要吃 oil ⇒ 自动接石油钻井（煤炭处理线）
+const liq1 = R.expand(DATA, "coal", 2, [], {}, { liquids: "auto" });
+eq("液体自产：带出煤炭分离机", liq1.machines["coal-centrifuge"], 1);
+eq("液体自产：带出液体钻井", liq1.machines["oil-extractor"], 1);
+eq("液体自产：oil 记在 liquidFrom 里", (liq1.liquidFrom.oil || {}).block, "oil-extractor");
+near("液体自产：oil 自产速率 15/s", liq1.liquidFrom.oil.perSecondEach, 15, 1e-9);
+eq("液体自产：oil 不再算外部净需求", (liq1.liquidNet || []).filter(l => l.name === "oil").length, 0);
+near("液体自产：电力含钻井 330/s", liq1.power, 330, 1e-9);
+
+// 换成孢子压缩路线：liquid oil=make ⇒ spore-press（吃 spore-pod），再往上展开种植机
+const liq2 = R.expand(DATA, "coal", 2, [], {}, { liquids: "auto", liquid: { oil: "make" } });
+eq("液体自产（转化）：用 spore-press", liq2.machines["spore-press"] >= 1, true);
+eq("液体自产（转化）：不再用石油钻井", liq2.machines["oil-extractor"] || 0, 0);
+eq("液体自产（转化）：spore-pod 由种植机带出", liq2.machines["cultivator"] >= 1, true);
+
+// 不开液体自产时保持旧行为：只建分离机，oil 仍是外部需求
+const liq3 = R.expand(DATA, "coal", 2, [], {}, {});
+eq("不开启时只建分离机", liq3.machines["coal-centrifuge"], 1);
+eq("不开启时 oil 仍是外部净需求", (liq3.liquidNet || []).filter(l => l.name === "oil").length, 1);
+
 console.log(f2 ? `\n${f2} 项新算法断言失败` : "\n新算法断言全部通过");
 process.exit(bad || f2 ? 1 : 0);

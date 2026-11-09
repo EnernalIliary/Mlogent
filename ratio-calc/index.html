@@ -90,6 +90,10 @@
   .chiptag a { color: var(--dim); text-decoration: none; margin-left: 4px; font-weight: 700; }
   .chiptag a:hover { color: var(--warn); }
   #mixcount { width: 80px; }
+  .liqdot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 5px;
+            vertical-align: -1px; border: 1px solid rgba(255,255,255,.35); }
+  label.chk { display: inline-flex; align-items: center; gap: 6px; color: var(--dim); font-size: 12px; }
+  label.chk input { width: auto; }
   .warn { color: var(--warn); }
   .dim { color: var(--dim); }
   .chosen { color: var(--ok); }
@@ -141,6 +145,12 @@
       <div>
         <label for="depth">递归层数</label>
         <input id="depth" type="number" min="1" max="12" step="1" value="6">
+      </div>
+      <div>
+        <label for="autoliq">液体自产</label>
+        <label class="chk" title="机器要的液体（比如煤炭分离机要石油）没人供时，自动接液体钻井；没有钻井就用转化方块（孢子压缩产油）">
+          <input id="autoliq" type="checkbox"> 不够就自己抽/自己压
+        </label>
       </div>
       <div>
         <label>&nbsp;</label>
@@ -353,15 +363,20 @@
   /* ---- 液体需求表：水 / 油 / 冷冻液…，这些得自己接管线 ---- */
   function renderLiquids(res) {
     var list = (res.liquids || []).slice();
+    /* 液体自产：机器要的液体自动接钻井/转化方块（煤炭处理线就是这条路上来的） */
+    var auto = res.liquidFrom || {};
+    var autoKeys = Object.keys(auto);
     var h = '<tr><th>液体</th><th class="num">每秒</th><th class="num">每分钟</th><th>来源</th>' +
             '<th class="num">台数</th><th class="num">电力/s</th></tr>';
-    if (!list.length) {
+    if (!list.length && !autoKeys.length) {
       el("liquids").innerHTML = h + '<tr><td colspan="6" class="dim">无（不需要液体）</td></tr>';
       return;
     }
     var byLiq = {};
     (res.liquidSources || []).forEach(function (s) { byLiq[s.liquid] = s; });
-    el("liquids").innerHTML = h + list.map(function (l) {
+    var net = {};
+    (res.liquidNet || []).forEach(function (l) { net[l.name] = l.perSecond; });
+    var rows = list.map(function (l) {
       var cfg = srcCfg[l.name] || (srcCfg[l.name] = { type: "import" });
       var pumps = [];
       idx.pumps.forEach(function (p) { if (p.liquid === l.name) pumps.push(p); });
@@ -374,13 +389,40 @@
         return '<option value="' + esc(o[0]) + '"' + (o[0] === val ? " selected" : "") + ">" +
           esc(o[1]) + "</option>";
       }).join("") + "</select>";
+      var a = auto[l.name];
       var src = byLiq[l.name];
-      var cnt = src ? src.count + " 台 " + src.pump : '<span class="dim">—</span>';
-      var pw = src && src.power ? num(src.power) : '<span class="dim">—</span>';
-      return '<tr><td>' + esc(l.name) + '</td><td class="num">' + num(l.perSecond) +
-        '</td><td class="num">' + num(l.perSecond * 60) + '</td><td>' + sel +
+      var cnt, pw;
+      if (a) {
+        cnt = a.count + " 台 " + esc(a.block) + (a.type === "make" ? "（转化）" : "（钻井）");
+        pw = '<span class="dim">见机器表</span>';
+      } else if (src) {
+        cnt = src.count + " 台 " + src.pump;
+        pw = src.power ? num(src.power) : '<span class="dim">—</span>';
+      } else {
+        cnt = '<span class="dim">—</span>';
+        pw = '<span class="dim">—</span>';
+      }
+      var need = net[l.name] === undefined ? "（自产够用）" : "";
+      return '<tr><td>' + liqDot(l.name) + esc(l.name) + need + '</td><td class="num">' + num(l.perSecond) +
+        '</td><td class="num">' + num(l.perSecond * 60) + '</td><td>' + (a ? '<span class="dim">自产</span>' : sel) +
         '</td><td class="num">' + cnt + '</td><td class="num">' + pw + "</td></tr>";
-    }).join("");
+    });
+    /* 只自产、不消耗的液体（比如顺带的副产）也列出来，避免看不明白电力从哪来 */
+    autoKeys.forEach(function (k) {
+      if (list.some(function (l) { return l.name === k; })) return;
+      var a = auto[k];
+      rows.push('<tr><td>' + liqDot(k) + esc(k) + '</td><td class="num">—</td><td class="num">—</td>' +
+        '<td><span class="dim">自产</span></td><td class="num">' + a.count + " 台 " + esc(a.block) + '</td>' +
+        '<td class="num"><span class="dim">见机器表</span></td></tr>');
+    });
+    el("liquids").innerHTML = h + rows.join("");
+  }
+
+  /* 液体没有贴图：用 knowledge 里的 jar 颜色画个色点 */
+  function liqDot(name) {
+    var c = (DATA.liquid_colors || {})[name];
+    if (!c) return "";
+    return '<i class="liqdot" style="background:' + esc(c) + '"></i>';
   }
 
   /* ---- 外部来源表：每项边界输入选 运入 / 钻头 / 分离机·解离机 ---- */
@@ -891,6 +933,7 @@
     if (q.rate && parseFloat(q.rate) > 0) el("rate").value = q.rate;
     if (q.depth && parseInt(q.depth, 10) > 0) el("depth").value = q.depth;
     if (q.boundary) el("boundary").value = q.boundary.replace(/\+/g, " ");
+    if (q.liquids === "auto" && el("autoliq")) el("autoliq").checked = true;
     if (q.force) el("force").value = q.force.replace(/\+/g, " ");
     if (q.mode === "item") mode = "item";
     if (q.mode === "mixed") mode = "mixed";
@@ -987,24 +1030,25 @@
     var boundary = splitList(el("boundary").value);
     var forced = parseForce(el("force").value);
     var depth = Math.max(1, Math.min(12, parseInt(el("depth").value, 10) || 6));
+    var liqOpt = el("autoliq") && el("autoliq").checked ? { liquids: "auto" } : {};
     var res;
     try {
       if (mode === "mixed") {
         if (!mixTargets.length) { alert("先往清单里加至少一个目标"); return; }
         res = R.expandMixed(DATA, mixTargets.map(function (t) { return { block: t.block, count: t.count }; }),
-                            { boundary: boundary, force: forced, maxDepth: depth });
+                            Object.assign({ boundary: boundary, force: forced, maxDepth: depth }, liqOpt));
       } else if (mode === "building") {
         var count = Math.max(1, parseInt(el("count").value, 10) || 1);
         var plan = parseInt(el("plan").value || "0", 10) || 0;
         var selB = blockOf(curBlock);
         var ch = (selB && selB.kind === "unit") ? R.chainFromBlock(DATA, curBlock, count) : null;
         res = ch ? chainToRes(ch)
-                 : R.expandBuilding(DATA, curBlock, count, { boundary: boundary, force: forced, plan: plan, maxDepth: depth,
-                                                   fuel: (el("genfuel") && el("genfuel").value) || null });
+                 : R.expandBuilding(DATA, curBlock, count, Object.assign({ boundary: boundary, force: forced, plan: plan, maxDepth: depth,
+                                                   fuel: (el("genfuel") && el("genfuel").value) || null }, liqOpt));
       } else {
         var rate = parseFloat(el("rate").value);
         if (!(rate > 0)) { alert("速率要大于 0"); return; }
-        res = R.expand(DATA, targetSel.value, rate, boundary, forced, { maxDepth: depth });
+        res = R.expand(DATA, targetSel.value, rate, boundary, forced, Object.assign({ maxDepth: depth }, liqOpt));
       }
     } catch (e) {
       alert("算不出来：" + e.message);
@@ -1174,8 +1218,9 @@
     });
 
     var cmd;
+    var liqCmd = (el("autoliq") && el("autoliq").checked) ? " --liquids auto" : "";
     if (mode === "mixed") {
-      cmd = 'node cli.cjs --mix "' + mixTargets.map(function (t) { return t.block + ":" + t.count; }).join(",") + '"';
+      cmd = 'node cli.cjs --mix "' + mixTargets.map(function (t) { return t.block + ":" + t.count; }).join(",") + '"' + liqCmd;
     } else if (mode === "building") {
       var b = blockOf(curBlock);
       if (b && b.kind === "generator") {
@@ -1184,7 +1229,7 @@
         var rate2 = b.outputs[0].amount * b.cps * (parseInt(el("count").value, 10) || 1);
         cmd = "python -X utf8 -m mbo calc " + b.outputs[0].name + ":" + num(rate2) + "/s" +
           (boundary.length ? " --boundary " + boundary.join(",") : "") +
-          " --force " + b.outputs[0].name + "=" + curBlock;
+          " --force " + b.outputs[0].name + "=" + curBlock + liqCmd;
       } else {
         cmd = "python -X utf8 -m mbo calc " + ((res.products || [])[0] ? (res.products[0].type === "item"
           ? res.products[0].name + ":" + num(res.products[0].rate) + "/s" : "") : "") +
@@ -1194,7 +1239,7 @@
       cmd = "python -X utf8 -m mbo calc " + targetSel.value + ":" + el("rate").value + "/s" +
         (boundary.length ? " --boundary " + boundary.join(",") : "") +
         (Object.keys(forced).length ? " --force " +
-          Object.keys(forced).map(function (k) { return k + "=" + forced[k]; }).join(",") : "");
+          Object.keys(forced).map(function (k) { return k + "=" + forced[k]; }).join(",") : "") + liqCmd;
     }
     el("cmd").textContent = cmd;
 
@@ -1294,6 +1339,13 @@
                        return { table: el("chaintable").innerHTML, res: el("chainres").innerHTML };
                      },
                      chainRes: function () { return el("chainres").innerHTML; },
+                     /* 液体自产开关：__ratio.autoliq(true) */
+                     autoliq: function (on, boundaryText) {
+                       if (on != null) el("autoliq").checked = !!on;
+                       if (boundaryText != null) el("boundary").value = boundaryText;
+                       run();
+                       return el("autoliq").checked;
+                     },
                      /* 混合厂：__ratio.mix([[block,count],...]) */
                      mix: function (list) {
                        if (list) {
