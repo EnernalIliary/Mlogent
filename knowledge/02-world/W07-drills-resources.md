@@ -143,6 +143,8 @@ if(progress >= drillTime){ for(int i = 0; i < dominantItems; i++) offload(domina
   `60×pumpAmount` 就是这个乐观值，与钻头 UI 同一类坑）。Attribute.oil 地板值：
   `sand-floor` 0.7、`darksand` **1.5**、`salt` 0.3、`shale` 2.0（content/Blocks.java）。
   配比对照：煤炭分离机吃 6 油/s，**3 台离心机（18 油/s）只需 1 台石油钻井**；按 15/s 会算成 2 台。
+- **真机实测（v160.7，2026-11-09）**：`darksand` 1.5 → **22.502 油/s**、`sand-floor` 0.7 → **10.502**、`shale` 2.0 → **30.002**（对公式偏差 0.0%，`容器差分` 与 `lastPump×60` 两套口径一致，`boost` 实测 1.5）；同场 `coal-centrifuge` 吃 5.999 油/s、产 2.045 煤/s。探针 `MBO/spikes/sim/oil_floor_probe.py`，见 `MBO/docs/24-石油钻井地板属性实测.md`。
+- **反例**：`Fracker` 的 `envRequired` 含 `Env.groundOil`（1<<5），`loadGenerator` 出来的世界 `rules.env` 不含该位 ⇒ `allowUpdate()` 为假、方块完全不 update、`efficiency` 恒 0（看着像产量 0）；摆它前要先 `rules.env |= 32|64`。
 
 ### 10. 矿层（oreBlocks）：16 条 id → item 映射
 
@@ -197,7 +199,7 @@ gamedata 的 `environment.oreBlocks` 列出全部可采矿层（MBO/gamedata/v16
 | 方块 | pumpAmount | 有效度来源 | 满效产出 | 耗电 |
 |---|---|---|---|---|
 | water-extractor | 0.11 | validTiles(≤1) + 水属性均值 | 6.6/s（无属性地板） | 1.5/tick = 90/s |
-| oil-extractor | 0.25 | Attribute.oil（baseEfficiency 0） | 满黑沙属性 1.5 时 **22.5/s**（`0.25×60×1.5`；属性 1.0 才是 15/s，UI 印的就是这个乐观值） | 3/tick = 180/s |
+| oil-extractor | 0.25 | Attribute.oil（baseEfficiency 0） | 满黑沙属性 1.5 时 **22.5/s**（`0.25×60×1.5`；属性 1.0 才是 15/s，UI 印的就是这个乐观值）；**真机实测 22.502/s**（沙地 10.502、页岩 30.002） | 3/tick = 180/s |
 
 ## 源码锚点
 
