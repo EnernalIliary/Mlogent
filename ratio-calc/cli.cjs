@@ -38,8 +38,10 @@ function loadData(dataFile) {
 
 function parseArgs(argv) {
   const out = { src: [], _: [] };
-  /* 可重复的参数（--src 可以出现多次，各记一条）*/
-  const REPEAT = { src: true };
+  /* 可重复的参数（--src 可以出现多次，各记一条）
+   * --liquid / --liquidname / --attr 也允许多次出现（各 液体=方式、物品=属性），
+   * 早先只认 --src，写两条 --liquid 时后者会把前者覆盖掉（oil=make 就丢了，退回到自动选泵）。 */
+  const REPEAT = { src: true, liquid: true, liquidname: true, attr: true };
   const set = (key, val) => {
     if (REPEAT[key]) { if (!Array.isArray(out[key])) out[key] = []; out[key].push(val); }
     else out[key] = val;

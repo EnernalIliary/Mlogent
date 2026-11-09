@@ -542,6 +542,9 @@ ok("环检测：循环产线在文本里报警", () => {
   const t = run(["--item", "coal", "--rate", "6", "--boundary", "none", "--liquids", "auto",
                  "--liquid", "oil=make:spore-press", "--liquid", "water=pump:reinforced-pump"]);
   assert.ok(/循环产线/.test(t), t);
+  /* 两条 --liquid 要同时生效：以前 --liquid 不能重复，后一条会把前一条盖掉 */
+  assert.ok(/oil ← spore-press/.test(t), t);
+  assert.ok(/water ← reinforced-pump/.test(t), t);
 });
 ok("混合厂：自产的油不再报「外部运入」", () => {
   const t = run(["--mix", "coal-centrifuge:3", "--liquids", "auto", "--boundary", "none"]);
