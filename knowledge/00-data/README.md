@@ -33,6 +33,9 @@
 | 单位速度 | unit speed | **world units/tick** | tiles/s = v × 60 / 8 | `core/src/mindustry/type/UnitType.java:791,1441`（speed*60f/tilesize） |
 | 单位射程 | unit range / maxRange | world units | tiles = v / 8 | `core/src/mindustry/type/UnitType.java:794` |
 | 单位体积 | hitSize | world units | blocks = v / 8 | `core/src/mindustry/type/UnitType.java:792` |
+| **物品消耗/产出** | `consumers[].items[].amount`、`outputs[].amount` | **每 craft 一件的量** | /s = v × (60 / craftTime) | `ConsumeItems`/`offload()` 在 `craft()` 完工时结算 |
+| **液体消耗/产出** | `consumers[].liquids[].amount`、`outputLiquids[].amount` | **per tick（与 craftTime 无关）** | /s = v × 60 | `GenericCrafter.java:242-246`（`handleLiquid(amount × getProgressIncrease(1f))`）、`BuildingComp.java:1209`（`1f/baseTime × edelta()`） |
+| **泵产出** | pump 类方块的 `pumpAmount` | **per tick、每格** | 整台/s = v × 60 × 有效格数（`Pump`）；`SolidPump`/`Fracker` 不乘格数 | `Pump.java:162`（`amount × pumpAmount × edelta`，amount = 有效水格数）、`SolidPump.java:127` |
 
 校验样例：duo range=160 → 20 tiles；duo-copper bullet speed=2.5 × lifetime=70 → 175 units → 21.9 tiles；dagger speed=0.5 → 3.75 tiles/s、maxRange=146 → 18.25 tiles、hitSize=8 → 1 tile。
 
@@ -301,3 +304,16 @@ python -u kb-stage/tools/extract_rt.py --out DIR  # 指定输出目录
 ```
 
 生成时间：2026-11-08 04:40:06　用时：5.9s
+
+## 附：源码派生表 `turret_shots.json`（非 jar 反射）
+
+`turret_shots.json`（28 条）是**唯一不由 `extract_rt.py` 生成的表**，由 v159.3 源码树派生：
+
+- **为什么需要**：jar 反射只看字段，`ShootPattern.shots`（每触发发数）在 pattern 对象内部，`turrets.json` 里面没有。缺了 shots 会把面板 DPS 算小好几倍：salvo / ripple / swarmer / disperse 差 4 倍、fuse 差 3 倍、smite 差 5 倍、diffuse 差 15 倍。
+- **字段**：`id` / `name` / `src`（`src:Mindustry-Source/.../Blocks.java:<行>`）/ `ver`（`v159.3`）/ `class` / `shots` / `pattern` / `barrels` / `shotDelay` / `firstShotDelay` / `evidence[]`（行号 + 该行必须包含的 token）。
+- **口径**：`shots` = `ShootPattern.shots`（默认 1，`ShootPattern.java:9`）；`ShootSpread(3,20f)` 一类构造直接设 shots；**`ShootAlternate` 只交替炮管、不增加发数**（duo 三管仍是 1 发/触发）；`barrels` 是炮管数，**不是**发数；`shotDelay` 是同一触发内多发之间的间隔（tick）。
+- **覆盖**：28 台攻击塔全收；非攻击塔（`build-tower` / `repair-point` / `repair-turret`）不在表内。
+- **证据强度**：conf = S（逐条源码行号）。v159.3 源码树是语义权威，v160.7 运行时的 pattern 假定与之相同——这一点**未经实测**（诚实缺口），日后若发现差异以实测为准。
+- **生成/校验**：`python -X utf8 knowledge/tools/gen_turret_shots.py`。脚本重开 `Blocks.java`，逐条断言定义行含 `new <Class>("<id>")` 且每个 evidence 行含对应 token，任一失败退出码 1 并打印 `[FAIL]`。
+
+注意：本表**不改写** `turrets.json`；下游（`knowledge/tools/gen_turrets.py` 与文章口径）必须同时读两张表。
