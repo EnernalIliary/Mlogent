@@ -1584,8 +1584,18 @@
       var b = anyBlock(idx, name);
       var count = result.machines[name];
       var outputs = [];
+      var drillOuts = [];
       if (b && b.kind === "drill") {
-        outputs = ["采集（见外部来源）"];
+        /* 钻头就是工厂配比里的一员：写清采集什么、每台多少、合计多少（数据来自 applySources 的来源行） */
+        (result.sources || []).forEach(function (x) {
+          if (x.drill !== name) return;
+          drillOuts.push({ name: x.item, type: "item",
+                           perSecond: (x.perSecondEach || 0) * (x.count || 0),
+                           perSecondEach: x.perSecondEach || 0 });
+        });
+        outputs = drillOuts.length
+          ? drillOuts.map(function (o) { return "采集 " + o.name + " " + round(o.perSecond) + "/s"; })
+          : ["采集（未指定来源）"];
       } else if (b && b.kind === "generator") {
         var sup = result.supply || {};
         /* 混合厂里一台发电设备的净发电记在 result.generatorNet 上；单目标展开用 result.supply */
@@ -1620,10 +1630,12 @@
         powerTotal: b ? b.power * count : 0,
         outItems: b ? (b.kind === "generator"
           ? [{ name: "电力", type: "power", perSecond: round(genNet || 0) }]
-          : b.outputs.map(function (o) {
+          : (b.kind === "drill" ? drillOuts : b.outputs.map(function (o) {
               return { name: o.name, type: "item", perSecond: o.amount * b.cps * count };
-            })) : [],
-        rateEach: b ? (b.kind === "unit"
+            }))) : [],
+        rateEach: b ? (b.kind === "drill"
+          ? (drillOuts.length ? drillOuts[0].perSecondEach : 0)
+          : b.kind === "unit"
           ? ((b.plans && b.plans[0]) ? b.plans[0].perSecond : b.cps)
           : (b.outputs.length ? b.outputs[0].amount * b.cps : 0)) : 0,
         outputs: outputs

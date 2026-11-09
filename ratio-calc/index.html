@@ -83,7 +83,15 @@
   tr:last-child td { border-bottom: 0; }
   .sec { font-size: 13px; color: var(--dim); margin: 18px 0 8px; letter-spacing: .04em; }
   /* 混合厂目标清单 */
-  .mixlist { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; min-height: 26px; }
+  .mixlist{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px;min-height:26px}
+  .barcol{flex:1 1 100%}
+  .hint{font-size:11px;color:var(--dim);margin-top:4px}
+  .chkgrid{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+  .chkgrid .chiptag{cursor:pointer;opacity:.45;border-color:transparent}
+  .chkgrid .chiptag.on{opacity:1;border-color:var(--accent);background:rgba(90,160,255,0.10)}
+  .forcerows{display:flex;flex-wrap:wrap;gap:8px;margin-top:6px}
+  .forcerow{display:flex;align-items:center;gap:6px;font-size:12px}
+  .forcerow select{max-width:210px}
   .chiptag { display: inline-flex; align-items: center; gap: 4px; padding: 3px 8px; font-size: 12px;
              background: var(--panel2); border: 1px solid var(--line); border-radius: 999px; }
   .chiptag img { image-rendering: pixelated; }
@@ -135,14 +143,17 @@
         <label for="rate">目标速率（个/秒）</label>
         <input id="rate" type="number" min="0.01" step="0.01" value="1">
       </div>
-      <div>
-        <label for="boundary">边界（外部输入，逗号分隔）</label>
-        <textarea id="boundary" spellcheck="false"></textarea>
-        <div class="mixlist" id="bndliq"></div>
+      <div class="barcol">
+        <label>边界（勾上 = 外部运入，不再展开；液体也算边界）</label>
+        <div class="chkgrid" id="bnditems"></div>
+        <div class="chkgrid" id="bndliqs"></div>
+        <div class="hint" id="bndhint"></div>
+        <input id="boundary" type="hidden">
       </div>
-      <div>
-        <label for="force">指定配方（可选，如 silicon=silicon-crucible）</label>
-        <textarea id="force" spellcheck="false"></textarea>
+      <div class="barcol">
+        <label>指定配方（只有多配方的物品才列；留「自动」按规则挑）</label>
+        <div class="forcerows" id="forcelist"></div>
+        <input id="force" type="hidden">
       </div>
       <div>
         <label for="depth">递归层数</label>
@@ -274,6 +285,8 @@
 
   var mode = "building";
   var curBlock = "graphite-press";
+  var boundarySet = new Set();  // 边界：物品 + 液体，都是开关
+  var forced = {};              // 指定配方：item -> block
   var mixTargets = [];        // 混合厂目标清单：[{block, count}]
 
   function img(src, cls, alt) {
@@ -312,8 +325,9 @@
   var defaults = new Set(
     names.filter(function (n) { return !idx.producersOf(n).length; }).concat(["coal", "sand"])
   );
-  el("boundary").value = Array.from(defaults).sort().join(", ");
-  renderBndLiq();
+  boundarySet = new Set(defaults);
+  renderBoundary();
+  renderForce();
 
   // 物品下拉（物品模式的取值来源）
   var targetSel = el("target");
@@ -977,9 +991,14 @@
     if (q.count && parseInt(q.count, 10) > 0) el("count").value = q.count;
     if (q.rate && parseFloat(q.rate) > 0) el("rate").value = q.rate;
     if (q.depth && parseInt(q.depth, 10) > 0) el("depth").value = q.depth;
-    if (q.boundary) el("boundary").value = q.boundary.replace(/\+/g, " ");
+    if (q.boundary) boundarySet = new Set(splitList(q.boundary.replace(/\+/g, " ")));
     if (q.liquids === "auto" && el("autoliq")) el("autoliq").checked = true;
-    if (q.force) el("force").value = q.force.replace(/\+/g, " ");
+    if (q.force) {
+      splitList(q.force.replace(/\+/g, " ")).forEach(function (part) {
+        var eq = part.indexOf("=");
+        if (eq > 0) forced[part.slice(0, eq).trim()] = part.slice(eq + 1).trim();
+      });
+    }
     if (q.mode === "item") mode = "item";
     if (q.mode === "mixed") mode = "mixed";
     // 混合厂：?mode=mixed&mix=silicon-arc-furnace:1,carbide-crucible:1
@@ -1041,24 +1060,46 @@
     (DATA.channels || []).length + " 种入料方式 / " +
     names.length + " 个物品 · 图标为原版贴图原尺寸";
 
-  /* 边界液体：点芯片把液体名加进/移出「边界」文本域（液体也是边界，列出来才知道煤处理线断在哪） */
-  function boundaryNames() { return splitList(el("boundary").value); }
-  function renderBndLiq() {
-    var cur = boundaryNames();
-    var liqs = Object.keys(DATA.liquid_icons || {}).sort();
-    el("bndliq").innerHTML = liqs.map(function (n) {
-      var on = cur.indexOf(n) >= 0;
-      return '<a class="chiptag' + (on ? " on" : "") + '" data-liq="' + n + '" title="' +
-        (on ? "从边界里去掉" : "加进边界（按外部运入，不再抽/压）") + '">' + liqDot(n) + " " + esc(n) + "</a>";
+  /* 边界 = 所有物品 + 所有液体的开关（不写文本，点一下切换） */
+  function boundaryNames() { return Array.from(boundarySet).sort(); }
+  function liqNames() { return Object.keys(DATA.liquid_icons || {}).sort(); }
+  function chip(n, on, attr) {
+    var body = (DATA.liquid_icons && DATA.liquid_icons[n]) ? (liqDot(n) + " " + esc(n)) : itemLabel(n, "sm");
+    return '<a class="chiptag' + (on ? " on" : "") + '" ' + attr + '="' + n + '" title="' +
+      (on ? "取消边界（会展开它的配方）" : "设为边界（按外部运入，不再展开）") + '">' + body + "</a>";
+  }
+  function renderBoundary() {
+    el("bnditems").innerHTML = names.slice().sort().map(function (n) {
+      return chip(n, boundarySet.has(n), "data-bnd");
+    }).join("");
+    el("bndliqs").innerHTML = liqNames().map(function (n) {
+      return chip(n, boundarySet.has(n), "data-bnd");
+    }).join("");
+    var liqSet = {};
+    liqNames().forEach(function (n) { liqSet[n] = 1; });
+    var ni = boundaryNames().filter(function (n) { return !liqSet[n]; }).length;
+    el("bndhint").textContent = "边界：" + ni + " 种物品 + " + (boundaryNames().length - ni) +
+      " 种液体（点一下切换；勾上就不展开它）";
+  }
+  function toggleBoundary(n) {
+    if (boundarySet.has(n)) boundarySet.delete(n); else boundarySet.add(n);
+    renderBoundary();
+    run();
+  }
+  function renderForce() {
+    var list = names.slice().sort().filter(function (n) { return idx.producersOf(n).length >= 2; });
+    el("forcelist").innerHTML = list.map(function (n) {
+      var opts = ['<option value="">自动</option>'].concat(idx.producersOf(n).map(function (b) {
+        return '<option value="' + b.name + '"' + (forced[n] === b.name ? " selected" : "") + ">" +
+          esc(b.name) + "</option>";
+      })).join("");
+      return '<label class="forcerow">' + itemLabel(n, "sm") +
+        '<select data-force="' + n + '">' + opts + "</select></label>";
     }).join("");
   }
-  function toggleBndLiq(n) {
-    var cur = boundaryNames();
-    var at = cur.indexOf(n);
-    if (at >= 0) cur.splice(at, 1); else cur.push(n);
-    el("boundary").value = cur.join(", ");
-    renderBndLiq();
-    run();
+  function setForced(item, block) {
+    if (block) forced[item] = block; else delete forced[item];
+    renderForce();
   }
 
   function splitList(text) {
@@ -1092,8 +1133,7 @@
       renderMixList();
       return;
     }
-    var boundary = splitList(el("boundary").value);
-    var forced = parseForce(el("force").value);
+    var boundary = boundaryNames();
     var depth = Math.max(1, Math.min(12, parseInt(el("depth").value, 10) || 6));
     var liqOpt = el("autoliq") && el("autoliq").checked ? { liquids: "auto" } : {};
     var res;
@@ -1291,9 +1331,7 @@
         ev.preventDefault();
         var f = a.getAttribute("data-f");
         var parts = f.split("=");
-        var cur = parseForce(el("force").value);
-        cur[parts[0]] = parts[1];
-        el("force").value = Object.keys(cur).map(function (k) { return k + "=" + cur[k]; }).join(", ");
+        setForced(parts[0], parts[1]);
         run();
       });
     });
@@ -1375,9 +1413,15 @@
   syncBlockSel();
   syncPicker();
   if (mode === "item" || mode === "mixed") setMode(mode); else run();
-  el("bndliq").addEventListener("click", function (ev) {
-    var a = ev.target.closest("[data-liq]");
-    if (a) { ev.preventDefault(); toggleBndLiq(a.getAttribute("data-liq")); }
+  ["bnditems", "bndliqs"].forEach(function (id) {
+    el(id).addEventListener("click", function (ev) {
+      var a = ev.target.closest("[data-bnd]");
+      if (a) { ev.preventDefault(); toggleBoundary(a.getAttribute("data-bnd")); }
+    });
+  });
+  el("forcelist").addEventListener("change", function (ev) {
+    var sel = ev.target.closest("[data-force]");
+    if (sel) { setForced(sel.getAttribute("data-force"), sel.value); run(); }
   });
   el("run").addEventListener("click", run);
   el("rate").addEventListener("keydown", function (e) { if (e.key === "Enter") run(); });
@@ -1424,16 +1468,28 @@
                        return { table: el("chaintable").innerHTML, res: el("chainres").innerHTML };
                      },
                      chainRes: function () { return el("chainres").innerHTML; },
-                     /* 边界液体芯片：__ratio.bndliq("oil") 切换、__ratio.bndliq() 只看不切 */
-                     bndliq: function (n) {
-                       if (n) { toggleBndLiq(n); return el("boundary").value; }
-                       renderBndLiq();
-                       return el("bndliq").innerHTML;
+                     /* 边界开关：__ratio.bnd("oil") 切换、__ratio.bnd() 只看不切 */
+                     bnd: function (n) {
+                       if (n) { toggleBoundary(n); return boundaryNames(); }
+                       return boundaryNames();
+                     },
+                     setBoundary: function (text) {
+                       boundarySet = new Set(splitList(String(text == null ? "" : text)));
+                       renderBoundary();
+                       run();
+                       return boundaryNames();
+                     },
+                     force: function (item, block) {
+                       if (item) { setForced(item, block || ""); run(); }
+                       return Object.assign({}, forced);
                      },
                      /* 液体自产开关：__ratio.autoliq(true) */
                      autoliq: function (on, boundaryText) {
                        if (on != null) el("autoliq").checked = !!on;
-                       if (boundaryText != null) el("boundary").value = boundaryText;
+                       if (boundaryText != null) {
+                         boundarySet = new Set(splitList(boundaryText));
+                         renderBoundary();
+                       }
                        run();
                        return el("autoliq").checked;
                      },

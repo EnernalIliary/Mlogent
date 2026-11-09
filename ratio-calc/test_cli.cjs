@@ -443,5 +443,14 @@ ok("--liquid 写法错误时报错清楚", () => {
   catch (e) { assert.ok(/--liquid/.test(e.message), e.message); }
 });
 
+/* 钻头并入工厂配比：机器行写出采集量，电力计入工厂合计 */
+ok("钻头在机器清单里写「→ coal 3.234/s」", () => {
+  const t = run(["--item", "graphite", "--rate", "1", "--boundary", "coal,sand",
+                 "--src", "coal=drill:laser-drill:8"]);
+  assert.ok(/laser-drill ×1/.test(t), t);
+  assert.ok(/→ coal 3\.234\/s/.test(t), t);
+  assert.ok(/工厂合计：3 台/.test(t), t);
+});
+
 console.log("\n通过 " + pass + " 项，失败 " + fail + " 项");
 process.exitCode = fail ? 1 : 0;

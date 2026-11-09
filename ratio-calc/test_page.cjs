@@ -72,8 +72,16 @@ const txt = (id) => $(id).innerHTML || $(id).textContent || "";
 check("数据摘要已填充", /release-160/.test($("meta").textContent) && /33/.test($("meta").textContent) &&
       /17/.test($("meta").textContent), $("meta").textContent);
 check("物品下拉已填充", $("target").children.length === 22, String($("target").children.length));
-check("默认边界含 coal/sand 与无配方物品",
-      /coal/.test($("boundary").value) && /scrap/.test($("boundary").value), $("boundary").value);
+check("默认边界含 coal/sand 与无配方物品（边界是开关，不是文本）",
+      window.__ratio.bnd().indexOf("coal") >= 0 && window.__ratio.bnd().indexOf("scrap") >= 0,
+      window.__ratio.bnd().join(","));
+check("边界开关：物品芯片按物品数铺满，且没有文本输入框",
+      (txt("bnditems").match(/data-bnd=/g) || []).length === 22 &&
+      !/<textarea id="boundary"/.test(html) && !/<textarea id="force"/.test(html),
+      String((txt("bnditems").match(/data-bnd=/g) || []).length));
+check("配方选择：多配方物品列成下拉（石墨/硅 至少有）",
+      /data-force="graphite"/.test(txt("forcelist")) && /data-force="silicon"/.test(txt("forcelist")),
+      txt("forcelist").slice(0, 400));
 
 check("输出区已展开", !$("out").classList.contains("hidden"));
 check("建筑模式：机器表有 graphite-press × 1",
@@ -170,17 +178,27 @@ check("兵厂大循环：T5 需要 12 台 tetrative", /12/.test(chainHtml) && /T
 
 window.__ratio.block("silicon-smelter");
 $("count").value = "3";
-$("boundary").value = "coal, sand";
+window.__ratio.setBoundary("coal, sand");
 window.__ratio.src("sand", { type: "multi", block: "disassembler" });
 check("多产物来源：机器表出现 disassembler × 6",
       /disassembler/.test(txt("machines")) && />6</.test(txt("machines")), txt("machines").slice(0, 400));
 check("多产物来源：副产物钍出现在来源表",
       /thorium/.test(txt("sources")) && /4\.8/.test(txt("sources")), txt("sources").slice(0, 500));
 
+/* 钻头并入工厂配比：机器表写出采集量，计入工厂合计 */
+window.__ratio.block("graphite-press");
+$("count").value = "2";
+window.__ratio.setBoundary("coal, sand");
+window.__ratio.src("coal", { type: "drill", drill: "laser-drill", tiles: 8 });
+check("钻头并入工厂配比：机器表有 laser-drill 且写采集量",
+      /laser-drill/.test(txt("machines")) && /coal/.test(txt("machines")) &&
+      /\/s/.test(txt("machines")), txt("machines").slice(0, 500));
+check("钻头：不再显示「采集（见外部来源）」", !/见外部来源/.test(txt("machines")), txt("machines").slice(0, 300));
+
 /* --- 液体需求表 --- */
 window.__ratio.block("graphite-press");
 $("count").value = "2";
-$("boundary").value = "coal, sand";
+window.__ratio.setBoundary("coal, sand");
 window.__ratio.src("coal", { type: "import" });
 window.__ratio.run();
 check("液体需求表：没有液体时显示「无」",
@@ -345,16 +363,29 @@ window.__ratio.run();
 check("边界液体：煤炭分离机要油，默认按外部运入写在边界表里",
   /oil/.test(txt("demand")) && /（液体）/.test(txt("demand")), txt("demand").slice(0, 500));
 check("边界液体：液体行带原版液体贴图", /liqimg/.test(txt("demand")), txt("demand").slice(0, 500));
-check("边界液体：芯片列出 11 种液体", (txt("bndliq").match(/data-liq=/g) || []).length === 11,
-  String((txt("bndliq").match(/data-liq=/g) || []).length));
+check("边界液体：芯片列出 11 种液体", (txt("bndliqs").match(/data-bnd=/g) || []).length === 11,
+  String((txt("bndliqs").match(/data-bnd=/g) || []).length));
 
 window.__ratio.autoliq(true, "");
 check("边界液体：开启自产时先建石油钻井", /oil-extractor/.test(txt("machines")), txt("machines").slice(0, 400));
-window.__ratio.bndliq("oil");
+window.__ratio.bnd("oil");
 check("边界液体：把 oil 点进边界后不再建钻井（煤处理线到分离机为止）",
   !/oil-extractor/.test(txt("machines")) && /oil/.test(txt("demand")), txt("machines").slice(0, 400));
-check("边界液体：芯片写着 oil 已选中", /chiptag on[^>]*data-liq="oil"|data-liq="oil"[^>]*class="chiptag on"/.test(txt("bndliq")) ||
-  /class="chiptag on"[^>]*data-liq="oil"/.test(txt("bndliq")), txt("bndliq").slice(0, 600));
+check("边界液体：芯片写着 oil 已选中", /class="chiptag on"[^>]*data-bnd="oil"/.test(txt("bndliqs")),
+  txt("bndliqs").slice(0, 600));
+
+/* 指定配方：选 silicon-crucible 就该按它的配方算（而不是自动挑硅电弧炉） */
+window.__ratio.bnd();  // 保持当前边界
+window.__ratio.setMode("item");
+$("target").value = "silicon";
+$("rate").value = "1";
+window.__ratio.autoliq(false, "coal, sand");
+window.__ratio.force("silicon", "silicon-crucible");
+check("配方选择：指定 silicon-crucible 后机器表就是它",
+  /silicon-crucible/.test(txt("machines")) && !/silicon-arc-furnace/.test(txt("machines")),
+  txt("machines").slice(0, 400));
+check("配方选择：等价命令带 --force",
+  /--force silicon=silicon-crucible/.test($("cmd").textContent), $("cmd").textContent);
 
 console.log(bad ? `\n${bad} 项失败` : "\n页面链路全部通过");
 process.exit(bad ? 1 : 0);

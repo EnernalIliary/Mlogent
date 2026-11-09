@@ -201,7 +201,7 @@ def _machine_section(c, res):
         if m.get("powerTotal"):
             bits.append("电 %s/s" % fmt(m["powerTotal"]))
         outs = [o for o in (m.get("outItems") or []) if o.get("perSecond")]
-        if outs and m.get("kind") in ("item", "unit", "generator"):
+        if outs and m.get("kind") in ("item", "unit", "generator", "drill"):
             bits.append("、".join("%s %s/s" % (o["name"], fmt(o["perSecond"])) for o in outs[:2]))
         c.row(m.get("icon"), m.get("name") or "?", "×%d" % int(m.get("count") or 0),
               " · ".join(bits) or None)

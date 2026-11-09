@@ -321,6 +321,20 @@ eq("泵换算：油只有钻井一种", R.pumpEquivalents(DATA, "oil", 6).length
   eq("外部电力：1080/s → 差速 1 台（不富余）",
      [p1080.gens[0].block, p1080.gens[0].count, p1080.extra], ["differential-generator", 1, 0]);
 }
+/* 钻头不是「外部来源」里的另一类，它就是工厂配比里的一员：机器行要写清采集什么、每秒多少 */
+{
+  const dr = R.expand(DATA, "graphite", 1, ["coal", "sand"], {},
+                      { sources: { coal: { type: "drill", drill: "laser-drill", tiles: 8 } } });
+  const rows = R.machineRows(DATA, dr);
+  const lr = rows.filter(r => r.name === "laser-drill")[0];
+  ok("钻头并入工厂配比：机器表有 laser-drill", !!lr, JSON.stringify(rows.map(r => r.name)));
+  ok("钻头：机器行写采集 coal（3 台补 2.667/s 需求）",
+        !!lr && lr.outItems.length === 1 && lr.outItems[0].name === "coal" &&
+        Math.abs(lr.outItems[0].perSecond - 3.789) < 0.01 &&
+        /^采集 coal 3\.789\/s$/.test(lr.outputs[0]),
+        lr ? JSON.stringify(lr.outItems) + " " + JSON.stringify(lr.outputs) : "");
+  ok("钻头：电力计入工厂总电力（3 × 66 = 198，不是单列一类）", Math.abs(dr.power - 198) < 1.5, String(dr.power));
+}
 function s2sum(m) { return m.pumps.reduce((a, p) => a + p.count, 0); }
 
 console.log(f2 ? `\n${f2} 项新算法断言失败` : "\n新算法断言全部通过");
