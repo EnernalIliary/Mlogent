@@ -293,10 +293,26 @@
     }
     if (pump) {
       var n = Math.max(1, Math.ceil(amount / pump.perSecond - 1e-9));
-      return {
+      var plan = {
         type: "pump", block: pump.name, count: n, perSecond: pump.perSecond,
         inputs: pump.inputs.map(function (i) { return { name: i[0], amount: i[1] }; })
       };
+      /* 没指定具体泵时，用"小泵 N 台 + 中泵 M 台 + 大泵 K 台"的加和来满足，避免一台大泵富余太多 */
+      if (!name) {
+        var mix = pumpMixIdx(idx, liquid, amount);
+        if (mix) {
+          var counts = {}, total = 0;
+          mix.pumps.forEach(function (t) { counts[t.pump] = t.count; total += t.count; });
+          plan.counts = counts;
+          plan.count = total;
+          plan.mix = mix.pumps;
+          plan.perSecond = mix.total / total;
+          var first = idx.pumps.get(mix.pumps[0].pump);
+          plan.block = mix.pumps[0].pump;
+          plan.inputs = ((first && first.inputs) || []).map(function (i) { return { name: i[0], amount: i[1] }; });
+        }
+      }
+      return plan;
     }
     if (maker) {
       var m = Math.max(1, Math.ceil(amount / maker.perSecond - 1e-9));
@@ -391,17 +407,26 @@
           if (how === "import" || how === "off") return;
           var plan = liquidSourcePlan(idx, liq, net[liq], how, nameMap[liq]);
           if (!plan) return;
-          var cur = machines[plan.block] || 0;
-          var add = plan.count - cur;
-          if (add <= 0) return;
-          machines[plan.block] = cur + add;
-          order.push({ block: plan.block, count: add, item: null, liquid: liq });
+          /* plan.counts：多档泵加和（大泵/中泵/小泵各有台数），否则就是单一方块 count 台 */
+          var want = plan.counts || {};
+          if (!plan.counts) want[plan.block] = plan.count;
+          var added = 0;
+          Object.keys(want).sort().forEach(function (block) {
+            var cur = machines[block] || 0;
+            var add = want[block] - cur;
+            if (add <= 0) return;
+            machines[block] = cur + add;
+            order.push({ block: block, count: add, item: null, liquid: liq });
+            added += add;
+          });
+          if (!added) return;
           changed = true;
           if (!used[liq]) {
-            used[liq] = { liquid: liq, type: plan.type, block: plan.block, count: 0, perSecondEach: plan.perSecond };
+            used[liq] = { liquid: liq, type: plan.type, block: plan.block, count: 0,
+                          perSecondEach: plan.perSecond, parts: plan.mix || null };
           }
-          used[liq].count += add;
-          plan.inputs.forEach(function (i) { need(i.name, add * i.amount, 1, null); });
+          used[liq].count += added;
+          plan.inputs.forEach(function (i) { need(i.name, added * i.amount, 1, null); });
         });
         if (!changed) break;
       }
@@ -1092,6 +1117,59 @@
     return out;
   }
 
+  /* 泵组合：把液体需求摊成"小泵 N 台 + 中泵 M 台 + 大泵 K 台"的加和（用户口径）。
+   * 只用主线的三档（机械泵 7/s、回转泵 12/s、脉冲泵 13.2/s），
+   * 在"台数最少"的前提下再挑"富余最少"的组合。 */
+  var PUMP_TIERS = ["mechanical-pump", "rotary-pump", "impulse-pump"];
+  function pumpMix(data, liquidName, amount) {
+    return pumpMixIdx(indexOf(data), liquidName, amount);
+  }
+  function pumpMixIdx(idx, liquidName, amount) {
+    var tiers = [];
+    PUMP_TIERS.forEach(function (n) {
+      var p = idx.pumps.get(n);
+      if (p && p.liquid === liquidName && p.perSecond > 0) {
+        tiers.push({ pump: n, perSecondEach: p.perSecond, powerEach: p.power, size: p.size });
+      }
+    });
+    if (tiers.length < 2) return null;
+    /* 大 → 小 排：先尽量用大泵，再补中泵、小泵 */
+    tiers.sort(function (a, b) { return b.perSecondEach - a.perSecondEach; });
+    var big = tiers[0], mid = tiers[1], small = tiers[2] || tiers[1];
+    var perBig = big.perSecondEach, perMid = mid.perSecondEach, perSmall = small.perSecondEach;
+    var best = null;
+    var maxBig = Math.ceil(amount / perBig - 1e-9);
+    for (var nb = 0; nb <= maxBig; nb++) {
+      var rem1 = amount - nb * perBig;
+      if (rem1 <= 1e-9) {
+        var cand0 = [{ pump: big.pump, count: nb, perSecondEach: perBig }];
+        best = better(best, cand0, nb * perBig);
+        continue;
+      }
+      var maxMid = Math.ceil(rem1 / perMid - 1e-9);
+      for (var nm = 0; nm <= maxMid; nm++) {
+        var rem2 = rem1 - nm * perMid;
+        var ns = rem2 > 1e-9 ? Math.ceil(rem2 / perSmall - 1e-9) : 0;
+        var list = [];
+        if (nb) list.push({ pump: big.pump, count: nb, perSecondEach: perBig });
+        if (nm) list.push({ pump: mid.pump, count: nm, perSecondEach: perMid });
+        if (ns) list.push({ pump: small.pump, count: ns, perSecondEach: perSmall });
+        var total = nb * perBig + nm * perMid + ns * perSmall;
+        best = better(best, list, total);
+      }
+    }
+    if (!best) return null;
+    return { need: amount, pumps: best.list, total: round(best.total),
+             extra: round(best.total - amount), count: best.count };
+
+    function better(cur, list, total) {
+      var count = list.reduce(function (a, b) { return a + b.count; }, 0);
+      if (!cur) return { list: list, total: total, count: count };
+      if (count !== cur.count) return count < cur.count ? { list: list, total: total, count: count } : cur;
+      return (total - amount) < (cur.total - amount) ? { list: list, total: total, count: count } : cur;
+    }
+  }
+
   /* 兵厂 T1→T5 大循环：要产 rate 个/s 的顶级单位，每级要几台、吃多少料。
    *
    * 模型（不是简单 1:1）：
@@ -1506,7 +1584,7 @@
               generatorPlan: generatorPlan, generatorSupply: generatorSupply,
               separatorPlan: separatorPlan, unitChain: unitChain, chainFromTop: chainFromTop,
               chainFromBlock: chainFromBlock, chainsForBlock: chainsForBlock,
-              pumpPlan: pumpPlan, pumpEquivalents: pumpEquivalents,
+              pumpPlan: pumpPlan, pumpEquivalents: pumpEquivalents, pumpMix: pumpMix,
               applySources: applySources, recalcPower: recalcPower,
               liquidDemand: liquidDemand, DEFAULT_CHANNEL: DEFAULT_CHANNEL };
   global.RatioCore = api;

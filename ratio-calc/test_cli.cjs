@@ -409,19 +409,22 @@ ok("--liquids auto：带出石油钻井和煤炭分离机", () => {
   assert.ok(names.indexOf("coal-centrifuge") >= 0, names.join(","));
   assert.ok(names.indexOf("oil-extractor") >= 0, names.join(","));
   assert.strictEqual(r.liquidFrom.oil.block, "oil-extractor");
-  close(r.power, 330, 1e-6);
+  close(r.power, 270, 1e-6);
 });
 ok("--liquids auto：文本有「液体自产」，oil 不再算外部净需求", () => {
   const t = run(["--item", "coal", "--rate", "2", "--boundary", "none", "--liquids", "auto"]);
   assert.ok(t.indexOf("液体自产") >= 0, t);
   assert.ok(t.indexOf("液体净需求：oil") < 0, t);
 });
-ok("--liquids auto：文本带泵换算（小泵/中泵/大泵）", () => {
+ok("--liquids auto：文本带泵换算（加和口径）", () => {
   const t = run(["--item", "coal", "--rate", "2", "--boundary", "none", "--liquids", "auto"]);
   assert.ok(t.indexOf("泵换算") >= 0, t);
-  assert.ok(t.indexOf("小泵") >= 0 && t.indexOf("中泵") >= 0 && t.indexOf("大泵") >= 0, t);
-  /* 水 9/s：小泵 2 台 / 中泵 1 台 / 大泵 1 台 */
-  assert.ok(/小泵 2 台/.test(t), t);
+  /* 水 9/s：加和口径下"中泵 1 台（12/s）"最省 */
+  assert.ok(/中泵 1 台/.test(t), t);
+  assert.ok(/合计 12\/s/.test(t), t);
+  /* 抽水机从工厂配比里拆出来，单独一行 */
+  assert.ok(t.indexOf("工厂合计：2 台") >= 0, t);
+  assert.ok(t.indexOf("抽水：") >= 0, t);
 });
 ok("--liquid oil=make：走孢子压缩（spore-press + 种植机）", () => {
   const r = cli.query({ item: "coal", rate: "2", boundary: "none", liquids: "auto", liquid: ["oil=make"] });

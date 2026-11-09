@@ -204,8 +204,10 @@ def case_liquid_self():
     icons = r.get("liquidIcons") or {}
     water = [b for b in liq if b[2] == "water"][0]
     assert icons.get("water") and water[1] == icons["water"], "水行图标不是原版贴图"
-    """水滴：泵换算写进 sub（小泵 / 中泵 / 大泵）"""
-    assert "小泵" in t and "中泵" in t and "大泵" in t, t[:400]
+    """泵换算：加和口径（这台用到中泵 1 台就够 9/s 水）"""
+    assert "泵换算" in t and "中泵 1 台" in t and "合计 12/s" in t, t[:400]
+    """抽水机不算工厂机器：单列「抽水：」一行"""
+    assert "工厂配比：2 台" in t and "抽水：" in t, t[:400]
     check_width(r)
 
 

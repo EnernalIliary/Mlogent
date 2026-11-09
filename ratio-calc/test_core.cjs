@@ -252,7 +252,7 @@ eq("液体自产：带出液体钻井", liq1.machines["oil-extractor"], 1);
 eq("液体自产：oil 记在 liquidFrom 里", (liq1.liquidFrom.oil || {}).block, "oil-extractor");
 near("液体自产：oil 自产速率 15/s", liq1.liquidFrom.oil.perSecondEach, 15, 1e-9);
 eq("液体自产：oil 不再算外部净需求", (liq1.liquidNet || []).filter(l => l.name === "oil").length, 0);
-near("液体自产：电力含钻井 330/s", liq1.power, 330, 1e-9);
+near("液体自产：电力含钻井 270/s", liq1.power, 270, 1e-9);
 
 // 换成孢子压缩路线：liquid oil=make ⇒ spore-press（吃 spore-pod），再往上展开种植机
 const liq2 = R.expand(DATA, "coal", 2, [], {}, { liquids: "auto", liquid: { oil: "make" } });
@@ -274,6 +274,18 @@ eq("泵换算：小泵（机械泵 7/s）要 90 台", (eqs.find(p => p.pump === 
 eq("泵换算：中泵（回转泵 12/s）要 53 台", (eqs.find(p => p.pump === "rotary-pump") || {}).count, 53);
 eq("泵换算：大泵（脉冲泵 13.2/s）要 48 台", (eqs.find(p => p.pump === "impulse-pump") || {}).count, 48);
 eq("泵换算：油只有钻井一种", R.pumpEquivalents(DATA, "oil", 6).length, 1);
+
+/* 泵的"加和"计量：最终结果是几台小泵 + 几台中泵 + 几台大泵 */
+{
+  const m9 = R.pumpMix(DATA, "water", 9);
+  eq("泵加和：9/s 用中泵 1 台（12/s）", [m9.count, m9.pumps[0].pump], [1, "rotary-pump"]);
+  const m630 = R.pumpMix(DATA, "water", 630);
+  eq("泵加和：630/s = 大泵 45 台", [m630.pumps[0].pump, m630.pumps[0].count], ["impulse-pump", 45]);
+  eq("泵加和：630/s + 中泵 3 台", [m630.pumps[1].pump, m630.pumps[1].count], ["rotary-pump", 3]);
+  near("泵加和：合计正好 630/s", m630.total, 630, 1e-6);
+  eq("泵加和：650 → 台数最少的组合", s2sum(R.pumpMix(DATA, "water", 650)), 50);
+}
+function s2sum(m) { return m.pumps.reduce((a, p) => a + p.count, 0); }
 
 console.log(f2 ? `\n${f2} 项新算法断言失败` : "\n新算法断言全部通过");
 process.exit(bad || f2 ? 1 : 0);

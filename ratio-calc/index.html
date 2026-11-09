@@ -389,8 +389,8 @@
       }
     });
     Object.keys(amountOf).forEach(function (k) {
-      var ps = R.pumpEquivalents(DATA, k, amountOf[k]) || [];
-      if (ps.length) eqMap[k] = { need: amountOf[k], pumps: ps };
+      var mix = R.pumpMix(DATA, k, amountOf[k]);
+      if (mix) eqMap[k] = mix;
     });
     var rows = list.map(function (l) {
       var cfg = srcCfg[l.name] || (srcCfg[l.name] = { type: "import" });
@@ -409,7 +409,9 @@
       var src = byLiq[l.name];
       var cnt, pw;
       if (a) {
-        cnt = a.count + " 台 " + esc(a.block) + (a.type === "make" ? "（转化）" : "（钻井）");
+        cnt = a.parts && a.parts.length
+          ? esc(a.parts.map(function (q) { return (PUMP_LABEL[q.pump] || q.pump) + " " + q.count + " 台"; }).join(" + "))
+          : a.count + " 台 " + esc(a.block) + (a.type === "make" ? "（转化）" : "（钻井）");
         pw = '<span class="dim">见机器表</span>';
       } else if (src) {
         cnt = src.count + " 台 " + src.pump;
@@ -419,7 +421,7 @@
         pw = '<span class="dim">—</span>';
       }
       var need = net[l.name] === undefined ? "（自产够用）" : "";
-      var eq = equivLine(l.name, eqMap[l.name] || (res.liquidEquiv || {})[l.name]);
+      var eq = mixLine(l.name, eqMap[l.name]);
       return '<tr><td>' + liqDot(l.name) + esc(l.name) + need + '</td><td class="num">' + num(l.perSecond) +
         '</td><td class="num">' + num(l.perSecond * 60) + '</td><td>' + (a ? '<span class="dim">自产</span>' : sel) +
         (eq ? '<div class="dim">' + esc(eq) + '</div>' : "") +
@@ -448,11 +450,12 @@
   /* 泵换算：水常按"几台泵"计（小泵/中泵/大泵） */
   var PUMP_LABEL = { "mechanical-pump": "小泵", "rotary-pump": "中泵", "impulse-pump": "大泵",
                      "reinforced-pump": "强化泵", "water-extractor": "地下水", "oil-extractor": "钻井" };
-  function equivLine(name, eq) {
-    if (!eq || !eq.pumps || eq.pumps.length < 2) return "";
-    return "≈ " + eq.pumps.map(function (p) {
+  function mixLine(name, mix) {
+    if (!mix || !mix.pumps || !mix.pumps.length) return "";
+    return "≈ " + mix.pumps.map(function (p) {
       return (PUMP_LABEL[p.pump] || p.pump) + " " + p.count + " 台";
-    }).join(" / ");
+    }).join(" + ") + "（合计 " + num(mix.total) + "/s" +
+      (mix.extra > 1e-6 ? "，富余 " + num(mix.extra) + "/s" : "") + "）";
   }
 
   /* ---- 外部来源表：每项边界输入选 运入 / 钻头 / 分离机·解离机 ---- */
@@ -1132,9 +1135,14 @@
         '</div><div class="v">' + c[1] + '</div></div>';
     }).join("");
 
+    var pumpNames = {};
+    rows.forEach(function (r) { if (idx.pumps.has(r.name)) pumpNames[r.name] = r.count; });
+    var facRows = rows.filter(function (r) { return !pumpNames[r.name]; });
+    var pumpRows = rows.filter(function (r) { return pumpNames[r.name]; });
+    totalMachines = facRows.reduce(function (a, r) { return a + r.count; }, 0);
     var mh = '<tr><th>方块</th><th class="num">台数</th><th class="num">占地</th>' +
              '<th class="num">单台产出</th><th class="num">合计产出</th><th class="num">电力/s</th></tr>';
-    el("machines").innerHTML = mh + rows.map(function (r) {
+    el("machines").innerHTML = mh + facRows.map(function (r) {
       var right = (r.outItems || []).length
         ? r.outItems.map(function (o) {
             return itemLabel(o.name, "sm") + " " + num(o.perSecond) + "/s";
@@ -1145,6 +1153,13 @@
         '<td class="num">' + (r.size * r.size) + '</td>' +
         '<td class="num">' + num(r.rateEach) + '/s</td>' +
         '<td class="num">' + right + '</td>' +
+        '<td class="num">' + num(r.powerTotal) + '</td></tr>';
+    }).join("") + pumpRows.map(function (r) {
+      return '<tr><td>' + blockLabel(r.name) + ' <span class="dim">（抽水）</span></td>' +
+        '<td class="num">' + r.count + '</td>' +
+        '<td class="num">' + (r.size * r.size) + '</td>' +
+        '<td class="num">' + (r.rateEach ? num(r.rateEach) + "/s" : "—") + '</td>' +
+        '<td class="num">—</td>' +
         '<td class="num">' + num(r.powerTotal) + '</td></tr>';
     }).join("");
 

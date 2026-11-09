@@ -168,8 +168,8 @@ node cli.cjs --item coal --rate 2 --boundary none --liquids auto
 #   oil-extractor ×1（电 180/s）
 #   pulverizer ×1（电 30/s）         ← 钻井要沙，沙没边界就走粉碎机（吃废料）
 #   机器合计：4 台，电力 330/s
-#   液体自产：oil ← oil-extractor ×1（单台 15/s，钻井）
-#   液体自产：water ← impulse-pump ×1（单台 13.2/s，钻井）
+#   液体自产：oil ← oil-extractor ×1（钻井 15/s）
+#   液体自产：water ← 中泵 1 台（钻井合计 12/s）
 
 # 换孢子压缩：石油不钻井，用孢子压（spore-press 吃 spore-pod，再往上自动展开种植机）
 node cli.cjs --item coal --rate 2 --boundary none --liquid oil=make
@@ -188,10 +188,16 @@ node cli.cjs --item coal --rate 2 --boundary none --liquid oil=make
 - 输出里会写「液体自产：oil ← oil-extractor ×1（单台 15/s，钻井）」和「还要外部进的液体」；
   液体图标用原版 `sprites/items/liquid-<名>.png`（11 种全有，UI 用 `ui/liquid-<名>-ui.png` 兜底），
   拿不到贴图时才退回 `knowledge/00-data/liquids.json` 的 `colorHex` 色点。
-- **泵换算**：水这类液体按「几台泵」计量更直观，输出会补一行
-  `泵换算：water 9/s ≈ 小泵 2 台（mechanical-pump 7/s） / 中泵 1 台（rotary-pump 12/s） / 大泵 1 台（impulse-pump 13.2/s） …`
-  （机械泵=小泵、回转泵=中泵、脉冲泵=大泵；强化泵标"要氢"、地下水抽取器标"要地下水"）。
-- 钻井/泵/转化方块都进**机器表**（台数、电力都算进去），不是白给的。
+- **泵按加和计量**：水这类液体按「几台小泵 + 几台中泵 + 几台大泵」算，先在台数最少、再在富余最少上挑组合（`core.pumpMix`）。
+  例：`water 9/s ≈ 中泵 1 台（合计 12/s，富余 3/s）`、`water 630/s ≈ 大泵 45 台 + 中泵 3 台（合计 630/s，正好不富余）`；
+  机械泵=小泵（7/s，不吃电）、回转泵=中泵（12/s，18 电）、脉冲泵=大泵（13.2/s，78 电），
+  强化泵（20/s，要氢）与地下水抽取器（6.6/s，要地下水）只在命令行里出现，不进卡片的加和行。
+- **抽水机不算工厂配比**：钻井/泵在机器表里单列一行「抽水：…」（电力仍计入合计，写在「含抽水 X/s」里），
+  所以「工厂合计 N 台」只数真正的工厂机器。
+- **画面/文本里水:煤的比例解释了"为什么差这么多"**：孢子路线 3 油 = 1 煤、0.9 油/台压缩、3 孢子/台压缩、0.6 孢子/台培养基、18 水/台培养基
+  ⇒ 每 1 台煤炭分离机需要 **培养基 : 压缩 : 分离 = 33.3 : 6.67 : 1（≈ 100:20:3）**，水 600/s（**300 水 / 煤**）。
+  逐级 ceil 之后是 35 / 7 / 1，所以看起来"水比煤多几百倍"——这是孢子路线的固有代价，不是算错；
+  有油田时走 `oil-extractor`（1 台 15/s，抽水 9/s）就便宜得多。
 - 局限：混合厂里转化方块的物品入料按**外部输入**计并给一条 warning（混合厂不展开液体源的物品链）。
 
 
@@ -418,7 +424,7 @@ python -X utf8 ratio-calc/card.py --json result.json --out card.png   # 喂现�
 | `serve.cjs` | **bot 入口**：HTTP 服务（`/calc` `/list` `/healthz`） |
 | `ratio.py` | **bot 入口**：Python 包装（`query/text/markdown/image/http_query`） |
 | `card.py` | **bot 入口**：把结果画成 PNG 卡片（带原尺寸图标） |
-| `test_core.cjs` | 14 项对拍 `mbo calc` + 96 项断言：钻头/发电/多产物/兵厂链/抽水机/入料方式/发电设备当目标/混合厂/液体自产 |
+| `test_core.cjs` | 14 项对拍 `mbo calc` + 100 项断言：钻头/发电/多产物/兵厂链/抽水机/入料方式/发电设备当目标/混合厂/液体自产 |
 | `test_page.cjs` | 最小 DOM 桩跑页面：75 项断言，不用浏览器 |
 | `test_cli.cjs` | 53 项：CLI/HTTP 与 `core.js` 逐项对拍 + 渲染 + 默认蓝带 + 液体自产 + 错误分支 |
 | `test_card.py` | 10 项：卡片结构（配比在前）/ 默认蓝带条数 / 0 台不建 / 行不重叠 / PNG 可渲染 / 发电卡片 / 混合厂 / 液体自产 / 图标齐全 |

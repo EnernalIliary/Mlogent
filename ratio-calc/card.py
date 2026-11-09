@@ -180,11 +180,20 @@ class Card:
 
 
 def _machine_section(c, res):
-    """工厂配比结果：机器清单是卡片的正文，放最前面。"""
-    machines = res.get("machines") or []
+    """工厂配比结果：机器清单是卡片的正文，放最前面。
+
+    抽水机（钻井/泵）不算"工厂配比"里的机器：单列一节，电力仍然计入合计。"""
+    allm = res.get("machines") or []
+    pumps = res.get("pumps") or {}
+    machines = [m for m in allm if not pumps.get(m.get("name"))]
+    plist = [m for m in allm if pumps.get(m.get("name"))]
     total = sum(int(m.get("count") or 0) for m in machines)
-    c.section("工厂配比：%d 台 · 电力 %s/s" % (total, fmt(res.get("power"))))
-    if not machines:
+    pump_power = sum(float(m.get("powerTotal") or 0) for m in plist)
+    head = "工厂配比：%d 台 · 电力 %s/s" % (total, fmt(res.get("power")))
+    if plist:
+        head += "（含抽水 %s/s）" % fmt(pump_power)
+    c.section(head)
+    if not allm:
         c.note("· 没有要建的机器", DIM)
         return
     for m in machines:
@@ -196,6 +205,10 @@ def _machine_section(c, res):
             bits.append("、".join("%s %s/s" % (o["name"], fmt(o["perSecond"])) for o in outs[:2]))
         c.row(m.get("icon"), m.get("name") or "?", "×%d" % int(m.get("count") or 0),
               " · ".join(bits) or None)
+    if plist:
+        c.note("抽水：" + " + ".join(
+            "%s ×%d（电 %s/s）" % (m.get("name"), int(m.get("count") or 0), fmt(m.get("powerTotal")))
+            for m in plist), DIM)
 
 
 def _import_section(c, res):
@@ -241,16 +254,22 @@ PUMP_LABEL = {
 
 
 def _equiv_text(eq: dict | None) -> str | None:
-    """泵换算：水这类液体按"几台泵"计量更直观（小泵 → 中泵 → 大泵）。
+    """泵换算：按"几台小泵 + 几台中泵 + 几台大泵"的加和计（用户口径）。
 
-    卡片一行放不下 5 档，只留主线的三档（机械泵/回转泵/脉冲泵），其余档位命令行里还有。"""
+    eq 就是 core.pumpMix 的结果：{need, pumps:[{pump,count,perSecondEach}], total, extra}。"""
     if not isinstance(eq, dict):
         return None
-    main = [p for p in (eq.get("pumps") or [])
-            if p.get("pump") in ("mechanical-pump", "rotary-pump", "impulse-pump")]
-    if len(main) < 2:
+    parts = eq.get("pumps") or []
+    if not parts:
         return None
-    return " / ".join("%s %s 台" % (PUMP_LABEL[p["pump"]], p["count"]) for p in main)
+    text = " + ".join("%s %s 台" % (PUMP_LABEL.get(p["pump"], p["pump"]), p["count"]) for p in parts)
+    total, extra = eq.get("total"), eq.get("extra") or 0
+    if total:
+        text += "（合计 %s/s" % fmt(total)
+        if extra > 1e-6:
+            text += "，富余 %s/s" % fmt(extra)
+        text += "）"
+    return text
 
 
 def _liquid_icon(color: str | None, px: int = 16) -> str | None:
@@ -278,7 +297,7 @@ def _liquid_section(c, res):
         return
     colors = (res.get("liquidColors") or {}) if isinstance(res.get("liquidColors"), dict) else {}
     icons = (res.get("liquidIcons") or {}) if isinstance(res.get("liquidIcons"), dict) else {}
-    equiv = (res.get("liquidEquiv") or {}) if isinstance(res.get("liquidEquiv"), dict) else {}
+    equiv = (res.get("pumpMix") or {}) if isinstance(res.get("pumpMix"), dict) else {}
     pumps = {s["liquid"]: s for s in (res.get("liquidSources") or [])}
     c.section("液体需求" + ("（净）" if auto else ""))
     for l in need:
