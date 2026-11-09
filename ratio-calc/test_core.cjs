@@ -275,6 +275,20 @@ eq("泵换算：中泵（回转泵 12/s）要 53 台", (eqs.find(p => p.pump ===
 eq("泵换算：大泵（脉冲泵 13.2/s）要 48 台", (eqs.find(p => p.pump === "impulse-pump") || {}).count, 48);
 eq("泵换算：油只有钻井一种", R.pumpEquivalents(DATA, "oil", 6).length, 1);
 
+/* 出液量单位回归：dump 的 outputLiquids 是 per-tick，每秒 = amount×60（不是 ×cyclesPerSecond） */
+{
+  const press = DATA.blocks.filter(b => b.name === "spore-press")[0];
+  near("孢子压缩机 18 油/s（amount 0.3/tick × 60）", press.output_liquids[0][1], 18, 1e-6);
+  const melter = DATA.blocks.filter(b => b.name === "melter")[0];
+  near("熔炉 12 渣/s（amount 0.2/tick × 60）", melter.output_liquids[0][1], 12, 1e-6);
+}
+/* 孢子路线配比：培养基 : 压缩 : 分离 = 5 : 1 : 3（用户口里的"513"） */
+{
+  const r = R.expand(DATA, "coal", 6, [], {}, { liquids: "auto", liquid: { oil: "make" } });
+  eq("孢子线 3 台分离机 → 培养基 5 / 压缩 1",
+     [r.machines["coal-centrifuge"], r.machines["cultivator"], r.machines["spore-press"]], [3, 5, 1]);
+}
+
 /* 泵的"加和"计量：最终结果是几台小泵 + 几台中泵 + 几台大泵 */
 {
   const m9 = R.pumpMix(DATA, "water", 9);

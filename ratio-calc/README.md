@@ -167,13 +167,16 @@ node cli.cjs --item coal --rate 2 --boundary none --liquids auto
 #   impulse-pump ×1（电 78/s）       ← 抽油机自己吃水
 #   oil-extractor ×1（电 180/s）
 #   pulverizer ×1（电 30/s）         ← 钻井要沙，沙没边界就走粉碎机（吃废料）
-#   机器合计：4 台，电力 330/s
+#   工厂合计：2 台，电力 270/s（含抽水 198/s）
+#   抽水：oil-extractor ×1（电 180/s） + rotary-pump ×1（电 18/s）
 #   液体自产：oil ← oil-extractor ×1（钻井 15/s）
 #   液体自产：water ← 中泵 1 台（钻井合计 12/s）
 
 # 换孢子压缩：石油不钻井，用孢子压（spore-press 吃 spore-pod，再往上自动展开种植机）
-node cli.cjs --item coal --rate 2 --boundary none --liquid oil=make
-#   机器合计：91 台，电力 6880/s   ← 便宜的是钻井，孢子线是"没有油田"时的兜底
+node cli.cjs --item coal --rate 6 --boundary none --liquid oil=make
+#   coal-centrifuge ×3 / cultivator ×5 / spore-press ×1
+#   工厂合计：9 台，电力 994/s（含抽水 426/s）
+#   液体自产：water ← 大泵 5 台 + 中泵 2 台（钻井合计 90/s）
 ```
 
 | 参数 | 作用 |
@@ -184,7 +187,8 @@ node cli.cjs --item coal --rate 2 --boundary none --liquid oil=make
 | `--liquidname oil=spore-press` | 只指定方块名，方式仍按 auto 判 |
 
 - 产线数据（`data/gamedata.js`）：`coal-centrifuge` 30 帧、吃 oil 6/s、出 coal 2/s（3 油换 1 煤）；
-  `oil-extractor` 15/s（吃沙 1/s + 水 9/s，要油田）；`spore-press` 20 帧、吃 spore-pod 1、出 oil 0.9/s。
+  `oil-extractor` 15/s（吃沙 1/s + 水 9/s，要油田）；`spore-press` 20 帧、吃 spore-pod 1、**出 oil 18/s**
+  （数据里 `outputLiquids` 是 **per-tick**：0.3/tick × 60 = 18/s，不是 ×cyclesPerSecond 的 0.9/s）。
 - 输出里会写「液体自产：oil ← oil-extractor ×1（单台 15/s，钻井）」和「还要外部进的液体」；
   液体图标用原版 `sprites/items/liquid-<名>.png`（11 种全有，UI 用 `ui/liquid-<名>-ui.png` 兜底），
   拿不到贴图时才退回 `knowledge/00-data/liquids.json` 的 `colorHex` 色点。
@@ -194,10 +198,9 @@ node cli.cjs --item coal --rate 2 --boundary none --liquid oil=make
   强化泵（20/s，要氢）与地下水抽取器（6.6/s，要地下水）只在命令行里出现，不进卡片的加和行。
 - **抽水机不算工厂配比**：钻井/泵在机器表里单列一行「抽水：…」（电力仍计入合计，写在「含抽水 X/s」里），
   所以「工厂合计 N 台」只数真正的工厂机器。
-- **画面/文本里水:煤的比例解释了"为什么差这么多"**：孢子路线 3 油 = 1 煤、0.9 油/台压缩、3 孢子/台压缩、0.6 孢子/台培养基、18 水/台培养基
-  ⇒ 每 1 台煤炭分离机需要 **培养基 : 压缩 : 分离 = 33.3 : 6.67 : 1（≈ 100:20:3）**，水 600/s（**300 水 / 煤**）。
-  逐级 ceil 之后是 35 / 7 / 1，所以看起来"水比煤多几百倍"——这是孢子路线的固有代价，不是算错；
-  有油田时走 `oil-extractor`（1 台 15/s，抽水 9/s）就便宜得多。
+- **孢子路线的配比（即"513"）**：3 台分离机吃 18 油/s ⇒ 1 台压缩机（18 油/s，同时吃 3 孢子/s）⇒ 5 台培养基（0.6 孢子/s 各）
+  ⇒ **培养基 : 压缩 : 分离 = 5 : 1 : 3**，水 90/s，即 **15 水 / 煤**。
+  `--item coal --rate 6 --liquid oil=make` 就是这个比例（望远镜看：5 台培养基、1 台压缩机、3 台分离机）。
 - 局限：混合厂里转化方块的物品入料按**外部输入**计并给一条 warning（混合厂不展开液体源的物品链）。
 
 
@@ -417,7 +420,7 @@ python -X utf8 ratio-calc/card.py --json result.json --out card.png   # 喂现�
 |---|---|
 | `index.html` | 单页应用（样式 + 四个模式 + 来源/供电/兵厂链/液体四块表，无第三方库） |
 | `core.js` | 内核：展开、钻头/发电/多产物/兵厂链/液体算法（浏览器 + node 通用，`module.exports`） |
-| `data/gamedata.js` | 导出数据 + 内联图标 + 中文名：33 工厂 / 17 兵厂 / 14 发电厂 / 10 钻头 / 2 多产物 / 6 抽水泵 / 22 物品 / 139 图标 / 11 液体图标+颜色 / 493 中文名 / 1140.9 KB |
+| `data/gamedata.js` | 导出数据 + 内联图标 + 中文名：33 工厂 / 17 兵厂 / 14 发电厂 / 10 钻头 / 2 多产物 / 6 抽水泵 / 22 物品 / 139 图标 / 11 液体图标+颜色 / 493 中文名 / 1140.9 KB（出液量按 per-tick ×60 换算） |
 | `export_data.py` | 重新导出：`python -X utf8 ratio-calc/export_data.py` |
 | `make_cases.py` | 用 `mbo calc --json` 生成对拍用例 |
 | `cli.cjs` | **bot 入口**：命令行 + 文本/Markdown/JSON 渲染 |

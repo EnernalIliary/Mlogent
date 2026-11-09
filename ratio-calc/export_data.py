@@ -283,12 +283,11 @@ def build(raw: dict, block_index: dict, unit_prod: dict | None,
                 in_liquids.append([lq["name"], float(lq["amount"]) * 60.0])
         outputs = [[it["name"], float(it["amount"])] for it in r.get("outputItems") or []]
         out_liquids = []
-        for lq in r.get("outputLiquidsPerSecond") or []:
-            out_liquids.append([lq["name"], float(lq["amount"])])
-        if not out_liquids:
-            cps = float(r.get("cyclesPerSecond") or 0.0)
-            for lq in r.get("outputLiquids") or []:
-                out_liquids.append([lq["name"], float(lq["amount"]) * cps])
+        # 出液量是 per-tick（引擎 GenericCrafter.updateTile：handleLiquid(liquid, amount * edelta)，60fps 下 edelta=1）
+        # ⇒ 每秒 = amount * 60。**不能**用 dump 里的 outputLiquidsPerSecond（它是 amount × cyclesPerSecond，
+        #   对出液是错的：spore-press 会算成 0.9/s，实际是 18/s，差 20 倍）。2026-11-09 由用户实测纠正。
+        for lq in r.get("outputLiquids") or []:
+            out_liquids.append([lq["name"], float(lq["amount"]) * 60.0])
         pw = b.get("power") or {}
         blocks.append({
             "name": b["name"],
