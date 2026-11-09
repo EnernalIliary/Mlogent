@@ -286,7 +286,21 @@
   DATA.__index = idx;
   var names = idx.items;
   var itemIcon = idx.itemIcons;
-  var blockIcon = function (n) { var b = idx.blocks.get(n); return b ? b.icon : ""; };
+  /* 方块贴图：以前只查 idx.blocks（物品工厂），发电厂/钻头/泵/多产物方块都取不到图标，
+   * 于是"外部电力换算"那行只有名字没有图。按种类逐个找。 */
+  var blockIcon = function (n) {
+    var b = idx.blocks.get(n);
+    if (b && b.icon) return b.icon;
+    var g = idx.generators.get(n);
+    if (g && g.icon) return g.icon;
+    var d = idx.drills.get(n);
+    if (d && d.icon) return d.icon;
+    var p = idx.pumps.get(n);
+    if (p && p.icon) return p.icon;
+    var m = idx.multi.get(n);
+    if (m && m.icon) return m.icon;
+    return "";
+  };
   var blockOf = function (n) { return idx.blocks.get(n) || R.anyBlock(idx, n) || null; };
 
   var mode = "building";
@@ -1222,25 +1236,39 @@
     var pumpRows = rows.filter(function (r) { return pumpNames[r.name]; });
     totalMachines = facRows.reduce(function (a, r) { return a + r.count; }, 0);
     var mh = '<tr><th>方块</th><th class="num">台数</th><th class="num">占地</th>' +
-             '<th class="num">单台产出</th><th class="num">合计产出</th><th class="num">电力/s</th></tr>';
+             '<th class="num">单台产出</th><th class="num">合计产出</th><th class="num">吃料/s</th>' +
+             '<th class="num">电力/s</th></tr>';
     el("machines").innerHTML = mh + facRows.map(function (r) {
       var right = (r.outItems || []).length
         ? r.outItems.map(function (o) {
             return itemLabel(o.name, "sm") + " " + num(o.perSecond) + "/s";
           }).join(" · ")
         : (r.kind === "unit" ? (r.outputs || []).map(esc).join(" · ") : "—");
+      var eats = (r.inItems || []).length
+        ? r.inItems.map(function (i) {
+            return itemLabel(i.name, "sm") + " " + num(i.perSecond) + "/s";
+          }).join(" · ")
+        : "—";
       return '<tr><td>' + blockLabel(r.name) + '</td>' +
         '<td class="num">' + r.count + '</td>' +
         '<td class="num">' + (r.size * r.size) + '</td>' +
         '<td class="num">' + num(r.rateEach) + '/s</td>' +
         '<td class="num">' + right + '</td>' +
+        '<td class="num">' + eats + '</td>' +
         '<td class="num">' + num(r.powerTotal) + '</td></tr>';
     }).join("") + pumpRows.map(function (r) {
+      var eats = (r.inItems || []).length
+        ? r.inItems.map(function (i) {
+            return itemLabel(i.name, "sm") + " " + num(i.perSecond) + "/s";
+          }).join(" · ")
+        : "—";
       return '<tr><td>' + blockLabel(r.name) + ' <span class="dim">（抽水）</span></td>' +
         '<td class="num">' + r.count + '</td>' +
         '<td class="num">' + (r.size * r.size) + '</td>' +
         '<td class="num">' + (r.rateEach ? num(r.rateEach) + "/s" : "—") + '</td>' +
-        '<td class="num">—</td>' +
+        '<td class="num">' + (r.kind === "pump"
+          ? "抽 " + num((r.rateEach || 0) * r.count) + "/s" : "—") + '</td>' +
+        '<td class="num">' + eats + '</td>' +
         '<td class="num">' + num(r.powerTotal) + '</td></tr>';
     }).join("");
 

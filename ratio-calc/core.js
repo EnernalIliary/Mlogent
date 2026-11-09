@@ -132,6 +132,7 @@
         name: p.name, size: p.size || 1, icon: p.icon || "",
         perSecond: p.perSecond || 0, liquid: p.liquid || "water",
         kind: p.kind || "Pump", power: p.power || 0,
+        floorAttr: p.floorAttr || 0, floorName: p.floorName || "",
         inputs: (p.inputs || []).map(function (i) { return [i[0], i[1]]; }),
         inputLiquids: (p.inputLiquids || []).map(function (i) { return [i[0], i[1]]; })
       });
@@ -1717,6 +1718,22 @@
         size: b ? b.size : 0,
         powerEach: b ? b.power : 0,
         powerTotal: b ? b.power * count : 0,
+        /* 吃料：钻井吃 sand/water、离心机吃 oil 这些输入以前只进递归、不显示，用户会以为没算。
+         * 泵的 inputs 已是"每秒/台"；工厂与多产物方块的 inputs 是"每 craft"，要乘 cps；液体一律每秒。 */
+        inItems: b ? (function () {
+          var rate = b.kind === "pump" ? 1 : (b.cps || 1);
+          var list = [];
+          (b.inputs || []).forEach(function (i) {
+            var amt = (i.amount != null ? i.amount : (i.perSecond || 0)) * rate * count;
+            if (amt > 1e-9) list.push({ name: i.name, type: "item", perSecond: round(amt) });
+          });
+          (b.inputLiquids || []).forEach(function (l) {
+            if ((l.perSecond || 0) > 1e-9) {
+              list.push({ name: l.name, type: "liquid", perSecond: round(l.perSecond * count) });
+            }
+          });
+          return list;
+        })() : [],
         outItems: b ? (b.kind === "generator"
           ? [{ name: "电力", type: "power", perSecond: round(genNet || 0) }]
           : (b.kind === "drill" ? drillOuts : b.outputs.map(function (o) {
@@ -1724,6 +1741,8 @@
             }))) : [],
         rateEach: b ? (b.kind === "drill"
           ? (drillOuts.length ? drillOuts[0].perSecondEach : 0)
+          : b.kind === "pump"
+          ? (b.perSecond || 0)
           : b.kind === "unit"
           ? ((b.plans && b.plans[0]) ? b.plans[0].perSecond : b.cps)
           : (b.outputs.length ? b.outputs[0].amount * b.cps : 0)) : 0,

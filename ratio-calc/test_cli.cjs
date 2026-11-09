@@ -488,5 +488,25 @@ ok("多产物：json 里有 byproducts 字段", () => {
   close(cu.perSecond, 2.857, 0.01);
 });
 
+/* 石油钻井：Fracker 满黑沙属性 22.5 油/s ⇒ 3 台煤炭分离机（18 油/s）只要 1 台钻井 */
+ok("石油钻井：coal 6/s 只建 1 台 oil-extractor（3:1）、写 22.5/s", () => {
+  const t = run(["--item", "coal", "--rate", "6", "--boundary", "none,sand", "--liquids", "auto"]);
+  assert.ok(/oil-extractor ×1/.test(t), t);
+  assert.ok(/22\.5\/s/.test(t), t);
+  assert.ok(/coal-centrifuge ×3/.test(t), t);
+});
+ok("吃料：钻井行写「吃 sand 1/s + water 9/s」", () => {
+  const t = run(["--item", "coal", "--rate", "6", "--boundary", "none,sand", "--liquids", "auto"]);
+  assert.ok(/吃 sand 1\/s \+ water 9\/s/.test(t), t);
+});
+ok("吃料：离心机行写「吃 oil 18/s」", () => {
+  const t = run(["--item", "coal", "--rate", "6", "--boundary", "none,sand", "--liquids", "auto"]);
+  assert.ok(/吃 oil 18\/s/.test(t), t);
+});
+ok("外部电力：仍写源发电厂名（命令行无图标）", () => {
+  const t = run(["--item", "coal", "--rate", "6", "--boundary", "none,sand", "--liquids", "auto"]);
+  assert.ok(/外部电力：电力 306\/s ≈ steam-generator 1 台/.test(t), t);
+});
+
 console.log("\n通过 " + pass + " 项，失败 " + fail + " 项");
 process.exitCode = fail ? 1 : 0;

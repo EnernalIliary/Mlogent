@@ -23,7 +23,7 @@ data:
   - 00-data/blocks.json#id=plasma-bore
 depends: [WORLD.BLOCKS.001, WORLD.LOGISTICS.001, WORLD.LIQUIDS.001]
 tags: [drill, tier, hardness, ore, drillTime, laser-drill, 钻头, 矿层, 采掘]
-tokens: 1847
+tokens: 1926
 ---
 
 # 钻探与资源：钻头等级、硬度惩罚与矿层覆盖
@@ -138,7 +138,11 @@ if(progress >= drillTime){ for(int i = 0; i < dominantItems; i++) offload(domina
 ### 9. 采液：SolidPump 与 Fracker
 
 - **water-extractor（SolidPump）**：`pumpAmount = 0.11`（Blocks.java:2924），有效度 `fraction = validTiles + boost + attribute.env()`（SolidPump.java:124），其中 `boost = sumAttribute(Attribute.water)/size/size`、`validTiles = Σ baseEfficiency/size²`（SolidPump.java:153-159，baseEfficiency 默认 1）。无属性地板时 fraction = 1 → **6.6 水/s**；水属性地板可翻倍。它要求 `!tile.floor().isLiquid`（SolidPump.java:80-82），所以不能直接架在湖面上。
-- **oil-extractor（Fracker）**：`pumpAmount = 0.25`（Blocks.java:2970）、`baseEfficiency = 0`、`attribute = Attribute.oil`（Blocks.java:2973-2974）、`itemUseTime = 60`、吃 sand 1 件/60 tick 与 3/tick 电（Blocks.java:2977-2979），只往周边 `dumpLiquid(result)`（Fracker.java:42）。
+- **oil-extractor（Fracker）**：`pumpAmount = 0.25`（Blocks.java:2970）、`baseEfficiency = 0`、`attribute = Attribute.oil`（Blocks.java:2973-2974）、`itemUseTime = 60`、吃 sand 1 件/60 tick 与 3/tick 电（Blocks.java:2977-2979），只往周边 `dumpLiquid(result)`（Fracker.java:42）。产出与 `SolidPump` 同一式子：**每秒 = `pumpAmount × 60 × Attribute.oil`**。
+  满黑沙（`darksand` 1.5）= `0.25×60×1.5` = **22.5 油/s**；属性 1.0 的地板才是 15/s（游戏 UI 印的
+  `60×pumpAmount` 就是这个乐观值，与钻头 UI 同一类坑）。Attribute.oil 地板值：
+  `sand-floor` 0.7、`darksand` **1.5**、`salt` 0.3、`shale` 2.0（content/Blocks.java）。
+  配比对照：煤炭分离机吃 6 油/s，**3 台离心机（18 油/s）只需 1 台石油钻井**；按 15/s 会算成 2 台。
 
 ### 10. 矿层（oreBlocks）：16 条 id → item 映射
 
@@ -193,7 +197,7 @@ gamedata 的 `environment.oreBlocks` 列出全部可采矿层（MBO/gamedata/v16
 | 方块 | pumpAmount | 有效度来源 | 满效产出 | 耗电 |
 |---|---|---|---|---|
 | water-extractor | 0.11 | validTiles(≤1) + 水属性均值 | 6.6/s（无属性地板） | 1.5/tick = 90/s |
-| oil-extractor | 0.25 | Attribute.oil（baseEfficiency 0） | 满油属性时 15/s | 3/tick = 180/s |
+| oil-extractor | 0.25 | Attribute.oil（baseEfficiency 0） | 满黑沙属性 1.5 时 **22.5/s**（`0.25×60×1.5`；属性 1.0 才是 15/s，UI 印的就是这个乐观值） | 3/tick = 180/s |
 
 ## 源码锚点
 

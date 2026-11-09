@@ -387,7 +387,11 @@ function attachIcons(res) {
   const imported = round((res.power || 0) - (res.powerOut || 0));
   if (env.R && env.R.powerMix && imported > 1e-9) {
     const pm = env.R.powerMix(DATA, imported);
-    if (pm) res.powerMix = pm;
+    if (pm) {
+      /* 发电厂图标：页面/卡片渲染"外部电力换算"要用 */
+      (pm.gens || []).forEach(g => { g.icon = blockIcon(g.block); });
+      res.powerMix = pm;
+    }
   }
   return res;
 }
@@ -454,9 +458,13 @@ function flattenMachines(DATA, R, r) {
   const rows = R.machineRows(DATA, r) || [];
   return rows.map(x => ({
     name: x.name, count: x.count, kind: x.kind, icon: x.icon || "",
-    powerEach: round(x.powerEach), powerTotal: round(x.powerTotal),
+    powerEach: round(x.powerEach), powerTotal: round(x.powerTotal), rateEach: round(x.rateEach),
     outItems: (x.outItems || []).map(o => ({
       name: o.name, type: o.type, perSecond: round(o.perSecond), icon: iconOfIndex(idx, o.name, o.type)
+    })),
+    /* 吃料：钻井吃 sand/water、离心机吃 oil —— 以前只进递归不显示，容易被当成"没算" */
+    inItems: (x.inItems || []).map(i => ({
+      name: i.name, type: i.type, perSecond: round(i.perSecond), icon: iconOfIndex(idx, i.name, i.type)
     }))
   }));
 }
@@ -541,6 +549,9 @@ function renderText(res) {
     fac.forEach(m => {
       let line = "  " + m.name + " ×" + m.count;
       if (m.powerTotal) line += "（电 " + fmtNum(m.powerTotal) + "/s）";
+      if (m.inItems && m.inItems.length) {
+        line += "，吃 " + m.inItems.map(i => i.name + " " + fmtNum(i.perSecond) + "/s").join(" + ");
+      }
       if (m.outItems && m.outItems.length && m.kind !== "item") {
         line += " → " + m.outItems.map(o => o.name + " " + fmtNum(o.perSecond) + "/s").join("、");
       }
@@ -554,7 +565,9 @@ function renderText(res) {
            "/s，净 " + fmtNum(res.netPower) + "/s" : ""));
   if (pl.length) {
     L.push("  抽水：" + pl.map(m => m.name + " ×" + m.count
-      + (m.powerTotal ? "（电 " + fmtNum(m.powerTotal) + "/s）" : "")).join(" + "));
+      + (m.powerTotal ? "（电 " + fmtNum(m.powerTotal) + "/s）" : "")
+      + (m.inItems && m.inItems.length
+        ? "，吃 " + m.inItems.map(i => i.name + " " + fmtNum(i.perSecond) + "/s").join(" + ") : "")).join(" + "));
   }
   if (res.powerMix) L.push("  外部电力：" + powerMixText(res.powerMix));
   if (res.mode === "mixed" && res.shared && res.shared.length) {

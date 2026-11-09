@@ -250,7 +250,7 @@ const liq1 = R.expand(DATA, "coal", 2, [], {}, { liquids: "auto" });
 eq("液体自产：带出煤炭分离机", liq1.machines["coal-centrifuge"], 1);
 eq("液体自产：带出液体钻井", liq1.machines["oil-extractor"], 1);
 eq("液体自产：oil 记在 liquidFrom 里", (liq1.liquidFrom.oil || {}).block, "oil-extractor");
-near("液体自产：oil 自产速率 15/s", liq1.liquidFrom.oil.perSecondEach, 15, 1e-9);
+near("液体自产：oil 自产速率 22.5/s（Fracker 满黑沙属性 = pumpAmount×60×1.5）", liq1.liquidFrom.oil.perSecondEach, 22.5, 1e-9);
 eq("液体自产：oil 不再算外部净需求", (liq1.liquidNet || []).filter(l => l.name === "oil").length, 0);
 near("液体自产：电力含钻井 252/s（水走 2 台机械泵不耗电）", liq1.power, 252, 1e-9);
 
@@ -372,6 +372,22 @@ function s2sum(m) { return m.pumps.reduce((a, p) => a + p.count, 0); }
   const leadM = R.expand(DATA, "lead", 2, ["coal", "sand"], {}, { multi: true });
   ok("多产物：--multi 时 lead 才由分离机产（ceil(2/0.4286)=5 台）",
      leadM.machines["separator"] === 5 && !leadM.demand["lead"], JSON.stringify(leadM.machines));
+
+  /* 石油钻井（Fracker）：产出 = pumpAmount×60×地板属性，满黑沙 1.5 ⇒ 22.5 油/s。
+   * 用户实测口径「1 台钻井 : 3 台煤炭分离机」（18 油/s），15/s 会算成 2 台钻井 ⇒ 现在 ceil(18/22.5)=1。 */
+  const oilPump = R.indexOf(DATA).pumps.get("oil-extractor");
+  near("石油钻井：满黑沙属性 22.5 油/s", oilPump.perSecond, 22.5, 1e-9);
+  eq("石油钻井：属性写 darksand 1.5", [oilPump.floorName, oilPump.floorAttr], ["darksand", 1.5]);
+  const coal6 = R.expand(DATA, "coal", 6, ["none", "sand"], {}, { liquids: "auto" });
+  eq("石油钻井：3 台离心机(18 油/s) 只建 1 台钻井", coal6.machines["oil-extractor"], 1);
+  eq("石油钻井：钻井吃沙 1/s 记在 liquidFrom 之外", coal6.demand["sand"], 1);
+  const rows6 = R.machineRows(DATA, coal6);
+  const oilRow = rows6.filter(x => x.name === "oil-extractor")[0] || {};
+  const eats = (oilRow.inItems || []).map(i => i.name + "=" + i.perSecond).join(",");
+  ok("吃料：钻井行写出 sand 1/s + water 9/s", eats === "sand=1,water=9", eats);
+  ok("吃料：离心机行写出 oil 18/s",
+     ((rows6.filter(x => x.name === "coal-centrifuge")[0] || {}).inItems || [])
+       .some(i => i.name === "oil" && Math.abs(i.perSecond - 18) < 1e-6), eats);
 }
 
 console.log(f2 ? `\n${f2} 项新算法断言失败` : "\n新算法断言全部通过");

@@ -415,5 +415,21 @@ check("多产物：指定配方时树节点带份额（1/6）", /份额 16\.7%/.
 window.__ratio.force("graphite", "");
 window.__ratio.autoliq(false, "coal, sand");
 
+
+/* 石油钻井：Fracker 满黑沙属性 = 0.25×60×1.5 = 22.5 油/s ⇒ 3 台煤炭分离机(18/s)只要 1 台钻井 */
+window.__ratio.setMode("item");
+$("target").value = "coal";
+$("rate").value = "6";
+window.__ratio.autoliq(true, "none, sand");
+check("石油钻井：coal 6/s 只建 1 台 oil-extractor（3:1）",
+  /oil-extractor/.test(txt("machines")) && /22\.5\/s/.test(txt("machines")), txt("machines").slice(0, 600));
+check("吃料：机器表有「吃料/s」列，钻井那行写吃 sand",
+  /吃料\/s/.test(txt("machines")) && /sand/.test(txt("machines")), txt("machines").slice(0, 800));
+check("发电厂图标：外部电力换算行带发电机贴图",
+  /外部电力换算/.test($("powertable").innerHTML) &&
+  /<img[^>]+alt="(combustion|steam|differential)-generator"/.test($("powertable").innerHTML),
+  $("powertable").innerHTML.slice(0, 600));
+window.__ratio.autoliq(false, "coal, sand");
+
 console.log(bad ? `\n${bad} 项失败` : "\n页面链路全部通过");
 process.exit(bad ? 1 : 0);

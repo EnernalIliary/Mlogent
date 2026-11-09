@@ -251,6 +251,26 @@ def case_multi():
 
 
 ok("多产物：分离机卡片写台数、副产单列一节且带图标", case_multi)
+
+def case_oil_drill():
+    """石油钻井：Fracker 满黑沙属性 = 0.25×60×1.5 = 22.5 油/s，
+    3 台煤炭分离机（18 油/s）只要 1 台钻井（用户口径 3:1）；
+    钻井吃的 sand/water 也要写在卡片上。"""
+    r = run_cli(["--item", "coal", "--rate", "6", "--boundary", "none,sand", "--liquids", "auto"])
+    mech = [m for m in r["machines"] if m["name"] == "oil-extractor"][0]
+    assert mech["count"] == 1, mech
+    assert abs(mech["rateEach"] - 22.5) < 1e-6, mech
+    eats = {i["name"]: i["perSecond"] for i in mech["inItems"]}
+    assert eats.get("sand") == 1 and eats.get("water") == 9, eats
+    t = flat(r)
+    assert "吃 sand 1/s" in t, t
+    assert "石油钻井" in t or "oil-extractor" in t, t
+    rows = [b for b in C.build_card(r).blocks if b[0] == "row" and b[2] == "外部电力"]
+    assert rows and rows[0][1], "外部电力行缺发电厂图标"
+    check_width(r)
+
+
+ok("石油钻井：3:1 只建 1 台、吃沙/水写进卡片、外部电力行带发电厂图标", case_oil_drill)
 ok("混合厂：标题/目标表/共享省台数/对比分别建", case_mixed)
 ok("混合厂：发电设备当目标时写厂内发电与净电力", case_mixed_generator)
 

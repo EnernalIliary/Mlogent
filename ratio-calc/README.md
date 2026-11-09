@@ -153,12 +153,18 @@ tetrative ×12`，合计 **21 台兵厂、22872 电/s**，瓶颈在 T5；材料�
 | `impulse-pump` | 3×3 | **118.8**（9 格 × 0.22/tick × 60） | 78 | — | |
 | `reinforced-pump` | 2×2 | **80**（4 格 × 0.3333/tick × 60） | 0 | 氢 1.5/s | 不耗电但吃氢 |
 | `water-extractor` | 2×2 | 6.6（`pumpAmount 0.11×60`，与格数无关） | 90 | — | 要地下水源，效率看地块 |
-| `oil-extractor` | 3×3 | 15（油，`0.25×60`） | 180 | 沙 1/s + 水 9/s | 要油田 |
+| `oil-extractor` | 3×3 | **22.5**（油，`0.25×60×1.5`） | 180 | 沙 1/s + 水 9/s | 要油田（满黑沙属性） |
 
 > **多格泵按有效水格数缩放**：`Pump.java:162` 是 `amount * pumpAmount * edelta()`，amount = 有效水格数；
 > 所以 2×2 回转泵是 4 格、3×3 脉冲泵是 9 格，不能只乘 60（只乘 60 会低估 4 倍 / 9 倍，2026-11-09 已修）。
 > 深水（`liquidMultiplier 1.5`）还要再 ×1.5：回转泵在深水上 72/s、浅水上 48/s。
 > `water-extractor`/`oil-extractor` 是 `SolidPump`/`Fracker`，走 `pumpAmount * delta() * fraction`，与格数无关。
+> **石油钻井要看地板属性**：`Fracker` 继承 `SolidPump`，每秒 = `pumpAmount × 60 × Attribute.oil`。
+> 满黑沙（`darksand` 1.5）就是 `0.25×60×1.5 = 22.5` 油/s；游戏 UI 印的 15/s 只是
+> `pumpAmount×60`（属性 1.0 的乐观值，和钻头 UI 同一类坑）。属性表：
+> `sand-floor` 0.7 / `darksand` 1.5 / `salt` 0.3 / `shale` 2.0。
+> 口径对照：煤炭分离机吃 6 油/s，**3 台离心机（18 油/s）只需 1 台石油钻井**（用户 2026-11-09 指出；
+> 按 15/s 会算成 2 台钻井）。
 
 > 泵的台数会迭代收敛：泵自己也吃液体（抽油机吃水、强化泵吃氢），所以补台数时会重算几轮。
 
@@ -172,13 +178,13 @@ tetrative ×12`，合计 **21 台兵厂、22872 电/s**，瓶颈在 T5；材料�
 # 煤炭 2/s：原版没有"煤矿"，煤只能靠煤炭分离机（3 油 → 1 煤），于是自动接石油钻井
 node cli.cjs --item coal --rate 2 --boundary none --liquids auto
 #   产出：coal 2/s
-#   coal-centrifuge ×1（电 42/s）
-#   pulverizer ×1（电 30/s）         ← 钻井要沙，沙没边界就走粉碎机（吃废料）
+#   coal-centrifuge ×1（电 42/s），吃 oil 6/s
+#   pulverizer ×1（电 30/s），吃 scrap 1.5/s    ← 钻井要沙，沙没边界就走粉碎机（吃废料）
 #   工厂合计：2 台，电力 252/s（含抽水 180/s）
-#   抽水：mechanical-pump ×2 + oil-extractor ×1（电 180/s）
+#   抽水：mechanical-pump ×2 + oil-extractor ×1（电 180/s），吃 sand 1/s + water 9/s
 #   外部电力：电力 252/s ≈ combustion-generator 5 台（合计 300/s，富余 48/s）
 #   边界输入：scrap 1.5/s
-#   液体自产：oil ← oil-extractor ×1（钻井 15/s）
+#   液体自产：oil ← oil-extractor ×1（钻井 22.5/s）
 #   液体自产：water ← 小泵 2 台（钻井合计 14/s）
 #   泵换算：water 9/s ≈ 小泵 2 台（合计 14/s，富余 5/s）
 
@@ -245,6 +251,16 @@ node ratio-calc/cli.cjs --item graphite --rate 1 --boundary "coal,sand" --force 
   `燃烧发电机 / 蒸汽发电机 / 差速发电机` 的最省组合，同样是富余优先、再台数少。
   例：`电力 252/s ≈ 燃烧发电机 5 台（合计 300/s，富余 48/s）`、`646/s ≈ 蒸汽发电机 2 台（660/s，富余 14/s）`、
   `1080/s ≈ 差速发电机 1 台（1080/s，富余 0）`。页面供电表、CLI、卡片都显示这一行。
+
+  页面供电表与卡片那一行都带**发电厂贴图**（`blockIcon` 以前只查物品工厂，
+  发电机/钻头/泵/多产物方块都取不到图，2026-11-09 修）。
+- **机器表多一列「吃料/s」**：每台机器吃多少东西直接写在行里
+  （`coal-centrifuge ×3 → 吃 oil 18/s`、`oil-extractor ×1 → 吃 sand 1/s + water 9/s`），
+  CLI 文本、页面机器表、卡片抽水节都带。泵行的「单台产出/合计产出」也修好了
+  （以前泵行单台产出恒显 0、合计只写「—」）。
+- **钻井吃的沙本来就计算在内**：钻井的 `inputs`（sand）从一开始就进了递归需求
+  （沙没进边界就自动接粉碎机吃 scrap；进了边界就写在「边界输入」），
+  只是以前机器行不显示，看起来像没算。
 - **抽水机不算工厂配比**：钻井/泵在机器表里单列一行「抽水：…」（电力仍计入合计，写在「含抽水 X/s」里），
   所以「工厂合计 N 台」只数真正的工厂机器。
 - **孢子路线的配比（即"513"）**：3 台分离机吃 18 油/s ⇒ 1 台压缩机（18 油/s，同时吃 3 孢子/s）⇒ 5 台培养基（0.6 孢子/s 各）
@@ -414,8 +430,8 @@ python -X utf8 ratio-calc/card.py --json result.json --out card.png   # 喂现�
 `docs/card-chain.png`(700×622)、`docs/card-chain-t1.png`(700×378)、
 `docs/card-via.png`(700×248，蓝带入料)、`docs/card-pump.png`(700×414，钻头 + 抽水机)、
 `docs/card-unit.png`(700×378，兵厂单级)、`docs/mix.png`(700×376，混合厂卡片)、`docs/page-mixed.png`（混合厂页签整页截图）、
-`docs/card-coal.png`(700×580，煤炭处理线：煤炭分离机 + 孢子压缩产油 + 液体原版贴图 + 泵换算 + 外部电力换算)、
-`docs/page-coal.png`（1180×2150，页面截图：边界全物品/液体开关 + 配方下拉 + 多产物方块开关 + 液体自产 + 边界表带液体行）、
+`docs/card-coal.png`(700×502，煤炭 6/s：离心机×3 + 石油钻井×1（22.5 油/s）+ 吃料 sand/water + 泵换算 + 带图标的外部电力换算)、
+`docs/page-coal.png`（1180×2150，页面截图：边界全物品/液体开关 + 配方下拉 + 多产物方块开关 + 机器表「吃料/s」列 + 带发电厂图标的外部电力换算）、
 `docs/card-drill.png`(700×394，钻头并入工厂配比：机器行写 coal 3.234/s)、
 `docs/card-separator.png`（分离机进递归：台数按份额反推、顺带产物单列一节）、
 `docs/page-multi.png`（1180×2150，页面截图：指定配方选 separator，递归树带份额与顺带产物）。
@@ -504,9 +520,9 @@ python -X utf8 ratio-calc/card.py --json result.json --out card.png   # 喂现�
 
 ```
 node ratio-calc/test_core.cjs   → 14 项对拍 mbo calc 全部一致 + 148 项新算法断言通过（共 162 行 ok）
-node ratio-calc/test_page.cjs   → 95 项页面链路断言通过（含混合厂 9 项、液体自产 5 项、边界开关/配方下拉、钻头并入工厂配比、多产物方块进递归树 6 项）
-node ratio-calc/test_cli.cjs    → 60 项 CLI/HTTP 与 core.js 对拍通过（含 `--mix` 6 项、液体自产 6 项、钻头写入机器清单、分离机/解离机 5 项）
-python -X utf8 ratio-calc/test_card.py → 11 项卡片结构/排版断言通过（含混合厂 2 项、液体自产 1 项、图标 2 项、多产物副产 1 项）
+node ratio-calc/test_page.cjs   → 98 项页面链路断言通过（含混合厂 9 项、液体自产 5 项、边界开关/配方下拉、钻头并入工厂配比、多产物方块进递归树 6 项）
+node ratio-calc/test_cli.cjs    → 64 项 CLI/HTTP 与 core.js 对拍通过（含 `--mix` 6 项、液体自产 6 项、钻头写入机器清单、分离机/解离机 5 项）
+python -X utf8 ratio-calc/test_card.py → 12 项卡片结构/排版断言通过（含混合厂 2 项、液体自产 1 项、图标 2 项、多产物副产 1 项）
 ```
 
 对拍用例覆盖石墨/硅/合金/玻璃/塑料/爆炸物/燃烧物/相织物/孢子荚 + 3 个 `--force`；

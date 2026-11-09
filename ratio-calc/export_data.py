@@ -224,6 +224,10 @@ INPUT_CHANNELS = [
 ]
 
 
+OIL_FLOOR_ATTR = 1.5      # Attribute.oil 的地板值：darksand 1.5（sand-floor 0.7 / salt 0.3 / shale 2.0）
+OIL_FLOOR_NAME = "darksand"
+
+
 def build_pumps(raw: dict, block_index: dict) -> list:
     """抽水泵（Pump / SolidPump / Fracker）。
 
@@ -231,8 +235,13 @@ def build_pumps(raw: dict, block_index: dict) -> list:
       · `Pump`（mechanical/rotary/impulse/reinforced，吃地形水）：`liquids.add(amount * pumpAmount * edelta)`，
         其中 amount = 有效水格数 ⇒ 整台 = pumpAmount × 60 × size²（按满格水面算，深水还要 ×1.5）；
       · `SolidPump`（water-extractor）/ `Fracker`（oil-extractor）：`pumpAmount * delta() * fraction`，
-        与格数无关 ⇒ 整台 = pumpAmount × 60 × 效率（这里按满效率）。
-    `Fracker` 每 `itemUseTime` 帧吃一次物品 ⇒ 每秒 = amount × 60 / itemUseTime。
+        与格数无关。SolidPump.java：`fraction = validTiles + boost + attribute.env()`，
+        `boost = Σ attribute(x,y) / size²`，`validTiles = Σ baseEfficiency / size²`（baseEfficiency 恒 0）⇒
+        **整台 = pumpAmount × 60 × 地板属性均值**。
+      · `Fracker`（oil-extractor）走 `Attribute.oil`：满 darksand(1.5) 的 3×3 ⇒ 0.25×60×1.5 = **22.5 油/s**。
+        游戏 UI 印的 15/s 只是 `pumpAmount×60`（属性 1.0 的乐观值），和钻头的 UI 同类，不能当真实产出用。
+        用户实测口径「1 台石油钻井 : 3 台煤炭分离机」= 18 油/s ⇒ 也只有 22.5/s 才对得上（15/s 会算成 2 台）。
+    `Fracker` 每 `itemUseTime` 帧吃一次物品 ⇒ 每秒 = amount × 60 / itemUseTime（oil-extractor：sand 1/s）。
     """
     pumps = []
     for b in raw.get("blocks", []):
@@ -255,16 +264,26 @@ def build_pumps(raw: dict, block_index: dict) -> list:
         kind = (rr.get("subclass") or "").rsplit(".", 1)[-1]
         size = int(b.get("size") or 1)
         # 多格 Pump 的产出与"有效水格数"成正比（Pump.java:162  amount * pumpAmount * edelta）
-        tiles = size * size if kind == "Pump" else 1
+        # Fracker 与格数无关，但乘的是 Attribute.oil 的地板均值 ⇒ 按满 darksand（1.5）算
+        floor_attr, floor_name = 0.0, ""
+        if kind == "Fracker":
+            floor_attr, floor_name = OIL_FLOOR_ATTR, OIL_FLOOR_NAME
+            per_tile = float(pa) * 60.0 * floor_attr / max(1, size * size)
+            tiles = size * size
+        else:
+            tiles = size * size if kind == "Pump" else 1
+            per_tile = float(pa) * 60.0
         pumps.append({
             "name": b["name"],
             "size": size,
             "icon": block_icon(b["name"], block_index),
-            "perSecond": round(float(pa) * 60.0 * tiles, 6),
-            "perTile": round(float(pa) * 60.0, 6),
+            "perSecond": round(per_tile * tiles, 6),
+            "perTile": round(per_tile, 6),
             "tiles": tiles,
             "liquid": liquid,
             "kind": kind,
+            "floorAttr": floor_attr,
+            "floorName": floor_name,
             "power": float((b.get("power") or {}).get("usagePerSecond") or 0.0),
             "inputs": inputs,
             "inputLiquids": input_liquids,

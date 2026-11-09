@@ -200,6 +200,9 @@ def _machine_section(c, res):
         bits = []
         if m.get("powerTotal"):
             bits.append("电 %s/s" % fmt(m["powerTotal"]))
+        ins = [i for i in (m.get("inItems") or []) if i.get("perSecond")]
+        if ins:
+            bits.append("吃 " + "+".join("%s %s/s" % (i["name"], fmt(i["perSecond"])) for i in ins[:3]))
         outs = [o for o in (m.get("outItems") or []) if o.get("perSecond")]
         if outs and m.get("kind") in ("item", "unit", "generator", "drill", "multi"):
             bits.append("、".join("%s %s/s" % (o["name"], fmt(o["perSecond"])) for o in outs[:2]))
@@ -213,6 +216,9 @@ def _machine_section(c, res):
                 bits.append("电 %s/s" % fmt(m["powerTotal"]))
             if m.get("rateEach"):
                 bits.append("单台 %s/s" % fmt(m["rateEach"]))
+            ins = [i for i in (m.get("inItems") or []) if i.get("perSecond")]
+            if ins:
+                bits.append("吃 " + "+".join("%s %s/s" % (i["name"], fmt(i["perSecond"])) for i in ins[:3]))
             c.row(m.get("icon"), m.get("name") or "?", "×%d" % int(m.get("count") or 0),
                   " · ".join(bits) or None)
 
@@ -314,7 +320,11 @@ def _power_mix_row(c, res):
     text = _power_mix_text(mix)
     if not text:
         return
-    c.note("外部电力：电力 %s/s ≈ %s" % (fmt((mix or {}).get("need")), text), DIM)
+    gens = (mix or {}).get("gens") or []
+    # 带发电厂图标：多种发电厂时用第一种的贴图（文字里把每种都写全）
+    icon = (gens[0].get("icon") if gens else None)
+    c.row(icon, "外部电力", "%s/s" % fmt((mix or {}).get("need")),
+          "≈ " + text)
 
 
 def _liquid_icon(color: str | None, px: int = 16) -> str | None:
@@ -365,7 +375,12 @@ def _liquid_section(c, res):
               "自产 %s ×%s（%s）" % (a.get("block"), a.get("count"), kind), LIQUID)
         eq = _equiv_text(equiv.get(name))
         if eq:
-            need = (a.get("count") or 0) * (a.get("perSecondEach") or 0)
+            # 左边一定是"需求量"（泵要补多少），不是上面行里写的产出量；
+            # 否则会出现「water 14/s ≈ 小泵 2 台（合计 14/s，富余 5/s）」这种自相矛盾的句子。
+            mix = equiv.get(name) or {}
+            need = mix.get("need")
+            if need is None:
+                need = (a.get("count") or 0) * (a.get("perSecondEach") or 0)
             c.note("泵换算：%s %s/s ≈ %s" % (name, fmt(need), eq))
 
 
