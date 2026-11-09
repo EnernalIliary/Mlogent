@@ -189,12 +189,14 @@ eq("flare 线 T5 是 eclipse", cb3.rows[4].unit, "eclipse");
 eq("chainFromBlock(物品工厂) 返回 null", R.chainFromBlock(DATA, "graphite-press", 1), null);
 
 /* ---- 发电设备当目标建筑（按台数算发电，不做电力递归） ---- */
-const gen1 = R.expandGenerator(DATA, "steam-generator", 2);
+/* 电厂走递归后：不传 boundary 会把煤一路展开（coal-centrifuge → 油 → 泵）；这里固定边界看纯发电口径 */
+const gen1 = R.expandGenerator(DATA, "steam-generator", 2, { boundary: ["coal", "sand"] });
 near("expandGenerator(steam ×2)：发电 660/s", gen1.products[0].rate, 660, 1e-9);
 eq("expandGenerator：产出类型是 power", gen1.products[0].type, "power");
 near("expandGenerator：烧煤 1.333/s", gen1.demand.coal, 1.333, 1e-6);
 near("expandGenerator：抽水 12/s", gen1.liquids[0].perSecond, 12, 1e-9);
 near("expandGenerator：自身不计耗电", gen1.power, 0, 1e-9);
+  eq("expandGenerator：煤在边界时煤仍是外部输入", gen1.machines["coal-centrifuge"], undefined);
 near("expandGenerator：supply.netTotal 660", gen1.supply.netTotal, 660, 1e-9);
 near("expandGenerator：单台净发电 330", gen1.supply.netEach, 330, 1e-9);
 const gen2 = R.expandBuilding(DATA, "combustion-generator", 1);
@@ -452,6 +454,31 @@ function s2sum(m) { return m.pumps.reduce((a, p) => a + p.count, 0); }
   /* 混合厂同样归一 */
   const mixFl = R.expandMixed(DATA, [{ block: "coal-centrifuge", count: 3 }], { liquids: "auto", flow: true });
   near("flow：混合厂钻井也归一（0.8 台）", mixFl.machines["oil-extractor"], 0.8, 1e-6);
+
+  /* 发电厂当目标建筑时要走递归树（用户 2026-11-09：其它工厂缺电不递归，电厂作为目标必须递归） */
+  const genB = R.expandBuilding(DATA, "combustion-generator", 2, { boundary: ["coal"] });
+  eq("发电厂树：根节点是发电厂", genB.tree && genB.tree.block, "combustion-generator");
+  eq("发电厂树：燃料子节点是 coal",
+     (genB.tree.children || []).map(c => c.item || c.block).join(","), "coal");
+  eq("发电厂：煤 1/s 记在边界需求上", genB.demand.coal, 1);
+  eq("发电厂：净发电 120",
+     Math.round(((genB.supply && genB.supply.net) || 0) * 1e6) / 1e6, 120);
+  eq("发电厂：自己也算在机器表里", genB.machines["combustion-generator"], 2);
+  const genU = R.expandBuilding(DATA, "combustion-generator", 2, { boundary: [] });
+  ok("发电厂树：煤不在边界时展开到上游离心机",
+     (genU.machines["coal-centrifuge"] || 0) >= 1, JSON.stringify(genU.machines));
+  const genS = R.expandBuilding(DATA, "steam-generator", 2, { boundary: ["coal"], liquids: "auto" });
+  ok("发电厂树：水走自产泵（蒸汽发电机）",
+     (genS.machines["mechanical-pump"] || 0) >= 1, JSON.stringify(genS.machines));
+  ok("发电厂树：液体需求含 water",
+     (genS.liquids || []).some(l => l.name === "water"), JSON.stringify(genS.liquids));
+  const genD = R.expandBuilding(DATA, "differential-generator", 1, { boundary: ["coal"], liquids: "auto" });
+  ok("发电厂树：差速发电机展开 pyratite→pulverizer 链",
+     (genD.machines["pyratite-mixer"] || 0) >= 1 && (genD.machines["pulverizer"] || 0) >= 1,
+     JSON.stringify(genD.machines));
+  ok("普通工厂缺电不递归：机器表里没有发电机",
+     !Object.keys(R.expand(DATA, "graphite", 1, ["coal", "sand"], {}).machines).some(n => /generator/.test(n)),
+     JSON.stringify(R.expand(DATA, "graphite", 1, ["coal", "sand"], {}).machines));
 }
 
 console.log(f2 ? `\n${f2} 项新算法断言失败` : "\n新算法断言全部通过");

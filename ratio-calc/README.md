@@ -91,14 +91,29 @@
   通量反应堆 18000、新质反应堆 8400
 
 **发电设备也能当目标建筑**：「按目标建筑台数」页第三组选单里直接选发电厂（14 种），填台数，
-就按 100% 效率算**总发电 / 燃料 / 液体 / 自耗电**；此时**不做电力递归**——不会把发电厂自耗的 1500/s
-再去换算成"还要几台发电机"，只报这台建筑自己的账。
+就按 100% 效率算**总发电 / 燃料 / 液体 / 自耗电**。
+
+这时**发电厂会像普通工厂一样展开递归树**（燃料和液体从哪来都要交代清楚）：
 
 ```
-node ratio-calc/cli.cjs --block steam-generator --count 2
+node ratio-calc/cli.cjs --block steam-generator --count 2 --boundary "coal,sand" --liquids auto
 #   产出：电力 660/s
 #   供电：steam-generator ×2（净 660/s，烧 coal 1.333/s，water 12/s）
+#   液体自产：water ← 小泵 2 台（钻井合计 14/s）
 
+node ratio-calc/cli.cjs --block differential-generator --count 1 --boundary coal --liquids auto
+#   pyratite-mixer ×1（电 12/s），吃 coal 0.75/s + lead 1.5/s + sand 1.5/s → pyratite 0.75/s
+#   pulverizer ×1（电 30/s），吃 scrap 1.5/s → sand 1.5/s
+#   cryofluid-mixer ×1（电 60/s），吃 titanium 0.5/s + water 12/s
+#   供电：differential-generator ×1（净 1080/s，烧 pyratite 0.273/s，cryofluid 6/s）
+```
+
+- 燃料/液体写进边界（`--boundary coal`、页面勾「煤」）就停在边界，不再往上追；不写就一路追到矿——
+  `--block combustion-generator --count 2 --boundary none` 会自己配出 `coal-centrifuge ×1` 再去配油/泵；
+- **但仍然不做「电力递归」**：发电厂自己发的电不会反过来推「还要几台发电机」，自耗电（冲击反应堆 1500/s）
+  只按字面记在 `selfUse` 上；同样，**普通工厂缺电也不递归**，电力只是数字，发电是独立的供电表。
+
+```
 node ratio-calc/cli.cjs --block impact-reactor --count 2 --genfuel blast-compound
 #   产出：电力 12600/s（单台毛 7800、自耗 1500 → 净 6300）
 ```
@@ -586,8 +601,8 @@ python -X utf8 ratio-calc/card.py --json result.json --out card.png   # 喂现�
 | `card.py` | **bot 入口**：把结果画成 PNG 卡片（带原尺寸图标） |
 | `test_core.cjs` | 14 项对拍 `mbo calc` + 100 项断言：钻头/发电/多产物/兵厂链/抽水机/入料方式/发电设备当目标/混合厂/液体自产 |
 | `test_page.cjs` | 最小 DOM 桩跑页面：75 项断言，不用浏览器 |
-| `test_cli.cjs` | 53 项：CLI/HTTP 与 `core.js` 逐项对拍 + 渲染 + 默认蓝带 + 液体自产 + 错误分支 |
-| `test_card.py` | 10 项：卡片结构（配比在前）/ 默认蓝带条数 / 0 台不建 / 行不重叠 / PNG 可渲染 / 发电卡片 / 混合厂 / 液体自产 / 图标齐全 |
+| `test_cli.cjs` | 76 项：CLI/HTTP 与 `core.js` 逐项对拍 + 渲染 + 默认蓝带 + 液体自产 + 错误分支 |
+| `test_card.py` | 16 项：卡片结构（配比在前）/ 默认蓝带条数 / 0 台不建 / 行不重叠 / PNG 可渲染 / 发电卡片 / 混合厂 / 液体自产 / 图标齐全 |
 | `docs/screenshot-*.png` | 页面截图（Edge headless） |
 | `docs/card-*.png` | PNG 卡片示例 |
 
@@ -607,17 +622,19 @@ python -X utf8 ratio-calc/card.py --json result.json --out card.png   # 喂现�
 ## 已验证
 
 ```
-node ratio-calc/test_core.cjs   → 14 项对拍 mbo calc 全部一致 + 183 项新算法断言通过（共 197 行 ok）
-node ratio-calc/test_page.cjs   → 109 项页面链路断言通过（含混合厂 9 项、液体自产 5 项、边界开关/配方下拉、钻头并入工厂配比、多产物方块进递归树 6 项、归一化 2 项）
-node ratio-calc/test_cli.cjs    → 74 项 CLI/HTTP 与 core.js 对拍通过（含 `--mix` 6 项、液体自产 6 项、钻头写入机器清单、分离机/解离机 5 项、归一化 2 项）
-python -X utf8 ratio-calc/test_card.py → 15 项卡片结构/排版断言通过（含混合厂 2 项、液体自产 1 项、图标 2 项、多产物副产 1 项、归一化 1 项）
+node ratio-calc/test_core.cjs   → 14 项对拍 mbo calc 全部一致 + 194 项新算法断言通过（共 208 行 ok）
+node ratio-calc/test_page.cjs   → 112 项页面链路断言通过（含混合厂 9 项、液体自产 5 项、边界开关/配方下拉、钻头并入工厂配比、多产物方块进递归树 6 项、发电厂递归树 3 项、归一化 2 项）
+node ratio-calc/test_cli.cjs    → 76 项 CLI/HTTP 与 core.js 对拍通过（含 `--mix` 6 项、液体自产 6 项、钻头写入机器清单、分离机/解离机 5 项、发电厂树 2 项、归一化 2 项）
+python -X utf8 ratio-calc/test_card.py → 16 项卡片结构/排版断言通过（含混合厂 2 项、液体自产 1 项、图标 2 项、多产物副产 1 项、发电厂树 1 项、归一化 1 项）
 ```
 
 对拍用例覆盖石墨/硅/合金/玻璃/塑料/爆炸物/燃烧物/相织物/孢子荚 + 3 个 `--force`；
 新算法断言覆盖钻头速率（含加水、煤硬度 2）、发电台数与燃料、分离机/解离机加权产物、
 来源替换后的机器表与电力重算、抽水机台数与液体来源、入料方式 7 种、`5t5` 反推（1/1/1/2/5）、
 `chainsForBlock`/`chainFromBlock`（同一重建厂多线、默认 dagger、指定 flare → eclipse）、
-dagger 与 stell 两条升级链、发电设备当目标建筑（蒸汽 ×2 → 660/s、冲击堆扣自耗、不做电力递归）、
+dagger 与 stell 两条升级链、发电设备当目标建筑（蒸汽 ×2 → 660/s、冲击堆扣自耗、
+燃料/液体展开成递归树：煤不在边界 → coal-centrifuge、差速发电机 → pyratite-mixer + pulverizer、
+但不做「电→燃料→电」的电力递归）、
 混合厂（合并上游后石墨压机 10 台 vs 分别建 11 台、目标互供抵扣省 2 台、发电厂当目标并入净电力）、
 泵富余优先（9/s → 小泵 2 台富余 5、18/s → 小泵 3 台富余 3、90/s 富余 0）、外部电力按发电厂加和
 （646/s → 蒸汽 2 台、1080/s → 差速 1 台）、液体也是边界（oil 进边界就不再建石油钻井）、
@@ -651,7 +668,8 @@ dagger 与 stell 两条升级链、发电设备当目标建筑（蒸汽 ×2 → 
 - 混合厂里的液体自产：转化方块的**物品**入料按外部输入计并给 warning（不展开那一层物品链）；
 - 组装厂（`UnitAssembler`）消耗的是**方块 Payload**，这里按外部输入处理，不展开；
 - 多产物是"随机出一件"的期望值，实际有波动；它默认不参与自动递归（见 §3.7），指定配方或 `--multi` 才上；
-- 电力不展开成燃料链的闭环（发电厂烧的煤仍需自己配来源，不会自动接到钻头）；
+- 电力不展开成「电→燃料→电」的闭环：普通工厂的耗电只当数字（发电看独立供电表），
+  发电厂当目标时才展开燃料链，且不会因为厂内自耗电再反推建更多发电机；
 - 混合厂不收兵厂（兵厂自带 T1→T5 大循环，请用「按目标建筑台数」页），也不收组装厂；
 - 混合厂的"对比分别建"是按每个目标**各自独立展开**算的，不是按最优顺序分批建；先合并速率再取整，
   所以结果是"最少机器"口径，不保证最少占地（占地只作对比展示）。

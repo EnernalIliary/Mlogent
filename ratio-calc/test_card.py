@@ -294,6 +294,19 @@ def case_loop():
     assert r.get("loops"), "core 没给 loops 字段"
     check_width(r)
 
+def case_generator():
+    """发电厂当目标建筑：卡片要列上游机器（燃料/液体从哪来）——用户 2026-11-09 口径。"""
+    r = run_cli(["--block", "differential-generator", "--count", "1", "--boundary", "coal",
+                 "--liquids", "auto"])
+    t = flat(r)
+    assert "differential-generator" in t, t
+    assert "pyratite-mixer" in t, t
+    assert "cryofluid-mixer" in t, t
+    names = [m["name"] for m in r["machines"]]
+    assert "pyratite-mixer" in names and "pulverizer" in names, names
+    check_width(r)
+
+
 def case_flow():
     """归一化（flow）：台数写小数，并注明整台建时要几台。"""
     r = run_cli(["--item", "graphite", "--rate", "1", "--boundary", "coal,sand", "--flow"])
@@ -311,6 +324,7 @@ ok("归一化：分数台数 + 整台台数", case_flow)
 ok("循环产线：卡片单列一节并写出连接物品", case_loop)
 ok("混合厂：标题/目标表/共享省台数/对比分别建", case_mixed)
 ok("混合厂：发电设备当目标时写厂内发电与净电力", case_mixed_generator)
+ok("发电厂：目标建筑时卡片列出上游机器", case_generator)
 
 print("\n通过 %d 项，失败 %d 项" % (pass_n, fail_n))
 sys.exit(1 if fail_n else 0)

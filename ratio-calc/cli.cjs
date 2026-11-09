@@ -651,7 +651,9 @@ function renderText(res) {
     });
   }
   const total = fac.reduce((a, m) => a + m.count, 0);
-  L.push("  工厂合计：" + (res.flow ? Math.round(total * 100) / 100 : total) + " 台，电力 " + fmtNum(res.power) + "/s" +
+  /* 发电厂当目标时厂内不耗电，写「电力 0/s」只会让人以为算错了（用户 2026-11-09 口径：电厂自己发电不耗电） */
+  const powerTxt = res.power ? "，电力 " + fmtNum(res.power) + "/s" : "";
+  L.push("  工厂合计：" + (res.flow ? Math.round(total * 100) / 100 : total) + " 台" + powerTxt +
          (pl.length ? "（含抽水 " + fmtNum(pl.reduce((a, m) => a + (m.powerTotal || 0), 0)) + "/s）" : "") +
          (res.mode === "mixed" && res.powerOut ? "，厂内发电 " + fmtNum(res.powerOut) +
            "/s，净 " + fmtNum(res.netPower) + "/s" : ""));

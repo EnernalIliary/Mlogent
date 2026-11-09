@@ -303,8 +303,22 @@ check("发电设备：卡片产出是「⚡ 电力 660/s」", /⚡[^<]*660\/s/.t
 check("发电设备：供电表写总发电 660 且不做递归",
   /总发电[^<]*<\/td><td>660/.test(txt("powertable")) && /不做电力递归/.test(txt("powertable")),
   txt("powertable").slice(0, 600));
-check("发电设备：机器清单只有发电机自己不倒推", /steam-generator/.test(txt("machines")) &&
+check("发电设备：煤在边界时机器清单只有发电机自己", /steam-generator/.test(txt("machines")) &&
   !/combustion-generator/.test(txt("machines")), txt("machines").slice(0, 400));
+/* 用户 2026-11-09：其它工厂缺电不递归，但电厂当目标建筑时必须有递归树 */
+window.__ratio.block("combustion-generator");
+$("count").value = "2";
+window.__ratio.setBoundary("sand");
+window.__ratio.run();
+check("发电厂树：煤不在边界时机器表出现上游离心机",
+  /coal-centrifuge/.test(txt("machines")), txt("machines").slice(0, 600));
+check("发电厂树：树里挂出煤的上游",
+  /coal-centrifuge/.test(txt("tree")) || /coal/.test(txt("tree")), txt("tree").slice(0, 600));
+window.__ratio.setBoundary("coal, sand");
+window.__ratio.run();
+check("发电厂树：煤回到边界后不再展开上游",
+  !/coal-centrifuge/.test(txt("machines")), txt("machines").slice(0, 600));
+window.__ratio.setBoundary("coal, sand");
 
 /* --- 混合厂：多个目标合并算上游，共享产物只建一份 --- */
 $("mixcount").value = "1";

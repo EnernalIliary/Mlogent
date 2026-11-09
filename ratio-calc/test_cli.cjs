@@ -566,5 +566,18 @@ ok("归一化：液体也归一（不再拆整数泵档）", () => {
   assert.ok(!/台（合计 14\/s，富余 5\/s）/.test(t), t);
 });
 
+ok("发电厂：当目标建筑时给出烧料链与供电行", () => {
+  const t = run(["--block", "combustion-generator", "--count", "2", "--boundary", "coal"]);
+  assert.ok(/产出：电力 120\/s/.test(t), t);
+  assert.ok(/供电：combustion-generator ×2/.test(t), t);
+  assert.ok(/边界输入：coal 1\/s/.test(t), t);
+  assert.ok(/烧 coal 1\/s/.test(t), t);
+});
+ok("发电厂：差速发电机的上游机器进机器表", () => {
+  const t = run(["--block", "differential-generator", "--count", "1", "--boundary", "coal", "--liquids", "auto"]);
+  assert.ok(/pyratite-mixer/.test(t), t);
+  assert.ok(/pyratite 0\.75\/s/.test(t), t);
+});
+
 console.log("\n通过 " + pass + " 项，失败 " + fail + " 项");
 process.exitCode = fail ? 1 : 0;

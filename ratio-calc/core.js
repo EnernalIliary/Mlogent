@@ -780,20 +780,27 @@
     }
     var grossEach = fuel ? fuel[2] : g.perSecond;
     var netEach = grossEach - (g.powerUsage || 0);
-    var res = {
-      mode: "building", block: genName, count: count, plan: 0, planTotal: 0,
-      products: [{ name: "电力", type: "power", rate: round(netEach * count) }],
-      inputs: [], tree: null, warnings: [], order: [], liquidExtra: {},
-      machines: {}, demand: {}, power: 0, extraPower: 0, oilFloor: idx.oilFloor, attrs: idx.attrs || null
-    };
-    if (fuel) {
-      res.inputs.push({ name: fuel[0], amount: round(fuel[1] * count) });
-      res.demand[fuel[0]] = round(fuel[1] * count);
-    }
+    /* 用户 2026-11-09：其它工厂缺电不递归（电力只当数字），但发电厂当目标建筑时必须有递归树 ——
+     * 燃料（煤/孢子荚/黄铀…）和液体（水/氰气…）从哪来要跟普通工厂一样展开。 */
+    var ex = makeExpander(idx, opts.boundary, opts.force, opts.maxDepth || MAX_DEPTH, false, !!opts.flow);
+    var root = { block: genName, count: count, item: null, amount: 0, children: [] };
+    var inputs = [];
+    if (fuel) inputs.push({ name: fuel[0], amount: round(fuel[1] * count) });
+    inputs.forEach(function (i) { ex.need(i.name, i.amount, 1, root); });
+    var extraLiq = {};
     (g.liquids || []).forEach(function (l) {
-      res.liquidExtra[l[0]] = (res.liquidExtra[l[0]] || 0) + l[1] * count;
+      extraLiq[l[0]] = (extraLiq[l[0]] || 0) + l[1] * count;
     });
-    res.machines[genName] = count;
+    var liquidFrom = opts.liquids ? ex.resolveLiquids(opts, extraLiq) : {};
+    var res = ex.result({
+      block: genName, count: count,
+      products: [{ name: "电力", type: "power", rate: round(netEach * count) }],
+      inputs: inputs, tree: root, liquidFrom: liquidFrom, plan: 0, planTotal: 0
+    });
+    res.oilFloor = idx.oilFloor;
+    res.attrs = idx.attrs || null;
+    res.flow = !!opts.flow;
+    res.machines[genName] = (res.machines[genName] || 0) + count;
     res.machines = sortMachines(res.machines);
     res.supply = {
       name: genName, icon: g.icon, count: count,
@@ -1276,7 +1283,9 @@
       return { name: name, kind: "generator", size: g.size, power: 0, icon: g.icon,
                craftTime: 0, cps: 0, inputs: [], outputs: [], plans: [], upgrades: [],
                factoryKind: "", perSecond: g.perSecond, powerUsage: g.powerUsage,
-               fuels: g.fuels || [], liquids: g.liquids || [] };
+               fuels: g.fuels || [], liquids: g.liquids || [],
+               /* 发电厂当目标建筑时也得让它吃的液体进 liquidDemand（水/氰气），否则树里有、总量表里没有 */
+               inputLiquids: (g.liquids || []).map(function (l) { return { name: l[0], perSecond: l[1] }; }) };
     }
     var p = idx.pumps.get(name);
     if (p) {
