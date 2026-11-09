@@ -507,15 +507,41 @@ ok("外部电力：仍写源发电厂名（命令行无图标）", () => {
   const t = run(["--item", "coal", "--rate", "6", "--boundary", "none,sand", "--liquids", "auto"]);
   assert.ok(/外部电力：电力 306\/s ≈ steam-generator 1 台/.test(t), t);
 });
-ok("油田属性：默认写「油田属性：1.5（darksand 满黑沙」", () => {
+ok("环境属性：默认写「环境属性：oil 1.5（oil-extractor 22.5/s）」", () => {
   const t = run(["--item", "coal", "--rate", "6", "--boundary", "none,sand", "--liquids", "auto"]);
-  assert.ok(/油田属性：1\.5（darksand/.test(t), t);
+  assert.ok(/环境属性：oil 1\.5/.test(t), t);
+  assert.ok(/oil-extractor 22\.5\/s/.test(t), t);
 });
-ok("油田属性：--oilfloor 0.7 → 2 台钻井、10.5 油/s", () => {
+ok("环境属性：--oilfloor 0.7 → 2 台钻井、10.5 油/s", () => {
   const t = run(["--item", "coal", "--rate", "6", "--boundary", "none,sand", "--liquids", "auto", "--oilfloor", "0.7"]);
   assert.ok(/oil-extractor ×2/.test(t), t);
-  assert.ok(/10\.5 油\/s/.test(t), t);
-  assert.ok(/油田属性：0\.7/.test(t), t);
+  assert.ok(/10\.5\/s/.test(t), t);
+  assert.ok(/环境属性：oil 0\.7/.test(t), t);
+});
+ok("环境属性：--attr oil=0.7 与 --oilfloor 0.7 等价", () => {
+  const a = run(["--item", "coal", "--rate", "6", "--boundary", "none,sand", "--liquids", "auto", "--attr", "oil=0.7"]);
+  const b = run(["--item", "coal", "--rate", "6", "--boundary", "none,sand", "--liquids", "auto", "--oilfloor", "0.7"]);
+  assert.strictEqual(a, b);
+  assert.ok(/oil-extractor ×2/.test(a), a);
+});
+ok("环境属性：--attr water=1 生效（抽水机 13.2 水/s）", () => {
+  const t = run(["--item", "coal", "--rate", "6", "--boundary", "none,sand", "--liquids", "auto", "--liquid", "water=pump:water-extractor", "--attr", "water=1"]);
+  assert.ok(/环境属性：water 1/.test(t), t);
+  assert.ok(/13\.2/.test(t), t);
+});
+ok("环境属性：多个属性一起给", () => {
+  const t = run(["--item", "coal", "--rate", "6", "--boundary", "none,sand", "--liquids", "auto", "--attr", "oil=0.7,water=1"]);
+  assert.ok(/环境属性：oil 0\.7（[^）]*）、water 1/.test(t), t);
+});
+ok("环境属性：非法值报错", () => {
+  let err = null;
+  try { run(["--item", "coal", "--rate", "6", "--attr", "oil=abc"]); } catch (e) { err = e; }
+  assert.ok(err && /数值不对/.test(String(err.message)), err && err.message);
+});
+ok("环检测：循环产线在文本里报警", () => {
+  const t = run(["--item", "coal", "--rate", "6", "--boundary", "none", "--liquids", "auto",
+                 "--liquid", "oil=make:spore-press", "--liquid", "water=pump:reinforced-pump"]);
+  assert.ok(/循环产线/.test(t), t);
 });
 ok("混合厂：自产的油不再报「外部运入」", () => {
   const t = run(["--mix", "coal-centrifuge:3", "--liquids", "auto", "--boundary", "none"]);

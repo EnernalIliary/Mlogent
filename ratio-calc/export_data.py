@@ -273,6 +273,14 @@ def build_pumps(raw: dict, block_index: dict) -> list:
         else:
             tiles = size * size if kind == "Pump" else 1
             per_tile = float(pa) * 60.0
+        # Attribute 通用化：相机要能按"任意环境属性值"重算产量，所以把原始量也存下来
+        #   SolidPump/Fracker: perSecond = pumpAmount × 60 × (validTiles + 属性均值)
+        #   Pump（吃地形水）：perSecond = pumpAmount × 60 × 有效水格数（与属性无关）
+        attr_name = (rr.get("attribute") or "").rsplit(".", 1)[-1]
+        if not attr_name:
+            attr_name = "oil" if kind == "Fracker" else ("water" if kind == "SolidPump" else "")
+        base_eff = rr.get("baseEfficiency")
+        valid_tiles = float(base_eff) if base_eff is not None and kind != "Pump" else 0.0
         pumps.append({
             "name": b["name"],
             "size": size,
@@ -282,6 +290,9 @@ def build_pumps(raw: dict, block_index: dict) -> list:
             "tiles": tiles,
             "liquid": liquid,
             "kind": kind,
+            "pumpAmount": float(pa),
+            "validTiles": round(valid_tiles, 6),
+            "attribute": attr_name,
             "floorAttr": floor_attr,
             "floorName": floor_name,
             "power": float((b.get("power") or {}).get("usagePerSecond") or 0.0),

@@ -104,6 +104,8 @@
   label.chk { display: inline-flex; align-items: center; gap: 6px; color: var(--dim); font-size: 12px; }
   label.chk input { width: auto; }
   .warn { color: var(--warn); }
+  .attrsrow { display: flex; align-items: center; gap: 6px; margin-top: 4px; }
+  .attrsrow input { width: 64px; }
   .dim { color: var(--dim); }
   .chosen { color: var(--ok); }
   code { background: var(--panel2); padding: 1px 5px; border-radius: 4px; font-size: 12px; }
@@ -172,10 +174,16 @@
         </label>
       </div>
       <div>
-        <label for="oilfloor">油田属性</label>
-        <input id="oilfloor" type="number" min="0.1" max="3" step="0.1" value="1.5"
-               title="Attribute.oil：满黑沙 1.5（石油钻井 22.5 油/s = 0.25×60×1.5）；沙地 0.7、盐地 0.3、油页岩 2.0">
-        <div class="hint">1.5 = 满黑沙（影响石油钻井产量）</div>
+        <label for="oilfloor">环境属性</label>
+        <div class="attrsrow">
+          <span class="dim">oil</span>
+          <input id="oilfloor" type="number" min="0" max="3" step="0.1" value="1.5"
+                 title="Attribute.oil：满黑沙 1.5（石油钻井 22.5 油/s = 0.25×60×1.5）；沙地 0.7、盐地 0.3、油页岩 2.0">
+          <span class="dim">water</span>
+          <input id="waterfloor" type="number" min="0" max="3" step="0.1" value="0"
+                 title="Attribute.water：抽水机（SolidPump）看的水属性；0 = 普通地面">
+        </div>
+        <div class="hint">抽液方块每秒 = pumpAmount×60×(validTiles+属性)</div>
       </div>
       <div>
         <label>&nbsp;</label>
@@ -442,7 +450,12 @@
       pumps.forEach(function (p) {
         opts.push(["pump:" + p.name, "抽水机 · " + p.name + "（" + num(p.perSecond) + "/s）"]);
       });
-      var val = cfg.type === "pump" ? "pump:" + (cfg.pump || "mechanical-pump") : "import";
+      (idx.liquidMakers.get(l.name) || []).forEach(function (mk) {
+        opts.push(["make:" + mk.block.name, "转化 · " + (blockLabel(mk.block.name) || mk.block.name) +
+                   "（" + num(mk.perSecond) + "/s）"]);
+      });
+      var val = cfg.type === "pump" ? "pump:" + (cfg.pump || "mechanical-pump")
+              : cfg.type === "make" ? "make:" + (cfg.block || "") : "import";
       var sel = '<select class="tbl-sel" data-liq="' + esc(l.name) + '">' + opts.map(function (o) {
         return '<option value="' + esc(o[0]) + '"' + (o[0] === val ? " selected" : "") + ">" +
           esc(o[1]) + "</option>";
@@ -594,7 +607,8 @@
         if (liq) {
           var lc = srcCfg[liq] || (srcCfg[liq] = { type: "import" });
           var lv = n.value;
-          if (lv.indexOf("pump:") === 0) { lc.type = "pump"; lc.pump = lv.slice(5); }
+          if (lv.indexOf("pump:") === 0) { lc.type = "pump"; lc.pump = lv.slice(5); delete lc.block; }
+          else if (lv.indexOf("make:") === 0) { lc.type = "make"; lc.block = lv.slice(5); }
           else { lc.type = "import"; }
           run();
           return;
@@ -1029,7 +1043,8 @@
     // 多产物方块参与递归：?multi=1
     if (q.multi === "1" || q.multi === "on" || q.multi === "true") el("multichk").checked = true;
     // 油田属性：?oilfloor=0.7
-    if (q.oilfloor && parseFloat(q.oilfloor) > 0) el("oilfloor").value = q.oilfloor;
+    if (q.oilfloor && parseFloat(q.oilfloor) >= 0) el("oilfloor").value = q.oilfloor;
+    if (q.waterfloor && parseFloat(q.waterfloor) >= 0) el("waterfloor").value = q.waterfloor;
     if (q.mode === "mixed") mode = "mixed";
     // 混合厂：?mode=mixed&mix=silicon-arc-furnace:1,carbide-crucible:1
     if (q.mix) {
@@ -1167,26 +1182,41 @@
     var multiOn = !!(el("multichk") && el("multichk").checked);
     var floorIn = parseFloat(el("oilfloor") && el("oilfloor").value);
     var floorOpt = floorIn > 0 ? floorIn : undefined;
+    /* 环境属性表：oil / water（负数表示"不管"，用数据默认值） */
+    var attrsIn = {};
+    if (floorIn >= 0) attrsIn.oil = floorIn;
+    var waterIn = parseFloat(el("waterfloor") && el("waterfloor").value);
+    if (waterIn >= 0) attrsIn.water = waterIn;
+    var attrsOpt = Object.keys(attrsIn).length ? attrsIn : undefined;
     var depth = Math.max(1, Math.min(12, parseInt(el("depth").value, 10) || 6));
+    /* 液体来源：页面上每行的下拉（外部运入 / 抽水机 / 转化方块）覆盖自动选择 */
+    var liqHow = {}, liqName = {};
+    Object.keys(DATA.liquid_icons || {}).forEach(function (n) {
+      var c = srcCfg[n];
+      if (!c || c.type === "import") return;
+      if (c.type === "pump") { liqHow[n] = "pump"; liqName[n] = c.pump || "mechanical-pump"; }
+      else if (c.type === "make") { liqHow[n] = "make"; liqName[n] = c.block || "spore-press"; }
+    });
     var liqOpt = el("autoliq") && el("autoliq").checked ? { liquids: "auto" } : {};
+    if (Object.keys(liqHow).length) { liqOpt.liquid = liqHow; liqOpt.liquidName = liqName; }
     var res;
     try {
       if (mode === "mixed") {
         if (!mixTargets.length) { alert("先往清单里加至少一个目标"); return; }
         res = R.expandMixed(DATA, mixTargets.map(function (t) { return { block: t.block, count: t.count }; }),
-                            Object.assign({ boundary: boundary, force: forced, maxDepth: depth, multi: multiOn, floor: floorOpt }, liqOpt));
+                            Object.assign({ boundary: boundary, force: forced, maxDepth: depth, multi: multiOn, floor: floorOpt, attrs: attrsOpt }, liqOpt));
       } else if (mode === "building") {
         var count = Math.max(1, parseInt(el("count").value, 10) || 1);
         var plan = parseInt(el("plan").value || "0", 10) || 0;
         var selB = blockOf(curBlock);
         var ch = (selB && selB.kind === "unit") ? R.chainFromBlock(DATA, curBlock, count) : null;
         res = ch ? chainToRes(ch)
-                 : R.expandBuilding(DATA, curBlock, count, Object.assign({ boundary: boundary, force: forced, plan: plan, maxDepth: depth, multi: multiOn, floor: floorOpt,
+                 : R.expandBuilding(DATA, curBlock, count, Object.assign({ boundary: boundary, force: forced, plan: plan, maxDepth: depth, multi: multiOn, floor: floorOpt, attrs: attrsOpt,
                                                    fuel: (el("genfuel") && el("genfuel").value) || null }, liqOpt));
       } else {
         var rate = parseFloat(el("rate").value);
         if (!(rate > 0)) { alert("速率要大于 0"); return; }
-        res = R.expand(DATA, targetSel.value, rate, boundary, forced, Object.assign({ maxDepth: depth, multi: multiOn, floor: floorOpt }, liqOpt));
+        res = R.expand(DATA, targetSel.value, rate, boundary, forced, Object.assign({ maxDepth: depth, multi: multiOn, floor: floorOpt, attrs: attrsOpt }, liqOpt));
       }
     } catch (e) {
       alert("算不出来：" + e.message);
@@ -1431,6 +1461,8 @@
       }
     } else if (node.reason === "no-recipe") {
       tag = '<span class="dim">（无配方 → 外部输入）</span>';
+    } else if (node.reason === "cycle") {
+      tag = '<span class="warn">⟲ 循环（环内自供，不再展开）</span>';
     } else if (node.reason === "depth") {
       tag = '<span class="dim">（超过递归层数）</span>';
     } else {
@@ -1448,6 +1480,11 @@
         '<span class="dim">└ </span><span class="amt">' + num(b.perSecond) + "/s</span> " +
         '<span class="dim">顺带 ' + itemLabel(b.name, "sm") + '</span></div>';
     }).join("");
+    /* 命中环：把环里的链贴在这行下面，让人看清互相供料的是谁 */
+    if (node.reason === "cycle" && node.cycle) {
+      line += '<div class="row" style="padding-left:' + (pad + 22) + 'px">' +
+        '<span class="warn">⟲ </span><span class="dim">' + esc(node.cycle.join(" ← ")) + '</span></div>';
+    }
     return line + kids.map(function (k, i) {
       return renderTree(k, depth + 1, i === kids.length - 1);
     }).join("") + byp;
@@ -1545,7 +1582,35 @@
                        return el("multichk").checked;
                      },
                      /* 油田属性（Attribute.oil）：__ratio.oilfloor(0.7) 改完重算 */
-                     oilfloor: function (v) {
+                     /* 环境属性表：__ratio.attrs({oil:0.7,water:1}) 或 __ratio.attrs(0.7) */
+                    /* 液体来源覆盖：__ratio.liq("oil","make:spore-press") / __ratio.liq("water","pump:reinforced-pump") */
+                    liq: function (name, spec) {
+                      if (name) {
+                        var c = srcCfg[name] || (srcCfg[name] = { type: "import" });
+                        if (spec === null || spec === "import" || spec === "") { c.type = "import"; }
+                        else if (String(spec).indexOf("pump:") === 0) { c.type = "pump"; c.pump = String(spec).slice(5); }
+                        else if (String(spec).indexOf("make:") === 0) { c.type = "make"; c.block = String(spec).slice(5); }
+                        else { c.type = "pump"; c.pump = String(spec); }
+                        run();
+                      }
+                      var out = {};
+                      Object.keys(srcCfg).forEach(function (k) { out[k] = srcCfg[k]; });
+                      return out;
+                    },
+                    attrs: function (v) {
+                      if (v != null) {
+                        var o = typeof v === "number" ? v : (v.oil != null ? v.oil : null);
+                        var w = typeof v === "number" ? null : (v.water != null ? v.water : null);
+                        if (o != null) el("oilfloor").value = o;
+                        if (w != null) el("waterfloor").value = w;
+                        run();
+                      }
+                      var out = {};
+                      out.oil = parseFloat(el("oilfloor").value);
+                      out.water = parseFloat(el("waterfloor").value);
+                      return out;
+                    },
+                    oilfloor: function (v) {
                        if (v != null && parseFloat(v) > 0) { el("oilfloor").value = v; run(); }
                        return parseFloat(el("oilfloor").value) || 1.5;
                      },

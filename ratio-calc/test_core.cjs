@@ -405,6 +405,37 @@ function s2sum(m) { return m.pumps.reduce((a, p) => a + p.count, 0); }
   near("混合厂：3 台离心机的油只算一遍（18/s）", mixOil.perSecond, 18, 1e-6);
   ok("混合厂：自产的油不再报外部运入", !(mixLiq.liquidNet || []).some(l => l.name === "oil"),
      JSON.stringify(mixLiq.liquidNet));
+
+  /* 环境属性通用化：applyAttrs 对任意 Attribute.* 生效（不只有 oil） */
+  const idx0 = R.indexOf(DATA);
+  eq("环境属性：attrsOf 数字 → {oil:x}", R.attrsOf(0.7), { oil: 0.7 });
+  eq("环境属性：attrsOf 对象原样", R.attrsOf({ oil: 1.5, water: 1 }), { oil: 1.5, water: 1 });
+  ok("环境属性：attrsOf null → 空", !R.attrsOf(null));
+  const idxOil7 = R.applyAttrs(idx0, { oil: 0.7 });
+  near("环境属性：oil 0.7 → 石油钻井 10.5/s", idxOil7.pumps.get("oil-extractor").perSecond, 10.5, 1e-6);
+  eq("环境属性：浅拷贝，不动原 index", idx0.pumps.get("oil-extractor").perSecond, 22.5);
+  const idxWater1 = R.applyAttrs(idx0, { water: 1.0 });
+  near("环境属性：water 1.0 → 抽水机 13.2/s", idxWater1.pumps.get("water-extractor").perSecond, 13.2, 1e-6);
+  const coalAttr = R.expand(DATA, "coal", 6, ["none", "sand"], {}, { liquids: "auto", attrs: { oil: 0.7 } });
+  eq("环境属性：attrs.oil=0.7 与 floor=0.7 等价（2 台钻井）", coalAttr.machines["oil-extractor"], 2);
+  eq("环境属性：结果里带 attrs", coalAttr.attrs, { oil: 0.7 });
+
+  /* 环检测：递归树停在环上 + 机器图里能报出液体环 */
+  const cyc = R.expand(DATA, "coal", 6, ["none"], {}, {
+    liquids: "auto",
+    liquid: { oil: "make", water: "pump" },
+    liquidName: { oil: "spore-press", water: "reinforced-pump" }
+  });
+  ok("环检测：机器图报出 reinforced-pump ↔ electrolyzer 环", (cyc.loops || []).length >= 1,
+     JSON.stringify(cyc.loops));
+  ok("环检测：循环文案写出连接物", /\[ hydrogen \]/.test(R.cycleText((cyc.loops || [])[0] || {})),
+     R.cycleText((cyc.loops || [])[0] || {}));
+  ok("环检测：警告里带「循环产线」", (cyc.warnings || []).some(w => w.indexOf("循环产线") >= 0),
+     JSON.stringify(cyc.warnings));
+  const plain = R.expand(DATA, "coal", 6, ["none", "sand"], {}, { liquids: "auto" });
+  eq("环检测：普通产线没有环", (plain.loops || []).length, 0);
+  ok("环检测：detectCycles 对建不出环的组合返回空",
+     R.detectCycles(R.indexOf(DATA), { "graphite-press": 2 }).length === 0);
 }
 
 console.log(f2 ? `\n${f2} 项新算法断言失败` : "\n新算法断言全部通过");

@@ -132,6 +132,9 @@
         name: p.name, size: p.size || 1, icon: p.icon || "",
         perSecond: p.perSecond || 0, liquid: p.liquid || "water",
         kind: p.kind || "Pump", power: p.power || 0,
+        /* Attribute 通用化：按 pumpAmount/validTiles/attribute 可以重算任意属性下的产量 */
+        pumpAmount: p.pumpAmount || 0, validTiles: p.validTiles || 0,
+        attribute: p.attribute || "",
         floorAttr: p.floorAttr || 0, floorName: p.floorName || "",
         inputs: (p.inputs || []).map(function (i) { return [i[0], i[1]]; }),
         inputLiquids: (p.inputLiquids || []).map(function (i) { return [i[0], i[1]]; })
@@ -324,24 +327,38 @@
   /* 液体来源方案：要 amount 个/s 的某种液体，用钻井还是转化方块、要几台、吃什么。
    * how  = "auto"（钻井优先）| "pump"（钻井）| "make"（转化方块）| "import"（不自产）
    * name 可选：指定泵 / 转化方块的方块名（如 oil 用 spore-press 而不是 oil-extractor）。 */
-  /* 油田属性（Attribute.oil）覆盖：Fracker 每秒 = pumpAmount×60×属性，
-   * 数据里存的是「满黑沙 1.5」的值，属性不同就按比例缩放。
-   * 返回一份浅拷贝的 index（pumps 与 liquidPumps 都换成缩放后的对象），不污染缓存。
-   * floor 不传或与默认相同时直接返回原 index。 */
-  function applyFloor(idx, floor) {
-    var base = idx.oilFloor || 1.5;
-    if (!(floor > 0) || Math.abs(floor - base) < 1e-9) return idx;
+  /* 环境属性（Attribute.*）覆盖：抽液方块的产量取决于它看的地板属性——
+   *   SolidPump / Fracker：每秒 = pumpAmount × 60 × (validTiles + 属性均值)
+   *   Pump（吃地形水）：与属性无关，按有效水格数算
+   * attrs 形如 {oil:0.7, water:1.2}；没给的属性沿用数据里的默认值（oil 默认满黑沙 1.5）。
+   * 返回一份浅拷贝的 index（pumps 与 liquidPumps 都换成重算后的对象），不污染缓存。 */
+  function applyAttrs(idx, attrs) {
+    if (!attrs) return idx;
+    var map = {}, any = false;
+    Object.keys(attrs).forEach(function (k) {
+      var v = Number(attrs[k]);
+      if (isFinite(v) && v >= 0) { map[k] = v; any = true; }
+    });
+    if (!any) return idx;
     var pumps = new Map();
     idx.pumps.forEach(function (p, k) {
-      if (p.kind === "Fracker" && p.floorAttr > 0) {
-        var q = {};
-        Object.keys(p).forEach(function (key) { q[key] = p[key]; });
-        q.perSecond = round(p.perSecond * floor / p.floorAttr);
-        q.floorAttr = floor;
-        pumps.set(k, q);
-      } else {
+      var name = p.attribute || "";
+      var given = name && map[name] != null ? map[name] : null;
+      if (given == null || !(p.pumpAmount > 0) || p.kind === "Pump") {
         pumps.set(k, p);
+        return;
       }
+      var want = round(p.pumpAmount * 60 * ((p.validTiles || 0) + given));
+      if (Math.abs(want - p.perSecond) < 1e-9) {
+        pumps.set(k, p);
+        return;
+      }
+      var q = {};
+      Object.keys(p).forEach(function (key) { q[key] = p[key]; });
+      q.perSecond = want;
+      q.attrValue = given;
+      if (name === "oil") q.floorAttr = given;
+      pumps.set(k, q);
     });
     var liquidPumps = new Map();
     pumps.forEach(function (p) {
@@ -361,7 +378,27 @@
     Object.keys(idx).forEach(function (key) { out[key] = idx[key]; });
     out.pumps = pumps;
     out.liquidPumps = liquidPumps;
-    out.oilFloor = floor;
+    out.attrs = {};
+    Object.keys(idx.attrs || {}).forEach(function (k) { out.attrs[k] = idx.attrs[k]; });
+    Object.keys(map).forEach(function (k) { out.attrs[k] = map[k]; });
+    out.oilFloor = out.attrs.oil != null ? out.attrs.oil : (idx.oilFloor || 1.5);
+    return out;
+  }
+
+  /* 兼容旧入口：--oilfloor / opts.floor 就是 attrs.oil */
+  function applyFloor(idx, floor) {
+    if (!(floor > 0)) return idx;
+    return applyAttrs(idx, { oil: floor });
+  }
+
+  /* 把「数字或属性表」统一成属性表 */
+  function attrsOf(x) {
+    if (x == null) return null;
+    if (typeof x === "number") return x > 0 ? { oil: x } : null;
+    var keys = Object.keys(x).filter(function (k) { return Number(x[k]) >= 0; });
+    if (!keys.length) return null;
+    var out = {};
+    keys.forEach(function (k) { out[k] = Number(x[k]); });
     return out;
   }
 
@@ -430,6 +467,7 @@
     var demand = {};
     var byprod = {};
     var warnings = [];
+    var cycles = [];
     var maxDepth_ = maxDepth || MAX_DEPTH;
 
     function servable(item, seen) {
@@ -453,10 +491,26 @@
       return chooseProducer(idx, item, amount, fmap, servable, liqOk, allowMulti);
     }
 
-    function need(item, amount, depth, parentNode) {
+    /* 环检测：item 在自己的祖先链里出现过 => 这条链成环了。
+     * 停在这里（不再往上展开，否则台数会一轮轮放大），把缺的量子按"环内自供 + 外部补"记下来。 */
+    function need(item, amount, depth, parentNode, chain) {
       if (amount <= 1e-9) return null;
+      var path = chain || [];
       var node = { item: item, amount: amount, block: null, count: 0, children: [] };
       if (parentNode) parentNode.children.push(node);
+      var at = path.indexOf(item);
+      if (at >= 0) {
+        node.reason = "cycle";
+        node.cycle = path.slice(at).concat([item]);
+        var label = node.cycle.join(" ← ");
+        demand[item] = (demand[item] || 0) + amount;
+        cycles.push({ path: node.cycle.slice(), item: item, amount: round(amount) });
+        if (warnings.indexOf("循环产线：" + label) < 0) {
+          warnings.push("循环产线：" + label
+            + "（环内自供，停在这一层不再展开；缺的量按外部输入记在 " + item + " 上）");
+        }
+        return node;
+      }
       if (bset.has(item) || depth > maxDepth_) {
         node.reason = bset.has(item) ? "boundary" : "depth";
         demand[item] = (demand[item] || 0) + amount;
@@ -490,8 +544,9 @@
       }
       machines[b.name] = (machines[b.name] || 0) + n;
       order.push({ block: b.name, count: n, item: item });
+      var nextPath = path.concat([item]);
       idx.inputPerSecond(b).forEach(function (i) {
-        need(i.name, n * i.amount, depth + 1, node);
+        need(i.name, n * i.amount, depth + 1, node, nextPath);
       });
       return node;
     }
@@ -540,7 +595,7 @@
                           perSecondEach: plan.perSecond, parts: plan.mix || null };
           }
           used[liq].count += added;
-          plan.inputs.forEach(function (i) { need(i.name, added * i.amount, 1, null); });
+          plan.inputs.forEach(function (i) { need(i.name, added * i.amount, 1, null, []); });
         });
         if (!changed) break;
       }
@@ -568,6 +623,8 @@
             return { name: k, perSecond: round(byprod[k]) };
           }),
           warnings: warnings,
+          cycles: cycles,
+          attrs: idx.attrs || null,
           snapshot: idx.snapshot || ""
         };
         Object.keys(extra || {}).forEach(function (k) { out[k] = extra[k]; });
@@ -576,19 +633,103 @@
     };
   }
 
+  /* 机器图上的环检测：方块 -> 它吃的物品（含液体）-> 能产这个物品的方块。
+   * 液体来源（钻井 / 转化方块）也算边，所以 coal-centrifuge 吃 oil、oil-centrifuge 吃 coal
+   * 这种"液体绕回来的环"也能抓到（递归展开是按树走的，看不到液体这一层）。
+   * 只从"这次真的建了"的机器出发找；返回 [{ path:[方块, 物品, 方块, …, 方块] }]，
+   * 同一个环只报一次（按节点集合去重）。 */
+  function detectCycles(idx, machines) {
+    var names = Object.keys(machines || {}).filter(function (n) { return (machines[n] || 0) > 0; });
+    if (names.length < 2) return [];
+    var built = new Set(names);
+    var cache = new Map();
+    function producersOf(item) {
+      if (cache.has(item)) return cache.get(item);
+      var out = [];
+      (idx.producersOf(item) || []).forEach(function (b) {
+        if (b && built.has(b.name)) out.push({ name: b.name, via: "item" });
+      });
+      (idx.liquidPumps.get(item) || []).forEach(function (p) {
+        if (built.has(p.name)) out.push({ name: p.name, via: "liquid" });
+      });
+      (idx.liquidMakers.get(item) || []).forEach(function (m) {
+        if (m.block && built.has(m.block.name)) out.push({ name: m.block.name, via: "liquid" });
+      });
+      cache.set(item, out);
+      return out;
+    }
+    var adj = new Map();
+    names.forEach(function (n) {
+      var b = anyBlock(idx, n);
+      var ins = [];
+      if (b) {
+        (b.inputs || []).forEach(function (i) { ins.push(i.name); });
+        (b.inputLiquids || []).forEach(function (l) { ins.push(l.name); });
+      }
+      adj.set(n, ins.map(function (item) { return { item: item, next: producersOf(item) }; }));
+    });
+
+    var found = [], seen = new Set(), guard = 0;
+    function walk(start, cur, path, items) {
+      if (guard++ > 4000) return;
+      var edges = adj.get(cur) || [];
+      for (var i = 0; i < edges.length; i++) {
+        var e = edges[i];
+        for (var j = 0; j < e.next.length; j++) {
+          var to = e.next[j].name;
+          if (to === start && path.length >= 2) {
+            var key = path.slice().sort().join("|");
+            if (!seen.has(key)) {
+              seen.add(key);
+              found.push({ path: path.concat([start]), items: items.concat([e.item]) });
+            }
+          } else if (path.indexOf(to) < 0 && path.length < 8) {
+            walk(start, to, path.concat([to]), items.concat([e.item]));
+          }
+        }
+      }
+    }
+    names.forEach(function (n) { walk(n, n, [n], []); });
+    return found;
+  }
+
+  /* 把环渲染成一行：A -[物品]-> B -[物品]-> A */
+  function cycleText(loop) {
+    if (!loop || !loop.path) return "";
+    var out = [loop.path[0]];
+    for (var i = 0; i < loop.items.length; i++) {
+      out.push("-[ " + loop.items[i] + " ]->");
+      out.push(loop.path[i + 1]);
+    }
+    return out.join(" ");
+  }
+
+  /* 把 detectCycles 的结果挂到结果上，并往 warnings 里写一条 */
+  function attachLoops(idx, res) {
+    res.loops = detectCycles(idx, res.machines || {});
+    if (!res.warnings) res.warnings = [];
+    res.loops.forEach(function (lp) {
+      res.warnings.push("循环产线：" + cycleText(lp)
+        + "（环内互相供料；环里产不抵耗的部分已按外部输入记）");
+    });
+    return res.loops;
+  }
+
   /* 按目标物品速率（旧口径）
    * opts.liquids = "auto" 时，机器吃但没人供的液体（如 coal-centrifuge 的 oil）自动接钻井/转化方块，
    * 这就是"不允许外部输入"时把煤炭处理线（coal-centrifuge → oil-extractor）带出来的开关。 */
   function expand(data, target, rate, boundary, force, opts) {
-    var idx = applyFloor(indexOf(data), opts && opts.floor);
+    var idx = applyAttrs(indexOf(data), attrsOf(opts && (opts.attrs || (opts.floor > 0 ? opts.floor : null))));
     if (!idx.itemSet.has(target)) throw new Error("未知物品：" + target);
     var ex = makeExpander(idx, boundary, force, (opts && opts.maxDepth) || MAX_DEPTH, !!(opts && opts.multi));
     var root = ex.need(target, rate, 0, null);
     var liquidFrom = (opts && opts.liquids) ? ex.resolveLiquids(opts) : {};
     var res = ex.result({ target: target, requested: rate, tree: root, liquidFrom: liquidFrom });
     res.oilFloor = idx.oilFloor;
+    res.attrs = idx.attrs || null;
     res.achieved = root && root.actual ? root.actual : 0;
     recalcPower(idx, res);          // 液体自产会把钻井/抽水泵塞进 machines，电力和液体都要重算一次
+    attachLoops(idx, res);
     if (opts && opts.sources) applySources(data, res, opts.sources);
     return res;
   }
@@ -600,7 +741,7 @@
   /* 发电设备当"目标建筑"：算总发电、燃料、液体、自耗电。
    * 不递归电力：发电厂的自耗只显示，不再换算成更多发电厂。 */
   function expandGenerator(data, genName, count, opts) {
-    var idx = applyFloor(indexOf(data), opts && opts.floor);
+    var idx = applyAttrs(indexOf(data), attrsOf(opts && (opts.attrs || (opts.floor > 0 ? opts.floor : null))));
     opts = opts || {};
     var g = idx.generators.get(genName);
     if (!g) throw new Error("未知发电厂：" + genName);
@@ -617,7 +758,7 @@
       mode: "building", block: genName, count: count, plan: 0, planTotal: 0,
       products: [{ name: "电力", type: "power", rate: round(netEach * count) }],
       inputs: [], tree: null, warnings: [], order: [], liquidExtra: {},
-      machines: {}, demand: {}, power: 0, extraPower: 0, oilFloor: idx.oilFloor
+      machines: {}, demand: {}, power: 0, extraPower: 0, oilFloor: idx.oilFloor, attrs: idx.attrs || null
     };
     if (fuel) {
       res.inputs.push({ name: fuel[0], amount: round(fuel[1] * count) });
@@ -642,12 +783,13 @@
       })
     };
     recalcPower(idx, res);          // 发电厂 power 记 0，这里只汇总液体
+    attachLoops(idx, res);
     if (opts.sources) applySources(data, res, opts.sources);
     return res;
   }
 
   function expandBuilding(data, blockName, count, opts) {
-    var idx = applyFloor(indexOf(data), opts && opts.floor);
+    var idx = applyAttrs(indexOf(data), attrsOf(opts && (opts.attrs || (opts.floor > 0 ? opts.floor : null))));
     opts = opts || {};
     if (idx.generators && idx.generators.get(blockName)) return expandGenerator(data, blockName, count, opts);
     var b = idx.blocks.get(blockName);
@@ -700,12 +842,14 @@
       planTotal: b.kind === "unit" && b.factoryKind !== "reconstructor" ? (b.plans || []).length : 0
     });
     res.oilFloor = idx.oilFloor;
+    res.attrs = idx.attrs || null;
     // 目标建筑自身也进建造清单（电力/液体要一起算进去：ex.result 里还没有它）
     res.machines[blockName] = (res.machines[blockName] || 0) + count;
     res.machines = sortMachines(res.machines);
     /* 注意：目标建筑的液体已经通过 machines 进 liquidDemand，别再塞 liquidExtra，否则会重复计一遍
      * （expandBuilding(coal-centrifuge,2) 曾经因此把 15/s 的油显示成 9/s）。 */
     recalcPower(idx, res);
+    attachLoops(idx, res);
     if (b.factoryKind === "assembler") {
       res.warnings.push("组装厂消耗的是方块（Payload），这里按外部输入处理，不展开成工厂");
     }
@@ -766,7 +910,7 @@
 
   /* targets = [{block:"silicon-smelter", count:2}, {block:"graphite-press", count:3}] */
   function expandMixed(data, targets, opts) {
-    var idx = applyFloor(indexOf(data), opts && opts.floor);
+    var idx = applyAttrs(indexOf(data), attrsOf(opts && (opts.attrs || (opts.floor > 0 ? opts.floor : null))));
     opts = opts || {};
     var list = (targets || []).map(function (t) {
       if (!t || !t.block) throw new Error("混合厂的每个目标都要写方块名");
@@ -965,6 +1109,7 @@
       warnings: warnings,
       tree: null,
       oilFloor: idx.oilFloor,
+      attrs: idx.attrs || null,
       snapshot: idx.snapshot || ""
     };
     Object.keys(boundaryRate).sort().forEach(function (k) {
@@ -1222,7 +1367,7 @@
 
   /* 抽水泵：要 rate 个/s 的某种液体，要几台泵、多少电、吃什么 */
   function pumpPlan(data, liquidName, amount, pumpName, floor) {
-    var idx = applyFloor(indexOf(data), floor);
+    var idx = applyAttrs(indexOf(data), attrsOf(floor));
     var p = idx.pumps.get(pumpName);
     if (!p) throw new Error("未知抽水泵：" + pumpName);
     if (p.liquid !== liquidName) {
@@ -1242,7 +1387,7 @@
   /* 液体需求换算成抽水机台数：小泵(机械泵)→中泵(回转泵)→大泵(脉冲泵)…
    * 用户口径里水常按"几台泵"计，所以每种液体都给出各档泵要几台（向上取整）。 */
   function pumpEquivalents(data, liquidName, amount, floor) {
-    var idx = applyFloor(indexOf(data), floor);
+    var idx = applyAttrs(indexOf(data), attrsOf(floor));
     var out = [];
     idx.pumps.forEach(function (p) {
       if (p.liquid !== liquidName || !(p.perSecond > 0)) return;
@@ -1262,7 +1407,7 @@
    * 例：18/s 水 → 小泵 3 台（合计 21/s，富余 3/s），而不是中泵 1 台（48/s，富余 30/s）。 */
   var PUMP_TIERS = ["mechanical-pump", "rotary-pump", "impulse-pump"];
   function pumpMix(data, liquidName, amount, floor) {
-    return pumpMixIdx(applyFloor(indexOf(data), floor), liquidName, amount);
+    return pumpMixIdx(applyAttrs(indexOf(data), attrsOf(floor)), liquidName, amount);
   }
   function pumpMixIdx(idx, liquidName, amount) {
     var tiers = [];
@@ -1718,8 +1863,8 @@
 
   /* 便捷：把结果摊平成表格行 */
   function machineRows(data, result) {
-    /* 油田属性会改石油钻井的每秒产量，所以这里也要按 result.oilFloor 重算索引 */
-    var idx = applyFloor(indexOf(data), result && result.oilFloor);
+    /* 环境属性会改抽液方块的每秒产量，所以这里也要按 result 的属性重算索引 */
+    var idx = applyAttrs(indexOf(data), attrsOf(result && (result.attrs || (result.oilFloor > 0 ? result.oilFloor : null))));
     return Object.keys(result.machines).map(function (name) {
       var b = anyBlock(idx, name);
       var count = result.machines[name];
@@ -1816,6 +1961,10 @@
               chainFromBlock: chainFromBlock, chainsForBlock: chainsForBlock,
               pumpPlan: pumpPlan, pumpEquivalents: pumpEquivalents, pumpMix: pumpMix,
       applyFloor: applyFloor,
+      applyAttrs: applyAttrs,
+      detectCycles: detectCycles,
+      cycleText: cycleText,
+      attrsOf: attrsOf,
               powerMix: powerMix,
               applySources: applySources, recalcPower: recalcPower,
               liquidDemand: liquidDemand, DEFAULT_CHANNEL: DEFAULT_CHANNEL };

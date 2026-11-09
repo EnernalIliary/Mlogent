@@ -271,6 +271,31 @@ def case_oil_drill():
 
 
 ok("石油钻井：3:1 只建 1 台、吃沙/水写进卡片、外部电力行带发电厂图标", case_oil_drill)
+
+def case_attrs():
+    """环境属性：卡片要把 oil/water 的口径写出来（不然 10.5 油/s 看不出出处）。"""
+    r = run_cli(["--item", "coal", "--rate", "6", "--boundary", "none,sand", "--liquids", "auto", "--attr", "oil=0.7"])
+    t = flat(r)
+    assert "环境属性" in t, t
+    assert "oil 0.7" in t, t
+    assert "10.5" in t, t
+    mech = [m for m in r["machines"] if m["name"] == "oil-extractor"][0]
+    assert mech["count"] == 2, mech
+    check_width(r)
+
+
+def case_loop():
+    """循环产线：卡片单列一节，把环里的链写清楚。"""
+    r = run_cli(["--item", "coal", "--rate", "6", "--boundary", "none", "--liquids", "auto",
+                 "--liquid", "oil=make:spore-press", "--liquid", "water=pump:reinforced-pump"])
+    t = flat(r)
+    assert "循环产线" in t, t
+    assert "hydrogen" in t and "reinforced-pump" in t, t
+    assert r.get("loops"), "core 没给 loops 字段"
+    check_width(r)
+
+ok("环境属性：卡片写 oil 0.7 与 10.5 油/s，钻井 2 台", case_attrs)
+ok("循环产线：卡片单列一节并写出连接物品", case_loop)
 ok("混合厂：标题/目标表/共享省台数/对比分别建", case_mixed)
 ok("混合厂：发电设备当目标时写厂内发电与净电力", case_mixed_generator)
 

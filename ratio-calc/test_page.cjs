@@ -443,5 +443,53 @@ check("油田属性：调回 1.5 后钻井回到 1 台", /22\.5\/s/.test(txt("ma
   txt("machines").slice(0, 400));
 window.__ratio.autoliq(false, "coal, sand");
 
+/* 环境属性通用化 + 循环产线：页面也能表达（water 输入、液体来源下拉、树里 ⟲） */
+check("环境属性：页面有 #waterfloor 输入框", !!$("waterfloor"));
+check("环境属性：__ratio.attrs({oil:0.7}) 时钻井变 2 台、单台 10.5/s", (() => {
+  $("target").value = "coal";
+  $("rate").value = "6";
+  window.__ratio.setBoundary("sand");
+  window.__ratio.autoliq(true);
+  window.__ratio.attrs({ oil: 0.7 });
+  const m = (window.__ratio.last() || {}).machines || {};
+  const each = ((window.__ratio.last() || {}).liquidFrom || {}).oil || {};
+  return m["oil-extractor"] === 2 && Math.abs((each.perSecondEach || 0) - 10.5) < 1e-6;
+})(), txt("machines"));
+check("环境属性：__ratio.attrs(1.5) 回到 1 台、22.5/s", (() => {
+  window.__ratio.attrs(1.5);
+  const m = (window.__ratio.last() || {}).machines || {};
+  const each = ((window.__ratio.last() || {}).liquidFrom || {}).oil || {};
+  return m["oil-extractor"] === 1 && Math.abs((each.perSecondEach || 0) - 22.5) < 1e-6;
+})(), txt("machines"));
+check("液体来源：下拉里有「转化」选项（make）", (() => {
+  /* 油改成外部运入 ⇒ 油那一行的下拉会列出所有来源：外部运入 / 石油钻井 / spore-press（转化） */
+  $("target").value = "coal";
+  $("rate").value = "6";
+  window.__ratio.setBoundary("sand");
+  window.__ratio.autoliq(false);
+  window.__ratio.src("oil", { type: "import" });
+  const h = txt("liquids");
+  return /make:/.test(h) && /转化/.test(h);
+})(), txt("liquids").slice(0, 600));
+check("循环产线：石油走 spore-press、水走强化泵时树里出现 ⟲ 循环", (() => {
+  $("target").value = "coal";
+  $("rate").value = "6";
+  window.__ratio.setBoundary("none");
+  window.__ratio.autoliq(true);
+  window.__ratio.liq("oil", "make:spore-press");
+  window.__ratio.liq("water", "pump:reinforced-pump");
+  const links = (window.__ratio.last() || {}).loops || [];
+  const html = txt("tree") + " " + txt("warn");
+  window.__ratio.liq("oil", "import");
+  window.__ratio.liq("water", "import");
+  return links.length >= 1 || /⟲/.test(html);
+})(), txt("tree"));
+check("循环产线：恢复默认后没有 ⟲", (() => {
+  window.__ratio.autoliq(false);
+  window.__ratio.setBoundary("coal, sand");
+  window.__ratio.attrs(1.5);
+  return !/⟲/.test(txt("tree"));
+})(), txt("tree"));
+
 console.log(bad ? `\n${bad} 项失败` : "\n页面链路全部通过");
 process.exit(bad ? 1 : 0);

@@ -83,6 +83,40 @@ function parseForce(v) {
 /* 外部运入的默认入料方式：跟 core.js 的 DEFAULT_CHANNEL 保持一致（蓝带） */
 const DEFAULT_CHANNEL = "belt-blue";
 
+/* --attr oil=0.7,water=1.2  环境属性（Attribute.*）
+ * 抽液方块的产量取决于它看的地板属性：Fracker(oil) 22.5@1.5、SolidPump(water) 6.6@0。
+ * 不传就是数据里的默认值（oil 满黑沙 1.5；water 0 = 无属性地面）。 */
+function parseAttrs(spec) {
+  const out = {};
+  if (!spec) return out;
+  const spec2 = Array.isArray(spec) ? spec.join(",") : String(spec);
+  spec2.split(",").forEach(part => {
+    const s2 = part.trim();
+    if (!s2) return;
+    const eq = s2.indexOf("=");
+    if (eq < 0) throw new Error("--attr 格式：名字=数值（如 oil=0.7,water=1.2）：" + s2);
+    const k = s2.slice(0, eq).trim();
+    const v = Number(s2.slice(eq + 1));
+    if (!isFinite(v) || v < 0) throw new Error("--attr " + k + " 的数值不对：" + s2);
+    out[k] = v;
+  });
+  return out;
+}
+
+/* 把属性渲染成人话：oil 0.7（oil-extractor 10.5/s）、water 1（water-extractor 13.2/s） */
+function attrText(env, attrs) {
+  if (!attrs) return "";
+  const idx2 = env.R.applyAttrs(env.idx, attrs);
+  return Object.keys(attrs).sort().map(k => {
+    let best = null;
+    idx2.pumps.forEach(pp => {
+      if (pp.attribute !== k || !(pp.perSecond > 0)) return;
+      if (!best || pp.perSecond > best.perSecond) best = pp;
+    });
+    return k + " " + fmtNum(attrs[k]) + (best ? "（" + best.name + " " + fmtNum(best.perSecond) + "/s）" : "");
+  }).join("、");
+}
+
 function parseSources(list) {
   if (!list) list = [];
   if (!Array.isArray(list)) list = [list];
@@ -193,11 +227,13 @@ function query(opts) {
   else boundary = given;
   const force = parseForce(opts.force);
   const depth = num(opts.depth, 12);
-  /* --oilfloor：油田属性（Attribute.oil）。默认 1.5 = 满黑沙；0.7 沙地、0.3 盐地、2.0 页岩。
-   * 石油钻井每秒 = pumpAmount×60×属性，所以属性不同钻井台数也不同。 */
+  /* 环境属性：--attr oil=0.7,water=1.2（通用）；--oilfloor 0.7 是 attrs.oil 的旧写法。
+   * 抽液方块每秒 = pumpAmount×60×(validTiles+属性)，所以属性一变台数就变。 */
+  const attrOpts = parseAttrs(opts.attr);
   const oilFloor = num(opts.oilfloor, 0);
-  /* 不传 --oilfloor 时用数据里的默认属性（满黑沙 1.5） */
-  const floorVal = oilFloor > 0 ? oilFloor : ((env.idx && env.idx.oilFloor) || 1.5);
+  if (oilFloor > 0) attrOpts.oil = oilFloor;
+  const attrsOn = Object.keys(attrOpts).length ? attrOpts : null;
+  const oilFloorVal = (attrsOn && attrsOn.oil != null) ? attrsOn.oil : ((env.idx && env.idx.oilFloor) || 1.5);
   const sources = parseSources(opts.src || []);
   const liqOpts = liquidOptions(opts);
   /* --multi：允许分离机/解离机自动参与递归（默认关，否则铜/铅/钛会被自动改建成吃矿渣的分离机） */
@@ -232,7 +268,7 @@ function query(opts) {
     const targets = parseMix(opts.mix);
     const r = R.expandMixed(DATA, targets, Object.assign({
       boundary: boundary, force: force, maxDepth: depth, sources: sources, multi: multiOn,
-      floor: oilFloor > 0 ? oilFloor : undefined
+      attrs: attrsOn
     }, liqOpts));
     res.mode = "mixed";
     res.targets = r.targets.map(t => ({
@@ -260,6 +296,8 @@ function query(opts) {
     res.liquidFrom = r.liquidFrom || {};
     res.liquidNet = r.liquidNet || [];
     res.byproducts = r.byproducts || [];
+  res.loops = r.loops || [];
+  res.cycles = r.cycles || [];
   } else if (opts.block) {
     const count = num(opts.count, 1);
     /* 选中的是兵厂 → 直接走 T1→T5 大循环（和页面「按目标建筑台数」一致） */
@@ -274,7 +312,7 @@ function query(opts) {
       boundary: boundary, force: force, maxDepth: depth,
       plan: num(opts.plan, 0), sources: sources,
       fuel: opts.genfuel ? String(opts.genfuel) : null, multi: multiOn,
-      floor: oilFloor > 0 ? oilFloor : undefined
+      attrs: attrsOn
     }, liqOpts));
     res.mode = "building";
     res.target = String(opts.block);
@@ -292,12 +330,14 @@ function query(opts) {
     res.liquidFrom = r.liquidFrom || {};
     res.liquidNet = r.liquidNet || [];
     res.byproducts = r.byproducts || [];
+  res.loops = r.loops || [];
+  res.cycles = r.cycles || [];
     if (r.planTotal > 1) res.warnings.push("该兵厂有 " + r.planTotal + " 个生产计划，用的是第 " + (r.plan + 1) + " 个（--plan 可换）");
   } else if (opts.item) {
     const rate = num(opts.rate, 1);
     const r = R.expand(DATA, String(opts.item), rate, boundary, force,
       Object.assign({ maxDepth: depth, sources: sources, multi: multiOn,
-        floor: oilFloor > 0 ? oilFloor : undefined }, liqOpts));
+        attrs: attrsOn }, liqOpts));
     res.mode = "item";
     res.target = String(opts.item);
     res.requested = rate;
@@ -313,6 +353,8 @@ function query(opts) {
     res.liquidFrom = r.liquidFrom || {};
     res.liquidNet = r.liquidNet || [];
     res.byproducts = r.byproducts || [];
+  res.loops = r.loops || [];
+  res.cycles = r.cycles || [];
   } else {
     throw new Error("要给 --item <物品> --rate <每秒> 或 --block <方块> --count <台数>");
   }
@@ -334,7 +376,18 @@ function query(opts) {
     }
   }
   res.warnings = Array.from(new Set(res.warnings));
-  res.oilFloor = floorVal;
+  res.attrs = attrsOn;
+  res.oilFloor = oilFloorVal;
+  /* render 层没有 env，这里先渲染好；默认也写 oil 口径（1.5），否则石油钻井的 22.5 看不出出处 */
+  res.attrText = attrText(env, attrsOn || { oil: oilFloorVal });
+  /* machines 可能是 {名:台数} 也可能是 attach 前的行数组，两种都认 */
+  var mNames = Array.isArray(res.machines)
+    ? res.machines.map(function (m) { return m.name; })
+    : Object.keys(res.machines || {});
+  res.usesAttr = mNames.some(function (n) {
+    var p = env.idx.pumps.get(n);
+    return !!(p && p.attribute);
+  });
   return attachIcons(res);
 }
 
@@ -374,7 +427,7 @@ function attachIcons(res) {
   res.pumpMix = {};
   if (env.R && env.R.pumpMix) {
     Object.keys(amountOf).forEach(name => {
-      const mix = env.R.pumpMix(DATA, name, amountOf[name], res.oilFloor);
+      const mix = env.R.pumpMix(DATA, name, amountOf[name], res.attrs);
       if (mix) res.pumpMix[name] = mix;
     });
   }
@@ -615,12 +668,9 @@ function renderText(res) {
     const t = mixText(k, res.pumpMix[k]);
     if (t) L.push("  泵换算：" + t);
   });
-  /* 油田属性（Fracker 产油 = pumpAmount×60×Attribute.oil）：用到石油钻井或非默认值时提一句 */
-  const frac = Object.keys(res.liquidFrom || {}).filter(k => (res.liquidFrom[k] || {}).block === "oil-extractor");
-  if (res.oilFloor && (frac.length || Math.abs(res.oilFloor - 1.5) > 1e-9)) {
-    L.push("  油田属性：" + fmtNum(res.oilFloor) + (Math.abs(res.oilFloor - 1.5) < 1e-9
-      ? "（darksand 满黑沙，石油钻井 " + fmtNum(22.5) + " 油/s）"
-      : "（自定义；石油钻井 " + fmtNum(22.5 * res.oilFloor / 1.5) + " 油/s）"));
+  /* 环境属性：显式给了属性、或场上有吃属性的抽液方块（石油钻井/抽水机）时提一句 */
+  if (res.attrs || res.usesAttr) {
+    L.push("  环境属性：" + (res.attrText || ("oil " + fmtNum(res.oilFloor))));
   }
   if ((res.byproducts || []).length) {
     L.push("  顺带产物：" + res.byproducts.map(b => b.name + " " + fmtNum(b.perSecond) + "/s").join("、")
@@ -762,6 +812,7 @@ function renderMarkdown(res) {
     L.push("供电：" + s.name + " ×" + s.count + "（净 " + fmtNum(s.netTotal) + "/s"
       + (s.fuel ? "，烧 " + s.fuel.name + " " + fmtNum(s.fuel.perSecond) + "/s" : "") + "）");
   }
+  if (res.attrs || res.usesAttr) L.push("- 环境属性：" + (res.attrText || ""));
   if (res.warnings.length) L.push("> ⚠ " + res.warnings.join("；"));
   return L.join("\n");
 }
@@ -802,7 +853,8 @@ function usage() {
     "  --src item=import|drill:<钻头>:<矿格数>:<0|1>|multi:<方块>   外部来源（可重复）",
     "  --liquids auto                      液体自产：机器吃的液体没人供时自动接钻井/转化方块",
     "  --multi                             分离机/解离机也参与自动递归（默认只在“指定配方”里选才用）",
-    "  --oilfloor <X>                      油田属性（Attribute.oil，默认 1.5 = 满黑沙；石油钻井 = 0.25×60×X）",
+    "  --attr oil=0.7,water=1.2            环境属性（Attribute.*）：抽液方块每秒 = pumpAmount×60×(validTiles+属性)",
+    "  --oilfloor <X>                      等价于 --attr oil=X（默认 1.5 = 满黑沙；石油钻井 = 0.25×60×X）",
     "  --liquid oil=make|pump|import[:方块]  逐种液体指定自产方式（oil=make:spore-press）",
     "  --liquidname oil=<方块>              只指定产液方块（方式按 auto 判）",
     "  --gen <发电厂> --genfuel <燃料> [--gencount N] [--gendemand X]  供电方案（N=0/省略则自动补足）",

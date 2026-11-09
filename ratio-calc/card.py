@@ -221,10 +221,53 @@ def _machine_section(c, res):
                 bits.append("吃 " + "+".join("%s %s/s" % (i["name"], fmt(i["perSecond"])) for i in ins[:3]))
             c.row(m.get("icon"), m.get("name") or "?", "×%d" % int(m.get("count") or 0),
                   " · ".join(bits) or None)
-        # 石油钻井的产量取决于地板属性（Attribute.oil）：把口径写在抽水节里
-        if any((m.get("name") or "") == "oil-extractor" for m in plist) and res.get("oilFloor"):
-            c.note("· 油田属性 %s（Attribute.oil，满黑沙 1.5 ⇒ 石油钻井 22.5 油/s）"
-                   % fmt(res["oilFloor"]), DIM)
+        # 抽液方块的产量取决于它看的地板属性（Attribute.*）：把口径写在抽水节里
+        note = _attr_note(res)
+        if note:
+            c.note(note, DIM)
+
+
+def _attr_note(res: dict) -> str | None:
+    """环境属性注：oil 影响石油钻井（22.5×v/1.5），water 影响抽水机（6.6×(1+v)）。"""
+    attrs = res.get("attrs") or {}
+    if not attrs and res.get("oilFloor") and abs(float(res["oilFloor"]) - 1.5) > 1e-9:
+        attrs = {"oil": res["oilFloor"]}
+    if not attrs:
+        return None
+    bits = []
+    for k in sorted(attrs):
+        v = float(attrs[k])
+        if k == "oil":
+            bits.append("oil %s（石油钻井 %s 油/s）" % (fmt(v), fmt(22.5 * v / 1.5)))
+        elif k == "water":
+            bits.append("water %s（抽水机 %s 水/s）" % (fmt(v), fmt(6.6 * (1.0 + v))))
+        else:
+            bits.append("%s %s" % (k, fmt(v)))
+    return "· 环境属性 " + "、".join(bits)
+
+
+def _cycle_text(loop: dict) -> str:
+    """把 {path:[方块], items:[物品]} 拼成 A -[物品]-> B。"""
+    path = loop.get("path") or []
+    items = loop.get("items") or []
+    if not path:
+        return ""
+    out = [path[0]]
+    for i, it in enumerate(items):
+        out.append("-[ %s ]->" % it)
+        if i + 1 < len(path):
+            out.append(path[i + 1])
+    return " ".join(out)
+
+
+def _loop_section(c, res):
+    """循环产线：机器之间互相供料（液体环最常见），说清环在哪里。"""
+    loops = [lp for lp in (res.get("loops") or []) if _cycle_text(lp)]
+    if not loops:
+        return
+    c.section("循环产线（环内互相供料，缺的按外部输入记）")
+    for lp in loops:
+        c.note("· " + _cycle_text(lp), ORANGE)
 
 
 def _byproduct_section(c, res):
@@ -382,10 +425,11 @@ def _liquid_section(c, res):
             # 左边一定是"需求量"（泵要补多少），不是上面行里写的产出量；
             # 否则会出现「water 14/s ≈ 小泵 2 台（合计 14/s，富余 5/s）」这种自相矛盾的句子。
             mix = equiv.get(name) or {}
-            need = mix.get("need")
-            if need is None:
-                need = (a.get("count") or 0) * (a.get("perSecondEach") or 0)
-            c.note("泵换算：%s %s/s ≈ %s" % (name, fmt(need), eq))
+            # 注意：不要复用外层的 need（它是"需要外部运入的液体列表"），否则第二个液体就会炸 */
+            need_amt = mix.get("need")
+            if need_amt is None:
+                need_amt = (a.get("count") or 0) * (a.get("perSecondEach") or 0)
+            c.note("泵换算：%s %s/s ≈ %s" % (name, fmt(need_amt), eq))
 
 
 def _power_section(c, res):
@@ -455,6 +499,7 @@ def build_card(res: dict) -> Card:
         _import_section(c, res)
         _liquid_section(c, res)
         _power_section(c, res)
+        _loop_section(c, res)
         _warn_section(c, res)
         return c
 
@@ -497,6 +542,7 @@ def build_card(res: dict) -> Card:
         _import_section(c, res)
         _liquid_section(c, res)
         _power_section(c, res)
+        _loop_section(c, res)
         _warn_section(c, res)
         return c
 
@@ -532,6 +578,7 @@ def build_card(res: dict) -> Card:
     _import_section(c, res)
     _liquid_section(c, res)
     _power_section(c, res)
+    _loop_section(c, res)
     _warn_section(c, res)
     return c
 

@@ -207,7 +207,8 @@ node cli.cjs --item coal --rate 6 --boundary none --liquid oil=make
 | `--liquid oil=make` | 逐种指定：`auto` / `pump`（钻井）/ `make`（转化方块）/ `import`（外部运入） |
 | `--liquid oil=make:spore-press` | 方式 + 方块名 |
 | `--liquidname oil=spore-press` | 只指定方块名，方式仍按 auto 判 |
-| `--oilfloor 0.7` | 油田地板属性（`Attribute.oil`，默认 1.5 = 满黑沙）；石油钻井每秒 = `0.25×60×该值` |
+| `--attr oil=0.7,water=1.2` | 环境属性（`Attribute.*`）：抽液方块每秒 = `pumpAmount×60×(validTiles+属性)`。oil 默认 1.5（满黑沙 ⇒ 石油钻井 22.5/s）、water 默认 1（地下水抽取器 6.6/s） |
+| `--oilfloor 0.7` | 旧写法，等价于 `--attr oil=0.7`（保留，别打断已有脚本） |
 
 - 产线数据（`data/gamedata.js`）：`coal-centrifuge` 30 帧、吃 oil 6/s、出 coal 2/s（3 油换 1 煤）；
   `oil-extractor` **22.5/s**（吃沙 1/s + 水 9/s，要油田，按满黑沙属性 1.5 算；游戏 UI 印的 15/s 是
@@ -266,10 +267,17 @@ node ratio-calc/cli.cjs --item graphite --rate 1 --boundary "coal,sand" --force 
 - **钻井吃的沙本来就计算在内**：钻井的 `inputs`（sand）从一开始就进了递归需求
   （沙没进边界就自动接粉碎机吃 scrap；进了边界就写在「边界输入」），
   只是以前机器行不显示，看起来像没算。
-- **油田属性可调（`--oilfloor`）**：石油钻井是 `Fracker`（继承 `SolidPump`），每秒 =
-  `pumpAmount × 60 × Attribute.oil`，默认 **1.5（满黑沙）= 22.5 油/s**。改成 0.7（沙地）
-  就变 10.5 油/s，CLI 会多打一行「油田属性：0.7（自定义；石油钻井 10.5 油/s）」，
-  页面上是「油田属性」数字框（`?oilfloor=0.7` 也能预设），卡片的抽水节会注一行。
+- **环境属性可调（`--attr`，旧名 `--oilfloor`）**：抽液方块（`Fracker` / `SolidPump`）的每秒产量是
+  `pumpAmount × 60 × (validTiles + Attribute.X)`，所以地板/水源属性直接决定台数。
+  - oil 默认 **1.5（满黑沙）= 22.5 油/s**；改成 0.7（沙地）= 10.5 油/s，`coal 6/s` 就从 1 台钻井变 2 台；
+    2.0（页岩）= 30 油/s。
+  - water 默认 1（地下水抽取器 `0.11×60×1 = 6.6/s`），改成 1.2 就变 7.2/s。
+  - 统一入口 `--attr oil=0.7,water=1.2`；`--oilfloor 0.7` 是 `--attr oil=0.7` 的旧写法，两条命令输出完全一致。
+  - 页面是「环境属性」两个数字框（oil / water，`?oilfloor=0.7&waterfloor=1.2` 也能预设）；
+    CLI 多打一行「环境属性：oil 0.7（oil-extractor 10.5/s）、water 1（water-extractor 13.2/s）」；
+    卡片抽水节注一行（`_attr_note`）。
+  - 水属性只对**显式指定的**泵生效：自动加和里只有机械泵/回转泵/脉冲泵，
+    地下水抽取器要 `--liquid water=pump:water-extractor` 才会被选。
 - **物品工厂现在会写产出**：以前产出行被 `kind !== "item"` 挡掉，`pulverizer` 只写「吃 scrap 1.5/s」
   不写「→ sand」，看起来沙凭空消失（用户 2026-11-09 就因此问过"油井的沙算了吗"）。
   现在写成「吃 scrap 1.5/s → sand 1.5/s」。
@@ -281,7 +289,42 @@ node ratio-calc/cli.cjs --item graphite --rate 1 --boundary "coal,sand" --force 
 - **孢子路线的配比（即"513"）**：3 台分离机吃 18 油/s ⇒ 1 台压缩机（18 油/s，同时吃 3 孢子/s）⇒ 5 台培养基（0.6 孢子/s 各）
   ⇒ **培养基 : 压缩 : 分离 = 5 : 1 : 3**，水 90/s，即 **15 水 / 煤**。
   `--item coal --rate 6 --liquid oil=make` 就是这个比例（望远镜看：5 台培养基、1 台压缩机、3 台分离机）。
+- **液体来源在页面上可以直接选**：每行液体一个下拉，选项是「外部运入 / 抽水机 · 方块名 / 转化 · 方块名」，
+  选转化方块（`spore-press` / 电解槽之类）等价于 `--liquid oil=make:spore-press`；
+  命令行的 `__ratio.liq("oil", "make:spore-press")` 是同一个入口。
 - 局限：混合厂里转化方块的物品入料按**外部输入**计并给一条 warning（混合厂不展开液体源的物品链）。
+
+
+### 3.8 环检测（循环产线会被标出来，不会无限展开）
+
+配方图里可能存在环（这台机器的产物是那台的原料、那台又吃回来）。`core.js` 有两层防护：
+
+| 层 | 函数 | 做什么 |
+|---|---|---|
+| 递归展开时 | `makeExpander().need()` 的 `path` | 已经走过这条路就停：节点标 `reason:"cycle"`、`node.cycle` 记 `A ← B ← A`，缺的量按**外部输入**记，不再展开 |
+| 结果成型后 | `detectCycles(idx, machines)` + `attachLoops` | 只看**已建出来的**方块，沿「方块 → 它吃的物品 → 谁能产这个物品」找回到起点的路径（≤8 步），结果放 `res.loops = [{path:[…], items:[…]}]` 并推一条 warning |
+
+展示方式：
+
+```
+#   ⚠ 循环产线：reinforced-pump -[ hydrogen ]-> electrolyzer -[ water ]-> reinforced-pump
+#     （环内互相供料；环里产不抵耗的部分已按外部输入记）
+```
+
+- 递归树上出现 `⟲ 循环（环内自供，不再展开）` 标签，下一行写环链 `reinforced-pump ← electrolyzer ← reinforced-pump`；
+- 卡片单列一节「循环产线（环内互相供料，缺的按外部输入记）」。
+
+```bash
+node ratio-calc/cli.cjs --item coal --rate 6 --boundary none --liquids auto \
+  --liquid oil=make:spore-press --liquid water=pump:reinforced-pump
+#   抽水：reinforced-pump ×2 + electrolyzer ×1（强化泵要氢，电解槽吃水又产氢 ⇒ 成环）
+#   ⚠ 循环产线：reinforced-pump -[ hydrogen ]-> electrolyzer -[ water ]-> reinforced-pump
+```
+
+- **真实数据里没有纯物品环**：煤炭分离机吃油、解离机吃废料、熔炉吃废料，都是单向；
+  能成环的只有**液体**（强化泵吃氢 ↔ 电解槽吃水又产氢），所以这个功能主要对付液体环。
+- **不自动解环**：环内台数由外部输入兜底（警告里写「产不抵耗的部分已按外部输入记」），
+  自动解环要解方程，暂不做；工具只负责**告诉你环在哪**，别把环当成免费产能。
 
 
 ### 4. 贴图原尺寸（优先 `-full` 大图）
@@ -446,7 +489,7 @@ python -X utf8 ratio-calc/card.py --json result.json --out card.png   # 喂现�
 `docs/card-via.png`(700×248，蓝带入料)、`docs/card-pump.png`(700×414，钻头 + 抽水机)、
 `docs/card-unit.png`(700×378，兵厂单级)、`docs/mix.png`(700×376，混合厂卡片)、`docs/page-mixed.png`（混合厂页签整页截图）、
 `docs/card-coal.png`(700×526，煤炭 6/s：离心机×3 + 石油钻井×1（22.5 油/s）+ 吃料 sand/water + 泵换算 + 带图标的外部电力换算)、
-`docs/page-coal.png`（1180×2150，页面截图：边界全物品/液体开关 + 配方下拉 + 多产物方块开关 + 油田属性输入框 + 机器表「吃料/s」列 + 带发电厂图标的外部电力换算）、
+`docs/page-coal.png`（1180×2150，页面截图：边界全物品/液体开关 + 配方下拉 + 多产物方块开关 + 环境属性两个数字框（oil / water） + 机器表「吃料/s」列 + 带发电厂图标的外部电力换算）、
 `docs/card-drill.png`(700×394，钻头并入工厂配比：机器行写 coal 3.234/s)、
 `docs/card-separator.png`（分离机进递归：台数按份额反推、顺带产物单列一节）、
 `docs/page-multi.png`（1180×2150，页面截图：指定配方选 separator，递归树带份额与顺带产物）。
@@ -534,10 +577,10 @@ python -X utf8 ratio-calc/card.py --json result.json --out card.png   # 喂现�
 ## 已验证
 
 ```
-node ratio-calc/test_core.cjs   → 14 项对拍 mbo calc 全部一致 + 162 项新算法断言通过（共 176 行 ok）
-node ratio-calc/test_page.cjs   → 101 项页面链路断言通过（含混合厂 9 项、液体自产 5 项、边界开关/配方下拉、钻头并入工厂配比、多产物方块进递归树 6 项）
-node ratio-calc/test_cli.cjs    → 67 项 CLI/HTTP 与 core.js 对拍通过（含 `--mix` 6 项、液体自产 6 项、钻头写入机器清单、分离机/解离机 5 项）
-python -X utf8 ratio-calc/test_card.py → 12 项卡片结构/排版断言通过（含混合厂 2 项、液体自产 1 项、图标 2 项、多产物副产 1 项）
+node ratio-calc/test_core.cjs   → 14 项对拍 mbo calc 全部一致 + 175 项新算法断言通过（共 189 行 ok）
+node ratio-calc/test_page.cjs   → 107 项页面链路断言通过（含混合厂 9 项、液体自产 5 项、边界开关/配方下拉、钻头并入工厂配比、多产物方块进递归树 6 项）
+node ratio-calc/test_cli.cjs    → 72 项 CLI/HTTP 与 core.js 对拍通过（含 `--mix` 6 项、液体自产 6 项、钻头写入机器清单、分离机/解离机 5 项）
+python -X utf8 ratio-calc/test_card.py → 14 项卡片结构/排版断言通过（含混合厂 2 项、液体自产 1 项、图标 2 项、多产物副产 1 项）
 ```
 
 对拍用例覆盖石墨/硅/合金/玻璃/塑料/爆炸物/燃烧物/相织物/孢子荚 + 3 个 `--force`；
@@ -551,7 +594,10 @@ dagger 与 stell 两条升级链、发电设备当目标建筑（蒸汽 ×2 → 
 石油钻井地板属性（默认 1.5 → 22.5 油/s、3 台离心机只要 1 台钻井、0.7 → 2 台 10.5/s、2.0 → 1 台 30/s）、
 混合厂液体只算一遍（3 台离心机 18 油/s、不再报外部运入）、
 多产物进递归树（`graphite` 的候选含 separator、默认仍走压机、`--force graphite=separator` → 4 台/电 264/矿渣 16/s、
-`--force sand=disassembler` → 1 台/废料 4/s、`--multi` 时 lead 2/s → 分离机 5 台、默认仍按外部输入）。
+`--force sand=disassembler` → 1 台/废料 4/s、`--multi` 时 lead 2/s → 分离机 5 台、默认仍按外部输入）、
+环境属性通用化（`attrsOf` 数字/对象、`--attr oil=0.7` 与 `--oilfloor 0.7` 输出相同、water 1 ⇒ 13.2/s、
+非法值报「数值不对」）、环检测（`detectCycles` 报出强化泵↔电解槽、`cycleText` 文案、普通产线 `loops` 为空、
+页面对应场景树里出现 `⟲`、卡片出现「循环产线」节）。
 
 截图用 Edge headless（Chrome headless 在这台机器上会超时被 kill）：
 `--headless=new --disable-gpu --no-sandbox --window-size=1180,2000 --virtual-time-budget=5000 --screenshot=...`
