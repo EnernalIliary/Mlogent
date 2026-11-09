@@ -402,7 +402,7 @@
     return out;
   }
 
-  function liquidSourcePlan(idx, liquid, amount, how, name) {
+  function liquidSourcePlan(idx, liquid, amount, how, name, flow) {
     var pumps = idx.liquidPumps.get(liquid) || [];
     var makers = idx.liquidMakers.get(liquid) || [];
     var pump = null, maker = null;
@@ -424,13 +424,31 @@
       }
     }
     if (pump) {
-      var n = Math.max(1, Math.ceil(amount / pump.perSecond - 1e-9));
+      /* flow（归一化）模式：不取整，台数可以是小数。
+       * 没指定具体泵时按"大泵铺满 + 最小一档吃零头"给连续解（总量正好等于需求，没有富余）。 */
+      if (flow && !name) {
+        var fmix = pumpMixFlow(idx, liquid, amount);
+        if (fmix) {
+          var fcounts = {}, ftotal = 0;
+          fmix.pumps.forEach(function (t) { fcounts[t.pump] = t.count; ftotal += t.count; });
+          var ffirst = idx.pumps.get(fmix.pumps[0].pump);
+          return {
+            type: "pump", block: fmix.pumps[0].pump, count: ftotal,
+            perSecond: ftotal > 0 ? amount / ftotal : 0,
+            counts: fcounts, mix: fmix.pumps,
+            inputs: ((ffirst && ffirst.inputs) || []).map(function (i) { return { name: i[0], amount: i[1] }; })
+          };
+        }
+      }
+      var n = flow ? amount / pump.perSecond
+                   : Math.max(1, Math.ceil(amount / pump.perSecond - 1e-9));
       var plan = {
         type: "pump", block: pump.name, count: n, perSecond: pump.perSecond,
         inputs: pump.inputs.map(function (i) { return { name: i[0], amount: i[1] }; })
       };
-      /* 没指定具体泵时，用"小泵 N 台 + 中泵 M 台 + 大泵 K 台"的加和来满足，避免一台大泵富余太多 */
-      if (!name) {
+      /* 没指定具体泵时，用"小泵 N 台 + 中泵 M 台 + 大泵 K 台"的加和来满足，避免一台大泵富余太多
+       * （flow 模式不拆档：已经用小数台数精确满足了，拆档反而变成整数又回到取整问题） */
+      if (!name && !flow) {
         var mix = pumpMixIdx(idx, liquid, amount);
         if (mix) {
           var counts = {}, total = 0;
@@ -447,7 +465,8 @@
       return plan;
     }
     if (maker) {
-      var m = Math.max(1, Math.ceil(amount / maker.perSecond - 1e-9));
+      var m = flow ? amount / maker.perSecond
+                   : Math.max(1, Math.ceil(amount / maker.perSecond - 1e-9));
       return {
         type: "make", block: maker.block.name, count: m, perSecond: maker.perSecond,
         inputs: maker.inputs.map(function (i) { return { name: i.name, amount: i.amount }; })
@@ -459,7 +478,10 @@
   /* ---------------------------------------------------------------- *
    * 物品需求的递归展开（两种入口共用）
    * ---------------------------------------------------------------- */
-  function makeExpander(idx, boundary, force, maxDepth, allowMulti) {
+  /* flow = "归一化"模式：台数不向上取整（可以是 1.5 台），所有速率都按每秒精确守恒。
+   * 这是学 TMI 的口径：先给"满效等价的分数台数"，要建整台时再看 eff = 分数/向上取整。 */
+  function makeExpander(idx, boundary, force, maxDepth, allowMulti, flow) {
+    var flowMode = !!flow;
     var bset = new Set(boundary || []);
     var fmap = force || {};
     var machines = {};
@@ -528,11 +550,13 @@
       }
       var pick = choose(item, amount);
       var b = pick.block;
-      var n = Math.max(1, Math.ceil(amount / idx.perSecond(b, item) - 1e-9));
+      var per = idx.perSecond(b, item);
+      var n = flowMode ? (per > 0 ? amount / per : 0)
+                       : Math.max(1, Math.ceil(amount / per - 1e-9));
       node.block = b.name;
       node.kind = b.kind || "item";
       node.count = n;
-      node.per = idx.perSecond(b, item);
+      node.per = per;
       node.actual = n * node.per;
       /* 多产物方块：记下"这个物品占多少份额"和同一批机器顺带出的其它产物（不进需求，只做展示） */
       if (b.isMulti) {
@@ -574,7 +598,7 @@
           if (bset.has(liq)) return;
           var how = howMap[liq] || "auto";
           if (how === "import" || how === "off") return;
-          var plan = liquidSourcePlan(idx, liq, net[liq], how, nameMap[liq]);
+          var plan = liquidSourcePlan(idx, liq, net[liq], how, nameMap[liq], flowMode);
           if (!plan) return;
           /* plan.counts：多档泵加和（大泵/中泵/小泵各有台数），否则就是单一方块 count 台 */
           var want = plan.counts || {};
@@ -721,12 +745,14 @@
   function expand(data, target, rate, boundary, force, opts) {
     var idx = applyAttrs(indexOf(data), attrsOf(opts && (opts.attrs || (opts.floor > 0 ? opts.floor : null))));
     if (!idx.itemSet.has(target)) throw new Error("未知物品：" + target);
-    var ex = makeExpander(idx, boundary, force, (opts && opts.maxDepth) || MAX_DEPTH, !!(opts && opts.multi));
+    var ex = makeExpander(idx, boundary, force, (opts && opts.maxDepth) || MAX_DEPTH,
+                          !!(opts && opts.multi), !!(opts && opts.flow));
     var root = ex.need(target, rate, 0, null);
     var liquidFrom = (opts && opts.liquids) ? ex.resolveLiquids(opts) : {};
     var res = ex.result({ target: target, requested: rate, tree: root, liquidFrom: liquidFrom });
     res.oilFloor = idx.oilFloor;
     res.attrs = idx.attrs || null;
+    res.flow = !!(opts && opts.flow);
     res.achieved = root && root.actual ? root.actual : 0;
     recalcPower(idx, res);          // 液体自产会把钻井/抽水泵塞进 machines，电力和液体都要重算一次
     attachLoops(idx, res);
@@ -795,7 +821,7 @@
     var b = idx.blocks.get(blockName);
     if (!b) throw new Error("未知方块：" + blockName);
     if (!(count > 0)) throw new Error("台数要大于 0");
-    var ex = makeExpander(idx, opts.boundary, opts.force, opts.maxDepth || MAX_DEPTH);
+    var ex = makeExpander(idx, opts.boundary, opts.force, opts.maxDepth || MAX_DEPTH, false, !!opts.flow);
 
     var products = [];
     var inputs = [];
@@ -843,6 +869,7 @@
     });
     res.oilFloor = idx.oilFloor;
     res.attrs = idx.attrs || null;
+    res.flow = !!opts.flow;
     // 目标建筑自身也进建造清单（电力/液体要一起算进去：ex.result 里还没有它）
     res.machines[blockName] = (res.machines[blockName] || 0) + count;
     res.machines = sortMachines(res.machines);
@@ -920,6 +947,7 @@
     var bset = new Set(opts.boundary || []);
     var fmap = opts.force || {};
     var allowMulti = !!opts.multi;
+    var flowMode = !!opts.flow;
     var maxDepth_ = opts.maxDepth || MAX_DEPTH;
     var warnings = [];
 
@@ -1023,7 +1051,8 @@
       var g = graph[item];
       if (!g) return;
       if (!(netRate[item] > 1e-9)) { allocByItem[item] = 0; return; }
-      var n = Math.max(1, Math.ceil(netRate[item] / g.per - 1e-9));
+      var n = flowMode ? netRate[item] / g.per
+                       : Math.max(1, Math.ceil(netRate[item] / g.per - 1e-9));
       allocByItem[item] = n;
       machines[g.block] = (machines[g.block] || 0) + n;
       order.push({ block: g.block, count: n, item: item, rate: round(netRate[item]), per: round(g.per) });
@@ -1138,7 +1167,7 @@
           if ((opts.boundary || []).indexOf(l.name) >= 0) return;
           var how = howMap[l.name] || "auto";
           if (how === "import" || how === "off") return;
-          var plan = liquidSourcePlan(idx, l.name, net, how, nameMap[l.name]);
+          var plan = liquidSourcePlan(idx, l.name, net, how, nameMap[l.name], flowMode);
           if (!plan) return;
           var cur = res.machines[plan.block] || 0;
           var add = plan.count - cur;
@@ -1409,6 +1438,35 @@
   function pumpMix(data, liquidName, amount, floor) {
     return pumpMixIdx(applyAttrs(indexOf(data), attrsOf(floor)), liquidName, amount);
   }
+  /* flow（归一化）用的泵组合：和 pumpMixIdx 同一个"大 → 小"思路，但台数是小数，
+   * 大泵按整台铺、剩下的零头给最小一档 —— 总量正好等于需求，既不留富余也不取整。 */
+  function pumpMixFlow(idx, liquidName, amount) {
+    var tiers = [];
+    PUMP_TIERS.forEach(function (n) {
+      var p = idx.pumps.get(n);
+      if (p && p.liquid === liquidName && p.perSecond > 0) {
+        tiers.push({ pump: n, perSecondEach: p.perSecond });
+      }
+    });
+    if (!tiers.length) return null;
+    tiers.sort(function (a, b) { return b.perSecondEach - a.perSecondEach; });
+    var rem = amount, list = [];
+    tiers.forEach(function (t, i) {
+      if (i === tiers.length - 1) return;              // 最小一档留给零头
+      if (t.perSecondEach > rem + 1e-9) return;
+      var c = Math.floor(rem / t.perSecondEach + 1e-9);
+      if (c > 0) {
+        list.push({ pump: t.pump, count: c, perSecondEach: t.perSecondEach });
+        rem -= c * t.perSecondEach;
+      }
+    });
+    var small = tiers[tiers.length - 1];
+    if (rem > 1e-9) list.push({ pump: small.pump, count: rem / small.perSecondEach, perSecondEach: small.perSecondEach });
+    if (!list.length) return null;
+    var total = list.reduce(function (a, b) { return a + b.count; }, 0);
+    return { need: amount, pumps: list, total: total };
+  }
+
   function pumpMixIdx(idx, liquidName, amount) {
     var tiers = [];
     PUMP_TIERS.forEach(function (n) {
@@ -1865,9 +1923,14 @@
   function machineRows(data, result) {
     /* 环境属性会改抽液方块的每秒产量，所以这里也要按 result 的属性重算索引 */
     var idx = applyAttrs(indexOf(data), attrsOf(result && (result.attrs || (result.oilFloor > 0 ? result.oilFloor : null))));
+    /* flow（归一化）模式：台数是"满效等价值"，可能是 1.5 台这种小数。
+     * countCeil = 真要建整台时的台数，eff = 只建整台时每台实际跑的效率（1.5/2 = 75%）。 */
+    var isFlow = !!(result && result.flow);
     return Object.keys(result.machines).map(function (name) {
       var b = anyBlock(idx, name);
       var count = result.machines[name];
+      var countCeil = isFlow ? Math.ceil(count - 1e-9) : count;
+      var eff = (isFlow && countCeil > 0) ? count / countCeil : 1;
       var outputs = [];
       var drillOuts = [];
       if (b && b.kind === "drill") {
@@ -1907,7 +1970,11 @@
       }
       return {
         name: name,
-        count: count,
+        count: isFlow ? Math.round(count * 100) / 100 : count,
+        countRaw: count,
+        countCeil: countCeil,
+        eff: isFlow && countCeil > 0 ? Math.round(count / countCeil * 1000) / 1000 : 1,
+        flow: isFlow,
         kind: b ? b.kind : "item",
         icon: b ? (b.icon || "") : "",
         size: b ? b.size : 0,

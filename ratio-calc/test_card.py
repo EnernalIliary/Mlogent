@@ -294,7 +294,20 @@ def case_loop():
     assert r.get("loops"), "core 没给 loops 字段"
     check_width(r)
 
+def case_flow():
+    """归一化（flow）：台数写小数，并注明整台建时要几台。"""
+    r = run_cli(["--item", "graphite", "--rate", "1", "--boundary", "coal,sand", "--flow"])
+    t = flat(r)
+    assert "x1.5" in t.lower() or "×1.5" in t, t
+    assert "整台 2" in t, t
+    gp = [m for m in r["machines"] if m["name"] == "graphite-press"][0]
+    assert gp["count"] == 1.5, gp
+    assert gp["flow"] is True, gp
+    check_width(r)
+
+
 ok("环境属性：卡片写 oil 0.7 与 10.5 油/s，钻井 2 台", case_attrs)
+ok("归一化：分数台数 + 整台台数", case_flow)
 ok("循环产线：卡片单列一节并写出连接物品", case_loop)
 ok("混合厂：标题/目标表/共享省台数/对比分别建", case_mixed)
 ok("混合厂：发电设备当目标时写厂内发电与净电力", case_mixed_generator)

@@ -491,5 +491,21 @@ check("循环产线：恢复默认后没有 ⟲", (() => {
   return !/⟲/.test(txt("tree"));
 })(), txt("tree"));
 
+check("归一化：勾上后压机 1.5 台、表里写「整台 2」", (() => {
+  $("target").value = "graphite";
+  $("rate").value = "1";
+  window.__ratio.setBoundary("coal, sand");
+  window.__ratio.autoliq(false);
+  window.__ratio.flow(true);
+  const m = (window.__ratio.last() || {}).machines || {};
+  const h = txt("machines");
+  return m["graphite-press"] === 1.5 && /1\.5/.test(h) && /整台 2/.test(h);
+})(), txt("machines"));
+check("归一化：关掉后回到 2 台", (() => {
+  window.__ratio.flow(false);
+  const m = (window.__ratio.last() || {}).machines || {};
+  return m["graphite-press"] === 2 && window.__ratio.flow() === false;
+})(), txt("machines"));
+
 console.log(bad ? `\n${bad} 项失败` : "\n页面链路全部通过");
 process.exit(bad ? 1 : 0);

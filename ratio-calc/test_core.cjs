@@ -436,6 +436,22 @@ function s2sum(m) { return m.pumps.reduce((a, p) => a + p.count, 0); }
   eq("环检测：普通产线没有环", (plain.loops || []).length, 0);
   ok("环检测：detectCycles 对建不出环的组合返回空",
      R.detectCycles(R.indexOf(DATA), { "graphite-press": 2 }).length === 0);
+
+  /* flow / 归一化：台数不向上取整，给"满效等价"的小数台数（学 TMI） */
+  const fl = R.expand(DATA, "graphite", 1, ["coal", "sand"], {}, { flow: true });
+  eq("flow：graphite 1/s → 压机 1.5 台", Math.round(fl.machines["graphite-press"] * 100) / 100, 1.5);
+  eq("flow：结果记 flow=true", fl.flow, true);
+  eq("flow：整数模式仍然 2 台", R.expand(DATA, "graphite", 1, ["coal", "sand"], {}, {}).machines["graphite-press"], 2);
+  const flCoal = R.expand(DATA, "coal", 6, ["none", "sand"], {}, { liquids: "auto", flow: true });
+  near("flow：油按 18/22.5 归一（0.8 台钻井）", flCoal.machines["oil-extractor"], 0.8, 1e-6);
+  near("flow：水按 7.2/7 归一（1.0286 台小泵）", flCoal.machines["mechanical-pump"], 7.2 / 7, 1e-6);
+  const rowsFl = R.machineRows(DATA, fl);
+  const gpRow = rowsFl.filter(r => r.name === "graphite-press")[0];
+  eq("flow：machineRows 给出整台台数", gpRow.countCeil, 2);
+  near("flow：machineRows 给出每台效率", gpRow.eff, 0.75, 1e-6);
+  /* 混合厂同样归一 */
+  const mixFl = R.expandMixed(DATA, [{ block: "coal-centrifuge", count: 3 }], { liquids: "auto", flow: true });
+  near("flow：混合厂钻井也归一（0.8 台）", mixFl.machines["oil-extractor"], 0.8, 1e-6);
 }
 
 console.log(f2 ? `\n${f2} 项新算法断言失败` : "\n新算法断言全部通过");

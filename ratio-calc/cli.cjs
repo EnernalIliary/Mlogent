@@ -240,11 +240,14 @@ function query(opts) {
   const liqOpts = liquidOptions(opts);
   /* --multi：允许分离机/解离机自动参与递归（默认关，否则铜/铅/钛会被自动改建成吃矿渣的分离机） */
   const multiOn = opts.multi === true || opts.multi === "on" || opts.multi === "1" || opts.multi === "yes";
+  /* --flow：归一化模式（学 TMI）——台数不向上取整，给"满效等价的分数台数"，速率全部按每秒守恒 */
+  const flowOn = opts.flow === true || opts.flow === "on" || opts.flow === "1" || opts.flow === "yes";
 
   const res = {
     ok: true, snapshot: DATA.snapshot || "", mode: null, target: null, requested: null,
     products: [], inputs: [], machines: [], demand: [], liquids: [], power: 0,
-    warnings: [], sources: [], liquidSources: [], supply: null, chain: null
+    warnings: [], sources: [], liquidSources: [], supply: null, chain: null,
+    flow: flowOn
   };
 
   if (opts.chain) {
@@ -270,7 +273,7 @@ function query(opts) {
     const targets = parseMix(opts.mix);
     const r = R.expandMixed(DATA, targets, Object.assign({
       boundary: boundary, force: force, maxDepth: depth, sources: sources, multi: multiOn,
-      attrs: attrsOn
+      attrs: attrsOn, flow: flowOn
     }, liqOpts));
     res.mode = "mixed";
     res.targets = r.targets.map(t => ({
@@ -314,7 +317,7 @@ function query(opts) {
       boundary: boundary, force: force, maxDepth: depth,
       plan: num(opts.plan, 0), sources: sources,
       fuel: opts.genfuel ? String(opts.genfuel) : null, multi: multiOn,
-      attrs: attrsOn
+      attrs: attrsOn, flow: flowOn
     }, liqOpts));
     res.mode = "building";
     res.target = String(opts.block);
@@ -339,7 +342,7 @@ function query(opts) {
     const rate = num(opts.rate, 1);
     const r = R.expand(DATA, String(opts.item), rate, boundary, force,
       Object.assign({ maxDepth: depth, sources: sources, multi: multiOn,
-        attrs: attrsOn }, liqOpts));
+        attrs: attrsOn, flow: flowOn }, liqOpts));
     res.mode = "item";
     res.target = String(opts.item);
     res.requested = rate;
@@ -427,7 +430,8 @@ function attachIcons(res) {
   res.pumps = {};
   res.machines.forEach(m => { if (idx.pumps.has(m.name)) res.pumps[m.name] = m.count; });
   res.pumpMix = {};
-  if (env.R && env.R.pumpMix) {
+  /* flow（归一化）模式下液体已经用小数台数精确表示，整数泵换算会自相矛盾（"小数 1.03 台" vs "整台 2 台"） */
+  if (env.R && env.R.pumpMix && !res.flow) {
     Object.keys(amountOf).forEach(name => {
       const mix = env.R.pumpMix(DATA, name, amountOf[name], res.attrs);
       if (mix) res.pumpMix[name] = mix;
@@ -478,22 +482,28 @@ const PUMP_LABEL = {
   "oil-extractor": "石油钻井"
 };
 
-/* 自产来源的文字：单一方块 → "oil-extractor ×1（钻井，15/s）"；多档泵 → "大泵 45 台 + 中泵 3 台" */
+/* 台数文案：整数原样，小数两位（flow 归一化下 1.03 台这种） */
+function fmtCnt(c) {
+  const n = round(c);
+  return Number.isInteger(n) ? String(n) : String(Math.round(n * 100) / 100);
+}
+
+/* 自产来源的文字：单一方块 → "oil-extractor ×1（钻井，22.5/s）"；多档泵 → "大泵 45 台 + 中泵 3 台" */
 function selfText(s) {
   if (!s) return "";
   if (s.parts && s.parts.length) {
     const sum = s.parts.reduce((a, p) => a + p.count * p.perSecondEach, 0);
-    return s.parts.map(p => (PUMP_LABEL[p.pump] || p.pump) + " " + p.count + " 台").join(" + ")
+    return s.parts.map(p => (PUMP_LABEL[p.pump] || p.pump) + " " + fmtCnt(p.count) + " 台").join(" + ")
       + "（钻井合计 " + fmtNum(sum) + "/s）";
   }
   const kind = s.type === "make" ? "转化方块" : "钻井";
-  return s.block + " ×" + s.count + "（" + kind + " " + fmtNum(s.perSecondEach) + "/s）";
+  return s.block + " ×" + fmtCnt(s.count) + "（" + kind + " " + fmtNum(s.perSecondEach) + "/s）";
 }
 
 /* 「water 630/s ≈ 大泵 45 台 + 中泵 3 台（合计 630/s）」——按"几台小泵 + 几台中泵 + 几台大泵"加和计量 */
 function mixText(name, mix) {
   if (!mix || !mix.pumps || !mix.pumps.length) return "";
-  const parts = mix.pumps.map(p => (PUMP_LABEL[p.pump] || p.pump) + " " + p.count + " 台");
+  const parts = mix.pumps.map(p => (PUMP_LABEL[p.pump] || p.pump) + " " + fmtCnt(p.count) + " 台");
   return name + " " + fmtNum(mix.need) + "/s ≈ " + parts.join(" + ") +
     "（合计 " + fmtNum(mix.total) + "/s" + (mix.extra > 1e-6 ? "，富余 " + fmtNum(mix.extra) + "/s" : "") + "）";
 }
@@ -522,6 +532,7 @@ function flattenMachines(DATA, R, r) {
   const rows = R.machineRows(DATA, r) || [];
   return rows.map(x => ({
     name: x.name, count: x.count, kind: x.kind, icon: x.icon || "",
+    countCeil: x.countCeil, eff: x.eff, flow: !!x.flow,
     powerEach: round(x.powerEach), powerTotal: round(x.powerTotal), rateEach: round(x.rateEach),
     outItems: (x.outItems || []).map(o => ({
       name: o.name, type: o.type, perSecond: round(o.perSecond), icon: iconOfIndex(idx, o.name, o.type)
@@ -555,6 +566,21 @@ function stripIcons(v) {
 function fmtNum(x) {
   const n = round(x);
   return Number.isInteger(n) ? String(n) : String(n);
+}
+
+/* flow（归一化）模式下台数是小数（满效等价值）：显示两位小数；整台模式仍是整数台数。 */
+function fmtCount(m) {
+  const c = (m && m.count != null) ? m.count : 0;
+  if (!(m && m.flow)) return String(Math.round(c * 1000) / 1000);
+  return String(Math.round(c * 100) / 100);
+}
+
+/* flow 下"只建整台的话，每台实际跑多少效率" */
+function effNote(m) {
+  if (!(m && m.flow)) return "";
+  const ceil = m.countCeil || Math.ceil(m.count - 1e-9);
+  if (!(ceil > 0) || Math.abs(ceil - m.count) < 1e-9) return "";
+  return "（整台 " + ceil + " 台 ⇒ 每台 " + (Math.round(m.count / ceil * 1000) / 10) + "%）";
 }
 
 function renderText(res) {
@@ -611,7 +637,7 @@ function renderText(res) {
   const pl = res.machines.filter(m => pumps[m.name]);
   if (fac.length) {
     fac.forEach(m => {
-      let line = "  " + m.name + " ×" + m.count;
+      let line = "  " + m.name + " ×" + fmtCount(m) + effNote(m);
       if (m.powerTotal) line += "（电 " + fmtNum(m.powerTotal) + "/s）";
       if (m.inItems && m.inItems.length) {
         line += "，吃 " + m.inItems.map(i => i.name + " " + fmtNum(i.perSecond) + "/s").join(" + ");
@@ -625,16 +651,17 @@ function renderText(res) {
     });
   }
   const total = fac.reduce((a, m) => a + m.count, 0);
-  L.push("  工厂合计：" + total + " 台，电力 " + fmtNum(res.power) + "/s" +
+  L.push("  工厂合计：" + (res.flow ? Math.round(total * 100) / 100 : total) + " 台，电力 " + fmtNum(res.power) + "/s" +
          (pl.length ? "（含抽水 " + fmtNum(pl.reduce((a, m) => a + (m.powerTotal || 0), 0)) + "/s）" : "") +
          (res.mode === "mixed" && res.powerOut ? "，厂内发电 " + fmtNum(res.powerOut) +
            "/s，净 " + fmtNum(res.netPower) + "/s" : ""));
   if (pl.length) {
-    L.push("  抽水：" + pl.map(m => m.name + " ×" + m.count
+    L.push("  抽水：" + pl.map(m => m.name + " ×" + fmtCount(m) + effNote(m)
       + (m.powerTotal ? "（电 " + fmtNum(m.powerTotal) + "/s）" : "")
       + (m.inItems && m.inItems.length
         ? "，吃 " + m.inItems.map(i => i.name + " " + fmtNum(i.perSecond) + "/s").join(" + ") : "")).join(" + "));
   }
+  if (res.flow) L.push("  归一化：台数为满效等价值（可为小数），数量按每秒守恒；整台建时每台效率 = 小数台数 / 向上取整");
   if (res.powerMix) L.push("  外部电力：" + powerMixText(res.powerMix));
   if (res.mode === "mixed" && res.shared && res.shared.length) {
     const hit = res.shared.filter(s => s.saved > 0);
@@ -792,11 +819,12 @@ function renderMarkdown(res) {
   Object.keys(res.liquidFrom || {}).forEach(k => {
     L.push("液体自产：" + k + " ← " + selfText(res.liquidFrom[k]));
   });
-  Object.keys(res.liquidEquiv || {}).forEach(k => {
-    const t = equivText(k, res.liquidEquiv[k]);
+  Object.keys(res.pumpMix || {}).forEach(k => {
+    const t = mixText(k, res.pumpMix[k]);
     if (t) L.push("泵换算：" + t);
-  if (res.powerMix) L.push("外部电力：" + powerMixText(res.powerMix));
   });
+  if (res.flow) L.push("归一化：台数为满效等价值（可为小数），数量按每秒守恒；整台建时每台效率 = 小数台数 / 向上取整");
+  if (res.powerMix) L.push("外部电力：" + powerMixText(res.powerMix));
   (res.liquidSources || []).forEach(s => {
     L.push("液体 " + s.liquid + "：" + s.pump + " ×" + s.count + "（单台 " + fmtNum(s.perSecondEach)
       + "/s，电 " + fmtNum(s.power) + "/s" + (s.inputLiquids && s.inputLiquids.length
@@ -859,6 +887,7 @@ function usage() {
     "  --oilfloor <X>                      等价于 --attr oil=X（默认 1.5 = 满黑沙；石油钻井 = 0.25×60×X）",
     "  --liquid oil=make|pump|import[:方块]  逐种液体指定自产方式（oil=make:spore-press）",
     "  --liquidname oil=<方块>              只指定产液方块（方式按 auto 判）",
+    "  --flow                              归一化模式：台数不取整，所有数量按每秒（学 TMI）",
     "  --gen <发电厂> --genfuel <燃料> [--gencount N] [--gendemand X]  供电方案（N=0/省略则自动补足）",
     "  --format text|md|json               输出格式（默认 text）",
     "  --icons                             JSON 里保留 base64 图标（默认剔掉，省体积）",

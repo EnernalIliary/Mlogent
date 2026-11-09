@@ -82,6 +82,19 @@ def paste(canvas: Image.Image, im: Image.Image | None, x: int, y: int, px: int, 
     canvas.alpha_composite(im, (x, y))
 
 
+def _cnt(v, ceil=None) -> str:
+    """台数：整数原样；归一化（flow）下两位小数，附带"整台 N 台"提示。"""
+    if v is None:
+        return "0"
+    f = float(v)
+    if abs(f - round(f)) < 1e-9:
+        return str(int(round(f)))
+    txt = ("%.2f" % f).rstrip("0").rstrip(".")
+    if ceil:
+        txt += "（整台 %d）" % int(ceil)
+    return txt
+
+
 def fmt(x) -> str:
     if x is None:
         return "0"
@@ -187,9 +200,10 @@ def _machine_section(c, res):
     pumps = res.get("pumps") or {}
     machines = [m for m in allm if not pumps.get(m.get("name"))]
     plist = [m for m in allm if pumps.get(m.get("name"))]
-    total = sum(int(m.get("count") or 0) for m in machines)
+    flow = bool(res.get("flow"))
+    total = sum(float(m.get("count") or 0) for m in machines)
     pump_power = sum(float(m.get("powerTotal") or 0) for m in plist)
-    head = "工厂配比：%d 台 · 电力 %s/s" % (total, fmt(res.get("power")))
+    head = "工厂配比：%s 台 · 电力 %s/s" % (_cnt(total), fmt(res.get("power")))
     if plist:
         head += "（含抽水 %s/s）" % fmt(pump_power)
     c.section(head)
@@ -206,8 +220,13 @@ def _machine_section(c, res):
         outs = [o for o in (m.get("outItems") or []) if o.get("perSecond")]
         if outs and m.get("kind") in ("item", "unit", "generator", "drill", "multi"):
             bits.append("、".join("%s %s/s" % (o["name"], fmt(o["perSecond"])) for o in outs[:2]))
-        c.row(m.get("icon"), m.get("name") or "?", "×%d" % int(m.get("count") or 0),
+        if flow and m.get("countCeil") and float(m["countCeil"]) > float(m.get("count") or 0):
+            bits.append("整台 %d 台 ⇒ 每台 %s%%" % (int(m["countCeil"]),
+                                                   fmt(100.0 * float(m["count"]) / float(m["countCeil"]))))
+        c.row(m.get("icon"), m.get("name") or "?", "×" + _cnt(m.get("count"), m.get("countCeil") if flow else None),
               " · ".join(bits) or None)
+    if flow:
+        c.note("· 归一化：台数为满效等价值（可为小数），数量按每秒守恒", DIM)
     if plist:
         c.section("抽水（钻井 / 泵）")
         for m in plist:
@@ -219,7 +238,10 @@ def _machine_section(c, res):
             ins = [i for i in (m.get("inItems") or []) if i.get("perSecond")]
             if ins:
                 bits.append("吃 " + "+".join("%s %s/s" % (i["name"], fmt(i["perSecond"])) for i in ins[:3]))
-            c.row(m.get("icon"), m.get("name") or "?", "×%d" % int(m.get("count") or 0),
+            if flow and m.get("countCeil") and float(m["countCeil"]) > float(m.get("count") or 0):
+                bits.append("整台 %d 台 ⇒ 每台 %s%%" % (int(m["countCeil"]),
+                                                       fmt(100.0 * float(m["count"]) / float(m["countCeil"]))))
+            c.row(m.get("icon"), m.get("name") or "?", "×" + _cnt(m.get("count"), m.get("countCeil") if flow else None),
                   " · ".join(bits) or None)
         # 抽液方块的产量取决于它看的地板属性（Attribute.*）：把口径写在抽水节里
         note = _attr_note(res)

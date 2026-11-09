@@ -174,6 +174,12 @@
         </label>
       </div>
       <div>
+        <label for="flowchk">归一化</label>
+        <label class="chk" title="学 TMI：台数不向上取整，给“满效等价”的小数台数，所有数量按每秒守恒。真按整台建时每台效率 = 小数台数 / 向上取整">
+          <input id="flowchk" type="checkbox"> 分数台数（按物品每秒归一化）
+        </label>
+      </div>
+      <div>
         <label for="oilfloor">环境属性</label>
         <div class="attrsrow">
           <span class="dim">oil</span>
@@ -1042,6 +1048,8 @@
     if (q.mode === "item") mode = "item";
     // 多产物方块参与递归：?multi=1
     if (q.multi === "1" || q.multi === "on" || q.multi === "true") el("multichk").checked = true;
+    // 归一化（分数台数）：?flow=1
+    if (q.flow === "1" || q.flow === "on" || q.flow === "true") el("flowchk").checked = true;
     // 油田属性：?oilfloor=0.7
     if (q.oilfloor && parseFloat(q.oilfloor) >= 0) el("oilfloor").value = q.oilfloor;
     if (q.waterfloor && parseFloat(q.waterfloor) >= 0) el("waterfloor").value = q.waterfloor;
@@ -1168,6 +1176,13 @@
   }
 
   function num(x) { return (Math.round(x * 1000) / 1000).toString(); }
+  /* 台数：归一化（flow）下写两位小数，并注明真按整台建时要几台 */
+  function countCell(r) {
+    if (!r || !r.flow) return String(r ? r.count : 0);
+    var c = Math.round((r.count || 0) * 100) / 100;
+    var cl = r.countCeil || Math.ceil(c);
+    return String(c) + (cl > c ? ' <span class="dim">（整台 ' + cl + '）</span>' : "");
+  }
   function esc(s) { return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;"); }
 
   var lastRes = null;
@@ -1180,6 +1195,7 @@
     }
     var boundary = boundaryNames();
     var multiOn = !!(el("multichk") && el("multichk").checked);
+    var flowOn = !!(el("flowchk") && el("flowchk").checked);
     var floorIn = parseFloat(el("oilfloor") && el("oilfloor").value);
     var floorOpt = floorIn > 0 ? floorIn : undefined;
     /* 环境属性表：oil / water（负数表示"不管"，用数据默认值） */
@@ -1204,19 +1220,19 @@
       if (mode === "mixed") {
         if (!mixTargets.length) { alert("先往清单里加至少一个目标"); return; }
         res = R.expandMixed(DATA, mixTargets.map(function (t) { return { block: t.block, count: t.count }; }),
-                            Object.assign({ boundary: boundary, force: forced, maxDepth: depth, multi: multiOn, floor: floorOpt, attrs: attrsOpt }, liqOpt));
+                            Object.assign({ boundary: boundary, force: forced, maxDepth: depth, multi: multiOn, flow: flowOn, floor: floorOpt, attrs: attrsOpt }, liqOpt));
       } else if (mode === "building") {
         var count = Math.max(1, parseInt(el("count").value, 10) || 1);
         var plan = parseInt(el("plan").value || "0", 10) || 0;
         var selB = blockOf(curBlock);
         var ch = (selB && selB.kind === "unit") ? R.chainFromBlock(DATA, curBlock, count) : null;
         res = ch ? chainToRes(ch)
-                 : R.expandBuilding(DATA, curBlock, count, Object.assign({ boundary: boundary, force: forced, plan: plan, maxDepth: depth, multi: multiOn, floor: floorOpt, attrs: attrsOpt,
+                 : R.expandBuilding(DATA, curBlock, count, Object.assign({ boundary: boundary, force: forced, plan: plan, maxDepth: depth, multi: multiOn, flow: flowOn, floor: floorOpt, attrs: attrsOpt,
                                                    fuel: (el("genfuel") && el("genfuel").value) || null }, liqOpt));
       } else {
         var rate = parseFloat(el("rate").value);
         if (!(rate > 0)) { alert("速率要大于 0"); return; }
-        res = R.expand(DATA, targetSel.value, rate, boundary, forced, Object.assign({ maxDepth: depth, multi: multiOn, floor: floorOpt, attrs: attrsOpt }, liqOpt));
+        res = R.expand(DATA, targetSel.value, rate, boundary, forced, Object.assign({ maxDepth: depth, multi: multiOn, flow: flowOn, floor: floorOpt, attrs: attrsOpt }, liqOpt));
       }
     } catch (e) {
       alert("算不出来：" + e.message);
@@ -1290,7 +1306,7 @@
           }).join(" · ")
         : "—";
       return '<tr><td>' + blockLabel(r.name) + '</td>' +
-        '<td class="num">' + r.count + '</td>' +
+        '<td class="num">' + countCell(r) + '</td>' +
         '<td class="num">' + (r.size * r.size) + '</td>' +
         '<td class="num">' + num(r.rateEach) + '/s</td>' +
         '<td class="num">' + right + '</td>' +
@@ -1303,7 +1319,7 @@
           }).join(" · ")
         : "—";
       return '<tr><td>' + blockLabel(r.name) + ' <span class="dim">（抽水）</span></td>' +
-        '<td class="num">' + r.count + '</td>' +
+        '<td class="num">' + countCell(r) + '</td>' +
         '<td class="num">' + (r.size * r.size) + '</td>' +
         '<td class="num">' + (r.rateEach ? num(r.rateEach) + "/s" : "—") + '</td>' +
         '<td class="num">' + (r.kind === "pump"
@@ -1580,6 +1596,11 @@
                      multi: function (on) {
                        if (on != null) { el("multichk").checked = !!on; run(); }
                        return el("multichk").checked;
+                     },
+                     /* 归一化（分数台数）：__ratio.flow(true) 切换；返回当前状态 */
+                     flow: function (on) {
+                       if (on != null) { el("flowchk").checked = !!on; run(); }
+                       return !!(el("flowchk") && el("flowchk").checked);
                      },
                      /* 油田属性（Attribute.oil）：__ratio.oilfloor(0.7) 改完重算 */
                      /* 环境属性表：__ratio.attrs({oil:0.7,water:1}) 或 __ratio.attrs(0.7) */

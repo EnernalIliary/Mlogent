@@ -553,5 +553,18 @@ ok("混合厂：自产的油不再报「外部运入」", () => {
   assert.ok(!/油 13\.5/.test(t), t);
 });
 
+ok("归一化：--flow 给分数台数 + 整台效率", () => {
+  const t = run(["--item", "graphite", "--rate", "1", "--boundary", "coal,sand", "--flow"]);
+  assert.ok(/×1\.5（整台 2 台 ⇒ 每台 75%）/.test(t), t);
+  assert.ok(/归一化：台数为满效等价值/.test(t), t);
+  assert.ok(!/泵换算/.test(t), t);
+});
+ok("归一化：液体也归一（不再拆整数泵档）", () => {
+  const t = run(["--item", "coal", "--rate", "6", "--boundary", "none,sand", "--liquids", "auto", "--flow"]);
+  assert.ok(/oil-extractor ×0\.8/.test(t), t);
+  assert.ok(/小泵 1\.03 台/.test(t), t);
+  assert.ok(!/台（合计 14\/s，富余 5\/s）/.test(t), t);
+});
+
 console.log("\n通过 " + pass + " 项，失败 " + fail + " 项");
 process.exitCode = fail ? 1 : 0;

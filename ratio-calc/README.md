@@ -327,6 +327,36 @@ node ratio-calc/cli.cjs --item coal --rate 6 --boundary none --liquids auto \
   自动解环要解方程，暂不做；工具只负责**告诉你环在哪**，别把环当成免费产能。
 
 
+### 3.9 归一化（`--flow`：分数台数，按物品每秒算）
+
+前面所有算法都是「**整台 + 满效**」：要 1 石墨/s 就建 2 台压机（每台真实跑到 66.7%）。
+`--flow`（页面「归一化」勾选框）换成另一种口径——学 TMI 的配比图：**台数不取整，给满效等价的小数台数**，
+所有物品/液体数量都按每秒精确守恒。
+
+```bash
+node ratio-calc/cli.cjs --item graphite --rate 1 --boundary "coal,sand" --flow
+#   graphite-press ×1.5（整台 2 台 ⇒ 每台 75%），吃 coal 2/s → graphite 1/s
+#   工厂合计：1.5 台
+#   归一化：台数为满效等价值（可为小数），数量按每秒守恒；整台建时每台效率 = 小数台数 / 向上取整
+
+node ratio-calc/cli.cjs --item coal --rate 6 --boundary "none,sand" --liquids auto --flow
+#   coal-centrifuge ×3（电 126/s），吃 oil 18/s → coal 6/s
+#   抽水：mechanical-pump ×1.03（整台 2 台 ⇒ 每台 51.5%） + oil-extractor ×0.8（整台 1 台 ⇒ 每台 80%）（电 144/s）
+#   液体自产：oil ← oil-extractor ×0.8（钻井 22.5/s）
+```
+
+两种口径的分工：
+
+| 模式 | 回答的问题 | 台数 | 速率 |
+|---|---|---|---|
+| 默认（整台） | 「要建几台机器」 | 整数（向上取整） | 只保证够用，多出来的是富余 |
+| `--flow`（归一化） | 「每秒各物品要多少」 | 小数（满效等价） | 精确，守恒 |
+
+- `--flow` 下泵也归一化：不再拆「小泵 2 台」这种整数组合，而是 `小泵 1.03 台`（总量正好 7.2/s）；
+- 台数后面那句「整台 N 台 ⇒ 每台 P%」就是**真按整数建时的等效效率**（`P = 小数台数 / 向上取整`）；
+- 页面：勾「归一化 · 分数台数」（`?flow=1`），机器表台数列会写 `1.5（整台 2）`；卡片同一口径；
+- 军事/兵厂链（`5t5` 反推）仍然是整数台，归一化只管物品与液体产线。
+
 ### 4. 贴图原尺寸（优先 `-full` 大图）
 
 方块/兵厂/发电厂/单位优先用 `sprites/generated/block-<名>-full.png`、`unit-<名>-full.png`（原版高清整图，
@@ -577,10 +607,10 @@ python -X utf8 ratio-calc/card.py --json result.json --out card.png   # 喂现�
 ## 已验证
 
 ```
-node ratio-calc/test_core.cjs   → 14 项对拍 mbo calc 全部一致 + 175 项新算法断言通过（共 189 行 ok）
-node ratio-calc/test_page.cjs   → 107 项页面链路断言通过（含混合厂 9 项、液体自产 5 项、边界开关/配方下拉、钻头并入工厂配比、多产物方块进递归树 6 项）
-node ratio-calc/test_cli.cjs    → 72 项 CLI/HTTP 与 core.js 对拍通过（含 `--mix` 6 项、液体自产 6 项、钻头写入机器清单、分离机/解离机 5 项）
-python -X utf8 ratio-calc/test_card.py → 14 项卡片结构/排版断言通过（含混合厂 2 项、液体自产 1 项、图标 2 项、多产物副产 1 项）
+node ratio-calc/test_core.cjs   → 14 项对拍 mbo calc 全部一致 + 183 项新算法断言通过（共 197 行 ok）
+node ratio-calc/test_page.cjs   → 109 项页面链路断言通过（含混合厂 9 项、液体自产 5 项、边界开关/配方下拉、钻头并入工厂配比、多产物方块进递归树 6 项、归一化 2 项）
+node ratio-calc/test_cli.cjs    → 74 项 CLI/HTTP 与 core.js 对拍通过（含 `--mix` 6 项、液体自产 6 项、钻头写入机器清单、分离机/解离机 5 项、归一化 2 项）
+python -X utf8 ratio-calc/test_card.py → 15 项卡片结构/排版断言通过（含混合厂 2 项、液体自产 1 项、图标 2 项、多产物副产 1 项、归一化 1 项）
 ```
 
 对拍用例覆盖石墨/硅/合金/玻璃/塑料/爆炸物/燃烧物/相织物/孢子荚 + 3 个 `--force`；
@@ -597,7 +627,9 @@ dagger 与 stell 两条升级链、发电设备当目标建筑（蒸汽 ×2 → 
 `--force sand=disassembler` → 1 台/废料 4/s、`--multi` 时 lead 2/s → 分离机 5 台、默认仍按外部输入）、
 环境属性通用化（`attrsOf` 数字/对象、`--attr oil=0.7` 与 `--oilfloor 0.7` 输出相同、water 1 ⇒ 13.2/s、
 非法值报「数值不对」）、环检测（`detectCycles` 报出强化泵↔电解槽、`cycleText` 文案、普通产线 `loops` 为空、
-页面对应场景树里出现 `⟲`、卡片出现「循环产线」节）。
+页面对应场景树里出现 `⟲`、卡片出现「循环产线」节）、
+归一化 flow（graphite 1/s → 压机 1.5 台、整数模式仍 2 台、coal 6/s 下钻井 0.8 台/小泵 1.0286 台、混合厂同样归一、
+卡片写「1.5（整台 2）」、CLI 写「整台 2 台 ⇒ 每台 75%」、flow 下不再给整数泵换算）。
 
 截图用 Edge headless（Chrome headless 在这台机器上会超时被 kill）：
 `--headless=new --disable-gpu --no-sandbox --window-size=1180,2000 --virtual-time-budget=5000 --screenshot=...`
