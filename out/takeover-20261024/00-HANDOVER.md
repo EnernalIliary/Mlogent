@@ -3213,4 +3213,11 @@ good=1 bad=1 label=1 undef=1`。
 （它们只是 `ucontrol` 的子命令）→ 改为 `ucontrol itemTake`/`ucontrol itemDrop`，11 个样板过真引擎
 `invalid=0`（`out/_samples_parse.py`）。
 
+发布与装机（2026-11-10 14:40）：本地提交 **`96409ef`**（34 files / +1621 −324）；`gate.py --full --kb-build`
+→ **17/17**（169.8 s，kb rebuilt / 183 source files）；打包 `out/_dist/MAI-0.24.1-mod.zip`（8,795,486 B）与
+`MAI-0.24.1.zip`（8,818,551 B）；装机到 `saves\mods\MlogAuxiliary`（190 files / 0 mismatch，旧副本
+`mod-backups\MlogAuxiliary-20261110-144025`）。公开仓提交 **`e543475`** + tag **`v0.24.1`**（push 后 main/tag
+同为 e543475），Release <https://github.com/EnernalIliary/MAI-MlogAuxIliary/releases/tag/v0.24.1> 挂两个 zip。
+装机坑：游戏与残留 `logicd.exe` 在跑时目录被占用（Move-Item Access denied），要先停游戏与该目录下的逻辑后端。
+
 详见 `out/takeover-20261024/102-v0241-noop.md`。
