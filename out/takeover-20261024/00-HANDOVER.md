@@ -3187,3 +3187,30 @@ v0.23.0 的 `console_run` 走的是聊天里 `/命令` 那条路（`clientComman
 - **Release**：`out/_v240_release.py`（先试代理 10808，失败退直连）→ POST release 201 → 两个资产上传 201：`MAI-0.24.0-mod.zip` 8,766,356 B、`MAI-0.24.0.zip` 8,788,943 B → `releases/latest` 200 回 v0.24.0。
   <https://github.com/EnernalIliary/MAI-MlogAuxIliary/releases/tag/v0.24.0>
 - 仍未做：装机验证（游戏在跑，需重启才加载新模组）；真机三条待验（区域快照 `globals` 里真有核心/单位、无核单位任务走 `blocked`、blocked 的颜色与文案）。
+
+### §123 v0.24.1 一行 noop 有门禁了（2026-11-10）
+
+用户 m07998「刚刚在游戏中为MAI下发了一次任务，但是第一行是noop」。根因：真 v160.7 引擎把
+`radar e projector1 enemy distance 1` 解析成 `InvalidStatement`（`LParser.java:142-147` 换成
+`InvalidStatement`，注册名就是 `noop`），当时只有 `under-arity`/`slot-not-in-enum` 两条 WARN，
+写入闸只拦 ERR ⇒ 照写不误。正确写法 `radar enemy any any distance projector1 1 e`。
+
+三层：① `tools/mlogcheck.py` 四类硬失败升 ERR（`slot-not-in-enum` WARN→ERR 并扩到
+ConditionOp/BlockFlag/LUnitControl、大小写精确；新增 `unknown-instruction`；`undefined-jump-location`
+WARN→ERR；`under-arity` 仍 WARN）② `main.js:2514` 起 `engineNoopReport()` 用
+`LAssembler.read(code, privileged)` 在写入前兜底（`writeBuild`/`writeMany` 拒写 + 卡片标 noop 行）
+③ `tools/mlogprovider.py` 的 `enum_rules()` 从 `instr_enums.json` 引词表与七操作数顺序。
+
+源码修正：整段解析失败不是「继续跑旧程序」，`LogicBlock.java:430-432` 的 catch 是
+`executor.load(LAssembler.assemble(code = "", privileged))` ⇒ 载入空程序、处理器停摆（`docs/断言表.md`
+L2-132 与 `docs/Mlog辅助-规划.md` v0.24.1 行已按此改）。
+
+验证：node --check rc0；run_tests 50/50；ruleids 47/38/55 0 problem；shapes 7×4；lint 47/0；
+`mlog.py check tests/cases/radar-filter-swapped.mlog --rid` → 2 ERR；ui smoke `MAINOOP:ok
+good=1 bad=1 label=1 undef=1`。
+
+另修：11 个 prompt 样板里的「单位搬运」「单位供料」两条用了 v160.7 不存在的 `itemTake`/`itemDrop`
+（它们只是 `ucontrol` 的子命令）→ 改为 `ucontrol itemTake`/`ucontrol itemDrop`，11 个样板过真引擎
+`invalid=0`（`out/_samples_parse.py`）。
+
+详见 `out/takeover-20261024/102-v0241-noop.md`。

@@ -28,7 +28,7 @@
 function __logicWriterMain(){
     "use strict";
 
-    var MOD_VERSION = "0.24.0";
+    var MOD_VERSION = "0.24.1";
     var URL_KEY     = "mlogauxiliary-url";
     var DEFAULT_URL = "http://127.0.0.1:8765";
     // v0.11.0：设置页里填的模型档三件套。密钥只留在本机 Core.settings 与 sidecar 进程内存。
@@ -2511,6 +2511,188 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
             return null;
         }
 
+
+        // ================================================== v0.24.1 写入前用游戏自己的解析器兜底
+        // 依据（真引擎探针 + 源码都核过）：
+        //  · LAssembler.read(text, privileged)（LAssembler.java:53-57）= new LParser(text, privileged).parse()，
+        //    和 LogicBlock.configure 之后执行器真正吃的是同一条路；
+        //  · LParser 对认不出的语句不抛，而是塞一条 InvalidStatement（LParser.java:142-147、:172-174），
+        //    它就是 @RegisterStatement("noop")（LStatements.java:48-49）：编辑器里显示 noop，执行时什么都不做；
+        //  · 非 privileged 的处理器上 write/read 这类语句也会被换成 InvalidStatement（LParser.java:150-152）。
+        // 也就是说 sidecar 静态检查全过、写进去也不报错，但那几行是死的。所以在写入前先问一遍游戏自己的
+        // 解析器，把这种「静默失活」变成一句拒绝；作业卡片上也提一句。
+        var NOOP_MAX_LINES = 5;      // 拒绝文案里最多点几行，再多就只是噪音
+        var NOOP_MSG_MAX = 60;       // 一行原文最多留几个字符
+
+        // 按物理行号取一行原文：去空白、太长截断（拒绝文案要短到能读）。
+        function noopSrcLine(src, line){
+            try{
+                var rows = String(src).split("\n");
+                if(line < 1 || line > rows.length){ return ""; }
+                var t = String(rows[line - 1]).replace(/\r/g, "").replace(/^\s+|\s+$/g, "");
+                return t.length > NOOP_MSG_MAX ? (t.substring(0, NOOP_MSG_MAX - 1) + "…") : t;
+            }catch(e){ return ""; }
+        }
+
+        function noopIsInvalid(st){
+            try{
+                if(st === null || st === undefined){ return false; }
+                // 全名 mindustry.logic.LStatements$InvalidStatement；按名字判，不写死第二个类名。
+                return String(st.getClass().getName()).indexOf("InvalidStatement") >= 0;
+            }catch(e){ return false; }
+        }
+
+        // 语句序号 -> 物理行号。必须照抄 LParser 的切分规则，不能逐行拿 LParser 去试：
+        // 单独解析 "jump somewhere" 会因为标签不在这一行里而抛「未定义标签」，那是误报。
+        // 规则（LParser.java:60-70 token()、:81-178 statement()、:181-202 parse()）：
+        //  · 语句之间跳过 空格 / 换行 / 分号；'#' 吃到行尾；'"' 里可以包空格和分号；
+        //  · 一行最多一条语句，行内遇到换行/分号就结束；
+        //  · 整行只有一个以 ':' 结尾的 token = label，不产生语句（:117-125）。
+        // 返回：第 k 个元素 = 第 k 条语句的物理行号（1 起），和 LAssembler 给的语句列表一一对应。
+        function noopLineMap(src){
+            var s = String(src === null || src === undefined ? "" : src);
+            var out = [], i = 0, n = s.length, line = 1;
+            while(i < n){
+                var c = s.charAt(i);
+                if(c === " " || c === ";"){ i++; continue; }
+                if(c === "\n"){ i++; line++; continue; }
+                if(c === "\r"){ i += 2; line++; continue; }        // parse(): '\r' 走 pos += 2
+                var startLine = line, toks = 0, first = "", term = "";
+                while(i < n){
+                    var ch = s.charAt(i);
+                    if(ch === "\n" || ch === ";"){ term = ch; break; }
+                    if(ch === " " || ch === "\t"){ i++; continue; }
+                    if(ch === "#"){ while(i < n && s.charAt(i) !== "\n"){ i++; } term = "\n"; break; }
+                    if(ch === '"'){
+                        i++;
+                        while(i < n && s.charAt(i) !== '"' && s.charAt(i) !== "\n"){ i++; }
+                        if(i < n && s.charAt(i) === '"'){ i++; }
+                        if(toks === 0){ first = '"'; }
+                        toks++;
+                        continue;
+                    }
+                    var from = i;
+                    while(i < n){
+                        var cc = s.charAt(i);
+                        if(cc === "\n" || cc === " " || cc === "#" || cc === "\t" || cc === ";"){ break; }
+                        i++;
+                    }
+                    if(toks === 0){ first = s.substring(from, i); }
+                    toks++;
+                }
+                var isLabel = (toks === 1 && first.length > 1 && first.charAt(first.length - 1) === ":");
+                if(toks > 0 && !isLabel){ out.push(startLine); }
+                if(term === "\n"){ i++; line++; }
+                else if(term === ";"){ i++; }
+                else{ break; }                                     // EOF
+            }
+            return out;
+        }
+
+        // LExecutor.privileged：非特权的处理器上 write/read 这类语句会被降级成 InvalidStatement
+        // （LParser.java:150-152）。读不到就当 false —— 保守方向是「多报一条」，不是「放过真问题」。
+        function noopPrivileged(b){
+            try{
+                if(b === null || b === undefined || b.executor === null || b.executor === undefined){ return false; }
+                return b.executor.privileged === true;
+            }catch(e){ return false; }
+        }
+
+        // Rhino 把 Java 异常包成 WrappedException：String(e) 是
+        // "JavaException: java.lang.RuntimeException: Invalid code. ..."；剥掉类名前缀只留人话。
+        function noopExcText(e){
+            var s = "";
+            try{ s = (e !== undefined && e !== null && e.message !== undefined) ? String(e.message) : String(e); }
+            catch(e1){ s = "?"; }
+            try{
+                for(var i = 0; i < 3; i++){
+                    var t = String(s).replace(/^[A-Za-z0-9_.$]+(Exception|Error):\s*/, "");
+                    if(t === s){ break; }
+                    s = t;
+                }
+            }catch(e2){ }
+            return String(s);
+        }
+
+        // 返回 null = 没意见（无头/读不到引擎：宁可不报，也不误报）；
+        // {ok:true} = 游戏解析通过；{ok:false, lines:[{line, text}], msg} = 有语句会变 noop。
+        function engineNoopReport(code, b){
+            try{
+                // 无头 / 主菜单没有 Vars.state：这里要报的场景都不存在，直接放行。
+                if(Vars.state === null || Vars.state === undefined){ return null; }
+                var src = String(code === null || code === undefined ? "" : code);
+                if(src.length === 0){ return null; }
+                var asm = Packages.mindustry.logic.LAssembler;
+                if(asm === null || asm === undefined){ return null; }
+                var st;
+                try{
+                    st = asm.read(src, noopPrivileged(b));
+                }catch(e){
+                    // LParser 会把整段代码的问题（如未定义 jump 标签）攒到最后一次抛出来
+                    // （LParser.java:194-199）；这时候一条语句都拿不到，只能整段拒绝。
+                    return {ok: false, whole: true, lines: [],
+                            msg: "整段代码没能通过游戏自己的解析器（" + noopExcText(e) + "），"
+                               + "游戏会把它当成空程序：写进去也不会执行"};
+                }
+                if(st === null || st === undefined){ return null; }
+                var size = 0;
+                try{ size = st.size; }catch(e2){ return null; }
+                var mapped = noopLineMap(src), bad = [], i;
+                for(i = 0; i < size && bad.length < NOOP_MAX_LINES; i++){
+                    var one = null;
+                    try{ one = st.get(i); }catch(e3){ continue; }
+                    if(!noopIsInvalid(one)){ continue; }
+                    var ln = (i < mapped.length) ? mapped[i] : 0;
+                    bad.push({line: ln, text: ln > 0 ? noopSrcLine(src, ln) : ""});
+                }
+                if(bad.length === 0){ return {ok: true}; }
+                var head = [], k;
+                for(k = 0; k < bad.length; k++){
+                    head.push("第 " + bad[k].line + " 行游戏会解析成 noop"
+                              + (bad[k].text === "" ? "" : "（" + bad[k].text + "）"));
+                }
+                return {ok: false, lines: bad,
+                        msg: head.join("；")
+                           + (bad.length === 1
+                              ? "：这一行在编辑器里显示 noop、执行时什么都不做"
+                              : "：这些行在编辑器里显示 noop、执行时什么都不做")
+                           + "，请改掉再写入"};
+            }catch(e){
+                return null;      // 兜底工具自己出问题，不能反过来变成拒绝写入的理由
+            }
+        }
+
+        // 事务写入里每台只占一行：只报第一处，够定位就行。
+        function noopShortText(rep){
+            var bad = (rep === null || rep === undefined) ? null : rep.lines;
+            if(bad === null || bad === undefined || bad.length === 0){ return "整段代码会被游戏当成空程序"; }
+            return "第 " + bad[0].line + " 行会变 noop"
+                 + (bad.length > 1 ? "（另有 " + (bad.length - 1) + " 处）" : "");
+        }
+
+        // v0.24.1 的无头自检（ui smoke 用）。无头引擎里 Vars.state 是有值的，所以这里真的会跑
+        // LAssembler：正常代码放行；认不出的语句要报出来且行号对（注释/空行/label 不能让行号漂）；
+        // 未定义标签这种整段失败要走到 whole 分支。
+        function noopProbeText(){
+            try{
+                var good = engineNoopReport("set x 1\nprint x\n", null);
+                var g = (good !== null && good.ok === true);
+                var badr = engineNoopReport("# 注释\n\nset y 2\nfrobnicate a b c\n", null);
+                var b1 = (badr !== null && badr.ok === false && badr.lines.length === 1
+                          && badr.lines[0].line === 4);
+                var lab = engineNoopReport("# c\nstart:\njump start always\nset y 2\nfrobnicate q\n", null);
+                var l1 = (lab !== null && lab.ok === false && lab.lines.length === 1
+                          && lab.lines[0].line === 5 && String(lab.lines[0].text) === "frobnicate q");
+                var undef = engineNoopReport("jump nowhere always\n", null);
+                var u1 = (undef !== null && undef.ok === false && undef.whole === true
+                          && undef.lines.length === 0);
+                var ok = g && b1 && l1 && u1;
+                return (ok ? "ok" : "bad")
+                     + " good=" + (g ? 1 : 0) + " bad=" + (b1 ? 1 : 0)
+                     + " label=" + (l1 ? 1 : 0) + " undef=" + (u1 ? 1 : 0);
+            }catch(e){ return "bad probe threw"; }
+        }
+
         function armWriteCheck(b, want, label){
             if(!netClient()){ return; }
             var w = normCode(want);
@@ -2557,6 +2739,9 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
                 return "拒绝写入：静态检查有 ERR（" + ((res && res.errors) || "?") + " 条）";
             }
             if(!res.bytes_b64){ return "拒绝写入：sidecar 未返回载荷"; }
+            // v0.24.1：游戏自己的解析器说这一行会是 noop，就别写 —— 写进去不报错、但什么都不做。
+            var noop = engineNoopReport(wantCode(res), b);
+            if(noop !== null && noop.ok !== true){ return "拒绝写入：" + noop.msg; }
             var noPerm = permWhy(b);
             if(noPerm !== null){ return noPerm; }
             var blocked = conflictGate(b);
@@ -2603,6 +2788,12 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
                     continue;
                 }
                 if(!it.res.bytes_b64){ bad.push("@" + procKey(it.b) + "：sidecar 未返回载荷"); continue; }
+                // v0.24.1：整批写入也逐台过一遍 noop 闸 —— 一台会变 noop 就整批不写。
+                var noop2 = engineNoopReport(wantCode(it.res), it.b);
+                if(noop2 !== null && noop2.ok !== true){
+                    bad.push("@" + procKey(it.b) + "：" + noopShortText(noop2));
+                    continue;
+                }
                 var np = permWhy(it.b);
                 if(np !== null){ bad.push("@" + procKey(it.b) + " " + np); }
             }
@@ -3873,6 +4064,36 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
             return out;
         }
 
+
+        // v0.24.1：作业卡片上的一行 noop 提醒。面板每帧重画，所以按代码字符串缓存最近两条，
+        // 别每帧跑一遍 LParser；b 为 null（从管理器打开作业面板）时跳过 —— 没有处理器就没有 privileged 位。
+        var JOB_NOOP_CACHE = [{key: null, val: ""}, {key: null, val: ""}];
+
+        function jobNoopWarn(job, b){
+            try{
+                if(job === null || job === undefined || b === null || b === undefined){ return ""; }
+                var code = String(job.code === undefined || job.code === null ? "" : job.code);
+                if(code.length === 0){ return ""; }
+                if(JOB_NOOP_CACHE[0].key === code){ return JOB_NOOP_CACHE[0].val; }
+                if(JOB_NOOP_CACHE[1].key === code){ return JOB_NOOP_CACHE[1].val; }
+                var rep = engineNoopReport(code, b), text = "";
+                if(rep !== null && rep.ok !== true){
+                    var bad = rep.lines || [];
+                    if(bad.length > 0){
+                        var w = String(bad[0].text === undefined || bad[0].text === null ? "" : bad[0].text);
+                        if(w.length > 40){ w = w.substring(0, 39) + "…"; }
+                        text = "⚠ 游戏会把第 " + bad[0].line + " 行解析成 noop：" + w
+                             + (bad.length > 1 ? "（另有 " + (bad.length - 1) + " 处）" : "");
+                    }else{
+                        text = "⚠ 游戏解析不了这段代码：" + String(rep.msg === undefined ? "" : rep.msg);
+                    }
+                }
+                JOB_NOOP_CACHE[1] = JOB_NOOP_CACHE[0];
+                JOB_NOOP_CACHE[0] = {key: code, val: text};
+                return text;
+            }catch(e){ return ""; }
+        }
+
         function renderJob(host, job, b, d){
             if(host === null || host === undefined || job === null || job === undefined){ return; }
             host.clear();
@@ -3896,6 +4117,8 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
                 for(var i = 0; i < ls.length && i < 6; i++){
                     host.add("  " + ls[i].sev + " L" + ls[i].line + " " + ls[i].msg).row();
                 }
+                var noopWarn = jobNoopWarn(job, b);
+                if(noopWarn !== ""){ host.add(noopWarn).row(); }
                 var as = jobAssumptionLines(job, 4, 88);
                 if(as.length > 0){
                     host.add("--- 模型假定的前提（错了就是逻辑不对的源头）---").row();
@@ -8640,6 +8863,8 @@ var KEY_LIST    = ["f2"];      // F2：全图处理器清单（v0.7.0；剩下�
         api.maiDiag = function(){ return diagText(); };
         api.maiSettings = function(){ return registerSettings() ? "registered" : "no ui"; };
         api.maiSelfTest = function(){ return selfTest(); };
+        // v0.24.1：写入前 noop 兜底的无头自检（ui smoke 用）。
+        api.maiNoopProbe = function(){ return noopProbeText(); };
         api.maiUndo = function(){ return undo(); };
         api.maiUndoInfo = function(){ return undoInfo(); };
         // 落盘路径的真引擎自检（ui smoke 用）：写一份假快照进 <dataDir>/mlogauxiliary/selftest，

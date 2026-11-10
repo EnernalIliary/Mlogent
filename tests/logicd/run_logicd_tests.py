@@ -869,6 +869,18 @@ def test_provider():
     need('the player asked for: 容器里铜够 100 就打印' in p, 'prompt lost the task')
     need('needs_links' in p and '"code"' in p, 'prompt lost the JSON contract')
     need('container x1' in p, 'prompt lost the nearby-block summary')
+    # v0.24.1 (m07998): the slot words are quoted from tools/instr_enums.json, and the
+    # prompt spells out that one wrong word turns the whole line into `noop` -- the
+    # failure the player saw was a radar line whose filter/sort slots held variables.
+    need('radar <filter1> <filter2> <filter3> <sort> <block> <order> <out>' in p,
+         'the prompt lost the radar operand order')
+    enums = MP._enums()
+    missing = [(n, w) for n in ('RadarTarget', 'RadarSort', 'ControlType', 'LUnitControl',
+                                'LLocate', 'BlockFlag', 'ConditionOp')
+               for w in (enums.get(n) or []) if w not in p]
+    need(not missing, 'the prompt does not quote these enum words: %r' % (missing[:6],))
+    need('noop' in p and 'case-sensitive' in p,
+         'the prompt does not warn that a wrong slot word becomes a noop line')
     hint = [{'sev': 'ERR', 'line': 1, 'rid': 'link-name-not-bound', 'msg': 'x is not bound'}]
     p2 = MP.build_prompt(job, hint)
     need('REJECTED by the gate' in p2 and 'line 1: [ERR] x is not bound' in p2,

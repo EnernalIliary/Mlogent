@@ -557,6 +557,63 @@ def _load_link_slots(specs: dict[str, dict]) -> dict[str, frozenset[int]]:
 
 LINK_SLOTS = _load_link_slots(SPECS)
 
+
+def _load_block_names() -> set[str]:
+    """Every vanilla block's internal name, from the two tables next to this file.
+
+    Only used to answer "could the game have produced this link name?" -- a name
+    that no table feeds simply never matches, so a missing table degrades to
+    "say nothing" instead of inventing a warning.
+    """
+    out: set[str] = set()
+    for rel in ("block_attrs.json", "wiki_block_ids.json"):
+        try:
+            data = json.loads(
+                Path(__file__).with_name(rel).read_text(encoding="utf-8"))
+        except Exception:  # table optional: never break analysis over it
+            continue
+        blocks = data.get("blocks") or {}
+        if isinstance(blocks, dict):
+            for k, v in blocks.items():
+                out.add(k)
+                if isinstance(v, str):
+                    out.add(v)
+        elif isinstance(blocks, list):
+            out.update(x for x in blocks if isinstance(x, str))
+    return {n for n in out if re.fullmatch(r"[a-z][a-z0-9-]*", n)}
+
+
+#: Internal block names (`silicon-arc-furnace`), and the LAST '-' segment of
+#: each -- the stem the game actually puts in a link name.
+BLOCK_NAMES: set[str] = _load_block_names()
+LINK_BASES: set[str] = {n.split("-")[-1] for n in BLOCK_NAMES}
+
+
+def link_base_prefixes(stem: str, limit: int = 3) -> tuple[list[str], list[str]]:
+    """(bindable stems, sample block names) for a name stem, or ([], []).
+
+    `LogicBlock.getLinkName` (`Mindustry-Source/core/src/mindustry/world/blocks/
+    logic/LogicBlock.java:123-135`) keeps the text after the block name's last
+    '-' and `findLinkName` (`:331-360`) appends the link's 1-based index; on load
+    a stored name that does not start with that stem is rewritten. So `sw1`
+    cannot bind while `sw` is merely the beginning of `switch` / `swarmer` --
+    exactly the case that killed both buttons of the MG-4 device (the save
+    rewrote `sw1` to `switch1`, m00622). A stem no block name starts with is not
+    link-shaped at all (a modded block, or an ordinary variable ending in a
+    digit): report nothing rather than guess.
+    """
+    hits = sorted((n for n in BLOCK_NAMES if n.startswith(stem) and n != stem),
+                  key=lambda n: (len(n), n))
+    if not hits:
+        return [], []
+    bases: list[str] = []
+    for _n in hits:
+        _seg = _n.split("-")[-1]
+        if _seg not in bases:
+            bases.append(_seg)
+    return bases, hits[:limit]
+
+
 #: Statement -> the first vanilla build that understands it. Only the ones with a
 #: citable release note are listed (see `mindustry-blueprint/BUILDS.md`); everything
 #: else is assumed to exist since the v7 baseline (146), which is where most of the
@@ -948,21 +1005,57 @@ def analyse(lines: list[str], links: list[str] | None = None, ipt: int = 2,
     out: list[Finding] = []
     n = len(stmts)
 
-    # `jump <label>` with no such label: LParser resolves a missing label to -1
-    # (LParser.java:195-198 `jumpLocations.get(location, -1)`) and JumpI.run()
-    # guards `if(address != -1)`, so the jump does nothing at all and execution
-    # falls through. Almost always a renamed or mistyped label.
+    # `jump <label>` with no such label does NOT become a jump to -1. LParser
+    # remembers the label name (LParser.java:130-133) and, at the end of
+    # parse(), any jump whose label was never defined makes parse() throw
+    # (LParser.java:181-202: `Invalid code. Undefined jump location: "nope".
+    # Make sure the jump label exists and is typed correctly.`). LAssembler.read
+    # rethrows it (LAssembler.java:53-57), and LogicBlock.updateCode() catches
+    # every Exception and loads an EMPTY program instead
+    # (LogicBlock.java:430-432: `executor.load(LAssembler.assemble(code = "", ...))`).
+    # So the whole processor stops -- every statement is lost, not just this
+    # jump -- which is why a missing label is ERR. (Measured on v160.7,
+    # out/_noop_matrix2.py: the read throws, it does not return a statement.)
     for _idx, (_i, _c) in enumerate(stmts):
         _t = _c.split()
-        if len(_t) < 2 or _t[0].lower() != "jump":
+        if len(_t) < 2 or _t[0] != "jump":
             continue
         try:
             int(_t[1])
         except ValueError:
             out.append(Finding(
-                "WARN", _i + 1, "no-target-jump",
-                f"`{_t[1]}` is not a label in this program, so the game turns this "
-                f"into a jump to -1, which does nothing; execution just falls through"))
+                "ERR", _i + 1, "no-target-jump",
+                f"`{_t[1]}` is not a label in this program: LParser.parse() throws "
+                f"`Invalid code. Undefined jump location` for it, and "
+                f"LogicBlock.updateCode() catches that exception by loading an "
+                f"EMPTY program -- the whole processor stops running, every "
+                f"statement after it is lost, so this is not a fall-through"))
+
+    # ---- a first token that is not an instruction at all -------------------
+    # LParser's unknown-mnemonic branch builds an InvalidStatement
+    # (LParser.java:171-173), which the game shows as `noop` and never runs.
+    # INSTR_SPECS is the whitelist: the 53 statement names registered in the
+    # v160.7 jar (LStatements.java @RegisterStatement, mirrored in
+    # instr_semantics.json). The comparison is CASE-SENSITIVE on purpose -- the
+    # names are registered in lower case, so `RADAR`, `NOOP` and `END` are all
+    # InvalidStatement in game (probed on v160.7, out/_noop_matrix2.py), while
+    # the LUnitControl sub-commands have their own camelCase spelling.
+    # Labels are dropped by prepare(); `#` comments never reach stmts; a line
+    # whose first token is `;` starts no instruction at all.
+    for _i, _c in stmts:
+        _t = tokenize(_c)
+        if not _t:
+            continue
+        _first = _t[0].lstrip(";")
+        if not _first:
+            continue
+        if _first in INSTR_SPECS:
+            continue
+        out.append(Finding(
+            "ERR", _i + 1, "unknown-instruction",
+            f"`{_first}` is not an instruction in v160.7: the parser has no such "
+            f"mnemonic, so it replaces the whole line with InvalidStatement and "
+            f"this line silently never runs (the rest of the program still loads)"))
 
     # jump 12: a numeric target written by hand. NOT an error, and it must not be
     # reported as one: the in-game logic editor can only write numbers (user m06173,
@@ -1077,29 +1170,44 @@ def analyse(lines: list[str], links: list[str] | None = None, ipt: int = 2,
             "WARN", _i + 1, "under-arity",
             f"`{_name}` is short by {_need - _have} operand(s): the signature reads "
             f"{_need} here ({_params or 'operand count'}) and this line has {_have}, "
-            f"so the operands you left out are not the ones the engine will act on"))
+            f"so the operands you left out are not the ones the engine will act on -- "
+            f"the parser fills each missing slot with the statement's DEFAULT value, "
+            f"so the line still compiles and runs, just with different values than "
+            f"written (a wrong-but-running line, not a line the game turns off)"))
 
     # ---- slots the parser resolves against a fixed word list (v0.19.0) -----
     # `radar enemy any any distance turret1 1 out` works because RadarTarget has
     # a constant literally named `enemy`: the slot is an enum word, not a
     # variable and not a number, so a word the enum does not have is not a
     # filter. Same for `control`'s first operand (the five members of
-    # LAccess.controls) and `ulocate`'s mode. The slot table comes from
+    # LAccess.controls), `ulocate`'s mode and flag, `ucontrol`'s command, and
+    # the ConditionOp of `jump`/`select`. The slot table comes from
     # instr_semantics.json `tokens`, the word lists from instr_enums.json (read
     # out of the v160.7 jar) -- nothing here is a hand-written guess.
-    # Reported as WARN: the value is wrong, and the message quotes the list, so
-    # the fix is visible without another round trip. `op`/`jump`/`sensor`
-    # content slots are NOT included -- they have rules of their own
-    # (unknown-op, sensor-not-a-property) and their slot may legitimately be a
-    # variable in ways these enum slots cannot.
+    #
+    # Severity is ERR, and the comparison is CASE-SENSITIVE, because that is
+    # what the parser does: the slot is resolved against the enum, a miss
+    # becomes an InvalidStatement (LParser.java:142-147), the whole line is
+    # shown as `noop` and never runs -- it does not fall back to a variable
+    # read. Probed on v160.7 (out/_noop_matrix2.py, out/_probe_extra.py):
+    # `radar Enemy..`, `radar .. foo ..`, `control Enabled..`,
+    # `jump 0 Equal..`, `select r eq..`, `ulocate mine..`,
+    # `ulocate building foo..` (and a numeric flag) are all InvalidStatement,
+    # while the proper spellings are real statements. The LUnitControl
+    # sub-commands are camelCase in the enum (`payTake`, `itemTake`,
+    # `autoPathfind`, `getBlock`), so `ucontrol paytake..` is also invalid.
+    # `op`/`sensor` content slots are NOT included -- they have rules of their
+    # own (unknown-op, sensor-not-a-property) and their slot may legitimately be
+    # a variable in ways these enum slots cannot.
     _enum_alias = {"LAccess": "ControlType"}
-    _enum_checked = ("RadarTarget", "RadarSort", "ControlType", "LLocate")
+    _enum_checked = ("RadarTarget", "RadarSort", "ControlType", "LLocate",
+                     "ConditionOp", "BlockFlag", "LUnitControl")
     for _idx, (_i, _c) in enumerate(stmts):
         _t = tokenize(_c)
-        if not _t:
-            continue
-        _name = _t[0].lower()
-        _spec = INSTR_SPECS.get(_name) or {}
+        if not _t or _t[0] not in INSTR_SPECS:
+            continue                      # unknown mnemonic: reported above
+        _name = _t[0]
+        _spec = INSTR_SPECS[_name]
         for _pos, _enum in sorted((_spec.get("tokens") or {}).items()):
             _enum = _enum_alias.get(_enum, _enum)
             if _enum not in _enum_checked:
@@ -1108,25 +1216,52 @@ def analyse(lines: list[str], links: list[str] | None = None, ipt: int = 2,
             if not _vals or _pos + 1 >= len(_t):
                 continue
             _val = _t[_pos + 1]
-            if _val.lower() in {v.lower() for v in _vals}:
+            if _val in _vals:
+                continue
+            if _enum == "BlockFlag" and _val in ("0", "null"):
+                # ulocate-flag-invalid owns exactly this case; a second ERR on
+                # the same operand would read as two independent mistakes.
                 continue
             _words = "|".join(_vals)
+            _op = _pos + 1
+            _sig = (f"{_name} <target1> <target2> <target3> <sort> "
+                    f"<building> <order> <output>")
             if _enum == "RadarTarget":
-                _msg = (f"`{_val}` is not a radar filter: operand {_pos + 1} of "
-                        f"`{_name}` takes only {_words} (v160.7) -- the slot is an "
-                        f"enum word, not a variable or a number")
+                _msg = (f"`{_val}` is not a radar filter: operand {_op} of "
+                        f"`{_sig}` takes only {_words} (v160.7, case-sensitive) "
+                        f"-- the slot is an enum word, not a variable or a number")
             elif _enum == "RadarSort":
-                _msg = (f"`{_val}` is not a radar sort key: operand {_pos + 1} of "
-                        f"`{_name}` takes only {_words} (v160.7) -- the slot is an "
-                        f"enum word, not a variable")
+                _msg = (f"`{_val}` is not a radar sort key: operand {_op} of "
+                        f"`{_sig}` takes only {_words} (v160.7, case-sensitive) "
+                        f"-- the slot is an enum word, not a variable")
             elif _enum == "ControlType":
                 _msg = (f"`{_val}` is not a control type: operand 1 of `control` takes "
-                        f"only {_words} (v160.7), then the block, then that type's own "
-                        f"operands (`control shoot <block> <x> <y> <on>`)")
-            else:
+                        f"only {_words} (v160.7, case-sensitive), then the block, then "
+                        f"that type's own operands (`control shoot <block> <x> <y> "
+                        f"<on>`)")
+            elif _enum == "LLocate":
                 _msg = (f"`{_val}` is not a ulocate mode: operand 1 of `ulocate` takes "
-                        f"only {_words} (v160.7)")
-            out.append(Finding("WARN", _i + 1, "slot-not-in-enum", _msg))
+                        f"only {_words} (v160.7, case-sensitive)")
+            elif _enum == "ConditionOp":
+                _msg = (f"`{_val}` is not a condition: operand {_op} of `{_name}` "
+                        f"takes only {_words} (v160.7, case-sensitive) -- the parser "
+                        f"resolves this slot against ConditionOp, and a word it "
+                        f"cannot match replaces the whole line with InvalidStatement, "
+                        f"so the branch/jump never happens")
+            elif _enum == "BlockFlag":
+                _msg = (f"`{_val}` is not a block flag: operand 2 of `ulocate` takes "
+                        f"only {_words} (v160.7, case-sensitive) -- this slot is "
+                        f"always a BlockFlag word, never a number; an unknown word "
+                        f"makes the whole line InvalidStatement, so outX/outY/found/"
+                        f"outBuild are never written")
+            else:
+                _msg = (f"`{_val}` is not a unit control command: operand 1 of "
+                        f"`ucontrol` takes only {_words} (v160.7, case-sensitive -- "
+                        f"`payTake`, `itemTake`, `autoPathfind`, `getBlock` are "
+                        f"camelCase); an unknown word makes the whole line "
+                        f"InvalidStatement, so nothing the command was meant to do "
+                        f"happens")
+            out.append(Finding("ERR", _i + 1, "slot-not-in-enum", _msg))
 
     # Link names are bound by the processor itself, not by an assignment, so
     # they are live from the very first statement. We also auto-detect them by
@@ -1247,8 +1382,39 @@ def analyse(lines: list[str], links: list[str] | None = None, ipt: int = 2,
             _tok = _p[_slot]
             if (is_number(_tok) or _tok == "null" or _tok.startswith("@")
                     or _tok.startswith('"') or _PUNCT_NAME.match(_tok)
-                    or _tok in ever_defined or LINK_RE.match(_tok)
+                    or _tok in ever_defined
                     or _HYPHEN_NAME.match(_tok)):
+                continue
+            # A name ending in a digit is only a *possible* link. Whether the
+            # game could have produced it is a second question: the stem must
+            # be a block name's last '-' segment (`switch1`), not merely a
+            # beginning of one (`sw1`), because load() rewrites the stored name
+            # to the real one and the old spelling stays null forever (m00622).
+            _shape = re.fullmatch(r"([A-Za-z_]\w*?)(\d+)", _tok)
+            if _shape:
+                _stem = _shape.group(1).lower()
+                if _stem in LINK_BASES:
+                    continue  # `switch1` / `bank1` / `cell1`: binds for real
+                _bases, _names = link_base_prefixes(_stem)
+                if _bases:
+                    _hit = ", ".join("`" + _v + "`" for _v in _names)
+                    out.append(Finding(
+                        "WARN", _ln + 1, "link-name-base-mismatch",
+                        f"`{_tok}` looks like a link name but cannot bind: the game "
+                        f"builds a link's name from the block's LAST name segment "
+                        f"plus a 1-based index, and `{_stem}` is only the beginning "
+                        f"of {_hit} -- the save writes that link back as "
+                        f"`{_bases[0]}<its index>`, so the spelling here stays an "
+                        f"unassigned variable: everything reading `{_tok}` reads "
+                        f"null, and every comparison against it is false. Measured "
+                        f"on v160.7, MG-4 device (m00622): `sw1`/`sw2` came back as "
+                        f"`switch1`/`switch2` after a load and both switches read "
+                        f"null. Write the real base and its index -- e.g. "
+                        f"`{_bases[0]}1`. A modded block whose name begins with "
+                        f"`{_stem}` is not in this vanilla table: then ignore this"))
+                # A stem that no vanilla block name starts with is either a
+                # modded block or an ordinary variable ending in a digit:
+                # nothing is provable statically, so stay silent on purpose.
                 continue
             out.append(Finding(
                 "WARN", _ln + 1, "link-name-unbindable",

@@ -318,6 +318,8 @@ def main():
         "s.runConsole(rd('%s/quickcheck.js'));" % sc,
         "s.runConsole(rd('%s'));" % pre,
         "print('MAISELF:' + maiSelfTest());",
+        # v0.24.1（task-7）：写入前要问一遍游戏自己的解析器 —— 认不出的语句会静默变成 noop。
+        "print('MAINOOP:' + maiNoopProbe());",
         "print('MAIDIAG:' + maiDiag().replace(/\\n/g, ' | '));",
         "print('MAISET:' + maiSettings());",
         "print('MAILIST:' + maiList().split('\\n')[0]);",
@@ -431,7 +433,7 @@ def main():
                               'MAIJOBBOX0:', 'MAIJOBBOXPIN:', 'MAIJOBBOXFIN:',
                               'MAIJOBBOXCLR:', 'MAIJOBBOX3:', 'MAIJOBMANAGER:',
                               'MAIJOBBOXPIN2:', 'MAIJOBBOXCLOSE:', 'MAIJOBBOX4:',
-                              'MAIBADGERECT:', 'MAIDBG:', 'MAIJOBTHINK2:'))]
+                              'MAIBADGERECT:', 'MAIDBG:', 'MAIJOBTHINK2:', 'MAINOOP:'))]
     joined = '\n'.join(lines)
 
     # ---- resolve every Table/Cell method the page actually uses, in the engine
@@ -642,6 +644,13 @@ def main():
         problems.append('v0.24.0: the task prompt lost the map-wide facts or the blocked card'
                         ' (want MAITASK:ok cores=N units=N blocked=1): %r'
                         % [l for l in lines if l.startswith('MAITASK:')][:1])
+    # v0.24.1（task-7）：写入前的引擎兜底。LAssembler 把认不出的语句塞成 InvalidStatement
+    # （编辑器里显示 noop、执行时什么都不做），这种行必须在写入前就被拒，而不是静默写进去；
+    # 行号映射得对（注释/空行/label 不能让行号漂），未定义标签这种整段失败要单独走一条路。
+    if 'MAINOOP:ok' not in joined:
+        problems.append('v0.24.1: the pre-write noop guard is broken'
+                        ' (want MAINOOP:ok good=1 bad=1 label=1 undef=1): %r'
+                        % [l for l in lines if l.startswith('MAINOOP:')][:1])
     # v0.23.2（用户 m05726）：审查栏不能再靠写死的 Class.forName("mindustry.logic.LogicDialog")
     # 反射 —— MindustryX 替换字节码之后 f.get(L) 抛 IllegalArgumentException 被静默吞掉，
     # 表现就是永远「读不到处理器」。诊断串在无头下必须是 ui=null 且字段齐全。
@@ -2238,6 +2247,28 @@ def main():
         problems.append('v0.24.0: a blocked job is no longer surfaced outside the chat box')
     if 'api.maiTaskFactsProbe = function(' not in code_only:
         problems.append('v0.24.0: the task-facts self-check hook disappeared')
+
+    # v0.24.1：sidecar 查不出来的东西要由游戏自己的解析器兜住（LAssembler/LParser 的
+    # InvalidStatement = noop），单台写入、事务批量、作业卡片三处都得在。
+    if 'function engineNoopReport(' not in code_only or 'function noopLineMap(' not in code_only:
+        problems.append('v0.24.1: the pre-write noop guard is gone (engineNoopReport / noopLineMap)')
+    if 'Packages.mindustry.logic.LAssembler' not in code_only or 'asm.read(src, ' not in code_only:
+        problems.append('v0.24.1: the noop guard stopped asking the game own parser'
+                        ' (want Packages.mindustry.logic.LAssembler + asm.read(src, ...))')
+    if '"拒绝写入：" + noop.msg' not in code_only:
+        problems.append('v0.24.1: writeBuild no longer refuses a program that parses into noop')
+    if '行游戏会解析成 noop' not in code_only:
+        problems.append('v0.24.1: the refusal stopped naming the line the game would turn into noop')
+    if '编辑器里显示 noop、执行时什么都不做' not in code_only:
+        problems.append('v0.24.1: the refusal lost its shows-noop / does-nothing wording')
+    if '行会变 noop' not in code_only or 'noopShortText(' not in code_only:
+        problems.append('v0.24.1: the transactional batch write no longer pre-checks for noop lines')
+    if 'function jobNoopWarn(' not in code_only or '⚠ 游戏会把第 ' not in code_only:
+        problems.append('v0.24.1: the job card lost the noop warning line')
+    if 'JOB_NOOP_CACHE' not in code_only:
+        problems.append('v0.24.1: the job card re-parses the code every frame (no noop cache)')
+    if 'api.maiNoopProbe = function(' not in code_only:
+        problems.append('v0.24.1: the noop self-check hook disappeared')
     if problems:
         print('FAIL ' + '; '.join(problems))
         print(joined[-1500:])
@@ -2269,7 +2300,7 @@ def main():
                         'MAICHAT:', 'MAISIDECAR:', 'MAIJOBPANEL:', 'MAIJOBPANELDIAG:', 'MAIHINT:', 'MAIFILTER:', 'MAIFILTER2:', 'MAIWORKSPACE:', 'MAIWS2:', 'MAIWS3:', 'MAICHATUI:', 'MAIDUAL:', 'MAIWSDIGEST:', 'MAIACT:', 'MAICOPY:', 'MAIREV:', 'MAIREV2:', 'MAIARROW2:', 'MAITASK:',
                         'MAIJOBBOX', 'MAIBADGERECT:', 'MAIJOBMANAGER:', 'MAIBP:',
                         'MAISIGMETA:', 'MAIBPTITLE:', 'MAIBPCHAT:', 'MAIKEYBIND:', 'MAITHEME:',
-                        'MAIJOBTHINK2:')):
+                        'MAIJOBTHINK2:', 'MAINOOP:')):
             print('  ' + l[:300])
     return 0
 

@@ -211,6 +211,72 @@ def previous_version(job):
     return text
 
 
+_ENUM_CACHE = None
+
+
+def _enums():
+    """The operand word lists, read from tools/instr_enums.json.
+
+    v0.24.1 (m07998): the analyzer and the prompt quote the SAME table, so the model
+    cannot invent a slot word that the game would silently turn into `noop`.  A
+    missing file degrades to {} -- building the prompt must never fail.
+    """
+    global _ENUM_CACHE
+    if _ENUM_CACHE is None:
+        path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "instr_enums.json")
+        try:
+            with io.open(path, encoding="utf-8") as fh:
+                _ENUM_CACHE = (json.load(fh) or {}).get("enums") or {}
+        except Exception:
+            _ENUM_CACHE = {}
+    return _ENUM_CACHE
+
+
+def _enum_words(name):
+    return "|".join([str(w) for w in (_enums().get(name) or []) if str(w)])
+
+
+def enum_rules():
+    """v0.24.1: the word-list half of the rules -- one wrong word means a noop line.
+
+    The real v160.7 parser replaces a line it cannot read with InvalidStatement,
+    which the editor shows as `noop` and which executes nothing; that is exactly
+    how a radar line with the operands in the wrong slots reached the player.  An
+    operand that must be an enum word is a hard constraint, not a style hint.
+    """
+    out = []
+    rt, rs = _enum_words("RadarTarget"), _enum_words("RadarSort")
+    if rt and rs:
+        out.append("- radar/uradar take their words IN THIS ORDER:")
+        out.append("  radar <filter1> <filter2> <filter3> <sort> <block> <order> <out>")
+        out.append("  e.g. `radar enemy any any distance turret1 1 target` -- the three")
+        out.append("  filters come first (%s), then the sort key (%s)," % (rt, rs))
+        out.append("  then the block searched from, then 1/-1, then the variable that")
+        out.append("  receives the unit. One filter is enough: the rest are `any`.")
+    ct = _enum_words("ControlType")
+    if ct:
+        out.append("- control <type> ...: type is one of %s" % ct)
+    ut = _enum_words("LUnitControl")
+    if ut:
+        out.append("- ucontrol <type> ...: type is one of %s" % ut)
+    lo, bf = _enum_words("LLocate"), _enum_words("BlockFlag")
+    if lo:
+        line = "- ulocate <mode> <group> ...: mode is one of %s" % lo
+        if bf:
+            line += "; group is one of %s" % bf
+        out.append(line)
+    co = _enum_words("ConditionOp")
+    if co:
+        out.append("- jump <index> <condition>: condition is one of %s" % co)
+    if rt or ct or ut or lo or co:
+        out.append("- THOSE SLOTS TAKE THE WORDS ABOVE, NOT VARIABLES. A word outside the")
+        out.append("  list -- a variable name, a misspelling, or `Enemy` for `enemy` (ids")
+        out.append("  and words are case-sensitive) -- makes the game replace the WHOLE")
+        out.append("  line with `noop`: the editor shows noop, the line does nothing, and")
+        out.append("  the job is rejected here. An unknown instruction name does the same.")
+    return out
+
+
 def build_prompt(job, hint=None):
     """The three sections of section 4.4, as one string."""
     links = _link_names(job.get("links"))
@@ -260,6 +326,7 @@ def build_prompt(job, hint=None):
     out.append("- print/printflush: print writes into the buffer, printflush sends it.")
     out.append("- sensor <result> <block> <property> reads a property of a linked block.")
     out.append("- control/radar/ucontrol need the documented argument count for v160.")
+    out.extend(enum_rules())
     out.append("- End the program with an explicit `end` unless it loops forever.")
     out.append("- The whole program must pass the analyzer: any ERR rejects the job.")
     out.append("- A whitelist name is what sensor/control/radar/read/write/printflush,")
@@ -379,7 +446,7 @@ printflush message1""",
     {
         "title": "message board -- sensor then print, one value per line",
         "keys": ["显示", "信息板", "面板", "打印", "message", "print", "board", "display"],
-        "code": """sensor n core1 @copper
+        "code": """sensor n zone1 @copper
 print "copper "
 print n
 printflush message1""",
@@ -387,7 +454,7 @@ printflush message1""",
     {
         "title": "two-way branch -- one label per outcome, each branch ends itself",
         "keys": ["不够", "不足", "报警", "分支", "否则", "branch", "alarm", "else", "low"],
-        "code": """sensor n core1 @copper
+        "code": """sensor n zone1 @copper
 jump low lessThan n 100
 print "enough"
 printflush message1
@@ -419,9 +486,9 @@ end
 have:
 ulocate building core false @copper cx cy found core1
 jump have equal found false
-itemTake core1 @copper 20
+ucontrol itemTake core1 @copper 20
 ucontrol move cx cy 0 0 0
-itemDrop dome1 @copper 20""",
+ucontrol itemDrop dome1 @copper 20""",
     },
     {
         "title": "unit supply loop -- top a block back up from the core while a unit is bound",
@@ -434,9 +501,9 @@ ulocate building core false @phase-fabric cx cy found core1
 jump wait equal found false
 sensor have dome1 @phase-fabric
 jump wait greaterThanEq have 5
-itemTake core1 @phase-fabric 20
+ucontrol itemTake core1 @phase-fabric 20
 ucontrol move cx cy 0 0 0
-itemDrop dome1 @phase-fabric 20
+ucontrol itemDrop dome1 @phase-fabric 20
 wait:
 wait 1
 jump loop always""",

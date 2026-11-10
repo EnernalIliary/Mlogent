@@ -3,6 +3,15 @@
 只记对外可见的变化。工程日志（每一版的动机、踩过的坑、源码依据）见
 `MlogAuxiliary/HISTORY.md` 与 `docs/`。
 
+## 0.24.1
+
+- **「第一行是 noop」有了门禁**（用户 m07998：「刚刚在游戏中为MAI下发了一次任务，但是第一行是noop」）。真 v160.7 引擎逐条解析那个作业的代码，首行 `radar e projector1 enemy distance 1` 得到 `InvalidStatement` —— 编辑器里显示 `noop`、执行时什么都不做；而它当时只命中 `under-arity` 与 `slot-not-in-enum` 两条 WARN，写入闸只拦 ERR，于是照写不误。正确写法：`radar enemy any any distance projector1 1 e`（前三个 target 槽只收 any|enemy|ally|player|attacker|flying|boss|ground，第四个是 sort，第五个是建筑，第六个 1/-1，第七个是输出变量；指令名与这些词都大小写敏感）。
+- **分析器：四类硬失败改成 ERR**。`LParser.java:142-147` 每行解析失败就换成 `InvalidStatement`（注册名就是 `noop`），`LAssembler.read()` 不吞 —— 真引擎跑出来的矩阵只有四类会这样：未知指令、枚举槽写了词表外的词、`ulocate` 参数不足、字面 `noop`；而 `radar` / `sensor` / `control` / `jump` 少操作数会按默认值补齐、照常执行。于是 `slot-not-in-enum` 由 WARN 升 ERR，覆盖面从 RadarTarget / RadarSort / ControlType / LLocate 扩到 ConditionOp（jump、select 的条件）、BlockFlag（`ulocate` 的 flag）、LUnitControl（`ucontrol` 子命令），比较改成大小写精确；新增 `unknown-instruction`（ERR，与 54 个注册语句名精确比对）；未定义 jump 标签的 WARN 升级成 `undefined-jump-location`（ERR）；`under-arity` 仍是 WARN，文案补一句「引擎会按默认值补齐，不会因此变 noop」。
+- **模组：写入前用游戏自己的解析器兜底**。`LAssembler.read(code, privileged)` 一跑，见到 `InvalidStatement` 就拒绝写入并报出第几行（`writeBuild` 与事务写入 `writeMany` 的预检都接上，事务里每台只报第一处）；作业卡片在成功结果上再标一行「⚠ 游戏会把第 N 行解析成 noop：…」，这样「复制粘贴进编辑器」这条没有写入闸的路也看得见。整段解析失败（例如未定义标签）时 `LogicBlock.updateCode()` 的 catch 会把代码换成空程序、处理器停摆（`LogicBlock.java:430-432`），写入前同样拦下并说清楚。
+- **给模型的话术：枚举词表直接引**。`tools/mlogprovider.py` 的规则段从 `tools/instr_enums.json` 引 `radar` / `uradar` 的七操作数顺序和 `control` / `ucontrol` / `ulocate` / `jump` 的枚举词表，并写明这些槽只收词表里的词、大小写敏感、写错整行变 `noop`、作业会被拒 —— 模型原先正是把 filter 写进 sort 槽、把变量名放进枚举槽、还少一个 output。
+- **顺带修好样板库里的死指令**：11 个 prompt 样板里「单位搬运」「单位供料」两条用了 `itemTake` / `itemDrop` —— v160.7 根本没有这两条指令（它们只是 `ucontrol` 的子命令），真引擎解析后那两行都是 `InvalidStatement`；模型抄样板，写出来的处理器就会整段停摆。现已改成 `ucontrol itemTake` / `ucontrol itemDrop`，并把 11 个样板全过一遍真 v160.7 引擎：`invalid=0`。
+- 自检：`tests/run_tests.py` 50/50（新增 6 个夹具）、`tests/ruleids/run_ruleids.py` 47 条规则 / 38 rid / 55 夹具 0 问题、`tests/shapes` 全 fire、`rule_capture.py lint` 0 问题、ui smoke 输出 `MAINOOP:ok good=1 bad=1 label=1 undef=1`（正常代码放行；第 4 行认不出的语句报对行号；label 行不让行号漂；未定义标签走整段失败），provider 断言新增「radar 七操作数签名在 prompt 里」「7 个枚举的每个词都在 prompt 里」「`noop` 与 `case-sensitive` 在 prompt 里」。
+
 ## 0.24.0
 
 - 全图事实段：区域快照只写了框里有什么，而 `ubind` / `ulocate` / `radar` 看的是整张图 —— 「从核心给穹顶送料」的材料全在框外时，模型只能判「做不到」。模组新增 `globalFacts()`（`Groups.build` 找最近的核心连库存、`Groups.unit` 按本队统计类型、`Vars.state.rules.logicUnitControl`）挂到 `regionSnapshot().globals`，侧车 `global_facts()` 把它写成三行提示（没有数据时明说这一版游戏没送）。

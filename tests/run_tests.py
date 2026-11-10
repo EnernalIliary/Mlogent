@@ -309,6 +309,13 @@ SUITE: list[tuple[str, str, str | None]] = [
     # A hyphenated name the program assigns is a legal variable; a hyphen
     # inside a quoted string is not a name at all. Neither may be reported.
     ("check/link-hyphen-ok",  "check",   "link-hyphen-ok.mlog"),
+    # A link name is the block's LAST name segment plus a 1-based index, and the
+    # game rewrites anything else when the save loads (m00622: `sw1` came back as
+    # `switch1`, so the switch read null and looked dead).  A stem that is merely
+    # the beginning of a block name (`sw1`, `core1`) can never bind: WARN with its
+    # own rid, not silence -- and a real base (`switch1`, `cell1`) stays quiet.
+    ("check/link-base-mismatch", "check_rid", "link-base-wrong.mlog"),
+    ("check/link-base-ok",       "check",     "link-base-ok.mlog"),
     # `sensor` reads LAccess attributes; an item/block name there reads null.
     ("check/sensor-not-prop", "check",   "sensor-not-prop.mlog"),
     # The effect slot of `status` is a literal content name, not a variable

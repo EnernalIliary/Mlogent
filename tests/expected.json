@@ -334,6 +334,27 @@
     "case": "link-hyphen-ok.mlog",
     "digest": []
   },
+  "check/link-base-mismatch": {
+    "kind": "check_rid",
+    "case": "link-base-wrong.mlog",
+    "digest": [
+      [
+        "WARN",
+        0,
+        "link-name-base-mismatch"
+      ],
+      [
+        "WARN",
+        1,
+        "link-name-base-mismatch"
+      ]
+    ]
+  },
+  "check/link-base-ok": {
+    "kind": "check",
+    "case": "link-base-ok.mlog",
+    "digest": []
+  },
   "check/sensor-not-prop": {
     "kind": "check",
     "case": "sensor-not-prop.mlog",
@@ -559,6 +580,10 @@
     "digest": [
       [
         "WARN",
+        0
+      ],
+      [
+        "WARN",
         3
       ],
       [
@@ -571,6 +596,10 @@
     "kind": "check",
     "case": "loop-labels-ok.mlog",
     "digest": [
+      [
+        "WARN",
+        0
+      ],
       [
         "INFO",
         1

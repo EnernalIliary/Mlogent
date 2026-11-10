@@ -1,6 +1,14 @@
 {
+  "slot-not-in-enum": [
+    "bool-param-zero.mlog",
+    "radar-filter-swapped.mlog",
+    "slot-enum-ext.mlog",
+    "slot-enum.mlog",
+    "under-arity-radar.mlog"
+  ],
   "bool-param-constantly-zero": [
-    "bool-param-zero.mlog"
+    "bool-param-zero.mlog",
+    "slot-enum-ext.mlog"
   ],
   "constant-null-guard": [
     "const-null-guard.mlog"
@@ -16,6 +24,7 @@
     "reactor-guard-ok.mlog",
     "reactor-guard-slow.mlog",
     "reactor-guard-unknown.mlog",
+    "slot-enum-ext.mlog",
     "virus-logic-clean.mlog"
   ],
   "unreachable-statement": [
@@ -40,10 +49,14 @@
   "undefined-var-read": [
     "index-only-summary.mlog",
     "pack1.mlog",
+    "slot-enum-ext.mlog",
     "status-effect-slot.mlog",
     "undefined-var-num-slot.mlog",
     "undefined-var-read.mlog",
     "virus-logic-clean.mlog"
+  ],
+  "undefined-jump-location": [
+    "jump-missing-label.mlog"
   ],
   "jump-target-out-of-range": [
     "jump-range.mlog"
@@ -52,6 +65,8 @@
     "label-index.mlog"
   ],
   "link-name-not-bound": [
+    "link-base-ok.mlog",
+    "link-base-wrong.mlog",
     "link-hyphen-ok.mlog",
     "link-hyphen.mlog",
     "loop-labels-ok.mlog",
@@ -60,6 +75,7 @@
     "reactor-guard-ok.mlog",
     "reactor-guard-slow.mlog",
     "reactor-guard-unknown.mlog",
+    "slot-enum-ext.mlog",
     "slot-enum-ok.mlog",
     "slot-enum.mlog",
     "surplus-slot.mlog",
@@ -67,6 +83,11 @@
     "under-arity-ok.mlog",
     "unreachable-statement.mlog",
     "val3.mlog"
+  ],
+  "link-name-base-mismatch": [
+    "link-base-wrong.mlog",
+    "loop-labels-ok.mlog",
+    "unreachable-statement.mlog"
   ],
   "link-name-hyphen": [
     "link-hyphen.mlog"
@@ -95,6 +116,11 @@
   "radar-takes-no-count": [
     "radar-count-misuse.mlog"
   ],
+  "under-arity": [
+    "radar-filter-swapped.mlog",
+    "under-arity-control.mlog",
+    "under-arity-radar.mlog"
+  ],
   "impact-reactor-cap-is-not-protection": [
     "reactor-guard-impact.mlog"
   ],
@@ -112,10 +138,6 @@
   ],
   "sensor-not-a-property": [
     "sensor-not-property.mlog"
-  ],
-  "slot-not-in-enum": [
-    "slot-enum.mlog",
-    "under-arity-radar.mlog"
   ],
   "spin-deadlock": [
     "spin.mlog"
@@ -140,9 +162,8 @@
   "ulocate-outxy-discarded": [
     "ulocate-outxy.mlog"
   ],
-  "under-arity": [
-    "under-arity-control.mlog",
-    "under-arity-radar.mlog"
+  "unknown-instruction": [
+    "unknown-instruction.mlog"
   ],
   "virus-logic": [
     "virus-logic.mlog"
