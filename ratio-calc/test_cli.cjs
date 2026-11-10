@@ -394,9 +394,13 @@ ok("--mix：发电设备当目标，电力和发电都算", () => {
   assert.strictEqual(r.powerOut, 60);
   assert.strictEqual(r.netPower, 0);
 });
-ok("--mix：兵厂给出明确报错", () => {
-  try { cli.query({ mix: "ground-factory:1" }); throw new Error("expected throw"); }
-  catch (e) { assert.ok(/兵厂/.test(e.message), e.message); }
+ok("--mix：兵厂也能进混合厂（当普通工厂算）", () => {
+  const r = cli.query({ mix: "ground-factory:2,silicon-smelter:1", boundary: "coal,sand,lead" });
+  assert.strictEqual(r.mode, "mixed");
+  const gf = r.machines.filter(m => m.name === "ground-factory")[0];
+  assert.ok(gf && gf.count === 2, JSON.stringify(gf));
+  assert.ok(r.products.some(p => p.name === "dagger"), JSON.stringify(r.products));
+  assert.ok(!(r.demand || []).some(d => d.name === "silicon"), JSON.stringify(r.demand));
 });
 ok("--mix：格式错误时报错清楚", () => {
   try { cli.query({ mix: "graphite-press:0" }); throw new Error("expected throw"); }

@@ -1221,6 +1221,8 @@
         if (!mixTargets.length) { alert("先往清单里加至少一个目标"); return; }
         res = R.expandMixed(DATA, mixTargets.map(function (t) { return { block: t.block, count: t.count }; }),
                             Object.assign({ boundary: boundary, force: forced, maxDepth: depth, multi: multiOn, flow: flowOn, floor: floorOpt, attrs: attrsOpt }, liqOpt));
+        res.requested = mixTargets.reduce(function (a, t) { return a + t.count; }, 0);
+        res.target = mixTargets.map(function (t) { return t.block + "×" + t.count; }).join(" + ");
       } else if (mode === "building") {
         var count = Math.max(1, parseInt(el("count").value, 10) || 1);
         var plan = parseInt(el("plan").value || "0", 10) || 0;
@@ -1351,6 +1353,18 @@
             (s.fromTargets ? "（目标自产抵扣 " + num(s.fromTargets) + "）" : "") + '</td>' +
             '<td class="dim">分别建 ×' + (s.separateCount || 0) +
             (s.saved ? "（省 " + s.saved + " 台）" : "") + '</td></tr>';
+        }).join("");
+      }
+      /* 目标之间自供、内部全抵扣掉的中间产物（不进边界、也不建上游） */
+      var own = (res.internals || []).filter(function (x) {
+        return !(x.stillNeed > 1e-9) && !sh.some(function (s) { return s.item === x.item; });
+      });
+      if (own.length) {
+        body += '<tr><td colspan="4" class="dim" style="padding-top:10px">目标之间自供（不再进边界、也不建上游）</td></tr>';
+        body += own.map(function (x) {
+          return '<tr><td>' + itemLabel(x.item, "sm") + ' ← 其它目标自产</td>' +
+            '<td class="num">—</td><td class="dim">需求 ' + num(x.need) + '/s（自供 ' + num(x.fromTargets) + '）</td>' +
+            '<td class="dim">—</td></tr>';
         }).join("");
       }
       var cmp2 = res.compare;

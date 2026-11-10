@@ -187,6 +187,18 @@ def case_mixed_generator():
     check_width(r)
 
 
+def case_mixed_unit():
+    """兵厂当普通工厂：混合厂收兵厂，材料与物品工厂共享（用户 2026-11-10）。"""
+    r = run_cli(["--mix", "ground-factory:2,silicon-smelter:1", "--boundary", "coal,sand,lead"])
+    assert r.get("mode") == "mixed", r.get("mode")
+    t = flat(r)
+    assert "ground-factory" in t, t
+    assert "dagger" in t, t
+    assert "目标自供：silicon 1.333/s" in t, t
+    assert not any(d.get("name") == "silicon" for d in (r.get("demand") or [])), r.get("demand")
+    check_width(r)
+
+
 def case_liquid_self():
     """煤炭不允许外部输入 + 液体自产：卡片要把煤炭处理线写出来、液体行用原版液体贴图 + 泵换算。"""
     r = run_cli(["--item", "coal", "--rate", "2", "--boundary", "none", "--liquids", "auto"])
@@ -324,6 +336,7 @@ ok("归一化：分数台数 + 整台台数", case_flow)
 ok("循环产线：卡片单列一节并写出连接物品", case_loop)
 ok("混合厂：标题/目标表/共享省台数/对比分别建", case_mixed)
 ok("混合厂：发电设备当目标时写厂内发电与净电力", case_mixed_generator)
+ok("混合厂：兵厂当普通工厂（目标自供硅、不进边界）", case_mixed_unit)
 ok("发电厂：目标建筑时卡片列出上游机器", case_generator)
 
 print("\n通过 %d 项，失败 %d 项" % (pass_n, fail_n))

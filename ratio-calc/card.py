@@ -551,6 +551,12 @@ def build_card(res: dict) -> Card:
                    % ("、".join(s["item"] for s in sh[:2]),
                       "/".join(str(s.get("separateCount")) for s in sh[:2]),
                       "/".join(str(s.get("saved")) for s in sh[:2])), GREEN)
+        own = [s for s in (res.get("internals") or [])
+               if not ((s.get("stillNeed") or 0) > 1e-9)
+               and not any(x.get("item") == s.get("item") for x in (res.get("shared") or []))]
+        if own:
+            c.note("目标自供：%s（其它目标产出抵扣，不进边界）"
+                   % "、".join("%s %s/s" % (s.get("item"), fmt(s.get("need"))) for s in own[:3]), DIM)
         cmp_ = res.get("compare") or {}
         if cmp_:
             c.note("对比分别建：机器 %s → %s（省 %s），占地 %s → %s 格（省 %s）"

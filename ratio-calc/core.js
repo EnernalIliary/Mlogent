@@ -923,7 +923,36 @@
       };
     }
     if (b.kind === "unit") {
-      throw new Error("混合厂只算物品工厂与发电设备；兵厂自带 T1→T5 大循环，请用「按目标建筑台数」页选兵厂");
+      /* 用户 2026-11-10：兵厂大循环限制太多，就当正常工厂看待 ——
+       * 台数 × 生产计划（或升级周期）算出单位产出与吃料，材料照常进混合厂的共享递归。 */
+      var uProducts = [];
+      var uInputs = [];
+      var uPlan = 0;
+      if (b.factoryKind === "reconstructor") {
+        var uPer = b.cps;
+        uProducts.push({ name: (b.upgrades[0] ? b.upgrades[0].to : "unit"), type: "unit",
+                         rate: round(uPer * count) });
+        b.inputs.forEach(function (i) {
+          uInputs.push({ name: i.name, amount: round(i.amount * uPer * count) });
+        });
+      } else {
+        var uPlans = b.plans || [];
+        if (!uPlans.length) throw new Error(blockName + " 没有生产计划");
+        uPlan = Math.min(Math.max(0, planIdx || 0), uPlans.length - 1);
+        var uPlanObj = uPlans[uPlan];
+        uProducts.push({ name: uPlanObj.unit, type: "unit", rate: round(uPlanObj.perSecond * count) });
+        uPlanObj.items.forEach(function (i) {
+          uInputs.push({ name: i.name, amount: round(i.amount * uPlanObj.perSecond * count) });
+        });
+      }
+      return {
+        block: blockName, kind: "unit", count: count, power: round((b.power || 0) * count), powerOut: 0,
+        plan: uPlan, planTotal: (b.plans || []).length,
+        products: uProducts, inputs: uInputs,
+        inputLiquids: (b.inputLiquids || []).map(function (l) {
+          return { name: l.name, perSecond: round(l.perSecond * count) };
+        })
+      };
     }
     var products = [];
     var inputs = [];
@@ -957,6 +986,7 @@
     var flowMode = !!opts.flow;
     var maxDepth_ = opts.maxDepth || MAX_DEPTH;
     var warnings = [];
+    var planByBlock = {};   /* 兵厂目标各自选的生产计划，机器表要按它写产出 */
 
     /* "这个物品能不能一路接到边界/自产到底"——与单目标展开同一套判定 */
     function servable(item, seen) {
@@ -1084,6 +1114,7 @@
 
     var products = [], inputs = [], liquidExtra = {}, powerOut = 0, targetRows = [];
     list.forEach(function (s) {
+      if (s.kind === "unit") planByBlock[s.block] = s.plan || 0;
       machines[s.block] = (machines[s.block] || 0) + s.count;
       s.products.forEach(function (p) {
         products.push({ name: p.name, type: p.type, rate: p.rate, block: s.block });
@@ -1096,6 +1127,7 @@
       powerOut += s.powerOut || 0;
       targetRows.push({ block: s.block, count: s.count, kind: s.kind, products: s.products,
                         inputs: s.inputs, inputLiquids: s.inputLiquids || [],
+                        plan: s.plan || 0, planTotal: s.planTotal || 0,
                         power: s.power, powerOut: s.powerOut || 0 });
     });
 
@@ -1112,6 +1144,7 @@
       }
       var one = expandBuilding(data, s.block, s.count, {
         boundary: opts.boundary, force: opts.force, maxDepth: maxDepth_,
+        plan: s.plan || 0,
         liquids: opts.liquids, liquid: opts.liquid, liquidName: opts.liquidName
       });
       Object.keys(one.machines).forEach(function (k) {
@@ -1141,6 +1174,7 @@
       liquidExtra: liquidExtra,
       generatorNet: generatorNet,
       shared: sharedItems,
+      planByBlock: planByBlock,
       internals: internals,
       warnings: warnings,
       tree: null,
@@ -1969,7 +2003,9 @@
             ? ["升级 " + b.upgrades.length + " 种（" + round(b.cps * count) + " 次/s）"]
             : ["升级厂"];
         } else {
-          var plan = (b.plans || [])[result.plan || 0] || (b.plans || [])[0];
+          var planIdx_ = (result.planByBlock && result.planByBlock[name] != null)
+            ? result.planByBlock[name] : (result.plan || 0);
+          var plan = (b.plans || [])[planIdx_] || (b.plans || [])[0];
           if (plan) outputs = [plan.unit + " " + round(plan.perSecond * count) + "/s"];
         }
       } else if (b) {

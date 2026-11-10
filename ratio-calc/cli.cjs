@@ -665,7 +665,7 @@ function renderText(res) {
   }
   if (res.flow) L.push("  归一化：台数为满效等价值（可为小数），数量按每秒守恒；整台建时每台效率 = 小数台数 / 向上取整");
   if (res.powerMix) L.push("  外部电力：" + powerMixText(res.powerMix));
-  if (res.mode === "mixed" && res.shared && res.shared.length) {
+  if (res.mode === "mixed") {
     const hit = res.shared.filter(s => s.saved > 0);
     res.shared.forEach(s => {
       let line = "  共享 " + s.item + "：" + s.block + " ×" + s.mixedCount + "（混合）";
@@ -679,7 +679,13 @@ function renderText(res) {
              res.compare.tilesMixed + "（省 " + res.compare.savedTiles + " 格）" +
              (res.compare.savedPower ? "，电力省 " + fmtNum(res.compare.savedPower) + "/s" : ""));
     }
-    if (!hit.length) L.push("  （这组目标没有共享的中间产物，混合只省了取整误差）");
+    /* 目标之间自供、内部全抵扣掉的中间产物（不进边界、也不建上游）——兵厂进混合厂后常见 */
+    const own = (res.internals || []).filter(x => !(x.stillNeed > 1e-9) &&
+      !(res.shared || []).some(s => s.item === x.item));
+    own.forEach(x => {
+      L.push("  目标自供 " + x.item + "：" + fmtNum(x.need) + "/s 由其它目标产出抵扣，不再建上游、也不进边界");
+    });
+    if (!hit.length && !own.length) L.push("  （这组目标没有共享的中间产物，混合只省了取整误差）");
   }
   /* 边界输入：物品 + 液体一起列（液体也是边界，不列出来就不知道煤处理线断在哪一环） */
   const needLiq = Array.isArray(res.liquidNet) ? res.liquidNet : (res.liquids || []);
@@ -809,6 +815,12 @@ function renderMarkdown(res) {
       L.push("");
       L.push("共享产物（混合只建一份）：" + sh.map(s =>
         s.item + " ×" + s.mixedCount + "（分别建 ×" + s.separateCount + "，省 " + s.saved + "）").join("、"));
+    }
+    const ownMd = (res.internals || []).filter(x => !(x.stillNeed > 1e-9) &&
+      !(res.shared || []).some(s => s.item === x.item));
+    if (ownMd.length) {
+      L.push("");
+      L.push("目标自供：" + ownMd.map(x => x.item + " " + fmtNum(x.need) + "/s").join("、") + "（其它目标产出抵扣，不进边界）");
     }
     L.push("");
   }

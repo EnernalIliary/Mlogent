@@ -349,6 +349,17 @@ window.__ratio.mix([["silicon-smelter", 2], ["combustion-generator", 1]]);
 check("混合厂：发电设备当目标（电力 60、发电 60）",
       /60\/s/.test(txt("cards")) && /combustion-generator/.test(txt("machines")), txt("cards").slice(0, 400));
 
+/* 兵厂当普通工厂（用户 2026-11-10）：混合厂直接收，材料跟物品工厂一起共享 */
+window.__ratio.setBoundary("coal, sand, lead");
+window.__ratio.mix([["ground-factory", 2], ["silicon-smelter", 1]]);
+check("混合厂：兵厂目标当普通工厂算（dagger 进产出）",
+      /ground-factory/.test(txt("machines")) && /dagger/.test($("mixtable").innerHTML) &&
+      /3/.test(txt("cards")), $("mixtable").innerHTML.slice(0, 900));
+check("混合厂：兵厂吃的硅由硅炉抵扣（表格写「目标之间自供」）",
+      /目标之间自供/.test($("mixtable").innerHTML) && /silicon/.test($("mixtable").innerHTML),
+      $("mixtable").innerHTML.slice(0, 1200));
+window.__ratio.setBoundary("coal, sand");
+
 // 空清单不崩（会隐藏输出区）
 window.__ratio.mix([]);
 check("混合厂：空清单隐藏输出区且不报错", $("out").classList.contains("hidden"));

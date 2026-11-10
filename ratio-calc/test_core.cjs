@@ -243,9 +243,32 @@ near("expandMixed：发电 60/s", mix3.powerOut, 60, 1e-9);
 near("expandMixed：净电 0", mix3.netPower, 0, 1e-9);
 
 // 兵厂不能进混合厂（自带 T1→T5 大循环）
-let mixBoom = null;
-try { R.expandMixed(DATA, [{ block: "ground-factory", count: 1 }]); } catch (e) { mixBoom = e.message; }
-eq("expandMixed：兵厂给出明确报错", /兵厂/.test(mixBoom || ""), true);
+/* 用户 2026-11-10：兵厂就当正常工厂看待，整合进混合厂（不再单独报错） */
+const mixUnit = R.expandMixed(DATA, [{ block: "ground-factory", count: 2 }],
+                              { boundary: ["silicon", "lead"] });
+eq("expandMixed：兵厂目标当作普通工厂", mixUnit.machines["ground-factory"], 2);
+eq("expandMixed：兵厂目标 kind=unit", (mixUnit.targets[0] || {}).kind, "unit");
+eq("expandMixed：兵厂产出写在目标行（dagger 0.133/s）",
+   Math.round(((mixUnit.targets[0].products[0] || {}).rate || 0) * 1000) / 1000, 0.133);
+near("expandMixed：兵厂吃 silicon 1.333/s（边界）", (mixUnit.demand || {}).silicon, 1.333, 1e-3);
+near("expandMixed：兵厂吃 lead 1.333/s（边界）", (mixUnit.demand || {}).lead, 1.333, 1e-3);
+/* 兵厂材料与物品工厂共享上游：硅炉产 1.5/s 先抵扣兵厂的 1.333/s */
+const mixShare = R.expandMixed(DATA, [{ block: "ground-factory", count: 2 },
+                                      { block: "silicon-smelter", count: 1 }],
+                               { boundary: ["coal", "sand", "lead"] });
+eq("expandMixed：兵厂与硅炉共享硅（硅不进边界）", (mixShare.demand || {}).silicon, undefined);
+ok("expandMixed：目标之间自产自销记进 internals（兵厂吃硅炉的硅）",
+   (mixShare.internals || []).some(s => s.item === "silicon"),
+   JSON.stringify(mixShare.internals));
+near("expandMixed：自产硅抵扣后硅的净需求为 0（硅炉 1.5 覆盖兵厂 1.333）",
+   ((mixShare.internals || []).filter(s => s.item === "silicon")[0] || {}).stillNeed, 0, 1e-3);
+/* 升级厂按普通工厂算：材料按 cps，低阶单位不当物品展开 */
+const mixRec = R.expandMixed(DATA, [{ block: "additive-reconstructor", count: 1 }],
+                             { boundary: ["silicon", "graphite"] });
+eq("expandMixed：升级厂按普通工厂算（pulsar 0.1/s）",
+   Math.round((mixRec.targets[0].products[0].rate) * 1000) / 1000, 0.1);
+near("expandMixed：升级厂吃 silicon 4/s", mixRec.demand.silicon, 4, 1e-6);
+near("expandMixed：升级厂吃 graphite 4/s", mixRec.demand.graphite, 4, 1e-6);
 
 // 液体自产：煤炭不在外部输入时，coal-centrifuge 要吃 oil ⇒ 自动接石油钻井（煤炭处理线）
 const liq1 = R.expand(DATA, "coal", 2, [], {}, { liquids: "auto" });
