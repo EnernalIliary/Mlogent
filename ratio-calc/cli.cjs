@@ -7,7 +7,6 @@
  *   node ratio-calc/cli.cjs --item silicon --rate 5 --src sand=drill:laser-drill:8 --src coal=import
  *   node ratio-calc/cli.cjs --item silicon --rate 5 --gen combustion-generator --genfuel coal
  *   node ratio-calc/cli.cjs --item graphite --rate 1 --format json
- *   node ratio-calc/cli.cjs --chain dagger --chainrate 0.05
  *   node ratio-calc/cli.cjs --list
  */
 "use strict";
@@ -158,36 +157,6 @@ function parseSources(list) {
   return cfg;
 }
 
-/* 链结果 → 统一 JSON 形状（--chain 与 --block <兵厂> 都走这里，避免两份实现） */
-function chainResult(env, ch, count) {
-  const R = env.R;
-  const machines = {};
-  ch.rows.forEach(r => { if (r.count > 0) machines[r.block] = (machines[r.block] || 0) + r.count; });
-  const mine = ch.rows.filter(r => r.tier === ch.topTier)[0];
-  /* 链的材料也要按"外部入料"过一遍，卡片/JSON 才能显示蓝带条数 */
-  const tmp = { machines: Object.assign({}, machines), demand: ch.materials, liquidExtra: {}, extraPower: 0 };
-  R.applySources(env.DATA, tmp, {});
-  const beltPower = tmp.extraPower || 0;
-  return {
-    mode: "chain", chain: ch,
-    target: ch.start + " → " + ch.top,
-    requested: { topCount: count, topTier: ch.topTier },
-    products: [{ name: mine ? mine.unit : ch.top, type: "unit", rate: mine ? mine.capacity : ch.achieved }],
-    machines: Object.keys(machines).sort().map(name => {
-      const b = R.anyBlock(env.idx, name);
-      return {
-        name, count: machines[name], kind: b ? b.kind : "unit",
-        icon: b ? (b.icon || "") : "", size: b ? b.size : 0,
-        powerEach: b ? b.power : 0, powerTotal: b ? b.power * machines[name] : 0,
-        outItems: [], outputs: []
-      };
-    }),
-    demand: Object.keys(ch.materials).sort().map(k => ({ name: k, perSecond: ch.materials[k] })),
-    sources: tmp.sources || [],
-    power: ch.power + beltPower
-  };
-}
-
 /* ---------------- 查询 ---------------- */
 
 /* --mix "silicon-smelter:2,graphite-press:3" → [{block,count}]（第三段可选，兵厂的生产计划号） */
@@ -261,29 +230,11 @@ function query(opts) {
   const res = {
     ok: true, snapshot: DATA.snapshot || "", mode: null, target: null, requested: null,
     products: [], inputs: [], machines: [], demand: [], liquids: [], power: 0,
-    warnings: [], sources: [], liquidSources: [], supply: null, chain: null,
+    warnings: [], sources: [], liquidSources: [], supply: null,
     flow: flowOn
   };
 
-  if (opts.chain) {
-    /* 快捷写法：--chain dagger --chainexpr 5t5 → 等价于"选 T5 兵厂 + 台数 5"，同一条装配路径 */
-    const expr = opts.chainexpr !== undefined ? String(opts.chainexpr) : null;
-    const m = expr ? /^(\d+(?:\.\d+)?)\s*[x×*]?\s*t\s*([1-5])$/i.exec(expr.trim()) : null;
-    let ch;
-    if (m) {
-      ch = R.chainFromTop(DATA, String(opts.chain), parseInt(m[2], 10), parseFloat(m[1]));
-      Object.assign(res, chainResult(env, ch, parseFloat(m[1])));
-    } else {
-      const rate = num(opts.chainrate !== undefined ? opts.chainrate : opts.rate, 0.05);
-      ch = R.unitChain(DATA, String(opts.chain), rate);
-      const out = Object.assign(res, chainResult(env, ch, ch.topCount || null));
-      out.requested = rate;
-    }
-  }
-
-  if (res.mode === "chain") {
-    /* 兵厂链：chainResult 已经装好，这里只等下面统一补图标（不能再 return，否则图标会缺） */
-  } else if (opts.mix) {
+  if (opts.mix) {
     /* 混合厂：多个目标（物品工厂 / 发电设备）合并算上游，共享中间产物只建一份 */
     const targets = parseMix(opts.mix);
     const r = R.expandMixed(DATA, targets, Object.assign({
@@ -320,14 +271,6 @@ function query(opts) {
   res.cycles = r.cycles || [];
   } else if (opts.block) {
     const count = num(opts.count, 1);
-    /* 选中的是兵厂 → 直接走 T1→T5 大循环（和页面「按目标建筑台数」一致） */
-    const selB = env.idx ? R.anyBlock(env.idx, String(opts.block)) : null;
-    if (selB && selB.kind === "unit") {
-      const planIdx = num(opts.plan, 0);
-      const line = selB.plans && selB.plans[planIdx] ? selB.plans[planIdx].unit : (opts.chainline ? String(opts.chainline) : null);
-      const ch = R.chainFromBlock(DATA, String(opts.block), count, line ? { chainStart: line } : null);
-      if (ch) return attachIcons(Object.assign(res, chainResult(env, ch, count)));
-    }
     const r = R.expandBuilding(DATA, String(opts.block), count, Object.assign({
       boundary: boundary, force: force, maxDepth: depth,
       plan: num(opts.plan, 0), sources: sources,
@@ -601,36 +544,6 @@ function effNote(m) {
 
 function renderText(res) {
   const L = [];
-  if (res.mode === "chain") {
-    const c = res.chain;
-    L.push("兵厂大循环：" + c.start + " → " + c.top + "，目标 " +
-      (c.topCount != null
-        ? c.topCount + " 台 T" + c.topTier + "（≈ " + fmtNum(c.rate) + "/s）"
-        : fmtNum(c.rate) + " 台/s"));
-    c.rows.forEach(r => {
-      const it = (r.items || []).filter(i => i.perSecond > 0);
-      L.push("  T" + r.tier + "  " + r.block + " ×" + r.count
-        + (r.count > 0 ? "  → " + r.unit + " " + fmtNum(r.actual) + "/s" : "（不建）")
-        + (it.length ? "（" + it.map(i => i.name + " " + fmtNum(i.perSecond) + "/s").join("、") + "）" : ""));
-    });
-    L.push("  合计：" + c.rows.reduce((a, r) => a + r.count, 0) + " 台兵厂，电力 " + fmtNum(c.power) + "/s");
-    if (c.bottleneck) {
-      L.push("  整链实际达成 " + fmtNum(c.achieved) + "/s（受最慢的 T" + c.bottleneckTier + " " + c.bottleneck + " 限制）");
-    }
-    c.rows.forEach((r, i) => {
-      if (r.count > 0 && r.feedsNext && c.rows[i + 1] && c.rows[i + 1].count > 0) {
-        L.push("  比例：1 台 T" + r.tier + " " + r.unit + " 能带 " + fmtNum(r.feedsNext)
-          + " 台 T" + c.rows[i + 1].tier + " " + c.rows[i + 1].unit
-          + "（台数不必 1:1，按各自建造时间算）");
-      }
-    });
-    const mats = Object.keys(c.materials).filter(k => c.materials[k] > 0);
-    if (mats.length) {
-      L.push("  材料：" + mats.map(k => k + " " + fmtNum(c.materials[k]) + "/s").join("、"));
-      L.push("  材料（每分钟）：" + mats.map(k => k + " " + fmtNum(c.materials[k] * 60) + "/min").join("、"));
-    }
-    return L.join("\n");
-  }
   const head = res.mode === "building"
     ? "配比：" + res.target + " ×" + fmtNum(res.requested) + "（建筑模式，满效）"
     : res.mode === "mixed"
@@ -776,28 +689,6 @@ function renderText(res) {
 
 function renderMarkdown(res) {
   const L = [];
-  if (res.mode === "chain") {
-    const c = res.chain;
-    L.push("**兵厂大循环：" + c.start + " → " + c.top + "（" +
-      (c.topCount != null
-        ? c.topCount + " 台 T" + c.topTier + " ≈ " + fmtNum(c.rate) + "/s"
-        : fmtNum(c.rate) + " 台/s") + "）**");
-    L.push("");
-    L.push("| 层级 | 方块 | 台数 | 产物 | 材料/s |");
-    L.push("|---|---|---|---|---|");
-    c.rows.forEach(r => {
-      L.push("| T" + r.tier + " | " + r.block + " | " + r.count + " | " + r.unit + " " + fmtNum(r.actual) + "/s | "
-        + (r.items.length ? r.items.map(i => i.name + " " + fmtNum(i.perSecond)).join("<br>") : "—") + " |");
-    });
-    L.push("");
-    L.push("合计电力 **" + fmtNum(c.power) + "/s**");
-    if (c.bottleneck) {
-      L.push("");
-      L.push("整链实际达成 **" + fmtNum(c.achieved) + "/s**，受最慢的 T" + c.bottleneckTier
-        + " " + c.bottleneck + " 限制；台数不必 1:1（按各自建造时间算）。");
-    }
-    return L.join("\n");
-  }
   L.push("**" + (res.mode === "building"
     ? "配比：" + res.target + " ×" + fmtNum(res.requested)
     : res.mode === "mixed"
@@ -893,7 +784,6 @@ function renderList(env) {
   L.push("多产物（" + idx.multi.size + "）：" + Array.from(idx.multi.values()).map(m => m.name).join(", "));
   L.push("抽水泵（" + idx.pumps.size + "）：" + Array.from(idx.pumps.values())
     .map(p => p.name + " " + p.liquid + " " + fmtNum(p.perSecond) + "/s").join(", "));
-  L.push("兵厂链（" + idx.unitChains.length + "）：" + idx.unitChains.map(c => c.start + "→" + c.tiers[c.tiers.length - 1].unit).join(", "));
   return L.join("\n");
 }
 
@@ -905,8 +795,6 @@ function usage() {
     "  --block <方块> --count <台数>        按目标建筑台数算（满效）",
     "  --mix \"a:2,b:3\"                     混合厂：多个目标合并算上游（共享中间产物只建一份）",
     "  --plan <N>                          兵厂有多个生产计划时选第几个（0 起）",
-    "  --chain <单位> --chainexpr 5t5      兵厂 T1→T5 大循环（5t5 = 5 台 T5 厂满效）",
-    "  --chain <单位> --chainrate <台/s>    同上，但按顶级单位速率给",
     "  --boundary a,b                      边界输入（物品或液体，都按外部运入处理；液体写进来就不再抽/压）",
     "  --force item=block,...              强制指定配方（如 graphite=multi-press）",
     "  --depth <N>                         递归层数上限（默认 12）",

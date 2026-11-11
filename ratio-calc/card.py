@@ -8,8 +8,7 @@
     python -X utf8 ratio-calc/card.py --item silicon --rate 5 --out card.png
     python -X utf8 ratio-calc/card.py --block ground-factory --count 2 \\
         --gen steam-generator --genfuel coal --out gf.png
-    python -X utf8 ratio-calc/card.py --chain dagger --chainrate 0.05 --out chain.png
-
+    
 也可以喂现成的 json：  python ratio-calc/card.py --json result.json --out card.png
 """
 from __future__ import annotations
@@ -503,45 +502,6 @@ def build_card(res: dict) -> Card:
     c = Card()
     snap = res.get("snapshot") or ""
     mode = res.get("mode")
-
-    if mode == "chain":
-        ch = res["chain"]
-        goal = ("%s 台 T%s ≈ %s/s" % (ch["topCount"], ch.get("topTier"), fmt(ch.get("rate")))
-                if ch.get("topCount") else "%s 台/s" % fmt(ch.get("rate")))
-        top_icon = None
-        for r in ch["rows"]:
-            if r.get("count"):
-                top_icon = r.get("blockIcon") or r.get("icon")
-                break
-        built = [r for r in ch["rows"] if r.get("count")]
-        shown_top = built[-1]["unit"] if built else ch["top"]
-        head = ("兵厂大循环：%s → %s" % (ch["start"], shown_top) if len(built) > 1
-                else "兵厂：%s ×%s" % (ch["start"], built[0]["count"] if built else 0))
-        c.title(head, top_icon,
-                "目标 %s · 电力 %s/s · %s" % (goal, fmt(res.get("power") or ch.get("power")), snap))
-        c.section("各级兵厂（配比结果 · 台数按各自建造时间）")
-        for r in ch["rows"]:
-            if not r.get("count"):
-                c.note("  T%s  %s ×0（不建）" % (r["tier"], r["block"]), DIM)
-                continue
-            right = "%s %s/s" % (r["unit"], fmt(r["actual"]))
-            if r.get("bottleneck"):
-                right += " · 瓶颈"
-            sub = "电 %s/s" % fmt(r.get("power"))
-            if r.get("feedsNext"):
-                sub += " · 1 台带 %s 台上级" % fmt(r["feedsNext"])
-            c.row(r.get("blockIcon") or r.get("icon"),
-                  "T%s  %s ×%d" % (r["tier"], r["block"], r["count"]), right, sub, BLUE)
-        if ch.get("bottleneck"):
-            c.note("整链实际达成 %s/s（受最慢的 T%s %s 限制）"
-                   % (fmt(ch.get("achieved")), ch.get("bottleneckTier"), ch["bottleneck"]), DIM)
-        _byproduct_section(c, res)
-        _import_section(c, res)
-        _liquid_section(c, res)
-        _power_section(c, res)
-        _loop_section(c, res)
-        _warn_section(c, res)
-        return c
 
     if mode == "mixed":
         targets = res.get("targets") or []

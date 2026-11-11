@@ -4,7 +4,6 @@
  *   node ratio-calc/serve.cjs --port 8799
  *   curl "http://127.0.0.1:8799/calc?item=silicon&rate=5&format=md"
  *   curl "http://127.0.0.1:8799/calc?block=ground-factory&count=2&gen=steam-generator&genfuel=coal&format=json"
- *   curl "http://127.0.0.1:8799/calc?chain=dagger&chainrate=0.05"
  *   curl "http://127.0.0.1:8799/list"
  *   curl "http://127.0.0.1:8799/healthz"
  *
@@ -65,8 +64,8 @@ function handle(req, res) {
 
     const opts = optsFromQuery(q);
     const fmt = String(opts.format || "text").toLowerCase();
-    if (!opts.item && !opts.block && !opts.chain) {
-      return send(res, 400, "× 要给 item+rate 或 block+count 或 chain+chainrate\n\n" + usage());
+    if (!opts.item && !opts.block) {
+      return send(res, 400, "× 要给 item+rate 或 block+count\n\n" + usage());
     }
     const result = query(opts);
     if (fmt === "json") {

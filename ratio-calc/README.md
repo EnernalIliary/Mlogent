@@ -13,7 +13,6 @@
 |---|---|---|
 | **按建筑台数（满效）** | 选一个工厂 / 兵厂 + 台数 | "我要 4 台石墨压机满效跑" → 反推上下游 |
 | **按物品速率** | 选物品 + 每秒产量 | 传统玩法："我要 5 硅/s" |
-| **兵厂大循环** | 选一条 T1~T5 链 + 顶级速率 | "我要 0.05 reign/s" → 五级各要几台、材料多少 |
 | **混合厂** | 多个目标（工厂 / 兵厂 / 发电厂）+ 各自台数 | "石墨压机 3 台 + 硅电弧炉 1 台一起建，共享上游怎么配" → 合并后机器清单、省了多少 |
 
 各模式下都能改：
@@ -31,7 +30,7 @@
 
 | 层 | 文件 | 入口 | 返回 |
 |---|---|---|---|
-| 内核（唯一算法） | `core.js` | `buildIndex(data)`、`expand`、`expandBuilding`、`expandMixed`、`chainFromTop`、`chainFromBlock`、`chainsForBlock`、`applySources`、`generatorPlan`、`pumpPlan`、`separatorPlan`、`drillRate`、`unitChain`、`liquidSourcePlan`、`DEFAULT_CHANNEL` | 纯 JS 对象 |
+| 内核（唯一算法） | `core.js` | `buildIndex(data)`、`expand`、`expandBuilding`、`expandMixed`、`applySources`、`generatorPlan`、`pumpPlan`、`separatorPlan`、`drillRate`、`liquidSourcePlan`、`DEFAULT_CHANNEL` | 纯 JS 对象 |
 | 命令行 / HTTP 逻辑 | `cli.cjs` | **`query(opts)`** → JSON；`renderText` / `renderMarkdown` / `renderList`；`loadData` | JSON / 文本 |
 | HTTP | `serve.cjs` | `handle(req, res)`、`optsFromQuery(q)`（内部就是 `cli.query`） | HTTP 响应 |
 | Python | `ratio.py` | **`calc(**kw)`**（= `query`）、`text`、`markdown`、`image`、`card`、`http_query` | dict / str / PNG |
@@ -40,9 +39,8 @@
 规矩：
 
 1. **默认值只在一处**：外部入料默认蓝带写在 `core.js` 的 `DEFAULT_CHANNEL`，网页下拉、`cli.cjs`、`card.py`、`ratio.py` 全部读它；
-2. **四种模式的 JSON 同构**（`mode: item | building | chain | mixed`），字段见下文「JSON 结构」；
-3. `--chain X --chainexpr 5t5` 与 `--block <T5 兵厂> --count 5` 走**同一段装配**（`cli.cjs` 的 `chainResult`），结果按字段逐项相同；
-4. 改算法只改 `core.js`；改数据只改 `export_data.py`。
+2. **三种模式的 JSON 同构**（`mode: item | building | mixed`），字段见下文「JSON 结构」；
+3. 改算法只改 `core.js`；改数据只改 `export_data.py`。
 
 ### 1. 外部来源可配置（含入料方式：灰带 / 蓝带 / 接收台…）
 
@@ -118,44 +116,23 @@ node ratio-calc/cli.cjs --block impact-reactor --count 2 --genfuel blast-compoun
 #   产出：电力 12600/s（单台毛 7800、自耗 1500 → 净 6300）
 ```
 
-### 3. 兵厂 T1 → T5 大循环（**在「按目标建筑台数」页选兵厂就行**）
+### 3. 兵厂就当普通工厂算（2026-11-11 撤掉「大循环」页）
 
-不必单开一类：左侧选一个兵厂、填台数，选中兵厂的那一刻就直接按大循环算——
-「台数」指的是**这一级要几台**，其它层级由它反推（选 T1 工厂就是"1 座 dagger 厂"，选 T5 就是"5 座 T5 厂"）。
+兵厂不再单开一类：在「按目标建筑台数」页选兵厂 + 台数，就和选工厂一样按 `台数 × 生产计划` 算单位产出与吃料，
+材料照常进同一张递归图（写进边界就停在边界，否则一路展开到矿）。
 
-- 一个工厂服务多条线时（`tetrative-reconstructor` 同时升地面/空军/机甲）：单位工厂用「生产计划」下拉选线，
-  重建厂用新出现的「升级线」下拉选线，默认优先 dagger 线；
-- `5t5` / `3t4` 这种写法仍可在 URL 与 CLI 里用作快捷方式（`?chain=dagger&chainexpr=5t5`、`--chainexpr 5t5`）。
+- 单位工厂用「生产计划」下拉选线（`ground-factory` 有 3 个计划：dagger / crawler / …），重建厂按 `craftTime` 折算；
+- `--block ground-factory --count 2 --boundary silicon,lead` → `dagger 0.133/s`、硅/铅各 1.333/s、电 144/s；
+- `--block tetrative-reconstructor --count 5 --boundary silicon,lead` → `reign 0.0208/s`（5 台满效）；
+- 想要 T1→T5 每级几台的精确比例，把各级兵厂一起放进混合厂自己配（见 §5）：
 
-10 条链（6 条原版 + 3 条 Erekir + 1 条 prime-refabricator），选定顶级台数后按层级倒推：
+```bash
+node cli.cjs --mix "ground-factory:1,additive-reconstructor:1,multiplicative-reconstructor:1,exponential-reconstructor:2,tetrative-reconstructor:5"
+```
 
-1. 每级台数 = `ceil(目标速率 / 单台每秒)`，各自按自己的 `constructTime` 折算，**不必 1:1**
-   （例如 1 台 T4 `scepter` 0.0111/s 能带 **2.67 台** T5 `reign` 0.00417/s）；
-2. 整条链的实际产出 = 各段产能的**最小值**（流水线由最慢的一段决定），不是"上级产能继续往下乘"；
-3. 材料按实际只跑到的产出算：`craft/s = 达成 / 该级每秒产出`，`材料 = 单次消耗 × craft/s`，
-   多放的机器只会闲置（表里"利用率"就是这个比值）。
-
-**输入方式有两种**：给台数（`5t5` = 5 台 T5 厂，满效）或给速率（`0.02` = 每秒 0.02 个 T5 单位）。
-
-以「5 台 T5」为例（页面上选 `tetrative-reconstructor` + 台数 5，等价写法 `5t5`）：
-
-| 层级 | 单位 | 方块 | 台数 | 单台/s | 产能/s | 实际/s |
-|---|---|---|---|---|---|---|
-| T1 | dagger | `ground-factory` | 1 | 0.0667 | 0.0667 | 0.0208 |
-| T2 | mace | `additive-reconstructor` | 1 | 0.1 | 0.1 | 0.0208 |
-| T3 | fortress | `multiplicative-reconstructor` | 1 | 0.0333 | 0.0333 | 0.0208 |
-| T4 | scepter | `exponential-reconstructor` | 2 | 0.0111 | 0.0222 | 0.0208 |
-| T5 | reign | `tetrative-reconstructor` | **5** | 0.00417 | 0.0208 | 0.0208 |
-
-合计 **10 台兵厂、9672 电/s**，达成 **0.021/s**（瓶颈 T5）；资源按每秒：硅 42.292、塑料 26.042、钛 17.292、
-surge-alloy 10.417、相织物 7.292、石墨 0.833、玻璃 0.833、铅 0.208 —— 页面 2 列都给了 `/s` 与 `/min`
-（硅 2537/min）。
-
-另一种口径 `dagger 0.05/s`：`ground-factory ×1 → additive ×1 → multiplicative ×2 → exponential ×5 →
-tetrative ×12`，合计 **21 台兵厂、22872 电/s**，瓶颈在 T5；材料硅 101.5/s、塑料 62.5/s、钛 41.5/s、
-相织物 17.5/s、surge-alloy 25/s …
-
-> 兵厂的材料是"每造一个单位消耗多少"，不是每秒配方产出；台数按 `craftTime / 60` 折算成每秒。
+> 旧版有单独的「兵厂大循环」页：给顶级单位速率或 `5t5`，按「最慢一段决定产出」自动反推各级台数。
+> 用户 2026-11-10 定「兵厂大循环限制太多了，就当正常工厂看待好了」，2026-11-11 按「撤掉，清理」把这页
+> 连同 `--chain / --chainexpr / --chainrate`、`chainFromTop / chainFromBlock / chainsForBlock / unitChain` 一起删了。
 
 ### 3.5 抽水机（液体也能自己产）
 
@@ -409,7 +386,7 @@ node ratio-calc/cli.cjs --item coal --rate 6 --boundary "none,sand" --liquids au
 - `--flow` 下泵也归一化：不再拆「小泵 2 台」这种整数组合，而是 `小泵 1.03 台`（总量正好 7.2/s）；
 - 台数后面那句「整台 N 台 ⇒ 每台 P%」就是**真按整数建时的等效效率**（`P = 小数台数 / 向上取整`）；
 - 页面：勾「归一化 · 分数台数」（`?flow=1`），机器表台数列会写 `1.5（整台 2）`；卡片同一口径；
-- 军事/兵厂链（`5t5` 反推）仍然是整数台，归一化只管物品与液体产线。
+- 兵厂仍然是整数台（`--flow` 只作用于物品与液体产线）。
 
 ### 4. 贴图原尺寸（优先 `-full` 大图）
 
@@ -426,7 +403,7 @@ node ratio-calc/cli.cjs --item coal --rate 6 --boundary "none,sand" --liquids au
 
 **兵厂就当普通工厂算**（用户 2026-11-10 定）：目标写兵厂时按「台数 × 生产计划」算单位产出与吃料
 （升级厂按 `craftTime` 折算），材料照常进同一张共享递归图；单位本身不是中间物品，不参与目标间抵扣。
-想要 T1→T5 每级几台那种纯台数比例，用「兵厂大循环」页（选 T5 兵厂 + 台数）——它按最慢一级反推各级台数。
+想要 T1→T5 每级台数比例，就把这几级兵厂一起当目标放进来（见 §3）。
 
 ```bash
 # 硅电弧炉 1 台 + 碳化物坩埚 1 台：两边都要吃石墨
@@ -468,8 +445,6 @@ index.html?mode=building&block=graphite-press&count=2&depth=4
 index.html?block=graphite-press&count=2&src=coal:drill:laser-drill:8:0&gen=combustion-generator&genfuel=coal
 index.html?block=silicon-smelter&count=3&boundary=coal,sand&src=sand:multi:disassembler&gen=steam-generator
 index.html?block=silicon-smelter&count=3&src=sand:drill:laser-drill:8:1&src=water:pump:rotary-pump
-# 兵厂大循环（等价于「选中 T5 兵厂 + 台数 5」）
-index.html?chain=dagger&chainexpr=5t5
 index.html?mode=building&block=tetrative-reconstructor&count=5
 index.html?mode=item&item=silicon&rate=1
 index.html?mode=item&item=graphite&rate=1&src=coal:belt:belt-blue
@@ -491,22 +466,18 @@ node ratio-calc/cli.cjs --item silicon --rate 5
 node ratio-calc/cli.cjs --block graphite-press --count 2 --format json
 node ratio-calc/cli.cjs --block silicon-smelter --count 3 --boundary coal,sand \
      --src sand=drill:laser-drill:8:1 --gen steam-generator --genfuel coal --format md
-node ratio-calc/cli.cjs --block tetrative-reconstructor --count 5   # 选兵厂 + 台数 = 大循环
-node ratio-calc/cli.cjs --chain dagger --chainexpr 5t5              # 等价写法
+node ratio-calc/cli.cjs --block tetrative-reconstructor --count 5 --boundary silicon,lead   # 兵厂当普通工厂
 node ratio-calc/cli.cjs --item graphite --rate 1 --src coal=belt:belt-grey
 node ratio-calc/cli.cjs --block silicon-smelter --count 3 --src sand=drill:laser-drill:8 \
      --src water=pump:rotary-pump --format md   # 水自己抽
-node ratio-calc/cli.cjs --list          # 列出物品/工厂/兵厂/发电厂/钻头/多产物/抽水泵/兵厂链
+node ratio-calc/cli.cjs --list          # 列出物品/工厂/兵厂/发电厂/钻头/多产物/抽水泵
 ```
 
 | 参数 | 说明 |
 |---|---|
 | `--item X --rate N` | 按目标产物速率算（次模式） |
-| `--block X --count N` | 按满效建筑台数算（主模式）。**选兵厂时自动走 T1→T5 大循环**：`count` 就是这一级的台数 |
+| `--block X --count N` | 按满效建筑台数算（主模式）。选兵厂时就按「台数 × 生产计划」算 |
 | `--plan N` | 兵厂有多个生产计划时选第 N 个（默认 0）；`--block ground-factory --plan 1` 就是 crawler 线 |
-| `--chainline 单位` | 一台重建厂能升多条线时指定升级线（默认优先 dagger 线） |
-| `--chain 单位 --chainexpr 5t5` | 兵厂大循环，给台数（5 台 T5 厂满效），反推 T4/T3/T2/T1 台数与整链资源 |
-| `--chain 单位 --chainrate N` | 同上，但按每秒几个顶级单位给 |
 | `--src 物品=belt:belt-grey` | 外部运入细分成带子/接收台：`belt-grey`(5.25/s)、`belt-blue`(12.015/s)、`belt-green`(40/s)、`phase-bridge`(30/s，18 电)、`mass-driver`(36/s，105 电)、`pad`(不限)、`other`(不限) |
 | `--boundary a,b` | 外部输入的物品；不写默认 `coal,sand`；`all` = 所有矿，`none` = 全部自产 |
 | `--src 物品=drill:钻头:矿格数:0/1`<br>`--src 物品=multi:分离机/解离机`<br>`--src 物品=import` | 每项边界输入从哪来（可重复） |
@@ -530,7 +501,7 @@ curl "http://127.0.0.1:8799/list?format=json"
 curl "http://127.0.0.1:8799/healthz"
 ```
 
-- `/calc` 接受与 CLI 同名的参数（`src` 可重复），缺 `item/block/chain` 返回 400；
+- `/calc` 接受与 CLI 同名的参数（`src` 可重复），缺 `item/block` 返回 400；
 - `/list` 返回清单；`/healthz` 返回 `{"ok":true}`；`Access-Control-Allow-Origin: *` 已开。
 
 ### 3. Python（bot 是 Python 时最顺）
@@ -541,7 +512,6 @@ import ratio
 
 d = ratio.query(item="silicon", rate=5)                       # dict
 print(ratio.text(block="graphite-press", count=2))            # 纯文本
-print(ratio.markdown(chain="dagger", chainexpr="5t5"))          # 5 台 T5 厂满效
 ratio.image("card.png", item="graphite", rate=2)               # 出 PNG 卡片
 d2 = ratio.http_query("http://127.0.0.1:8799", item="graphite", rate=1)   # 走 HTTP 服务
 ```
@@ -559,7 +529,6 @@ python -X utf8 ratio-calc/ratio.py --block ground-factory --count 2 --image gf.p
 python -X utf8 ratio-calc/card.py --item silicon --rate 5 --out card.png
 python -X utf8 ratio-calc/card.py --block ground-factory --count 2 \
     --gen steam-generator --genfuel coal --scale 2 --out gf.png
-python -X utf8 ratio-calc/card.py --chain dagger --chainexpr 5t5 --out chain.png
 python -X utf8 ratio-calc/card.py --json result.json --out card.png   # 喂现成 JSON
 ```
 
@@ -569,27 +538,25 @@ python -X utf8 ratio-calc/card.py --json result.json --out card.png   # 喂现�
 **卡片正文顺序（bot 发图就用这个）**：
 
 1. **工厂配比**（主要内容）：每台机器 `名字 ×台数 · 电力/s · 产出/s`，标题行给"共 N 台 · 电力 X/s"；
-   兵厂链模式下这里是 `各级兵厂（配比结果）`，包含每级台数、单台/s、产能、实际、利用率、1 台带几台上级；
 2. **外部入料（默认蓝带）**：每种边界物品一行，右侧 `X/s`，副标写 `蓝带 titanium-conveyor ×N 条（12.015/s）`、
    `钻头 ×N（加水）`、`解离机 ×N · 副产 钍 …`、`接收台 · 不限速`；
 3. 液体需求（水/油/冷冻液） → 4. 供电 → 5. 提示（warnings）。
 
 示例：`docs/card-graphite.png`(700×248)、`docs/card-silicon.png`(700×282)、
-`docs/card-chain.png`(700×622)、`docs/card-chain-t1.png`(700×378)、
 `docs/card-via.png`(700×248，蓝带入料)、`docs/card-pump.png`(700×414，钻头 + 抽水机)、
-`docs/card-unit.png`(700×378，兵厂单级)、`docs/mix.png`(700×376，混合厂卡片)、`docs/page-mixed.png`（混合厂页签整页截图）、
+`docs/card-unit.png`(700×370，兵厂当普通工厂：ground-factory ×2 + dagger 0.133/s)、`docs/mix.png`(700×376，混合厂卡片)、`docs/page-mixed.png`（混合厂页签整页截图）、
 `docs/card-coal.png`(700×526，煤炭 6/s：离心机×3 + 石油钻井×1（22.5 油/s）+ 吃料 sand/water + 泵换算 + 带图标的外部电力换算)、
 `docs/page-coal.png`（1180×2150，页面截图：边界全物品/液体开关 + 配方下拉 + 多产物方块开关 + 环境属性两个数字框（oil / water） + 机器表「吃料/s」列 + 带发电厂图标的外部电力换算）、
 `docs/card-drill.png`(700×394，钻头并入工厂配比：机器行写 coal 3.234/s)、
 `docs/card-separator.png`（分离机进递归：台数按份额反推、顺带产物单列一节）、
 `docs/page-multi.png`（1180×2150，页面截图：指定配方选 separator，递归树带份额与顺带产物）。
 
-### JSON 结构（四种模式统一）
+### JSON 结构（三种模式统一）
 
 ```jsonc
 {
   "ok": true,
-  "mode": "item | building | chain | mixed",
+  "mode": "item | building | mixed",
   "target": "silicon 5/s" ,              // 一句话描述
   "products": [{ "name": "silicon", "type": "item", "rate": 5 }],
   "machines": [{ "name": "silicon-smelter", "count": 3, "kind": "item",
@@ -607,12 +574,6 @@ python -X utf8 ratio-calc/card.py --json result.json --out card.png   # 喂现�
   "supply":  { "name": "steam-generator", "count": 1, "netTotal": 330,
                "fuel": { "name": "coal", "perSecondEach": 0.667, "perSecond": 0.667 },
                "liquids": [{ "name": "water", "perSecond": 6 }] },
-  "chain":   { "rows": [{ "tier": 1, "unit": "dagger", "block": "ground-factory",
-                          "count": 1, "perSecond": 0.0667, "capacity": 0.0667,
-                          "actual": 0.05, "utilization": 0.75,
-                          "feedsNext": 0.667, "bottleneck": false }],
-               "achieved": 0.05, "bottleneck": "reign", "bottleneckTier": 5,
-               "materials": { "silicon": 101.5 }, "power": 22872 },  // 按最慢一段算
   // ---- 只有 mixed 模式才有的字段 ----
   "targets": [{ "block": "silicon-arc-furnace", "count": 1, "kind": "item",
                 "products": [{ "name": "silicon", "type": "item", "rate": 4.8 }],
@@ -667,17 +628,17 @@ python -X utf8 ratio-calc/card.py --json result.json --out card.png   # 喂现�
 ## 已验证
 
 ```
-node ratio-calc/test_core.cjs   → 14 项对拍 mbo calc 全部一致 + 204 项新算法断言通过（共 218 行 ok）
-node ratio-calc/test_page.cjs   → 116 项页面链路断言通过（含混合厂 11 项、液体自产 5 项、液体中文名 2 项、边界开关/配方下拉、钻头并入工厂配比、多产物方块进递归树 6 项、发电厂递归树 3 项、归一化 2 项）
-node ratio-calc/test_cli.cjs    → 79 项 CLI/HTTP 与 core.js 对拍通过（含 `--mix` 6 项（含兵厂目标）、液体自产 6 项、液体递归 2 项、液体中文名 1 项、钻头写入机器清单、分离机/解离机 5 项、发电厂树 2 项、归一化 2 项）
-python -X utf8 ratio-calc/test_card.py → 17 项卡片结构/排版断言通过（含混合厂 3 项（含兵厂目标）、液体自产 1 项、图标 2 项、多产物副产 1 项、发电厂树 1 项、归一化 1 项）
+node ratio-calc/test_core.cjs   → 14 项对拍 mbo calc 全部一致 + 186 项新算法断言通过（共 200 行 ok）
+node ratio-calc/test_page.cjs   → 100 项页面链路断言通过（含混合厂 11 项、液体自产 5 项、液体中文名 2 项、边界开关/配方下拉、钻头并入工厂配比、多产物方块进递归树 6 项、发电厂递归树 3 项、归一化 2 项）
+node ratio-calc/test_cli.cjs    → 73 项 CLI/HTTP 与 core.js 对拍通过（含 `--mix` 6 项（含兵厂目标）、液体自产 6 项、液体递归 2 项、液体中文名 1 项、钻头写入机器清单、分离机/解离机 5 项、发电厂树 2 项、归一化 2 项）
+python -X utf8 ratio-calc/test_card.py → 16 项卡片结构/排版断言通过（含混合厂 3 项（含兵厂目标）、液体自产 1 项、图标 2 项、多产物副产 1 项、发电厂树 1 项、归一化 1 项）
 ```
 
 对拍用例覆盖石墨/硅/合金/玻璃/塑料/爆炸物/燃烧物/相织物/孢子荚 + 3 个 `--force`；
 新算法断言覆盖钻头速率（含加水、煤硬度 2）、发电台数与燃料、分离机/解离机加权产物、
-来源替换后的机器表与电力重算、抽水机台数与液体来源、入料方式 7 种、`5t5` 反推（1/1/1/2/5）、
-`chainsForBlock`/`chainFromBlock`（同一重建厂多线、默认 dagger、指定 flare → eclipse）、
-dagger 与 stell 两条升级链、发电设备当目标建筑（蒸汽 ×2 → 660/s、冲击堆扣自耗、
+来源替换后的机器表与电力重算、抽水机台数与液体来源、入料方式 7 种、
+兵厂当普通工厂算（`ground-factory ×2` → dagger 0.133/s + 硅/铅各 1.333/s）、
+发电设备当目标建筑（蒸汽 ×2 → 660/s、冲击堆扣自耗、
 燃料/液体展开成递归树：煤不在边界 → coal-centrifuge、差速发电机 → pyratite-mixer + pulverizer、
 但不做「电→燃料→电」的电力递归）、
 混合厂（合并上游后石墨压机 10 台 vs 分别建 11 台、目标互供抵扣省 2 台、发电厂当目标并入净电力）、
@@ -710,12 +671,11 @@ dagger 与 stell 两条升级链、发电设备当目标建筑（蒸汽 ×2 → 
 - 只算配比，不算布局/物流/传送带容量；
 - 液体默认按外部输入；要自产就加 `--liquids auto`（或网页勾「液体自产」），此时钻井优先、没有钻井才用转化方块；
 - 液体自产只认"一种方块供一种液体"：`reinforced-pump` 要氢这类自反馈被排序规避（优先选不吃液体的泵），不保证全局最优；
-- 混合厂里的液体自产：转化方块的**物品**入料按外部输入计并给 warning（不展开那一层物品链）；
 - 组装厂（`UnitAssembler`）消耗的是**方块 Payload**，这里按外部输入处理，不展开；
 - 多产物是"随机出一件"的期望值，实际有波动；它默认不参与自动递归（见 §3.7），指定配方或 `--multi` 才上；
 - 电力不展开成「电→燃料→电」的闭环：普通工厂的耗电只当数字（发电看独立供电表），
   发电厂当目标时才展开燃料链，且不会因为厂内自耗电再反推建更多发电机；
 - 混合厂收兵厂，但兵厂之间**不互相喂单位**：T1 厂造的单位不会抵扣 T2 升级厂「吃低阶单位」那一步，
-  升级厂只按自己的材料配方算；要台数比例请用「兵厂大循环」页；组装厂（Payload 方块）仍不收；
+  升级厂只按自己的材料配方算；要各级台数比例就把几级兵厂一起放进目标；组装厂（Payload 方块）仍不收；
 - 混合厂的"对比分别建"是按每个目标**各自独立展开**算的，不是按最优顺序分批建；先合并速率再取整，
   所以结果是"最少机器"口径，不保证最少占地（占地只作对比展示）。

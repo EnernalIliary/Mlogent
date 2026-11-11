@@ -269,17 +269,7 @@
     </div>
     <table id="powertable"></table>
 
-    <div class="mode-block hidden" id="chainsec">
-      <div class="sec">兵厂大循环 T1→T5（选中兵厂 + 台数就自动反推：下面各级要几台、整链吃多少料）</div>
-      <div class="bar" id="chainlinebar" style="display:none">
-        <div><label for="chainline">升级线</label><select id="chainline"></select></div>
-      </div>
-      <table id="chaintable"></table>
-      <div class="sec" id="chainressec">整链资源（/s 与 /min）</div>
-      <table id="chainres"></table>
-    </div>
-
-    <div class="sec">递归树（层数可改；超过层数的部分按外部输入统计）</div>    <div class="sec">递归树（层数可改；超过层数的部分按外部输入统计）</div>
+    <div class="sec">递归树（层数可改；超过层数的部分按外部输入统计）</div>
     <div class="tree" id="tree"></div>
 
     <div class="sec">这些产物有多个配方（点一下换配方再算）</div>
@@ -711,121 +701,6 @@
     }).join("");
   }
 
-  /* ---- 兵厂 T1→T5 大循环表 ---- */
-  /* 选中的是兵厂（unit 类）时，直接按「该厂 × 台数」走大循环，不用另填链与目标 */
-  function chainForSelected() {
-    var b = blockOf(curBlock);
-    if (!b || b.kind !== "unit") return null;
-    var count = Math.max(1, parseInt(el("count").value, 10) || 1);
-    var b0 = blockOf(curBlock);
-    var line = "";
-    if (b0 && b0.plans && b0.plans.length > 1) {
-      var pi = parseInt(el("plan").value || "0", 10) || 0;
-      line = b0.plans[pi] ? b0.plans[pi].unit : "";
-    } else {
-      line = el("chainline").value || "";
-    }
-    return R.chainFromBlock(DATA, curBlock, count, line ? { chainStart: line } : null);
-  }
-
-  /* 同一个重建厂能升多条线时，给个下拉选；只有一条就藏起来 */
-  function renderChainLine() {
-    var bar = el("chainlinebar"), sel = el("chainline");
-    var cands = (R.chainsForBlock && R.chainsForBlock(DATA, curBlock)) || [];
-    var b0 = blockOf(curBlock);
-    /* 单位工厂本身有「生产计划」下拉（dagger/crawler/nova），就不要再重复给升级线 */
-    if (b0 && b0.plans && b0.plans.length > 1) cands = [];
-    if (cands.length <= 1) {
-      if (bar) bar.style.display = "none";
-      sel.innerHTML = "";
-      el("chainline").value = "";
-      return;
-    }
-    var keep = sel.value;
-    sel.innerHTML = cands.map(function (c) {
-      return '<option value="' + esc(c.start) + '">' + esc(c.start) + " → " + esc(c.top) +
-        "（T1→T" + c.tiers + "）</option>";
-    }).join("");
-    if (keep && cands.some(function (c) { return c.start === keep; })) el("chainline").value = keep;
-    if (bar) bar.style.display = "";
-  }
-
-  /* 把链结果摊成和 expandBuilding 一样的结果结构，供机器表/边界表/电力复用 */
-  function chainToRes(ch) {
-    var machines = {};
-    ch.rows.forEach(function (r) { if (r.count > 0) machines[r.block] = (machines[r.block] || 0) + r.count; });
-    /* 目标级自己的产出（满效产能），不是整链最慢段的达成值 */
-    var mine = ch.rows.filter(function (r) { return r.tier === ch.topTier; })[0];
-    var made = mine ? mine.capacity : ch.achieved;
-    return {
-      mode: "chain", block: curBlock, count: ch.topCount, machines: machines,
-      demand: ch.materials, power: ch.power,
-      products: [{ name: mine ? mine.unit : ch.top, type: "unit", rate: made }],
-      achieved: ch.achieved, chain: ch, tree: null, order: [], warnings: []
-    };
-  }
-
-  function renderChain() {
-    var sec = el("chainsec");
-    var ch = null;
-    try { ch = chainForSelected(); } catch (e) { ch = null; }
-    if (!ch) {
-      if (sec && sec.classList) sec.classList.add("hidden");
-      if (el("chainlinebar")) el("chainlinebar").style.display = "none";
-      el("chaintable").innerHTML = "";
-      el("chainres").innerHTML = "";
-      return null;
-    }
-    if (sec && sec.classList) sec.classList.remove("hidden");
-    renderChainLine();
-
-    var counted = ch.topCount != null;
-    var isTop = function (r) { return counted && r.tier === ch.topTier; };
-    var h = '<tr><th>层级</th><th>单位</th><th>方块</th><th class="num">台数</th>' +
-            '<th class="num">单台/s</th><th class="num">产能/s</th><th class="num">实际/s</th>' +
-            '<th class="num">利用率</th><th class="num">1 台带上级</th><th class="num">电力/s</th>' +
-            '<th>每级材料（/s）</th></tr>';
-    var rows = ch.rows.map(function (r) {
-      var dim = r.count === 0;
-      return "<tr" + (dim ? ' class="dim"' : "") + "><td>T" + r.tier +
-        (r.bottleneck ? ' <span class="tag">瓶颈</span>' : "") +
-        (isTop(r) ? ' <span class="tag">目标</span>' : "") + "</td><td>" + unitLabel(r.unit) +
-        "</td><td>" + blockLabel(r.block) + "</td>" +
-        '<td class="num">' + r.count + '</td><td class="num">' + num(r.perSecond) + "</td>" +
-        '<td class="num">' + (dim ? "—" : num(r.capacity)) + '</td><td class="num">' + (dim ? "—" : num(r.actual)) + "</td>" +
-        '<td class="num">' + (dim ? "—" : Math.round((r.utilization || 0) * 100) + "%") + '</td>' +
-        '<td class="num">' + (r.feedsNext ? num(r.feedsNext) + " 台" : '<span class="dim">—</span>') + "</td>" +
-        '<td class="num">' + num(r.power) + "</td>" +
-        "<td>" + (dim ? "不建" : (r.items.length ? r.items.filter(function (i) { return i.perSecond > 0; }).map(function (i) {
-          return itemLabel(i.name, "sm") + " " + num(i.perSecond);
-        }).join(" · ") : "—")) + "</td></tr>";
-    }).join("");
-    var totalMachines = ch.rows.reduce(function (a, r) { return a + r.count; }, 0);
-    var wantText = counted
-      ? ch.topCount + " 台 T" + ch.topTier + "（≈ " + num(ch.rate) + "/s）"
-      : num(ch.rate) + "/s";
-    rows += '<tr><td colspan="3" class="dim">合计（想要 ' + esc(wantText) +
-      "，实际达成 " + num(ch.achieved) + "/s，瓶颈 " + esc(ch.bottleneck || "—") + "）</td>" +
-      '<td class="num">' + totalMachines + '</td><td></td><td></td>' +
-      '<td class="num">' + num(ch.achieved) + "</td><td></td><td></td>" +
-      '<td class="num">' + num(ch.power) + "</td><td></td></tr>";
-    el("chaintable").innerHTML = h + rows;
-
-    var mk = Object.keys(ch.materials).filter(function (k) { return ch.materials[k] > 0; });
-    var mh = '<tr><th>资源</th><th class="num">每秒</th><th class="num">每分钟</th></tr>';
-    var mbody = mk.map(function (k) {
-      return '<tr><td>' + itemLabel(k) + '</td><td class="num">' + num(ch.materials[k]) +
-        '</td><td class="num">' + num(ch.materials[k] * 60) + "</td></tr>";
-    }).join("");
-    mbody += '<tr><td class="dim">机器总数</td><td class="num">' + totalMachines +
-      '</td><td class="num dim">—</td></tr>' +
-      '<tr><td class="dim">电力</td><td class="num">' + num(ch.power) +
-      '</td><td class="num dim">—</td></tr>';
-    el("chainres").innerHTML = mh + mbody;
-    return ch;
-  }
-
-
   /* ---------------- 建筑选择器 ---------------- */
   var blockCells = {};
   function buildBlockPickers() {
@@ -1069,23 +944,6 @@
     if (q.gen && idx.generators.has(q.gen)) { el("gen").value = q.gen; syncGenFuel(); }
     if (q.genfuel) el("genfuel").value = q.genfuel;
     if (q.gencount) el("gencount").value = q.gencount;
-    // 兵厂链：?chain=dagger&chainexpr=5t5 等价于「选中第 5 级兵厂 + 台数 5」
-    if (q.chain) {
-      var chainHit = (idx.unitChains || []).filter(function (c) { return c.start === q.chain; })[0];
-      if (chainHit) {
-        var expr = chainLink(q.chainexpr || q.chainrate || "");
-        if (expr.tier && chainHit.tiers[expr.tier - 1]) {
-          curBlock = chainHit.tiers[expr.tier - 1].block;
-          el("count").value = String(Math.max(1, expr.count));
-          mode = "building";
-        } else if (expr.rate) {
-          var topT = chainHit.tiers[chainHit.tiers.length - 1];
-          curBlock = topT.block;
-          el("count").value = String(Math.max(1, Math.ceil(expr.rate / topT.perSecond - 1e-9)));
-          mode = "building";
-        }
-      }
-    }
     // 外部来源：?src=sand:drill:laser-drill:8:1,scrap:multi:disassembler,water:pump:rotary-pump
     // 同一个 key 可以出现多次（?src=a&src=b），先拼成一个数组再拆
     var srcList = q.src === undefined ? [] : (Array.isArray(q.src) ? q.src : [q.src]);
@@ -1168,15 +1026,6 @@
     });
     return out;
   }
-  /* 「5t5」→ {tier:5, count:5}；「0.02」→ {rate:0.02} */
-  function chainLink(text) {
-    var t = String(text == null ? "" : text).trim();
-    var m = /^(\d+(?:\.\d+)?)\s*[x×*]?\s*t\s*([1-5])$/i.exec(t);
-    if (m) return { tier: parseInt(m[2], 10), count: parseFloat(m[1]) };
-    var r = parseFloat(t);
-    return { rate: r > 0 ? r : 0, tier: 0, count: 1 };
-  }
-
   function num(x) { return (Math.round(x * 1000) / 1000).toString(); }
   /* 台数：归一化（flow）下写两位小数，并注明真按整台建时要几台 */
   function countCell(r) {
@@ -1228,10 +1077,7 @@
       } else if (mode === "building") {
         var count = Math.max(1, parseInt(el("count").value, 10) || 1);
         var plan = parseInt(el("plan").value || "0", 10) || 0;
-        var selB = blockOf(curBlock);
-        var ch = (selB && selB.kind === "unit") ? R.chainFromBlock(DATA, curBlock, count) : null;
-        res = ch ? chainToRes(ch)
-                 : R.expandBuilding(DATA, curBlock, count, Object.assign({ boundary: boundary, force: forced, plan: plan, maxDepth: depth, multi: multiOn, flow: flowOn, floor: floorOpt, attrs: attrsOpt,
+        res = R.expandBuilding(DATA, curBlock, count, Object.assign({ boundary: boundary, force: forced, plan: plan, maxDepth: depth, multi: multiOn, flow: flowOn, floor: floorOpt, attrs: attrsOpt,
                                                    fuel: (el("genfuel") && el("genfuel").value) || null }, liqOpt));
       } else {
         var rate = parseFloat(el("rate").value);
@@ -1257,8 +1103,7 @@
       }).join(" · ");
       cards = [
         ["目标建筑", blockImg(curBlock, 18) + ' <span class="name">' + esc(curBlock) + '</span>', "wrap"],
-        ["台数", "× " + res.count + (res.mode === "chain"
-          ? "（T" + res.chain.topTier + " 级，满效）" : "（满效）")],
+        ["台数", "× " + res.count + "（满效）"],
         ["产出", prodText || "—", "wrap"],
         ["机器总数", String(totalMachines)],
         ["电力需求", num(res.power) + "/s"],
@@ -1399,13 +1244,12 @@
     renderLiquids(res);
     bindSourceEvents();
     renderPower(res.power, res.supply, res);
-    renderChain();
 
     el("tree").innerHTML = res.tree
       ? renderTree(res.tree, 0, true)
       : (mode === "mixed"
         ? '<div class="dim">混合厂没有单棵树：共享上游已合并成一份，见上方目标表与机器清单。</div>'
-        : '<div class="dim">兵厂链没有物品递归树，见上方大循环表。</div>');
+        : '<div class="dim">没有可展开的上游（目标是边界输入，或整条线都在边界内）。</div>');
 
     // 多配方物品：哪个被选中、备选是谁
     var used = Object.keys(res.machines);
@@ -1556,7 +1400,6 @@
   el("gen").addEventListener("change", function () { syncGenFuel(); if (lastRes) renderPower(lastRes.power, lastRes.supply, lastRes); });
   el("genfuel").addEventListener("change", function () { if (lastRes) renderPower(lastRes.power, lastRes.supply, lastRes); });
   el("gencount").addEventListener("change", function () { if (lastRes) renderPower(lastRes.power, lastRes.supply, lastRes); });
-  el("chainline").addEventListener("change", function () { renderChain(); });
 
   // 测试钩子：无浏览器环境里手动切模式 / 触发计算
   window.__ratio = { setMode: setMode, run: run, mode: function () { return mode; },
@@ -1574,25 +1417,6 @@
                        if (lastRes) renderPower(lastRes.power, lastRes.supply);
                        return el("powertable").innerHTML;
                      },
-                     chain: function (start, rate) {
-                       var ch = (idx.unitChains || []).filter(function (c) { return c.start === start; })[0];
-                       if (!ch) return "";
-                       var top = ch.tiers[ch.tiers.length - 1];
-                       var n = Math.max(1, Math.ceil(rate / top.perSecond - 1e-9));
-                       curBlock = top.block;
-                       el("count").value = String(n);
-                       setMode("building");
-                       return el("chaintable").innerHTML;
-                     },
-                     chainTop: function (start, tier, count) {
-                       var ch = (idx.unitChains || []).filter(function (c) { return c.start === start; })[0];
-                       if (!ch || !ch.tiers[(tier || 5) - 1]) return { table: "", res: "" };
-                       curBlock = ch.tiers[(tier || 5) - 1].block;
-                       el("count").value = String(Math.max(1, count || 1));
-                       setMode("building");
-                       return { table: el("chaintable").innerHTML, res: el("chainres").innerHTML };
-                     },
-                     chainRes: function () { return el("chainres").innerHTML; },
                      /* 边界开关：__ratio.bnd("oil") 切换、__ratio.bnd() 只看不切 */
                      bnd: function (n) {
                        if (n) { toggleBoundary(n); return boundaryNames(); }

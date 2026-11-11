@@ -71,10 +71,11 @@ ok("建筑模式 graphite-press ×2（煤 2.667/s）", () => {
   close(res.demand.filter(d => d.name === "coal")[0].perSecond, 2.666666, 1e-5);
 });
 
-ok("建筑模式选兵厂 → 自动走大循环（ground-factory ×2）", () => {
-  const res = cli.query(cli.parseArgs(["--block", "ground-factory", "--count", "2"]));
-  assert.strictEqual(res.mode, "chain");
-  assert.strictEqual(res.chain.start, "dagger");
+ok("建筑模式选兵厂 → 当普通工厂算（不再走大循环）", () => {
+  const res = cli.query(cli.parseArgs(["--block", "ground-factory", "--count", "2",
+                                       "--boundary", "silicon,lead"]));
+  assert.strictEqual(res.mode, "building");
+  assert.strictEqual(res.chain, undefined);
   const gf = res.machines.filter(m => m.name === "ground-factory")[0];
   assert.strictEqual(gf.count, 2);
   close(gf.powerTotal, 144);
@@ -85,20 +86,11 @@ ok("建筑模式选兵厂 → 自动走大循环（ground-factory ×2）", () =>
   close(res.demand.filter(d => d.name === "silicon")[0].perSecond, 1.333, 1e-3);
 });
 
-ok("兵厂链 T1 少建时：0 台层级不进清单、材料不留 0", () => {
-  const res = cli.query(cli.parseArgs(["--block", "ground-factory", "--count", "1"]));
-  const txt = cli.renderText(res);
-  assert.ok(txt.indexOf("不建") >= 0, txt);
-  assert.ok(!/ 0\/s/.test(txt), "不该出现 0/s 材料：\n" + txt);
-  assert.strictEqual(res.machines.length, 1);
-});
-
 ok("兵厂多计划：--plan 1 换 crawler 线", () => {
   const a = cli.query(cli.parseArgs(["--block", "ground-factory", "--count", "1"]));
   const b = cli.query(cli.parseArgs(["--block", "ground-factory", "--count", "1", "--plan", "1"]));
   assert.strictEqual(a.products[0].name, "dagger");
   assert.strictEqual(b.products[0].name, "crawler");
-  assert.strictEqual(b.chain.start, "crawler");
 });
 
 /* 3. 外部来源：钻头台数/液体、多产物副产物 */
@@ -138,26 +130,6 @@ ok("电力为 0 时给提示而不是 0 台发电厂", () => {
   assert.ok(res.warnings.some(w => w.indexOf("电力需求是 0") >= 0));
 });
 
-/* 5. 兵厂链 */
-ok("兵厂链 dagger 0.05/s：5 级、最后是 reign", () => {
-  const res = cli.query(cli.parseArgs(["--chain", "dagger", "--chainrate", "0.05"]));
-  assert.strictEqual(res.mode, "chain");
-  assert.strictEqual(res.chain.rows.length, 5);
-  assert.strictEqual(res.chain.rows[4].unit, "reign");
-  assert.ok(res.chain.power > 0);
-  assert.ok(Object.keys(res.chain.materials).length > 0);
-});
-
-ok("兵厂链按最慢一段算：达成 0.05/s、瓶颈 T5、台数不必 1:1", () => {
-  const c = cli.query(cli.parseArgs(["--chain", "dagger", "--chainrate", "0.05"])).chain;
-  close(c.achieved, 0.05);
-  assert.strictEqual(c.bottleneck, "reign");
-  assert.strictEqual(c.bottleneckTier, 5);
-  assert.deepStrictEqual(c.rows.map(r => r.count), [1, 1, 2, 5, 12]);
-  close(c.rows[3].feedsNext, 2.6667, 2e-3);
-  close(c.power, 22872, 1);
-});
-
 /* 5b. 抽水泵：水可以自己抽 */
 ok("--src water=pump:rotary-pump 自动补台数并计入电力", () => {
   const res = cli.query(cli.parseArgs(["--block", "silicon-smelter", "--count", "3",
@@ -193,11 +165,6 @@ ok("md 渲染是表格", () => {
   const m = cli.renderMarkdown(cli.query(cli.parseArgs(["--item", "silicon", "--rate", "5"])));
   assert.ok(m.indexOf("| 建筑 | 台数 | 电力/s |") >= 0, m);
 });
-ok("chain 的 text 渲染有 T1~T5", () => {
-  const t = cli.renderText(cli.query(cli.parseArgs(["--chain", "dagger", "--chainrate", "0.05"])));
-  ["T1", "T2", "T3", "T4", "T5"].forEach(k => assert.ok(t.indexOf(k) >= 0, "缺 " + k));
-});
-
 /* 7. 默认边界：不写 --boundary 时 = 煤、沙 */
 ok("默认边界是 coal,sand（走硅炉而不是硅坩埚）", () => {
   const res = cli.query(cli.parseArgs(["--item", "silicon", "--rate", "5"]));
@@ -238,7 +205,7 @@ ok("--format json 的错误也是 json", () => {
 });
 ok("--list 能列全", () => {
   const t = run(["--list"]);
-  ["物品（22）", "兵厂（17）", "发电厂（14）", "钻头（10）", "多产物（2）", "抽水泵（6）", "兵厂链（10）"].forEach(k =>
+  ["物品（22）", "兵厂（17）", "发电厂（14）", "钻头（10）", "多产物（2）", "抽水泵（6）"].forEach(k =>
     assert.ok(t.indexOf(k) >= 0, "缺 " + k));
 });
 ok("--help 有用法", () => {
@@ -291,17 +258,6 @@ ok("GET /list、GET /nope", () => {
 });
 
 
-ok("--chainexpr 5t5：按台数反推", () => {
-  const t = cli.renderText(cli.query({ chain: "dagger", chainexpr: "5t5" }));
-  assert.ok(t.indexOf("目标 5 台 T5") >= 0, t);
-  assert.ok(/T4 .*×2/.test(t), t);
-  assert.ok(/T5 .*×5/.test(t), t);
-  assert.ok(t.indexOf("材料（每分钟）") >= 0, t);
-});
-ok("--chain dagger --chainrate 0.05 仍按速率", () => {
-  const t = cli.renderText(cli.query({ chain: "dagger", chainrate: "0.05" }));
-  assert.ok(/T5 .*×12/.test(t), t);
-});
 ok("--src coal=belt:belt-grey：算出条数", () => {
   const r = cli.query({ item: "graphite", rate: "1", src: ["coal=belt:belt-grey"] });
   const t = cli.renderText(r);
@@ -333,9 +289,9 @@ ok("--src coal=import：同样回落蓝带", () => {
   const s = (r.sources || []).filter((x) => x.type === "import" && x.item === "coal")[0];
   assert.ok(s && s.via === "belt-blue" && s.count === 1, JSON.stringify(r.sources));
 });
-ok("兵厂链也带外部入料（蓝带条数）", () => {
-  const r = cli.query({ block: "tetrative-reconstructor", count: "5" });
-  assert.strictEqual(r.mode, "chain");
+ok("兵厂当普通工厂也带外部入料（蓝带条数）", () => {
+  const r = cli.query({ block: "tetrative-reconstructor", count: "5", boundary: "silicon,lead" });
+  assert.strictEqual(r.mode, "building");
   assert.ok(Array.isArray(r.sources) && r.sources.length > 0, "no sources");
   assert.ok(r.sources.every((s) => s.via === "belt-blue"), JSON.stringify(r.sources.slice(0, 3)));
   assert.ok(r.sources.some((s) => s.item === "silicon" && s.count >= 4), JSON.stringify(r.sources));

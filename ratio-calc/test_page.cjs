@@ -106,8 +106,9 @@ check("建筑选择器：工厂 + 兵厂都在",
 check("建筑贴图按原尺寸（graphite-press 2×2 → 44px）",
       /width:44px;height:44px/.test(txt("bgrid-item")), txt("bgrid-item").slice(0, 160));
 
-/* --- 切到兵厂：ground-factory × 2 计划 dagger --- */
+/* --- 切到兵厂：ground-factory × 2 计划 dagger（当普通工厂算，材料走边界） --- */
 window.__ratio.block("ground-factory");
+window.__ratio.setBoundary("silicon, lead, coal, sand");
 $("count").value = "2";
 $("plan").value = "0";
 $("plan").children = [makeEl("", "option"), makeEl("", "option"), makeEl("", "option")];
@@ -116,8 +117,6 @@ check("兵厂模式：机器表有 ground-factory × 2",
       /ground-factory/.test(txt("machines")) && />2</.test(txt("machines")), txt("machines").slice(0, 260));
 check("兵厂模式：产出卡片是 dagger",
       /dagger/.test(txt("cards")) && /0\.133/.test(txt("cards")), txt("cards").slice(0, 260));
-check("兵厂模式：走大循环（链表出现 T1/T5 两行）",
-      /T1/.test(txt("chaintable")) && /T5/.test(txt("chaintable")), txt("chaintable").slice(0, 200));
 check("兵厂模式：材料直接当边界输入（硅 1.333/s，不再展开硅炉）",
       /silicon/.test(txt("demand")) && /1\.333/.test(txt("demand")) && !/silicon-smelter/.test(txt("machines")),
       txt("demand").slice(0, 200));
@@ -148,7 +147,7 @@ check("递归层数=1：上游被截断成外部输入",
 $("depth").value = "6";
 window.__ratio.run();
 
-/* --- 新：外部来源（钻头 / 多产物）+ 供电表 + 兵厂 T1~T5 大循环 --- */
+/* --- 新：外部来源（钻头 / 多产物）+ 供电表 --- */
 window.__ratio.setMode("building");
 window.__ratio.block("graphite-press");
 $("count").value = "2";
@@ -170,12 +169,6 @@ check("供电表：燃料煤 2 /s", /coal/.test(pt) && /2 \/s/.test(pt), pt);
 const pt2 = window.__ratio.setGen("steam-generator", "coal", 2);
 check("供电表：蒸汽发电机 2 台烧煤 1.333/s 并要水 12/s",
       /1\.333/.test(pt2) && /water/.test(pt2) && /12/.test(pt2), pt2);
-
-const chainHtml = window.__ratio.chain("dagger", 0.05);
-check("兵厂大循环：五级都在（ground-factory → reign）",
-      /ground-factory/.test(chainHtml) && /additive-reconstructor/.test(chainHtml) &&
-      /tetrative-reconstructor/.test(chainHtml) && /reign/.test(chainHtml), chainHtml.slice(0, 300));
-check("兵厂大循环：T5 需要 12 台 tetrative", /12/.test(chainHtml) && /T5/.test(chainHtml));
 
 window.__ratio.block("silicon-smelter");
 $("count").value = "3";
@@ -218,34 +211,6 @@ check("液体来源：抽水机电力计入机器表与合计",
       /rotary-pump/.test(txt("machines")) && /18/.test(txt("machines")), txt("machines").slice(0, 400));
 window.__ratio.src("water", { type: "import" });
 
-/* --- 兵厂链新口径：瓶颈 / 达成 / 台数不必 1:1 --- */
-const chain2 = window.__ratio.chain("dagger", 0.05);
-check("兵厂链：显示瓶颈标记与「实际达成」",
-      /瓶颈/.test(chain2) && /实际达成/.test(chain2), chain2.slice(0, 400));
-check("兵厂链：1 台 T4 能带 2.66 台 T5", /2\.66/.test(chain2), chain2.slice(0, 1500));
-check("兵厂链：利用率列出现", /90%/.test(chain2), chain2.slice(0, 1500));
-
-
-// 兵厂链挪到「按目标物品速率」页
-check("兵厂链块属于建筑页（mode-block，不是 item 页）",
-  /<div class="mode-block hidden" id="chainsec">/.test(html),
-  (html.match(/.{0,80}chainsec.{0,120}/) || [""])[0]);
-
-window.__ratio.block("graphite-press");
-$("count").value = "1";
-window.__ratio.run();
-check("选中物品工厂时链块隐藏", (function () {
-  const sec = $("chainsec");
-  return sec.classList.contains("hidden") && $("chaintable").innerHTML === "";
-})(), $("chainsec").className);
-
-// 5t5 口径：5 台 T5 厂满效 → 自动反推 T4/T3/T2/T1
-const top5 = window.__ratio.chainTop("dagger", 5, 5);
-check("5t5：表里有「目标」标记", /目标/.test(top5.table), top5.table.slice(0, 200));
-check("5t5：T5 台数 5", /<td class="num">5<\/td>/.test(top5.table), top5.table.slice(0, 800));
-check("5t5：资源表有 silicon", /silicon/.test(top5.res), top5.res.slice(0, 300));
-check("5t5：资源表每分钟列有 2537", /2537/.test(top5.res), top5.res.slice(0, 600));
-
 // 外部入料方式：边界输入旁边有「灰带/蓝带/接收台」下拉
 window.__ratio.block("graphite-press");
 $("count").value = "2";
@@ -255,28 +220,6 @@ check("入料方式：来源表出现灰带选项",
   /data-via-item="coal"/.test($("sources").innerHTML) && /灰带/.test($("sources").innerHTML),
   $("sources").innerHTML.slice(0, 400));
 check("入料方式：灰带说明带条数", /条/.test($("sources").innerHTML), $("sources").innerHTML.slice(0, 800));
-
-// 建筑页选兵厂：一台重建厂能升多条线时给「升级线」下拉
-window.__ratio.block("tetrative-reconstructor");
-$("count").value = "5";
-window.__ratio.run();
-check("升级线：多个候选时下拉出现", $("chainlinebar").style.display === "" &&
-  $("chainline").innerHTML.split("<option").length - 1 > 1,
-  $("chainline").innerHTML.slice(0, 300));
-check("升级线：默认第一条是 dagger 线", /dagger/.test($("chainline").innerHTML),
-  $("chainline").innerHTML.slice(0, 200));
-
-$("chainline").value = "flare";
-window.__ratio.run();
-check("升级线：切到 flare 线后 T5 显示 eclipse",
-  /eclipse/.test($("chaintable").innerHTML), $("chaintable").innerHTML.slice(0, 400));
-
-// 只服务一条线的兵厂：下拉藏起来
-window.__ratio.block("ground-factory");
-$("count").value = "2";
-window.__ratio.run();
-check("升级线：候选只有一条时下拉隐藏", $("chainlinebar").style.display === "none",
-  String($("chainlinebar").style.display));
 
 // 外部入料：不给来源时默认蓝带（12.015/s），并给出条数
 window.__ratio.setMode("item");

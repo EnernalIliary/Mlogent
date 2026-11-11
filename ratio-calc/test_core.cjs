@@ -37,7 +37,7 @@ for (const c of cases) {
 }
 console.log(bad ? `\n${bad} 个不一致` : "\n全部一致");
 
-/* ---------- 新算法单测：钻头 / 发电 / 多产物 / 兵厂大循环 ---------- */
+/* ---------- 新算法单测：钻头 / 发电 / 多产物 / 混合厂（含兵厂） ---------- */
 let f2 = 0;
 function near(name, got, want, tol) {
   tol = tol == null ? 1e-3 : tol;
@@ -99,22 +99,6 @@ near("来源=解离机：电力 1530", mres.power, 1530);
 near("来源=解离机：副产钍 4.8/s",
      mres.sources.find(s => s.item === "sand").byproducts.find(b => b.name === "thorium").perSecond, 4.8);
 
-// 兵厂大循环 T1~T5
-const ch = R.unitChain(DATA, "dagger", 0.05);
-eq("dagger 链五级台数", ch.rows.map(r => [r.tier, r.unit, r.count]),
-   [[1, "dagger", 1], [2, "mace", 1], [3, "fortress", 2], [4, "scepter", 5], [5, "reign", 12]]);
-near("dagger 链实际达成 0.05/s", ch.achieved, 0.05, 1e-9);
-eq("dagger 链瓶颈是最慢的 T5", ch.bottleneck, "reign");
-near("dagger 链总耗电", ch.power, 22872, 1);
-near("dagger 链硅 101.5/s", ch.materials.silicon, 101.5, 1e-3);
-// 台数比例不必 1:1：1 台 T4 scepter（0.01111/s）够带 2.67 台 T5 reign（0.00417/s）
-const t4 = ch.rows[3], t5 = ch.rows[4];
-near("1 台 T4 带 2.67 台 T5", t4.feedsNext, 2.6667, 1e-3);
-near("T4 单台 0.01111/s", t4.perSecond, 0.011111, 1e-5);
-const ch2 = R.unitChain(DATA, "stell", 0.02);
-eq("erekir stell 链三级", ch2.rows.map(r => [r.tier, r.unit, r.count]), [[1, "stell", 1], [2, "locus", 1], [3, "precept", 2]]);
-eq("erekir 链瓶颈是 T1 stell", ch2.bottleneck, "stell");
-
 // 抽水泵（液体来源）
 const pp = R.pumpPlan(DATA, "water", 14.4, "rotary-pump");
 eq("rotary-pump 补 14.4/s 水要 1 台", pp.count, 1);
@@ -142,16 +126,6 @@ near("抽水机：电力 90+198+18 = 306", wres.power, 306, 1e-6);
 eq("抽水机：liquidSources 有 1 条", (wres.liquidSources || []).length, 1);
 
 
-// 兵厂链「5t5」口径：给台数（5 台 T5 厂满效），自动反推上面各级台数
-const c5 = R.chainFromTop(DATA, "dagger", 5, 5);
-eq("5t5：台数 1/1/1/2/5", c5.rows.map(r => r.count), [1, 1, 1, 2, 5]);
-eq("5t5：topTier/topCount", [c5.topTier, c5.topCount], [5, 5]);
-near("5t5：整链达成 5×0.004167（保留 3 位 0.021）", c5.achieved, 0.021, 1e-9);
-eq("5t5：瓶颈是 reign", c5.bottleneck, "reign");
-near("5t5：硅 42.292/s", c5.materials.silicon, 42.291666, 1e-4);
-eq("3t4：T5 不参与（0 台）", R.chainFromTop(DATA, "dagger", 4, 3).rows.map(r => r.count), [1, 1, 1, 3, 0]);
-eq("5t1：只有 T1", R.chainFromTop(DATA, "dagger", 1, 5).rows.map(r => r.count), [5, 0, 0, 0, 0]);
-
 // 外部入料方式：灰带 / 布桥（要电）/ 接收台（不限速）
 function graphiteWith(via) {
   const r = R.expand(DATA, "graphite", 1, ["coal", "sand"], {}, { maxDepth: 6 });
@@ -170,23 +144,6 @@ near("布桥：电力 18 计入总量", gPhase.power, 18, 1e-9);
 const gPad = graphiteWith("pad");
 eq("接收台：不限速（台数留空）", gPad.sources.filter(s => s.item === "coal")[0].count, null);
 eq("入料方式共 7 种", (DATA.channels || []).length, 7);
-
-// 建筑页选兵厂 → chainFromBlock（和页面/CLI 同一条路）
-const candT = R.chainsForBlock(DATA, "tetrative-reconstructor");
-eq("chainsForBlock(tetrative)：多条线可选", candT.length > 1, true);
-eq("chainsForBlock 首选 dagger 线", candT[0].start, "dagger");
-eq("chainsForBlock：tetrative 在第 5 级", candT[0].tier, 5);
-const cb1 = R.chainFromBlock(DATA, "ground-factory", 2);
-eq("chainFromBlock(ground-factory ×2)：台数 [2,0,0,0,0]", cb1.rows.map(r => r.count), [2, 0, 0, 0, 0]);
-eq("chainFromBlock：topTier 1", cb1.topTier, 1);
-near("chainFromBlock：电力 144", cb1.power, 144, 1e-9);
-const cb2 = R.chainFromBlock(DATA, "tetrative-reconstructor", 5);
-eq("chainFromBlock(tetrative ×5)：1/1/1/2/5", cb2.rows.map(r => r.count), [1, 1, 1, 2, 5]);
-eq("chainFromBlock 默认走 dagger", cb2.start, "dagger");
-const cb3 = R.chainFromBlock(DATA, "tetrative-reconstructor", 5, { chainStart: "flare" });
-eq("chainFromBlock 指定 flare 线", cb3.start, "flare");
-eq("flare 线 T5 是 eclipse", cb3.rows[4].unit, "eclipse");
-eq("chainFromBlock(物品工厂) 返回 null", R.chainFromBlock(DATA, "graphite-press", 1), null);
 
 /* ---- 发电设备当目标建筑（按台数算发电，不做电力递归） ---- */
 /* 电厂走递归后：不传 boundary 会把煤一路展开（coal-centrifuge → 油 → 泵）；这里固定边界看纯发电口径 */
@@ -242,8 +199,7 @@ near("expandMixed：电力 60/s", mix3.power, 60, 1e-9);
 near("expandMixed：发电 60/s", mix3.powerOut, 60, 1e-9);
 near("expandMixed：净电 0", mix3.netPower, 0, 1e-9);
 
-// 兵厂不能进混合厂（自带 T1→T5 大循环）
-/* 用户 2026-11-10：兵厂就当正常工厂看待，整合进混合厂（不再单独报错） */
+// 兵厂进混合厂（用户 2026-11-10：兵厂就当正常工厂看待；2026-11-11 撤掉大循环页后只剩这条路）
 const mixUnit = R.expandMixed(DATA, [{ block: "ground-factory", count: 2 }],
                               { boundary: ["silicon", "lead"] });
 eq("expandMixed：兵厂目标当作普通工厂", mixUnit.machines["ground-factory"], 2);

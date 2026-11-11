@@ -151,14 +151,11 @@
 
     /* 兵厂大循环：单位 -> 造它的方块；再串成 T1→T5 */
     var unitProducers = new Map();
-    var nextOf = new Map();
-    var starts = [];
     blocks.forEach(function (b) {
       if (b.kind !== "unit") return;
       if (b.factoryKind === "reconstructor") {
         b.upgrades.forEach(function (u) {
-          nextOf.set(u.from, u.to);
-          unitProducers.set(u.to, { unit: u.to, block: b.name, kind: b.factoryKind,
+              unitProducers.set(u.to, { unit: u.to, block: b.name, kind: b.factoryKind,
                                     perSecond: b.cps, power: b.power,
                                     items: b.inputs.map(function (i) { return { name: i.name, amount: i.amount }; }) });
         });
@@ -167,25 +164,8 @@
           unitProducers.set(p.unit, { unit: p.unit, block: b.name, kind: b.factoryKind,
                                       perSecond: p.perSecond, power: b.power, items: p.items });
         });
-        if (b.factoryKind === "unit-factory") {
-          b.plans.forEach(function (p) { starts.push(p.unit); });
-        }
       }
     });
-    var chains = [];
-    starts.forEach(function (u) {
-      var tiers = [], cur = u, guard = 0;
-      while (cur && guard++ < 8) {
-        var prod = unitProducers.get(cur);
-        tiers.push({ unit: cur, block: prod ? prod.block : "",
-                     kind: prod ? prod.kind : "",
-                     perSecond: prod ? prod.perSecond : 0, power: prod ? prod.power : 0,
-                     items: prod ? prod.items : [] });
-        cur = nextOf.get(cur);
-      }
-      if (tiers.length > 1) chains.push({ start: u, tiers: tiers });
-    });
-
     /* 液体来源索引（自产液体用）
      *   liquidPumps —— 钻井：pumps 里 perSecond>0 的（oil-extractor 15/s，吃 sand 1/s）
      *   liquidMakers —— 转化方块：output_liquids 非空的物品工厂（spore-press 0.9/s，吃 spore-pod 1）
@@ -247,7 +227,6 @@
       channelsByKey: channelsByKey,
       defaultChannel: DEFAULT_CHANNEL,
       unitProducers: unitProducers,
-      unitChains: chains,
       unitIcons: data.unit_icons || {},
       snapshot: data.snapshot || "",
       itemSet: new Set(items),
@@ -1651,180 +1630,6 @@
     }
   }
 
-  /* 兵厂 T1→T5 大循环：要产 rate 个/s 的顶级单位，每级要几台、吃多少料。
-   *
-   * 模型（不是简单 1:1）：
-   *   每级有两个比例参数
-   *     inPer   —— 升 1 个这级单位要吃掉几个下级单位（默认 1；T1 没有下级 = 0）
-   *     outPer  —— 这个方块一次产出几个这级单位（默认 1）
-   *   需要的下级速率： need[k-1] = need[k] * inPer[k]
-   *   每台产能：       capacity[k] = count[k] * perSecond[k] * outPer[k]
-   *   一级单位能变成多少个顶级单位： factor[k] = Π_{j>k} (1 / inPer[j])
-   *   整条链的产出受最慢的一段限制： achieved = min_k (capacity[k] * factor[k])
-   *   材料按"整条链实际只跑 achieved"算，多放的机器只会闲置：
-   *     craft/s = (achieved / factor[k]) / outPer[k]，材料 = items × craft/s
-   *
-   * opts.ratios = { 单位名: inPer }  覆盖每级消耗比（例如 {mace: 2} = 2 个 dagger 升 1 个 mace）
-   * opts.outs   = { 单位名: outPer } 覆盖每级一次产出数（例如 {mace: 2} = 一次出 2 个）
-   */
-  function unitChain(data, startUnit, rate, opts) {
-    var idx = indexOf(data);
-    var chain = null;
-    for (var i = 0; i < idx.unitChains.length; i++) {
-      if (idx.unitChains[i].start === startUnit) { chain = idx.unitChains[i]; break; }
-    }
-    if (!chain) throw new Error(startUnit + " 没有 T1→T5 升级链");
-
-    var cfg = opts || {};
-    var ratios = cfg.ratios || {};
-    var outs = cfg.outs || {};
-    var n = chain.tiers.length;
-
-    var stages = chain.tiers.map(function (t, k) {
-      var inPer = k === 0 ? 0 : (ratios[t.unit] !== undefined ? Number(ratios[t.unit]) : 1);
-      var outPer = outs[t.unit] !== undefined ? Number(outs[t.unit]) : 1;
-      if (!(inPer >= 0)) inPer = 1;
-      if (!(outPer > 0)) outPer = 1;
-      return { t: t, tier: k + 1, inPer: inPer, outPer: outPer,
-               each: t.perSecond * outPer };
-    });
-
-    /* 两种口径：
-     *   ① rate  —— 想要顶级单位 x 个/s
-     *   ② topCount/topTier —— 想要 N 台第 T 级的厂满效跑（页面上写「5t5」）
-     */
-    var topIdx = n - 1;
-    var topCount = 0;
-    if (cfg.topCount > 0) {
-      topIdx = Math.max(0, Math.min(n - 1, (cfg.topTier || n) - 1));
-      topCount = Number(cfg.topCount);
-    }
-    var want = topCount > 0 ? topCount * stages[topIdx].each : Math.max(0, rate || 0);
-
-    /* 从顶级往下推"每级需要产多少" */
-    var need = new Array(n);
-    for (var k = 0; k < n; k++) need[k] = 0;
-    need[topIdx] = want;
-    for (var k1 = topIdx; k1 > 0; k1--) need[k1 - 1] = need[k1] * stages[k1].inPer;
-
-    /* 每级台数与产能 */
-    stages.forEach(function (s, k) {
-      if (topCount > 0 && k === topIdx) {
-        s.count = topCount;                                   // 顶级就是用户点名的那几台
-      } else {
-        s.count = (need[k] > 0 && s.each > 0) ? Math.ceil(need[k] / s.each - 1e-9) : 0;
-      }
-      s.capacity = s.count * s.each;
-    });
-
-    /* 一级单位折算成顶级单位 */
-    var factor = new Array(n);
-    for (var k3 = 0; k3 < n; k3++) factor[k3] = 0;
-    factor[topIdx] = 1;
-    for (var k2 = topIdx - 1; k2 >= 0; k2--) factor[k2] = factor[k2 + 1] / (stages[k2 + 1].inPer || 1);
-
-    var achieved = 0;
-    if (want > 0) {
-      achieved = Infinity;
-      for (var k4 = 0; k4 <= topIdx; k4++) {
-        achieved = Math.min(achieved, stages[k4].capacity * factor[k4]);
-      }
-      if (!isFinite(achieved)) achieved = 0;
-    }
-    var bottleneck = 0;
-    for (var k5 = 0; k5 <= topIdx; k5++) {
-      if (stages[k5].capacity * factor[k5] < stages[bottleneck].capacity * factor[bottleneck] - 1e-12) bottleneck = k5;
-    }
-
-    var rows = [];
-    var materials = {};
-    var power = 0;
-    stages.forEach(function (s, k) {
-      var t = s.t;
-      var stageActual = factor[k] > 0 ? achieved / factor[k] : 0;   // 这级实际产出（个/s）
-      var crafts = s.outPer > 0 ? stageActual / s.outPer : 0;      // 这级方块每秒跑几次
-      var rowItems = t.items.map(function (it) {
-        var v = it.amount * crafts;
-        materials[it.name] = (materials[it.name] || 0) + v;
-        return { name: it.name, perSecond: v,
-                 perSecondAtFull: s.count > 0 ? it.amount * (s.capacity / s.outPer) : 0 };
-      });
-      power += s.count * t.power;
-      /* 1 台这级的机器，够带几台上一级的机器（不是 1:1：constructTime 不同） */
-      var upper = stages[k + 1];
-      var feedsNext = null;
-      if (upper && upper.count > 0 && upper.t.perSecond > 0) {
-        feedsNext = s.each / (upper.t.perSecond * upper.outPer);
-      }
-      rows.push({
-        tier: s.tier, unit: t.unit, block: t.block, kind: t.kind || "",
-        icon: idx.unitIcons[t.unit] || "",
-        blockIcon: (idx.blocks.get(t.block) || {}).icon || "",
-        perSecond: s.each, count: s.count,
-        inPer: s.inPer, outPer: s.outPer, need: round(need[k]),
-        capacity: round(s.capacity), stageActual: round(stageActual),
-        actual: round(achieved), feedsNext: feedsNext === null ? null : round(feedsNext),
-        utilization: (s.capacity * factor[k]) > 0 ? achieved / (s.capacity * factor[k]) : 0,
-        bottleneck: k === bottleneck,
-        powerEach: t.power, power: s.count * t.power, items: rowItems
-      });
-    });
-
-    return {
-      start: startUnit, top: chain.tiers[chain.tiers.length - 1].unit,
-      tiers: n, rate: round(want) || want,
-      topTier: topIdx + 1, topCount: topCount || null,
-      achieved: round(achieved),
-      bottleneck: rows[bottleneck] ? rows[bottleneck].unit : null,
-      bottleneckTier: rows[bottleneck] ? rows[bottleneck].tier : null,
-      rows: rows, materials: sortMachines(materials), power: power
-    };
-  }
-
-  /* 「5t5」口径：N 台第 T 级的厂满效跑，反推上面各级要几台、整链要多少资源 */
-  function chainFromTop(data, startUnit, tier, count, opts) {
-    var cfg = {};
-    Object.keys(opts || {}).forEach(function (k) { cfg[k] = opts[k]; });
-    cfg.topTier = tier;
-    cfg.topCount = count;
-    return unitChain(data, startUnit, 0, cfg);
-  }
-
-  /* 默认优先挑这些“正统地面线”：一个方块的同一个工厂可以服务多条升级线（如 tetrative 同时升地面/空军/机甲） */
-  var CHAIN_PREF = ["dagger", "nova", "crawler", "flare", "mono", "risso", "retusa", "stell", "merui", "elude"];
-
-  /* 这个方块可能属于几条链？（每条给出 {start, tier}） */
-  function chainsForBlock(data, blockName) {
-    var idx = indexOf(data);
-    var out = [];
-    (idx.unitChains || []).forEach(function (ch) {
-      for (var i = 0; i < ch.tiers.length; i++) {
-        if (ch.tiers[i].block === blockName) {
-          out.push({ start: ch.start, top: ch.top, tier: i + 1, tiers: ch.tiers.length });
-          break;
-        }
-      }
-    });
-    out.sort(function (a, b) {
-      var ia = CHAIN_PREF.indexOf(a.start), ib = CHAIN_PREF.indexOf(b.start);
-      if (ia < 0) ia = 99;
-      if (ib < 0) ib = 99;
-      return (ia - ib) || (a.start < b.start ? -1 : 1);
-    });
-    return out;
-  }
-
-  /* 按「选了哪个兵厂 + 几台」走大循环：在该方块所在的链上定位层级，再交给 chainFromTop */
-  function chainFromBlock(data, blockName, count, opts) {
-    var cands = chainsForBlock(data, blockName);
-    if (!cands.length) return null;
-    var pick = cands[0];
-    if (opts && opts.chainStart) {
-      cands.forEach(function (c) { if (c.start === opts.chainStart) pick = c; });
-    }
-    return chainFromTop(data, pick.start, pick.tier, count, opts);
-  }
-
   /* 机器清单带来的液体需求（每秒）：方块/兵厂/多产物方块的输入液体 + 钻头加速液 */
   function liquidDemand(idx, machines, extra) {
     var acc = {};
@@ -2105,8 +1910,7 @@
               machineRows: machineRows, anyBlock: anyBlock,
               drillRate: drillRate, drillsNeeded: drillsNeeded,
               generatorPlan: generatorPlan, generatorSupply: generatorSupply,
-              separatorPlan: separatorPlan, unitChain: unitChain, chainFromTop: chainFromTop,
-              chainFromBlock: chainFromBlock, chainsForBlock: chainsForBlock,
+              separatorPlan: separatorPlan,
               pumpPlan: pumpPlan, pumpEquivalents: pumpEquivalents, pumpMix: pumpMix,
       applyFloor: applyFloor,
       applyAttrs: applyAttrs,

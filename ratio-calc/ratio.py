@@ -9,8 +9,8 @@
     image(out, **kw) -> str PNG 卡片（bot 直接发图）
     http_query(base, **kw)  走 serve.cjs 的 HTTP 版本
 
-`**kw` 就是网页/CLI 的参数名，一一对应：item/rate、block/count、plan/chainline、
-boundary/force/depth/gen/genfuel/gencount/chain/chainexpr/chainrate/src(csv 或列表)。
+`**kw` 就是网页/CLI 的参数名，一一对应：item/rate、block/count/plan、
+boundary/force/depth/gen/genfuel/gencount/src(csv 或列表)。
 
 三种用法：
   1) 命令行（等价于 node cli.cjs，只是多了 --image）：
@@ -20,7 +20,6 @@ boundary/force/depth/gen/genfuel/gencount/chain/chainexpr/chainrate/src(csv 或�
        from ratio import calc, text, image
        r = calc(item="silicon", rate=5)                 # dict
        print(text(block="graphite-press", count=2))
-       image(chain="dagger", chainexpr="5t5", out="card.png")
        # 已经算过一次的话，别重复算：直接拿 dict 出图
        from ratio import card
        card(calc(block="ground-factory", count=2), "gf.png")
@@ -48,7 +47,7 @@ PY = os.environ.get("RATIO_PYTHON", sys.executable)
 
 def _flag_args(**kw) -> list:
     """把 {item:'silicon', rate:5, src:['sand=...']} 变成 CLI 参数列表。"""
-    alias = {"chainrate": "chainrate", "gendemand": "gendemand"}
+    alias = {"gendemand": "gendemand"}
     out = []
     for k, v in kw.items():
         if v is None or v is False:

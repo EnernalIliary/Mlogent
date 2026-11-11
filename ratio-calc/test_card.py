@@ -120,22 +120,14 @@ def case_item():
     check_width(r)
 
 
-def case_chain():
-    r = run_cli(["--block", "tetrative-reconstructor", "--count", "5"])
+def case_unit_factory():
+    """兵厂当普通工厂：台数 × 生产计划，材料进工厂配比（不再有大循环表）。"""
+    r = run_cli(["--block", "ground-factory", "--count", "2", "--boundary", "silicon,lead"])
     t = flat(r)
-    assert "兵厂大循环" in texts(r)[0][1], texts(r)[0]
-    assert "各级兵厂" in t, t
-    assert idx_of(r, "各级兵厂") < idx_of(r, "外部入料"), t
-    assert "reign" in t and "dagger" in t, t
-    assert "9672" in t, t
-    check_width(r)
-
-
-def case_chain_partial():
-    r = run_cli(["--block", "ground-factory", "--count", "2"])
-    t = flat(r)
-    assert "×0（不建）" in t, t
-    assert "兵厂：dagger" in texts(r)[0][1], texts(r)[0]
+    assert "ground-factory" in t, t
+    assert "dagger" in t, t
+    assert idx_of(r, "工厂配比") < idx_of(r, "外部入料"), t
+    assert "各级兵厂" not in t, t
     check_width(r)
 
 
@@ -153,8 +145,7 @@ def case_png():
 
 ok("建筑模式：配比在前、外部入料在后、默认蓝带带条数", case_building)
 ok("物品模式：配比在前，电力写对", case_item)
-ok("兵厂链：标题/各级/总额，配比在前", case_chain)
-ok("兵厂链只建 T1：0 台层级写「×0（不建）」", case_chain_partial)
+ok("兵厂：当普通工厂算（配比在前、有 dagger、没有大循环表）", case_unit_factory)
 def case_generator():
     r = run_cli(["--block", "steam-generator", "--count", "2"])
     t = flat(r)
@@ -225,11 +216,11 @@ def case_liquid_self():
     check_width(r)
 
 
-def case_chain_icons():
-    """兵厂链是另一条提前 return 的分支，曾经把入料图标全丢了。"""
-    r = run_cli(["--chain", "dagger", "--chainrate", "0.05"])
+def case_unit_icons():
+    """兵厂卡片每个 row 都要带图标（曾经有过丢图标的提前 return 分支）。"""
+    r = run_cli(["--block", "ground-factory", "--count", "2", "--boundary", "silicon,lead"])
     rows = [b for b in C.build_card(r).blocks if b[0] == "row"]
-    assert rows, "chain 卡片没有任何 row"
+    assert rows, "兵厂卡片没有任何 row"
     missing = [b[2] for b in rows if not b[1]]
     assert not missing, "这些行缺图标：%s" % missing
 
@@ -245,7 +236,7 @@ def case_mixed_icons():
 
 
 ok("液体自产：煤炭处理线写进卡片、液体行用原版贴图 + 泵换算", case_liquid_self)
-ok("图标：兵厂链入料行不再缺图标", case_chain_icons)
+ok("图标：兵厂卡片每行都有图标", case_unit_icons)
 ok("图标：混合厂目标行带方块图标", case_mixed_icons)
 ok("发电设备：配比在前、发电量正确、带供电段", case_generator)
 def case_multi():
