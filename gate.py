@@ -54,7 +54,7 @@ PY = sys.executable
 # selftest/probes/corpus at ~19 s each, not the sum.
 # --serial restores the sequential order; --stream implies it (interleaved
 # child output would be unreadable).
-PARALLEL = ("selftest", "probes", "logicd", "corpus", "coverage")
+PARALLEL = ("selftest", "probes", "logicd", "gtbprobe", "corpus", "coverage")
 
 
 def child_env() -> dict:
@@ -203,6 +203,10 @@ def build_steps(full: bool, only: str | None) -> list[tuple[str, list[str] | Non
         # uninstall.ps1 against a throwaway saves\mods, VERSION.txt hashes, and a
         # zip without __pycache__.
         ("package", ["tests/packaging/run_pack_tests.py"], ""),
+        # Grief to Ban is a separate mod in this repo: pure JS, so the check is
+        # node --check over every script + the pure-logic suite in plain node.
+        # No jar, no game, no Python deps -- it must stay under a second.
+        ("gtb", ["tests/grief-to-ban/run_gtb_tests.py"], ""),
     ]
     global_skill = (Path(os.environ.get("DSH_HOME") or (Path.home() / ".dsh"))
                     / "skills" / "mlog-agentskill")
@@ -220,6 +224,14 @@ def build_steps(full: bool, only: str | None) -> list[tuple[str, list[str] | Non
         # configure() channel into a real v160.7 processor and back.  Exit 3 means
         # no JRE or no versioned jar, which is the clean-checkout case.
         steps.append(("logicd", ["tests/logicd/run_logicd_tests.py"], ""))
+        # Grief to Ban has to survive the real thing: the mod is copied into a
+        # throwaway server's config/mods, the server starts, and the mod's own
+        # self-test runs inside Rhino (21 assertions: lib defaults, the
+        # gen.Building.enabled public field, the package-private
+        # NetServer$VoteSession.target we read through Class.forName).  This is
+        # the only place where "Packages.xxx.MyClass is not a Class" bites --
+        # node sees none of it.  rc 0 also on the clean-checkout SKIP (no jar).
+        steps.append(("gtbprobe", ["tests/grief-to-ban/run_server_probe.py"], ""))
         # A real-corpus smoke test: 400 programs sampled out of the 44k-program
         # Anon pack (see out/takeover-20261024/24-anon-corpus.md).  It lives
         # outside git, so a machine without it SKIPs.  What it asserts is that

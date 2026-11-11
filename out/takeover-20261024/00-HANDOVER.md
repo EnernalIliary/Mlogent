@@ -3221,3 +3221,24 @@ good=1 bad=1 label=1 undef=1`。
 装机坑：游戏与残留 `logicd.exe` 在跑时目录被占用（Move-Item Access denied），要先停游戏与该目录下的逻辑后端。
 
 详见 `out/takeover-20261024/102-v0241-noop.md`。
+
+## §124 Grief to Ban 0.1.0（2026-11-11）
+
+新增**第二个模组** `GriefToBan/`：反破坏，纯 JS（三模块：lib 纯逻辑 / ui 设置界面 / main 事件与处置），零 Java、零内容注册，`hidden: true`（不参与联机兼容性检查）。
+
+覆盖用户需求九项：uid 黑名单进服即转旁观（`Team.derelict`）；移出名单只能靠「设为管理员自动移出」或设置界面；游戏默认黑名单可选同步（`admins.banPlayerID` + `getBanned()` 每 3 s 合流）；
+语言黑名单（ban / watch 二选一，watch 时「成员」口径缩到观察对象）；六个行为项（刷交互 20 次 / 10 s 但**不统计建造**、自复制逻辑 `ucontrol build ... @this` 停用 + 拉黑、钍堆离核心 < 30 格警告、钍堆热量 > 0 停用到归零 + 拉黑、爆混发电机清空 + 停用 + 警告、附身 AFK 3 分钟踢出）；
+`/vote kick` 期间目标转旁观、结束后恢复；设置分类图标 `:hammer:`，界面九段、色板同 MAI（主题色 + 强调色，存 6 位 hex 字符串）。
+
+两条运行时事实值得记住（详见 `out/takeover-20261024/103-gtb010.md` §3）：
+1. 发布 jar 里**没有** `mindustry/entities/comp/`，ECS 字段在 `mindustry/gen/`；`gen/Building.class` 有 `public boolean enabled`，可直接读写。
+2. Rhino 的 `Packages.xxx.MyClass` 是 NativeJavaClass，**只暴露 static**；Class 实例方法必须走 `Packages.java.lang.Class.forName("全名")`。`NetServer$VoteSession.target` 是包私有，只有这条路能读 —— 读不到时整条 votekick 功能静默失效。
+
+验证：`tests/grief-to-ban/run_gtb_tests.py`（node --check + **275 条**纯逻辑断言，0.5 s）、`run_server_probe.py`（官方 `_server160.jar` 真加载模组，日志 `selftest OK (0 fail)` **21 条全绿**；模组目录是 `<workdir>/config/mods/`，不是 `<workdir>/mods/`）。
+gate 新增两步：`gtb`（默认档，0.5 s）与 `gtbprobe`（--full，与 probes/logicd/corpus 并发，8.5 s）。
+
+打包：`python -X utf8 tools/package_gtb.py` → `out/_dist/GTB-0.1.0/`、`GTB-0.1.0.zip`（32,871 B）、`GriefToBan-0.1.0.zip`（31,170 B，可直接拖进游戏导入）。
+已装机到 `E:\Program Files (x86)\Steam\steamapps\common\Mindustry\saves\mods\GriefToBan`（8 文件）；**重启游戏才加载**。
+未做：GitHub 仓与 Release（用户说先预留），观察名单单独页。
+
+本文与代码在本地提交「Grief to Ban 0.1.0：反破坏模组（纯 Rhino JS，第二个游戏内模组）」（16 files / +4153 −5，显式 pathspec，没碰别的会话的 `docs/`、`knowledge/`、`tools/kb.py`、`tools/mlogsim.py`）。提交后 `python gate.py --full --kb-build` = **19/19 passed in 169.5s**（kb rebuilt covers 184 source file(s)）。
