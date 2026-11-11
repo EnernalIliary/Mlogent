@@ -25,6 +25,7 @@
 - **仓库名 + 自动更新**：默认仓库改为 https://github.com/EnernalIliary/Mindustry-GriefToBan ；
   进服 / 建房时自动查一次 releases/latest，有新版本就在聊天栏播一条；
   仓库还没有 Release（HTTP 404）时只记日志，不提示、不报错。
+  本版已发到该仓库（Release v0.1.1），之后有新版本会在进服时提示。
 - **ESC 菜单入口**：暂停 → Grief to Ban（Vars.ui.paused.shown 每次重挂一条按钮，
   因为 PausedDialog 每次打开都会 clearChildren() 重建）。
 - **诊断（给下一次报 bug 用）**：数据目录下的 gtb-debug.log 记录 init / 每次扫描的计数 /

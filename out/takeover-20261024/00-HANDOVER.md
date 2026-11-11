@@ -3257,3 +3257,7 @@ gate 新增两步：`gtb`（默认档，0.5 s）与 `gtbprobe`（--full，与 pr
 
 版本：GriefToBan/mod.hjson 与 gtb-lib.js 的 VERSION 都是 0.1.1；CHANGELOG 有 0.1.1 段。装机后需重启游戏才加载。
 
+
+## §125 补充：公开发布（2026-11-11）
+
+Grief to Ban 0.1.1 已发到 https://github.com/EnernalIliary/Mindustry-GriefToBan （原本空仓）：提交 62be669、tag v0.1.1、Release 挂 GriefToBan-0.1.1.zip（37,521 B）与 GTB-0.1.1.zip（39,226 B），releases/latest = v0.1.1 ⇒ 模组内自动更新检查从此能取到版本号。克隆在 out/_publish/gtb-clone；脚本 out/_gtb_pub.py（copy|test|commit）、out/_gtb_release.py（建 release + 传资产）、out/_gtb_repo_check.py（查仓库状态），都走 out/_gh_api.py 的 git credential fill 取 PAT。
