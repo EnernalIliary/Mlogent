@@ -24,6 +24,9 @@ const DEFAULT_BOUNDARY = ["coal", "sand"];
 const RAW_BOUNDARY = ["copper", "lead", "coal", "sand", "scrap", "titanium",
                       "thorium", "beryllium", "tungsten"];
 
+/* 液体中文名（模块级缓存，loadData 时填；mixText/equivText/attrText 这些模块级渲染函数要用） */
+let LIQ_ZH = {};
+
 function loadData(dataFile) {
   global.window = global;
   require(dataFile || path.join(DIR, "data", "gamedata.js"));
@@ -31,6 +34,7 @@ function loadData(dataFile) {
   const DATA = global.MBO_DATA;
   if (!DATA) throw new Error("数据没加载成功（data/gamedata.js 应设置 window.MBO_DATA）");
   DATA.__index = global.RatioCore.buildIndex(DATA);
+  LIQ_ZH = (DATA.names && DATA.names.liquids) || {};
   return { DATA: DATA, R: global.RatioCore, idx: DATA.__index };
 }
 
@@ -105,7 +109,18 @@ function parseAttrs(spec) {
   return out;
 }
 
-/* 把属性渲染成人话：oil 0.7（oil-extractor 10.5/s）、water 1（water-extractor 13.2/s） */
+/* 液体中文名（gamedata 的 names.liquids，来自 bundle_zh_CN 的 liquid.<名>.name）。
+ * 显示用；JSON 输出里仍是英文名（water / slag / cryofluid…），方便脚本对接。 */
+function liqLabel(n) {
+  return LIQ_ZH[n] || n;
+}
+
+/* 入料一格：液体换成中文名，物品保持英文（英文物品名 + 中文液体名不会撞） */
+function itemOrLiq(n) {
+  return LIQ_ZH[n] || n;
+}
+
+/* 把属性渲染成人话：石油 0.7（oil-extractor 10.5/s）、水 1（water-extractor 13.2/s） */
 function attrText(env, attrs) {
   if (!attrs) return "";
   const idx2 = env.R.applyAttrs(env.idx, attrs);
@@ -115,7 +130,7 @@ function attrText(env, attrs) {
       if (pp.attribute !== k || !(pp.perSecond > 0)) return;
       if (!best || pp.perSecond > best.perSecond) best = pp;
     });
-    return k + " " + fmtNum(attrs[k]) + (best ? "（" + best.name + " " + fmtNum(best.perSecond) + "/s）" : "");
+    return liqLabel(k) + " " + fmtNum(attrs[k]) + (best ? "（" + best.name + " " + fmtNum(best.perSecond) + "/s）" : "");
   }).join("、");
 }
 
@@ -416,6 +431,7 @@ function attachIcons(res) {
   Object.keys(res.liquidFrom || {}).forEach(k => paint(res.liquidFrom[k]));
   if (res.liquidSources) res.liquidSources.forEach(paint);
   res.liquidColors = (idx && idx.liquidColors) || {};
+  res.liquidNames = (DATA.names && DATA.names.liquids) || {};   /* 卡片/页面显示中文名 */
   res.liquidIcons = (idx && idx.liquidIcons) || {};
   /* 泵换算：水这类液体按"几台泵"计量更直观（小泵→中泵→大泵） */
   res.liquidEquiv = {};
@@ -500,19 +516,19 @@ function selfText(s) {
   return s.block + " ×" + fmtCnt(s.count) + "（" + kind + " " + fmtNum(s.perSecondEach) + "/s）";
 }
 
-/* 「water 630/s ≈ 大泵 45 台 + 中泵 3 台（合计 630/s）」——按"几台小泵 + 几台中泵 + 几台大泵"加和计量 */
+/* 「水 630/s ≈ 大泵 45 台 + 中泵 3 台（合计 630/s）」——按"几台小泵 + 几台中泵 + 几台大泵"加和计量 */
 function mixText(name, mix) {
   if (!mix || !mix.pumps || !mix.pumps.length) return "";
   const parts = mix.pumps.map(p => (PUMP_LABEL[p.pump] || p.pump) + " " + fmtCnt(p.count) + " 台");
-  return name + " " + fmtNum(mix.need) + "/s ≈ " + parts.join(" + ") +
+  return liqLabel(name) + " " + fmtNum(mix.need) + "/s ≈ " + parts.join(" + ") +
     "（合计 " + fmtNum(mix.total) + "/s" + (mix.extra > 1e-6 ? "，富余 " + fmtNum(mix.extra) + "/s" : "") + "）";
 }
 
-/* 「water 630/s ≈ 小泵 90 台（mechanical-pump）/ 中泵 53 台（rotary-pump）/ 大泵 48 台（impulse-pump）」 */
+/* 「水 630/s ≈ 小泵 90 台（mechanical-pump）/ 中泵 53 台（rotary-pump）/ 大泵 48 台（impulse-pump）」 */
 function equivText(name, eq) {
   if (!eq || !eq.pumps || !eq.pumps.length) return "";
   if (eq.pumps.length === 1) return "";   /* 只有一种泵（比如石油只有钻井）不必换算 */
-  return name + " " + fmtNum(eq.need) + "/s ≈ " + eq.pumps.map(p => {
+  return liqLabel(name) + " " + fmtNum(eq.need) + "/s ≈ " + eq.pumps.map(p => {
     const label = PUMP_LABEL[p.pump] || p.pump;
     const extra = p.pump === "reinforced-pump" ? "，要氢"
       : p.pump === "water-extractor" ? "，要地下水"
@@ -640,7 +656,7 @@ function renderText(res) {
       let line = "  " + m.name + " ×" + fmtCount(m) + effNote(m);
       if (m.powerTotal) line += "（电 " + fmtNum(m.powerTotal) + "/s）";
       if (m.inItems && m.inItems.length) {
-        line += "，吃 " + m.inItems.map(i => i.name + " " + fmtNum(i.perSecond) + "/s").join(" + ");
+        line += "，吃 " + m.inItems.map(i => itemOrLiq(i.name) + " " + fmtNum(i.perSecond) + "/s").join(" + ");
       }
       /* 产出一律写出来（之前物品工厂不写：看不到 pulverizer → sand，
        * 就会误以为「油井吃的沙没算进去」） */
@@ -661,7 +677,7 @@ function renderText(res) {
     L.push("  抽水：" + pl.map(m => m.name + " ×" + fmtCount(m) + effNote(m)
       + (m.powerTotal ? "（电 " + fmtNum(m.powerTotal) + "/s）" : "")
       + (m.inItems && m.inItems.length
-        ? "，吃 " + m.inItems.map(i => i.name + " " + fmtNum(i.perSecond) + "/s").join(" + ") : "")).join(" + "));
+        ? "，吃 " + m.inItems.map(i => itemOrLiq(i.name) + " " + fmtNum(i.perSecond) + "/s").join(" + ") : "")).join(" + "));
   }
   if (res.flow) L.push("  归一化：台数为满效等价值（可为小数），数量按每秒守恒；整台建时每台效率 = 小数台数 / 向上取整");
   if (res.powerMix) L.push("  外部电力：" + powerMixText(res.powerMix));
@@ -693,13 +709,13 @@ function renderText(res) {
     const items = res.demand.map(d => d.name + " " + fmtNum(d.perSecond) + "/s");
     const liqs = needLiq.map(d => {
       const pump = (res.liquidSources || []).filter(s => s.liquid === d.name)[0];
-      return d.name + " " + fmtNum(d.perSecond) + "/s（液体" + (pump ? "，" + pump.pump + " 抽" : "，外部运入") + "）";
+      return liqLabel(d.name) + " " + fmtNum(d.perSecond) + "/s（液体" + (pump ? "，" + pump.pump + " 抽" : "，外部运入") + "）";
     });
     L.push("  边界输入：" + items.concat(liqs).join("、"));
   }
-  /* 液体自产（--liquids auto）：oil ← oil-extractor / spore-press 这类 */
+  /* 液体自产（--liquids auto）：石油 ← oil-extractor / spore-press 这类 */
   Object.keys(res.liquidFrom || {}).forEach(k => {
-    L.push("  液体自产：" + k + " ← " + selfText(res.liquidFrom[k]));
+    L.push("  液体自产：" + liqLabel(k) + " ← " + selfText(res.liquidFrom[k]));
   });
   Object.keys(res.pumpMix || {}).forEach(k => {
     const t = mixText(k, res.pumpMix[k]);
@@ -714,11 +730,11 @@ function renderText(res) {
       + "（多产物方块副产，不算进需求）");
   }
   (res.liquidSources || []).forEach(s => {
-    let line = "  液体 " + s.liquid + " ← " + s.pump + " ×" + s.count
+    let line = "  液体 " + liqLabel(s.liquid) + " ← " + s.pump + " ×" + s.count
       + "（单台 " + fmtNum(s.perSecondEach) + "/s，合计 " + fmtNum(s.perSecondTotal) + "/s";
     if (s.power) line += "，电 " + fmtNum(s.power) + "/s";
     if (s.inputs && s.inputs.length) line += "，吃 " + s.inputs.map(i => i.name + " " + fmtNum(i.perSecond)).join("、");
-    if (s.inputLiquids && s.inputLiquids.length) line += "，吃 " + s.inputLiquids.map(i => i.name + " " + fmtNum(i.perSecond)).join("、");
+    if (s.inputLiquids && s.inputLiquids.length) line += "，吃 " + s.inputLiquids.map(i => liqLabel(i.name) + " " + fmtNum(i.perSecond)).join("、");
     line += "）";
     L.push(line);
   });
@@ -827,11 +843,11 @@ function renderMarkdown(res) {
   const needLiqMd = Array.isArray(res.liquidNet) ? res.liquidNet : (res.liquids || []);
   if (res.demand.length || needLiqMd.length) {
     const items = res.demand.map(d => d.name + " " + fmtNum(d.perSecond) + "/s");
-    const liqs = needLiqMd.map(d => d.name + " " + fmtNum(d.perSecond) + "/s（液体）");
+    const liqs = needLiqMd.map(d => liqLabel(d.name) + " " + fmtNum(d.perSecond) + "/s（液体）");
     L.push("边界输入：" + items.concat(liqs).join("、"));
   }
   Object.keys(res.liquidFrom || {}).forEach(k => {
-    L.push("液体自产：" + k + " ← " + selfText(res.liquidFrom[k]));
+    L.push("液体自产：" + liqLabel(k) + " ← " + selfText(res.liquidFrom[k]));
   });
   Object.keys(res.pumpMix || {}).forEach(k => {
     const t = mixText(k, res.pumpMix[k]);
@@ -840,7 +856,7 @@ function renderMarkdown(res) {
   if (res.flow) L.push("归一化：台数为满效等价值（可为小数），数量按每秒守恒；整台建时每台效率 = 小数台数 / 向上取整");
   if (res.powerMix) L.push("外部电力：" + powerMixText(res.powerMix));
   (res.liquidSources || []).forEach(s => {
-    L.push("液体 " + s.liquid + "：" + s.pump + " ×" + s.count + "（单台 " + fmtNum(s.perSecondEach)
+    L.push("液体 " + liqLabel(s.liquid) + "：" + s.pump + " ×" + s.count + "（单台 " + fmtNum(s.perSecondEach)
       + "/s，电 " + fmtNum(s.power) + "/s" + (s.inputLiquids && s.inputLiquids.length
         ? "，吃 " + s.inputLiquids.map(i => i.name + " " + fmtNum(i.perSecond)).join("、") : "") + "）");
   });

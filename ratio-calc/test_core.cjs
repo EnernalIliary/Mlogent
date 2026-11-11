@@ -478,6 +478,23 @@ function s2sum(m) { return m.pumps.reduce((a, p) => a + p.count, 0); }
   const mixFl = R.expandMixed(DATA, [{ block: "coal-centrifuge", count: 3 }], { liquids: "auto", flow: true });
   near("flow：混合厂钻井也归一（0.8 台）", mixFl.machines["oil-extractor"], 0.8, 1e-6);
 
+  /* 液体递归：转化方块的物品入料也进物品递归图（用户 2026-11-11：冷冻液、矿渣这些也要递归） */
+  const mixSlag = R.expandMixed(DATA, [{ block: "slag-centrifuge", count: 1 }],
+    { boundary: ["sand"], liquids: "auto" });
+  eq("液体递归：矿渣由 melter 产（4 台）", mixSlag.machines["melter"], 4);
+  near("液体递归：melter 的 scrap 进边界输入（24/s）", mixSlag.demand.scrap, 24, 1e-6);
+  eq("液体递归：sand 仍按边界（0.5/s）", mixSlag.demand.sand, 0.5);
+  const mixOilMake = R.expandMixed(DATA, [{ block: "coal-centrifuge", count: 1 }],
+    { boundary: [], liquids: "auto", liquid: { oil: "make" } });
+  eq("液体递归：石油由 spore-press 产（1 台）", mixOilMake.machines["spore-press"], 1);
+  eq("液体递归：spore-press 吃 spore-pod，往上建 cultivator ×5", mixOilMake.machines["cultivator"], 5);
+  near("液体递归：cultivator 喝水 90/s 由泵补", mixOilMake.machines["mechanical-pump"], 6, 1e-6);
+  near("液体递归：水另补 1 台中泵（90/48 取整数档）", mixOilMake.machines["rotary-pump"], 1, 1e-6);
+  const mixCryo = R.expandMixed(DATA, [{ block: "differential-generator", count: 1 }],
+    { boundary: ["coal"], liquids: "auto" });
+  eq("液体递归：冷冻液由 cryofluid-mixer 产", mixCryo.machines["cryofluid-mixer"], 1);
+  eq("液体递归：冷冻液的水再解析成抽水机", mixCryo.machines["mechanical-pump"], 2);
+
   /* 发电厂当目标建筑时要走递归树（用户 2026-11-09：其它工厂缺电不递归，电厂作为目标必须递归） */
   const genB = R.expandBuilding(DATA, "combustion-generator", 2, { boundary: ["coal"] });
   eq("发电厂树：根节点是发电厂", genB.tree && genB.tree.block, "combustion-generator");

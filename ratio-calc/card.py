@@ -216,7 +216,7 @@ def _machine_section(c, res):
             bits.append("电 %s/s" % fmt(m["powerTotal"]))
         ins = [i for i in (m.get("inItems") or []) if i.get("perSecond")]
         if ins:
-            bits.append("吃 " + "+".join("%s %s/s" % (i["name"], fmt(i["perSecond"])) for i in ins[:3]))
+            bits.append("吃 " + _in_text(res, ins))
         outs = [o for o in (m.get("outItems") or []) if o.get("perSecond")]
         if outs and m.get("kind") in ("item", "unit", "generator", "drill", "multi"):
             bits.append("、".join("%s %s/s" % (o["name"], fmt(o["perSecond"])) for o in outs[:2]))
@@ -237,7 +237,7 @@ def _machine_section(c, res):
                 bits.append("单台 %s/s" % fmt(m["rateEach"]))
             ins = [i for i in (m.get("inItems") or []) if i.get("perSecond")]
             if ins:
-                bits.append("吃 " + "+".join("%s %s/s" % (i["name"], fmt(i["perSecond"])) for i in ins[:3]))
+                bits.append("吃 " + _in_text(res, ins))
             if flow and m.get("countCeil") and float(m["countCeil"]) > float(m.get("count") or 0):
                 bits.append("整台 %d 台 ⇒ 每台 %s%%" % (int(m["countCeil"]),
                                                        fmt(100.0 * float(m["count"]) / float(m["countCeil"]))))
@@ -260,9 +260,9 @@ def _attr_note(res: dict) -> str | None:
     for k in sorted(attrs):
         v = float(attrs[k])
         if k == "oil":
-            bits.append("oil %s（石油钻井 %s 油/s）" % (fmt(v), fmt(22.5 * v / 1.5)))
+            bits.append("石油 %s（石油钻井 %s 油/s）" % (fmt(v), fmt(22.5 * v / 1.5)))
         elif k == "water":
-            bits.append("water %s（抽水机 %s 水/s）" % (fmt(v), fmt(6.6 * (1.0 + v))))
+            bits.append("水 %s（抽水机 %s 水/s）" % (fmt(v), fmt(6.6 * (1.0 + v))))
         else:
             bits.append("%s %s" % (k, fmt(v)))
     return "· 环境属性 " + "、".join(bits)
@@ -411,6 +411,24 @@ def _liquid_icon(color: str | None, px: int = 16) -> str | None:
     return "data:image/png;base64," + base64.b64encode(buf.getvalue()).decode()
 
 
+def _in_text(res, ins):
+    """入料一格：物品写英文名；液体写成「水（液）9/s」这类中文（吃 oil 比吃 石油 难认）。"""
+    zh = res.get("liquidNames") or {}
+    out = []
+    for i in ins[:3]:
+        n = i["name"]
+        if zh.get(n):
+            n = zh[n] + "（液）"
+        out.append("%s %s/s" % (n, fmt(i["perSecond"])))
+    return " + ".join(out)
+
+
+def _liq_name(res, name):
+    """液体中文名（数据里来自 bundle_zh_CN 的 liquid.<名>.name；缺了就退回英文）。"""
+    m = res.get("liquidNames") or {}
+    return m.get(name) or name
+
+
 def _liquid_section(c, res):
     """液体段：自产之后还要从外面进的（liquidNet）才算需求；自产的写明是钻井还是转化方块。"""
     all_liq = res.get("liquids") or []
@@ -431,16 +449,16 @@ def _liquid_section(c, res):
         sub = ("自产 %s ×%s" % (auto[name]["block"], auto[name]["count"]) if name in auto else
                ("%s ×%s（电 %s/s）" % (src["pump"], src["count"], fmt(src.get("power")))
                 if src else "外部运入"))
-        c.row(icon, name, "%s/s" % fmt(l.get("perSecond")), sub, LIQUID)
+        c.row(icon, _liq_name(res, name), "%s/s" % fmt(l.get("perSecond")), sub, LIQUID)
         eq = _equiv_text(equiv.get(name))
         if eq:
-            c.note("泵换算：%s %s/s ≈ %s" % (name, fmt(l.get("perSecond")), eq))
+            c.note("泵换算：%s %s/s ≈ %s" % (_liq_name(res, name), fmt(l.get("perSecond")), eq))
     for name, a in auto.items():
         if any(l.get("name") == name for l in need):
             continue
         icon = a.get("icon") or icons.get(name) or _liquid_icon(colors.get(name))
         kind = "转化方块" if a.get("type") == "make" else "钻井"
-        c.row(icon, name, "%s/s" % fmt((a.get("count") or 0) * (a.get("perSecondEach") or 0)),
+        c.row(icon, _liq_name(res, name), "%s/s" % fmt((a.get("count") or 0) * (a.get("perSecondEach") or 0)),
               "自产 %s ×%s（%s）" % (a.get("block"), a.get("count"), kind), LIQUID)
         eq = _equiv_text(equiv.get(name))
         if eq:
@@ -451,7 +469,7 @@ def _liquid_section(c, res):
             need_amt = mix.get("need")
             if need_amt is None:
                 need_amt = (a.get("count") or 0) * (a.get("perSecondEach") or 0)
-            c.note("泵换算：%s %s/s ≈ %s" % (name, fmt(need_amt), eq))
+            c.note("泵换算：%s %s/s ≈ %s" % (_liq_name(res, name), fmt(need_amt), eq))
 
 
 def _power_section(c, res):
@@ -468,7 +486,7 @@ def _power_section(c, res):
     colors = (res.get("liquidColors") or {}) if isinstance(res.get("liquidColors"), dict) else {}
     for l in sup.get("liquids") or []:
         c.row(l.get("icon") or icons.get(l["name"]) or _liquid_icon(colors.get(l["name"])),
-              "%s（液体）" % l["name"], "%s/s" % fmt(l.get("perSecond")), None, LIQUID)
+              "%s（液体）" % _liq_name(res, l["name"]), "%s/s" % fmt(l.get("perSecond")), None, LIQUID)
 
 
 def _warn_section(c, res):

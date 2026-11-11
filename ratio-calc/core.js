@@ -241,6 +241,8 @@
         return f || 1.5;
       })(),
       liquidIcons: data.liquid_icons || {},
+      /* 液体中文名（bundle_zh_CN 的 liquid.<名>.name）：页面/卡片/CLI 显示用，JSON 里仍是英文名 */
+      liquidNames: (data.names && data.names.liquids) || {},
       channels: channels,
       channelsByKey: channelsByKey,
       defaultChannel: DEFAULT_CHANNEL,
@@ -1000,15 +1002,15 @@
       });
     }
 
-    var roots = [];
+    var baseRoots = [];
     list.forEach(function (s) {
-      s.inputs.forEach(function (i) { roots.push({ item: i.name, amount: i.amount, depth: 1 }); });
+      s.inputs.forEach(function (i) { baseRoots.push({ item: i.name, amount: i.amount, depth: 1 }); });
     });
 
     /* 一遍"按速率展开"：rate[item] 是汇总后的每秒需求，配方按累计量选 */
     var rate = {}, graph = {}, picks = {}, boundaryRate = {}, noRecipe = {}, overflow = {};
 
-    function runPass() {
+    function runPass(roots) {
       rate = {}; graph = {}; boundaryRate = {}; noRecipe = {}; overflow = {};
       var queue = roots.slice();
       var guard = 0;
@@ -1036,100 +1038,207 @@
       }
     }
 
-    /* 用汇总后的速率复核配方；配方变了就整轮重来（最多 6 轮，实际 1~2 轮就稳） */
-    var iter = 0;
-    for (; iter < 6; iter++) {
-      runPass();
-      var changed = false;
-      Object.keys(rate).forEach(function (item) {
-        var best = chooseProducer(idx, item, rate[item], fmap, servable, function (liq) {
-          return bset.has(liq) || !!liquidSourcePlan(idx, liq, 1, "auto");
-        }, allowMulti).block.name;
-        if (best !== picks[item]) { picks[item] = best; changed = true; }
-      });
-      if (!changed) break;
-    }
-    if (iter >= 6) warnings.push("混合厂配方 6 轮内没有收敛，按最后一轮结果算");
-
-    Object.keys(overflow).forEach(function (it) {
-      warnings.push(it + " 递归超过 " + maxDepth_ + " 层，按外部输入处理");
-    });
-    Object.keys(noRecipe).forEach(function (it) {
-      warnings.push(it + " 没有配方产出，按外部输入处理");
-    });
-
-    /* 目标之间自产自销：一个目标的产出先抵扣别的目标的需求 */
-    var producedByTargets = {};
-    var generatorNet = {};
-    list.forEach(function (s) {
-      s.products.forEach(function (p) {
-        if (p.type !== "item") return;
-        producedByTargets[p.name] = (producedByTargets[p.name] || 0) + p.rate;
-      });
-      if (s.kind === "generator") generatorNet[s.block] = (generatorNet[s.block] || 0) + s.powerOut;
-    });
-
-    var internals = [];   // 目标之间共享的中间产物（A 产 B 用）
-    var netRate = {};
-    Object.keys(rate).forEach(function (item) {
-      var need = rate[item];
-      var have = producedByTargets[item] || 0;
-      var used = Math.min(need, have);
-      if (used > 1e-9) internals.push({ item: item, need: round(need), fromTargets: round(used), stillNeed: round(Math.max(0, need - have)) });
-      netRate[item] = Math.max(0, need - have);
-    });
-
-    /* 汇总后一次性取整：每种物品的机器只买一次 */
-    var machines = {};
-    var order = [];
-    var allocByItem = {};
-    var sharedItems = [];
-    Object.keys(netRate).sort().forEach(function (item) {
-      var g = graph[item];
-      if (!g) return;
-      if (!(netRate[item] > 1e-9)) { allocByItem[item] = 0; return; }
-      var n = flowMode ? netRate[item] / g.per
-                       : Math.max(1, Math.ceil(netRate[item] / g.per - 1e-9));
-      allocByItem[item] = n;
-      machines[g.block] = (machines[g.block] || 0) + n;
-      order.push({ block: g.block, count: n, item: item, rate: round(netRate[item]), per: round(g.per) });
-      sharedItems.push({ item: item, block: g.block, perMachine: round(g.per),
-                         need: round(rate[item]), fromTargets: round(producedByTargets[item] || 0),
-                         netNeed: round(netRate[item]), count: n });
-    });
-    /* 一个方块产多种被需要的物品时，机器数会重复记，给个提示（当前原版物品工厂基本都是单一产物） */
-    var blockUse = {};
-    order.forEach(function (o) { blockUse[o.block] = (blockUse[o.block] || 0) + 1; });
-    /* 多产物方块（分离机/解离机）一台就同时出所有产物：台数取各需求项里的最大值，别累加 */
-    Object.keys(blockUse).forEach(function (blkName) {
-      var mb = anyBlock(idx, blkName);
-      if (!mb || !mb.isMulti) return;
-      var mx = 0, which = null;
-      order.forEach(function (o) { if (o.block === blkName && o.count > mx) { mx = o.count; which = o.item; } });
-      if (mx) {
-        machines[blkName] = mx;
-        warnings.push(blkName + " 是多产物方块，台数按最大的那项（" + which + "）算 " + mx + " 台，其余产物顺带出");
+    /* 液体自产（混合厂）：机器清单里没人供的液体接钻井/转化方块。
+     * 转化方块的物品入料（melter 吃 scrap、cryofluid-mixer 吃 titanium、slag-centrifuge 吃 sand）
+     * 不再"按外部输入计"就完事，而是回传给外层，让它进物品递归图继续展开
+     * （用户 2026-11-11：冷冻液、矿渣这些液体也要递归）。 */
+    function applyLiquidSources(machines, order) {
+      var howMap = opts.liquid || {};
+      var nameMap = opts.liquidName || {};
+      var usedLiq = {}, itemNeed = {};
+      for (var lp = 0; lp < 6; lp++) {
+        var supply = {};
+        Object.keys(machines).forEach(function (name) {
+          var mb = anyBlock(idx, name);
+          if (!mb) return;
+          (mb.outputLiquids || []).forEach(function (l) {
+            supply[l.name] = (supply[l.name] || 0) + machines[name] * l.perSecond;
+          });
+        });
+        var changed = false;
+        liquidDemand(idx, machines, {}).forEach(function (l) {
+          var net = l.perSecond - (supply[l.name] || 0);
+          if (!(net > 1e-9)) return;
+          if (bset.has(l.name)) return;
+          var how = howMap[l.name] || "auto";
+          if (how === "import" || how === "off") return;
+          var plan = liquidSourcePlan(idx, l.name, net, how, nameMap[l.name], flowMode);
+          if (!plan) return;
+          var want = plan.counts || {};
+          if (!plan.counts) want[plan.block] = plan.count;
+          var got = 0;
+          Object.keys(want).sort().forEach(function (block) {
+            var cur = machines[block] || 0;
+            var needAdd = want[block] - cur;
+            if (needAdd <= 0) return;
+            machines[block] = cur + needAdd;
+            order.push({ block: block, count: needAdd, item: null, liquid: l.name });
+            got += needAdd;
+          });
+          if (!got) return;
+          changed = true;
+          if (!usedLiq[l.name]) {
+            usedLiq[l.name] = { liquid: l.name, type: plan.type, block: plan.block, count: 0,
+                                perSecondEach: plan.perSecond, parts: plan.mix || null };
+          }
+          usedLiq[l.name].count += got;
+          plan.inputs.forEach(function (i) {
+            if (bset.has(i.name)) return;   /* 边界物品由边界表统计，不进递归图 */
+            itemNeed[i.name] = (itemNeed[i.name] || 0) + got * i.amount;
+          });
+        });
+        if (!changed) break;
       }
-    });
+      return { usedLiq: usedLiq, itemNeed: itemNeed };
+    }
 
+    /* 物品展开 ↔ 液体自产互相依赖（melter 要 scrap、冷冻液要 titanium），跑外层不动点：
+     * 每轮按上一轮"液体转化方块吃掉的物品"重新展开，直到入料不再变（通常 2 轮）。 */
+    var liquidRoots = {};
+    var liquidUsed = {};
+    var lastSig = null;
+    var machines = {}, order = [], internals = [], sharedItems = [];
     var products = [], inputs = [], liquidExtra = {}, powerOut = 0, targetRows = [];
-    list.forEach(function (s) {
-      if (s.kind === "unit") planByBlock[s.block] = s.plan || 0;
-      machines[s.block] = (machines[s.block] || 0) + s.count;
-      s.products.forEach(function (p) {
-        products.push({ name: p.name, type: p.type, rate: p.rate, block: s.block });
+    var res = null;
+
+    for (var outer = 0; outer < 5; outer++) {
+      var roots = baseRoots.slice();
+      Object.keys(liquidRoots).sort().forEach(function (k) {
+        roots.push({ item: k, amount: liquidRoots[k], depth: 1 });
       });
-      s.inputs.forEach(function (i) {
-        inputs.push({ name: i.name, amount: i.amount, block: s.block });
+      picks = {};
+      warnings.length = 0;
+
+      /* 用汇总后的速率复核配方；配方变了就整轮重来（最多 6 轮，实际 1~2 轮就稳） */
+      var iter = 0;
+      for (; iter < 6; iter++) {
+        runPass(roots);
+        var changedPick = false;
+        Object.keys(rate).forEach(function (item) {
+          var best = chooseProducer(idx, item, rate[item], fmap, servable, function (liq) {
+            return bset.has(liq) || !!liquidSourcePlan(idx, liq, 1, "auto");
+          }, allowMulti).block.name;
+          if (best !== picks[item]) { picks[item] = best; changedPick = true; }
+        });
+        if (!changedPick) break;
+      }
+      if (iter >= 6) warnings.push("混合厂配方 6 轮内没有收敛，按最后一轮结果算");
+
+      Object.keys(overflow).forEach(function (it) {
+        warnings.push(it + " 递归超过 " + maxDepth_ + " 层，按外部输入处理");
       });
-      /* 注意：目标方块的输入液体已经通过上面那行 machines[s.block] 进 liquidDemand，
-       * 再塞 liquidExtra 就会重复计一遍（mixed 模式 coal-centrifuge 3 台的油曾算成 36/s）。 */
-      powerOut += s.powerOut || 0;
-      targetRows.push({ block: s.block, count: s.count, kind: s.kind, products: s.products,
-                        inputs: s.inputs, inputLiquids: s.inputLiquids || [],
-                        plan: s.plan || 0, planTotal: s.planTotal || 0,
-                        power: s.power, powerOut: s.powerOut || 0 });
-    });
+      Object.keys(noRecipe).forEach(function (it) {
+        warnings.push(it + " 没有配方产出，按外部输入处理");
+      });
+
+      /* 目标之间自产自销：一个目标的产出先抵扣别的目标的需求 */
+      var producedByTargets = {};
+      var generatorNet = {};
+      list.forEach(function (s) {
+        s.products.forEach(function (p) {
+          if (p.type !== "item") return;
+          producedByTargets[p.name] = (producedByTargets[p.name] || 0) + p.rate;
+        });
+        if (s.kind === "generator") generatorNet[s.block] = (generatorNet[s.block] || 0) + s.powerOut;
+      });
+
+      internals = [];   // 目标之间共享的中间产物（A 产 B 用）
+      var netRate = {};
+      Object.keys(rate).forEach(function (item) {
+        var need = rate[item];
+        var have = producedByTargets[item] || 0;
+        var used = Math.min(need, have);
+        if (used > 1e-9) internals.push({ item: item, need: round(need), fromTargets: round(used), stillNeed: round(Math.max(0, need - have)) });
+        netRate[item] = Math.max(0, need - have);
+      });
+
+      /* 汇总后一次性取整：每种物品的机器只买一次 */
+      machines = {};
+      order = [];
+      sharedItems = [];
+      Object.keys(netRate).sort().forEach(function (item) {
+        var g = graph[item];
+        if (!g) return;
+        if (!(netRate[item] > 1e-9)) return;
+        var n = flowMode ? netRate[item] / g.per
+                         : Math.max(1, Math.ceil(netRate[item] / g.per - 1e-9));
+        machines[g.block] = (machines[g.block] || 0) + n;
+        order.push({ block: g.block, count: n, item: item, rate: round(netRate[item]), per: round(g.per) });
+        sharedItems.push({ item: item, block: g.block, perMachine: round(g.per),
+                           need: round(rate[item]), fromTargets: round(producedByTargets[item] || 0),
+                           netNeed: round(netRate[item]), count: n });
+      });
+      /* 一个方块产多种被需要的物品时，机器数会重复记，给个提示（当前原版物品工厂基本都是单一产物） */
+      var blockUse = {};
+      order.forEach(function (o) { blockUse[o.block] = (blockUse[o.block] || 0) + 1; });
+      /* 多产物方块（分离机/解离机）一台就同时出所有产物：台数取各需求项里的最大值，别累加 */
+      Object.keys(blockUse).forEach(function (blkName) {
+        var mb = anyBlock(idx, blkName);
+        if (!mb || !mb.isMulti) return;
+        var mx = 0, which = null;
+        order.forEach(function (o) { if (o.block === blkName && o.count > mx) { mx = o.count; which = o.item; } });
+        if (mx) {
+          machines[blkName] = mx;
+          warnings.push(blkName + " 是多产物方块，台数按最大的那项（" + which + "）算 " + mx + " 台，其余产物顺带出");
+        }
+      });
+
+      products = []; inputs = []; liquidExtra = {}; powerOut = 0; targetRows = [];
+      list.forEach(function (s) {
+        if (s.kind === "unit") planByBlock[s.block] = s.plan || 0;
+        machines[s.block] = (machines[s.block] || 0) + s.count;
+        s.products.forEach(function (p) {
+          products.push({ name: p.name, type: p.type, rate: p.rate, block: s.block });
+        });
+        s.inputs.forEach(function (i) {
+          inputs.push({ name: i.name, amount: i.amount, block: s.block });
+        });
+        /* 注意：目标方块的输入液体已经通过上面那行 machines[s.block] 进 liquidDemand，
+         * 再塞 liquidExtra 就会重复计一遍（mixed 模式 coal-centrifuge 3 台的油曾算成 36/s）。 */
+        powerOut += s.powerOut || 0;
+        targetRows.push({ block: s.block, count: s.count, kind: s.kind, products: s.products,
+                          inputs: s.inputs, inputLiquids: s.inputLiquids || [],
+                          plan: s.plan || 0, planTotal: s.planTotal || 0,
+                          power: s.power, powerOut: s.powerOut || 0 });
+      });
+
+      res = {
+        mode: "mixed",
+        targets: targetRows,
+        products: products,
+        inputs: inputs,
+        machines: machines,
+        order: order,
+        demand: {},
+        power: 0,
+        powerOut: round(powerOut),
+        liquids: [],
+        liquidExtra: liquidExtra,
+        generatorNet: generatorNet,
+        shared: sharedItems,
+        planByBlock: planByBlock,
+        internals: internals,
+        warnings: warnings,
+        tree: null,
+        oilFloor: idx.oilFloor,
+        attrs: idx.attrs || null,
+        snapshot: idx.snapshot || ""
+      };
+      Object.keys(boundaryRate).sort().forEach(function (k) {
+        res.demand[k] = round(boundaryRate[k]);
+      });
+
+      if (!opts.liquids) break;
+      var liq = applyLiquidSources(machines, order);
+      liquidUsed = liq.usedLiq;
+      res.liquidFrom = liquidUsed;
+      var sig = Object.keys(liq.itemNeed).sort().map(function (k) {
+        return k + "=" + round(liq.itemNeed[k]);
+      }).join(",");
+      if (sig === lastSig || !sig) break;   // 入料不再变（或压根没有入料）就收敛
+      lastSig = sig;
+      liquidRoots = liq.itemNeed;
+    }
 
     /* 分别建：每个目标各展开一遍，用来对比混合省了多少 */
     var sep = { machines: {}, power: 0, tiles: 0 };
@@ -1159,79 +1268,6 @@
         sep.tiles += (b && b.size ? b.size * b.size : 1) * one.machines[k];
       });
     });
-
-    var res = {
-      mode: "mixed",
-      targets: targetRows,
-      products: products,
-      inputs: inputs,
-      machines: machines,
-      order: order,
-      demand: {},
-      power: 0,
-      powerOut: round(powerOut),
-      liquids: [],
-      liquidExtra: liquidExtra,
-      generatorNet: generatorNet,
-      shared: sharedItems,
-      planByBlock: planByBlock,
-      internals: internals,
-      warnings: warnings,
-      tree: null,
-      oilFloor: idx.oilFloor,
-      attrs: idx.attrs || null,
-      snapshot: idx.snapshot || ""
-    };
-    Object.keys(boundaryRate).sort().forEach(function (k) {
-      res.demand[k] = round(boundaryRate[k]);
-    });
-    /* 液体自产（混合厂）：机器清单里没人供的液体接钻井/转化方块。
-     * 转化方块（spore-press）自己的物品入料在混合厂里不继续展开，直接记为外部输入并给提示；
-     * 要完整展开（spore-pod ← cultivator）请用单目标页 / --item。 */
-    if (opts.liquids) {
-      var howMap = opts.liquid || {};
-      var nameMap = opts.liquidName || {};
-      var usedLiq = {};
-      for (var lp = 0; lp < 4; lp++) {
-        var supply = {};
-        Object.keys(res.machines).forEach(function (name) {
-          var mb = anyBlock(idx, name);
-          if (!mb) return;
-          (mb.outputLiquids || []).forEach(function (l) {
-            supply[l.name] = (supply[l.name] || 0) + res.machines[name] * l.perSecond;
-          });
-        });
-        var changed = false;
-        liquidDemand(idx, res.machines, {}).forEach(function (l) {
-          var net = l.perSecond - (supply[l.name] || 0);
-          if (!(net > 1e-9)) return;
-          if ((opts.boundary || []).indexOf(l.name) >= 0) return;
-          var how = howMap[l.name] || "auto";
-          if (how === "import" || how === "off") return;
-          var plan = liquidSourcePlan(idx, l.name, net, how, nameMap[l.name], flowMode);
-          if (!plan) return;
-          var cur = res.machines[plan.block] || 0;
-          var add = plan.count - cur;
-          if (add <= 0) return;
-          res.machines[plan.block] = cur + add;
-          order.push({ block: plan.block, count: add, item: null, liquid: l.name });
-          changed = true;
-          if (!usedLiq[l.name]) {
-            usedLiq[l.name] = { liquid: l.name, type: plan.type, block: plan.block, count: 0, perSecondEach: plan.perSecond };
-          }
-          usedLiq[l.name].count += add;
-          plan.inputs.forEach(function (i) {
-            var amt = add * i.amount;
-            if ((opts.boundary || []).indexOf(i.name) < 0) {
-              warnings.push("混合厂液体自产： " + plan.block + " 吃 " + i.name + " " + round(amt) + "/s，按外部输入计");
-            }
-            res.demand[i.name] = round((res.demand[i.name] || 0) + amt);
-          });
-        });
-        if (!changed) break;
-      }
-      res.liquidFrom = usedLiq;
-    }
 
     res.machines = sortMachines(res.machines);
     recalcPower(idx, res);

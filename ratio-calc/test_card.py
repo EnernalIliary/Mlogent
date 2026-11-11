@@ -208,13 +208,13 @@ def case_liquid_self():
     assert "边界液体（净）" in t, t
     assert "自产" in t, t
     rows = [b for b in C.build_card(r).blocks if b[0] == "row"]
-    liq = [b for b in rows if b[2] in ("oil", "water")]
+    liq = [b for b in rows if b[2] in ("石油", "水")]
     assert liq, t
     for b in liq:
         assert b[1] and b[1].startswith("data:image/png;base64,"), b
     """液体行用的是原版 liquid-<名>.png 而不是色点"""
     icons = r.get("liquidIcons") or {}
-    water = [b for b in liq if b[2] == "water"][0]
+    water = [b for b in liq if b[2] == "水"][0]
     assert icons.get("water") and water[1] == icons["water"], "水行图标不是原版贴图"
     """泵换算：加和口径 + 富余优先（9/s 水 → 小泵 2 台，合计 14/s，富余 5/s）"""
     assert "泵换算" in t and "小泵 2 台" in t and "合计 14/s" in t, t[:400]
@@ -276,6 +276,7 @@ def case_oil_drill():
     assert eats.get("sand") == 1 and eats.get("water") == 9, eats
     t = flat(r)
     assert "吃 sand 1/s" in t, t
+    assert "水（液） 9/s" in t, t   # 液体入料写中文（用户 2026-11-11：液体要翻译）
     assert "石油钻井" in t or "oil-extractor" in t, t
     rows = [b for b in C.build_card(r).blocks if b[0] == "row" and b[2] == "外部电力"]
     assert rows and rows[0][1], "外部电力行缺发电厂图标"
@@ -289,7 +290,7 @@ def case_attrs():
     r = run_cli(["--item", "coal", "--rate", "6", "--boundary", "none,sand", "--liquids", "auto", "--attr", "oil=0.7"])
     t = flat(r)
     assert "环境属性" in t, t
-    assert "oil 0.7" in t, t
+    assert "石油 0.7" in t, t
     assert "10.5" in t, t
     mech = [m for m in r["machines"] if m["name"] == "oil-extractor"][0]
     assert mech["count"] == 2, mech

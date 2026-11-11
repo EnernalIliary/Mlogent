@@ -386,8 +386,8 @@ window.__ratio.setMode("item");
 $("target").value = "coal";
 $("rate").value = "2";
 window.__ratio.run();
-check("边界液体：煤炭分离机要油，默认按外部运入写在边界表里",
-  /oil/.test(txt("demand")) && /（液体）/.test(txt("demand")), txt("demand").slice(0, 500));
+check("边界液体：煤炭分离机要油，默认按外部运入写在边界表里（中文名「石油」）",
+  /石油/.test(txt("demand")) && /（液体）/.test(txt("demand")), txt("demand").slice(0, 500));
 check("边界液体：液体行带原版液体贴图", /liqimg/.test(txt("demand")), txt("demand").slice(0, 500));
 check("边界液体：芯片列出 11 种液体", (txt("bndliqs").match(/data-bnd=/g) || []).length === 11,
   String((txt("bndliqs").match(/data-bnd=/g) || []).length));
@@ -395,9 +395,9 @@ check("边界液体：芯片列出 11 种液体", (txt("bndliqs").match(/data-bn
 window.__ratio.autoliq(true, "");
 check("边界液体：开启自产时先建石油钻井", /oil-extractor/.test(txt("machines")), txt("machines").slice(0, 400));
 window.__ratio.bnd("oil");
-check("边界液体：把 oil 点进边界后不再建钻井（煤处理线到分离机为止）",
-  !/oil-extractor/.test(txt("machines")) && /oil/.test(txt("demand")), txt("machines").slice(0, 400));
-check("边界液体：芯片写着 oil 已选中", /class="chiptag on"[^>]*data-bnd="oil"/.test(txt("bndliqs")),
+check("边界液体：把石油点进边界后不再建钻井（煤处理线到分离机为止）",
+  !/oil-extractor/.test(txt("machines")) && /石油/.test(txt("demand")), txt("machines").slice(0, 400));
+check("边界液体：芯片写着石油已选中（data-bnd 仍是英文键）", /class="chiptag on"[^>]*data-bnd="oil"/.test(txt("bndliqs")) && /石油/.test(txt("bndliqs")),
   txt("bndliqs").slice(0, 600));
 
 /* 指定配方：选 silicon-crucible 就该按它的配方算（而不是自动挑硅电弧炉） */
@@ -531,6 +531,23 @@ check("归一化：关掉后回到 2 台", (() => {
   const m = (window.__ratio.last() || {}).machines || {};
   return m["graphite-press"] === 2 && window.__ratio.flow() === false;
 })(), txt("machines"));
+
+/* 液体翻译：芯片、液体需求表、边界表都写中文名（data-bnd 属性仍是英文键） */
+check("液体翻译：液体芯片写中文名（石油/冷冻液），属性仍是英文键", (() => {
+  window.__ratio.setMode("item");
+  $("target").value = "coal";
+  $("rate").value = "2";
+  window.__ratio.flow(false);
+  window.__ratio.setBoundary("sand, oil");
+  window.__ratio.autoliq(false);
+  window.__ratio.run();
+  const h = txt("bndliqs");
+  return /石油/.test(h) && /冷冻液/.test(h) && /data-bnd="oil"/.test(h) && !/data-bnd="石油"/.test(h);
+})(), txt("bndliqs").slice(0, 300));
+check("液体翻译：边界表的液体行写中文名 + （液体）", (() => {
+  const h = txt("demand");
+  return /石油/.test(h) && /（液体）/.test(h);
+})(), txt("demand").slice(0, 300));
 
 console.log(bad ? `\n${bad} 项失败` : "\n页面链路全部通过");
 process.exit(bad ? 1 : 0);

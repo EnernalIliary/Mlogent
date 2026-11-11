@@ -461,7 +461,7 @@ ok("多产物：--force graphite=separator → 4 台分离机、吃矿渣、写�
   const t = run(["--item", "graphite", "--rate", "1", "--boundary", "coal,sand",
                  "--force", "graphite=separator"]);
   assert.ok(/separator ×4/.test(t), t);
-  assert.ok(/边界输入：slag 16(\.008)?\/s/.test(t), t);
+  assert.ok(/边界输入：矿渣 16(\.008)?\/s/.test(t), t);
   assert.ok(/顺带产物：.*copper 2\.857\/s/.test(t), t);
   assert.ok(/电 264\/s/.test(t), t);
 });
@@ -499,28 +499,28 @@ ok("石油钻井：coal 6/s 只建 1 台 oil-extractor（3:1）、写 22.5/s", (
   assert.ok(/22\.5\/s/.test(t), t);
   assert.ok(/coal-centrifuge ×3/.test(t), t);
 });
-ok("吃料：钻井行写「吃 sand 1/s + water 9/s」", () => {
+ok("吃料：钻井行写「吃 sand 1/s + 水 9/s」（液体用中文名）", () => {
   const t = run(["--item", "coal", "--rate", "6", "--boundary", "none,sand", "--liquids", "auto"]);
-  assert.ok(/吃 sand 1\/s \+ water 9\/s/.test(t), t);
+  assert.ok(/吃 sand 1\/s \+ 水 9\/s/.test(t), t);
 });
-ok("吃料：离心机行写「吃 oil 18/s」", () => {
+ok("吃料：离心机行写「吃 石油 18/s」", () => {
   const t = run(["--item", "coal", "--rate", "6", "--boundary", "none,sand", "--liquids", "auto"]);
-  assert.ok(/吃 oil 18\/s/.test(t), t);
+  assert.ok(/吃 石油 18\/s/.test(t), t);
 });
 ok("外部电力：仍写源发电厂名（命令行无图标）", () => {
   const t = run(["--item", "coal", "--rate", "6", "--boundary", "none,sand", "--liquids", "auto"]);
   assert.ok(/外部电力：电力 306\/s ≈ steam-generator 1 台/.test(t), t);
 });
-ok("环境属性：默认写「环境属性：oil 1.5（oil-extractor 22.5/s）」", () => {
+ok("环境属性：默认写「环境属性：石油 1.5（oil-extractor 22.5/s）」", () => {
   const t = run(["--item", "coal", "--rate", "6", "--boundary", "none,sand", "--liquids", "auto"]);
-  assert.ok(/环境属性：oil 1\.5/.test(t), t);
+  assert.ok(/环境属性：石油 1\.5/.test(t), t);
   assert.ok(/oil-extractor 22\.5\/s/.test(t), t);
 });
 ok("环境属性：--oilfloor 0.7 → 2 台钻井、10.5 油/s", () => {
   const t = run(["--item", "coal", "--rate", "6", "--boundary", "none,sand", "--liquids", "auto", "--oilfloor", "0.7"]);
   assert.ok(/oil-extractor ×2/.test(t), t);
   assert.ok(/10\.5\/s/.test(t), t);
-  assert.ok(/环境属性：oil 0\.7/.test(t), t);
+  assert.ok(/环境属性：石油 0\.7/.test(t), t);
 });
 ok("环境属性：--attr oil=0.7 与 --oilfloor 0.7 等价", () => {
   const a = run(["--item", "coal", "--rate", "6", "--boundary", "none,sand", "--liquids", "auto", "--attr", "oil=0.7"]);
@@ -530,12 +530,12 @@ ok("环境属性：--attr oil=0.7 与 --oilfloor 0.7 等价", () => {
 });
 ok("环境属性：--attr water=1 生效（抽水机 13.2 水/s）", () => {
   const t = run(["--item", "coal", "--rate", "6", "--boundary", "none,sand", "--liquids", "auto", "--liquid", "water=pump:water-extractor", "--attr", "water=1"]);
-  assert.ok(/环境属性：water 1/.test(t), t);
+  assert.ok(/环境属性：水 1/.test(t), t);
   assert.ok(/13\.2/.test(t), t);
 });
 ok("环境属性：多个属性一起给", () => {
   const t = run(["--item", "coal", "--rate", "6", "--boundary", "none,sand", "--liquids", "auto", "--attr", "oil=0.7,water=1"]);
-  assert.ok(/环境属性：oil 0\.7（[^）]*）、water 1/.test(t), t);
+  assert.ok(/环境属性：石油 0\.7（[^）]*）、水 1/.test(t), t);
 });
 ok("环境属性：非法值报错", () => {
   let err = null;
@@ -547,8 +547,8 @@ ok("环检测：循环产线在文本里报警", () => {
                  "--liquid", "oil=make:spore-press", "--liquid", "water=pump:reinforced-pump"]);
   assert.ok(/循环产线/.test(t), t);
   /* 两条 --liquid 要同时生效：以前 --liquid 不能重复，后一条会把前一条盖掉 */
-  assert.ok(/oil ← spore-press/.test(t), t);
-  assert.ok(/water ← reinforced-pump/.test(t), t);
+  assert.ok(/石油 ← spore-press/.test(t), t);
+  assert.ok(/水 ← reinforced-pump/.test(t), t);
 });
 ok("混合厂：自产的油不再报「外部运入」", () => {
   const t = run(["--mix", "coal-centrifuge:3", "--liquids", "auto", "--boundary", "none"]);
@@ -581,6 +581,28 @@ ok("发电厂：差速发电机的上游机器进机器表", () => {
   const t = run(["--block", "differential-generator", "--count", "1", "--boundary", "coal", "--liquids", "auto"]);
   assert.ok(/pyratite-mixer/.test(t), t);
   assert.ok(/pyratite 0\.75\/s/.test(t), t);
+});
+
+/* 液体递归 + 液体翻译（用户 2026-11-11：冷冻液、矿渣这些液体也要递归；液体要翻译） */
+ok("液体递归：混合厂 --liquid oil=make 建 spore-press / cultivator（转化方块的物品入料继续展开）", () => {
+  const t = run(["--mix", "coal-centrifuge:1", "--boundary", "none", "--liquids", "auto", "--liquid", "oil=make"]);
+  assert.ok(/spore-press ×1/.test(t), t);
+  assert.ok(/cultivator ×5/.test(t), t);
+  assert.ok(/液体自产：石油 ← spore-press/.test(t), t);
+});
+ok("液体递归：混合厂不再把转化方块的入料记成「按外部输入计」", () => {
+  const t = run(["--mix", "differential-generator:1", "--boundary", "coal", "--liquids", "auto"]);
+  assert.ok(!/按外部输入计/.test(t), t);
+  assert.ok(/cryofluid-mixer ×1/.test(t), t);
+});
+ok("液体翻译：液体自产/泵换算/入料都写中文名（水 / 石油 / 矿渣）", () => {
+  const t = run(["--mix", "slag-centrifuge:1", "--boundary", "sand", "--liquids", "auto"]);
+  assert.ok(/液体自产：矿渣 ← melter/.test(t), t);
+  assert.ok(/边界输入：sand 0\.5\/s、scrap 24\/s/.test(t), t);
+  const t2 = run(["--item", "coal", "--rate", "2", "--boundary", "none", "--liquids", "auto"]);
+  assert.ok(/液体自产：石油 ← oil-extractor/.test(t2), t2);
+  assert.ok(/液体自产：水 ←/.test(t2), t2);
+  assert.ok(/水 9\/s ≈ 小泵 2 台/.test(t2), t2);
 });
 
 console.log("\n通过 " + pass + " 项，失败 " + fail + " 项");

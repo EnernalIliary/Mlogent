@@ -202,9 +202,9 @@ node cli.cjs --item coal --rate 2 --boundary none --liquids auto
 #   抽水：mechanical-pump ×2 + oil-extractor ×1（电 180/s），吃 sand 1/s + water 9/s
 #   外部电力：电力 252/s ≈ combustion-generator 5 台（合计 300/s，富余 48/s）
 #   边界输入：scrap 1.5/s
-#   液体自产：oil ← oil-extractor ×1（钻井 22.5/s）
-#   液体自产：water ← 小泵 2 台（钻井合计 14/s）
-#   泵换算：water 9/s ≈ 小泵 2 台（合计 14/s，富余 5/s）
+#   液体自产：石油 ← oil-extractor ×1（钻井 22.5/s）
+#   液体自产：水 ← 小泵 2 台（钻井合计 14/s）
+#   泵换算：水 9/s ≈ 小泵 2 台（合计 14/s，富余 5/s）
 
 # 换孢子压缩：石油不钻井，用孢子压（spore-press 吃 spore-pod，再往上自动展开种植机）
 node cli.cjs --item coal --rate 6 --boundary none --liquid oil=make
@@ -212,8 +212,8 @@ node cli.cjs --item coal --rate 6 --boundary none --liquid oil=make
 #   coal 2/s 时：coal-centrifuge ×1 / cultivator ×5 / spore-press ×1
 #   工厂合计：7 台，电力 502/s（含抽水 18/s）
 #   外部电力：电力 502/s ≈ 蒸汽发电机 1 台 + 燃烧发电机 3 台（合计 510/s，富余 8/s）
-#   液体自产：oil ← spore-press ×1（转化方块 18/s）
-#   液体自产：water ← 中泵 1 台 + 小泵 6 台（钻井合计 90/s）
+#   液体自产：石油 ← spore-press ×1（转化方块 18/s）
+#   液体自产：水 ← 中泵 1 台 + 小泵 6 台（钻井合计 90/s）
 ```
 
 | 参数 | 作用 |
@@ -229,10 +229,48 @@ node cli.cjs --item coal --rate 6 --boundary none --liquid oil=make
   `oil-extractor` **22.5/s**（吃沙 1/s + 水 9/s，要油田，按满黑沙属性 1.5 算；游戏 UI 印的 15/s 是
   `0.25×60` 的乐观值，见 §3.5）；`spore-press` 20 帧、吃 spore-pod 1、**出 oil 18/s**
   （数据里 `outputLiquids` 是 **per-tick**：0.3/tick × 60 = 18/s，不是 ×cyclesPerSecond 的 0.9/s）。
-- 输出里会写「边界输入：…、oil 6/s（液体，外部运入）」和「液体自产：oil ← oil-extractor ×1（单台 15/s，钻井）」——
+- 输出里会写「边界输入：…、石油 6/s（液体，外部运入）」和「液体自产：石油 ← oil-extractor ×1（钻井 22.5/s）」——
+  **液体一律显示中文名**（`names.liquids`，来自 `bundle_zh_CN.properties` 的 `liquid.<名>.name`：水/矿渣/石油/冷冻液/
+  瘤液/芳油/镓液/臭氧/氢气/氮气/氰气）；JSON 输出里仍是英文键（`water`/`slag`/`cryofluid`…），脚本对接不受影响——
   **液体也是边界**：写进 `--boundary` 就不再抽/压（煤处理线止于分离机），页面上点液体芯片即可切换；
   液体图标用原版 `sprites/items/liquid-<名>.png`（11 种全有，UI 用 `ui/liquid-<名>-ui.png` 兜底），
   拿不到贴图时才退回 `knowledge/00-data/liquids.json` 的 `colorHex` 色点。
+
+### 3.6.1 其它液体也递归（冷冻液、矿渣…）
+
+液体来源不只是水/油：**转化方块的物品入料现在会回到物品递归图里继续展开**（用户 2026-11-11）。
+以前的混合厂只把转化方块的入料记成「按外部输入计」，于是 `--mix differential-generator:1 --liquids auto`
+只会建 `cryofluid-mixer`、把 titanium 当外部输入，**冷冻液的水从哪来就没交代**。
+
+```bash
+# 矿渣：slag-centrifuge 吃 slag 40/s → melter ×4 产 slag 12/s → melter 吃 scrap 24/s
+node cli.cjs --mix "slag-centrifuge:1" --boundary sand --liquids auto
+#   melter ×4（电 240/s），吃 scrap 24/s
+#   边界输入：sand 0.5/s、scrap 24/s
+#   液体自产：矿渣 ← melter ×4（转化方块 12/s）
+#   ⚠ scrap 没有配方产出，按外部输入处理        ← 原版 scrap 只能回收/挖，链到这里为止是正常的
+
+# 石油不钻井、用孢子压：spore-press 吃 spore-pod → cultivator ×5 吃水 90/s → 中泵 1 + 小泵 6
+node cli.cjs --mix "coal-centrifuge:1" --boundary none --liquids auto --liquid "oil=make"
+#   cultivator ×5（电 400/s），吃 water 90/s → spore-pod 3/s
+#   液体自产：石油 ← spore-press ×1（转化方块 18/s）
+#   液体自产：水 ← 中泵 1 台 + 小泵 6 台（钻井合计 90/s）
+```
+
+实现上混合厂改成了**外层不动点**：物品展开 → 液体自产 → 把转化方块的物品入料塞回物品根 → 重新展开，
+直到入料不再变化（通常 2 轮）。单目标模式（`--item/--block`）本来就是这个行为，只有混合厂缺这一步。
+
+| 液体 | 来源方块（吃料） | 备注 |
+|---|---|---|
+| 水 water | 抽水机 / `vent-condenser`(30/s) / `electrolyzer` 副产 | 默认钻井优先 |
+| 石油 oil | `oil-extractor`(22.5/s，吃沙+水) / `spore-press`(18/s，吃 spore-pod) | |
+| 冷冻液 cryofluid | `cryofluid-mixer`(12/s，吃 titanium 1 + **水 12/s**) | 水会继续递归成抽水机 |
+| 矿渣 slag | `melter`(12/s，吃 scrap 1/s) | scrap 无物品配方，链止于边界 |
+| 镓液 gallium | `slag-centrifuge`(1.002/s，吃 sand 1 + slag 40/s) | 矿渣再递归到 melter |
+| 臭氧/氢气 | `electrolyzer`(4.002 / 6 /s，吃水 10/s) | 两者同时产出 |
+| 氮气 nitrogen | `atmospheric-concentrator`(16/s) | 无入料，只耗电 |
+| 氰气 cyanogen | `cyanogen-synthesizer`(12/s，吃 graphite 1 + **芳油 160/s**) | 芳油只能外部运入 |
+| 瘤液 neoplasm / 芳油 arkycite | 无 | 只能外部运入（进边界） |
 
 ### 3.7 分离机 / 解离机也在递归树里（默认不自动用）
 
@@ -307,7 +345,8 @@ node ratio-calc/cli.cjs --item graphite --rate 1 --boundary "coal,sand" --force 
 - **液体来源在页面上可以直接选**：每行液体一个下拉，选项是「外部运入 / 抽水机 · 方块名 / 转化 · 方块名」，
   选转化方块（`spore-press` / 电解槽之类）等价于 `--liquid oil=make:spore-press`；
   命令行的 `__ratio.liq("oil", "make:spore-press")` 是同一个入口。
-- 局限：混合厂里转化方块的物品入料按**外部输入**计并给一条 warning（混合厂不展开液体源的物品链）。
+- 液体递归（2026-11-11 已修）：混合厂里转化方块的物品入料以前按**外部输入**计并给 warning，
+  现在会回到物品递归图继续展开（见 §3.6.1）；只有真的没有配方的物品（scrap 这类）才落回边界 + warning。
 
 
 ### 3.8 环检测（循环产线会被标出来，不会无限展开）
@@ -598,16 +637,16 @@ python -X utf8 ratio-calc/card.py --json result.json --out card.png   # 喂现�
 |---|---|
 | `index.html` | 单页应用（样式 + 四个模式 + 来源/供电/兵厂链/液体四块表，无第三方库） |
 | `core.js` | 内核：展开、钻头/发电/多产物/兵厂链/液体算法（浏览器 + node 通用，`module.exports`） |
-| `data/gamedata.js` | 导出数据 + 内联图标 + 中文名：33 工厂 / 17 兵厂 / 14 发电厂 / 10 钻头 / 2 多产物 / 6 抽水泵 / 22 物品 / 139 图标 / 11 液体图标+颜色 / 493 中文名 / 1140.9 KB（出液量按 per-tick ×60 换算） |
+| `data/gamedata.js` | 导出数据 + 内联图标 + 中文名：33 工厂 / 17 兵厂 / 14 发电厂 / 10 钻头 / 2 多产物 / 6 抽水泵 / 22 物品 / 139 图标 / 11 液体图标+颜色 / 504 中文名（含 11 种液体）/ 1141.8 KB（出液量按 per-tick ×60 换算） |
 | `export_data.py` | 重新导出：`python -X utf8 ratio-calc/export_data.py` |
 | `make_cases.py` | 用 `mbo calc --json` 生成对拍用例 |
 | `cli.cjs` | **bot 入口**：命令行 + 文本/Markdown/JSON 渲染 |
 | `serve.cjs` | **bot 入口**：HTTP 服务（`/calc` `/list` `/healthz`） |
 | `ratio.py` | **bot 入口**：Python 包装（`query/text/markdown/image/http_query`） |
 | `card.py` | **bot 入口**：把结果画成 PNG 卡片（带原尺寸图标） |
-| `test_core.cjs` | 14 项对拍 `mbo calc` + 204 项断言：钻头/发电/多产物/兵厂链/抽水机/入料方式/发电设备当目标/混合厂（含兵厂目标）/液体自产 |
-| `test_page.cjs` | 最小 DOM 桩跑页面：114 项断言，不用浏览器 |
-| `test_cli.cjs` | 76 项：CLI/HTTP 与 `core.js` 逐项对拍 + 渲染 + 默认蓝带 + 液体自产 + 错误分支 |
+| `test_core.cjs` | 14 项对拍 `mbo calc` + 213 项断言：钻头/发电/多产物/兵厂链/抽水机/入料方式/发电设备当目标/混合厂（含兵厂目标）/液体自产/液体递归 |
+| `test_page.cjs` | 最小 DOM 桩跑页面：116 项断言，不用浏览器 |
+| `test_cli.cjs` | 79 项：CLI/HTTP 与 `core.js` 逐项对拍 + 渲染 + 默认蓝带 + 液体自产/液体递归/液体中文名 + 错误分支 |
 | `test_card.py` | 17 项：卡片结构（配比在前）/ 默认蓝带条数 / 0 台不建 / 行不重叠 / PNG 可渲染 / 发电卡片 / 混合厂（含兵厂）/ 液体自产 / 图标齐全 |
 | `docs/screenshot-*.png` | 页面截图（Edge headless） |
 | `docs/card-*.png` | PNG 卡片示例 |
@@ -629,8 +668,8 @@ python -X utf8 ratio-calc/card.py --json result.json --out card.png   # 喂现�
 
 ```
 node ratio-calc/test_core.cjs   → 14 项对拍 mbo calc 全部一致 + 204 项新算法断言通过（共 218 行 ok）
-node ratio-calc/test_page.cjs   → 114 项页面链路断言通过（含混合厂 11 项、液体自产 5 项、边界开关/配方下拉、钻头并入工厂配比、多产物方块进递归树 6 项、发电厂递归树 3 项、归一化 2 项）
-node ratio-calc/test_cli.cjs    → 76 项 CLI/HTTP 与 core.js 对拍通过（含 `--mix` 6 项（含兵厂目标）、液体自产 6 项、钻头写入机器清单、分离机/解离机 5 项、发电厂树 2 项、归一化 2 项）
+node ratio-calc/test_page.cjs   → 116 项页面链路断言通过（含混合厂 11 项、液体自产 5 项、液体中文名 2 项、边界开关/配方下拉、钻头并入工厂配比、多产物方块进递归树 6 项、发电厂递归树 3 项、归一化 2 项）
+node ratio-calc/test_cli.cjs    → 79 项 CLI/HTTP 与 core.js 对拍通过（含 `--mix` 6 项（含兵厂目标）、液体自产 6 项、液体递归 2 项、液体中文名 1 项、钻头写入机器清单、分离机/解离机 5 项、发电厂树 2 项、归一化 2 项）
 python -X utf8 ratio-calc/test_card.py → 17 项卡片结构/排版断言通过（含混合厂 3 项（含兵厂目标）、液体自产 1 项、图标 2 项、多产物副产 1 项、发电厂树 1 项、归一化 1 项）
 ```
 

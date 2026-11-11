@@ -85,8 +85,12 @@ def _index_full_sprites() -> dict:
 
 
 def load_zh_names() -> dict:
-    """bundle_zh_CN.properties 里的 物品/方块/单位 中文名。"""
-    out = {"items": {}, "blocks": {}, "units": {}}
+    """bundle_zh_CN.properties 里的 物品/方块/单位/液体 中文名。
+
+    液体也走这套（`liquid.water.name = 水`）：页面芯片、边界表、卡片、CLI 文本
+    以前直接印英文名（water/slag/cryofluid），用户 2026-11-11 要求补齐翻译。
+    """
+    out = {"items": {}, "blocks": {}, "units": {}, "liquids": {}}
     if not os.path.exists(ZH_BUNDLE):
         return out
     with open(ZH_BUNDLE, encoding="utf-8") as fh:
@@ -102,7 +106,8 @@ def load_zh_names() -> dict:
             if len(parts) != 3:
                 continue
             kind, name = parts[0], parts[1]
-            bucket = {"item": "items", "block": "blocks", "unit": "units"}.get(kind)
+            bucket = {"item": "items", "block": "blocks", "unit": "units",
+                      "liquid": "liquids"}.get(kind)
             if bucket:
                 out[bucket][name] = val
     return out

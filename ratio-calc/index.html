@@ -334,7 +334,9 @@
     return '<img class="ic ' + (cls || "") + '" src="' + src + '" alt="' + (alt || "") + '" title="' + (alt || "") + '">';
   }
   /* 中文名（来自 bundle_zh_CN.properties，随数据一起导出） */
-  var ZH = DATA.names || { items: {}, blocks: {}, units: {} };
+  var ZH = DATA.names || { items: {}, blocks: {}, units: {}, liquids: {} };
+  /* 液体中文名（液体没有 ✓ 图标，只能靠名字认） */
+  function liqLabel(n) { return (ZH.liquids && ZH.liquids[n]) || n; }
   function zhOf(kind, n) {
     var m = ZH[kind] || {};
     var z = m[n] || "";
@@ -483,7 +485,7 @@
       }
       var need = net[l.name] === undefined ? "（自产够用）" : "";
       var eq = mixLine(l.name, eqMap[l.name]);
-      return '<tr><td>' + liqDot(l.name) + esc(l.name) + need + '</td><td class="num">' + num(l.perSecond) +
+      return '<tr><td>' + liqDot(l.name) + esc(liqLabel(l.name)) + need + '</td><td class="num">' + num(l.perSecond) +
         '</td><td class="num">' + num(l.perSecond * 60) + '</td><td>' + (a ? '<span class="dim">自产</span>' : sel) +
         (eq ? '<div class="dim">' + esc(eq) + '</div>' : "") +
         '</td><td class="num">' + cnt + '</td><td class="num">' + pw + "</td></tr>";
@@ -492,7 +494,7 @@
     autoKeys.forEach(function (k) {
       if (list.some(function (l) { return l.name === k; })) return;
       var a = auto[k];
-      rows.push('<tr><td>' + liqDot(k) + esc(k) + '</td><td class="num">—</td><td class="num">—</td>' +
+      rows.push('<tr><td>' + liqDot(k) + esc(liqLabel(k)) + '</td><td class="num">—</td><td class="num">—</td>' +
         '<td><span class="dim">自产</span></td><td class="num">' + a.count + " 台 " + esc(a.block) + '</td>' +
         '<td class="num"><span class="dim">见机器表</span></td></tr>');
     });
@@ -1117,7 +1119,7 @@
   function boundaryNames() { return Array.from(boundarySet).sort(); }
   function liqNames() { return Object.keys(DATA.liquid_icons || {}).sort(); }
   function chip(n, on, attr) {
-    var body = (DATA.liquid_icons && DATA.liquid_icons[n]) ? (liqDot(n) + " " + esc(n)) : itemLabel(n, "sm");
+    var body = (DATA.liquid_icons && DATA.liquid_icons[n]) ? (liqDot(n) + " " + esc(liqLabel(n))) : itemLabel(n, "sm");
     return '<a class="chiptag' + (on ? " on" : "") + '" ' + attr + '="' + n + '" title="' +
       (on ? "取消边界（会展开它的配方）" : "设为边界（按外部运入，不再展开）") + '">' + body + "</a>";
   }
@@ -1389,7 +1391,7 @@
       return '<tr><td>' + itemLabel(k) + '</td><td class="num">' + num(res.demand[k]) +
         '</td><td class="num">' + num(res.demand[k] * 60) + '</td></tr>';
     }).join("") : "") + ln.map(function (l) {
-      return '<tr><td>' + liqDot(l.name) + esc(l.name) + ' <span class="dim">（液体）</span></td>' +
+      return '<tr><td>' + liqDot(l.name) + esc(liqLabel(l.name)) + ' <span class="dim">（液体）</span></td>' +
         '<td class="num">' + num(l.perSecond) + '</td><td class="num">' + num(l.perSecond * 60) + '</td></tr>';
     }).join("") + (dk.length || ln.length ? "" : '<tr><td colspan="3" class="dim">无（全部自产）</td></tr>');
 
