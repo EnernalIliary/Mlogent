@@ -428,7 +428,7 @@ eq("readConfig 默认 thReactorNear", cfgDef.thReactorNear, 30);
 eq("readConfig 默认 afkMinutes", cfgDef.afkMinutes, 3);
 eq("readConfig 默认 votekick", cfgDef.votekick, true);
 eq("readConfig 默认 updateCheck", cfgDef.updateCheck, true);
-eq("readConfig 默认 repo", cfgDef.repo, "https://github.com/EnernalIliary/MAI-GriefToBan");
+eq("readConfig 默认 repo", cfgDef.repo, "https://github.com/EnernalIliary/Mindustry-GriefToBan");
 eq("readConfig 默认 theme 空串", cfgDef.theme, "");
 eq("readConfig 默认 emph 空串", cfgDef.emph, "");
 ok("readConfig 用 KEYS.langMode 取设置", seenKeys.indexOf(L.KEYS.langMode) >= 0, seenKeys);
@@ -479,7 +479,7 @@ eq("afkMinutes '999' -> 120", L.readConfig(mkRead({ [L.KEYS.afkMinutes]: "999" }
 eq("thReactorNear 0 -> 1", L.readConfig(mkRead({ [L.KEYS.thReactorNear]: 0 })).thReactorNear, 1);
 eq("thReactorNear '999' -> 200", L.readConfig(mkRead({ [L.KEYS.thReactorNear]: "999" })).thReactorNear, 200);
 
-eq("repo 空白 -> DEFAULTS.repo", L.readConfig(mkRead({ [L.KEYS.repo]: "   " })).repo, "https://github.com/EnernalIliary/MAI-GriefToBan");
+eq("repo 空白 -> DEFAULTS.repo", L.readConfig(mkRead({ [L.KEYS.repo]: "   " })).repo, "https://github.com/EnernalIliary/Mindustry-GriefToBan");
 eq("repo 两侧空白被裁", L.readConfig(mkRead({ [L.KEYS.repo]: " https://x.example/a " })).repo, "https://x.example/a");
 
 eq(

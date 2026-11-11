@@ -11,7 +11,7 @@
   2. 清空重建 out/_gtb_probe/，把 GriefToBan/ 拷进 <workdir>/config/mods/GriefToBan；
   3. 用 GTB_SELFTEST=1 起服务端（cwd=workdir），逐行读输出写 server.log；
      模组自带自检会在启动时跑完并 Core.app.exit()，不用跟控制台菜单交互；
-  4. 日志里必须同时出现 '[GTB] Grief to Ban v0.1.0 已加载' 与 '[GTB] selftest OK'。
+  4. 日志里必须同时出现 '[GTB] Grief to Ban v0.1.1 已加载' 与 '[GTB] selftest OK'。
 
 不启动图形客户端、不改 GriefToBan/、不调 git、不跑 gate.py。
 """
@@ -39,7 +39,7 @@ GRACE_S = 3.0       # 看到 selftest OK/FAIL 后再收 3 秒日志
 KILL_WAIT_S = 10.0
 
 # 判定用标记（只匹配 ASCII 片段，绕开中文编码差异；完整中文行另外打印）
-LOAD_MARK = "Grief to Ban v0.1.0"
+LOAD_MARK = "Grief to Ban v0.1.1"
 LOAD_MARK_CN = "已加载"
 SELFTEST_OK = "selftest OK"
 SELFTEST_FAIL = "selftest FAIL"

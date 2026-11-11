@@ -843,6 +843,61 @@ function buildMaintenance(c){
         }
         addRow(rrow);
     }
+
+    // 诊断：出问题时把这里的文字/日志贴出来就能定位
+    var drow = newRow();
+    if(!nil(drow)){
+        var b1 = null;
+        try {
+            b1 = drow.button("诊断信息", act(function(){
+                try { notice(API.diag()); } catch(e){ notice("取诊断信息失败：" + e); }
+            }, "诊断信息"));
+            try { b1.height(34); } catch(e1){ }
+            try { b1.padRight(8); } catch(e2){ }
+        } catch(e3){ notice("界面创建失败（诊断信息）：" + e3); }
+        var b2 = null;
+        try {
+            b2 = drow.button("写入自检", act(function(){
+                try { notice(API.testWrite()); } catch(e){ notice("写入自检失败：" + e); }
+            }, "写入自检"));
+            try { b2.height(34); } catch(e4){ }
+            try { b2.padRight(8); } catch(e5){ }
+        } catch(e6){ }
+        addRow(drow);
+    }
+
+    var lrow = newRow();
+    if(!nil(lrow)){
+        var b3 = null;
+        try {
+            b3 = lrow.button("查看日志", act(function(){
+                try {
+                    var t = API.logText();
+                    if(txt(t) === "") notice("日志还是空的（没有扫描过）。");
+                    else notice(t);
+                } catch(e){ notice("读日志失败：" + e); }
+            }, "查看日志"));
+            try { b3.height(34); } catch(e1){ }
+            try { b3.padRight(8); } catch(e2){ }
+        } catch(e3){ }
+        var b4 = null;
+        try {
+            b4 = lrow.button("清空日志", act(function(){
+                try { notice(API.clearLog()); } catch(e){ notice("清空日志失败：" + e); }
+            }, "清空日志"));
+            try { b4.height(34); } catch(e4){ }
+            try { b4.padRight(8); } catch(e5){ }
+        } catch(e6){ }
+        var lp = null;
+        try { lp = lrow.labelWrap("log: " + txt(API.logPath())); } catch(e7){ lp = null; }
+        if(!nil(lp)){
+            try { lp.width(ROW_W - 220); } catch(e8){ }
+            try { lp.left(); } catch(e9){ }
+            cellColor(lp, grayColor());
+        }
+        addRow(lrow);
+    }
+    subLine("行为拦截没反应时先看「诊断信息」：里面有房主判定、扫描到的钍堆/逻辑数量、名单条数。");
 }
 
 // ---------------------------------------------------------------- 8. 外观（双色）

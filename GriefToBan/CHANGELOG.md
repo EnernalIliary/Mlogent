@@ -2,6 +2,39 @@
 
 只记对外可见的变化。工程细节见 `out/takeover-20261024/` 下的报告。
 
+## 0.1.1
+
+修用户实测报的五件事。根因只有一条，但它让所有「全图扫描」静默空转。
+
+- **根因：Groups.* 不是 arc 的 Seq**。v160 里 Groups.player / Groups.build 是
+  mindustry.entities.EntityGroup，只有 size() / index(int) / each(...)，**没有 get(int)**。
+  旧的 seqGet() 直接 seq.get(i)，抛异常被 catch 成 null ⇒ 每一次扫描都遍历到「零个对象」，
+  而日志里一行错都没有。现在 seqGet 依次试 get(i) / index(i) / items[i]，
+  并在自检里钉住「能取到元素」。
+- **钍堆升温不拦**（用户：热量 >0 时没有拦截）：真机实证 heat 是 **0..1 的比例**
+  （NuclearReactor.update 里 heat >= 0.999 就 kill()），旧文案把 0.32 说成「热量 0.32」。
+  现在按百分比写（heat=48.3%），扫描周期 3 秒 → **1 秒**，
+  并且只对「本来开着」的堆下手，不会每秒重复通告一次。
+- **病毒逻辑没有禁用**：旧代码先看「建造者是否该处置」，不满足就直接 return，
+  连停用都不做。现在**停用与处置解耦**：命中就 executor.load(空程序) + code = ""（
+  不然重载存档又编译回去），然后才按需拉黑/通告。判定也不再要求 ConfigEvent 带 config。
+- **黑名单没写入、但人已经被换队**：playerByUuid() 走 eachPlayer() 也吃了上面那条根因，
+  在线玩家永远查不到 ⇒ 处置路径拿不到人；另外面板改完名单不重画，看起来像「没写进去」。
+  现在 seqGet 修好、名单动作后主动 rebuild()，并且每条设置写入都 Core.settings.autosave()，
+  写后立刻读回比对（不一致就记日志），自检里有一条「写进名单 → 从 settings 读回来 → 删掉」。
+- **仓库名 + 自动更新**：默认仓库改为 https://github.com/EnernalIliary/Mindustry-GriefToBan ；
+  进服 / 建房时自动查一次 releases/latest，有新版本就在聊天栏播一条；
+  仓库还没有 Release（HTTP 404）时只记日志，不提示、不报错。
+- **ESC 菜单入口**：暂停 → Grief to Ban（Vars.ui.paused.shown 每次重挂一条按钮，
+  因为 PausedDialog 每次打开都会 clearChildren() 重建）。
+- **诊断（给下一次报 bug 用）**：数据目录下的 gtb-debug.log 记录 init / 每次扫描的计数 /
+  停用了哪个钍堆、哪段逻辑；设置页「维护」段新增「诊断信息 / 写入自检 / 查看日志 / 清空日志」四个按钮。
+  同时把内部扫描计数挂到系统属性 gtb.scan 上，方便在服务端控制台 js 里直接读。
+
+验证：tests/grief-to-ban/run_gtb_tests.py（275 条 lib 断言）、
+tests/grief-to-ban/run_server_probe.py（真引擎 31 条自检全绿，含黑名单落盘）、
+真服务端端到端（放一颗 heat=0.5 的钍堆 → 3 秒后 enabled=false；放一段自复制逻辑 → 3 秒后 code 为空、instructions=0）。
+
 ## 0.1.0
 
 首个版本。纯 JS + Rhino，无 Java 代码（`hidden: true`）。

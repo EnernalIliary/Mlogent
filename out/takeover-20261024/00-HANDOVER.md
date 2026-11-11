@@ -3242,3 +3242,18 @@ gate 新增两步：`gtb`（默认档，0.5 s）与 `gtbprobe`（--full，与 pr
 未做：GitHub 仓与 Release（用户说先预留），观察名单单独页。
 
 本文与代码在本地提交「Grief to Ban 0.1.0：反破坏模组（纯 Rhino JS，第二个游戏内模组）」（16 files / +4153 −5，显式 pathspec，没碰别的会话的 `docs/`、`knowledge/`、`tools/kb.py`、`tools/mlogsim.py`）。提交后 `python gate.py --full --kb-build` = **19/19 passed in 169.5s**（kb rebuilt covers 184 source file(s)）。
+
+## §125 Grief to Ban 0.1.1：五条实测 bug 与那条真根因（2026-11-11）
+
+用户实测报了五条（仓库名/自动更新、ESC 菜单入口、钍堆热量>0 不拦、病毒逻辑不禁用、黑名单没写入但换了队），全部修完并在真引擎验证。详见 out/takeover-20261024/104-gtb011.md。
+
+**真根因（一条解释四条症状）**：v160 的 Groups.player / Groups.build 是 mindustry.entities.EntityGroup，只有 size() / index(int) / each(...)，**没有 get(int)**。旧 seqGet() 用 seq.get(i)，Rhino 抛 TypeError 被 catch 成 null ⇒ 每次遍历都「长度对、元素全 null」，所有全图扫描（钍堆、爆混、病毒、applyBlacklistToOnline、playerByUuid）静默空转，日志一行错都没有。现在 seqGet 依次试 get(i) → index(i) → items[i]，另加 seqEach()，自检钉住「能取到元素」。取证脚本 out/_js_probe7.py、_js_probe8.py。
+
+其余四处的改法：钍堆 heat 是 0..1 比例（NuclearReactor 里 >= 0.999 就 kill()），文案改百分比、扫描周期 3000→1000 ms、只对本来 enabled 的堆动手一次；checkVirus 把停用与处置解耦（先 disableLogic：executor.load(空程序) + code=""，再按需拉黑/通告），onBuildEnd/onConfig 不再要求 config 非空；swrite 每条都 Core.settings.autosave() 并立刻读回比对（不一致记 dbg），uiApi 四个名单动作成功后 rebuild() 重画；更新检查在 init 与 ClientLoadEvent 各跑一次，HTTP 404（仓库还没 Release）只记日志。
+
+诊断设施：数据目录下 gtb-debug.log（init / 每 10 秒 beat / reactor off / virus disabled / 设置写入结果）、系统属性 gtb.scan（服务端控制台 js 可读）、设置页维护段「诊断信息 / 写入自检 / 查看日志 / 清空日志」；uiApi 新增 authInfo/diag/logPath/logText/clearLog/testWrite。
+
+验证：run_gtb_tests.py 275 条纯逻辑断言；run_server_probe.py 真引擎 31 条自检全绿（含 blacklist persisted / removed、seq get/index）；端到端 out/_js_probe6.py —— 钍堆 heat=0.5 放下去 3 秒后 enabled=false（日志 reactor off 12,12 heat=48.3%），自复制逻辑 3 秒后 code 为空、instructions=0（日志 virus disabled 16,16）。
+
+版本：GriefToBan/mod.hjson 与 gtb-lib.js 的 VERSION 都是 0.1.1；CHANGELOG 有 0.1.1 段。装机后需重启游戏才加载。
+

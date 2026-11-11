@@ -72,7 +72,15 @@ function swrite(key, value) {
     try {
         if (typeof value === "boolean") Core.settings.put(key, value);
         else if (typeof value === "number") Core.settings.put(key, LIB.toInt(value, 0));
-        else Core.settings.put(key, value == null ? "" : String(value));
+        else {
+            var s = value == null ? "" : String(value);
+            Core.settings.put(key, s);
+            var back = "";
+            try { back = Core.settings.getString(key, ""); } catch (e1) { back = ""; }
+            if (String(back) !== s) dbg("swrite MISMATCH " + key + " want=" + s.length + " got=" + String(back).length);
+            else dbg("swrite " + key + " len=" + String(back).length);
+        }
+        try { Core.settings.autosave(); } catch (e9) { }
     } catch (e) {
         logInfo("写设置失败 " + key + "：" + e);
     }
@@ -107,6 +115,95 @@ function cfg() {
 
 // ---------------------------------------------------------------- 小工具
 
+// ---------------------------------------------------------------- 调试日志
+// 真机排查用：<config>/gtb-debug.log。10 秒一条心跳，名单/处置/停用各记一行。
+// 设置界面「维护」段有「打开日志」「诊断」入口。
+var GTB_DBG = { file: null, ready: false, lastBeat: 0, lines: 0 };
+GTB.stat = { reactors: 0, hot: 0, logic: 0, virus: 0, gens: 0 };
+
+function dbgFile() {
+    if (GTB_DBG.ready) return GTB_DBG.file;
+    GTB_DBG.ready = true;
+    try {
+        var dir = Packages.mindustry.Vars.dataDirectory;
+        if (dir == null) return null;
+        GTB_DBG.file = dir.child("gtb-debug.log");
+    } catch (e) { GTB_DBG.file = null; }
+    return GTB_DBG.file;
+}
+
+function dbg(msg) {
+    try {
+        var f = dbgFile();
+        if (f == null) return;
+        if (GTB_DBG.lines >= 3000) return;
+        GTB_DBG.lines = GTB_DBG.lines + 1;
+        f.writeString(nowMs() + " " + String(msg) + "\n", true);
+    } catch (e) { }
+}
+
+function dbgClear() {
+    try {
+        var f = dbgFile();
+        if (f == null) return false;
+        f.writeString("", false);
+        GTB_DBG.lines = 0;
+        dbg("log cleared");
+        return true;
+    } catch (e) { return false; }
+}
+
+function dbgText() {
+    try {
+        var f = dbgFile();
+        if (f == null) return "拿不到 dataDirectory";
+        if (!f.exists()) return "还没有日志（gtb-debug.log）";
+        return f.readString();
+    } catch (e) { return "读日志失败：" + e; }
+}
+
+function playerCount() {
+    try { return seqSize(Packages.mindustry.gen.Groups.player); } catch (e) { return 0; }
+}
+
+// 网络角色：房主 / 单机 / 服务端 vs 连别人服的客户端。真机诊断最需要的一行。
+function authInfo() {
+    var s = "auth=" + (isAuthority() ? "yes" : "no");
+    var n = null;
+    try { n = Vars.net; } catch (e) { return s + " net=err"; }
+    if (n == null) return s + " net=null";
+    try { s = s + " server=" + (n.server() === true ? 1 : 0); } catch (e1) { }
+    try { s = s + " active=" + (n.active() === true ? 1 : 0); } catch (e2) { }
+    try { s = s + " client=" + (n.client() === true ? 1 : 0); } catch (e3) { s = s + " client=?"; }
+    try { s = s + " netServer=" + (Vars.netServer == null ? 0 : 1); } catch (e4) { }
+    return s;
+}
+
+function diagText() {
+    var cfg0 = cfg();
+    var out = [];
+    out.push("Grief to Ban v" + LIB.VERSION);
+    out.push(authInfo());
+    out.push("enable=" + (cfg0.enable ? 1 : 0) + " vanillaBan=" + (cfg0.vanillaBan ? 1 : 0) + " langMode=" + cfg0.langMode + " langs=" + cfg0.langs);
+    out.push("bh=" + LIB.dumpBehaviors(cfg0.bh));
+    out.push("blacklist=" + cfg0.blacklist.length + " watch=" + cfg0.watch.length + " vanBan=" + (GTB.vanBan == null ? 0 : seqSize(GTB.vanBan)));
+    out.push("players=" + playerCount() + " builds=" + nBuilds());
+    out.push("stat reactors=" + GTB.stat.reactors + " hot=" + GTB.stat.hot + " logic=" + GTB.stat.logic + " virus=" + GTB.stat.virus);
+    out.push("settings blacklist len=" + LIB.trimStr(sread(LIB.KEYS.blacklist)).length + " watch len=" + LIB.trimStr(sread(LIB.KEYS.watch)).length);
+    var f = dbgFile();
+    out.push("log=" + (f == null ? "-" : String(f.absolutePath())));
+    return out.join("\n");
+}
+
+// 探针/排查用：把内部状态挂到系统属性上，控制台 js 里 System.getProperty 就能读
+function expose(key, val) {
+    try { Packages.java.lang.System.setProperty(key, String(val)); } catch (e) { }
+}
+
+function nBuilds() {
+    try { return seqSize(Packages.mindustry.gen.Groups.build); } catch (e) { return 0; }
+}
+
 function logInfo(msg) {
     try { Log.info("[GTB] " + msg); } catch (e) { }
 }
@@ -125,14 +222,17 @@ function nowMs() {
 
 // 只有服务端（含单机/房主）能改队伍、封人、发聊天；纯客户端上这些调用会被转发或报错。
 function isAuthority() {
-    try {
-        var n = Vars.net;
-        if (n == null) return true;
-        if (n.server() === true) return true;
-        return n.active() !== true;
-    } catch (e) {
-        return true;
-    }
+    var n = null;
+    try { n = Vars.net; } catch (e) { return true; }
+    if (n == null) return true;
+    var server = false, active = false, client = false;
+    try { server = n.server() === true; } catch (e1) { }
+    try { active = n.active() === true; } catch (e2) { }
+    try { client = n.client() === true; } catch (e3) { }
+    if (server) return true;
+    if (!active) return true;              // 单机 / 根本没连网
+    if (client) return false;              // 连了别人的服：改不了名单、换不了队伍
+    return true;                           // 说不清时按房主处理，宁可多记一行日志也别静默失效
 }
 
 function seqSize(seq) {
@@ -144,8 +244,23 @@ function seqSize(seq) {
     try { return LIB.toInt(seq.size(), 0); } catch (e2) { return 0; }
 }
 
+// EntityGroup 只能顺序遍历：给「需要原始对象」的地方用
+function seqEach(seq, fn) {
+    var n = seqSize(seq);
+    for (var i = 0; i < n; i++) {
+        var it = seqGet(seq, i);
+        if (it != null) fn(it, i);
+    }
+}
+
+// Groups.* 在 v160 里是 mindustry.entities.EntityGroup（不是 arc 的 Seq）：
+// 只有 size() / index(int) / each(...)，**没有 get(int)**。这一条曾让所有扫描静默空转。
 function seqGet(seq, i) {
-    try { return seq.get(i); } catch (e) { return null; }
+    if (seq == null) return null;
+    try { var a = seq.get(i); if (a != null) return a; } catch (e) { }
+    try { var b2 = seq.index(i); if (b2 != null) return b2; } catch (e2) { }
+    try { var arr = seq.items; if (arr != null && i < arr.length) return arr[i]; } catch (e3) { }
+    return null;
 }
 
 function eachPlayer(fn) {
@@ -330,7 +445,10 @@ function noteInteract(p, kind) {
 // ---------------------------------------------------------------- 行为：病毒逻辑
 
 function isLogicBuild(b) {
-    try { return b instanceof Packages.mindustry.world.blocks.logic.LogicBlock.LogicBuild; } catch (e) { return false; }
+    try {
+        if (b instanceof Packages.mindustry.world.blocks.logic.LogicBlock.LogicBuild) return true;
+    } catch (e) { }
+    return isLogicBlock(b);
 }
 
 // 判据同检查器 rules/virus-logic.json：某行是 ucontrol build … 且参数里出现 @this
@@ -353,22 +471,31 @@ function disableLogic(b) {
     try {
         var asm = Packages.mindustry.logic.LAssembler.assemble("", false);
         b.executor.load(asm);
+        // 代码也清掉：否则保存/重载、或别人再点一下配置，会按原代码重新编译回去。
+        try { b.code = ""; } catch (e0) { }
         return true;
     } catch (e) {
         logErr("禁用逻辑失败：" + e);
+        dbg("disableLogic failed " + e);
         return false;
     }
 }
 
 function checkVirus(b, p) {
     var cfg0 = cfg();
-    if (!cfg0.enable || !cfg0.bh.virus) return;
-    if (p == null || targetOf(p) !== "target") return;
+    if (!cfg0.enable || !cfg0.bh.virus) return false;
     var code = "";
-    try { code = b.code == null ? "" : String(b.code); } catch (e) { return; }
-    if (!isVirusCode(code)) return;
+    try { code = b.code == null ? "" : String(b.code); } catch (e) { return false; }
+    if (!isVirusCode(code)) return false;
+    var key = "";
+    try { key = b.tile.x + "," + b.tile.y; } catch (e2) { key = ""; }
+    if (key !== "") GTB_VIRUS[key] = true;
     disableLogic(b);
+    dbg("virus disabled " + key + " by=" + (p == null ? "-" : nameOf(p)));
+    broadcast(LIB.textInfo("已停用一处自复制逻辑（" + (key === "" ? "?" : key) + "）"));
+    if (p == null || targetOf(p) !== "target") return true;
     punish(p, LIB.REASON.virus);
+    return true;
 }
 
 // ---------------------------------------------------------------- 行为：钍堆
@@ -468,6 +595,36 @@ function getEnabled(b) {
     }
 }
 
+// 读数字字段：先直接读（public 字段），失败走反射。
+// 注意 heat 是 0..1 的**比例**（NuclearReactor 里 heat >= 0.999 就 kill()），不是绝对值。
+function readNum(obj, name, dflt) {
+    if (obj == null) return dflt;
+    try {
+        var v = obj[name];
+        if (v != null) {
+            var n = Number(v);
+            if (!isNaN(n)) return n;
+        }
+    } catch (e) { }
+    try {
+        var f = fieldByObject(obj, name);
+        if (f != null) {
+            f.setAccessible(true);
+            var m = Number(f.getFloat(obj));
+            if (!isNaN(m)) return m;
+        }
+    } catch (e2) { }
+    return dflt;
+}
+
+// 逻辑建筑判据：按方块类型判（issubclass），比 instanceof 嵌套 build 类更稳。
+function isLogicBlock(b) {
+    if (b == null) return false;
+    try {
+        return b.block instanceof Packages.mindustry.world.blocks.logic.LogicBlock;
+    } catch (e) { return false; }
+}
+
 // ---------------------------------------------------------------- 扫描：钍堆热量 / 爆混发电机
 
 var GTB_REACTORS = {};
@@ -485,27 +642,35 @@ function scanReactors() {
         var key = "";
         try { key = b.tile.x + "," + b.tile.y; } catch (e) { key = "?" + i; }
         var where0 = "第 " + LIB.toInt(key.split(",")[0], 0) + "," + LIB.toInt(key.split(",")[1], 0) + " 格";
-        var heat = 0;
-        try { heat = Number(b.heat); } catch (e2) { heat = 0; }
-        if (isNaN(heat)) heat = 0;
+        // heat 是 0..1 的比例（NuclearReactor 里 heat >= 0.999 就 kill()），不是绝对值
+        var heat = readNum(b, "heat", 0);
+        GTB.stat.reactors = GTB.stat.reactors + 1;
+        if (heat > 0.0001) GTB.stat.hot = GTB.stat.hot + 1;
         if (cfg0.bh.reactorBoom && heat > 0.0001) {
-            var owner = GTB.builders[key];
-            if (!getEnabled(b)) {
-                if (GTB_REACTORS[key] == true) continue;
+            var seen = GTB_REACTORS[key] == true;
+            if (getEnabled(b) !== true) {
+                // 已经停过：不重复通告、不重复处置，只补记
+                GTB_REACTORS[key] = true;
+                continue;
             }
-            setEnabled(b, false);
+            var off = setEnabled(b, false);
             GTB_REACTORS[key] = true;
+            var pct = Math.round(heat * 1000) / 10;
+            dbg("reactor off " + key + " heat=" + pct + "% setEnabled=" + off + " seen=" + seen + " owner=" + (GTB.builders[key] == null ? "-" : GTB.builders[key].name));
+            if (seen) continue;
+            var owner = GTB.builders[key];
             if (owner == null) {
-                broadcast(LIB.textInfo("发现正在升温的钍堆（" + where0 + "），已停用。"));
+                broadcast(LIB.textInfo("发现正在升温的钍堆（" + where0 + "，热量 " + pct + "%），已停用。"));
             } else {
                 var op = playerByUuid(owner.uuid);
-                if (op != null) punish(op, LIB.REASON.reactorBoom + "（热量 " + (Math.round(heat * 100) / 100) + "）");
+                if (op != null) punish(op, LIB.REASON.reactorBoom + "（热量 " + pct + "%）");
                 else addBlacklist(owner.uuid, owner.name, LIB.REASON.reactorBoom, true);
-                broadcast(LIB.textInfo("已停用远端的升温钍堆（热量 " + (Math.round(heat * 100) / 100) + "）"));
+                broadcast(LIB.textInfo("已停用远端的升温钍堆（热量 " + pct + "%）"));
             }
         } else if (heat <= 0.0001 && GTB_REACTORS[key] == true) {
             setEnabled(b, true);
             delete GTB_REACTORS[key];
+            dbg("reactor restored " + key);
         }
     }
 }
@@ -525,6 +690,7 @@ function scanGenerators() {
         try {
             if (b.items != null) count = LIB.toInt(b.items.get(Items.blastCompound), 0);
         } catch (e2) { count = 0; }
+        GTB.stat.gens = GTB.stat.gens + 1;
         if (count <= 0) continue;
         try { b.items.set(Items.blastCompound, 0); } catch (e3) { try { b.items.clear(); } catch (e4) { } }
         setEnabled(b, false);
@@ -704,7 +870,10 @@ function onBuildEnd(e) {
     var b = null;
     try { b = e.tile == null ? null : e.tile.build; } catch (e2) { b = null; }
     if (b == null) return;
-    if (e.config != null && isLogicBuild(b)) { checkVirus(b, p); }
+    if (isLogicBuild(b)) {
+        try { delete GTB_VIRUS[tileKey(e.tile)]; } catch (e9) { }
+        checkVirus(b, p);
+    }
     if (blockNameOf(b) === "thorium-reactor") {
         GTB.builders[tileKey(e.tile)] = { uuid: uuidOf(p), name: nameOf(p) };
         checkReactorNear(b, p);
@@ -723,7 +892,7 @@ function onConfig(e) {
             var b = null;
             try { b = e.tile == null ? null : e.tile.build; } catch (e2) { b = null; }
             if (b != null) {
-                if (isLogicBuild(b)) checkVirus(b, p);
+                if (isLogicBuild(b)) { try { delete GTB_VIRUS[tileKey(e.tile)]; } catch (e9) { } checkVirus(b, p); }
                 if (blockNameOf(b) === "thorium-reactor") {
                     GTB.builders[tileKey(e.tile)] = { uuid: uuidOf(p), name: nameOf(p) };
                     checkReactorNear(b, p);
@@ -771,22 +940,19 @@ function scanVirusQuick() {
     for (var i = 0; i < n; i++) {
         var b = seqGet(arr, i);
         if (b == null || !isLogicBuild(b)) continue;
+        GTB.stat.logic = GTB.stat.logic + 1;
         var key = "";
         try { key = b.tile.x + "," + b.tile.y; } catch (e2) { key = "?" + i; }
         if (GTB_VIRUS[key] === true) continue;
         var code = "";
         try { code = b.code == null ? "" : String(b.code); } catch (e3) { continue; }
         if (!isVirusCode(code)) continue;
-        GTB_VIRUS[key] = true;
-        disableLogic(b);
+        GTB.stat.virus = GTB.stat.virus + 1;
         var owner = GTB.builders[key];
-        if (owner != null) {
-            var op = playerByUuid(owner.uuid);
-            if (op != null) punish(op, LIB.REASON.virus);
-            else addBlacklist(owner.uuid, owner.name, LIB.REASON.virus, true);
-        } else {
-            broadcast(LIB.textInfo("已停用一处自复制逻辑（" + b.tile.x + "," + b.tile.y + "）"));
-        }
+        var op = owner == null ? null : playerByUuid(owner.uuid);
+        // 停用与处置分开：没主 / 不在观察名单，也要把逻辑停掉
+        checkVirus(b, op);
+        if (owner != null && op == null) addBlacklist(owner.uuid, owner.name, LIB.REASON.virus, true);
     }
 }
 
@@ -798,12 +964,27 @@ function tick() {
     try { tickVote(); } catch (e) { logErr("vote: " + e); }
     try { tickAdmins(); } catch (e2) { logErr("admins: " + e2); }
     try { tickAfk(now); } catch (e3) { logErr("afk: " + e3); }
-    if (now - GTB.lastScan >= 3000) {
+    // 1 秒一轮：钍堆从开始升温到炸只有几秒，3 秒轮询会漏
+    if (now - GTB.lastScan >= 1000) {
         GTB.lastScan = now;
+        GTB.stat = { reactors: 0, hot: 0, logic: 0, virus: 0, gens: 0 };
         try { refreshVanBan(); } catch (e7) { }
         try { scanReactors(); } catch (e4) { logErr("reactors: " + e4); }
         try { scanGenerators(); } catch (e5) { logErr("gens: " + e5); }
         try { scanVirusQuick(); } catch (e8) { logErr("virus sweep: " + e8); }
+        try {
+            expose("gtb.scan", "builds=" + nBuilds() + " react=" + GTB.stat.reactors + " hot=" + GTB.stat.hot
+                + " logic=" + GTB.stat.logic + " virus=" + GTB.stat.virus + " gens=" + GTB.stat.gens
+                + " reactBoom=" + (cfg().bh.reactorBoom ? 1 : 0) + " virusOn=" + (cfg().bh.virus ? 1 : 0));
+        } catch (eX) { }
+        if (now - GTB_DBG.lastBeat >= 10000) {
+            GTB_DBG.lastBeat = now;
+            var c = cfg();
+            dbg("beat " + authInfo() + " en=" + (c.enable ? 1 : 0) + " players=" + playerCount()
+                + " builds=" + nBuilds() + " react=" + GTB.stat.reactors + " hot=" + GTB.stat.hot
+                + " logic=" + GTB.stat.logic + " virus=" + GTB.stat.virus
+                + " list=" + c.blacklist.length + " watch=" + c.watch.length);
+        }
     }
     try { applyBlacklistToOnline(); } catch (e6) { }
 }
@@ -837,7 +1018,10 @@ function bindEvents() {
         GTB.afk = {};
         GTB_REACTORS = {};
         GTB_VIRUS = {};
+        GTB.lastScan = 0;
+        GTB.lastTick = 0;
         try { reload(); } catch (e) { }
+        dbg("world loaded " + authInfo());
     });
 }
 
@@ -924,6 +1108,26 @@ function noAuth() {
     return false;
 }
 
+// 界面上的「写入自检」：写一个临时键、读回来、删掉，证明 Core.settings 真的能落盘
+function selfTestWrite() {
+    var key = "grief-to-ban.selftest";
+    var val = "gtb-" + nowMs();
+    var got = "";
+    try {
+        Core.settings.put(key, val);
+        got = Core.settings.getString(key, "");
+        try { Core.settings.remove(key); } catch (e1) { }
+        try { Core.settings.autosave(); } catch (e2) { }
+    } catch (e) {
+        dbg("testWrite crash " + e);
+        return "写入崩溃：" + e;
+    }
+    var ok = got === val;
+    dbg("testWrite ok=" + ok + " want=" + val + " got=" + got);
+    if (ok) return "写入自检通过（读完 " + val.length + " 字符一致）";
+    return "写入自检失败：写进去的是 [" + val + "]，读回来的是 [" + got + "]";
+}
+
 var uiApi = {
     lib: LIB,
     cfg: function () { return cfg(); },
@@ -942,12 +1146,24 @@ var uiApi = {
     theme: function () { return themeColor(); },
     emph: function () { return emphColor(); },
     status: function () { return statusObj(); },
-    addBlacklist: function (uuid, name, reason) { if (!isAuthority()) return noAuth(); return addBlacklist(uuid, LIB.safeName(name), reason == null ? "手动" : reason, false); },
-    removeBlacklist: function (uuid) { if (!isAuthority()) return noAuth(); return removeBlacklist(uuid, "手动"); },
-    addWatch: function (uuid, name) { if (!isAuthority()) return noAuth(); return addWatch(uuid, name == null ? LIB.shortId(uuid) : LIB.safeName(name)); },
-    removeWatch: function (uuid) { if (!isAuthority()) return noAuth(); return removeWatch(uuid); },
+    // 名单动作成功后必须重画：不然「加进去了但列表还是空的」看起来像没写入
+    addBlacklist: function (uuid, name, reason) {
+        if (!isAuthority()) return noAuth();
+        var r = addBlacklist(uuid, LIB.safeName(name), reason == null ? "手动" : reason, false);
+        uiApi.rebuild();
+        return r;
+    },
+    removeBlacklist: function (uuid) { if (!isAuthority()) return noAuth(); var r = removeBlacklist(uuid, "手动"); uiApi.rebuild(); return r; },
+    addWatch: function (uuid, name) { if (!isAuthority()) return noAuth(); var r = addWatch(uuid, name == null ? LIB.shortId(uuid) : LIB.safeName(name)); uiApi.rebuild(); return r; },
+    removeWatch: function (uuid) { if (!isAuthority()) return noAuth(); var r = removeWatch(uuid); uiApi.rebuild(); return r; },
     unbanVanilla: function (uuid) { if (!isAuthority()) return noAuth(); return unbanVanilla(uuid); },
     checkUpdate: function (cb) { checkUpdate(cb); },
+    authInfo: function () { return authInfo(); },
+    diag: function () { return diagText(); },
+    logPath: function () { var f = dbgFile(); return f == null ? "" : String(f.absolutePath()); },
+    logText: function () { return dbgText(); },
+    clearLog: function () { dbgClear(); return "日志已清空"; },
+    testWrite: function () { return selfTestWrite(); },
     notice: function (text) {
         try { if (Vars.ui != null) Vars.ui.showText("Grief to Ban", String(text)); } catch (e) { }
     }
@@ -989,7 +1205,93 @@ function buildCategory() {
 }
 
 function registerSettings() {
-    Events.on(ET.ClientLoadEvent, function () { try { buildCategory(); } catch (e) { } });
+    Events.on(ET.ClientLoadEvent, function () {
+        try { buildCategory(); } catch (e) { logErr("注册设置分类：" + e); }
+        try { registerPauseMenu(); } catch (e2) { logErr("暂停菜单：" + e2); }
+        try { autoUpdateNotice(); } catch (e3) { }
+    });
+    // 单机 / 房主这边 ClientLoadEvent 可能已经走过了，先补一次
+    try { buildCategory(); } catch (e4) { }
+    try { registerPauseMenu(); } catch (e5) { }
+    try { autoUpdateNotice(); } catch (e6) { }
+}
+
+// ---------------------------------------------------------------- 暂停菜单入口
+
+function openGtbDialog() {
+    try {
+        var d = new Packages.arc.scene.ui.Dialog("Grief to Ban");
+        var host = new Packages.arc.scene.ui.layout.Table();
+        buildSettingsTable(host);
+        try { d.cont.pane(host).width(620).height(420).row(); }
+        catch (ep) { d.cont.add(host).row(); }
+        d.buttons.button("关闭", function () { d.hide(); }).width(110);
+        d.show();
+        dbg("pause dialog opened");
+    } catch (e) {
+        logErr("打开设置窗失败：" + e);
+        try { if (Vars.ui != null) Vars.ui.showText("Grief to Ban", "打开设置窗失败：" + e); } catch (e2) { }
+    }
+}
+
+function addPauseEntry(pd) {
+    if (pd == null) return false;
+    try {
+        if (pd.cont == null) return false;
+        pd.cont.row();
+        pd.cont.button("Grief to Ban", openGtbDialog).size(220, 50).pad(5);
+        return true;
+    } catch (e) {
+        logErr("暂停菜单条目失败：" + e);
+        return false;
+    }
+}
+
+function registerPauseMenu() {
+    var ui = null;
+    try { ui = Vars.ui; } catch (e) { ui = null; }
+    if (ui == null) return false;
+    var pd = null;
+    try { pd = ui.paused; } catch (e2) { pd = null; }
+    if (pd == null) return false;
+    if (GTB.pauseHooked === true) return true;
+    try {
+        pd.shown(function () {
+            // PausedDialog 每次 show 都 rebuild + clearChildren，所以每次都重挂一遍
+            try { Core.app.post(function () { addPauseEntry(pd); }); } catch (e3) { addPauseEntry(pd); }
+        });
+        GTB.pauseHooked = true;
+        logInfo("暂停菜单入口已挂");
+        return true;
+    } catch (e4) {
+        logErr("挂暂停菜单失败：" + e4);
+        return false;
+    }
+}
+
+// ---------------------------------------------------------------- 更新检查（进服/建房时自动跑一次）
+
+function autoUpdateNotice() {
+    if (GTB.cfg != null && GTB.cfg.updateCheck !== true) return;
+    try {
+        checkUpdate(function (r) {
+            try {
+                if (r == null) { dbg("update: no result"); return; }
+                if (r.ok !== true) {
+                    var msg = String(r.error);
+                    if (msg.indexOf("404") >= 0) dbg("update: repo has no release yet");
+                    else dbg("update: check failed " + msg);
+                    return;
+                }
+                if (LIB.newerAvailable(LIB.VERSION, r.latest)) {
+                    dbg("update available " + r.latest + " " + r.url);
+                    broadcast(LIB.textInfo("Grief to Ban 有新版本 v" + r.latest + "：" + r.url));
+                } else {
+                    dbg("update: latest=" + r.latest + " current=" + LIB.VERSION);
+                }
+            } catch (e) { dbg("update cb crash " + e); }
+        });
+    } catch (e2) { dbg("update crash " + e2); }
 }
 
 // ---------------------------------------------------------------- 自检（服务器探针用）
@@ -1012,6 +1314,25 @@ function selfTest() {
     chk(LIB.isVirusProbe === undefined, "no stray export");
     // gtb-ui.js 在 main.js:8 就 require 了：这条同时证明"界面模块能在 Rhino 里解析并导出 build"
     chk(UIMOD != null && typeof UIMOD.build === "function", "ui module build()");
+    chk(typeof dbg === "function" && typeof authInfo === "function", "debug helpers");
+    try { chk(diagText().indexOf("auth=") >= 0, "diag text"); } catch (eD) { lines.push("FAIL diag: " + eD); fails.push("diag"); }
+    chk(readNum({ heat: 0.5 }, "heat", 0) === 0.5, "readNum public field");
+    chk(isLogicBuild({ block: Packages.mindustry.content.Blocks.microProcessor }) === true, "isLogicBuild by block");
+    try {
+        var gb = Packages.mindustry.gen.Groups.build;
+        chk(seqSize(gb) >= 0, "seq size");
+        chk(seqGet(gb, 0) !== undefined, "seq get/index");
+    } catch (eQ) { lines.push("FAIL seq: " + eQ); fails.push("seq"); }
+    // 黑名单落盘这条路：写进去 → 从 Core.settings 读回 → 再删掉（只在 GTB_SELFTEST 时跑）
+    try {
+        var beforeN = cfg().blacklist.length;
+        addBlacklist("selftest-uuid", "SelfTest", "自检", true);
+        var raw = "";
+        try { raw = String(Core.settings.getString(LIB.KEYS.blacklist, "")); } catch (eR) { raw = ""; }
+        chk(raw.indexOf("selftest-uuid") >= 0, "blacklist persisted");
+        removeBlacklist("selftest-uuid", "自检");
+        chk(cfg().blacklist.length === beforeN, "blacklist removed");
+    } catch (eBL) { lines.push("FAIL blacklist: " + eBL); fails.push("blacklist"); }
     var f = findFieldByName("mindustry.gen.Building", "enabled");
     chk(f != null, "field gen.Building.enabled");
     if (f != null) {
@@ -1045,10 +1366,9 @@ function init() {
     try { reload(); } catch (e) { logErr("读取配置失败：" + e); }
     try { bindEvents(); } catch (e2) { logErr("绑定事件失败：" + e2); }
     try { registerSettings(); } catch (e3) { }
+    dbg("init v" + LIB.VERSION + " " + authInfo());
+    GTB_DBG.lastBeat = nowMs();
     logInfo("Grief to Ban v" + LIB.VERSION + " 已加载（enable=" + (GTB.cfg == null ? "?" : GTB.cfg.enable) + "，黑名单 " + (GTB.cfg == null ? 0 : GTB.cfg.blacklist.length) + " 条）");
-    if (GTB.cfg != null && GTB.cfg.updateCheck) {
-        try { checkUpdate(function (r) { if (r.ok && LIB.newerAvailable(LIB.VERSION, r.latest)) logInfo("发现新版本 v" + r.latest + "：" + r.url); }); } catch (e4) { }
-    }
     selftestIfAsked();
 }
 
