@@ -2,6 +2,13 @@
 
 只记对外可见的变化。工程细节见 `out/takeover-20261024/` 下的报告。
 
+## 0.1.2
+
+- **自动更新在限流下也能用**：api.github.com 按 IP 限流（本机实测 403 rate limit exceeded），
+  拿不到 latest release 时改读仓库 main 上的 mod.hjson 版本号（raw.githubusercontent 走 CDN，
+  没有这层限制）。两条都失败才记一条日志，不提示、不报错。
+- 自检多了两条：mod.hjson 版本号能解析出来、minGameVersion 不会被误当成 version。
+
 ## 0.1.1
 
 修用户实测报的五件事。根因只有一条，但它让所有「全图扫描」静默空转。

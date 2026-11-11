@@ -3261,3 +3261,7 @@ gate 新增两步：`gtb`（默认档，0.5 s）与 `gtbprobe`（--full，与 pr
 ## §125 补充：公开发布（2026-11-11）
 
 Grief to Ban 0.1.1 已发到 https://github.com/EnernalIliary/Mindustry-GriefToBan （原本空仓）：提交 62be669、tag v0.1.1、Release 挂 GriefToBan-0.1.1.zip（37,521 B）与 GTB-0.1.1.zip（39,226 B），releases/latest = v0.1.1 ⇒ 模组内自动更新检查从此能取到版本号。克隆在 out/_publish/gtb-clone；脚本 out/_gtb_pub.py（copy|test|commit）、out/_gtb_release.py（建 release + 传资产）、out/_gtb_repo_check.py（查仓库状态），都走 out/_gh_api.py 的 git credential fill 取 PAT。
+
+## §126 Grief to Ban 0.1.2：限流下的更新检查（2026-11-11）
+
+0.1.1 发布后发现本机匿名访问 api.github.com 直接 403 rate limit exceeded ⇒ 自动更新可能是哑的。0.1.2 加回退：API 失败时读 raw.githubusercontent 上 main 分支的 GriefToBan/mod.hjson 版本号（parseHjsonVersion 手写扫描，不用正则字面量），两条都失败才记日志。自检 33 条（新增 parseHjsonVersion 两条）。gate --full --kb-build 19/19（80.1s）。打包 GTB-0.1.2.zip 40,101 B / GriefToBan-0.1.2.zip 38,397 B，已装机（8 文件 0 mismatch）。公开仓提交 2c0ffe9 + tag v0.1.2 + Release v0.1.2（两资产，latest 已指向它）。报告见 out/takeover-20261024/105-gtb012.md。

@@ -1063,6 +1063,46 @@ function statusObj() {
     return o;
 }
 
+// mod.hjson 里的 version（不能写正则字面量：v160.7 的 Rhino 会在构造期 codeBug）
+function parseHjsonVersion(text) {
+    var s = String(text == null ? "" : text);
+    var i = s.indexOf("version");
+    while (i >= 0) {
+        var start = s.lastIndexOf("\n", i) + 1;
+        var end = s.indexOf("\n", i);
+        if (end < 0) end = s.length;
+        var t = LIB.trimStr(s.substring(start, end));
+        if (t.length > 8 && t.substring(0, 7) === "version") {
+            var q1 = t.indexOf("\"");
+            var q2 = q1 < 0 ? -1 : t.indexOf("\"", q1 + 1);
+            if (q1 >= 0 && q2 > q1) return t.substring(q1 + 1, q2);
+        }
+        i = s.indexOf("version", i + 7);
+    }
+    return "";
+}
+
+// api.github.com 按 IP 限流（本机实测 403 rate limit exceeded），退一步读仓库里的 mod.hjson。
+// raw.githubusercontent 走 CDN，没有这层限制，代价只是拿到的是 main 上的版本号。
+function fetchRawVersion(tail, finish) {
+    var url = "https://raw.githubusercontent.com/" + tail + "/main/GriefToBan/mod.hjson";
+    try {
+        Packages.arc.util.Http.get(url, function (res) {
+            try {
+                var v = parseHjsonVersion(String(res.getResultAsString()));
+                if (v === "") { finish({ ok: false, latest: "", url: "", error: "读不到版本号" }); return; }
+                finish({ ok: true, latest: v, url: "https://github.com/" + tail + "/releases", error: "" });
+            } catch (e2) {
+                finish({ ok: false, latest: "", url: "", error: "解析失败：" + e2 });
+            }
+        }, function (err) {
+            finish({ ok: false, latest: "", url: "", error: String(err) });
+        });
+    } catch (e3) {
+        finish({ ok: false, latest: "", url: "", error: String(e3) });
+    }
+}
+
 function checkUpdate(cb) {
     var done = false;
     function finish(r) {
@@ -1074,9 +1114,10 @@ function checkUpdate(cb) {
     var repo = LIB.trimStr(cfg().repo);
     if (repo === "") { finish({ ok: false, latest: "", url: "", error: "没有配置仓库地址" }); return; }
     var api = repo;
+    var tail = "";
     var gi = repo.indexOf("github.com");
     if (gi >= 0) {
-        var tail = repo.substring(gi + "github.com".length);
+        tail = repo.substring(gi + "github.com".length);
         if (tail.length > 0 && tail.charAt(0) === "/") tail = tail.substring(1);
         while (tail.length > 0 && tail.charAt(tail.length - 1) === "/") tail = tail.substring(0, tail.length - 1);
         if (tail.length > 4 && tail.substring(tail.length - 4) === ".git") tail = tail.substring(0, tail.length - 4);
@@ -1095,9 +1136,12 @@ function checkUpdate(cb) {
                 finish({ ok: false, latest: "", url: "", error: "解析失败：" + e2 });
             }
         }, function (err) {
+            dbg("update: api failed (" + String(err) + "), trying raw");
+            if (tail !== "") { fetchRawVersion(tail, finish); return; }
             finish({ ok: false, latest: "", url: "", error: String(err) });
         });
     } catch (e3) {
+        if (tail !== "") { fetchRawVersion(tail, finish); return; }
         finish({ ok: false, latest: "", url: "", error: String(e3) });
     }
 }
@@ -1346,6 +1390,8 @@ function selfTest() {
     try { chk(Packages.mindustry.content.Blocks.thoriumReactor != null, "block thoriumReactor"); } catch (e) { lines.push("FAIL block: " + e); fails.push("block"); }
     try { chk(Packages.mindustry.world.blocks.logic.LogicBlock.LogicBuild != null, "class LogicBuild"); } catch (e) { lines.push("FAIL logic: " + e); fails.push("logic"); }
     try { chk(Packages.arc.util.Http != null, "http"); } catch (e) { lines.push("FAIL http: " + e); fails.push("http"); }
+    chk(parseHjsonVersion('name: "x"\nversion: "0.1.2"\nminGameVersion: "146"') === "0.1.2", "hjson version");
+    chk(parseHjsonVersion('minGameVersion: "146"') === "", "hjson skips minGameVersion");
     chk(isVirusCode("ucontrol build 1 2 @micro-processor 0 @this") === true, "virus detect true");
     chk(isVirusCode("sensor x core1 @copper") === false, "virus detect false");
     var tag = fails.length === 0 ? "OK" : "FAIL";
