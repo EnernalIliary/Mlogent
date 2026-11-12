@@ -3315,3 +3315,5 @@ Grief to Ban 0.1.1 已发到 https://github.com/EnernalIliary/Mindustry-GriefToB
 **验证**：新增 `tests/grief-to-ban/run_perf_static_tests.js` 第 2 节 13 → **43 条**（全文件 68 条），负路径注入 6 处回归 → 7 failed/61 passed rc 1；`run_gtb_tests.py` 全量 rc 0（3 files checked + lib 275 + perf 68 + probe selftest OK）；`python -X utf8 gate.py --full --kb-build` = **19/19 passed in 86.7s**（gtb 7.4 s / gtbprobe 14.4 s / kb 184 source files）。
 
 **包 / 装机 / 发布**：`GTB-0.1.4.zip` 48,420 B、`GriefToBan-0.1.4.zip` 46,719 B → 装机 `E:\Program Files (x86)\Steam\steamapps\common\Mindustry\saves\mods\GriefToBan`（8 files / 0 mismatch，`version: "0.1.4"`，备份 `GriefToBan-20261112-190427`）。**install.ps1 在本机被 ExecutionPolicy 拦，必须走 `powershell -NoProfile -ExecutionPolicy Bypass -File …`。** 报告：`out/takeover-20261024/107-gtb014.md`。
+
+**发布补充（0.1.4）**：本地 commit **b42958f5**；公开仓 clone 提交 **a81b1df**「v0.1.4: watch the blocks that matter instead of scanning the map every second」+ tag **v0.1.4**（a0d0675），push main/tag 均 rc 0；Release <https://github.com/EnernalIliary/Mindustry-GriefToBan/releases/tag/v0.1.4> 挂 `GriefToBan-0.1.4.zip`（46,719 B）与 `GTB-0.1.4.zip`（48,420 B），脚本 `out/_gtb014_release.py`。
