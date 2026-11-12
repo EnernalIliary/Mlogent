@@ -3284,3 +3284,14 @@ Grief to Ban 0.1.1 已发到 https://github.com/EnernalIliary/Mindustry-GriefToB
 随版带上用户 m10061/m10076/m10086 的四条：钍堆恢复判据改 `reactorSafe()`（钍取空或通冷冻，否则保持停用且不再提示，日志 `reactor held`）；爆混机只 `setEnabled(false)` 不再清空材料、同一台只提示处置一次（`GTB_GENS`）；`onBuildEnd` 对**所有方块**记建造者，爆混机命中即拉黑建造者（管理员建的只广播）；`tickAdmins` 里 `removeBlacklist` 后补 `restoreTeam`；ESC 菜单按钮 `pd.cont.button("Grief to Ban", Icon.hammer, openGtbDialog)`。
 
 **验证**：`node --check` 三个脚本 rc 0；`tests/grief-to-ban/run_gtb_tests.py` **275 lib passed**；`tests/grief-to-ban/run_server_probe.py`（`MLOGSIM_JAVA=out\jre21\jdk-21.0.5+11-jre\bin\java.exe`）**rc 0**：`[GTB] Grief to Ban v0.1.3 已加载` + `selftest OK (0 fail)`，新增断言 `ok seqGet 先走 index()（EntityGroup 没有 get）`、`ok perf/editor helpers` 在列（[out/_gtb013_probe.log](out/_gtb013_probe.log)）。版本三处 0.1.3：`GriefToBan/mod.hjson`、`gtb-lib.js:6`、`run_server_probe.py:42 LOAD_MARK`。报告 [out/takeover-20261024/106-gtb013.md](out/takeover-20261024/106-gtb013.md)。
+
+## §128 补充：打包 · 装机 · 公开发布（2026-11-12）
+
+- gtb-test 交付（task-11）：新增 `tests/grief-to-ban/run_perf_static_tests.js`（523 行，6 节 38 条源码红线：seqGet 热路径 4 / 单遍 scanWorld 13 / 编辑器早退 8 / autosave 单点 5 / inEditor 判定 2 / dbg 缓冲 6，失败打印 expected/actual + `main.js:<行号>`，支持 `GTB_MAIN_JS` 指向副本自测变红）；`run_gtb_tests.py` 重写成 4 阶段 CLI（check→lib→perf→probe，`--only/--no-probe/--list`）。autosave 红线未按字面「全文件仅一次」：非注释代码里有 2 处 —— `main.js:104`（flushSettings，热路径唯一入口）+ `main.js:1358`（selfTestWrite，界面按钮手动触发），断言写成「flushSettings 恰好 1 次 + 热路径 0 次 + 其它只允许 selfTestWrite」。负路径已验证（注入 6 处回归 → 15 failed/23 passed、rc 1）。
+- 门禁：`python -X utf8 gate.py --full --kb-build` = **19/19 passed in 96.0s**（`out/_gate_gtb013.log`；gtb 10.2 s、gtbprobe 16.2 s、kb covers 184 source file(s)）。
+- 包：`python -X utf8 tools/package_gtb.py` → `out/_dist/GTB-0.1.3/`（8 files）、`GTB-0.1.3.zip` 45,871 B、`GriefToBan-0.1.3.zip` 44,167 B。
+- 装机：`out/_dist/GTB-0.1.3/install.ps1 -Silent` → `E:\Program Files (x86)\Steam\steamapps\common\Mindustry\saves\mods\GriefToBan`，8 files / 0 mismatch，`version: "0.1.3"`；纯 JS 模组，游戏在跑也能装（当时 Mindustry pid 44868 + logicd pid 45696 都在跑），**重启游戏才加载 0.1.3**。
+- 本地提交 `2d48997`「v0.1.3：地图编辑器卡顿的真根因是每秒 2.5 万次引擎异常」（11 files / +1238 −166）。
+- 公开发布：`out/_gtb_pub.py` 的 FILES 加了 `run_perf_static_tests.js`（否则克隆里 perf 阶段缺文件）；copy 18 files → 克隆测试全绿 → 提交 **5bcfeec**、附注 tag **v0.1.3**，push main/tag 均 rc 0（`git ls-remote`：main 5bcfeec、tag 35919f5）。克隆里探针需要 `out/_server160.jar` + `out/jre21`（PATH 的 java 是 Java 8），临时拷 jar、`mklink /J` 指 jre21，均在 .gitignore 内。
+- Release：新脚本 `out/_gtb013_release.py` → 201 建，两资产 201（44,167 B / 45,871 B），`releases/latest` = v0.1.3；<https://github.com/EnernalIliary/Mindustry-GriefToBan/releases/tag/v0.1.3>。
+- 报告：[out/takeover-20261024/106-gtb013.md](out/takeover-20261024/106-gtb013.md)；实测脚本 [out/_seqcost_probe.py](out/_seqcost_probe.py)。
