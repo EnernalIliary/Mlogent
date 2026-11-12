@@ -3438,3 +3438,8 @@ moment it starts, and put the real block back」+ tag **v0.1.7**（949bc0b），
   install.ps1 -Silent（Bypass 方式）装好，python 比对 8 files / 0 mismatch、version 0.1.8。
   纯 JS 模组，游戏在跑也能装，重启游戏才加载。
 - 报告：out/takeover-20261024/111-gtb018.md。
+- 发布（2026-11-12）：本地 **cd6573f0**；公开仓 out/_publish/gtb-clone 提交 **552c35b**
+  「v0.1.8: let Chinese descriptions break at the panel width」+ 附注 tag **v0.1.8**（2a9770d），
+  push main/tag 直连 rc 0（ls-remote 校验一致）；Release out/_gtb018_release.py → 201 +
+  两资产 201（52,821 B / 54,524 B），latest = v0.1.8：
+  https://github.com/EnernalIliary/Mindustry-GriefToBan/releases/tag/v0.1.8
