@@ -3317,3 +3317,30 @@ Grief to Ban 0.1.1 已发到 https://github.com/EnernalIliary/Mindustry-GriefToB
 **包 / 装机 / 发布**：`GTB-0.1.4.zip` 48,420 B、`GriefToBan-0.1.4.zip` 46,719 B → 装机 `E:\Program Files (x86)\Steam\steamapps\common\Mindustry\saves\mods\GriefToBan`（8 files / 0 mismatch，`version: "0.1.4"`，备份 `GriefToBan-20261112-190427`）。**install.ps1 在本机被 ExecutionPolicy 拦，必须走 `powershell -NoProfile -ExecutionPolicy Bypass -File …`。** 报告：`out/takeover-20261024/107-gtb014.md`。
 
 **发布补充（0.1.4）**：本地 commit **b42958f5**；公开仓 clone 提交 **a81b1df**「v0.1.4: watch the blocks that matter instead of scanning the map every second」+ tag **v0.1.4**（a0d0675），push main/tag 均 rc 0；Release <https://github.com/EnernalIliary/Mindustry-GriefToBan/releases/tag/v0.1.4> 挂 `GriefToBan-0.1.4.zip`（46,719 B）与 `GTB-0.1.4.zip`（48,420 B），脚本 `out/_gtb014_release.py`。
+
+## §130 GTB 0.1.5：进服第一个动作就是拆建筑 ⇒ 拉黑 + 通告 + 放回去
+
+> 用户 m10703：「再加一条，如果进游戏之后的第一个行为是拆除就ban、通报，然后恢复建筑。」
+
+**判据来源**：`Mindustry-Source/core/src/mindustry/world/blocks/ConstructBlock.java:59-69` ——
+`deconstructFinish(Tile, Block, Unit builder)` 先 `:67 Events.fire(new BlockBuildEndEvent(tile, builder, team, true, null))`，
+**然后** `:68 tile.remove()` ⇒ 事件里既有拆的人（`e.unit` → `getPlayer()`），也读得到原方块的
+种类 / 队伍 / 朝向 / config / 血量比例。原版没有「玩家动作日志」，所以「第一件事」只能自己记账。
+
+**改法**（`GriefToBan/scripts/main.js`，约 :700-790）：新增 `GTB_FIRST` 与 `firstMark / firstClear /
+firstPending / tileSnapshot / restoreTile / firstBreakCheck`。`onJoin` 末尾按 target 登记；`onLeave` 删；
+换图重置；`onBuildEnd` 的 `e.breaking === true` 分支放在 `var p = null` **之前**（不再走登记）；
+非 breaking 放置、`onConfig`、`noteInteract` 都算「做过别的事」→ `firstClear`。命中则
+`punish(p, LIB.REASON.firstBreak)`，并用 `Core.app.post` 延到下一帧 `restoreTile`：原位不是 air 就不动
+（不盖掉别人刚铺的），否则 `setBlock(block, team, rot)` + 血量比例 + `configured(null, conf)`，
+再广播「已把 X 拆掉的建筑放回原处。」。行为开关 `bh.firstBreak`（设置里第 ⑦ 项，默认开）。
+
+**验证**：`run_perf_static_tests.js` 68 → **88 条**（第 7 节 20 条含位置/顺序断言）、`run_lib_tests.js`
+275 → **281 条**；`run_gtb_tests.py` 全量 rc 0；负路径 6/12/9 failed 三种注入都变红；
+`python -X utf8 gate.py --full --kb-build` = **19/19 passed in 87.6s**（gtb 11.6 / gtbprobe 17.4）。
+
+**包 / 装机**：`GTB-0.1.5.zip` **50,236 B**、`GriefToBan-0.1.5.zip` **48,535 B** → 装机 8 files /
+0 mismatch、`version: "0.1.5"`、备份 `GriefToBan-20261112-192636`。报告：`out/takeover-20261024/108-gtb015.md`。
+
+**已知边界**：① 没有时间窗（进服逛 20 分钟再拆也算）；② `restoreTile` 不还原方块里的物品与液体。
+
