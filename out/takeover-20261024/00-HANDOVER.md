@@ -3374,3 +3374,4 @@ firstPending / tileSnapshot / restoreTile / firstBreakCheck`。`onJoin` 末尾�
 
 **包 / 装机**：`GTB-0.1.6.zip` **51,404 B**、`GriefToBan-0.1.6.zip` **49,703 B** → 装机 8 files /
 0 mismatch、`version: "0.1.6"`、备份 `GriefToBan-20261112-195625`。报告：`out/takeover-20261024/109-gtb016.md`。
+**发布补充（0.1.6）**：本地 commit **e6a4ba45**；公开仓 clone 提交 **5bf3d40**「v0.1.6: use the interaction window for the first action, restore the inventory too」+ tag **v0.1.6**（5b5ec99），push main/tag 均 rc 0 —— **直连当时 443 不通（`RPC failed; curl 28 Recv failure` → `Failed to connect to github.com port 443`），必须走 `HTTP_PROXY=http://127.0.0.1:10808`**（代理时通时不通，两个方向都试）；Release <https://github.com/EnernalIliary/Mindustry-GriefToBan/releases/tag/v0.1.6> 挂 `GriefToBan-0.1.6.zip`（49,703 B）与 `GTB-0.1.6.zip`（51,404 B），脚本 `out/_gtb016_release.py`。
