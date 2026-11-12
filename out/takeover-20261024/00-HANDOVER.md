@@ -3346,3 +3346,31 @@ firstPending / tileSnapshot / restoreTile / firstBreakCheck`。`onJoin` 末尾�
 
 **发布补充（0.1.5）**：本地 commit **677d8ce0**；公开仓 clone 提交 **77d7bab**「v0.1.5: ban whoever breaks a building as the very first thing they do」+ tag **v0.1.5**（69a9d9a），push main/tag 均 rc 0（代理 10808 当时 TLS 握手失败 ⇒ 直连 push）；Release <https://github.com/EnernalIliary/Mindustry-GriefToBan/releases/tag/v0.1.5> 挂 `GriefToBan-0.1.5.zip`（48,535 B）与 `GTB-0.1.5.zip`（50,236 B），脚本 `out/_gtb015_release.py`。
 
+
+## §131 GTB 0.1.6：第一动作的时间窗并入「多次交互」+ 库存一起还原
+
+> 用户 m10864：「合并到交互多次的时间里吧沿用它们的时间。全部还原」
+
+**时间窗**：新增 `firstRecent(p, winSec)`，窗口取 `cfg.thInteractWindow`（键 `th-interact-window`，
+默认 10 秒，范围 2..120，与「多次交互」规则共用，**不新增设置项**）。
+`firstBreakCheck` 里插在「开关判断」之后、「取 `e.tile`」之前：
+`if (!firstRecent(p, cfg0.thInteractWindow)) { firstClear(p); return; }` —— 进服很久以后才拆一块
+自己放错的东西不算第一件事；快速骚扰号仍然落在窗口里。
+
+**库存还原**：`tileSnapshot` 的 snap 增加 `items` / `liquids`，新增 `itemSnapshot` / `liquidSnapshot` /
+`restoreInventory`。拆除瞬间按 `Packages.mindustry.Vars.content.items()` / `content.liquids()` 逐项
+`get(x)` 快照（物品数量 > 0、液体 > 0.0001；不用 Java 单方法接口 `each()`），放回时 `clear()` +
+逐项 `set()`。`restoreTile` 顺序：air 守卫 → `setBlock` → 血量比例 → `configured` → `restoreInventory`。
+依据：`ItemModule.java` :209 `get(Item)` / :213 `set(Item,int)` / :281 `clear()`；
+`LiquidModule.java` :102 `get(Liquid)` / :91 `set(Liquid,float)` / :106 `clear()`。
+
+**验证**：`run_perf_static_tests.js` 88 → **99 passed**（新第 8 节 11 条：`firstRecent` 用
+`nowMs()`/`rec.t`/`* 1000`、`rec.done === true` 守卫、时间窗位置断言、lib 无 `first-window` 新键、
+三个库存函数与 `content.items()/liquids()`、`tileSnapshot` 的 `items: null`/`liquids: null`、
+`restoreInventory` 在 `configured` 之后、`clear()` 早于 `set()`、ui 文案含「物品与液体」「多次交互」）；
+`run_lib_tests.js` 281 未变；`run_gtb_tests.py` 全量 rc 0（真 v160 探针打印 `v0.1.6 已加载`、selftest 0 fail）；
+负路径（删时间窗调用 / 删 `items.clear()` / 删 `restoreInventory` 调用）→ **3 failed / 96 passed** rc 1；
+`python -X utf8 gate.py --full --kb-build` = **19/19 passed in 91.8s**（日志 `out/_gate_gtb016.log`）。
+
+**包 / 装机**：`GTB-0.1.6.zip` **51,404 B**、`GriefToBan-0.1.6.zip` **49,703 B** → 装机 8 files /
+0 mismatch、`version: "0.1.6"`、备份 `GriefToBan-20261112-195625`。报告：`out/takeover-20261024/109-gtb016.md`。
