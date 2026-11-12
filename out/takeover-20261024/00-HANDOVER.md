@@ -3375,3 +3375,39 @@ firstPending / tileSnapshot / restoreTile / firstBreakCheck`。`onJoin` 末尾�
 **包 / 装机**：`GTB-0.1.6.zip` **51,404 B**、`GriefToBan-0.1.6.zip` **49,703 B** → 装机 8 files /
 0 mismatch、`version: "0.1.6"`、备份 `GriefToBan-20261112-195625`。报告：`out/takeover-20261024/109-gtb016.md`。
 **发布补充（0.1.6）**：本地 commit **e6a4ba45**；公开仓 clone 提交 **5bf3d40**「v0.1.6: use the interaction window for the first action, restore the inventory too」+ tag **v0.1.6**（5b5ec99），push main/tag 均 rc 0 —— **直连当时 443 不通（`RPC failed; curl 28 Recv failure` → `Failed to connect to github.com port 443`），必须走 `HTTP_PROXY=http://127.0.0.1:10808`**（代理时通时不通，两个方向都试）；Release <https://github.com/EnernalIliary/Mindustry-GriefToBan/releases/tag/v0.1.6> 挂 `GriefToBan-0.1.6.zip`（49,703 B）与 `GTB-0.1.6.zip`（51,404 B），脚本 `out/_gtb016_release.py`。
+## §132 GTB 0.1.7：拆除「刚动手」就判，还原的是原方块（不再是 @air）
+
+**用户 m10997**：「你放置的建筑不是原建筑，而是@air，而且应该检测拆除行为，而不是等完全拆除再拉黑」
+
+**根因**：旧实现挂「拆完」事件（`BlockBuildEndEvent(breaking=true)`）。可是拆除**一开始**
+（`Mindustry-Source/core/src/mindustry/world/Build.java:39-58`）`tile` 就被换成 `ConstructBlock`，
+原方块挪进 `ConstructBuild.previous`（`ConstructBlock.java:167`，**默认值就是 `Blocks.air`**），
+旧建筑进 `prevBuild`。所以「拆完」那一刻 `tile.block()` 读到的是构造块，`setBlock` 回去等于放了个
+`previous = air` 的空壳 ⇒ 画面上就是用户看到的一片空白。行为本身在 `Build.java:66` 就有
+`BlockBuildBeginEvent(tile, team, unit, true)`，早该在那里判。
+
+**改法**（`GriefToBan/scripts/main.js`）：
+
+- 新增 `breakSnapshot(t, cb)`：`block = cb.previous`、旧建筑 `= cb.prevBuild.get(0)`（team / rotation /
+  `config()` / `healthf()` / 物品 / 液体都从旧建筑取）；`previous` 是 air/null 就当没取到。
+- 新增 `onBuildBegin(e)` + `firstBreakBegin(e, p)`，绑 `ET.BlockBuildBeginEvent`；判中就直接把
+  ConstructBlock 换回原方块 = **当场撤销这次拆除**。
+- `restoreTile(t, snap, allowConstruct)`：只有 `allowConstruct === true` 且当前正是 ConstructBlock 时
+  才允许覆盖；其余情况仍只在空位放。
+- `firstBreakCheck`（拆完兜底）遇到 ConstructBlock 直接返回；`onBuildEnd` 的 breaking 分支先查
+  `GTB_BREAK[key]`，有就在下一帧用快照放回。
+- 新增 `placeBlock(t, snap)`：联机时先 `t.setNet(block, team, rot)`（`Call.setTile` 才会同步给客户端），
+  `t.block()` 没变就退回 `t.setBlock(...)`。
+
+**验证**：`run_perf_static_tests.js` 99 → **115 passed**（新第 9 节 16 条）；负路径三处注入
+（拆 begin 绑定 / 去 `isConstructBlock(cb)` 守卫 / 快照改读 `t.block()`）分别 1/2/1 failed、全 rc 1；
+`run_lib_tests.js` 281 未变；`run_gtb_tests.py` 全量 rc 0（真 v160 探针 `v0.1.7 已加载`、selftest 0 fail）；
+`python -X utf8 gate.py --full --kb-build` = **19/19 passed in 86.5s**（`out/_gate_gtb017.log`，kb covers 184 source file(s)）。
+
+**包 / 装机**：`out/_dist/GTB-0.1.7/`（8 files）、`GTB-0.1.7.zip` **53,591 B**、`GriefToBan-0.1.7.zip`
+**51,887 B**；装机（**必须** `powershell -NoProfile -ExecutionPolicy Bypass -File out\_dist\GTB-0.1.7\install.ps1 -Silent`）
+→ sha256 逐文件比对 **8 files / 0 mismatch**、`version: "0.1.7"`。报告：`out/takeover-20261024/110-gtb017.md`。
+
+**已知未做**：`instantDeconstruct` 的方块不发 begin 事件，仍只能走拆完兜底（那时原方块已不在 tile 上，取不到快照）；
+联机只同步方块/队伍/朝向（`Call.setTile`），配置与库存没有单独广播，远端看到的可能是默认配置。
+
