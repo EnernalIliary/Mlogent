@@ -3344,3 +3344,5 @@ firstPending / tileSnapshot / restoreTile / firstBreakCheck`。`onJoin` 末尾�
 
 **已知边界**：① 没有时间窗（进服逛 20 分钟再拆也算）；② `restoreTile` 不还原方块里的物品与液体。
 
+**发布补充（0.1.5）**：本地 commit **677d8ce0**；公开仓 clone 提交 **77d7bab**「v0.1.5: ban whoever breaks a building as the very first thing they do」+ tag **v0.1.5**（69a9d9a），push main/tag 均 rc 0（代理 10808 当时 TLS 握手失败 ⇒ 直连 push）；Release <https://github.com/EnernalIliary/Mindustry-GriefToBan/releases/tag/v0.1.5> 挂 `GriefToBan-0.1.5.zip`（48,535 B）与 `GTB-0.1.5.zip`（50,236 B），脚本 `out/_gtb015_release.py`。
+
