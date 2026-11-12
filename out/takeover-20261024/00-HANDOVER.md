@@ -3411,3 +3411,10 @@ firstPending / tileSnapshot / restoreTile / firstBreakCheck`。`onJoin` 末尾�
 **已知未做**：`instantDeconstruct` 的方块不发 begin 事件，仍只能走拆完兜底（那时原方块已不在 tile 上，取不到快照）；
 联机只同步方块/队伍/朝向（`Call.setTile`），配置与库存没有单独广播，远端看到的可能是默认配置。
 
+**发布（0.1.7）**：本地 commit **050812d2**；公开仓 clone 提交 **c7a3bfe**「v0.1.7: judge the break the
+moment it starts, and put the real block back」+ tag **v0.1.7**（949bc0b），直连 push 失败、代理
+`http://127.0.0.1:10808` 下 main/tag 均 rc 0；Release
+<https://github.com/EnernalIliary/Mindustry-GriefToBan/releases/tag/v0.1.7> 挂 `GriefToBan-0.1.7.zip`
+（51,887 B）与 `GTB-0.1.7.zip`（53,591 B），脚本 `out/_gtb017_release.py`。装机 8 files / 0 mismatch、
+`version: "0.1.7"`，**重启游戏生效**。
+
