@@ -3295,3 +3295,23 @@ Grief to Ban 0.1.1 已发到 https://github.com/EnernalIliary/Mindustry-GriefToB
 - 公开发布：`out/_gtb_pub.py` 的 FILES 加了 `run_perf_static_tests.js`（否则克隆里 perf 阶段缺文件）；copy 18 files → 克隆测试全绿 → 提交 **5bcfeec**、附注 tag **v0.1.3**，push main/tag 均 rc 0（`git ls-remote`：main 5bcfeec、tag 35919f5）。克隆里探针需要 `out/_server160.jar` + `out/jre21`（PATH 的 java 是 Java 8），临时拷 jar、`mklink /J` 指 jre21，均在 .gitignore 内。
 - Release：新脚本 `out/_gtb013_release.py` → 201 建，两资产 201（44,167 B / 45,871 B），`releases/latest` = v0.1.3；<https://github.com/EnernalIliary/Mindustry-GriefToBan/releases/tag/v0.1.3>。
 - 报告：[out/takeover-20261024/106-gtb013.md](out/takeover-20261024/106-gtb013.md)；实测脚本 [out/_seqcost_probe.py](out/_seqcost_probe.py)。
+
+## §129 GTB 0.1.4：全图扫描改成事件驱动（2026-11-12）
+
+> 用户 m10511：「什么东西需要全图扫描啊，不能只在方块更新时扫描或者看看有没有原版API可供调用吗。」
+> 0.1.3 已把真元凶（`seqGet` 调不存在的方法、每秒 2.5 万次异常）修掉；这条问的是剩下的全图遍历。
+
+**取证（v160 源码，本 checkout）**
+- 有事件：放置 = `BlockBuildEndEvent`（`Mindustry-Source/core/src/mindustry/world/Build.java:116`，另 `ConstructBlock.java:67/120`、`CoreBlock.java:222`）；拆除 = `BlockDestroyEvent`（`BuildingComp.java:2250`，销毁前 tile.build 非 null）；存活 = `Building.isValid()`（`BuildingComp.java:2036`）。
+- 没有事件：钍堆热量、发电机物品进出、逻辑代码被网络同步改 —— `ConfigEvent` 全仓只在 `Mindustry-Source/core/src/mindustry/input/InputHandler.java:729`（玩家点配置）触发；world processor `setblock` / 模组直接改世界也没有事件。
+- 结论：「有哪些方块」能事件化；「热量 / 爆混 / 代码」这些随时间变的量只能轮询。
+
+**三层改法（GriefToBan/scripts/main.js，旧 `scanWorld()` 整块删除）**
+1. `seedWatch()`：`WorldLoadEvent` 一次性全图播种（8311 方块约 3 ms），填 `GTB_WATCH.react/.gen/.logic`。
+2. 事件增量：`onBuildEnd` → `watchAdd`；`onConfig` → `watchAdd` 补登记；新增 `onBuildDestroy`（`ET.BlockDestroyEvent`）→ `watchDrop`，同时抹掉 `GTB_REACTORS/GTB_GENS/GTB_VIRUS/GTB.builders`。
+3. `sweepWorld()`：每 tick 只登记 `GTB_SWEEP.per = 64` 个（8311 方块约 30 s 滚完，单 tick <0.05 ms），兜住 world processor / 模组改世界 / 漏发事件；**只登记不检查**。
+每秒 `watchStep(now)` 只 for-in 三张表（100~200 个方块），`watchLive(ref,key)` 用 `isValid()` 收尸；`stepReactor/stepGen` 的 `live` 参数已删。计数改为取登记表大小（`GTB.stat.reactors = watchSize(GTB_WATCH.react)`），不再因某一秒关掉开关显示 0。`gtb.scan` 与心跳行新增 `watch=` `sweep=`。
+
+**验证**：新增 `tests/grief-to-ban/run_perf_static_tests.js` 第 2 节 13 → **43 条**（全文件 68 条），负路径注入 6 处回归 → 7 failed/61 passed rc 1；`run_gtb_tests.py` 全量 rc 0（3 files checked + lib 275 + perf 68 + probe selftest OK）；`python -X utf8 gate.py --full --kb-build` = **19/19 passed in 86.7s**（gtb 7.4 s / gtbprobe 14.4 s / kb 184 source files）。
+
+**包 / 装机 / 发布**：`GTB-0.1.4.zip` 48,420 B、`GriefToBan-0.1.4.zip` 46,719 B → 装机 `E:\Program Files (x86)\Steam\steamapps\common\Mindustry\saves\mods\GriefToBan`（8 files / 0 mismatch，`version: "0.1.4"`，备份 `GriefToBan-20261112-190427`）。**install.ps1 在本机被 ExecutionPolicy 拦，必须走 `powershell -NoProfile -ExecutionPolicy Bypass -File …`。** 报告：`out/takeover-20261024/107-gtb014.md`。
