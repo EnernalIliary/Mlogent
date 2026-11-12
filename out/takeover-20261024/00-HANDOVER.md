@@ -3265,3 +3265,22 @@ Grief to Ban 0.1.1 已发到 https://github.com/EnernalIliary/Mindustry-GriefToB
 ## §126 Grief to Ban 0.1.2：限流下的更新检查（2026-11-11）
 
 0.1.1 发布后发现本机匿名访问 api.github.com 直接 403 rate limit exceeded ⇒ 自动更新可能是哑的。0.1.2 加回退：API 失败时读 raw.githubusercontent 上 main 分支的 GriefToBan/mod.hjson 版本号（parseHjsonVersion 手写扫描，不用正则字面量），两条都失败才记日志。自检 33 条（新增 parseHjsonVersion 两条）。gate --full --kb-build 19/19（80.1s）。打包 GTB-0.1.2.zip 40,101 B / GriefToBan-0.1.2.zip 38,397 B，已装机（8 文件 0 mismatch）。公开仓提交 2c0ffe9 + tag v0.1.2 + Release v0.1.2（两资产，latest 已指向它）。报告见 out/takeover-20261024/105-gtb012.md。
+
+## §127 Grief to Ban 发布页 Contributors 清理（2026-11-11）
+
+用户要求删掉 release 页 Contributors 里的「this」与「Ilia R.」。根因两件事：①release BODY 里的 `@this` 被 GitHub 当成提及；②旧提交作者邮箱 `iliary@users.noreply.github.com` 属于账号 `iliary`（Ilia R.），不是 `EnernalIliary`。
+处理：PATCH body 去掉 @this 提及（盒子随之消失）；`out/_publish/gtb-clone` 里用 `git checkout --orphan clean` 重做单一提交 `d346f3e`，author/committer 均为 `iliary <iliary@outlook.com>`（映射 EnernalIliary），force push；远端删旧 release/tag 后重建 tag v0.1.2 与 Release（两资产）。随后补一个空提交 `cd7e1c9` 只是为了让 GitHub 重算。
+验证：`/commits/main` 的 author.login = EnernalIliary、`/stats/contributors` = EnernalIliary 1、graphs/contributors 页与首页/release 页 HTML 都没有 iliary / Ilia R.；仅 REST `/contributors` 端点仍是旧缓存（[iliary,2]），需等 GitHub 过期。脚本 out/_gtb_fix_body.py、_gtb_reset_remote.py、_gtb_verify_final.py。
+
+## §128 Grief to Ban 0.1.3：地图编辑器卡顿的真根因是「异常当控制流」（2026-11-12）
+
+用户 m10163 报「启用这个插件之后地图编辑器加载很久、长时间未响应」，我先在 MAI 侧找（以为是逻辑编辑器），m10300 用户直接点名「造成卡顿的是 Grief to ban」⇒ 确定目标。
+
+**根因**：v160 的 `Groups.build` 是 `mindustry.entities.EntityGroup`（`Mindustry-Source/core/src/mindustry/entities/EntityGroup.java`：index(int) :231、size() :235、each(Cons) :149，**没有 get(int)**、无 public items 字段），而 `seqGet()` 先调 `seq.get(i)`：**每个方块先抛一次 Rhino TypeError 再被 catch 吞掉**，日志里一行错都没有。旧代码每秒三遍全图扫描（scanReactors/scanGenerators/scanVirusQuick）且全在同一个 tick 里 ⇒ 8311 方块 × 3 ≈ **24933 次异常/s**。
+
+**实测**（task-10，mod-dev；真 v160 Rhino = `out/jre21` + `out/_server160.jar`，8000 次 × 3 轮 × 6 个独立 JVM 取中位）：缺方法异常 **13.8–15.8 µs/次（中位 14.87）**，无异常对照 `index(0)` 仅 0.36–0.46 µs ⇒ **370.8 ms/s（344–394）＝ 37% 墙钟**，换算成 60fps 是每帧 6.2 ms；三遍连同一 tick ⇒ 真机就是「每秒一次约 370 ms 的主线程整段停顿」。机理：成本不在 catch，在 Rhino **构造引擎异常对象**（要拼 `Building.toString()`）；开销与元素数无关（size=1 的组照样 15 µs）。产物 [out/_seqcost_probe.py](out/_seqcost_probe.py)、[out/_seqcost.log](out/_seqcost.log)。
+
+**修改**（`GriefToBan/scripts/main.js` 净 +437/−127 量级）：seqGet 先 `index(i)`（新增 seqIter）；三遍扫描合并成单遍 `scanWorld(now)` → `stepReactor`/`stepGen`/`stepLogic`；`inEditor()`（读 `Vars.state.rules.editor`，`Rules.java:51`）为真时 tick 与 onBuildEnd/onConfig 全早退；`GTB_PERF{scan,worst,builds}` + 系统属性 `gtb.scan`/心跳带 `ms= worst= editor=`，单轮 ≥40 ms 记 `scan slow`；`swrite` 同值不写 + 标脏 + 每 ≥1.5 s 一次 autosave（以前每处都 autosave 整份 287 KB settings.bin）；`dbg` 改内存缓冲（40 行 / 500 ms）不再每行开关文件；`GTB_PUNISH` 一轮最多处置 6 个。同一工作量约 **371 ms/s → 3.3 ms/s（≈110×）**。
+随版带上用户 m10061/m10076/m10086 的四条：钍堆恢复判据改 `reactorSafe()`（钍取空或通冷冻，否则保持停用且不再提示，日志 `reactor held`）；爆混机只 `setEnabled(false)` 不再清空材料、同一台只提示处置一次（`GTB_GENS`）；`onBuildEnd` 对**所有方块**记建造者，爆混机命中即拉黑建造者（管理员建的只广播）；`tickAdmins` 里 `removeBlacklist` 后补 `restoreTeam`；ESC 菜单按钮 `pd.cont.button("Grief to Ban", Icon.hammer, openGtbDialog)`。
+
+**验证**：`node --check` 三个脚本 rc 0；`tests/grief-to-ban/run_gtb_tests.py` **275 lib passed**；`tests/grief-to-ban/run_server_probe.py`（`MLOGSIM_JAVA=out\jre21\jdk-21.0.5+11-jre\bin\java.exe`）**rc 0**：`[GTB] Grief to Ban v0.1.3 已加载` + `selftest OK (0 fail)`，新增断言 `ok seqGet 先走 index()（EntityGroup 没有 get）`、`ok perf/editor helpers` 在列（[out/_gtb013_probe.log](out/_gtb013_probe.log)）。版本三处 0.1.3：`GriefToBan/mod.hjson`、`gtb-lib.js:6`、`run_server_probe.py:42 LOAD_MARK`。报告 [out/takeover-20261024/106-gtb013.md](out/takeover-20261024/106-gtb013.md)。
