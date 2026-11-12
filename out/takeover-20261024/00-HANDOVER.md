@@ -3418,3 +3418,23 @@ moment it starts, and put the real block back」+ tag **v0.1.7**（949bc0b），
 （51,887 B）与 `GTB-0.1.7.zip`（53,591 B），脚本 `out/_gtb017_release.py`。装机 8 files / 0 mismatch、
 `version: "0.1.7"`，**重启游戏生效**。
 
+
+
+## §133 GTB 0.1.8：设置页中文说明的折行点（2026-11-12）
+
+用户 m11225：「设置标题栏下"基于uid的黑名单"uid后面错误换行了。简单修一下」
+
+- 根因：Arc 折行（Arc-Source/arc-core/src/arc/graphics/g2d/Font.java:907-917 getWrapIndex）
+  是往回找最近的空格断行，只有整行没有任何空格时才按字符硬折（GlyphLayout.java:192-196）。
+  中文段落空格极少，那句说明里的空格落在「基于 uid」和「队伍 0」两处，于是溢出时回溯到
+  "uid" 后面那个空格 —— 第一行只剩「基于 uid」。
+- 改法（只动 GriefToBan/scripts/gtb-ui.js）：新增 isCjkChar(:44) 与 cjkTighten(:57)
+  ——把紧贴中文的半角空格去掉（纯英文/数字间的空格保留）；descLine(:263) 与
+  subLine(:250) 送排版前先过它。文案本身不变，只影响显示。
+- 验证：node --check rc 0；node 里抽样 cjkTighten + 按 16/22/26/33 字宽模拟折行都不再出现
+  「基于uid」单行；run_gtb_tests.py rc 0（lib 281 + 静态红线 + 真 v160 探针 v0.1.8）；
+  gate.py --full --kb-build = **19/19 passed in 84.5s**（out/_gate_gtb018.log）。
+- 包/装机：tools/package_gtb.py → GTB-0.1.8.zip 54,524 B / GriefToBan-0.1.8.zip 52,821 B；
+  install.ps1 -Silent（Bypass 方式）装好，python 比对 8 files / 0 mismatch、version 0.1.8。
+  纯 JS 模组，游戏在跑也能装，重启游戏才加载。
+- 报告：out/takeover-20261024/111-gtb018.md。
