@@ -163,6 +163,13 @@ python tools/kb.py serve
 ```
 
 - 工具名 `kb_search(query, k=6, kind="")`；`kind` 取 `doc` 或 `code`。
+- **两个分数别看错**：`score` 是 RRF 融合分，算法就是名次倒数 `1/(60+rank)`，所以相邻名次
+  只差百分之一二（报出来的 0.0159 / 0.0167 就是名次 60 前后的倒数，不是相关度）。
+  判断「这条像不像」看 `sim` —— 那是命中块与问题的余弦相似度，0.6 以上通常真相关。
+- 分块：正文 1400 字符、代码/00-data 摘要 120 字符。超长**行**按句末标点切开再硬切
+  （2026-11-15 修：旧实现只在塞满后 flush，长段落单行会整行超限，实测 128 块里 84 块
+  超过 1400、最长 1622；现在块长上限真的成立，最长 1396）。代码行与数据记录行不拆
+  —— 那里「一行 = 一条记录」，切开等于把一条记录撕成两半。
 
 ## 文件分层
 
@@ -245,9 +252,34 @@ python tools/kb.py serve
     python tools/sync_mlogagent.py --mirror all   # 三处仓库内副本 + 各自 MANIFEST.sha256
     python tools/sync_mlogagent.py --mirror all --check   # 只比不写
     python tools/sync_mlogagent.py --global      # 第四处（仓库外），需全权限
-    python tests/run_tests.py                     # 门禁：41 条 golden（行为层；副本一致性由上面的 --check 负责）
+    python tests/run_tests.py                     # 门禁：50 例（行为层；副本一致性由上面的 --check 负责）
 
 `--mirror` 只有 skill（默认）/ bp / install / all，**all 不含 global**；写完会对每个目标自动跑一次它自己的 `mlogagent.py info --verify`（要关掉加 `--no-verify`）。
+
+## 完整性清单（两份，各管一半）
+
+仓库里有两份 SHA-256 清单，覆盖集合不相交，别弄混：
+
+| 文件 | 谁验 | 覆盖什么 |
+| --- | --- | --- |
+| `<技能副本>/MANIFEST.sha256` | `python mlogagent.py info --verify` | 可整目录拷走的 payload：11 个模块 + 11 张数据表 |
+
+    python tools/check_manifest.py            # 校验（有漂移退 1，缺清单退 2）
+    python tools/check_manifest.py --write     # 改完工具/测试/规则后重算
+    python tools/check_manifest.py --root DIR  # 查别的树（导出链用它验公开树）
+
+第二份补的正是第一份够不到的地方：改 `tools/mlogsim.py`、改一条 golden、改一条规则，
+原先在仓库里没有任何人会发现。哈希按 CRLF→LF 归一化后算，与 `mlogagent._sha` 同口径，
+Windows 检出和 Linux 检出得同一个值。
+
+**故意不覆盖**（写进 `tools/check_manifest.py` 的 docstring）：`knowledge/`（天天在写，
+架构门禁走 `knowledge/tools/check_kb.py`）、`docs/`（散文每轮都改）、`.dsh/` 与
+`mindustry-blueprint/`（镜像副本各带自己的 MANIFEST.sha256）、`out/`·`dist/`·`saves/`·
+`assetsraw/`（草稿、构建产物、本地数据）。
+
+公开仓另带 `.github/workflows/gates.yml`：ubuntu + windows 双平台跑这五步
+（`check_manifest` → `run_tests` → `docsig` → `ruleids` → `shapes`）加一步
+`check_kb`。全部纯静态，不需要 Java、不需要联网。
 
 ## 维护约定
 

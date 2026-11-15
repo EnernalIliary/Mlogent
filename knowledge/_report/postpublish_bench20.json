@@ -10,9 +10,9 @@
    "top": [
     "knowledge/06-mlog/M08-性能与限制.md",
     "knowledge/06-mlog/M07-单位与逻辑控制.md",
-    "knowledge/06-mlog/M02-变量与作用域.md",
     "knowledge/06-mlog/M04-读写与感知.md",
     "knowledge/06-mlog/M03-控制流.md",
+    "knowledge/06-mlog/M02-变量与作用域.md",
     "knowledge/01-execution/E02-指令语义陷阱.md"
    ],
    "hitA": [
@@ -27,11 +27,11 @@
     true,
     false,
     false,
-    false,
     true,
+    false,
     true
    ],
-   "ms": 75.7
+   "ms": 143.2
   },
   {
    "no": 16,
@@ -43,16 +43,16 @@
     "knowledge/06-mlog/M01-执行模型总览.md",
     "knowledge/07-patterns/P06-performance.md",
     "knowledge/08-evidence/CHEAT.md",
-    "knowledge/KB.md",
     "knowledge/01-execution/E01-执行模型与预算.md",
+    "knowledge/KB.md",
     "knowledge/07-patterns/P01-architecture.md"
    ],
    "hitA": [
     true,
     true,
     true,
-    false,
     true,
+    false,
     true
    ],
    "hitB": [
@@ -63,7 +63,7 @@
     false,
     true
    ],
-   "ms": 66.0
+   "ms": 177.9
   },
   {
    "no": 31,
@@ -95,7 +95,7 @@
     false,
     false
    ],
-   "ms": 69.3
+   "ms": 175.8
   },
   {
    "no": 46,
@@ -108,8 +108,8 @@
     "knowledge/06-mlog/M01-执行模型总览.md",
     "knowledge/07-patterns/P02-state-machine.md",
     "knowledge/08-evidence/CHEAT.md",
-    "knowledge/01-execution/E02-指令语义陷阱.md",
-    "knowledge/01-execution/E04-时间与wait精度.md"
+    "knowledge/07-patterns/P07-unit-multicontrol.md",
+    "knowledge/01-execution/E02-指令语义陷阱.md"
    ],
    "hitA": [
     false,
@@ -127,7 +127,7 @@
     false,
     false
    ],
-   "ms": 76.2
+   "ms": 203.2
   },
   {
    "no": 61,
@@ -136,17 +136,17 @@
    "answer": "打印 0、1、2，共 3 个",
    "domain": "控制流",
    "top": [
-    "knowledge/06-mlog/M03-控制流.md",
     "knowledge/08-evidence/probes/README.md",
     "knowledge/06-mlog/M05-绘制与文本.md",
+    "knowledge/06-mlog/M03-控制流.md",
     "knowledge/08-evidence/CHEAT.md",
-    "knowledge/01-execution/E03-变量与内存边界.md",
-    "knowledge/03-combat/C06-unit-weapons.md"
+    "knowledge/07-patterns/P08-counter-architectures.md",
+    "knowledge/01-execution/E03-变量与内存边界.md"
    ],
    "hitA": [
     true,
-    true,
     false,
+    true,
     true,
     false,
     false
@@ -159,7 +159,7 @@
     false,
     false
    ],
-   "ms": 75.7
+   "ms": 130.4
   },
   {
    "no": 76,
@@ -191,7 +191,7 @@
     true,
     true
    ],
-   "ms": 107.6
+   "ms": 185.0
   },
   {
    "no": 91,
@@ -223,7 +223,7 @@
     false,
     false
    ],
-   "ms": 103.4
+   "ms": 176.1
   },
   {
    "no": 106,
@@ -255,7 +255,7 @@
     false,
     false
    ],
-   "ms": 61.3
+   "ms": 165.3
   },
   {
    "no": 121,
@@ -287,7 +287,7 @@
     false,
     false
    ],
-   "ms": 70.1
+   "ms": 164.7
   },
   {
    "no": 136,
@@ -300,8 +300,8 @@
     "knowledge/01-execution/E02-指令语义陷阱.md",
     "knowledge/06-mlog/M02-变量与作用域.md",
     "knowledge/01-execution/E03-变量与内存边界.md",
-    "knowledge/01-execution/E06-跨版本差异.md",
-    "knowledge/02-world/W12-sandbox-editor.md"
+    "knowledge/07-patterns/P08-counter-architectures.md",
+    "knowledge/01-execution/E06-跨版本差异.md"
    ],
    "hitA": [
     false,
@@ -319,7 +319,7 @@
     false,
     false
    ],
-   "ms": 60.6
+   "ms": 204.3
   },
   {
    "no": 151,
@@ -351,7 +351,7 @@
     true,
     true
    ],
-   "ms": 67.6
+   "ms": 143.2
   },
   {
    "no": 166,
@@ -363,17 +363,17 @@
     "knowledge/06-mlog/M03-控制流.md",
     "knowledge/06-mlog/M07-单位与逻辑控制.md",
     "knowledge/07-patterns/P02-state-machine.md",
+    "knowledge/07-patterns/P07-unit-multicontrol.md",
     "knowledge/08-evidence/CHEAT.md",
-    "knowledge/04-units/U05-progression.md",
-    "knowledge/08-evidence/anti-patterns.md"
+    "knowledge/04-units/U05-progression.md"
    ],
    "hitA": [
     true,
     true,
     true,
+    false,
     true,
-    true,
-    false
+    true
    ],
    "hitB": [
     true,
@@ -383,7 +383,7 @@
     true,
     true
    ],
-   "ms": 67.2
+   "ms": 172.4
   },
   {
    "no": 181,
@@ -415,7 +415,7 @@
     false,
     false
    ],
-   "ms": 61.0
+   "ms": 174.5
   },
   {
    "no": 196,
@@ -447,7 +447,7 @@
     false,
     false
    ],
-   "ms": 64.7
+   "ms": 154.2
   },
   {
    "no": 211,
@@ -479,7 +479,7 @@
     false,
     false
    ],
-   "ms": 68.3
+   "ms": 189.6
   },
   {
    "no": 226,
@@ -511,7 +511,7 @@
     false,
     false
    ],
-   "ms": 72.3
+   "ms": 194.7
   },
   {
    "no": 241,
@@ -520,12 +520,12 @@
    "answer": "D) power-node 为 1×1，power-node-large 为 2×2",
    "domain": "电力与热",
    "top": [
+    "knowledge/03-combat/turrets/T206-afflict.md",
     "knowledge/03-combat/C08-waves.md",
     "knowledge/02-world/W03-power.md",
     "knowledge/02-world/W11-block-state.md",
     "knowledge/02-world/W08-payloads.md",
-    "knowledge/04-units/U02-production.md",
-    "knowledge/01-execution/E01-执行模型与预算.md"
+    "knowledge/04-units/U02-production.md"
    ],
    "hitA": [
     false,
@@ -543,7 +543,7 @@
     false,
     false
    ],
-   "ms": 64.2
+   "ms": 227.3
   },
   {
    "no": 256,
@@ -554,17 +554,17 @@
    "top": [
     "knowledge/02-world/W05-heat.md",
     "knowledge/02-world/W04-liquids.md",
+    "knowledge/03-combat/turrets/T105-wave.md",
     "knowledge/03-combat/C03-bullets.md",
-    "knowledge/03-combat/C01-damage-pipeline.md",
-    "knowledge/02-world/W02-crafting-recipes.md",
-    "knowledge/03-combat/C02-turrets.md"
+    "knowledge/03-combat/turrets/T112-tsunami.md",
+    "knowledge/03-combat/C01-damage-pipeline.md"
    ],
    "hitA": [
     true,
     true,
     false,
     false,
-    true,
+    false,
     false
    ],
    "hitB": [
@@ -575,7 +575,7 @@
     false,
     false
    ],
-   "ms": 82.8
+   "ms": 175.4
   },
   {
    "no": 271,
@@ -584,17 +584,17 @@
    "answer": "A) 该液体的渲染颜色（十六进制）",
    "domain": "液体与物流",
    "top": [
+    "knowledge/02-world/W16-name-items.md",
     "knowledge/08-evidence/bench/README.md",
     "knowledge/02-world/W04-liquids.md",
     "00-data/liquids.json",
     "knowledge/06-mlog/M05-绘制与文本.md",
-    "knowledge/02-world/W10-storage.md",
-    "knowledge/02-world/W11-block-state.md"
+    "knowledge/02-world/W10-storage.md"
    ],
    "hitA": [
     true,
     true,
-    false,
+    true,
     false,
     false,
     false
@@ -607,7 +607,7 @@
     false,
     false
    ],
-   "ms": 64.1
+   "ms": 156.9
   },
   {
    "no": 286,
@@ -639,7 +639,7 @@
     false,
     false
    ],
-   "ms": 65.1
+   "ms": 187.5
   }
  ],
  "summary": {
@@ -651,8 +651,8 @@
   "B3": 6,
   "Bk": 6,
   "outside_top1": 0,
-  "p50_ms": 68.3,
-  "p90_ms": 103.4,
-  "warm_s": 1.0
+  "p50_ms": 175.8,
+  "p90_ms": 204.3,
+  "warm_s": 2.8
  }
 }

@@ -1,0 +1,46 @@
+name: gates
+
+# 四套测试 + 两处完整性校验，全部纯静态：不需要 Java、不需要联网、不碰 out/。
+# 本地跑的是同一批命令（见 tools/README.md「跑之前」一节），CI 只是让它们换个机器再跑一次。
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: gates-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  gates:
+    name: gates (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Repo integrity (tools / tests / rules)
+        run: python tools/check_manifest.py
+
+      - name: Golden corpus (blueprints byte-for-byte)
+        run: python tests/run_tests.py
+
+      - name: Docs signatures (instr_semantics agreement)
+        run: python tests/docsig/run_docsig.py
+
+      - name: Rule ids fire on fixtures
+        run: python tests/ruleids/run_ruleids.py
+
+      - name: Shape matrix
+        run: python tests/shapes/run_shapes.py
+
+      - name: Knowledge schema
+        run: python knowledge/tools/check_kb.py --root knowledge --all
