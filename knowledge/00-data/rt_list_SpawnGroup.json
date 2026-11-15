@@ -1,0 +1,79 @@
+{
+ "mindustry.game.SpawnGroup": {
+  "begin": {
+   "const": null,
+   "default": null,
+   "desc": "I"
+  },
+  "effect": {
+   "const": null,
+   "default": null,
+   "desc": "Lmindustry/type/StatusEffect;"
+  },
+  "end": {
+   "const": null,
+   "default": 2147483647,
+   "desc": "I"
+  },
+  "items": {
+   "const": null,
+   "default": null,
+   "desc": "Lmindustry/type/ItemStack;"
+  },
+  "max": {
+   "const": null,
+   "default": 40,
+   "desc": "I"
+  },
+  "never": {
+   "const": 2147483647,
+   "default": null,
+   "desc": "I"
+  },
+  "payloads": {
+   "const": null,
+   "default": null,
+   "desc": "Larc/struct/Seq;"
+  },
+  "shieldScaling": {
+   "const": null,
+   "default": 0.0,
+   "desc": "F"
+  },
+  "shields": {
+   "const": null,
+   "default": 0.0,
+   "desc": "F"
+  },
+  "spacing": {
+   "const": null,
+   "default": 1,
+   "desc": "I"
+  },
+  "spawn": {
+   "const": null,
+   "default": -1,
+   "desc": "I"
+  },
+  "team": {
+   "const": null,
+   "default": null,
+   "desc": "Lmindustry/game/Team;"
+  },
+  "type": {
+   "const": null,
+   "default": 0,
+   "desc": "Lmindustry/type/UnitType;"
+  },
+  "unitAmount": {
+   "const": null,
+   "default": 1,
+   "desc": "I"
+  },
+  "unitScaling": {
+   "const": null,
+   "default": 2147483648.0,
+   "desc": "F"
+  }
+ }
+}

@@ -1,0 +1,169 @@
+﻿{
+  "root": "<scratch-dir>\\_kv\\knowledge",
+  "files": 1,
+  "bytes": 8750,
+  "tokens": 937,
+  "errors": 2,
+  "warnings": 20,
+  "ids": 1,
+  "domain_counts": {},
+  "data_tables": [],
+  "error_list": [
+    {
+      "level": "error",
+      "path": "02-world/W01-blocks-multiblock-anchor.md",
+      "line": 1,
+      "code": "E_DOMAIN",
+      "msg": "domain 非法: world（允许: 01-execution, 02-world, 03-combat, 04-units, 05-campaign, 06-mlog, 07-patterns, 08-evidence）"
+    },
+    {
+      "level": "error",
+      "path": "02-world/W01-blocks-multiblock-anchor.md",
+      "line": 1,
+      "code": "E_DATA_FILE",
+      "msg": "data 引用的 00-data 文件不存在: 00-data/blocks.json"
+    }
+  ],
+  "warning_list": [
+    {
+      "level": "warning",
+      "path": "01-execution",
+      "line": 0,
+      "code": "W_DOMAIN_EMPTY",
+      "msg": "域目录无文章: 01-execution"
+    },
+    {
+      "level": "warning",
+      "path": "03-combat",
+      "line": 0,
+      "code": "W_DOMAIN_EMPTY",
+      "msg": "域目录无文章: 03-combat"
+    },
+    {
+      "level": "warning",
+      "path": "04-units",
+      "line": 0,
+      "code": "W_DOMAIN_EMPTY",
+      "msg": "域目录无文章: 04-units"
+    },
+    {
+      "level": "warning",
+      "path": "05-campaign",
+      "line": 0,
+      "code": "W_DOMAIN_EMPTY",
+      "msg": "域目录无文章: 05-campaign"
+    },
+    {
+      "level": "warning",
+      "path": "06-mlog",
+      "line": 0,
+      "code": "W_DOMAIN_EMPTY",
+      "msg": "域目录无文章: 06-mlog"
+    },
+    {
+      "level": "warning",
+      "path": "07-patterns",
+      "line": 0,
+      "code": "W_DOMAIN_EMPTY",
+      "msg": "域目录无文章: 07-patterns"
+    },
+    {
+      "level": "warning",
+      "path": "08-evidence",
+      "line": 0,
+      "code": "W_DOMAIN_EMPTY",
+      "msg": "域目录无文章: 08-evidence"
+    },
+    {
+      "level": "warning",
+      "path": "02-world/W01-blocks-multiblock-anchor.md",
+      "line": 1,
+      "code": "W_SRC_FORMAT",
+      "msg": "src 条目不像 路径:行号 / jar: 形式: MBO/gamedata/v160.7/gamedata.json (jar 反射，447 blocks)"
+    },
+    {
+      "level": "warning",
+      "path": "02-world/W01-blocks-multiblock-anchor.md",
+      "line": 118,
+      "code": "W_NUM_NO_SOURCE",
+      "msg": "数字声明缺来源标记: | 1 | 251 | 56.2% |"
+    },
+    {
+      "level": "warning",
+      "path": "02-world/W01-blocks-multiblock-anchor.md",
+      "line": 119,
+      "code": "W_NUM_NO_SOURCE",
+      "msg": "数字声明缺来源标记: | 2 | 64 | 14.3% |"
+    },
+    {
+      "level": "warning",
+      "path": "02-world/W01-blocks-multiblock-anchor.md",
+      "line": 120,
+      "code": "W_NUM_NO_SOURCE",
+      "msg": "数字声明缺来源标记: | 3 | 77 | 17.2% |"
+    },
+    {
+      "level": "warning",
+      "path": "02-world/W01-blocks-multiblock-anchor.md",
+      "line": 121,
+      "code": "W_NUM_NO_SOURCE",
+      "msg": "数字声明缺来源标记: | 4 | 19 | 4.3% |"
+    },
+    {
+      "level": "warning",
+      "path": "02-world/W01-blocks-multiblock-anchor.md",
+      "line": 122,
+      "code": "W_NUM_NO_SOURCE",
+      "msg": "数字声明缺来源标记: | 5 | 19 | 4.3% |"
+    },
+    {
+      "level": "warning",
+      "path": "02-world/W01-blocks-multiblock-anchor.md",
+      "line": 0,
+      "code": "W_NUM_NO_SOURCE",
+      "msg": "另有 3 行数字缺来源标记（同 E/W 略）"
+    },
+    {
+      "level": "warning",
+      "path": "02-world/W01-blocks-multiblock-anchor.md",
+      "line": 1,
+      "code": "W_TOKENS_STALE",
+      "msg": "tokens=1900 与当前估算 937 偏差过大，跑 --write-tokens 更新"
+    },
+    {
+      "level": "warning",
+      "path": "02-world/W01-blocks-multiblock-anchor.md",
+      "line": 153,
+      "code": "W_REF_UNKNOWN",
+      "msg": "相关 引用的 ID 在库中不存在: WORLD.CRAFTING.001"
+    },
+    {
+      "level": "warning",
+      "path": "02-world/W01-blocks-multiblock-anchor.md",
+      "line": 154,
+      "code": "W_REF_UNKNOWN",
+      "msg": "相关 引用的 ID 在库中不存在: WORLD.LOGISTICS.001"
+    },
+    {
+      "level": "warning",
+      "path": "02-world/W01-blocks-multiblock-anchor.md",
+      "line": 155,
+      "code": "W_REF_UNKNOWN",
+      "msg": "相关 引用的 ID 在库中不存在: WORLD.PAYLOAD.001"
+    },
+    {
+      "level": "warning",
+      "path": "02-world/W01-blocks-multiblock-anchor.md",
+      "line": 156,
+      "code": "W_REF_UNKNOWN",
+      "msg": "相关 引用的 ID 在库中不存在: WORLD.SANDBOX.001"
+    },
+    {
+      "level": "warning",
+      "path": "00-data",
+      "line": 0,
+      "code": "W_DATA_README",
+      "msg": "00-data/README.md 缺失（须说明单位口径/生成脚本/时间/条数）"
+    }
+  ]
+}

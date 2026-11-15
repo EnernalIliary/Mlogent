@@ -1,0 +1,108 @@
+{
+  "k": 6,
+  "candidates": 40,
+  "questions": "<scratch-dir>\\kb-stage\\08-evidence\\bench\\questions.jsonl",
+  "variants": {
+    "baseline": {
+      "n": 300,
+      "coverage": 1.0,
+      "hit@1": 0.6,
+      "hit@k": 0.8667,
+      "mrr": 0.6967,
+      "strong@k": 0.9421,
+      "outside_slot_share": 0.0,
+      "data_slot_share": 0.0244,
+      "avg_distinct_files_topk": 6.0,
+      "formula_hit@k": 0.7273,
+      "formula_n": 22,
+      "derive_hit@k": 0.9583,
+      "derive_n": 24,
+      "domains": {
+        "世界交互": {
+          "n": 25,
+          "hit@1": 0.44,
+          "hit@k": 0.92,
+          "mrr": 0.584,
+          "strong": 0.909
+        },
+        "单位控制": {
+          "n": 25,
+          "hit@1": 0.6,
+          "hit@k": 0.92,
+          "mrr": 0.725,
+          "strong": 0.889
+        },
+        "变量与作用域": {
+          "n": 25,
+          "hit@1": 0.4,
+          "hit@k": 0.76,
+          "mrr": 0.513,
+          "strong": 0.727
+        },
+        "性能限制": {
+          "n": 25,
+          "hit@1": 0.84,
+          "hit@k": 0.96,
+          "mrr": 0.881,
+          "strong": 1.0
+        },
+        "战斗与单位": {
+          "n": 25,
+          "hit@1": 0.88,
+          "hit@k": 0.96,
+          "mrr": 0.901,
+          "strong": 1.0
+        },
+        "执行模型": {
+          "n": 25,
+          "hit@1": 0.68,
+          "hit@k": 0.96,
+          "mrr": 0.775,
+          "strong": 1.0
+        },
+        "控制流": {
+          "n": 25,
+          "hit@1": 0.6,
+          "hit@k": 0.84,
+          "mrr": 0.686,
+          "strong": 1.0
+        },
+        "方块与锚点": {
+          "n": 25,
+          "hit@1": 0.52,
+          "hit@k": 0.76,
+          "mrr": 0.591,
+          "strong": 1.0
+        },
+        "液体与物流": {
+          "n": 25,
+          "hit@1": 0.48,
+          "hit@k": 0.8,
+          "mrr": 0.627,
+          "strong": 1.0
+        },
+        "电力与热": {
+          "n": 25,
+          "hit@1": 0.56,
+          "hit@k": 0.76,
+          "mrr": 0.641,
+          "strong": 1.0
+        },
+        "绘制文本": {
+          "n": 25,
+          "hit@1": 0.76,
+          "hit@k": 0.96,
+          "mrr": 0.843,
+          "strong": 0.917
+        },
+        "读写感知": {
+          "n": 25,
+          "hit@1": 0.44,
+          "hit@k": 0.8,
+          "mrr": 0.593,
+          "strong": 0.889
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,797 @@
+{
+  "questions": [
+    {
+      "q": "链接与 @ 常量：@links / getlink、内置变量分类与单位",
+      "expect": [
+        "EXEC.LINK.001",
+        "knowledge/01-execution/E05-链接与@常量.md"
+      ],
+      "top": [
+        "knowledge/01-execution/E05-链接与@常量.md",
+        "knowledge/06-mlog/M02-变量与作用域.md",
+        "knowledge/01-execution/E03-变量与内存边界.md"
+      ],
+      "ms": 153.4,
+      "top1": false,
+      "top3": false,
+      "topk": false,
+      "error": null
+    },
+    {
+      "q": "变量与内存边界：LVar 的四种状态、memory cell 与文本缓冲",
+      "expect": [
+        "EXEC.MEM.001",
+        "knowledge/01-execution/E03-变量与内存边界.md"
+      ],
+      "top": [
+        "knowledge/01-execution/E03-变量与内存边界.md",
+        "knowledge/06-mlog/M02-变量与作用域.md",
+        "knowledge/01-execution/E02-指令语义陷阱.md",
+        "docs/游戏速查/方块.md"
+      ],
+      "ms": 101.1,
+      "top1": false,
+      "top3": false,
+      "topk": false,
+      "error": null
+    },
+    {
+      "q": "执行模型与指令预算：从 tick 到 accumulator 的完整链路",
+      "expect": [
+        "EXEC.MODEL.001",
+        "knowledge/01-execution/E01-执行模型与预算.md"
+      ],
+      "top": [
+        "knowledge/01-execution/E01-执行模型与预算.md",
+        "knowledge/06-mlog/M01-执行模型总览.md",
+        "knowledge/07-patterns/P06-performance.md",
+        "knowledge/06-mlog/M03-控制流.md",
+        "knowledge/07-patterns/P01-architecture.md"
+      ],
+      "ms": 132.9,
+      "top1": false,
+      "top3": false,
+      "topk": false,
+      "error": null
+    },
+    {
+      "q": "时间与 wait 精度：tick、秒与帧差",
+      "expect": [
+        "EXEC.TIME.001",
+        "knowledge/01-execution/E04-时间与wait精度.md"
+      ],
+      "top": [
+        "knowledge/01-execution/E04-时间与wait精度.md",
+        "knowledge/01-execution/E02-指令语义陷阱.md",
+        "knowledge/06-mlog/M08-性能与限制.md",
+        "knowledge/06-mlog/M03-控制流.md"
+      ],
+      "ms": 134.1,
+      "top1": false,
+      "top3": false,
+      "topk": false,
+      "error": null
+    },
+    {
+      "q": "指令语义陷阱 30 条（向量 / 对象 / 数值 / 时序 / 内存 / 交互）",
+      "expect": [
+        "EXEC.TRAP.001",
+        "knowledge/01-execution/E02-指令语义陷阱.md"
+      ],
+      "top": [
+        "knowledge/01-execution/E02-指令语义陷阱.md",
+        "knowledge/01-execution/E03-变量与内存边界.md",
+        "knowledge/01-execution/E06-跨版本差异.md",
+        "knowledge/KB.md",
+        "knowledge/06-mlog/M01-执行模型总览.md",
+        "knowledge/06-mlog/M04-读写与感知.md"
+      ],
+      "ms": 115.2,
+      "top1": false,
+      "top3": false,
+      "topk": false,
+      "error": null
+    },
+    {
+      "q": "跨版本差异：v159.3 源码 vs v160.7 实测，以及文档冲突清单",
+      "expect": [
+        "EXEC.VER.001",
+        "knowledge/01-execution/E06-跨版本差异.md"
+      ],
+      "top": [
+        "knowledge/01-execution/E06-跨版本差异.md",
+        "knowledge/VERSION.md"
+      ],
+      "ms": 127.2,
+      "top1": false,
+      "top3": false,
+      "topk": false,
+      "error": null
+    },
+    {
+      "q": "方块模型与多格锚点",
+      "expect": [
+        "WORLD.BLOCKS.001",
+        "knowledge/02-world/W01-blocks-multiblock-anchor.md"
+      ],
+      "top": [
+        "knowledge/02-world/W01-blocks-multiblock-anchor.md",
+        "mindustry-blueprint/REFERENCE.md",
+        "knowledge/06-mlog/M06-世界交互.md"
+      ],
+      "ms": 99.6,
+      "top1": false,
+      "top3": false,
+      "topk": false,
+      "error": null
+    },
+    {
+      "q": "配方与制造",
+      "expect": [
+        "WORLD.CRAFTING.001",
+        "knowledge/02-world/W02-crafting-recipes.md"
+      ],
+      "top": [
+        "knowledge/02-world/W02-crafting-recipes.md",
+        "docs/游戏速查/物品.md",
+        "docs/MBO与配比计算器.md",
+        "docs/游戏速查/方块.md"
+      ],
+      "ms": 140.0,
+      "top1": false,
+      "top3": false,
+      "topk": false,
+      "error": null
+    },
+    {
+      "q": "热量系统",
+      "expect": [
+        "WORLD.HEAT.001",
+        "knowledge/02-world/W05-heat.md"
+      ],
+      "top": [
+        "knowledge/02-world/W05-heat.md",
+        "knowledge/02-world/W03-power.md"
+      ],
+      "ms": 106.7,
+      "top1": false,
+      "top3": false,
+      "topk": false,
+      "error": null
+    },
+    {
+      "q": "液体系统",
+      "expect": [
+        "WORLD.LIQUIDS.001",
+        "knowledge/02-world/W04-liquids.md"
+      ],
+      "top": [
+        "knowledge/02-world/W04-liquids.md"
+      ],
+      "ms": 129.7,
+      "top1": false,
+      "top3": false,
+      "topk": false,
+      "error": null
+    },
+    {
+      "q": "物流与物品传输（传送带 / 路由 / 交叉 / 桥 / 质量驱动器）",
+      "expect": [
+        "WORLD.LOGISTICS.001",
+        "knowledge/02-world/W06-logistics.md"
+      ],
+      "top": [
+        "knowledge/CONVENTIONS.md",
+        "docs/MBO与配比计算器.md",
+        "knowledge/02-world/W04-liquids.md",
+        "docs/游戏速查/方块.md"
+      ],
+      "ms": 130.1,
+      "top1": false,
+      "top3": false,
+      "topk": false,
+      "error": null
+    },
+    {
+      "q": "电力网络",
+      "expect": [
+        "WORLD.POWER.001",
+        "knowledge/02-world/W03-power.md"
+      ],
+      "top": [
+        "knowledge/02-world/W03-power.md",
+        "docs/游戏速查/方块.md"
+      ],
+      "ms": 129.0,
+      "top1": false,
+      "top3": false,
+      "topk": false,
+      "error": null
+    },
+    {
+      "q": "护甲与抗性——减法公式、10% 保底、穿甲与免疫",
+      "expect": [
+        "COMBAT.ARMOR.001",
+        "knowledge/03-combat/C05-armor.md"
+      ],
+      "top": [
+        "knowledge/03-combat/C05-armor.md",
+        "knowledge/03-combat/C01-damage-pipeline.md"
+      ],
+      "ms": 118.1,
+      "top1": false,
+      "top3": false,
+      "topk": false,
+      "error": null
+    },
+    {
+      "q": "子弹与弹道——lifetime/speed/drag、贯穿、溅射、闪电与碎片",
+      "expect": [
+        "COMBAT.BULLET.001",
+        "knowledge/03-combat/C03-bullets.md"
+      ],
+      "top": [
+        "knowledge/03-combat/C03-bullets.md",
+        "knowledge/03-combat/C02-turrets.md"
+      ],
+      "ms": 151.1,
+      "top1": false,
+      "top3": false,
+      "topk": false,
+      "error": null
+    },
+    {
+      "q": "伤害管线总览——一次命中从 BulletType 到 health 的完整顺序",
+      "expect": [
+        "COMBAT.DAMAGE.001",
+        "knowledge/03-combat/C01-damage-pipeline.md"
+      ],
+      "top": [
+        "knowledge/03-combat/C01-damage-pipeline.md",
+        "knowledge/03-combat/C04-status.md",
+        "docs/断言表.md",
+        "docs/验证记录.md"
+      ],
+      "ms": 167.6,
+      "top1": false,
+      "top3": false,
+      "topk": false,
+      "error": null
+    },
+    {
+      "q": "防御工事——墙体、门、护盾与修理器的数值与判定顺序",
+      "expect": [
+        "COMBAT.DEFENSE.001",
+        "knowledge/03-combat/C09-defense.md"
+      ],
+      "top": [
+        "knowledge/03-combat/C09-defense.md",
+        "knowledge/03-combat/C05-armor.md"
+      ],
+      "ms": 121.6,
+      "top1": false,
+      "top3": false,
+      "topk": false,
+      "error": null
+    },
+    {
+      "q": "战斗数值实例——DPS、TTK 与护甲曲线（可复算）",
+      "expect": [
+        "COMBAT.NUMBERS.001",
+        "knowledge/03-combat/C10-numbers.md"
+      ],
+      "top": [
+        "knowledge/03-combat/C10-numbers.md",
+        "knowledge/03-combat/C01-damage-pipeline.md",
+        "knowledge/03-combat/C05-armor.md"
+      ],
+      "ms": 142.6,
+      "top1": false,
+      "top3": false,
+      "topk": false,
+      "error": null
+    },
+    {
+      "q": "状态效果——倍率字段、时长、叠加与刷新、反应伤害",
+      "expect": [
+        "COMBAT.STATUS.001",
+        "knowledge/03-combat/C04-status.md"
+      ],
+      "top": [
+        "knowledge/03-combat/C04-status.md",
+        "docs/断言表.md"
+      ],
+      "ms": 154.4,
+      "top1": false,
+      "top3": false,
+      "topk": false,
+      "error": null
+    },
+    {
+      "q": "治疗、护盾与修理——heal / shield / mend / repairSpeed",
+      "expect": [
+        "COMBAT.SUPPORT.001",
+        "knowledge/03-combat/C07-support.md"
+      ],
+      "top": [
+        "knowledge/03-combat/C07-support.md",
+        "knowledge/03-combat/C09-defense.md"
+      ],
+      "ms": 130.5,
+      "top1": false,
+      "top3": false,
+      "topk": false,
+      "error": null
+    },
+    {
+      "q": "炮塔机制——射程、装填、弹药、冷却液、朝向与过热",
+      "expect": [
+        "COMBAT.TURRET.001",
+        "knowledge/03-combat/C02-turrets.md"
+      ],
+      "top": [
+        "knowledge/03-combat/C02-turrets.md",
+        "knowledge/03-combat/C10-numbers.md",
+        "knowledge/03-combat/C09-defense.md"
+      ],
+      "ms": 132.7,
+      "top1": false,
+      "top3": false,
+      "topk": false,
+      "error": null
+    },
+    {
+      "q": "单位武器——weapons[]、挂点坐标、镜像与单位 DPS",
+      "expect": [
+        "COMBAT.UNITWEAPON.001",
+        "knowledge/03-combat/C06-unit-weapons.md"
+      ],
+      "top": [
+        "knowledge/03-combat/C06-unit-weapons.md"
+      ],
+      "ms": 137.7,
+      "top1": false,
+      "top3": false,
+      "topk": false,
+      "error": null
+    },
+    {
+      "q": "敌方与攻击波——生成点、波次组成、难度缩放与 AI 目标",
+      "expect": [
+        "COMBAT.WAVE.001",
+        "knowledge/03-combat/C08-waves.md"
+      ],
+      "top": [
+        "knowledge/03-combat/C08-waves.md"
+      ],
+      "ms": 108.0,
+      "top1": false,
+      "top3": false,
+      "topk": false,
+      "error": null
+    },
+    {
+      "q": "单位能力——abilities 列表、16 类 Ability 的参数与触发",
+      "expect": [
+        "UNIT.ABILITY.001",
+        "knowledge/04-units/U04-abilities.md"
+      ],
+      "top": [
+        "knowledge/01-execution/E02-指令语义陷阱.md",
+        "knowledge/04-units/U01-movement.md",
+        "knowledge/06-mlog/M05-绘制与文本.md",
+        "knowledge/KB.md",
+        "knowledge/01-execution/E05-链接与@常量.md",
+        "knowledge/06-mlog/M07-单位与逻辑控制.md"
+      ],
+      "ms": 108.2,
+      "top1": false,
+      "top3": false,
+      "topk": false,
+      "error": null
+    },
+    {
+      "q": "单位 AI——控制器、目标选择、命令与姿态、寻路代价",
+      "expect": [
+        "UNIT.AI.001",
+        "knowledge/04-units/U03-ai.md"
+      ],
+      "top": [
+        "mindustry-blueprint/REFERENCE.md",
+        "knowledge/06-mlog/M07-单位与逻辑控制.md",
+        "docs/验证记录.md",
+        "knowledge/04-units/U01-movement.md",
+        "knowledge/03-combat/C06-unit-weapons.md"
+      ],
+      "ms": 142.5,
+      "top1": false,
+      "top3": false,
+      "topk": false,
+      "error": null
+    },
+    {
+      "q": "单位类型与移动——speed 的真实单位、hitSize、地形与 boost",
+      "expect": [
+        "UNIT.MOVE.001",
+        "knowledge/04-units/U01-movement.md"
+      ],
+      "top": [
+        "knowledge/04-units/U01-movement.md"
+      ],
+      "ms": 147.9,
+      "top1": false,
+      "top3": false,
+      "topk": false,
+      "error": null
+    },
+    {
+      "q": "单位生产链——工厂、重构厂、组装厂与单位上限",
+      "expect": [
+        "UNIT.PRODUCE.001",
+        "knowledge/04-units/U02-production.md"
+      ],
+      "top": [
+        "docs/MBO与配比计算器.md",
+        "docs/游戏速查/方块.md"
+      ],
+      "ms": 140.9,
+      "top1": false,
+      "top3": false,
+      "topk": false,
+      "error": null
+    },
+    {
+      "q": "难度系数换算卡——三元组如何变成血量、数量、造价与波次间隔",
+      "expect": [
+        "CAMP.DIFFICULTY.001",
+        "knowledge/05-campaign/CAMP.DIFFICULTY.001.md"
+      ],
+      "top": [
+        "knowledge/02-world/W02-crafting-recipes.md",
+        "knowledge/03-combat/C08-waves.md",
+        "knowledge/03-combat/C07-support.md",
+        "knowledge/08-evidence/anti-patterns.md"
+      ],
+      "ms": 149.7,
+      "top1": false,
+      "top3": false,
+      "topk": false,
+      "error": null
+    },
+    {
+      "q": "Rules 规则对象全字段（118 项）",
+      "expect": [
+        "CAMP.RULES.001",
+        "knowledge/05-campaign/CAMP-RULES.md"
+      ],
+      "top": [
+        "knowledge/06-mlog/M06-世界交互.md",
+        "knowledge/01-execution/E03-变量与内存边界.md",
+        "knowledge/CONVENTIONS.md",
+        "knowledge/08-evidence/anti-patterns.md",
+        "docs/验证记录.md"
+      ],
+      "ms": 118.8,
+      "top1": false,
+      "top3": false,
+      "topk": false,
+      "error": null
+    },
+    {
+      "q": "刷怪组数据模型——SpawnGroup 的 8 个字段怎么变成每波的数量与护盾",
+      "expect": [
+        "CAMP.SPAWN.001",
+        "knowledge/05-campaign/CAMP.SPAWN.001.md"
+      ],
+      "top": [
+        "knowledge/03-combat/C08-waves.md",
+        "docs/验证记录.md",
+        "knowledge/08-evidence/bench/README.md",
+        "knowledge/08-evidence/anti-patterns.md"
+      ],
+      "ms": 150.5,
+      "top1": false,
+      "top3": false,
+      "topk": false,
+      "error": null
+    },
+    {
+      "q": "波次节奏的数值模型——waveSpacing、首波宽限与倒计时推进",
+      "expect": [
+        "CAMP.WAVES.001",
+        "knowledge/05-campaign/CAMP.WAVES.001.md"
+      ],
+      "top": [
+        "knowledge/03-combat/C08-waves.md",
+        "knowledge/06-mlog/M08-性能与限制.md"
+      ],
+      "ms": 156.8,
+      "top1": false,
+      "top3": false,
+      "topk": false,
+      "error": null
+    },
+    {
+      "q": "绘制与文本：draw 的 16 种命令、10 bit 打包与文本缓冲",
+      "expect": [
+        "MLOG.DRAW.001",
+        "knowledge/06-mlog/M05-绘制与文本.md"
+      ],
+      "top": [
+        "knowledge/06-mlog/M05-绘制与文本.md",
+        "tools/README.md",
+        "knowledge/08-evidence/anti-patterns.md"
+      ],
+      "ms": 146.7,
+      "top1": false,
+      "top3": false,
+      "topk": false,
+      "error": null
+    },
+    {
+      "q": "执行模型总览：tick、@counter 与每 tick 指令预算",
+      "expect": [
+        "MLOG.EXEC.001",
+        "knowledge/06-mlog/M01-执行模型总览.md"
+      ],
+      "top": [
+        "knowledge/06-mlog/M01-执行模型总览.md",
+        "knowledge/01-execution/E01-执行模型与预算.md",
+        "knowledge/07-patterns/P01-architecture.md",
+        "knowledge/06-mlog/M02-变量与作用域.md",
+        "mindustry-blueprint/SKILL.md"
+      ],
+      "ms": 147.5,
+      "top1": false,
+      "top3": false,
+      "topk": false,
+      "error": null
+    },
+    {
+      "q": "控制流：jump 的 8 个条件、循环写法与 @counter 改写后果",
+      "expect": [
+        "MLOG.FLOW.001",
+        "knowledge/06-mlog/M03-控制流.md"
+      ],
+      "top": [
+        "knowledge/06-mlog/M03-控制流.md",
+        "Logic/逻辑代码规范.md",
+        "mindustry-blueprint/REFERENCE.md"
+      ],
+      "ms": 132.3,
+      "top1": false,
+      "top3": false,
+      "topk": false,
+      "error": null
+    },
+    {
+      "q": "读写与感知：read / write / sensor / radar / ulocate / getlink / lookup",
+      "expect": [
+        "MLOG.IO.001",
+        "knowledge/06-mlog/M04-读写与感知.md"
+      ],
+      "top": [
+        "knowledge/06-mlog/M04-读写与感知.md",
+        "knowledge/01-execution/E02-指令语义陷阱.md",
+        "knowledge/01-execution/E05-链接与@常量.md",
+        "knowledge/06-mlog/M06-世界交互.md",
+        "knowledge/06-mlog/M07-单位与逻辑控制.md",
+        "knowledge/06-mlog/M05-绘制与文本.md"
+      ],
+      "ms": 148.3,
+      "top1": false,
+      "top3": false,
+      "topk": false,
+      "error": null
+    },
+    {
+      "q": "性能与限制：预算、延迟、卡顿与各项硬上限",
+      "expect": [
+        "MLOG.PERF.001",
+        "knowledge/06-mlog/M08-性能与限制.md"
+      ],
+      "top": [
+        "knowledge/06-mlog/M08-性能与限制.md",
+        "knowledge/06-mlog/M03-控制流.md",
+        "knowledge/01-execution/E04-时间与wait精度.md",
+        "knowledge/06-mlog/M01-执行模型总览.md",
+        "knowledge/01-execution/E01-执行模型与预算.md"
+      ],
+      "ms": 148.7,
+      "top1": false,
+      "top3": false,
+      "topk": false,
+      "error": null
+    },
+    {
+      "q": "单位与逻辑控制：ubind、ucontrol 的 21 个子命令与 @unit 生命周期",
+      "expect": [
+        "MLOG.UNIT.001",
+        "knowledge/06-mlog/M07-单位与逻辑控制.md"
+      ],
+      "top": [
+        "knowledge/06-mlog/M07-单位与逻辑控制.md",
+        "knowledge/01-execution/E05-链接与@常量.md",
+        "knowledge/06-mlog/M06-世界交互.md",
+        "mindustry-blueprint/REFERENCE.md"
+      ],
+      "ms": 164.4,
+      "top1": false,
+      "top3": false,
+      "topk": false,
+      "error": null
+    },
+    {
+      "q": "变量与作用域：number / object / null 三态",
+      "expect": [
+        "MLOG.VAR.001",
+        "knowledge/06-mlog/M02-变量与作用域.md"
+      ],
+      "top": [
+        "knowledge/06-mlog/M02-变量与作用域.md",
+        "knowledge/01-execution/E03-变量与内存边界.md",
+        "knowledge/06-mlog/M04-读写与感知.md"
+      ],
+      "ms": 159.2,
+      "top1": false,
+      "top3": false,
+      "topk": false,
+      "error": null
+    },
+    {
+      "q": "世界交互：control、setrule 与 world processor 的 26 条特权指令",
+      "expect": [
+        "MLOG.WORLD.001",
+        "knowledge/06-mlog/M06-世界交互.md"
+      ],
+      "top": [
+        "knowledge/06-mlog/M06-世界交互.md",
+        "mindustry-blueprint/REFERENCE.md",
+        "Logic/逻辑代码规范.md",
+        "knowledge/06-mlog/M07-单位与逻辑控制.md"
+      ],
+      "ms": 153.2,
+      "top1": false,
+      "top3": false,
+      "topk": false,
+      "error": null
+    },
+    {
+      "q": "蓝图架构总览：预算、分层与拓扑",
+      "expect": [
+        "PATTERN.ARCH.001",
+        "knowledge/07-patterns/P01-architecture.md"
+      ],
+      "top": [
+        "knowledge/07-patterns/P01-architecture.md",
+        "knowledge/07-patterns/P03-comm-bus.md",
+        "knowledge/07-patterns/P04-data-structures.md",
+        "mindustry-blueprint/SKILL.md",
+        "Logic/逻辑代码规范.md",
+        "knowledge/01-execution/E01-执行模型与预算.md"
+      ],
+      "ms": 118.0,
+      "top1": false,
+      "top3": false,
+      "topk": false,
+      "error": null
+    },
+    {
+      "q": "通信与总线：内存信箱、通道编码与读写竞态",
+      "expect": [
+        "PATTERN.COMM.001",
+        "knowledge/07-patterns/P03-comm-bus.md"
+      ],
+      "top": [
+        "knowledge/07-patterns/P03-comm-bus.md",
+        "knowledge/07-patterns/P04-data-structures.md",
+        "knowledge/07-patterns/P01-architecture.md",
+        "knowledge/06-mlog/M04-读写与感知.md"
+      ],
+      "ms": 217.9,
+      "top1": false,
+      "top3": false,
+      "topk": false,
+      "error": null
+    },
+    {
+      "q": "数据结构：数组、队列、环形缓冲与画布的内存布局",
+      "expect": [
+        "PATTERN.DATA.001",
+        "knowledge/07-patterns/P04-data-structures.md"
+      ],
+      "top": [
+        "knowledge/07-patterns/P04-data-structures.md",
+        "knowledge/07-patterns/P03-comm-bus.md",
+        "docs/游戏速查/方块.md"
+      ],
+      "ms": 132.6,
+      "top1": false,
+      "top3": false,
+      "topk": false,
+      "error": null
+    },
+    {
+      "q": "性能与鲁棒性：预算分配、降频与自恢复",
+      "expect": [
+        "PATTERN.PERF.001",
+        "knowledge/07-patterns/P06-performance.md"
+      ],
+      "top": [
+        "knowledge/07-patterns/P06-performance.md",
+        "knowledge/08-evidence/anti-patterns.md",
+        "knowledge/07-patterns/P02-state-machine.md",
+        "knowledge/07-patterns/P04-data-structures.md",
+        "knowledge/06-mlog/M08-性能与限制.md"
+      ],
+      "ms": 151.8,
+      "top1": false,
+      "top3": false,
+      "topk": false,
+      "error": null
+    },
+    {
+      "q": "状态机：枚举、转移表与 @counter 分派",
+      "expect": [
+        "PATTERN.STATE.001",
+        "knowledge/07-patterns/P02-state-machine.md"
+      ],
+      "top": [
+        "knowledge/07-patterns/P02-state-machine.md",
+        "knowledge/07-patterns/P01-architecture.md",
+        "knowledge/06-mlog/M02-变量与作用域.md"
+      ],
+      "ms": 182.8,
+      "top1": false,
+      "top3": false,
+      "topk": false,
+      "error": null
+    },
+    {
+      "q": "雷达与索敌：filter/sort/order 的组合与射程判定",
+      "expect": [
+        "PATTERN.TARGET.001",
+        "knowledge/07-patterns/P05-radar-targeting.md"
+      ],
+      "top": [
+        "knowledge/07-patterns/P05-radar-targeting.md",
+        "knowledge/07-patterns/P06-performance.md"
+      ],
+      "ms": 122.0,
+      "top1": false,
+      "top3": false,
+      "topk": false,
+      "error": null
+    },
+    {
+      "q": "反模式清单：20 条真实蓝图里的错误写法",
+      "expect": [
+        "PATTERN.ANTI.001",
+        "knowledge/08-evidence/anti-patterns.md"
+      ],
+      "top": [
+        "knowledge/08-evidence/anti-patterns.md",
+        "docs/验证记录.md",
+        "knowledge/08-evidence/bench/README.md",
+        "knowledge/07-patterns/P04-data-structures.md",
+        "knowledge/_report/_fx2/knowledge/02-world/X02-fixture.md",
+        "knowledge/CONVENTIONS.md"
+      ],
+      "ms": 121.0,
+      "top1": false,
+      "top3": false,
+      "topk": false,
+      "error": null
+    }
+  ],
+  "summary": {
+    "n": 45,
+    "scored": 45,
+    "hit1": 0,
+    "hit3": 0,
+    "hitk": 0,
+    "warm_s": 1.3,
+    "p50_ms": 137.7,
+    "p90_ms": 159.2
+  }
+}

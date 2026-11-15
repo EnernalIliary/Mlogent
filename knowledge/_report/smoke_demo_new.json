@@ -1,0 +1,119 @@
+{
+  "questions": [
+    {
+      "q": "护甲减伤公式",
+      "expect": [
+        "C05"
+      ],
+      "top": [
+        "knowledge/03-combat/C05-armor.md",
+        "knowledge/03-combat/C01-damage-pipeline.md",
+        "knowledge/03-combat/C10-numbers.md"
+      ],
+      "ms": 280.6,
+      "top1": true,
+      "top3": true,
+      "topk": true,
+      "error": null
+    },
+    {
+      "q": "conveyor 每秒运几件",
+      "expect": [
+        "W"
+      ],
+      "top": [
+        "00-data/formulas.json",
+        "docs/MBO与配比计算器.md",
+        "knowledge/03-combat/C02-turrets.md",
+        "knowledge/04-units/U01-movement.md",
+        "docs/验证记录.md"
+      ],
+      "ms": 212.5,
+      "top1": false,
+      "top3": false,
+      "topk": false,
+      "error": null
+    },
+    {
+      "q": "ucontrol 参数顺序",
+      "expect": [
+        "REFERENCE"
+      ],
+      "top": [
+        "knowledge/06-mlog/M07-单位与逻辑控制.md",
+        "mindustry-blueprint/REFERENCE.md",
+        "knowledge/01-execution/E02-指令语义陷阱.md",
+        "Logic/逻辑代码规范.md",
+        "tools/mlogcheck.py",
+        "knowledge/06-mlog/M04-读写与感知.md"
+      ],
+      "ms": 220.4,
+      "top1": false,
+      "top3": true,
+      "topk": true,
+      "error": null
+    },
+    {
+      "q": "多格方块 锚点 footprint",
+      "expect": [
+        "W01"
+      ],
+      "top": [
+        "knowledge/02-world/W01-blocks-multiblock-anchor.md",
+        "mindustry-blueprint/SKILL.md",
+        "docs/断言表.md"
+      ],
+      "ms": 233.9,
+      "top1": true,
+      "top3": true,
+      "topk": true,
+      "error": null
+    },
+    {
+      "q": "处理器每秒执行多少指令",
+      "expect": [
+        "E0"
+      ],
+      "top": [
+        "00-data/formulas.json",
+        "mindustry-blueprint/REFERENCE.md",
+        "tools/chats.py",
+        "knowledge/01-execution/E02-指令语义陷阱.md",
+        "knowledge/06-mlog/M01-执行模型总览.md",
+        "knowledge/06-mlog/M08-性能与限制.md"
+      ],
+      "ms": 232.9,
+      "top1": false,
+      "top3": false,
+      "topk": true,
+      "error": null
+    },
+    {
+      "q": "wait 精度 tick",
+      "expect": [
+        "E0"
+      ],
+      "top": [
+        "knowledge/06-mlog/M03-控制流.md",
+        "knowledge/06-mlog/M08-性能与限制.md",
+        "knowledge/01-execution/E04-时间与wait精度.md",
+        "knowledge/01-execution/E02-指令语义陷阱.md"
+      ],
+      "ms": 176.7,
+      "top1": false,
+      "top3": true,
+      "topk": true,
+      "error": null
+    }
+  ],
+  "summary": {
+    "n": 6,
+    "scored": 6,
+    "hit1": 2,
+    "hit3": 4,
+    "hitk": 5,
+    "warm_s": 1.6,
+    "p50_ms": 232.9,
+    "p90_ms": 280.6
+  }
+}

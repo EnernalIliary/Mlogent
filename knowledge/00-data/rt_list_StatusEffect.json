@@ -1,0 +1,149 @@
+{
+ "mindustry.type.StatusEffect": {
+  "affinities": {
+   "const": null,
+   "default": null,
+   "desc": "Larc/struct/ObjectSet;"
+  },
+  "applyColor": {
+   "const": null,
+   "default": null,
+   "desc": "Larc/graphics/Color;"
+  },
+  "applyEffect": {
+   "const": null,
+   "default": null,
+   "desc": "Lmindustry/entities/Effect;"
+  },
+  "applyExtend": {
+   "const": null,
+   "default": null,
+   "desc": "Z"
+  },
+  "buildSpeedMultiplier": {
+   "const": null,
+   "default": 1.0,
+   "desc": "F"
+  },
+  "color": {
+   "const": null,
+   "default": null,
+   "desc": "Larc/graphics/Color;"
+  },
+  "damage": {
+   "const": null,
+   "default": null,
+   "desc": "F"
+  },
+  "damageMultiplier": {
+   "const": null,
+   "default": 1.0,
+   "desc": "F"
+  },
+  "disarm": {
+   "const": null,
+   "default": 0,
+   "desc": "Z"
+  },
+  "dragMultiplier": {
+   "const": null,
+   "default": 1.0,
+   "desc": "F"
+  },
+  "dynamic": {
+   "const": null,
+   "default": 0,
+   "desc": "Z"
+  },
+  "effect": {
+   "const": null,
+   "default": null,
+   "desc": "Lmindustry/entities/Effect;"
+  },
+  "effectChance": {
+   "const": null,
+   "default": 0.15,
+   "desc": "F"
+  },
+  "healthMultiplier": {
+   "const": null,
+   "default": 1.0,
+   "desc": "F"
+  },
+  "initblock": {
+   "const": null,
+   "default": null,
+   "desc": "Ljava/lang/Runnable;"
+  },
+  "intervalDamage": {
+   "const": null,
+   "default": null,
+   "desc": "F"
+  },
+  "intervalDamagePierce": {
+   "const": null,
+   "default": 0,
+   "desc": "Z"
+  },
+  "intervalDamageTime": {
+   "const": null,
+   "default": null,
+   "desc": "F"
+  },
+  "opposites": {
+   "const": null,
+   "default": null,
+   "desc": "Larc/struct/ObjectSet;"
+  },
+  "outline": {
+   "const": null,
+   "default": 1,
+   "desc": "Z"
+  },
+  "parentizeApplyEffect": {
+   "const": null,
+   "default": null,
+   "desc": "Z"
+  },
+  "parentizeEffect": {
+   "const": null,
+   "default": null,
+   "desc": "Z"
+  },
+  "permanent": {
+   "const": null,
+   "default": null,
+   "desc": "Z"
+  },
+  "reactive": {
+   "const": null,
+   "default": null,
+   "desc": "Z"
+  },
+  "reloadMultiplier": {
+   "const": null,
+   "default": 1.0,
+   "desc": "F"
+  },
+  "show": {
+   "const": null,
+   "default": 1,
+   "desc": "Z"
+  },
+  "speedMultiplier": {
+   "const": null,
+   "default": 1.0,
+   "desc": "F"
+  },
+  "transitionDamage": {
+   "const": null,
+   "default": 0.0,
+   "desc": "F"
+  },
+  "transitions": {
+   "const": null,
+   "default": null,
+   "desc": "Larc/struct/ObjectMap;"
+  }
+ }
+}

@@ -11,6 +11,7 @@
 | 静态检查 | `python tools/mlog.py check x.mlog`（`--cost` 加成本/最坏指令数，`--rid` 每行尾部显示规则 id） |
 | 生成只含处理器的蓝图 | `python tools/mlog.py gen --name 名字 --code x.mlog` |
 | 模拟运行 | `python tools/mlogsim.py x.mlog --ticks 120 --trace t.csv` |
+| 调试着陆台（真 4×4 接收台，带水/卸货） | `python tools/mlogsim.py x.mlog --ticks 1200 --pads 9 --pad-drain 2 --units flare:1 --core-items copper:400` |
 | 超大场景（几千台）跑模拟 | `python tools/mlogsim.py 图.msch --ticks 110 --js-timeout 3600`（默认预算 180 s，几万台会把一条 js 命令跑到几分钟） |
 | 一次启动跑多个文件 | `python tools/mlogsim.py a.mlog b.mlog c.mlog --ticks 60` |
 | 预热模拟器（预处理时先起） | `python tools/mlogsim.py --daemon` → `python tools/mlogsim.py --remote x.mlog --ticks 60` |
@@ -27,6 +28,16 @@
 | 自检工具链 | `python tools/mlog.py selftest`（`--jobs N` 分片）；`python tests/run_tests.py` |
 
 `mlog.py --help` 是子命令总表；`tools/mlogsim.py --help` 是模拟器参数（世界、单位、战斗 tick、trace/assert）。
+
+### 着陆台（`--pads N`）
+
+`--pads 9` 在处理器周围放 9 台真 `landing-pad`（4×4），按序接成 link 0..8（名字 `pad1..pad9`），每 tick 记一次落地，结束时打印
+`PAD <名字> <x> <y> cfg= <物品> arriving= <在途物品> cd= <冷却> items= <库存> water= <水> eff= <效率> landings= <落地次数>`
+（`--json` 里是 `rec["pads"]`）。默认每 tick 把水箱补满，`--no-pad-refill` 才能看到"两次落地后水空、eff=0"的真实供给约束；`--pad-drain N` 每 tick 从台里抽 N 件货（模拟输出物流，台子空仓才会再落）。
+
+两个不修就调不通的坑（都由 --pads 自动处理）：
+- **多格建筑是按中心对齐放置的**：`Tile.setBlock` 的偏移是 `-(size-1)/2`（Tile.java:255-288），4×4 台摆 origin 会覆盖处理器格 → 处理器 `isValid()` 变假 → 程序里所有 `read x @this <名字>` 恒 null（而 `sensor @this @type` 仍正常，很容易误判）。模拟器现在按居中矩形做避让。
+- **`LandingPad.config()` 在沙盒里被 `accessible()` 静默拒绝**（LandingPad.java:73-77、:160-163）：非战役非编辑器世界 `accessible()=false`，`control config` 不报错但 cfg 一直 null。`--pads` 会打开 `rules.allowEditWorldProcessors`（唯一不改变消耗语义的 accessible 分支）。
 
 ## 大场景 / 长跑：`--js-timeout` 与分批装载
 

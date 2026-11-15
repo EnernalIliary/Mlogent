@@ -337,7 +337,8 @@ class SimError(RuntimeError):
 
 class Server:
     def __init__(self, java: str, jar: str, world_size: int | None = 64,
-                 save: str | None = None):
+                 save: str | None = None, ore: str = "", ore_at=None,
+                 ore_radius: int = 4):
         # Java runs with cwd=<workdir> below, so relative jar/java paths must be
         # resolved against the *caller's* cwd first (same meaning as the CLI).
         java = _abs_path(java)
@@ -350,6 +351,9 @@ class Server:
         os.makedirs(base, exist_ok=True)
         self.workdir = tempfile.mkdtemp(prefix="run-", dir=base)
         self._save = save
+        self._ore = ore
+        self._ore_at = ore_at
+        self._ore_radius = ore_radius
         self._base0 = None
         self._init_src = None
         self._core_spec = None
@@ -406,7 +410,7 @@ class Server:
                 # a blank map. Saves the ~0.5s random-map host and all port binding.
                 self.world_size = world_size
                 self.base = (0, 0)
-                self.js(LOAD_JS % {"n": world_size})
+                self.js(self._load_js())
             else:
                 self.world_size = None
                 self.base = (80, 80)
@@ -514,7 +518,7 @@ class Server:
             _, bx, by = base_line.split("\t")
             self.base = (int(bx), int(by))
         elif self.world_size:
-            self.js(LOAD_JS % {"n": self.world_size})
+            self.js(self._load_js())
         else:
             self.send("stop")
             time.sleep(0.2)
@@ -524,6 +528,10 @@ class Server:
             time.sleep(0.3)
         if self._base0 is not None:
             self.base = self._base0
+
+    def _load_js(self) -> str:
+        return load_js(self.world_size or 64, self._ore, self._ore_at,
+                       self._ore_radius)
 
     def prepare(self):
         """Re-apply world setup that reset_world() wipes (init-js, cores, units)."""
@@ -586,9 +594,36 @@ Vars.world.loadGenerator(%(n)d,%(n)d,function(tiles){
     for(var x = 0; x < %(n)d; x++){
         for(var y = 0; y < %(n)d; y++){ tiles.get(x,y).setFloor(floor); }
     }
+    %(ore)s
 });
 print("WORLD\t" + Vars.world.width() + "x" + Vars.world.height());
 '''
+
+def load_js(n: int, ore: str = "", ore_at=None, ore_radius: int = 4) -> str:
+    """Build the world-loading JS, optionally painting an ore disc.
+
+    The paint MUST happen inside the loadGenerator callback: BlockIndexer only
+    fills its ore quadrants while handling WorldLoadEvent (BlockIndexer.java:94-118),
+    so an ore tile placed afterwards is invisible to `ulocate ore` even though
+    `ucontrol mine` (which only looks at the tile itself) works.
+    """
+    code = ""
+    if ore:
+        x, y = ore_at or (int(n * 0.75), int(n * 0.75))
+        code = ("""var ob = Vars.content.block('ore-%(ore)s');
+    if(ob == null){ print("OREWARN" + "\t" + "%(ore)s"); }
+    else{
+        for(var ox = -%(r)d; ox <= %(r)d; ox++){
+            for(var oy = -%(r)d; oy <= %(r)d; oy++){
+                if(ox*ox + oy*oy > %(r)d*%(r)d) continue;
+                var tx = %(x)d + ox, ty = %(y)d + oy;
+                if(tx < 1 || ty < 1 || tx >= %(n)d - 1 || ty >= %(n)d - 1) continue;
+                tiles.get(tx,ty).setFloor(ob.asFloor());
+            }
+        }
+        print("ORE" + "\t" + ob.name + "\t" + %(x)d + "\t" + %(y)d);
+    }""" % {"ore": ore, "x": x, "y": y, "r": int(ore_radius), "n": int(n)})
+    return LOAD_JS % {"n": int(n), "ore": code}
 
 PICK_BASE_JS = r'''
 print("WORLD\t" + Vars.world.width() + "x" + Vars.world.height());
@@ -662,6 +697,85 @@ def place_js(x: int, y: int, block: str = "micro-processor") -> str:
             "Vars.world.tile(%d,%d).setBlock(Vars.content.block('%s'), T);"
             "print('PLACED');" % (x, y, x, y, block))
 
+def pads_js(count: int, radius: int = 11, water: float = -1.0,
+            drain: float = 0.0, refill: bool = True) -> tuple[str, str]:
+    """Place COUNT real landing pads and wire them as link 0..COUNT-1.
+
+    Two things made a pad undebuggable out of the box:
+
+      * Tile.setBlock() CENTERS a multiblock (Tile.java:255-288), so placing a
+        4x4 pad by its origin can cover the processor tile. The processor then
+        loses isValid() (BuildingComp.java:2036-2038) and every "read ... @this"
+        silently returns null;
+      * LandingPad.config() bails out when !accessible(), and accessible() is
+        false in a non-campaign sandbox (LandingPad.java:160-163), so
+        "control config" was a no-op: config stayed null and nothing landed.
+
+    So this flips rules.allowEditWorldProcessors (the only accessible() branch
+    that does not change consumption), fills the water the efficiency gate
+    wants, and optionally drains items to emulate an output logistics.
+    Returns (setup_js, report_js).
+    """
+    w = repr(float(water))
+    setup = ("""/* --- landing pads (--pads %(count)d) --- */
+var TB = String.fromCharCode(9);
+var PADS = [];
+var PAD_WATER = Vars.content.liquid("water");
+var PAD_DRAIN = %(drain)s;
+var PAD_REFILL = %(refill)s;
+var PAD_BLK = Vars.content.block("landing-pad");
+if(%(count)d > 0){ Vars.state.rules.allowEditWorldProcessors = true; }
+for(var pi = 0; pi < %(count)d; pi++){
+    var pspot = freeSpot(PAD_BLK.size, %(radius)d);
+    if(pspot == null){ print("PADWARN" + TB + "no space for pad " + (pi + 1)); break; }
+    W.tile(pspot[0], pspot[1]).setBlock(PAD_BLK, team);
+    var pob = W.build(pspot[0], pspot[1]);
+    var poff = -Math.floor((PAD_BLK.size - 1) / 2);
+    placed.push([pspot[0] + poff, pspot[1] + poff, PAD_BLK.size]);
+    b.links.add(new LL(pspot[0], pspot[1], "pad" + (pi + 1), true));
+    if(pob.liquids != null){
+        pob.liquids.add(PAD_WATER, %(water)s < 0 ? PAD_BLK.liquidCapacity : %(water)s);
+    }
+    PADS.push({b: pob, name: "pad" + (pi + 1), landings: 0, prev: pob.items.total(), acc: 0.0});
+    print("PADPLACE" + TB + "pad" + (pi + 1) + TB + pspot[0] + TB + pspot[1]);
+}
+function padTick(){
+    for(var i = 0; i < PADS.length; i++){
+        var p = PADS[i], pb = p.b, now = pb.items.total();
+        /* items only arrive by landing, so an upward jump is one arrival */
+        if(now > p.prev) p.landings += 1;
+        p.prev = now;
+        /* every landing drinks 1500 water (consumeLiquidAmount) out of a 3000
+           tank, so without a pump a pad stops after two landings and reads
+           efficiency 0 forever. Top up by default to emulate the real supply. */
+        if(PAD_REFILL && pb.liquids != null){
+            pb.liquids.set(PAD_WATER, PAD_BLK.liquidCapacity);
+        }
+        if(PAD_DRAIN <= 0) continue;
+        if(now <= 0){ p.acc = 0; continue; }
+        p.acc += PAD_DRAIN;
+        while(p.acc >= 1 && pb.items.total() > 0){
+            var it = pb.items.first();
+            if(it == null){ p.acc = 0; break; }
+            pb.items.remove(it, 1);
+            p.acc -= 1;
+        }
+    }
+}
+""" % {"count": int(count), "radius": int(radius), "water": w,
+        "drain": repr(float(drain)), "refill": "true" if refill else "false"})
+    report = """for(var pq = 0; pq < PADS.length; pq++){
+    var pbuild = PADS[pq].b;
+    print("PAD" + TB + PADS[pq].name + TB + pbuild.tileX() + TB + pbuild.tileY()
+          + TB + pbuild.config + TB + pbuild.arriving + TB + pbuild.cooldown
+          + TB + pbuild.items.total() + TB + pbuild.liquids.get(PAD_WATER)
+          + TB + pbuild.efficiency + TB + PADS[pq].landings
+          + TB + Vars.state.rules.allowEditWorldProcessors
+          + TB + pbuild.block.logicConfigurable);
+}
+"""
+    return setup, report
+
 STEP_JS = r'''
 var p = "%(path)s";
 var s = Packages.java.nio.file.Files.readString(
@@ -678,17 +792,24 @@ var W = Vars.world, team = Packages.mindustry.game.Team.sharded;
 var air = Vars.content.block("air");
 var bx = %(x)d, by = %(y)d;
 var placed = [];
-function freeSpot(size){
-    for(var r = 2; r <= 24; r++){
+function freeSpot(size, maxr){
+    if(maxr === undefined) maxr = 24;
+    /* Tile.setBlock CENTERS a multiblock: the occupied rect starts at
+       origin + off with off = -(size-1)/2 (Tile.java:255-288), so a 4x4 pad
+       placed at (28,31) really covers 27..30 x 30..33 and used to eat the
+       processor tile. Every rect below is [topLeftX, topLeftY, size]. */
+    var off = -Math.floor((size - 1) / 2);
+    for(var r = 2; r <= maxr; r++){
         for(var dx = -r; dx <= r; dx++){
             for(var dy = -r; dy <= r; dy++){
                 if(Math.max(Math.abs(dx), Math.abs(dy)) != r) continue;
                 var x = bx + dx, y = by + dy;
-                if(x < 0 || y < 0 || x + size > W.width() || y + size > W.height()) continue;
+                var x0 = x + off, y0 = y + off;
+                if(x0 < 0 || y0 < 0 || x0 + size > W.width() || y0 + size > W.height()) continue;
                 var ok = true;
                 for(var i = 0; i < size && ok; i++){
                     for(var j = 0; j < size; j++){
-                        var t = W.tile(x + i, y + j);
+                        var t = W.tile(x0 + i, y0 + j);
                         if(t.block() != air || t.build != null){ ok = false; break; }
                     }
                 }
@@ -697,8 +818,8 @@ function freeSpot(size){
                 if(ok){
                     for(var q = 0; q < placed.length; q++){
                         var p = placed[q];
-                        if(x < p[0] + p[2] && x + size > p[0]
-                           && y < p[1] + p[2] && y + size > p[1]){ ok = false; break; }
+                        if(x0 < p[0] + p[2] && x0 + size > p[0]
+                           && y0 < p[1] + p[2] && y0 + size > p[1]){ ok = false; break; }
                     }
                 }
                 if(ok) return [x, y];
@@ -714,10 +835,13 @@ for(var k = 0; k < links.length; k++){
     var spot = freeSpot(blk.size);
     if(spot == null){ print("LINKWARN\t" + spec.name + "\tno space"); continue; }
     W.tile(spot[0], spot[1]).setBlock(blk, team);
-    placed.push([spot[0], spot[1], blk.size]);
+    /* keep the CENTERED rect, not the origin tile: see freeSpot */
+    var loff = -Math.floor((blk.size - 1) / 2);
+    placed.push([spot[0] + loff, spot[1] + loff, blk.size]);
     b.links.add(new LL(spot[0], spot[1], spec.name, true));
     print("LINK\t" + spec.name + "\t" + spot[0] + "\t" + spot[1] + "\t" + blk.name);
 }
+%(pads)s
 b.updateCode(s);
 /* compile errors (undefined label, malformed statement) leave no instructions;
    fail here in ~3 s instead of after a full scene run */
@@ -744,6 +868,7 @@ b.efficiency = 1;
    `b` is this processor's building; empty when the caller passes nothing. */
 %(setup)s
 %(loop)s
+%(pads_report)s
 print("@@BEGIN");
 var vs = b.executor.vars;
 for(var i = 0; i < vs.length; i++){
@@ -1145,7 +1270,8 @@ function itr_exec(obj, t){
 
 def _loop_js(obj: str, steps: int, ticks: bool, update: str = "none", power: float = 1.0,
              combat: bool = False, trace: bool = False, unit_ai: str = "logic",
-             preflight: bool = True, itrace: dict | None = None) -> str:
+             preflight: bool = True, itrace: dict | None = None,
+             tick_extra: str = "") -> str:
     """Instruction mode steps the executor directly; tick mode drives updateTile.
 
     In tick mode Time.delta must be 1.0: edelta() = delta * timeScale feeds the
@@ -1172,9 +1298,9 @@ def _loop_js(obj: str, steps: int, ticks: bool, update: str = "none", power: flo
                       .replace("__VARS__", json.dumps(itrace.get("vars", []), ensure_ascii=False)))
         trace_tick = " traceTick();" if trace else ""
         if itrace is not None:
-            body = pre + world + " itr_exec(%s, i);" % obj + post + trace_tick
+            body = pre + world + tick_extra + " itr_exec(%s, i);" % obj + post + trace_tick
         else:
-            body = pre + world + " %s.updateTile();" % obj + post + trace_tick
+            body = pre + world + tick_extra + " %s.updateTile();" % obj + post + trace_tick
         check = " if(i == 0) preflightTick();" if preflight else ""
         dump = ""
         if trace:
@@ -1219,6 +1345,33 @@ def _scene_loop_js(steps: int, ticks: bool, update: str = "none", power: float =
                 % (setup, steps, pre + world, post, " traceTick();" if trace else "", check, dump))
     return ("for(var i = 0; i < procs.length; i++){"
             " for(var k = 0; k < %d; k++){ procs[i].executor.runOnce(); } }" % steps)
+
+PAD_COLUMNS = ["name", "x", "y", "config", "arriving", "cooldown", "items",
+                "water", "efficiency", "landings", "allow_edit", "configurable"]
+
+def parse_pads(lines: list[str]) -> list[dict]:
+    """Collect the PAD status rows printed by pads_js().
+
+    One row per pad: name, tile x/y, config (the item it is told to receive),
+    arriving (the item currently in flight), cooldown, items, water, efficiency
+    and how many times something landed. cooldown/arriving are the two things
+    logic cannot read at all (LAccess has no such entries), so this is the only
+    way to watch a pad's cycle.
+    """
+    out = []
+    for ln in lines:
+        if not ln.startswith("PAD\t"):
+            continue
+        vals = ln.split("\t")[1:]
+        rec = dict(zip(PAD_COLUMNS, vals))
+        for k in ("x", "y", "cooldown", "items", "water", "efficiency", "landings"):
+            if k in rec:
+                try:
+                    rec[k] = float(rec[k])
+                except ValueError:
+                    rec[k] = None
+        out.append(rec)
+    return out
 
 def parse_results(lines: list[str]) -> list[dict]:
     """Turn @@BEGIN blocks into records."""
@@ -1297,11 +1450,18 @@ def run_mlog(srv: Server, name: str, code: str, steps: int, ticks: bool = False,
              combat: bool = False, trace: bool = False, unit_ai: str = "logic",
              preflight: bool = True, links: str = "auto",
              itrace: str | None = None, itrace_vars: tuple = (),
-             setup_js: str | None = None) -> dict:
+             setup_js: str | None = None, pads: int = 0, pad_radius: int = 11,
+             pad_water: float = -1.0, pad_drain: float = 0.0,
+             pad_refill: bool = True) -> dict:
     # privileged statements exist only in world processors; selecting the block
     # that makes them compile is better than silently dropping whole lines.
     world_proc = processor == "world" or (processor == "auto" and PRIVILEGED_RE.search(code) is not None)
     link_specs = infer_links(code) if links == "auto" else []
+    if pads:
+        # pads_js() places and wires pad1..padN itself; an inferred duplicate
+        # would add a second block under the same name (links are positional)
+        link_specs = [s for s in link_specs if not re.fullmatch(r"pad\d+", s["name"])]
+    pads_setup, pads_report = pads_js(pads, pad_radius, pad_water, pad_drain, pad_refill)
     # a fresh processor keeps textBuffer/vars from leaking between programs
     srv.js(place_js(*srv.base, "world-processor" if world_proc else "micro-processor"))
     fd, path = tempfile.mkstemp(suffix=".mlog", dir=srv.workdir, text=True)
@@ -1315,8 +1475,11 @@ def run_mlog(srv: Server, name: str, code: str, steps: int, ticks: bool = False,
         js = STEP_JS % {"path": path.replace("\\", "/"), "x": srv.base[0], "y": srv.base[1],
                         "links": json.dumps(link_specs, ensure_ascii=False),
                         "setup": setup_js or "",
+                        "pads": pads_setup,
+                        "pads_report": pads_report,
                         "loop": _loop_js("b", steps, ticks, update, power, combat, trace, unit_ai,
-                                         preflight, itr)}
+                                         preflight, itr,
+                                         tick_extra=" padTick();" if pads else "")}
         lines = srv.js(js)
         if preflight:
             warns = [ln.split("\t") for ln in lines if ln.startswith("LINKWARN\t")]
@@ -1339,6 +1502,7 @@ def run_mlog(srv: Server, name: str, code: str, steps: int, ticks: bool = False,
         rec["update"] = update
         rec["processor"] = "world" if world_proc else "micro"
         rec["links"] = link_specs
+        rec["pads"] = parse_pads(lines)
         return rec
     finally:
         os.unlink(path)
@@ -1440,6 +1604,16 @@ def _write_trace(path: str, rows: list[list[str]]):
         for row in rows:
             fh.write(",".join(row) + "\n")
 
+def _xy_arg(spec: str | None):
+    """Parse an "X,Y" CLI option into a tuple, or None."""
+    if not spec:
+        return None
+    try:
+        x, y = spec.replace(" ", "").split(",")
+        return int(float(x)), int(float(y))
+    except Exception:
+        raise SimError("bad coordinate %r (want X,Y)" % spec)
+
 def configure_server(srv: Server, args):
     """Attach per-run world setup so prepare() can replay it after each reset."""
     if getattr(args, "js_timeout", None):
@@ -1479,7 +1653,8 @@ def serve_daemon(args, steps: int, ticks: bool, update: str, power: float, comba
     """Boot once, then answer JSON-line jobs over localhost (prewarm for a session)."""
     import socket
     world_size = None if args.host or args.world == 0 else args.world
-    srv = Server(args.java, args.jar, world_size, args.save)
+    srv = Server(args.java, args.jar, world_size, args.save, ore=args.ore,
+                 ore_at=_xy_arg(args.ore_at), ore_radius=args.ore_radius)
     configure_server(srv, args)
     srv.prepare()
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -1511,7 +1686,9 @@ def serve_daemon(args, steps: int, ticks: bool, update: str, power: float, comba
                             code = fh.read()
                         recs = [run_mlog(srv, os.path.basename(f), code, st, t, update, power,
                                          args.processor, combat, False, args.unit_ai,
-                                         preflight, args.links)]
+                                         preflight, args.links,
+                                         pads=args.pads, pad_radius=args.pad_radius,
+                                         pad_water=args.pad_water, pad_drain=args.pad_drain)]
                     conn.sendall((json.dumps({"ok": True, "results": recs},
                                              ensure_ascii=False) + "\n").encode("utf-8"))
             except Exception as e:  # noqa: BLE001 - report to the client, keep serving
@@ -1626,6 +1803,31 @@ def main(argv=None):
                     help="auto (default): for a .mlog, place a block for every name it "
                          "reads but never assigns (cell1 -> memory-cell, message1 -> message) "
                          "and wire it; off: leave them null as a plain .mlog would")
+    ap.add_argument("--pads", type=int, default=0, metavar="N",
+                    help="also place N real landing pads (4x4) and wire them as link 0..N-1, "
+                         "then report config/arriving/cooldown/items/water/landings per pad. "
+                         "Sets rules.allowEditWorldProcessors, otherwise LandingPad.config() "
+                         "silently refuses every item. Needs --ticks with --update all")
+    ap.add_argument("--pad-radius", type=int, default=11, metavar="R",
+                    help="search radius (tiles) for pad spots around the processor (default 11)")
+    ap.add_argument("--pad-water", type=float, default=-1.0, metavar="N",
+                    help="water per pad; -1 (default) = full tank. The efficiency gate wants "
+                         "1500, i.e. half a tank, so anything below that reads eff=0")
+    ap.add_argument("--no-pad-refill", dest="pad_refill", action="store_false",
+                    help="let the water run out instead of keeping the tank full; every landing "
+                         "drinks 1500 of 3000, so a pad stops after two landings (eff -> 0)")
+    ap.add_argument("--pad-drain", type=float, default=0.0, metavar="N",
+                    help="remove N items per tick from each pad (emulates the output logistics; "
+                         "a pad only lands again once its 100 items are gone)")
+    ap.add_argument("--ore", metavar="ITEM", default="",
+                    help="paint an ore disc of ITEM (e.g. copper -> block ore-copper) "
+                         "so ulocate ore / ucontrol mine work; painted inside the "
+                         "loadGenerator callback, which is what fills BlockIndexer's "
+                         "ore quadrants")
+    ap.add_argument("--ore-at", metavar="X,Y", default=None,
+                    help="ore disc centre in tiles (default: 3/4 of the world size)")
+    ap.add_argument("--ore-radius", type=int, default=4, metavar="R",
+                    help="ore disc radius in tiles (default 4)")
     ap.add_argument("--sweep-orphans", action="store_true",
                     help="kill simulator JVMs left behind by killed runs, then exit")
     ap.add_argument("--json", action="store_true")
@@ -1656,7 +1858,8 @@ def main(argv=None):
         return 0
     if not args.files:
         sys.exit("no input files (or use --daemon)")
-    srv = Server(args.java, args.jar, world_size, args.save)
+    srv = Server(args.java, args.jar, world_size, args.save, ore=args.ore,
+                 ore_at=_xy_arg(args.ore_at), ore_radius=args.ore_radius)
     configure_server(srv, args)
     results = []
     try:
@@ -1680,7 +1883,10 @@ def main(argv=None):
                 results.append(run_mlog(srv, os.path.basename(f), code, steps, ticks,
                                         update, power, args.processor, combat, want_trace,
                                         args.unit_ai, preflight, args.links,
-                                        itr_path, tuple(args.itrace_vars)))
+                                        itr_path, tuple(args.itrace_vars),
+                                        pads=args.pads, pad_radius=args.pad_radius,
+                                        pad_water=args.pad_water, pad_drain=args.pad_drain,
+                                        pad_refill=args.pad_refill))
     except FileNotFoundError as e:
         sys.exit(f"missing input: {e.filename}")
     except SimError as e:
@@ -1719,6 +1925,13 @@ def main(argv=None):
                       + (f"  processor = {r['processor']}" if r.get("processor") else ""))
             if r.get("skipped"):
                 print(f"  skipped: {', '.join(r['skipped'])}")
+            for pd in r.get("pads") or []:
+                num = lambda k, spec=".2f": ("?" if pd.get(k) is None else format(pd[k], spec))
+                print(f"  PAD {pd.get('name')} ({num('x', '.0f')},{num('y', '.0f')})"
+                      f" cfg={pd.get('config')} arriving={pd.get('arriving')}"
+                      f" cd={num('cooldown')} items={num('items', '.0f')}"
+                      f" water={num('water', '.0f')} eff={num('efficiency', '.0f')}"
+                      f" landings={num('landings', '.0f')}")
     if args.trace:
         print(f"TRACE  {len(trace_rows)} row(s) -> {args.trace}")
     return 3 if failed else 0

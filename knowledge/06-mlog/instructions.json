@@ -1,0 +1,4796 @@
+{
+ "meta": {
+  "count": 73,
+  "source": "Logic-Docs-v1.1.0.md（86 章中之 73 条指令章）为主，tools/instr_semantics.json 补 arity/defs/uses/tokens/min_build，tools/instr_enums.json 补枚举值；不一致以 Logic-Docs 为准并记入 discrepancies。",
+  "ver": "v160.7_rt / v159.3_src",
+  "index_base": "params 下标 = 文本 token 绝对下标（0 = mnemonic 后第一个参数）",
+  "discrepancies": [
+   {
+    "ins": "getblock",
+    "cmd_index": "getblock <result> <x> <y> <layer>",
+    "doc": "getblock <layer> <result> <x> <y>",
+    "why": "instr_semantics tokens: layer 在 0 号槽（源码 build 顺序 layer 优先）"
+   },
+   {
+    "ins": "setblock",
+    "cmd_index": "setblock <x> <y> <block> <team> <rotation> <layer>",
+    "doc": "setblock <layer> <block> <x> <y> <team> <rotation>",
+    "why": "同上，layer 在 0 号"
+   },
+   {
+    "ins": "weathersense",
+    "cmd_index": "weathersense <weather> <result>",
+    "doc": "weathersense <result> <weather>",
+    "why": "defs=[0] ⇒ 输出在 0 号"
+   },
+   {
+    "ins": "spawnwave",
+    "cmd_index": "spawnwave <natural> <x> <y>",
+    "doc": "spawnwave <x> <y> <natural>",
+    "why": "源码字段声明序 x,y,natural"
+   },
+   {
+    "ins": "playsound",
+    "cmd_index": "7 参（pan 与 x 合并）",
+    "doc": "playsound <positional> <id> <volume> <pitch> <pan> <x> <y> <limit>（8 参）",
+    "why": "arity=8"
+   },
+   {
+    "ins": "status",
+    "cmd_index": "<apply|clear>",
+    "doc": "<true|false>",
+    "why": "源码字段是 boolean clear；apply/clear 是 UI 措辞（断言表 L2-22 已推翻）"
+   },
+   {
+    "ins": "uradar",
+    "cmd_index": "7 参，第 5 槽字面 0",
+    "doc": "7 参，第 5 槽字面 0",
+    "why": "第 5 槽源码传 null，是死槽"
+   }
+  ],
+  "counts": {
+   "total": 73
+  }
+ },
+ "instructions": [
+  {
+   "num": "01",
+   "name": "ubind",
+   "title": "ubind（单位绑定）",
+   "category": "unit",
+   "format": "ubind <type>",
+   "arity": 1,
+   "params": [
+    "type"
+   ],
+   "defs": [],
+   "uses": [
+    0
+   ],
+   "tokens": {},
+   "since_build": 146,
+   "desc": "将处理器绑定到一个单位，绑定结果存入环境变量 `@unit`。`@unit` 是所有 `ucontrol` 指令的操作对象——只有先通过 `ubind` 绑定了单位，后续的控制指令才会生效。",
+   "doc_params": [
+    [
+     "type",
+     "绑定目标。可以是 **content类型的单位类型**（如 `@mono`、`@poly`），也可以是 **unit实例变量**（存储了单位引用的变量）"
+    ]
+   ],
+   "notes": [
+    "**每次 `ubind` 都会覆盖 `@unit`**：之前的绑定结果会丢失。如果需要保留某个单位的引用，应在绑定后立即将其保存到其他变量（如 `set savedUnit @unit`）",
+    "`@unit` 的初始值为 `null`，在首次 `ubind` 之前，所有 `ucontrol` 指令都不会产生效果"
+   ],
+   "unverified": [],
+   "trap": "@unit 只能由 ubind 写入；绑定单位死亡后 @unit 自动变 null（不影响已写入变量的值）。",
+   "sem_note": "LStatements.java:1070-1112 -> UnitBindI (LExecutor.java:167-207). Writes the special var @unit via exec.unit.setconst(...) (:193,198,202,204) -- no text param is a destination.",
+   "ver": "v160.7_rt",
+   "src": [
+    "Logic-Docs-v1.1.0.md:218",
+    "tools/instr_semantics.json#instructions.ubind"
+   ]
+  },
+  {
+   "num": "02",
+   "name": "ucontrol",
+   "title": "ucontrol idle（原地待命）",
+   "category": "unit",
+   "format": "ucontrol idle 0 0 0 0 0",
+   "arity": 6,
+   "params": [
+    "type",
+    "p1",
+    "p2",
+    "p3",
+    "p4",
+    "p5"
+   ],
+   "defs": [],
+   "uses": [],
+   "tokens": {
+    "0": "LUnitControl"
+   },
+   "since_build": 146,
+   "desc": "设置单位的控制状态（control）为 `idle`（原地待命）。单位停止执行之前的移动等控制命令，原地不动。",
+   "doc_params": [
+    [
+     "p1 ~ p5",
+     "无实际用途，全部填 0"
+    ]
+   ],
+   "notes": [],
+   "unverified": [],
+   "trap": null,
+   "sem_note": "LStatements.java:1113-1169 -> UnitControlI (LExecutor.java:304-552). index0 selects the subcommand (LUnitControl token, never a variable). Subcommand-specific defs/uses below; indices are absolute text indices (p1 == 1 ... p5 == 5). All subcommands convert p1,p2,p3 to numbers unconditionally at :352, so 'uses' always contains 1,2,3; 'semantic_uses' lists the ones that actually matter.",
+   "ver": "v160.7_rt",
+   "src": [
+    "Logic-Docs-v1.1.0.md:302",
+    "tools/instr_semantics.json#instructions.ucontrol"
+   ]
+  },
+  {
+   "num": "03",
+   "name": "ucontrol",
+   "title": "ucontrol stop（停止一切）",
+   "category": "unit",
+   "format": "ucontrol stop 0 0 0 0 0",
+   "arity": 6,
+   "params": [
+    "type",
+    "p1",
+    "p2",
+    "p3",
+    "p4",
+    "p5"
+   ],
+   "defs": [],
+   "uses": [],
+   "tokens": {
+    "0": "LUnitControl"
+   },
+   "since_build": 146,
+   "desc": "完全停止单位的移动、采矿和建造。单位进入完全静止状态。",
+   "doc_params": [
+    [
+     "p1 ~ p5",
+     "无实际用途，全部填 0"
+    ]
+   ],
+   "notes": [],
+   "unverified": [],
+   "trap": null,
+   "sem_note": "LStatements.java:1113-1169 -> UnitControlI (LExecutor.java:304-552). index0 selects the subcommand (LUnitControl token, never a variable). Subcommand-specific defs/uses below; indices are absolute text indices (p1 == 1 ... p5 == 5). All subcommands convert p1,p2,p3 to numbers unconditionally at :352, so 'uses' always contains 1,2,3; 'semantic_uses' lists the ones that actually matter.",
+   "ver": "v160.7_rt",
+   "src": [
+    "Logic-Docs-v1.1.0.md:342",
+    "tools/instr_semantics.json#instructions.ucontrol"
+   ]
+  },
+  {
+   "num": "04",
+   "name": "ucontrol",
+   "title": "ucontrol move（移动到坐标）",
+   "category": "unit",
+   "format": "ucontrol move x y 0 0 0",
+   "arity": 6,
+   "params": [
+    "type",
+    "p1",
+    "p2",
+    "p3",
+    "p4",
+    "p5"
+   ],
+   "defs": [],
+   "uses": [],
+   "tokens": {
+    "0": "LUnitControl"
+   },
+   "since_build": 146,
+   "desc": "设置单位的移动目标位置。单位会持续向目标坐标移动。",
+   "doc_params": [
+    [
+     "x",
+     "目标位置的 X 坐标（tile 坐标）"
+    ],
+    [
+     "y",
+     "目标位置的 Y 坐标（tile 坐标）"
+    ],
+    [
+     "p3 ~ p5",
+     "无实际用途，填 0"
+    ]
+   ],
+   "notes": [],
+   "unverified": [],
+   "trap": null,
+   "sem_note": "LStatements.java:1113-1169 -> UnitControlI (LExecutor.java:304-552). index0 selects the subcommand (LUnitControl token, never a variable). Subcommand-specific defs/uses below; indices are absolute text indices (p1 == 1 ... p5 == 5). All subcommands convert p1,p2,p3 to numbers unconditionally at :352, so 'uses' always contains 1,2,3; 'semantic_uses' lists the ones that actually matter.",
+   "ver": "v160.7_rt",
+   "src": [
+    "Logic-Docs-v1.1.0.md:391",
+    "tools/instr_semantics.json#instructions.ucontrol"
+   ]
+  },
+  {
+   "num": "05",
+   "name": "ucontrol",
+   "title": "ucontrol approach（接近到一定半径）",
+   "category": "unit",
+   "format": "ucontrol approach x y radius 0 0",
+   "arity": 6,
+   "params": [
+    "type",
+    "p1",
+    "p2",
+    "p3",
+    "p4",
+    "p5"
+   ],
+   "defs": [],
+   "uses": [],
+   "tokens": {
+    "0": "LUnitControl"
+   },
+   "since_build": 146,
+   "desc": "移动单位到距离目标 (x, y) 指定 radius 范围内即停止。适用于需要单位靠近某个目标但不必精确到达目标点的情况。",
+   "doc_params": [
+    [
+     "x",
+     "目标位置的 X 坐标（tile 坐标）"
+    ],
+    [
+     "y",
+     "目标位置的 Y 坐标（tile 坐标）"
+    ],
+    [
+     "radius",
+     "接近半径（单位会移动到距离目标此半径范围内停止）"
+    ],
+    [
+     "p4 ~ p5",
+     "无实际用途，填 0"
+    ]
+   ],
+   "notes": [],
+   "unverified": [],
+   "trap": null,
+   "sem_note": "LStatements.java:1113-1169 -> UnitControlI (LExecutor.java:304-552). index0 selects the subcommand (LUnitControl token, never a variable). Subcommand-specific defs/uses below; indices are absolute text indices (p1 == 1 ... p5 == 5). All subcommands convert p1,p2,p3 to numbers unconditionally at :352, so 'uses' always contains 1,2,3; 'semantic_uses' lists the ones that actually matter.",
+   "ver": "v160.7_rt",
+   "src": [
+    "Logic-Docs-v1.1.0.md:438",
+    "tools/instr_semantics.json#instructions.ucontrol"
+   ]
+  },
+  {
+   "num": "06",
+   "name": "ucontrol",
+   "title": "ucontrol pathfind（寻路移动）",
+   "category": "unit",
+   "format": "ucontrol pathfind x y 0 0 0",
+   "arity": 6,
+   "params": [
+    "type",
+    "p1",
+    "p2",
+    "p3",
+    "p4",
+    "p5"
+   ],
+   "defs": [],
+   "uses": [],
+   "tokens": {
+    "0": "LUnitControl"
+   },
+   "since_build": 146,
+   "desc": "使用寻路算法移动到目标坐标。与 move 不同，pathfind 会为地面单位计算绕过障碍物的路径。",
+   "doc_params": [
+    [
+     "x",
+     "目标位置的 X 坐标（tile 坐标）"
+    ],
+    [
+     "y",
+     "目标位置的 Y 坐标（tile 坐标）"
+    ],
+    [
+     "p3 ~ p5",
+     "无实际用途，填 0"
+    ]
+   ],
+   "notes": [
+    "pathfind 会触发控制状态（通过 `checkLogicAI()` 将单位控制器替换为 LogicAI 并刷新 10 秒控制计时器 `controlTimer`）",
+    "旧版本中的 `pathfind` 实际执行的是 `autoPathfind` 的功能（自动寻路至敌方核心）",
+    "新版本中 `pathfind` 已改为按指定坐标寻路。如果导入旧版本的处理器代码，旧的 `pathfind` 指令会寻路至坐标 (0, 0)"
+   ],
+   "unverified": [],
+   "trap": null,
+   "sem_note": "LStatements.java:1113-1169 -> UnitControlI (LExecutor.java:304-552). index0 selects the subcommand (LUnitControl token, never a variable). Subcommand-specific defs/uses below; indices are absolute text indices (p1 == 1 ... p5 == 5). All subcommands convert p1,p2,p3 to numbers unconditionally at :352, so 'uses' always contains 1,2,3; 'semantic_uses' lists the ones that actually matter.",
+   "ver": "v160.7_rt",
+   "src": [
+    "Logic-Docs-v1.1.0.md:492",
+    "tools/instr_semantics.json#instructions.ucontrol"
+   ]
+  },
+  {
+   "num": "07",
+   "name": "ucontrol",
+   "title": "ucontrol autoPathfind（自动寻路）",
+   "category": "unit",
+   "format": "ucontrol autoPathfind 0 0 0 0 0",
+   "arity": 6,
+   "params": [
+    "type",
+    "p1",
+    "p2",
+    "p3",
+    "p4",
+    "p5"
+   ],
+   "defs": [],
+   "uses": [],
+   "tokens": {
+    "0": "LUnitControl"
+   },
+   "since_build": 146,
+   "desc": "自动寻路至最近的敌方核心或敌人生成点。无需指定目标坐标，单位会自动寻找进攻目标。",
+   "doc_params": [
+    [
+     "p1 ~ p5",
+     "无实际用途，全部填 0"
+    ]
+   ],
+   "notes": [],
+   "unverified": [],
+   "trap": null,
+   "sem_note": "LStatements.java:1113-1169 -> UnitControlI (LExecutor.java:304-552). index0 selects the subcommand (LUnitControl token, never a variable). Subcommand-specific defs/uses below; indices are absolute text indices (p1 == 1 ... p5 == 5). All subcommands convert p1,p2,p3 to numbers unconditionally at :352, so 'uses' always contains 1,2,3; 'semantic_uses' lists the ones that actually matter.",
+   "ver": "v160.7_rt",
+   "src": [
+    "Logic-Docs-v1.1.0.md:544",
+    "tools/instr_semantics.json#instructions.ucontrol"
+   ]
+  },
+  {
+   "num": "08",
+   "name": "ucontrol",
+   "title": "ucontrol boost（助推）",
+   "category": "unit",
+   "format": "ucontrol boost enable 0 0 0 0",
+   "arity": 6,
+   "params": [
+    "type",
+    "p1",
+    "p2",
+    "p3",
+    "p4",
+    "p5"
+   ],
+   "defs": [],
+   "uses": [],
+   "tokens": {
+    "0": "LUnitControl"
+   },
+   "since_build": 146,
+   "desc": "控制单位的助推状态。助推可以使单位升空飞行或加速移动。",
+   "doc_params": [
+    [
+     "enable",
+     "助推开关。**0 = 关闭助推**，**非 0 = 开启助推**"
+    ],
+    [
+     "p2 ~ p5",
+     "无实际用途，填 0"
+    ]
+   ],
+   "notes": [
+    "**只有 canBoost 的单位才有效**。部分单位类型不支持助推，对它们使用 boost 没有任何效果",
+    "**飞行类型单位本身就在飞行**，boost 对它们无额外的升空效果",
+    "boost 的主要作用是让地面单位临时升空越过障碍物或在必要时加速",
+    "boost 会触发控制状态（通过 `checkLogicAI()` 将单位标记为被逻辑控制），与所有 ucontrol 子指令行为一致。"
+   ],
+   "unverified": [],
+   "trap": null,
+   "sem_note": "LStatements.java:1113-1169 -> UnitControlI (LExecutor.java:304-552). index0 selects the subcommand (LUnitControl token, never a variable). Subcommand-specific defs/uses below; indices are absolute text indices (p1 == 1 ... p5 == 5). All subcommands convert p1,p2,p3 to numbers unconditionally at :352, so 'uses' always contains 1,2,3; 'semantic_uses' lists the ones that actually matter.",
+   "ver": "v160.7_rt",
+   "src": [
+    "Logic-Docs-v1.1.0.md:598",
+    "tools/instr_semantics.json#instructions.ucontrol"
+   ]
+  },
+  {
+   "num": "09",
+   "name": "ucontrol",
+   "title": "ucontrol target（瞄准坐标）",
+   "category": "unit",
+   "format": "ucontrol target x y shoot 0 0",
+   "arity": 6,
+   "params": [
+    "type",
+    "p1",
+    "p2",
+    "p3",
+    "p4",
+    "p5"
+   ],
+   "defs": [],
+   "uses": [],
+   "tokens": {
+    "0": "LUnitControl"
+   },
+   "since_build": 146,
+   "desc": "让单位武器瞄准指定坐标，并可选择是否射击。",
+   "doc_params": [
+    [
+     "x",
+     "p1",
+     "number",
+     "目标坐标x（tile坐标）"
+    ],
+    [
+     "y",
+     "p2",
+     "number",
+     "目标坐标y（tile坐标）"
+    ],
+    [
+     "shoot",
+     "p3",
+     "number",
+     "射击开关，0=只瞄准不射击，非0=射击"
+    ],
+    [
+     "p4",
+     "p4",
+     "-",
+     "保留参数，固定为0"
+    ],
+    [
+     "p5",
+     "p5",
+     "-",
+     "保留参数，固定为0"
+    ]
+   ],
+   "notes": [
+    "**只控制瞄准和射击，不控制移动**。若需要单位移动到某处，请配合 `ucontrol move` 使用",
+    "所有 x、y 参数均为 **tile坐标**，处理器内部通过世界坐标转换（`World.unconv`）转为像素坐标（乘以 `tilesize = 8`）",
+    "布尔参数规则：0 = false，非0 = true",
+    "武器是否能实际射击还取决于武器自身的射程、冷却等属性"
+   ],
+   "unverified": [],
+   "trap": null,
+   "sem_note": "LStatements.java:1113-1169 -> UnitControlI (LExecutor.java:304-552). index0 selects the subcommand (LUnitControl token, never a variable). Subcommand-specific defs/uses below; indices are absolute text indices (p1 == 1 ... p5 == 5). All subcommands convert p1,p2,p3 to numbers unconditionally at :352, so 'uses' always contains 1,2,3; 'semantic_uses' lists the ones that actually matter.",
+   "ver": "v160.7_rt",
+   "src": [
+    "Logic-Docs-v1.1.0.md:643",
+    "tools/instr_semantics.json#instructions.ucontrol"
+   ]
+  },
+  {
+   "num": "10",
+   "name": "ucontrol",
+   "title": "ucontrol targetp（瞄准对象）",
+   "category": "unit",
+   "format": "ucontrol targetp unit shoot 0 0 0",
+   "arity": 6,
+   "params": [
+    "type",
+    "p1",
+    "p2",
+    "p3",
+    "p4",
+    "p5"
+   ],
+   "defs": [],
+   "uses": [],
+   "tokens": {
+    "0": "LUnitControl"
+   },
+   "since_build": 146,
+   "desc": "让单位武器瞄准指定的对象（单位或建筑），并可选择是否射击。",
+   "doc_params": [
+    [
+     "unit",
+     "p1",
+     "Teamc",
+     "目标对象，可以是 Unit 或 Building"
+    ],
+    [
+     "shoot",
+     "p2",
+     "number",
+     "射击开关，0=只瞄准不射击，非0=射击"
+    ],
+    [
+     "p3",
+     "p3",
+     "-",
+     "保留参数，固定为0"
+    ],
+    [
+     "p4",
+     "p4",
+     "-",
+     "保留参数，固定为0"
+    ],
+    [
+     "p5",
+     "p5",
+     "-",
+     "保留参数，固定为0"
+    ]
+   ],
+   "notes": [
+    "p1 参数**必须是 `Teamc` 接口实例**。如果传入的不是 `Teamc`（例如传了数字或 null），主目标会被设为 null，单位不会瞄准任何目标",
+    "布尔参数规则：0 = false，非0 = true",
+    "目标移动时，单位武器会自动跟随瞄准",
+    "targetp 会触发控制状态（通过 `checkLogicAI()` 将单位标记为被逻辑控制），与所有 ucontrol 子指令行为一致。"
+   ],
+   "unverified": [],
+   "trap": null,
+   "sem_note": "LStatements.java:1113-1169 -> UnitControlI (LExecutor.java:304-552). index0 selects the subcommand (LUnitControl token, never a variable). Subcommand-specific defs/uses below; indices are absolute text indices (p1 == 1 ... p5 == 5). All subcommands convert p1,p2,p3 to numbers unconditionally at :352, so 'uses' always contains 1,2,3; 'semantic_uses' lists the ones that actually matter.",
+   "ver": "v160.7_rt",
+   "src": [
+    "Logic-Docs-v1.1.0.md:686",
+    "tools/instr_semantics.json#instructions.ucontrol"
+   ]
+  },
+  {
+   "num": "11",
+   "name": "ucontrol",
+   "title": "ucontrol itemDrop（放置物品）",
+   "category": "unit",
+   "format": "ucontrol itemDrop to amount 0 0 0",
+   "arity": 6,
+   "params": [
+    "type",
+    "p1",
+    "p2",
+    "p3",
+    "p4",
+    "p5"
+   ],
+   "defs": [],
+   "uses": [],
+   "tokens": {
+    "0": "LUnitControl"
+   },
+   "since_build": 146,
+   "desc": "让单位将携带的物品传输到目标建筑中，或将物品丢弃到地面（当目标为 `@air` 时）。",
+   "doc_params": [
+    [
+     "to",
+     "p1",
+     "Building / Blocks",
+     "目标建筑；传 `@air` 表示丢弃到地面"
+    ],
+    [
+     "amount",
+     "p2",
+     "number",
+     "传输的物品数量"
+    ],
+    [
+     "p3",
+     "p3",
+     "-",
+     "保留参数，固定为0"
+    ],
+    [
+     "p4",
+     "p4",
+     "-",
+     "保留参数，固定为0"
+    ],
+    [
+     "p5",
+     "p5",
+     "-",
+     "保留参数，固定为0"
+    ]
+   ],
+   "notes": [
+    "**距离检查**：逻辑物品传输范围 + 建筑大小 * tileSize / 2（`logicItemTransferRange = 5.625` tiles）。单位必须在范围内才能传输",
+    "**传输超时**：1.5 秒传输延迟（`transferDelay = 60f * 1.5f`），即两次传输之间需要间隔一定时间",
+    "**传输条件**（全部满足才能传输）：",
+    "itemDrop 会触发控制状态（通过 `checkLogicAI()` 将单位标记为被逻辑控制），与所有 ucontrol 子指令行为一致。"
+   ],
+   "unverified": [],
+   "trap": null,
+   "sem_note": "LStatements.java:1113-1169 -> UnitControlI (LExecutor.java:304-552). index0 selects the subcommand (LUnitControl token, never a variable). Subcommand-specific defs/uses below; indices are absolute text indices (p1 == 1 ... p5 == 5). All subcommands convert p1,p2,p3 to numbers unconditionally at :352, so 'uses' always contains 1,2,3; 'semantic_uses' lists the ones that actually matter.",
+   "ver": "v160.7_rt",
+   "src": [
+    "Logic-Docs-v1.1.0.md:733",
+    "tools/instr_semantics.json#instructions.ucontrol"
+   ]
+  },
+  {
+   "num": "12",
+   "name": "ucontrol",
+   "title": "ucontrol itemTake（取走物品）",
+   "category": "unit",
+   "format": "ucontrol itemTake from item amount 0 0",
+   "arity": 6,
+   "params": [
+    "type",
+    "p1",
+    "p2",
+    "p3",
+    "p4",
+    "p5"
+   ],
+   "defs": [],
+   "uses": [],
+   "tokens": {
+    "0": "LUnitControl"
+   },
+   "since_build": 146,
+   "desc": "让单位从目标建筑中取走指定类型和数量的物品。",
+   "doc_params": [
+    [
+     "from",
+     "p1",
+     "Building",
+     "来源建筑"
+    ],
+    [
+     "item",
+     "p2",
+     "Item content",
+     "物品类型，如 `@copper`"
+    ],
+    [
+     "amount",
+     "p3",
+     "number",
+     "取走的数量"
+    ],
+    [
+     "p4",
+     "p4",
+     "-",
+     "保留参数，固定为0"
+    ],
+    [
+     "p5",
+     "p5",
+     "-",
+     "保留参数，固定为0"
+    ]
+   ],
+   "notes": [
+    "**传输超时**：同 `itemDrop`（1.5 秒传输延迟，`transferDelay = 60f * 1.5f`），两次取物之间需要间隔一定时间",
+    "**取物条件**（全部满足才能取走）：",
+    "实际取出数量可能小于请求数量（受建筑存量和单位容量限制）",
+    "itemTake 会触发控制状态（通过 `checkLogicAI()` 将单位标记为被逻辑控制），与所有 ucontrol 子指令行为一致。"
+   ],
+   "unverified": [],
+   "trap": null,
+   "sem_note": "LStatements.java:1113-1169 -> UnitControlI (LExecutor.java:304-552). index0 selects the subcommand (LUnitControl token, never a variable). Subcommand-specific defs/uses below; indices are absolute text indices (p1 == 1 ... p5 == 5). All subcommands convert p1,p2,p3 to numbers unconditionally at :352, so 'uses' always contains 1,2,3; 'semantic_uses' lists the ones that actually matter.",
+   "ver": "v160.7_rt",
+   "src": [
+    "Logic-Docs-v1.1.0.md:778",
+    "tools/instr_semantics.json#instructions.ucontrol"
+   ]
+  },
+  {
+   "num": "13",
+   "name": "ucontrol",
+   "title": "ucontrol payDrop（丢弃载荷）",
+   "category": "unit",
+   "format": "ucontrol payDrop 0 0 0 0 0",
+   "arity": 6,
+   "params": [
+    "type",
+    "p1",
+    "p2",
+    "p3",
+    "p4",
+    "p5"
+   ],
+   "defs": [],
+   "uses": [],
+   "tokens": {
+    "0": "LUnitControl"
+   },
+   "since_build": 146,
+   "desc": "释放单位当前携带的载荷（如建筑方块等），将其丢弃到当前位置。",
+   "doc_params": [
+    [
+     "p1",
+     "p1",
+     "-",
+     "无参数，固定为0"
+    ],
+    [
+     "p2",
+     "p2",
+     "-",
+     "无参数，固定为0"
+    ],
+    [
+     "p3",
+     "p3",
+     "-",
+     "无参数，固定为0"
+    ],
+    [
+     "p4",
+     "p4",
+     "-",
+     "无参数，固定为0"
+    ],
+    [
+     "p5",
+     "p5",
+     "-",
+     "无参数，固定为0"
+    ]
+   ],
+   "notes": [
+    "**传输超时**：同 `itemDrop`（1.5 秒传输延迟，`transferDelay = 60f * 1.5f`）",
+    "单位必须具备载荷携带能力（实现 `Payloadc` 接口），否则指令无效",
+    "单位当前必须已携带载荷（`hasPayload` 为 true），否则不会执行丢弃操作",
+    "常用于搬运建筑方块的单位（如 mega、quad 等载荷单位）"
+   ],
+   "unverified": [],
+   "trap": null,
+   "sem_note": "LStatements.java:1113-1169 -> UnitControlI (LExecutor.java:304-552). index0 selects the subcommand (LUnitControl token, never a variable). Subcommand-specific defs/uses below; indices are absolute text indices (p1 == 1 ... p5 == 5). All subcommands convert p1,p2,p3 to numbers unconditionally at :352, so 'uses' always contains 1,2,3; 'semantic_uses' lists the ones that actually matter.",
+   "ver": "v160.7_rt",
+   "src": [
+    "Logic-Docs-v1.1.0.md:821",
+    "tools/instr_semantics.json#instructions.ucontrol"
+   ]
+  },
+  {
+   "num": "14",
+   "name": "ucontrol",
+   "title": "ucontrol payTake（拾取载荷）",
+   "category": "unit",
+   "format": "ucontrol payTake takeUnits 0 0 0 0",
+   "arity": 6,
+   "params": [
+    "type",
+    "p1",
+    "p2",
+    "p3",
+    "p4",
+    "p5"
+   ],
+   "defs": [],
+   "uses": [],
+   "tokens": {
+    "0": "LUnitControl"
+   },
+   "since_build": 146,
+   "desc": "让单位拾取附近的载荷。根据 `takeUnits` 参数的不同，可以拾取建筑载荷（如建筑方块）或单位载荷（如地面单位）。",
+   "doc_params": [
+    [
+     "takeUnits",
+     "p1",
+     "number",
+     "拾取模式，0=拾取建筑载荷，非0=拾取单位载荷"
+    ],
+    [
+     "p2",
+     "p2",
+     "-",
+     "保留参数，固定为0"
+    ],
+    [
+     "p3",
+     "p3",
+     "-",
+     "保留参数，固定为0"
+    ],
+    [
+     "p4",
+     "p4",
+     "-",
+     "保留参数，固定为0"
+    ],
+    [
+     "p5",
+     "p5",
+     "-",
+     "保留参数，固定为0"
+    ]
+   ],
+   "notes": [
+    "**传输超时**：同 `itemDrop`（1.5 秒传输延迟，`transferDelay = 60f * 1.5f`）",
+    "布尔参数规则：0 = false，非0 = true",
+    "拾取单位载荷时，查找范围与单位体积相关（`unit.type.hitSize * 2f`），体积越大的单位搜索范围越广",
+    "拾取单位载荷时，目标单位必须是已落地的 AI 地面单位"
+   ],
+   "unverified": [],
+   "trap": null,
+   "sem_note": "LStatements.java:1113-1169 -> UnitControlI (LExecutor.java:304-552). index0 selects the subcommand (LUnitControl token, never a variable). Subcommand-specific defs/uses below; indices are absolute text indices (p1 == 1 ... p5 == 5). All subcommands convert p1,p2,p3 to numbers unconditionally at :352, so 'uses' always contains 1,2,3; 'semantic_uses' lists the ones that actually matter.",
+   "ver": "v160.7_rt",
+   "src": [
+    "Logic-Docs-v1.1.0.md:860",
+    "tools/instr_semantics.json#instructions.ucontrol"
+   ]
+  },
+  {
+   "num": "15",
+   "name": "ucontrol",
+   "title": "ucontrol payEnter（进入建筑）",
+   "category": "unit",
+   "format": "ucontrol payEnter 0 0 0 0 0",
+   "arity": 6,
+   "params": [
+    "type",
+    "p1",
+    "p2",
+    "p3",
+    "p4",
+    "p5"
+   ],
+   "defs": [],
+   "uses": [],
+   "tokens": {
+    "0": "LUnitControl"
+   },
+   "since_build": 146,
+   "desc": "让单位进入当前所在位置的建筑，进行交互操作。",
+   "doc_params": [
+    [
+     "p1",
+     "p1",
+     "-",
+     "无参数，固定为0"
+    ],
+    [
+     "p2",
+     "p2",
+     "-",
+     "无参数，固定为0"
+    ],
+    [
+     "p3",
+     "p3",
+     "-",
+     "无参数，固定为0"
+    ],
+    [
+     "p4",
+     "p4",
+     "-",
+     "无参数，固定为0"
+    ],
+    [
+     "p5",
+     "p5",
+     "-",
+     "无参数，固定为0"
+    ]
+   ],
+   "notes": [
+    "单位必须位于目标建筑上方（即单位当前位置存在建筑）才能触发进入",
+    "建筑必须与单位同队，且支持控制进入功能（`canControlSelect`）",
+    "payEnter 会触发控制状态（通过 `checkLogicAI()` 将单位标记为被逻辑控制），与所有 ucontrol 子指令行为一致。"
+   ],
+   "unverified": [],
+   "trap": null,
+   "sem_note": "LStatements.java:1113-1169 -> UnitControlI (LExecutor.java:304-552). index0 selects the subcommand (LUnitControl token, never a variable). Subcommand-specific defs/uses below; indices are absolute text indices (p1 == 1 ... p5 == 5). All subcommands convert p1,p2,p3 to numbers unconditionally at :352, so 'uses' always contains 1,2,3; 'semantic_uses' lists the ones that actually matter.",
+   "ver": "v160.7_rt",
+   "src": [
+    "Logic-Docs-v1.1.0.md:904",
+    "tools/instr_semantics.json#instructions.ucontrol"
+   ]
+  },
+  {
+   "num": "16",
+   "name": "ucontrol",
+   "title": "ucontrol mine（采矿）",
+   "category": "unit",
+   "format": "ucontrol mine x y 0 0 0",
+   "arity": 6,
+   "params": [
+    "type",
+    "p1",
+    "p2",
+    "p3",
+    "p4",
+    "p5"
+   ],
+   "defs": [],
+   "uses": [],
+   "tokens": {
+    "0": "LUnitControl"
+   },
+   "since_build": 146,
+   "desc": "让单位前往指定位置进行采矿操作。",
+   "doc_params": [
+    [
+     "x",
+     "p1",
+     "number",
+     "采矿位置x坐标（tile坐标）"
+    ],
+    [
+     "y",
+     "p2",
+     "number",
+     "采矿位置y坐标（tile坐标）"
+    ],
+    [
+     "p3",
+     "p3",
+     "-",
+     "保留参数，固定为0"
+    ],
+    [
+     "p4",
+     "p4",
+     "-",
+     "保留参数，固定为0"
+    ],
+    [
+     "p5",
+     "p5",
+     "-",
+     "保留参数，固定为0"
+    ]
+   ],
+   "notes": [
+    "单位**必须具备采矿能力**（`canMine` 为 true），否则指令无效。并非所有单位都能采矿",
+    "所有 x、y 参数均为 **tile坐标**，处理器内部通过世界坐标转换（`World.unconv`）转为像素坐标（乘以 `tilesize = 8`）",
+    "单位会自动移动到矿脉位置，不需要额外使用 `ucontrol move`",
+    "如果指定坐标不是有效矿脉，单位的采矿瓦片会被设为 null，即停止采矿"
+   ],
+   "unverified": [],
+   "trap": null,
+   "sem_note": "LStatements.java:1113-1169 -> UnitControlI (LExecutor.java:304-552). index0 selects the subcommand (LUnitControl token, never a variable). Subcommand-specific defs/uses below; indices are absolute text indices (p1 == 1 ... p5 == 5). All subcommands convert p1,p2,p3 to numbers unconditionally at :352, so 'uses' always contains 1,2,3; 'semantic_uses' lists the ones that actually matter.",
+   "ver": "v160.7_rt",
+   "src": [
+    "Logic-Docs-v1.1.0.md:951",
+    "tools/instr_semantics.json#instructions.ucontrol"
+   ]
+  },
+  {
+   "num": "17",
+   "name": "ucontrol",
+   "title": "flag（设置单位标记）",
+   "category": "unit",
+   "format": "ucontrol flag value 0 0 0 0",
+   "arity": 6,
+   "params": [
+    "type",
+    "p1",
+    "p2",
+    "p3",
+    "p4",
+    "p5"
+   ],
+   "defs": [],
+   "uses": [],
+   "tokens": {
+    "0": "LUnitControl"
+   },
+   "since_build": 146,
+   "desc": "为当前绑定的单位设置一个数值标记（flag）。该标记会永久保存在单位身上，即使处理器被销毁也不会丢失。其他处理器可以通过 sensor 指令读取 `@flag` 属性来获取该标记值，从而实现单位分组、识别等逻辑。",
+   "doc_params": [
+    [
+     "参数位置",
+     "参数名",
+     "类型",
+     "说明"
+    ],
+    [
+     "p1",
+     "value",
+     "数值",
+     "要写入单位标记的数值"
+    ],
+    [
+     "p2",
+     "-",
+     "-",
+     "占位符，固定为 0"
+    ],
+    [
+     "p3",
+     "-",
+     "-",
+     "占位符，固定为 0"
+    ],
+    [
+     "p4",
+     "-",
+     "-",
+     "占位符，固定为 0"
+    ],
+    [
+     "p5",
+     "-",
+     "-",
+     "占位符，固定为 0"
+    ]
+   ],
+   "notes": [
+    "每个单位只能存储 **1 个数字** flag。如果需要存储多个信息，需要自行设计编码方案（例如用位运算或数学运算把多个值打包到一个数字中）。",
+    "flag 是永久属性，处理器销毁后仍保留，除非单位本身被销毁。",
+    "读取 flag 时使用 `sensor result @unit @flag`。",
+    "flag 的值可以是任意数字，包括负数和小数。"
+   ],
+   "unverified": [
+    "无"
+   ],
+   "trap": null,
+   "sem_note": "LStatements.java:1113-1169 -> UnitControlI (LExecutor.java:304-552). index0 selects the subcommand (LUnitControl token, never a variable). Subcommand-specific defs/uses below; indices are absolute text indices (p1 == 1 ... p5 == 5). All subcommands convert p1,p2,p3 to numbers unconditionally at :352, so 'uses' always contains 1,2,3; 'semantic_uses' lists the ones that actually matter.",
+   "ver": "v160.7_rt",
+   "src": [
+    "Logic-Docs-v1.1.0.md:992",
+    "tools/instr_semantics.json#instructions.ucontrol"
+   ]
+  },
+  {
+   "num": "18",
+   "name": "ucontrol",
+   "title": "build（逻辑建造）",
+   "category": "unit",
+   "format": "ucontrol build x y block rotation config",
+   "arity": 6,
+   "params": [
+    "type",
+    "p1",
+    "p2",
+    "p3",
+    "p4",
+    "p5"
+   ],
+   "defs": [],
+   "uses": [],
+   "tokens": {
+    "0": "LUnitControl"
+   },
+   "since_build": 146,
+   "desc": "命令当前绑定的单位在指定位置建造一个指定类型的建筑，并可设置朝向和初始配置。这是逻辑处理器实现自动化建造的核心指令。",
+   "doc_params": [
+    [
+     "参数位置",
+     "参数名",
+     "类型",
+     "说明"
+    ],
+    [
+     "p1",
+     "x",
+     "数值",
+     "建造位置的 tile 坐标 X"
+    ],
+    [
+     "p2",
+     "y",
+     "数值",
+     "建造位置的 tile 坐标 Y"
+    ],
+    [
+     "p3",
+     "block",
+     "内容引用",
+     "要建造的建筑类型，如 `@conveyor`、`@router` 等"
+    ],
+    [
+     "p4",
+     "rotation",
+     "数值",
+     "建造方向：0=右，1=上，2=左，3=下"
+    ],
+    [
+     "p5",
+     "config",
+     "任意",
+     "建筑配置值，如传送带的分选物品等"
+    ]
+   ],
+   "notes": [
+    "坐标参数 x、y 均为 **tile 坐标**（瓦片坐标），处理器内部会通过世界坐标转换（`World.unconv`，即乘以 tilesize=8）转为像素坐标。",
+    "必须满足游戏规则的前置条件，否则指令无效（不会报错，但单位不会执行建造）。",
+    "rotation 的方向遵循 Mindustry 的标准旋转约定：0=向右，1=向上，2=向左，3=向下。",
+    "config 参数用于需要初始配置的建筑（如分选器的目标物品）。对于不需要配置的建筑，传入 0 即可。"
+   ],
+   "unverified": [],
+   "trap": null,
+   "sem_note": "LStatements.java:1113-1169 -> UnitControlI (LExecutor.java:304-552). index0 selects the subcommand (LUnitControl token, never a variable). Subcommand-specific defs/uses below; indices are absolute text indices (p1 == 1 ... p5 == 5). All subcommands convert p1,p2,p3 to numbers unconditionally at :352, so 'uses' always contains 1,2,3; 'semantic_uses' lists the ones that actually matter.",
+   "ver": "v160.7_rt",
+   "src": [
+    "Logic-Docs-v1.1.0.md:1033",
+    "tools/instr_semantics.json#instructions.ucontrol"
+   ]
+  },
+  {
+   "num": "19",
+   "name": "ucontrol",
+   "title": "deconstruct（逻辑拆除）",
+   "category": "unit",
+   "format": "ucontrol deconstruct x y 0 0 0",
+   "arity": 6,
+   "params": [
+    "type",
+    "p1",
+    "p2",
+    "p3",
+    "p4",
+    "p5"
+   ],
+   "defs": [],
+   "uses": [],
+   "tokens": {
+    "0": "LUnitControl"
+   },
+   "since_build": 146,
+   "desc": "命令当前绑定的单位前往指定位置拆除已有的建筑。单位会自动移动到目标位置并执行拆除操作。",
+   "doc_params": [
+    [
+     "参数位置",
+     "参数名",
+     "类型",
+     "说明"
+    ],
+    [
+     "p1",
+     "x",
+     "数值",
+     "拆除位置的 tile 坐标 X"
+    ],
+    [
+     "p2",
+     "y",
+     "数值",
+     "拆除位置的 tile 坐标 Y"
+    ],
+    [
+     "p3",
+     "-",
+     "-",
+     "占位符，固定为 0"
+    ],
+    [
+     "p4",
+     "-",
+     "-",
+     "占位符，固定为 0"
+    ],
+    [
+     "p5",
+     "-",
+     "-",
+     "占位符，固定为 0"
+    ]
+   ],
+   "notes": [
+    "坐标参数 x、y 均为 **tile 坐标**，处理器内部会通过世界坐标转换（`World.unconv`，即乘以 tilesize=8）转为像素坐标。",
+    "通常需要地图规则允许逻辑拆除（`logicUnitDeconstruct`），否则指令无效。",
+    "deconstruct 会触发控制状态，将单位标记为被逻辑控制。",
+    "拆除计划与建造计划使用同一套机制，区别在于 `breaking` 标志位。"
+   ],
+   "unverified": [
+    "无"
+   ],
+   "trap": null,
+   "sem_note": "LStatements.java:1113-1169 -> UnitControlI (LExecutor.java:304-552). index0 selects the subcommand (LUnitControl token, never a variable). Subcommand-specific defs/uses below; indices are absolute text indices (p1 == 1 ... p5 == 5). All subcommands convert p1,p2,p3 to numbers unconditionally at :352, so 'uses' always contains 1,2,3; 'semantic_uses' lists the ones that actually matter.",
+   "ver": "v160.7_rt",
+   "src": [
+    "Logic-Docs-v1.1.0.md:1083",
+    "tools/instr_semantics.json#instructions.ucontrol"
+   ]
+  },
+  {
+   "num": "20",
+   "name": "ucontrol",
+   "title": "getBlock（获取方块信息）",
+   "category": "unit",
+   "format": "ucontrol getBlock x y type building floor",
+   "arity": 6,
+   "params": [
+    "type",
+    "p1",
+    "p2",
+    "p3",
+    "p4",
+    "p5"
+   ],
+   "defs": [],
+   "uses": [],
+   "tokens": {
+    "0": "LUnitControl"
+   },
+   "since_build": 146,
+   "desc": "读取指定坐标处的方块信息，返回三个值：建筑类型、建筑实例引用、地板类型。这是逻辑处理器感知周围环境建筑布局的核心指令。",
+   "doc_params": [
+    [
+     "参数位置",
+     "参数名",
+     "类型",
+     "说明"
+    ],
+    [
+     "p1",
+     "x",
+     "数值",
+     "查询位置的 tile 坐标 X"
+    ],
+    [
+     "p2",
+     "y",
+     "数值",
+     "查询位置的 tile 坐标 Y"
+    ],
+    [
+     "p3",
+     "type",
+     "输出变量",
+     "输出：该位置的方块/建筑类型（Block）"
+    ],
+    [
+     "p4",
+     "building",
+     "输出变量",
+     "输出：该位置的建筑实例（Building 引用）"
+    ],
+    [
+     "p5",
+     "floor",
+     "输出变量",
+     "输出：该位置的地板或覆盖层类型"
+    ]
+   ],
+   "notes": [
+    "坐标参数 x、y 均为 **tile 坐标**，处理器内部会通过世界坐标转换（`World.unconv`，即乘以 tilesize=8）转为像素坐标。",
+    "**重要**：获取的 building 引用即使单位离开原范围后仍可使用。该引用可用于对存储类建筑（cell/bank/display）进行写入或绘制操作。",
+    "**限制**：获取的 building 引用 **不能** 用于启用/禁用建筑或修改其配置，这些操作仍需要单位在范围内。",
+    "如果目标位置超出范围，所有三个输出都会被设为 null，可用于判断范围是否足够。"
+   ],
+   "unverified": [
+    "无"
+   ],
+   "trap": null,
+   "sem_note": "LStatements.java:1113-1169 -> UnitControlI (LExecutor.java:304-552). index0 selects the subcommand (LUnitControl token, never a variable). Subcommand-specific defs/uses below; indices are absolute text indices (p1 == 1 ... p5 == 5). All subcommands convert p1,p2,p3 to numbers unconditionally at :352, so 'uses' always contains 1,2,3; 'semantic_uses' lists the ones that actually matter.",
+   "ver": "v160.7_rt",
+   "src": [
+    "Logic-Docs-v1.1.0.md:1125",
+    "tools/instr_semantics.json#instructions.ucontrol"
+   ]
+  },
+  {
+   "num": "21",
+   "name": "ucontrol",
+   "title": "within（范围检测）",
+   "category": "unit",
+   "format": "ucontrol within x y radius result 0",
+   "arity": 6,
+   "params": [
+    "type",
+    "p1",
+    "p2",
+    "p3",
+    "p4",
+    "p5"
+   ],
+   "defs": [],
+   "uses": [],
+   "tokens": {
+    "0": "LUnitControl"
+   },
+   "since_build": 146,
+   "desc": "检测当前绑定的单位是否在指定坐标的指定半径范围内，结果输出为 1（在范围内）或 0（不在范围内）。",
+   "doc_params": [
+    [
+     "参数位置",
+     "参数名",
+     "类型",
+     "说明"
+    ],
+    [
+     "p1",
+     "x",
+     "数值",
+     "目标位置的 tile 坐标 X"
+    ],
+    [
+     "p2",
+     "y",
+     "数值",
+     "目标位置的 tile 坐标 Y"
+    ],
+    [
+     "p3",
+     "radius",
+     "数值",
+     "检测半径（tile 单位）"
+    ],
+    [
+     "p4",
+     "result",
+     "输出变量",
+     "输出：在范围内返回 1，否则返回 0"
+    ],
+    [
+     "p5",
+     "-",
+     "-",
+     "占位符，固定为 0"
+    ]
+   ],
+   "notes": [
+    "坐标参数 x、y 均为 **tile 坐标**，处理器内部会通过世界坐标转换（`World.unconv`，即乘以 tilesize=8）转为像素坐标。",
+    "within 会触发控制状态（通过 `checkLogicAI()` 将单位标记为被逻辑控制），与所有 ucontrol 子指令行为一致。这是因为 within 属于 ucontrol 指令，在执行前会调用 `checkLogicAI()` 并刷新控制计时器。",
+    "**替代方案**：如果只需要检查距离而不想触发控制状态，应手动用 `op len` 计算单位与目标点的距离，再与半径比较：",
+    "适合在已经控制单位的场景下使用，避免在仅需信息查询时意外控制单位。"
+   ],
+   "unverified": [
+    "无"
+   ],
+   "trap": null,
+   "sem_note": "LStatements.java:1113-1169 -> UnitControlI (LExecutor.java:304-552). index0 selects the subcommand (LUnitControl token, never a variable). Subcommand-specific defs/uses below; indices are absolute text indices (p1 == 1 ... p5 == 5). All subcommands convert p1,p2,p3 to numbers unconditionally at :352, so 'uses' always contains 1,2,3; 'semantic_uses' lists the ones that actually matter.",
+   "ver": "v160.7_rt",
+   "src": [
+    "Logic-Docs-v1.1.0.md:1168",
+    "tools/instr_semantics.json#instructions.ucontrol"
+   ]
+  },
+  {
+   "num": "22",
+   "name": "ucontrol",
+   "title": "unbind（解除逻辑控制）",
+   "category": "unit",
+   "format": "ucontrol unbind 0 0 0 0 0",
+   "arity": 6,
+   "params": [
+    "type",
+    "p1",
+    "p2",
+    "p3",
+    "p4",
+    "p5"
+   ],
+   "defs": [],
+   "uses": [],
+   "tokens": {
+    "0": "LUnitControl"
+   },
+   "since_build": 146,
+   "desc": "解除当前单位身上的逻辑控制状态，使单位恢复其默认 AI 行为。单位将不再受处理器指令控制，回归原始的行为模式。",
+   "doc_params": [
+    [
+     "参数位置",
+     "参数名",
+     "类型",
+     "说明"
+    ],
+    [
+     "p1",
+     "-",
+     "-",
+     "占位符，固定为 0"
+    ],
+    [
+     "p2",
+     "-",
+     "-",
+     "占位符，固定为 0"
+    ],
+    [
+     "p3",
+     "-",
+     "-",
+     "占位符，固定为 0"
+    ],
+    [
+     "p4",
+     "-",
+     "-",
+     "占位符，固定为 0"
+    ],
+    [
+     "p5",
+     "-",
+     "-",
+     "占位符，固定为 0"
+    ]
+   ],
+   "notes": [
+    "**重要区分**：unbind 解除的是单位的\"控制\"状态，而非\"绑定\"状态。执行 unbind 后，`@unit` 变量仍然指向该单位，但单位不再被逻辑控制。",
+    "**警告**：除非确信已经通过 ucontrol 系列指令控制了单位，否则不要随意使用 unbind。如果单位正被其他逻辑处理器控制，unbind 可能会打断其他逻辑的运行，或干扰单位的默认 AI 行为。",
+    "unbind 后，单位身上的 flag 标记仍然保留（flag 是单位属性，不受控制状态影响）。",
+    "执行 unbind 后，如需重新控制单位，无需重新 ubind（`@unit` 仍然指向该单位），只需再次执行 ucontrol/uradar/ulocate 指令即可（`checkLogicAI` 会重新接管控制）。"
+   ],
+   "unverified": [
+    "无"
+   ],
+   "trap": null,
+   "sem_note": "LStatements.java:1113-1169 -> UnitControlI (LExecutor.java:304-552). index0 selects the subcommand (LUnitControl token, never a variable). Subcommand-specific defs/uses below; indices are absolute text indices (p1 == 1 ... p5 == 5). All subcommands convert p1,p2,p3 to numbers unconditionally at :352, so 'uses' always contains 1,2,3; 'semantic_uses' lists the ones that actually matter.",
+   "ver": "v160.7_rt",
+   "src": [
+    "Logic-Docs-v1.1.0.md:1214",
+    "tools/instr_semantics.json#instructions.ucontrol"
+   ]
+  },
+  {
+   "num": "23",
+   "name": "uradar",
+   "title": "uradar（单位雷达搜索）",
+   "category": "unit",
+   "format": "uradar target1 target2 target3 sort 0 order output",
+   "arity": 7,
+   "params": [
+    "target1",
+    "target2",
+    "target3",
+    "sort",
+    "ignored",
+    "order",
+    "output"
+   ],
+   "defs": [
+    6
+   ],
+   "uses": [
+    5
+   ],
+   "tokens": {
+    "0": "RadarTarget",
+    "1": "RadarTarget",
+    "2": "RadarTarget",
+    "3": "RadarSort",
+    "4": "ignored literal"
+   },
+   "since_build": 146,
+   "desc": "以当前绑定的单位（`@unit`）为中心，在其雷达范围内搜索符合筛选条件的单位，并按指定方式排序后返回最优先的一个目标。三个筛选器之间为 **AND（与）** 关系，即目标单位必须同时满足所有筛选条件才会被选中。",
+   "doc_params": [
+    [
+     "参数位置",
+     "参数名",
+     "类型",
+     "说明"
+    ],
+    [
+     "p1",
+     "target1",
+     "RadarTarget",
+     "第一个筛选器"
+    ],
+    [
+     "p2",
+     "target2",
+     "RadarTarget",
+     "第二个筛选器"
+    ],
+    [
+     "p3",
+     "target3",
+     "RadarTarget",
+     "第三个筛选器"
+    ],
+    [
+     "p4",
+     "sort",
+     "RadarSort",
+     "排序依据"
+    ],
+    [
+     "p5",
+     "-",
+     "-",
+     "占位符，固定为 0（源码中为 radar 字段，构造时设为 \"0\"）"
+    ],
+    [
+     "p6",
+     "order",
+     "数值",
+     "排序方向：0=反序（最远/最低优先），1=正序（最近/最高优先）"
+    ],
+    [
+     "p7",
+     "output",
+     "输出变量",
+     "输出：搜索到的目标单位引用，未找到则为 null"
+    ],
+    [
+     "筛选器",
+     "说明"
+    ],
+    [
+     "any",
+     "任意单位"
+    ],
+    [
+     "enemy",
+     "敌方单位"
+    ],
+    [
+     "ally",
+     "友方单位"
+    ],
+    [
+     "player",
+     "玩家单位"
+    ],
+    [
+     "attacker",
+     "攻击型单位"
+    ],
+    [
+     "flying",
+     "飞行单位"
+    ],
+    [
+     "boss",
+     "Boss 单位"
+    ],
+    [
+     "ground",
+     "地面单位"
+    ],
+    [
+     "排序依据",
+     "说明"
+    ],
+    [
+     "distance",
+     "距离"
+    ],
+    [
+     "health",
+     "当前血量"
+    ],
+    [
+     "shield",
+     "护盾"
+    ],
+    [
+     "armor",
+     "装甲"
+    ],
+    [
+     "maxHealth",
+     "最大血量"
+    ]
+   ],
+   "notes": [
+    "uradar 是 **单位控制语句**，会通过 `checkLogicAI()` 将单位标记为被逻辑控制。但与 ucontrol/ulocate 不同，uradar **不会刷新控制计时器**（`controlTimer`），因此如果仅使用 uradar 而不执行其他 ucontrol/ulocate 指令，单位将在 10 秒后恢复原 AI。",
+    "由于缓存机制，如果需要实时获取最新目标，需要间隔超过 40 tick 或改变筛选条件。",
+    "当未找到符合条件的单位时，output 输出为 null。",
+    "三个筛选器是 AND 关系，如果某个筛选器设为 `any`，则该条件不产生限制（等同于\"不限\"）。"
+   ],
+   "unverified": [
+    "无"
+   ],
+   "trap": "第 5 槽在源码里传 null（buildFrom()==false），是死槽；写任何值都不影响结果。",
+   "sem_note": "LStatements.java:1170-1193 UnitRadarStatement extends RadarStatement, radar=\"0\", buildFrom() returns false, so RadarI.from is null and the search origin is always @unit (LExecutor.java:721-825). index4 is a dead slot: RadarStatement.build() passes null instead of builder.var(radar), so it is not even converted to an LVar (docs say to write a literal 0).",
+   "ver": "v160.7_rt",
+   "src": [
+    "Logic-Docs-v1.1.0.md:1254",
+    "tools/instr_semantics.json#instructions.uradar"
+   ]
+  },
+  {
+   "num": "24",
+   "name": "ulocate",
+   "title": "ulocate（单位定位）",
+   "category": "unit",
+   "format": "ulocate locate flag enemy ore outX outY outFound outBuild",
+   "arity": 8,
+   "params": [
+    "locate",
+    "flag",
+    "enemy",
+    "ore",
+    "outX",
+    "outY",
+    "outFound",
+    "outBuild"
+   ],
+   "defs": [
+    4,
+    5,
+    6,
+    7
+   ],
+   "uses": [],
+   "tokens": {
+    "0": "LLocate",
+    "1": "BlockFlag"
+   },
+   "since_build": 146,
+   "desc": "以当前绑定的单位（`@unit`）为中心，根据指定模式定位最近的目标建筑或资源，并输出其坐标、是否找到以及建筑引用。",
+   "doc_params": [
+    [
+     "参数位置",
+     "参数名",
+     "类型",
+     "说明"
+    ],
+    [
+     "p1",
+     "locate",
+     "LLocate",
+     "定位模式（见下方可选值）"
+    ],
+    [
+     "p2",
+     "flag",
+     "BlockFlag",
+     "建筑类型标记。**必须是有效的 BlockFlag 枚举值**（如 `core`、`battery`），即使 locate 模式不是 building 也必须填写有效值，否则导入时 `BlockFlag.valueOf()` 会抛出异常导致灰色积木"
+    ],
+    [
+     "p3",
+     "enemy",
+     "数值",
+     "是否搜索敌方：1=true（搜索敌方），0=false（搜索己方）"
+    ],
+    [
+     "p4",
+     "ore",
+     "Content",
+     "矿物类型（仅 ore 模式使用，如 `@copper`）"
+    ],
+    [
+     "p5",
+     "outX",
+     "输出变量",
+     "输出：找到目标的 X 坐标"
+    ],
+    [
+     "p6",
+     "outY",
+     "输出变量",
+     "输出：找到目标的 Y 坐标"
+    ],
+    [
+     "p7",
+     "outFound",
+     "输出变量",
+     "输出：是否找到（1=找到，0=未找到）"
+    ],
+    [
+     "p8",
+     "outBuild",
+     "输出变量",
+     "输出：找到的建筑引用（仅 building/damaged 模式有效）"
+    ],
+    [
+     "模式",
+     "说明"
+    ],
+    [
+     "building",
+     "定位建筑"
+    ],
+    [
+     "ore",
+     "定位矿脉"
+    ],
+    [
+     "spawn",
+     "定位出生点"
+    ],
+    [
+     "damaged",
+     "定位受损建筑"
+    ],
+    [
+     "建筑类型",
+     "说明"
+    ],
+    [
+     "core",
+     "核心"
+    ],
+    [
+     "storage",
+     "仓储"
+    ],
+    [
+     "generator",
+     "发电设施"
+    ],
+    [
+     "turret",
+     "炮塔"
+    ],
+    [
+     "factory",
+     "工厂"
+    ],
+    [
+     "repair",
+     "维修站"
+    ],
+    [
+     "battery",
+     "电池"
+    ],
+    [
+     "reactor",
+     "反应堆"
+    ],
+    [
+     "drill",
+     "钻头"
+    ],
+    [
+     "shield",
+     "力场投影器"
+    ]
+   ],
+   "notes": [
+    "ulocate 是 **单位控制语句**，会通过 `checkLogicAI()` 将单位标记为被逻辑控制，并刷新控制计时器（`controlTimer = logicControlTimeout`，即 10 秒）。",
+    "坐标输出（outX、outY）为 **tile 坐标**（瓦片坐标），处理器内部会通过世界坐标转换（`World.unconv`，即乘以 tilesize=8）转为像素坐标。",
+    "**重要**：游戏内编辑器中，\"是否搜索敌方\"默认为 true（1）。如果需要搜索己方建筑，必须将该参数改为 0/false。",
+    "flag 参数仅在 building 模式下有效；矿物类型（ore）参数仅在 ore 模式下有效。其他模式下这些参数被忽略。"
+   ],
+   "unverified": [
+    "无"
+   ],
+   "trap": "第 1 槽 locate 是 LLocate 枚举 token（ore/building/spawn/damaged），不是自由字符串；ore 模式只写 outFound，不写 outBuild/outX/outY（失败时不写坐标）。",
+   "sem_note": "LStatements.java:1194-1302 -> UnitLocateI (LExecutor.java:210-301). Union of defs is 4,5,6,7 but they are written on different code paths (see per-mode note): index6 (outFound) is always assigned, index7 (outBuild) is assigned for every mode except ore, and index4/5 (outX/outY) are only assigned when the search succeeds. Reads @unit (:234).",
+   "ver": "v160.7_rt",
+   "src": [
+    "Logic-Docs-v1.1.0.md:1326",
+    "tools/instr_semantics.json#instructions.ulocate"
+   ]
+  },
+  {
+   "num": "01",
+   "name": "noop",
+   "title": "noop（空操作）",
+   "category": "control",
+   "format": "noop",
+   "arity": 0,
+   "params": [],
+   "defs": [],
+   "uses": [],
+   "tokens": {},
+   "since_build": 146,
+   "desc": "**用途：占位指令，不执行任何操作。**",
+   "doc_params": [],
+   "notes": [
+    "`noop` 会占用一个指令位，计入处理器的指令总数（上限由 `maxInstructions` 控制，默认 1000 条）",
+    "在可视化编辑器中，`noop` 归类为 `unknown`（未知）分类，而非 `control`（控制）分类。但就功能而言，它属于控制流指令",
+    "由于无效语句会被自动替换为 `noop`，如果发现处理器行为异常且代码中有拼写错误，那些错误行实际上就是 `noop`"
+   ],
+   "unverified": [
+    "`noop` 在实际场景中是否有性能影响（理论上仅消耗一次指令调度开销，可忽略不计）"
+   ],
+   "trap": null,
+   "sem_note": "InvalidStatement LStatements.java:48-58; empty run() LExecutor.java:905-908. Also what LParser substitutes for unknown statements (LParser.java:146,173).",
+   "ver": "v160.7_rt",
+   "src": [
+    "Logic-Docs-v1.1.0.md:1405",
+    "tools/instr_semantics.json#instructions.noop"
+   ]
+  },
+  {
+   "num": "02",
+   "name": "wait",
+   "title": "wait（等待）",
+   "category": "control",
+   "format": "wait <value>",
+   "arity": 1,
+   "params": [
+    "value"
+   ],
+   "defs": [],
+   "uses": [
+    0
+   ],
+   "tokens": {},
+   "since_build": 146,
+   "desc": "**用途：暂停处理器执行指定时间，到时后继续执行下一条指令。**",
+   "doc_params": [
+    [
+     "value",
+     "等待时间，单位为秒。可以是数值常量（如 `0.5`）或变量名。支持小数"
+    ]
+   ],
+   "notes": [
+    "`wait 0` 或 `wait` 后跟负数会让出一个 tick（相当于暂停一帧），而不是无限等待。下一个 tick 会继续执行下一条指令",
+    "`value` 是变量引用而非快照值。如果在等待期间 `value` 被其他处理器远程修改，`wait` 会使用新的值来判断。这就是源码中 `value.num()` 每次都重新读取的原因",
+    "`wait` 的时间单位是秒，基于游戏时间（`Time.delta`）。在游戏暂停时，等待不会推进",
+    "等待期间处理器的指令配额被保留（accumulator 不递减），因此等待结束后不会\"补偿性\"地 burst 执行大量指令"
+   ],
+   "unverified": [],
+   "trap": "精度 1 tick（curTime += Time.delta/60f，服务器 60 tick/s ⇒ 最小有效等待约 1/60 s）。wait 0 只 yield 不消耗指令预算（yield 在 accumulator-- 之前 break）。",
+   "sem_note": "LStatements.java:835-846 -> WaitI (LExecutor.java:1206-1234): yields until value seconds elapsed.",
+   "ver": "v160.7_rt",
+   "src": [
+    "Logic-Docs-v1.1.0.md:1453",
+    "tools/instr_semantics.json#instructions.wait"
+   ]
+  },
+  {
+   "num": "03",
+   "name": "stop",
+   "title": "stop（停止执行）",
+   "category": "control",
+   "format": "stop",
+   "arity": 0,
+   "params": [],
+   "defs": [],
+   "uses": [],
+   "tokens": {},
+   "since_build": 146,
+   "desc": "**用途：永久停止处理器执行。**",
+   "doc_params": [],
+   "notes": [
+    "`stop` 是 **不可逆的**（在不重新编程的前提下）。一旦执行，处理器将永久停留在 `stop` 指令处",
+    "每个 tick 处理器仍会执行一次 `stop` 指令（然后 yield），因此处理器并非完全\"休眠\"，而是以最低开销运行",
+    "如果需要在运行中动态恢复处理器，可以考虑用 `jump` 跳过 `stop` 指令，而非真正执行 `stop`",
+    "重新编辑处理器代码（加载新程序）会重置 `stop` 标志，处理器恢复运行"
+   ],
+   "unverified": [
+    "是否可以通过外部处理器远程修改 `@counter` 变量来\"跳过\" stop 指令从而恢复执行（理论上可行，因为 `@counter` 是可写变量）"
+   ],
+   "trap": null,
+   "sem_note": "LStatements.java:856-865 -> StopI (LExecutor.java:1236-1245): counter--, yield=true, stop=true.",
+   "ver": "v160.7_rt",
+   "src": [
+    "Logic-Docs-v1.1.0.md:1528",
+    "tools/instr_semantics.json#instructions.stop"
+   ]
+  },
+  {
+   "num": "04",
+   "name": "end",
+   "title": "end（跳回开头）",
+   "category": "control",
+   "format": "end",
+   "arity": 0,
+   "params": [],
+   "defs": [],
+   "uses": [],
+   "tokens": {},
+   "since_build": 146,
+   "desc": "**用途：跳转回程序开头，从第一条指令重新开始执行。**",
+   "doc_params": [],
+   "notes": [
+    "`end` 是实现处理器循环执行的核心指令。处理器本质上是一个无限循环，`end`（或自然结束）使其不断从头开始",
+    "由于 `end` 不设置 yield，在指令配额充足时，`end` 后的\"新一轮\"会在同一 tick 内立即开始执行。这意味着一个没有 `wait` 的简单程序可能在单个 tick 内循环多次",
+    "在代码中间使用 `end` 可以实现\"提前终止本轮循环\"的效果",
+    "文件末尾推荐使用 `end` 而非裸标签，以明确表示循环边界"
+   ],
+   "unverified": [
+    "在极短的循环程序中（如只有 2-3 条指令），单个 tick 内的循环次数是否受 `maxInstructionScale` 限制"
+   ],
+   "trap": null,
+   "sem_note": "LStatements.java:968-977 -> EndI (LExecutor.java:897-903) sets @counter = instructions.length, so execution restarts next tick.",
+   "ver": "v160.7_rt",
+   "src": [
+    "Logic-Docs-v1.1.0.md:1592",
+    "tools/instr_semantics.json#instructions.end"
+   ]
+  },
+  {
+   "num": "05",
+   "name": "jump",
+   "title": "jump（条件跳转）",
+   "category": "control",
+   "format": "jump <dest> <op> <value> <compare>",
+   "arity": 4,
+   "params": [
+    "dest",
+    "op",
+    "value",
+    "compare"
+   ],
+   "defs": [],
+   "uses": [
+    2,
+    3
+   ],
+   "tokens": {
+    "0": "int (line index)",
+    "1": "ConditionOp"
+   },
+   "since_build": 146,
+   "desc": "**用途：根据条件跳转到指定标签或行号，是 Logic 中实现循环和分支的核心指令。**",
+   "doc_params": [
+    [
+     "dest",
+     "跳转目标。可以是 **标签名**（如 `loopStart`）或 **行号**（指令索引，从 0 开始）。推荐使用标签名"
+    ],
+    [
+     "op",
+     "比较运算符，类型为 `ConditionOp` 枚举。见下表"
+    ],
+    [
+     "value",
+     "比较左操作数。可以是数值常量、变量名或 content 引用（如 `@copper`）"
+    ],
+    [
+     "compare",
+     "比较右操作数。同上"
+    ],
+    [
+     "运算符",
+     "符号",
+     "说明"
+    ],
+    [
+     "`equal`",
+     "==",
+     "相等（数值比较带浮点容差 0.000001；对象比较用 `Structs.eq`）"
+    ],
+    [
+     "`notEqual`",
+     "not",
+     "不相等"
+    ],
+    [
+     "`lessThan`",
+     "<",
+     "小于"
+    ],
+    [
+     "`lessThanEq`",
+     "<=",
+     "小于等于"
+    ],
+    [
+     "`greaterThan`",
+     ">",
+     "大于"
+    ],
+    [
+     "`greaterThanEq`",
+     ">=",
+     "大于等于"
+    ],
+    [
+     "`strictEqual`",
+     "===",
+     "严格相等（同时检查类型和值）"
+    ],
+    [
+     "`always`",
+     "always",
+     "恒为真（无条件跳转，忽略 value 和 compare）"
+    ]
+   ],
+   "notes": [
+    "**推荐使用标签跳转**而非行号跳转。行号会随代码编辑而变化，标签则不会",
+    "**跳转标签不占用逻辑条数**：标签不是指令，不占用指令数组位置，不影响处理器执行速度",
+    "**跳转指向的是积木，而不是标签**：标签只是位置标记，跳转实际跳到的是标签下方的第一条积木指令。因此标签下方必须有积木，否则踩空",
+    "当 `op` 为 `always` 时，`value` 和 `compare` 参数在文本格式中可以省略。解析器会保留默认值"
+   ],
+   "unverified": [],
+   "trap": "条件是 8 个枚举 token：equal/notEqual/lessThan/lessThanEq/greaterThan/greaterThanEq/strictEqual/always。改写 @counter 后指令下标按「语句序号」计（注释行不占位）。",
+   "sem_note": "LStatements.java:986-1069 -> JumpI (LExecutor.java:1183-1204): ':1200 if(address != -1 && op.test(value, compare)) exec.counter.numval = address'. index0 is a LINE NUMBER, not a variable (LParser.java:130-133,194-199 resolves labels to line indices); index1 is a ConditionOp token. Writes @counter.",
+   "ver": "v160.7_rt",
+   "src": [
+    "Logic-Docs-v1.1.0.md:1656",
+    "tools/instr_semantics.json#instructions.jump"
+   ]
+  },
+  {
+   "num": "01",
+   "name": "set",
+   "title": "set（变量赋值）",
+   "category": "op",
+   "format": "set <result> <value>",
+   "arity": 2,
+   "params": [
+    "result",
+    "value"
+   ],
+   "defs": [
+    0
+   ],
+   "uses": [
+    1
+   ],
+   "tokens": {},
+   "since_build": 146,
+   "desc": "**用途：将一个值赋给目标变量。**",
+   "doc_params": [
+    [
+     "result",
+     "目标变量名。赋值的结果将写入此变量"
+    ],
+    [
+     "value",
+     "源值。可以是数字字面量、变量名、或 `@` 开头的系统变量"
+    ]
+   ],
+   "notes": [
+    "**写入常量变量无效**：如果 `result` 是数字字面量（如 `set 10 5`）或 `@` 开头的只读系统变量（如 `@time`、`@tick` 等），赋值会被静默忽略",
+    "**`@counter` 可以被 set**：`@counter` 不是常量变量，可以用 `set @counter 0` 来重置程序计数器实现跳转。但这种跳转方式容易出错，建议优先使用 `jump` 标签跳转或 `end` 指令",
+    "**对象赋值是引用复制**：`set savedUnit @unit` 后，`savedUnit` 和 `@unit` 指向同一个单位对象，修改单位属性会同时影响两者",
+    "**变量默认值**：未初始化的变量默认是 null 对象。对其进行 `num()` 取值会返回 0"
+   ],
+   "unverified": [],
+   "trap": "写 @unit/@ipt 会被静默丢弃（两者都是 putConst 常量，SetI 有 !to.constant 守卫）：改单位用 ubind，改速率用 setrate。写 @counter 则有效，这是唯一的显式跳转手段。",
+   "sem_note": "LStatements.java:683-707 -> SetI (LExecutor.java:827-841): ':839 if(!to.constant) to.set(from);' -- assigning to a constant LVar (i.e. any @var from GlobalVars, and @unit) is a silent no-op.",
+   "ver": "v160.7_rt",
+   "src": [
+    "Logic-Docs-v1.1.0.md:1778",
+    "tools/instr_semantics.json#instructions.set"
+   ]
+  },
+  {
+   "num": "02",
+   "name": "op",
+   "title": "op（数学与逻辑运算）",
+   "category": "op",
+   "format": "op <op> <result> <a> <b>",
+   "arity": 4,
+   "params": [
+    "op",
+    "result",
+    "a",
+    "b"
+   ],
+   "defs": [
+    1
+   ],
+   "uses": [
+    2,
+    3
+   ],
+   "tokens": {
+    "0": "LogicOp"
+   },
+   "since_build": 146,
+   "desc": "**用途：执行数学运算、逻辑比较、位运算等操作，将结果写入目标变量。**",
+   "doc_params": [
+    [
+     "op",
+     "运算符名称（使用枚举名，如 `add`、`lessThan`、`abs` 等，详见下方运算符列表）"
+    ],
+    [
+     "result",
+     "结果变量名。运算结果写入此变量"
+    ],
+    [
+     "a",
+     "第一个操作数"
+    ],
+    [
+     "b",
+     "第二个操作数。一元运算时此参数被忽略，但仍需填写"
+    ]
+   ],
+   "notes": [
+    "**一元运算仍需填写 b 参数**：虽然 b 被忽略，但文本格式固定为 5 个 token。建议填 0 保持整洁",
+    "**`equal` 与 `strictEqual` 的区别**：",
+    "**`mod` 与 `emod` 的区别**：",
+    "**`rand` 的随机性**：使用全局随机状态（`GlobalVars.rand`），每次调用都会推进随机序列。同一处理器在同一 tick 内多次调用 `rand` 会得到不同的值",
+    "**三角函数吃度不吃弧度**：`sin`/`cos`/`tan` 的入参、`asin`/`acos`/`atan` 的返回值、`angle`/`anglediff` 的结果都是**度**（`LogicOp.java:51-57`：入参乘 `Mathf.doubleDegRad`，返回值乘 `doubleRadDeg`）。按弧度写会得到错误结果。"
+   ],
+   "unverified": [
+    "`noise` 运算符的精确输出范围和分布特性在不同坐标下的表现"
+   ],
+   "trap": "文本框里的操作符必须是 LogicOp 枚举常量名（'land' 而非 'and'，'angleDiff'、'idiv'、'notEqual'）；符号只是显示用。别名 atan2→angle、dst→len。结果槽永远用 setnum 写入，strictEqual 也得到 1/0。",
+   "sem_note": "LStatements.java:708-782 -> OpI (LExecutor.java:843-873). index0 is the operator TOKEN (LogicOp constant name), index1 is always the destination and is ALWAYS written with setnum() (:859,861,865,868) so the result is always a number even for strictEqual. index3 is read only for binary operators; unary operators read only index2.",
+   "ver": "v160.7_rt",
+   "src": [
+    "Logic-Docs-v1.1.0.md:1850",
+    "tools/instr_semantics.json#instructions.op"
+   ]
+  },
+  {
+   "num": "03",
+   "name": "select",
+   "title": "select（条件选择）",
+   "category": "op",
+   "format": "select <result> <op> <comp0> <comp1> <a> <b>",
+   "arity": 6,
+   "params": [
+    "result",
+    "op",
+    "comp0",
+    "comp1",
+    "a",
+    "b"
+   ],
+   "defs": [
+    0
+   ],
+   "uses": [
+    2,
+    3
+   ],
+   "tokens": {
+    "1": "ConditionOp"
+   },
+   "since_build": 150,
+   "desc": "**用途：根据条件比较结果，从两个值中选择一个赋给目标变量。相当于三元运算符 `result = (comp0 op comp1) ? a : b`。**",
+   "doc_params": [
+    [
+     "result",
+     "结果变量名。条件选择的结果写入此变量"
+    ],
+    [
+     "op",
+     "条件运算符（ConditionOp 枚举名，见下方列表）"
+    ],
+    [
+     "comp0",
+     "条件比较的第一个操作数"
+    ],
+    [
+     "comp1",
+     "条件比较的第二个操作数"
+    ],
+    [
+     "a",
+     "条件为真时返回的值"
+    ],
+    [
+     "b",
+     "条件为假时返回的值"
+    ]
+   ],
+   "notes": [
+    "**结果保留类型**：`select` 使用 `set()` 赋值而非 `setnum()`，所以 a 或 b 如果是对象（如单位引用），结果也会是对象。这是 `select` 与 `op` 的重要区别——`op` 的结果始终是数字",
+    "**`always` 运算符的用途**：当 `op` 为 `always` 时，条件恒为真，`select` 始终返回 a。这可以用于简化代码或作为占位",
+    "**`equal` 与 `strictEqual` 的区别**：与 `op` 指令中一致，`equal` 有浮点容差，`strictEqual` 无容差且要求类型一致",
+    "**comp0 和 comp1 是比较对象，a 和 b 是选择对象**：不要混淆这两组参数。comp0/comp1 用于条件判断，a/b 是待选择的值"
+   ],
+   "unverified": [],
+   "trap": "v160.7 起 op select 被静默替换成 noop（LStatement 注册名是 noop，build() 返回 NoopI 而非 null，指令下标不变），写了不报错也不生效——这是版本漂移最隐蔽的坑。v159.3 源码里 select 正常。",
+   "sem_note": "LStatements.java:784-833 -> SelectI (LExecutor.java:875-895): ':892 if(result.constant) return; result.set(op.test(comp0,comp1) ? a : b)' -- comp0/comp1 are always read, but only ONE of a/b is dereferenced per execution (Java ternary). index1 is a ConditionOp token.",
+   "ver": "v160.7_rt",
+   "src": [
+    "Logic-Docs-v1.1.0.md:1999",
+    "tools/instr_semantics.json#instructions.select"
+   ]
+  },
+  {
+   "num": "04",
+   "name": "lookup",
+   "title": "lookup（内容查找）",
+   "category": "op",
+   "format": "lookup <type> <result> <id>",
+   "arity": 3,
+   "params": [
+    "type",
+    "result",
+    "id"
+   ],
+   "defs": [
+    1
+   ],
+   "uses": [
+    2
+   ],
+   "tokens": {
+    "0": "ContentType"
+   },
+   "since_build": 146,
+   "desc": "**用途：通过逻辑 ID 查找游戏内容对象（方块、单位、物品、液体或队伍），返回可用于 sensor、ucontrol 等指令的 content 引用。**",
+   "doc_params": [
+    [
+     "type",
+     "内容类型。可选值：`block`、`unit`、`item`、`liquid`、`team`"
+    ],
+    [
+     "result",
+     "结果变量名。查找结果（content 对象）写入此变量"
+    ],
+    [
+     "id",
+     "逻辑 ID（logic ID）。从 0 开始的整数索引"
+    ]
+   ],
+   "notes": [
+    "**结果为对象类型**：`lookup` 的结果通过 `setobj()` 写入，是 content 对象引用，不是数字。可以与 `@copper` 等 content 常量用 `op equal` 比较",
+    "**ID 超范围返回 null**：如果 ID 为负数或超出数量范围，结果为 null 对象。对其进行 `num()` 取值返回 0",
+    "**逻辑 ID 不等于内容 ID**：不要将 `sensor` 读到的 `@id` 直接用作 `lookup` 的 ID。`@id` 是内容 ID，`lookup` 需要的是逻辑 ID",
+    "**team 查找的特殊性**：team 不是 content，但可以在 `lookup` 中查找。查找结果可以用于需要 team 参数的指令"
+   ],
+   "unverified": [],
+   "trap": "第 1 槽是 ContentType token；_UNUSED 成员与错误类型解析为 error ⇒ 返回 null。",
+   "sem_note": "LStatements.java:875-909 -> LookupI (LExecutor.java:1247-1265): 'dest.setobj(logicVars.lookupContent(type, from.numi()))'. index0 is a ContentType token (block/unit/item/liquid).",
+   "ver": "v160.7_rt",
+   "src": [
+    "Logic-Docs-v1.1.0.md:2097",
+    "tools/instr_semantics.json#instructions.lookup"
+   ]
+  },
+  {
+   "num": "05",
+   "name": "packcolor",
+   "title": "packcolor（打包颜色）",
+   "category": "op",
+   "format": "packcolor <result> <r> <g> <b> <a>",
+   "arity": 5,
+   "params": [
+    "result",
+    "r",
+    "g",
+    "b",
+    "a"
+   ],
+   "defs": [
+    0
+   ],
+   "uses": [
+    1,
+    2,
+    3,
+    4
+   ],
+   "tokens": {},
+   "since_build": 146,
+   "desc": "**用途：将四个 0~1 范围的颜色通道值打包为一个 double 数值，供 `draw color` 等绘制指令使用。**",
+   "doc_params": [
+    [
+     "result",
+     "结果变量名。打包后的颜色值（double）写入此变量"
+    ],
+    [
+     "r",
+     "红色通道，范围 0~1"
+    ],
+    [
+     "g",
+     "绿色通道，范围 0~1"
+    ],
+    [
+     "b",
+     "蓝色通道，范围 0~1"
+    ],
+    [
+     "a",
+     "透明度通道，范围 0~1（0=全透明，1=不透明）"
+    ]
+   ],
+   "notes": [
+    "**通道范围会被钳制**：所有通道值会被 `Mathf.clamp` 限制在 [0, 1] 范围内。传入负数变为 0，传入大于 1 的值变为 1",
+    "**结果不是常规数字**：打包后的 double 值是颜色的位模式，不能用于数学运算。对其进行 `op` 运算没有意义",
+    "**与颜色字面量的关系**：Logic 支持颜色字面量（如 `%ff0000ff`），在解析时也是调用 `Color.toDoubleBits` 生成相同的 double 值。因此 `packcolor red 1 0 0 1` 和 `set red %ff0000ff` 效果相同",
+    "**命名颜色**：Logic 还支持命名颜色语法 `%[colorName]`，如 `%[accent]`。这与 `packcolor` 无直接关系，但生成相同格式的值"
+   ],
+   "unverified": [],
+   "trap": null,
+   "sem_note": "LStatements.java:911-938 -> PackColorI (LExecutor.java:1267-1284).",
+   "ver": "v160.7_rt",
+   "src": [
+    "Logic-Docs-v1.1.0.md:2197",
+    "tools/instr_semantics.json#instructions.packcolor"
+   ]
+  },
+  {
+   "num": "06",
+   "name": "unpackcolor",
+   "title": "unpackcolor（解包颜色）",
+   "category": "op",
+   "format": "unpackcolor <r> <g> <b> <a> <value>",
+   "arity": 5,
+   "params": [
+    "r",
+    "g",
+    "b",
+    "a",
+    "value"
+   ],
+   "defs": [
+    0,
+    1,
+    2,
+    3
+   ],
+   "uses": [
+    4
+   ],
+   "tokens": {},
+   "since_build": null,
+   "desc": "**用途：将一个打包的颜色 double 值解包为四个独立的 RGBA 通道变量（每个范围 0~1）。是 `packcolor` 的逆操作。**",
+   "doc_params": [
+    [
+     "r",
+     "红色通道输出变量名。解包后的红色分量（0~1）写入此变量"
+    ],
+    [
+     "g",
+     "绿色通道输出变量名。解包后的绿色分量（0~1）写入此变量"
+    ],
+    [
+     "b",
+     "蓝色通道输出变量名。解包后的蓝色分量（0~1）写入此变量"
+    ],
+    [
+     "a",
+     "透明度通道输出变量名。解包后的透明度分量（0~1）写入此变量"
+    ],
+    [
+     "value",
+     "待解包的颜色值（double，由 `packcolor` 或颜色字面量生成）"
+    ]
+   ],
+   "notes": [
+    "**参数顺序与 packcolor 不同**：`packcolor` 是先 result 后 RGBA，`unpackcolor` 是先 RGBA 后 value。使用时注意不要混淆",
+    "**输出变量必须是可写变量**：四个输出变量不能是常量（如数字字面量），否则写入被静默跳过",
+    "**解包结果范围 0~1**：所有通道值归一化为 0~1 范围，与 `packcolor` 的输入范围一致",
+    "**对非颜色值解包**：如果 `value` 不是由 `packcolor` 或颜色字面量生成的值，解包结果是无意义的随机颜色"
+   ],
+   "unverified": [],
+   "trap": null,
+   "sem_note": "LStatements.java:940-967 -> UnpackColorI (LExecutor.java:1286-1307): the four outputs come FIRST and the packed input is the LAST argument.",
+   "ver": "v160.7_rt",
+   "src": [
+    "Logic-Docs-v1.1.0.md:2274",
+    "tools/instr_semantics.json#instructions.unpackcolor"
+   ]
+  },
+  {
+   "num": "01",
+   "name": "read",
+   "title": "read（读取内存建筑）",
+   "category": "io",
+   "format": "read result = cell1 at 0",
+   "arity": 3,
+   "params": [
+    "result",
+    "cell",
+    "address"
+   ],
+   "defs": [
+    0
+   ],
+   "uses": [
+    1,
+    2
+   ],
+   "tokens": {},
+   "since_build": 146,
+   "desc": "`read` 指令从目标对象的内存中读取指定索引位置的值，并将结果写入输出变量。",
+   "doc_params": [
+    [
+     "参数位置",
+     "参数名",
+     "说明",
+     "默认值"
+    ],
+    [
+     "1",
+     "output",
+     "接收读取结果的变量名",
+     "result"
+    ],
+    [
+     "2",
+     "target",
+     "目标建筑（通过 `@link` 名称或变量引用）",
+     "cell1"
+    ],
+    [
+     "3",
+     "address",
+     "读取的地址索引（从 0 开始）",
+     "0"
+    ]
+   ],
+   "notes": [
+    "地址索引从 0 开始，最大有效索引为容量减 1（Cell 为 63，Bank 为 511）。",
+    "越界读取得到的是 `NaN`（Not a Number），可以用 `isfinite` 判断来过滤。",
+    "内存建筑中存储的值始终是 `double` 类型（数字），无法直接存储对象/建筑引用。`write` 写入时也会调用 `value.num()` 转为数字。",
+    "**处理器自身（`@this`）的读取行为与内存建筑完全不同**：使用字符串作为变量名键可以读取处理器内部变量（包括对象引用），使用数字索引则读取链接建筑列表。这是多核通信的核心机制。"
+   ],
+   "unverified": [],
+   "trap": "memory cell 容量 memory-cell 64 格 / memory-bank 512 格（类默认 32 被实例覆盖）；越界读取回 null（Double.NaN），不是 0。",
+   "sem_note": "LStatements.java:62-92: fields 'output','target','address' -> ReadI(target,address,output) (LExecutor.java:612-644) writes output only (:629-640).",
+   "ver": "v160.7_rt",
+   "src": [
+    "Logic-Docs-v1.1.0.md:2357",
+    "tools/instr_semantics.json#instructions.read"
+   ]
+  },
+  {
+   "num": "02",
+   "name": "write",
+   "title": "write（写入内存建筑）",
+   "category": "io",
+   "format": "write result to cell1 at 0",
+   "arity": 3,
+   "params": [
+    "value",
+    "cell",
+    "address"
+   ],
+   "defs": [],
+   "uses": [
+    0,
+    1,
+    2
+   ],
+   "tokens": {},
+   "since_build": 146,
+   "desc": "`write` 指令将指定值写入目标对象的内存中指定索引位置。",
+   "doc_params": [
+    [
+     "参数位置",
+     "参数名",
+     "说明",
+     "默认值"
+    ],
+    [
+     "1",
+     "value",
+     "要写入的值（变量或常量）",
+     "result"
+    ],
+    [
+     "2",
+     "target",
+     "目标建筑（通过 `@link` 名称或变量引用）",
+     "cell1"
+    ],
+    [
+     "3",
+     "address",
+     "写入的地址索引（从 0 开始）",
+     "0"
+    ]
+   ],
+   "notes": [
+    "地址索引从 0 开始，最大有效索引为容量减 1（Cell 为 63，Bank 为 511）。",
+    "越界写入会被静默忽略，不会报错，也不会自动扩展数组。",
+    "由于内存建筑存储类型为 `double`，写入的值会丢失对象信息。例如写入一个建筑引用后再读取，得到的只是数字而非建筑本身。",
+    "**处理器自身（`@this`）的写入行为与内存建筑完全不同**：使用字符串作为变量名键可以修改处理器内部变量（包括写入对象引用），使用数字索引则不执行任何操作。这是多核通信中传递单位引用、建筑引用的核心机制。"
+   ],
+   "unverified": [],
+   "trap": "memory cell 容量 memory-cell 64 格 / memory-bank 512 格（类默认 32 被实例覆盖）；越界写静默丢弃。",
+   "sem_note": "LStatements.java:94-124: fields 'input','target','address' -> WriteI (LExecutor.java:646-666) writes memory, never a var. The doc-suggested name 'result' is the field default only.",
+   "ver": "v160.7_rt",
+   "src": [
+    "Logic-Docs-v1.1.0.md:2453",
+    "tools/instr_semantics.json#instructions.write"
+   ]
+  },
+  {
+   "num": "03",
+   "name": "draw",
+   "title": "draw（绘制指令）",
+   "category": "io",
+   "format": null,
+   "arity": 7,
+   "params": [
+    "type",
+    "x",
+    "y",
+    "p1",
+    "p2",
+    "p3",
+    "p4"
+   ],
+   "defs": [],
+   "uses": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6
+   ],
+   "tokens": {
+    "0": "GraphicsType"
+   },
+   "since_build": 146,
+   "desc": "### 工作原理",
+   "doc_params": [
+    [
+     "参数位",
+     "通用名",
+     "说明"
+    ],
+    [
+     "type",
+     "模式",
+     "绘制模式（见下表）"
+    ],
+    [
+     "x",
+     "参数1",
+     "通常为 X 坐标或 R 通道"
+    ],
+    [
+     "y",
+     "参数2",
+     "通常为 Y 坐标或 G 通道"
+    ],
+    [
+     "p1",
+     "参数3",
+     "含义随模式变化"
+    ],
+    [
+     "p2",
+     "参数4",
+     "含义随模式变化"
+    ],
+    [
+     "p3",
+     "参数5",
+     "含义随模式变化"
+    ],
+    [
+     "p4",
+     "参数6",
+     "含义随模式变化"
+    ],
+    [
+     "模式名",
+     "内部命令常量",
+     "参数（x y p1 p2 p3 p4）",
+     "说明"
+    ],
+    [
+     "clear",
+     "commandClear (0)",
+     "r g b — — —",
+     "清屏，用指定 RGB 颜色填充整个显示屏"
+    ],
+    [
+     "color",
+     "commandColor (1)",
+     "r g b a — —",
+     "设置后续绘制的颜色（RGBA，0-255）"
+    ],
+    [
+     "col",
+     "commandColorPack (2)",
+     "packedColor — — — —",
+     "用打包颜色值设置颜色（虚拟命令，自动解包为 color）"
+    ],
+    [
+     "stroke",
+     "commandStroke (3)",
+     "width — — — —",
+     "设置后续线条的宽度"
+    ],
+    [
+     "line",
+     "commandLine (4)",
+     "x y x2 y2 — —",
+     "绘制一条线段，从 (x,y) 到 (x2,y2)"
+    ],
+    [
+     "rect",
+     "commandRect (5)",
+     "x y width height — —",
+     "绘制填充矩形"
+    ],
+    [
+     "lineRect",
+     "commandLineRect (6)",
+     "x y width height — —",
+     "绘制线框矩形"
+    ],
+    [
+     "poly",
+     "commandPoly (7)",
+     "x y sides radius rotation —",
+     "绘制填充正多边形"
+    ],
+    [
+     "linePoly",
+     "commandLinePoly (8)",
+     "x y sides radius rotation —",
+     "绘制线框正多边形"
+    ],
+    [
+     "triangle",
+     "commandTriangle (9)",
+     "x y x2 y2 x3 y3",
+     "绘制填充三角形（三个顶点）"
+    ],
+    [
+     "image",
+     "commandImage (10)",
+     "x y content size rotation —",
+     "绘制内容图标或显示屏截图"
+    ],
+    [
+     "print",
+     "commandPrint (11)",
+     "x y align — — —",
+     "将 textBuffer 中的文本绘制到显示屏"
+    ],
+    [
+     "translate",
+     "commandTranslate (12)",
+     "x y — — — —",
+     "平移变换矩阵"
+    ],
+    [
+     "scale",
+     "commandScale (13)",
+     "x y — — — —",
+     "缩放变换矩阵（步长为 0.05）"
+    ],
+    [
+     "rotate",
+     "commandRotate (14)",
+     "— — degrees — — —",
+     "旋转变换矩阵"
+    ],
+    [
+     "reset",
+     "commandResetTransform (15)",
+     "— — — — — —",
+     "重置变换矩阵为单位矩阵"
+    ]
+   ],
+   "notes": [
+    "所有 draw 命令只是写入图形缓冲区，必须配合 `drawflush <display>` 指令才能在显示屏上显示。",
+    "图形缓冲区上限为 256 条命令。`print` 模式会将文本逐字符展开，长文本可能快速占满缓冲区。",
+    "坐标和参数使用 10 位有符号整数打包，有效范围为 -511 到 511。超出范围的值会被截断。",
+    "显示屏坐标系的原点 (0, 0) 在左下角，X 轴向右，Y 轴向上。"
+   ],
+   "unverified": [
+    "`image` 模式绘制其他显示屏截图时的具体行为和性能表现未做详细测试。",
+    "变换矩阵嵌套使用时的渲染顺序和矩阵叠加效果需要实际验证。",
+    "`col` 模式（commandColorPack）的打包颜色值格式（`%` 开头的字符串）在不同输入方式下的具体编码规则。"
+   ],
+   "trap": "参数按 10 bit 有符号打包（unpackSign：符号位 1 bit + 幅值 9 bit）⇒ 每槽有效范围 −511..511，超出部分被截断/环绕，不是浮点。除 col/print 外所有槽都会被读取（即使该子命令忽略）。",
+   "sem_note": "LStatements.java:125-282 -> DrawI (LExecutor.java:910-1024). Never writes a param. For every GraphicsType except col and print the generic branch dereferences ALL SIX value arguments (:996 packSign(p1.numi()),p4.numi(),x.numi(),y.numi(); :1013 p2.numi(),p3.numi()), so a store into any of indices 1..6 is a live read even if that subcommand ignores the value.",
+   "ver": "v160.7_rt",
+   "src": [
+    "Logic-Docs-v1.1.0.md:2556",
+    "tools/instr_semantics.json#instructions.draw"
+   ],
+   "note": "Logic-Docs 本章无导出格式行（noop/stop/end 无参数）"
+  },
+  {
+   "num": "04",
+   "name": "print",
+   "title": "print（打印文本）",
+   "category": "io",
+   "format": "print \"frog\"",
+   "arity": 1,
+   "params": [
+    "value"
+   ],
+   "defs": [],
+   "uses": [
+    0
+   ],
+   "tokens": {},
+   "since_build": 146,
+   "desc": "`print` 指令将指定值的字符串表示追加到处理器的 `textBuffer`（文本缓冲区）末尾。该指令本身不会在屏幕上显示任何内容，需要配合 `printflush` 刷新到消息建筑，或配合 `draw print` 绘制到逻辑显示屏。",
+   "doc_params": [
+    [
+     "参数位置",
+     "参数名",
+     "说明",
+     "默认值"
+    ],
+    [
+     "1",
+     "value",
+     "要打印的值，可以是字符串常量或变量",
+     "\"frog\""
+    ]
+   ],
+   "notes": [
+    "`print` 指令只是向缓冲区追加文本，不会立即显示。必须配合 `printflush <message>` 刷新到消息建筑才能看到效果。",
+    "文本缓冲区上限为 400 个字符。超出部分会被丢弃，不会自动截断或滚动。",
+    "打印数字时，接近整数的浮点数会自动显示为整数形式。例如 `3.9999999` 会显示为 `4`。",
+    "打印内容引用（如 `@copper`）时，显示的是内容的 name 属性（如 `copper`），而非显示名称。"
+   ],
+   "unverified": [
+    "打印非常大的数字（超出 double 精度范围）时的显示格式未做详细测试。",
+    "对象转字符串时，`MappableContent` 的 name 属性与游戏内显示名称的关系需要实际验证。",
+    "在 `draw print` 模式下使用 textBuffer 时，与 `printflush` 的交互顺序对文本内容的影响。"
+   ],
+   "trap": "写入 textBuffer（上限 400 字符），不是直接输出；只有 printflush/@message/format 等才消费它。超长直接丢弃后续追加。",
+   "sem_note": "LStatements.java:283-303 -> PrintI (LExecutor.java:1045-1086) appends to text buffer.",
+   "ver": "v160.7_rt",
+   "src": [
+    "Logic-Docs-v1.1.0.md:2699",
+    "tools/instr_semantics.json#instructions.print"
+   ]
+  },
+  {
+   "num": "05",
+   "name": "printchar",
+   "title": "printchar（打印字符）",
+   "category": "io",
+   "format": "printchar 65",
+   "arity": 1,
+   "params": [
+    "value"
+   ],
+   "defs": [],
+   "uses": [
+    0
+   ],
+   "tokens": {},
+   "since_build": null,
+   "desc": "`printchar` 指令向处理器的 `textBuffer`（文本缓冲区）追加单个字符。与 `print` 不同的是，`printchar` 通过 Unicode 码点来指定要打印的字符，而非直接打印字符串。",
+   "doc_params": [
+    [
+     "参数位置",
+     "参数名",
+     "说明",
+     "默认值"
+    ],
+    [
+     "1",
+     "value",
+     "Unicode 码点（整数）或内容引用对象",
+     "65"
+    ]
+   ],
+   "notes": [
+    "`printchar` 与 `print` 一样，只是向缓冲区追加内容，需要配合 `printflush` 刷新才能显示。",
+    "数字值会通过 `Math.floor()` 向下取整，因此 `printchar 65.9` 会打印字符 `A`（码点 65）。",
+    "通过内容引用打印 emoji 字符时，需要在消息建筑上才能正确显示图标。在逻辑显示屏上通过 `draw print` 绘制时，emoji 字符的显示效果取决于逻辑字体是否包含对应字形。",
+    "ASCII 可打印字符的码点范围为 32（空格）到 126（`~`）。码点 10 为换行符，码点 9 为制表符。"
+   ],
+   "unverified": [
+    "Unicode 码点超出基本多文种平面（BMP，0-65535）时的行为未做测试，Java 的 char 类型为 16 位，可能无法正确表示补充字符。",
+    "内容 emoji 字符在逻辑显示屏（`draw print`）上的渲染效果未做详细验证，可能不支持图标显示。",
+    "在消息建筑上，内容 emoji 字符与普通文本混排时的对齐和显示效果需要实际验证。"
+   ],
+   "trap": null,
+   "sem_note": "LStatements.java:304-343 -> PrintCharI (LExecutor.java:1088-1109).",
+   "ver": "v160.7_rt",
+   "src": [
+    "Logic-Docs-v1.1.0.md:2789",
+    "tools/instr_semantics.json#instructions.printchar"
+   ]
+  },
+  {
+   "num": "06",
+   "name": "format",
+   "title": "format（格式化打印）",
+   "category": "io",
+   "format": "format \"frog\"",
+   "arity": 1,
+   "params": [
+    "value"
+   ],
+   "defs": [],
+   "uses": [
+    0
+   ],
+   "tokens": {},
+   "since_build": 147,
+   "desc": "`format` 指令在处理器的 `textBuffer`（文本缓冲区）中查找占位符，并将编号最小的占位符替换为指定值。",
+   "doc_params": [
+    [
+     "参数位置",
+     "参数名",
+     "说明",
+     "默认值"
+    ],
+    [
+     "1",
+     "value",
+     "用于替换占位符的值，可以是字符串常量或变量",
+     "\"frog\""
+    ]
+   ],
+   "notes": [
+    "`format` 只替换编号最小的占位符，不一次性替换所有占位符。如果有 `{0}` 和 `{1}` 两个占位符，需要调用两次 `format`。",
+    "占位符编号为单个数字（0-9），不支持多位数字如 `{10}`。`{10}` 不会被识别为有效占位符（因为格式要求恰好三个字符 `{数字}`）。",
+    "如果 textBuffer 中没有占位符，`format` 不做任何操作，也不会报错。",
+    "`format` 操作的是已有 textBuffer 内容，因此必须先通过 `print` 等指令写入包含占位符的模板文本。"
+   ],
+   "unverified": [
+    "当 textBuffer 中存在嵌套或重叠的 `{` 和 `}` 字符时（如 `{{0}}`），占位符识别的具体行为未做详细测试。",
+    "占位符编号为 0 但 textBuffer 中同时存在 `{0}` 和 `{00}` 时的匹配优先级未做验证（`{00}` 不符合三字符格式，应不会被识别）。",
+    "在 `draw print` 模式下使用 `format` 格式化文本后绘制到显示屏的完整流程未做端到端测试。"
+   ],
+   "trap": "{0}..{9} 占位符替换，替换后仍受 400 字符上限约束，超出被截断。",
+   "sem_note": "LStatements.java:344-363 -> FormatI (LExecutor.java:1111-1141): replaces one {n} placeholder at a time.",
+   "ver": "v160.7_rt",
+   "src": [
+    "Logic-Docs-v1.1.0.md:2871",
+    "tools/instr_semantics.json#instructions.format"
+   ]
+  },
+  {
+   "num": "01",
+   "name": "getlink",
+   "title": "getlink（获取链接的建筑）",
+   "category": "block",
+   "format": "getlink <output> <index>",
+   "arity": 2,
+   "params": [
+    "output",
+    "index"
+   ],
+   "defs": [
+    0
+   ],
+   "uses": [
+    1
+   ],
+   "tokens": {},
+   "since_build": 146,
+   "desc": "`getlink` 指令通过索引从处理器维护的链接列表（links 数组）中获取建筑引用。处理器在编辑界面中通过画线链接的建筑会按链接顺序存入此列表，索引从 0 开始。",
+   "doc_params": [
+    [
+     "output",
+     "变量名",
+     "用于存储获取到的建筑对象"
+    ],
+    [
+     "index",
+     "整数",
+     "链接列表中的索引（从 0 开始）"
+    ]
+   ],
+   "notes": [],
+   "unverified": [
+    "链接列表在建筑被摧毁后是否自动更新（索引是否移位），需实际测试确认。",
+    "世界处理器链接范围在不同规则集下是否有变化。"
+   ],
+   "trap": null,
+   "sem_note": "LStatements.java:408-430 -> GetLinkI (LExecutor.java:593-610).",
+   "ver": "v160.7_rt",
+   "src": [
+    "Logic-Docs-v1.1.0.md:2972",
+    "tools/instr_semantics.json#instructions.getlink"
+   ]
+  },
+  {
+   "num": "02",
+   "name": "control",
+   "title": "control（控制建筑）",
+   "category": "block",
+   "format": "control <type> <building> <p1> <p2> <p3> <p4>",
+   "arity": 6,
+   "params": [
+    "type",
+    "target",
+    "p1",
+    "p2",
+    "p3",
+    "p4"
+   ],
+   "defs": [],
+   "uses": [
+    1,
+    2,
+    3,
+    4,
+    5
+   ],
+   "tokens": {
+    "0": "LAccess"
+   },
+   "since_build": 146,
+   "desc": "`control` 指令是处理器控制建筑行为的核心指令。它根据控制类型（type）和参数对目标建筑执行不同的控制操作。",
+   "doc_params": [
+    [
+     "type",
+     "控制类型",
+     "控制子类型，取值为 `enabled`、`config`、`color`、`shoot`、`shootp`"
+    ],
+    [
+     "building",
+     "建筑引用",
+     "目标建筑（通过 getlink 或其他方式获取）"
+    ],
+    [
+     "p1",
+     "参数1",
+     "含义随 type 不同而变化"
+    ],
+    [
+     "p2",
+     "参数2",
+     "含义随 type 不同而变化"
+    ],
+    [
+     "p3",
+     "参数3",
+     "含义随 type 不同而变化"
+    ],
+    [
+     "p4",
+     "参数4",
+     "含义随 type 不同而变化"
+    ]
+   ],
+   "notes": [],
+   "unverified": [
+    "`color` 控制的颜色打包值的具体计算方式（是否与 draw 指令的 colorPack 使用相同格式）。",
+    "连续快速发送 `shoot` 指令时，炮塔的响应频率是否有上限。",
+    "`config` 控制对各类建筑的完整适用范围（哪些建筑支持 logicConfigurable）。"
+   ],
+   "trap": "5 个参数每次都会全部求值（p1..p4），即使用了不上的槽也会读取；第 1 槽是 LAccess token。",
+   "sem_note": "LStatements.java:431-483 -> ControlI (LExecutor.java:555-591): p1..p4 are ALL dereferenced for every type (':577 p1.bool()', ':584 b.control(type, p1.obj()|p1.num(), p2.num(), p3.num(), p4.num())'). index0 is an LAccess token.",
+   "ver": "v160.7_rt",
+   "src": [
+    "Logic-Docs-v1.1.0.md:3038",
+    "tools/instr_semantics.json#instructions.control"
+   ]
+  },
+  {
+   "num": "03",
+   "name": "radar",
+   "title": "radar（建筑雷达搜索）",
+   "category": "block",
+   "format": "radar <target1> <target2> <target3> <sort> <building> <order> <output>",
+   "arity": 7,
+   "params": [
+    "target1",
+    "target2",
+    "target3",
+    "sort",
+    "building",
+    "order",
+    "output"
+   ],
+   "defs": [
+    6
+   ],
+   "uses": [
+    4,
+    5
+   ],
+   "tokens": {
+    "0": "RadarTarget",
+    "1": "RadarTarget",
+    "2": "RadarTarget",
+    "3": "RadarSort"
+   },
+   "since_build": 146,
+   "desc": "`radar` 指令从指定建筑（通常是炮塔或其他实现 Ranged 接口的建筑）的射程范围内搜索单位。三个目标筛选条件以 AND 关系组合，只有同时满足三个条件的单位才会被纳入候选。",
+   "doc_params": [
+    [
+     "target1",
+     "目标筛选1",
+     "第一层目标筛选条件"
+    ],
+    [
+     "target2",
+     "目标筛选2",
+     "第二层目标筛选条件（AND 关系）"
+    ],
+    [
+     "target3",
+     "目标筛选3",
+     "第三层目标筛选条件（AND 关系）"
+    ],
+    [
+     "sort",
+     "排序方式",
+     "搜索结果的排序依据"
+    ],
+    [
+     "building",
+     "建筑引用",
+     "执行搜索的建筑（必须实现 Ranged 接口，如炮塔）"
+    ],
+    [
+     "order",
+     "整数",
+     "排序方向（1 = 正序（最近/最高优先），0/负值 = 反序（最远/最低优先））"
+    ],
+    [
+     "output",
+     "变量名",
+     "用于存储搜索到的单位引用"
+    ]
+   ],
+   "notes": [],
+   "unverified": [],
+   "trap": "第 6 槽是排序方向 order（±1），不是数量；一次只产出 1 个对象到 output。target1..3/sort 是枚举 token 不能放变量。",
+   "sem_note": "LStatements.java:484-553 -> RadarI (LExecutor.java:721-825): only the building (index4) and order (index5) are vars; target1..3 and sort are enum tokens and search from that building. output is setobj (:801,803).",
+   "ver": "v160.7_rt",
+   "src": [
+    "Logic-Docs-v1.1.0.md:3193",
+    "tools/instr_semantics.json#instructions.radar"
+   ]
+  },
+  {
+   "num": "04",
+   "name": "sensor",
+   "title": "sensor（传感器）",
+   "category": "block",
+   "format": "sensor <output> <from> <type>",
+   "arity": 3,
+   "params": [
+    "result",
+    "from",
+    "type"
+   ],
+   "defs": [
+    0
+   ],
+   "uses": [
+    1,
+    2
+   ],
+   "tokens": {},
+   "since_build": 146,
+   "desc": "`sensor` 指令从指定的建筑或单位读取属性值。type 参数可以是 LAccess 枚举值（以 `@` 前缀表示，如 `@health`）或内容引用（如 `@copper`）。",
+   "doc_params": [
+    [
+     "output",
+     "变量名",
+     "用于存储读取到的属性值"
+    ],
+    [
+     "from",
+     "对象引用",
+     "被感知的建筑或单位引用"
+    ],
+    [
+     "type",
+     "属性类型",
+     "LAccess 枚举值（如 `@totalItems`、`@health`）或内容引用（如 `@copper`）"
+    ]
+   ],
+   "notes": [],
+   "unverified": [
+    "各类炮塔/工厂特有的感知属性（如 @currentAmmoType 的具体返回值格式）。",
+    "单位感知的完整属性列表（UnitComp 中的 sense 实现）。",
+    "@config 对不同建筑返回的具体值格式（可能因建筑类型而异）。"
+   ],
+   "trap": "第三槽是属性/内容变量：读 LAccess 用 @ 前缀名（@enabled/@color/@health）；未知属性名不报错，而是把目标变量写成 null（覆盖旧值）。@velX/@velY 不存在，正确是 @velocityX/@velocityY。",
+   "sem_note": "LStatements.java:556-682 -> SenseI(from,to,type) (LExecutor.java:668-719): the destination is index0; index2 is a property/content var (usually @copper-style or an LAccess name string).",
+   "ver": "v160.7_rt",
+   "src": [
+    "Logic-Docs-v1.1.0.md:3295",
+    "tools/instr_semantics.json#instructions.sensor"
+   ]
+  },
+  {
+   "num": "05",
+   "name": "drawflush",
+   "title": "drawflush（刷新绘制到显示屏）",
+   "category": "block",
+   "format": "drawflush <building>",
+   "arity": 1,
+   "params": [
+    "target"
+   ],
+   "defs": [],
+   "uses": [
+    0
+   ],
+   "tokens": {},
+   "since_build": 146,
+   "desc": "`drawflush` 指令将处理器内部维护的图形缓冲区（graphicsBuffer）中的所有绘制指令一次性提交到指定的逻辑显示屏建筑。",
+   "doc_params": [
+    [
+     "building",
+     "建筑引用",
+     "目标显示屏建筑（LogicDisplay 类型）"
+    ]
+   ],
+   "notes": [],
+   "unverified": [
+    "多个处理器同时向同一显示屏 drawflush 时的行为（绘制指令是否会混合或覆盖）。",
+    "显示缓冲区满（1024 条）后新指令的处理方式（推测为丢弃最旧指令或忽略新指令）。",
+    "drawflush 在客户端处理器中的执行时序（是否等待服务端确认后再清空缓冲区）。"
+   ],
+   "trap": null,
+   "sem_note": "LStatements.java:365-385 -> DrawFlushI (LExecutor.java:1026-1043).",
+   "ver": "v160.7_rt",
+   "src": [
+    "Logic-Docs-v1.1.0.md:3455",
+    "tools/instr_semantics.json#instructions.drawflush"
+   ]
+  },
+  {
+   "num": "06",
+   "name": "printflush",
+   "title": "printflush（刷新打印到消息建筑）",
+   "category": "block",
+   "format": "printflush <building>",
+   "arity": 1,
+   "params": [
+    "target"
+   ],
+   "defs": [],
+   "uses": [
+    0
+   ],
+   "tokens": {},
+   "since_build": 146,
+   "desc": "`printflush` 指令将处理器内部维护的文本缓冲区（textBuffer）中的所有文本内容一次性提交到指定的消息建筑。",
+   "doc_params": [
+    [
+     "building",
+     "建筑引用",
+     "目标消息建筑（Message Block 类型）"
+    ]
+   ],
+   "notes": [],
+   "unverified": [],
+   "trap": "把 textBuffer 推给 message block 并清空缓冲；message block 自身上限 400 字符。",
+   "sem_note": "LStatements.java:386-406 -> PrintFlushI (LExecutor.java:1161-1181). Clears the text buffer, never writes a var.",
+   "ver": "v160.7_rt",
+   "src": [
+    "Logic-Docs-v1.1.0.md:3531",
+    "tools/instr_semantics.json#instructions.printflush"
+   ]
+  },
+  {
+   "num": "01",
+   "name": "setrate",
+   "title": "setrate（设置处理器执行速度）",
+   "category": "world",
+   "format": "setrate <amount>",
+   "arity": 1,
+   "params": [
+    "amount"
+   ],
+   "defs": [],
+   "uses": [
+    0
+   ],
+   "tokens": {},
+   "since_build": 146,
+   "desc": "设置世界处理器的执行速度，即修改 `@ipt`（每 tick 指令数）的值。世界处理器默认 `@ipt` 为 8，通过 `setrate` 可以将其提升至最高 1000，从而实现极高的逻辑执行速度。",
+   "doc_params": [
+    [
+     "amount",
+     "数值",
+     "每 tick 执行的指令数（最大 1000）"
+    ]
+   ],
+   "notes": [
+    "此指令为 **privileged（特权）** 指令，只能在世界处理器上运行，普通处理器无法使用",
+    "世界处理器在服务器端执行，不存在客户端同步问题",
+    "`@ipt` 的实际累积上限为 `maxInstructionScale * ipt`（默认 maxInstructionScale=5），即累积的执行点数不会超过 5 倍 ipt",
+    "过高的 `@ipt` 值可能导致服务器性能下降，应根据实际需求合理设置"
+   ],
+   "unverified": [
+    "无"
+   ],
+   "trap": "只改执行速率，不改变已累积的 accumulator；范围被 clamp 到 [1, maxInstructionsPerTick]（micro/logic/hyper=40，world=1000）。",
+   "sem_note": "LStatements.java:2045-2060 -> SetRateI (LExecutor.java:2018-2036): writes exec.build.ipt *and* exec.ipt.numval directly (bypasses LVar.constant check), so it is the only way to change @ipt.",
+   "ver": "v160.7_rt",
+   "src": [
+    "Logic-Docs-v1.1.0.md:3621",
+    "tools/instr_semantics.json#instructions.setrate"
+   ]
+  },
+  {
+   "num": "02",
+   "name": "getblock",
+   "title": "getblock（获取方块）",
+   "category": "world",
+   "format": "getblock <result> <x> <y> <layer>",
+   "arity": 4,
+   "params": [
+    "layer",
+    "result",
+    "x",
+    "y"
+   ],
+   "defs": [
+    1
+   ],
+   "uses": [
+    2,
+    3
+   ],
+   "tokens": {
+    "0": "TileLayer"
+   },
+   "since_build": 146,
+   "desc": "获取指定 tile 坐标处的方块、地板或覆盖层信息。根据 layer 参数的不同，返回不同图层的内容。",
+   "doc_params": [
+    [
+     "layer",
+     "枚举",
+     "图层类型：`block`/`floor`/`overlay`"
+    ],
+    [
+     "result",
+     "输出变量",
+     "输出：获取到的方块/地板/覆盖层内容"
+    ],
+    [
+     "x",
+     "数值",
+     "tile 坐标 X"
+    ],
+    [
+     "y",
+     "数值",
+     "tile 坐标 Y"
+    ]
+   ],
+   "notes": [
+    "此指令为 **privileged（特权）** 指令，只能在世界处理器上运行",
+    "世界处理器在服务器端执行，不存在客户端同步问题",
+    "layer 参数为 `TileLayer` 枚举值，必须使用有效值（`block`/`floor`/`overlay`），否则会导致灰色积木",
+    "x、y 参数为 **tile 坐标**（瓦片坐标），不是像素坐标（像素坐标 = tile 坐标 × tilesize=8）"
+   ],
+   "unverified": [
+    "无"
+   ],
+   "trap": "文本第 1 槽是 layer（不是坐标），与 cmd_index.json 记录的顺序相反——以本文档与源码为准。",
+   "sem_note": "LStatements.java:1359-1398: fields are 'layer' FIRST, then result,x,y -> text order is 'getblock <layer> <result> <x> <y>' (NOT the documented result,x,y,layer). GetBlockI(x,y,result,layer) at :1391 writes result (index1) with setobj switch on layer (:1508-1537).",
+   "ver": "v160.7_rt",
+   "src": [
+    "Logic-Docs-v1.1.0.md:3671",
+    "tools/instr_semantics.json#instructions.getblock"
+   ]
+  },
+  {
+   "num": "03",
+   "name": "setblock",
+   "title": "setblock（设置方块）",
+   "category": "world",
+   "format": "setblock <x> <y> <block> <team> <rotation> <layer>",
+   "arity": 6,
+   "params": [
+    "layer",
+    "block",
+    "x",
+    "y",
+    "team",
+    "rotation"
+   ],
+   "defs": [],
+   "uses": [
+    1,
+    2,
+    3,
+    4,
+    5
+   ],
+   "tokens": {
+    "0": "TileLayer"
+   },
+   "since_build": 146,
+   "desc": "在指定 tile 坐标处设置方块、地板或覆盖层。根据 layer 参数的不同，修改不同图层的内容。",
+   "doc_params": [
+    [
+     "layer",
+     "枚举",
+     "图层类型：`block`/`floor`/`overlay`"
+    ],
+    [
+     "block",
+     "Content",
+     "方块类型（如 `@conveyor`、`@dirt` 等）"
+    ],
+    [
+     "x",
+     "数值",
+     "tile 坐标 X"
+    ],
+    [
+     "y",
+     "数值",
+     "tile 坐标 Y"
+    ],
+    [
+     "team",
+     "Team",
+     "队伍（如 `derelict`、`sharded` 等）"
+    ],
+    [
+     "rotation",
+     "数值",
+     "旋转方向（0-3，对应 0°/90°/180°/270°）"
+    ]
+   ],
+   "notes": [
+    "此指令为 **privileged（特权）** 指令，只能在世界处理器上运行",
+    "世界处理器在服务器端执行，不存在客户端同步问题",
+    "layer 参数为 `TileLayer` 枚举值，必须使用有效值（`block`/`floor`/`overlay`），否则会导致灰色积木",
+    "x、y 参数为 **tile 坐标**（瓦片坐标），不是像素坐标"
+   ],
+   "unverified": [
+    "无"
+   ],
+   "trap": "文本第 1 槽是 layer，与 cmd_index.json 记录的顺序相反。",
+   "sem_note": "LStatements.java:1400-1461: field order is layer,block,x,y,team,rotation -> text order 'setblock <layer> <block> <x> <y> <team> <rotation>' (docs disagree). SetBlockI (LExecutor.java:1539-1586) never writes a var.",
+   "ver": "v160.7_rt",
+   "src": [
+    "Logic-Docs-v1.1.0.md:3728",
+    "tools/instr_semantics.json#instructions.setblock"
+   ]
+  },
+  {
+   "num": "04",
+   "name": "spawn",
+   "title": "spawn（生成单位）",
+   "category": "world",
+   "format": "spawn <type> <x> <y> <rotation> <team> <result> <effect>",
+   "arity": 7,
+   "params": [
+    "type",
+    "x",
+    "y",
+    "rotation",
+    "team",
+    "result",
+    "effect"
+   ],
+   "defs": [
+    5
+   ],
+   "uses": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    6
+   ],
+   "tokens": {},
+   "since_build": 146,
+   "desc": "在指定位置生成一个指定类型的单位，并输出该单位的引用。可以选择是否显示生成特效。",
+   "doc_params": [
+    [
+     "type",
+     "Content",
+     "单位类型（如 `@dagger`、`@mono` 等）"
+    ],
+    [
+     "x",
+     "数值",
+     "生成位置 X（像素坐标）"
+    ],
+    [
+     "y",
+     "数值",
+     "生成位置 Y（像素坐标）"
+    ],
+    [
+     "rotation",
+     "数值",
+     "生成朝向（角度）"
+    ],
+    [
+     "team",
+     "Team",
+     "队伍（如 `sharded`、`crux` 等）"
+    ],
+    [
+     "result",
+     "输出变量",
+     "输出：生成的单位引用"
+    ],
+    [
+     "effect",
+     "数值",
+     "是否显示生成效果（1=有效果，0=无效果）"
+    ]
+   ],
+   "notes": [
+    "此指令为 **privileged（特权）** 指令，只能在世界处理器上运行",
+    "世界处理器在服务器端执行，不存在客户端同步问题",
+    "type 参数为 content 类型的单位类型，必须使用有效值（如 `@dagger`）",
+    "result 输出生成的单位引用，可以用于后续的单位控制"
+   ],
+   "unverified": [
+    "无"
+   ],
+   "trap": null,
+   "sem_note": "LStatements.java:1463-1514 -> SpawnUnitI (LExecutor.java:1588-1623): result (index5) is written ONLY on success ('result.setobj(unit)' inside the success branch). effect (index6) is a boolean-ish var.",
+   "ver": "v160.7_rt",
+   "src": [
+    "Logic-Docs-v1.1.0.md:3784",
+    "tools/instr_semantics.json#instructions.spawn"
+   ]
+  },
+  {
+   "num": "05",
+   "name": "bullet",
+   "title": "bullet（生成子弹）",
+   "category": "world",
+   "format": "bullet <result> <from> <index> <x> <y> <rotation> <team> <owner> <damage> <velocityScl> <lifeScl> <aimX> <aimY>",
+   "arity": 13,
+   "params": [
+    "result",
+    "from",
+    "index",
+    "x",
+    "y",
+    "rotation",
+    "team",
+    "owner",
+    "damage",
+    "velocityScl",
+    "lifeScl",
+    "aimX",
+    "aimY"
+   ],
+   "defs": [
+    0
+   ],
+   "uses": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12
+   ],
+   "tokens": {},
+   "since_build": 157,
+   "desc": "从指定建筑的指定武器创建一颗子弹，可以自定义子弹的位置、方向、队伍、伤害、速度、寿命等参数。",
+   "doc_params": [
+    [
+     "result",
+     "输出变量",
+     "输出：生成的子弹引用"
+    ],
+    [
+     "from",
+     "建筑引用",
+     "子弹来源建筑（用于确定武器类型）"
+    ],
+    [
+     "index",
+     "数值",
+     "武器索引（建筑上的第几个武器）"
+    ],
+    [
+     "x",
+     "数值",
+     "生成位置 X（像素坐标）"
+    ],
+    [
+     "y",
+     "数值",
+     "生成位置 Y（像素坐标）"
+    ],
+    [
+     "rotation",
+     "数值",
+     "子弹飞行方向（角度）"
+    ],
+    [
+     "team",
+     "Team",
+     "队伍"
+    ],
+    [
+     "owner",
+     "建筑引用",
+     "子弹所有者（用于伤害归属判定）"
+    ],
+    [
+     "damage",
+     "数值",
+     "伤害缩放（1=原始伤害，0=无伤害）"
+    ],
+    [
+     "velocityScl",
+     "数值",
+     "速度缩放（1=原始速度）"
+    ],
+    [
+     "lifeScl",
+     "数值",
+     "寿命缩放（1=原始寿命）"
+    ],
+    [
+     "aimX",
+     "数值",
+     "瞄准位置 X（用于子弹追踪等逻辑）"
+    ],
+    [
+     "aimY",
+     "数值",
+     "瞄准位置 Y"
+    ]
+   ],
+   "notes": [
+    "此指令为 **privileged（特权）** 指令，只能在世界处理器上运行",
+    "世界处理器在服务器端执行，不存在客户端同步问题",
+    "`from` 参数必须为有效的建筑引用，且该建筑必须有武器（如炮塔）",
+    "`index` 参数对应建筑武器数组的索引，如果超出范围可能导致异常"
+   ],
+   "unverified": [],
+   "trap": null,
+   "sem_note": "LStatements.java:1516-1565 -> SpawnBulletI (LExecutor.java:1625-1681): result (0) is written only when the source unit/bullet type could be resolved and create() returned non-null (:1679).",
+   "ver": "v160.7_rt",
+   "src": [
+    "Logic-Docs-v1.1.0.md:3842",
+    "tools/instr_semantics.json#instructions.bullet"
+   ]
+  },
+  {
+   "num": "06",
+   "name": "status",
+   "title": "status（应用/清除状态效果）",
+   "category": "world",
+   "format": "status <apply|clear> <effect> <unit> <duration>",
+   "arity": 4,
+   "params": [
+    "clear",
+    "effect",
+    "unit",
+    "duration"
+   ],
+   "defs": [],
+   "uses": [
+    2,
+    3
+   ],
+   "tokens": {
+    "0": "boolean"
+   },
+   "since_build": 146,
+   "desc": "对指定单位施加或清除状态效果。施加状态时，状态效果会持续指定的时间；清除状态时，立即移除该状态效果。",
+   "doc_params": [
+    [
+     "true/false",
+     "布尔",
+     "`true` 清除状态、`false` 施加状态（源码字段名是 `clear`，所以 true 才是清除）"
+    ],
+    [
+     "effect",
+     "Content",
+     "状态效果类型（如 `@burning`、`@wet` 等）"
+    ],
+    [
+     "unit",
+     "单位引用",
+     "目标单位"
+    ],
+    [
+     "duration",
+     "数值",
+     "持续时间（秒），apply 模式下有效"
+    ]
+   ],
+   "notes": [
+    "此指令为 **privileged（特权）** 指令，只能在世界处理器上运行",
+    "世界处理器在服务器端执行，不存在客户端同步问题",
+    "effect 参数为状态效果类型，必须使用有效值（如 `@burning`、`@wet`、`@freezing` 等；`@frozen` 不存在）",
+    "清除（`clear=true`）时 duration 参数无效，但导出时仍需写出"
+   ],
+   "unverified": [
+    "无"
+   ],
+   "trap": "第 1 槽是布尔 clear（text 里写 true/false），不是 UI 上的 apply/clear 两个词。status effect 名在 v159.3 只认裸名，v160.x 裸名与 @status-<name> 等效。",
+   "sem_note": "LStatements.java:1568-1625 -> ApplyEffectI (LExecutor.java:1739-1750). index0 is a BOOLEAN literal (field clear: the text token is true/false; the docs <apply|clear> wording is UI text), never a variable. The effect slot (index1) CHANGED SHAPE and both builds are measured. v159.3 keeps it as a plain String (only unit/duration go through builder.var, LStatements.java:1618) and LExecutor.java:1743 resolves it with content.statusEffect(effect) = ContentLoader.getByName (ContentLoader.java:228-240), an exact map lookup with no at-sign handling, so only the bare name works. v160.x makes the field an LVar (v160.7 jar: ApplyEffectI.effect descriptor Lmindustry/logic/LVar;) and LParser rewrites a bare KNOWN name to the @status-<name> constant, so a bare known name, @status-<name>, and a variable holding that constant all apply an effect, while @<name>, status-<name> and unknown names are silent no-ops. E-level: out/_bench/_e_status12.py / _e_status13.py, log out/_bench/probe/status-effect-elevel.log, report out/takeover-20261024/20-status-effect-slot-forms.md. index1 stays OUT of uses on purpose: treating it as a variable read makes every correct bare-name line look like an unset variable (3168 INFO hits in a 1421-save sweep), so tools/mlogcheck.py validates the slot directly instead. duration (3) is read only when clearing is false and the effect is not permanent.",
+   "ver": "v160.7_rt",
+   "src": [
+    "Logic-Docs-v1.1.0.md:3905",
+    "tools/instr_semantics.json#instructions.status"
+   ]
+  },
+  {
+   "num": "07",
+   "name": "weathersense",
+   "title": "weathersense（检测天气）",
+   "category": "world",
+   "format": "weathersense <weather> <result>",
+   "arity": 2,
+   "params": [
+    "result",
+    "weather"
+   ],
+   "defs": [
+    0
+   ],
+   "uses": [
+    1
+   ],
+   "tokens": {},
+   "since_build": 146,
+   "desc": "检测指定的天气是否正在世界中生效。",
+   "doc_params": [
+    [
+     "result",
+     "输出变量",
+     "输出：1=该天气正在生效，0=未生效"
+    ],
+    [
+     "weather",
+     "Content",
+     "天气类型（如 `@rain`、`@snow` 等）"
+    ]
+   ],
+   "notes": [
+    "此指令为 **privileged（特权）** 指令，只能在世界处理器上运行",
+    "世界处理器在服务器端执行，不存在客户端同步问题",
+    "weather 参数为天气类型，必须使用有效值（如 `@rain`、`@snow`、`@sandstorm` 等）",
+    "天气需要通过 `weatherset` 指令或游戏规则设置后才能被检测到"
+   ],
+   "unverified": [
+    "无"
+   ],
+   "trap": null,
+   "sem_note": "LStatements.java:1627-1680: fields 'to' then 'weather' -> text order 'weathersense <result> <weather>' (docs disagree). SenseWeatherI(weather,to) writes index0 (LExecutor.java:1683-1695).",
+   "ver": "v160.7_rt",
+   "src": [
+    "Logic-Docs-v1.1.0.md:3956",
+    "tools/instr_semantics.json#instructions.weathersense"
+   ]
+  },
+  {
+   "num": "08",
+   "name": "weatherset",
+   "title": "weatherset（设置天气）",
+   "category": "world",
+   "format": "weatherset <weather> <state>",
+   "arity": 2,
+   "params": [
+    "weather",
+    "state"
+   ],
+   "defs": [],
+   "uses": [
+    0,
+    1
+   ],
+   "tokens": {},
+   "since_build": 146,
+   "desc": "开启或关闭指定的天气效果。当 state 为 true 时，该天气会在世界中开始生效；当 state 为 false 时，停止该天气。",
+   "doc_params": [
+    [
+     "weather",
+     "Content",
+     "天气类型（如 `@rain`、`@snow` 等）"
+    ],
+    [
+     "state",
+     "数值",
+     "天气状态：1=开启（true），0=关闭（false）"
+    ]
+   ],
+   "notes": [
+    "此指令为 **privileged（特权）** 指令，只能在世界处理器上运行",
+    "世界处理器在服务器端执行，不存在客户端同步问题",
+    "weather 参数为天气类型，必须使用有效值（如 `@rain`、`@snow`、`@sandstorm` 等）",
+    "开启天气后，可以使用 `weathersense` 指令检测天气是否正在生效"
+   ],
+   "unverified": [
+    "无"
+   ],
+   "trap": null,
+   "sem_note": "LStatements.java:1682-1734 -> SetWeatherI (LExecutor.java:1697-1722).",
+   "ver": "v160.7_rt",
+   "src": [
+    "Logic-Docs-v1.1.0.md:4011",
+    "tools/instr_semantics.json#instructions.weatherset"
+   ]
+  },
+  {
+   "num": "09",
+   "name": "spawnwave",
+   "title": "spawnwave（生成波次）",
+   "category": "world",
+   "format": "spawnwave <natural> <x> <y>",
+   "arity": 3,
+   "params": [
+    "x",
+    "y",
+    "natural"
+   ],
+   "defs": [],
+   "uses": [
+    0,
+    1,
+    2
+   ],
+   "tokens": {},
+   "since_build": 146,
+   "desc": "触发一波敌人攻击。当 natural 为 true 时，按照游戏默认的波次生成规则生成敌人（x/y 参数无效）；当 natural 为 false 时，在指定的 x/y 位置生成敌人。",
+   "doc_params": [
+    [
+     "x",
+     "数值",
+     "生成位置 X（natural=0 时有效）"
+    ],
+    [
+     "y",
+     "数值",
+     "生成位置 Y（natural=0 时有效）"
+    ],
+    [
+     "natural",
+     "数值",
+     "是否自然生成：1=true（x/y 无效），0=false（使用 x/y）"
+    ]
+   ],
+   "notes": [
+    "此指令为 **privileged（特权）** 指令，只能在世界处理器上运行",
+    "世界处理器在服务器端执行，不存在客户端同步问题",
+    "natural 参数为 1 时，x/y 参数会被忽略，敌人在默认出生点生成",
+    "生成的敌人属于敌方队伍（通常为 crux）"
+   ],
+   "unverified": [
+    "无"
+   ],
+   "trap": null,
+   "sem_note": "LStatements.java:1736-1766: fields x,y,natural -> text order 'spawnwave <x> <y> <natural>'. mlog text order is the field declaration order (LogicIO.write walks fields; build(LAssembler) order is irrelevant -- SpawnWaveI(natural,x,y) at :1742 is the constructor call, not the text order). The v1.1.0 doc used to say <natural> <x> <y>; fixed 2026-10-28, now checked by tests/docsig.",
+   "ver": "v160.7_rt",
+   "src": [
+    "Logic-Docs-v1.1.0.md:4061",
+    "tools/instr_semantics.json#instructions.spawnwave"
+   ]
+  },
+  {
+   "num": "10",
+   "name": "setrule",
+   "title": "setrule（设置游戏规则）",
+   "category": "world",
+   "format": "setrule <rule> <value> <p1> <p2> <p3> <p4>",
+   "arity": 6,
+   "params": [
+    "rule",
+    "value",
+    "p1",
+    "p2",
+    "p3",
+    "p4"
+   ],
+   "defs": [],
+   "uses": [
+    1
+   ],
+   "tokens": {
+    "0": "LogicRule"
+   },
+   "since_build": 146,
+   "desc": "修改游戏规则，可以调整波次间隔、波次编号、建造速度、光照、核心数量等多种游戏参数。不同规则类型使用不同的参数。",
+   "doc_params": [
+    [
+     "rule",
+     "枚举",
+     "规则类型（LogicRule 枚举值，如 `waveSpacing`、`wave`、`buildSpeed` 等）"
+    ],
+    [
+     "value",
+     "数值",
+     "规则值"
+    ],
+    [
+     "p1",
+     "数值",
+     "附加参数1（部分规则使用）"
+    ],
+    [
+     "p2",
+     "数值",
+     "附加参数2（部分规则使用）"
+    ],
+    [
+     "p3",
+     "数值",
+     "附加参数3（部分规则使用）"
+    ],
+    [
+     "p4",
+     "数值",
+     "附加参数4（部分规则使用）"
+    ]
+   ],
+   "notes": [
+    "此指令为 **privileged（特权）** 指令，只能在世界处理器上运行",
+    "世界处理器在服务器端执行，不存在客户端同步问题",
+    "rule 参数为 `LogicRule` 枚举值，必须使用有效值，否则会导致灰色积木",
+    "修改游戏规则会立即生效，且影响全局"
+   ],
+   "unverified": [
+    "无"
+   ],
+   "trap": null,
+   "sem_note": "LStatements.java:1768-1838 -> SetRuleI (LExecutor.java:1753-1831): value (1) is always read; p1..p4 are read only for mapArea (:1786) and p1 additionally for the team-multiplier rules (:1812). index0 is a LogicRule token.",
+   "ver": "v160.7_rt",
+   "src": [
+    "Logic-Docs-v1.1.0.md:4111",
+    "tools/instr_semantics.json#instructions.setrule"
+   ]
+  },
+  {
+   "num": "11",
+   "name": "message",
+   "title": "message（全局消息）",
+   "category": "world",
+   "format": "message <type> <duration> <outSuccess>",
+   "arity": 3,
+   "params": [
+    "type",
+    "duration",
+    "outSuccess"
+   ],
+   "defs": [
+    2
+   ],
+   "uses": [
+    1
+   ],
+   "tokens": {
+    "0": "MessageType"
+   },
+   "since_build": 146,
+   "desc": "向所有玩家显示全局消息。消息内容需要先用 `print` 指令写入打印缓存，再执行 `message` 指令将缓存内容作为消息显示。不同类型的消息有不同的显示方式。",
+   "doc_params": [
+    [
+     "type",
+     "枚举",
+     "消息类型：`announce`（公告）/`toast`（提示）/`notify`（通知）"
+    ],
+    [
+     "duration",
+     "数值",
+     "持续时间（秒）"
+    ],
+    [
+     "outSuccess",
+     "输出变量",
+     "输出：消息是否成功显示（1=成功，0=失败）"
+    ]
+   ],
+   "notes": [
+    "此指令为 **privileged（特权）** 指令，只能在世界处理器上运行",
+    "世界处理器在服务器端执行，不存在客户端同步问题",
+    "**消息内容需要先用 `print` 写入缓存，再执行 `message` 指令刷新**，与 `printflush` 刷新到显示屏的逻辑类似",
+    "type 参数为枚举值，必须使用有效值（`announce`/`toast`/`notify`）"
+   ],
+   "unverified": [
+    "LogicRule 枚举的完整列表需要从源码确认"
+   ],
+   "trap": null,
+   "sem_note": "LStatements.java:1840-1888 -> FlushMessageI (LExecutor.java:1889-1945): outSuccess (index2) is ALWAYS written at entry (':1905 outSuccess.setnum(1)'), then set to 0 when the message is blocked (:1922) or set back to 1 and used as a yield sentinel when it is @wait (:1926). index0 is a MessageType token.",
+   "ver": "v160.7_rt",
+   "src": [
+    "Logic-Docs-v1.1.0.md:4172",
+    "tools/instr_semantics.json#instructions.message"
+   ]
+  },
+  {
+   "num": "12",
+   "name": "cutscene",
+   "title": "cutscene（镜头控制）",
+   "category": "world",
+   "format": "cutscene <action> <p1> <p2> <p3> <p4>",
+   "arity": 5,
+   "params": [
+    "action",
+    "p1",
+    "p2",
+    "p3",
+    "p4"
+   ],
+   "defs": [],
+   "uses": [],
+   "tokens": {
+    "0": "CutsceneAction"
+   },
+   "since_build": 146,
+   "desc": "控制玩家镜头的平移和缩放。`pan` 模式将镜头平滑移动到指定坐标；`zoom` 模式调整镜头缩放级别。",
+   "doc_params": [
+    [
+     "action",
+     "枚举",
+     "动作类型：`pan`（平移）/`zoom`（缩放）/`explore`（探索）"
+    ],
+    [
+     "p1",
+     "数值",
+     "pan 模式下为 X 坐标；zoom 模式下为缩放级别"
+    ],
+    [
+     "p2",
+     "数值",
+     "pan 模式下为 Y 坐标"
+    ],
+    [
+     "p3",
+     "数值",
+     "pan 模式下为移动速度"
+    ],
+    [
+     "p4",
+     "数值",
+     "预留参数"
+    ]
+   ],
+   "notes": [
+    "此指令为 **privileged（特权）** 指令，只能在世界处理器上运行",
+    "世界处理器在服务器端执行，不存在客户端同步问题",
+    "action 参数为枚举值，必须使用有效值（`pan`/`zoom`/`explore`）",
+    "pan 模式下：p1=X 坐标，p2=Y 坐标，p3=速度"
+   ],
+   "unverified": [
+    "无"
+   ],
+   "trap": null,
+   "sem_note": "LStatements.java:1890-1944 -> CutsceneI (LExecutor.java:1309-1343): pan reads p1,p2,p3; zoom reads p1; stop reads nothing. index0 is a CutsceneAction token.",
+   "ver": "v160.7_rt",
+   "src": [
+    "Logic-Docs-v1.1.0.md:4225",
+    "tools/instr_semantics.json#instructions.cutscene"
+   ]
+  },
+  {
+   "num": "13",
+   "name": "effect",
+   "title": "effect（视觉特效）",
+   "category": "world",
+   "format": "effect <type> <x> <y> <sizerot> <color> <data>",
+   "arity": 6,
+   "params": [
+    "type",
+    "x",
+    "y",
+    "sizerot",
+    "color",
+    "data"
+   ],
+   "defs": [],
+   "uses": [
+    1,
+    2,
+    3,
+    4
+   ],
+   "tokens": {
+    "0": "LogicFx"
+   },
+   "since_build": 146,
+   "desc": "在指定位置播放视觉特效。可以通过参数控制特效的大小、旋转、颜色等表现。",
+   "doc_params": [
+    [
+     "type",
+     "Content",
+     "特效类型（如 `@exploShockwave`、`@fire` 等）"
+    ],
+    [
+     "x",
+     "数值",
+     "特效位置 X（像素坐标）"
+    ],
+    [
+     "y",
+     "数值",
+     "特效位置 Y（像素坐标）"
+    ],
+    [
+     "sizerot",
+     "数值",
+     "特效大小或旋转角度"
+    ],
+    [
+     "color",
+     "数值",
+     "颜色值（通过 `packcolor` 生成的打包颜色）"
+    ],
+    [
+     "data",
+     "数值",
+     "附加数据（部分特效使用）"
+    ]
+   ],
+   "notes": [
+    "此指令为 **privileged（特权）** 指令，只能在世界处理器上运行",
+    "世界处理器在服务器端执行，不存在客户端同步问题",
+    "type 参数为特效类型，必须使用有效值（如 `@exploShockwave`、`@fire` 等）",
+    "颜色参数建议先用 `packcolor` 生成打包颜色值再传入"
+   ],
+   "unverified": [
+    "explore 模式的具体行为和参数含义"
+   ],
+   "trap": null,
+   "sem_note": "LStatements.java:1946-2006 -> EffectI: index0 is resolved through LogicFx.get(type) at ASSEMBLY time (LStatements.java:1999), so it is a token, never a variable. 'data' (5) is only read by the effect types that use it.",
+   "ver": "v160.7_rt",
+   "src": [
+    "Logic-Docs-v1.1.0.md:4280",
+    "tools/instr_semantics.json#instructions.effect"
+   ]
+  },
+  {
+   "num": "14",
+   "name": "explosion",
+   "title": "explosion（爆炸）",
+   "category": "world",
+   "format": "explosion <team> <x> <y> <radius> <damage> <air> <ground> <pierce> <effect>",
+   "arity": 9,
+   "params": [
+    "team",
+    "x",
+    "y",
+    "radius",
+    "damage",
+    "air",
+    "ground",
+    "pierce",
+    "effect"
+   ],
+   "defs": [],
+   "uses": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8
+   ],
+   "tokens": {},
+   "since_build": 146,
+   "desc": "在指定位置创建爆炸，对范围内的单位和建筑造成伤害。可以自定义爆炸的半径、伤害、影响范围和特效。",
+   "doc_params": [
+    [
+     "team",
+     "Team",
+     "爆炸归属队伍（决定伤害判定）"
+    ],
+    [
+     "x",
+     "数值",
+     "爆炸位置 X（像素坐标）"
+    ],
+    [
+     "y",
+     "数值",
+     "爆炸位置 Y（像素坐标）"
+    ],
+    [
+     "radius",
+     "数值",
+     "爆炸半径（格）"
+    ],
+    [
+     "damage",
+     "数值",
+     "爆炸伤害"
+    ],
+    [
+     "air",
+     "数值",
+     "是否影响空中单位（1=是，0=否）"
+    ],
+    [
+     "ground",
+     "数值",
+     "是否影响地面单位（1=是，0=否）"
+    ],
+    [
+     "pierce",
+     "数值",
+     "是否穿透护盾（1=是，0=否）"
+    ],
+    [
+     "effect",
+     "数值",
+     "是否显示爆炸特效（1=是，0=否）"
+    ]
+   ],
+   "notes": [
+    "此指令为 **privileged（特权）** 指令，只能在世界处理器上运行",
+    "世界处理器在服务器端执行，不存在客户端同步问题",
+    "team 参数为队伍枚举值（如 `sharded`、`crux`、`derelict` 等）",
+    "爆炸会对范围内的所有有效目标造成伤害，包括单位和建筑"
+   ],
+   "unverified": [
+    "无"
+   ],
+   "trap": null,
+   "sem_note": "LStatements.java:2008-2043 -> ExplosionI (LExecutor.java:1976-2002); no-op on the client (:1983).",
+   "ver": "v160.7_rt",
+   "src": [
+    "Logic-Docs-v1.1.0.md:4332",
+    "tools/instr_semantics.json#instructions.explosion"
+   ]
+  },
+  {
+   "num": "15",
+   "name": "fetch",
+   "title": "fetch（获取数量）",
+   "category": "world",
+   "format": "fetch <type> <result> <team> <index> <extra>",
+   "arity": 5,
+   "params": [
+    "type",
+    "result",
+    "team",
+    "index",
+    "extra"
+   ],
+   "defs": [
+    1
+   ],
+   "uses": [
+    2,
+    3
+   ],
+   "tokens": {
+    "0": "FetchType"
+   },
+   "since_build": 146,
+   "desc": "获取指定队伍的单位/建筑数量，或通过索引获取指定类型的单位/建筑实例。",
+   "doc_params": [
+    [
+     "type",
+     "枚举",
+     "查询类型（FetchType 枚举值，见下方可选值）"
+    ],
+    [
+     "result",
+     "输出变量",
+     "输出：数量或单位/建筑引用"
+    ],
+    [
+     "team",
+     "Team",
+     "队伍"
+    ],
+    [
+     "index",
+     "数值",
+     "索引（获取具体实例时使用，从 0 开始）"
+    ],
+    [
+     "extra",
+     "数值",
+     "额外参数（单位类型 ID 或建筑类型 ID，部分类型使用）"
+    ]
+   ],
+   "notes": [
+    "此指令为 **privileged（特权）** 指令，只能在世界处理器上运行",
+    "世界处理器在服务器端执行，不存在客户端同步问题",
+    "type 参数为 `FetchType` 枚举值，必须使用有效值，否则会导致灰色积木",
+    "使用 `unit`/`build` 类型时，需要先用对应的 `Count` 类型获取总数，再用索引逐个获取实例"
+   ],
+   "unverified": [
+    "无"
+   ],
+   "trap": null,
+   "sem_note": "LStatements.java:2070-2135 -> FetchI(type,result,team,extra,index) (LExecutor.java:1345-1409): note the constructor order differs from the TEXT order (index and extra are swapped), but text order is type,result,team,index,extra. result (1) is always written; extra (4) only for the unit/build variants. index0 is a FetchType token.",
+   "ver": "v160.7_rt",
+   "src": [
+    "Logic-Docs-v1.1.0.md:4387",
+    "tools/instr_semantics.json#instructions.fetch"
+   ]
+  },
+  {
+   "num": "16",
+   "name": "getflag",
+   "title": "getflag（获取全局标记）",
+   "category": "world",
+   "format": "getflag <result> <flag>",
+   "arity": 2,
+   "params": [
+    "result",
+    "flag"
+   ],
+   "defs": [
+    0
+   ],
+   "uses": [
+    1
+   ],
+   "tokens": {},
+   "since_build": 146,
+   "desc": "读取全局标记的值。全局标记是跨处理器共享的键值对，存储在 `state.rules.tag` 中。所有世界处理器都可以读写同一个全局标记，从而实现世界处理器间的通信。",
+   "doc_params": [
+    [
+     "result",
+     "输出变量",
+     "输出：标记对应的值"
+    ],
+    [
+     "flag",
+     "字符串",
+     "标记名（键名）"
+    ]
+   ],
+   "notes": [
+    "此指令为 **privileged（特权）** 指令，只能在世界处理器上运行",
+    "世界处理器在服务器端执行，不存在客户端同步问题",
+    "flag 参数为字符串类型（标记名），如 `\"myFlag\"`",
+    "全局标记是 **世界处理器间通信的重要方式**，可以用于在不同世界处理器之间传递数据"
+   ],
+   "unverified": [
+    "无"
+   ],
+   "trap": null,
+   "sem_note": "LStatements.java:2198-2227 -> GetFlagI (LExecutor.java:2101-2120).",
+   "ver": "v160.7_rt",
+   "src": [
+    "Logic-Docs-v1.1.0.md:4461",
+    "tools/instr_semantics.json#instructions.getflag"
+   ]
+  },
+  {
+   "num": "17",
+   "name": "setflag",
+   "title": "setflag（设置全局标记）",
+   "category": "world",
+   "format": "setflag <flag> <value>",
+   "arity": 2,
+   "params": [
+    "flag",
+    "value"
+   ],
+   "defs": [],
+   "uses": [
+    0,
+    1
+   ],
+   "tokens": {},
+   "since_build": 146,
+   "desc": "设置全局标记的值。全局标记是跨处理器共享的键值对，存储在 `state.rules.tag` 中。所有世界处理器都可以读写同一个全局标记，从而实现世界处理器间的通信。",
+   "doc_params": [
+    [
+     "flag",
+     "字符串",
+     "标记名（键名）"
+    ],
+    [
+     "value",
+     "数值",
+     "要设置的值"
+    ]
+   ],
+   "notes": [
+    "此指令为 **privileged（特权）** 指令，只能在世界处理器上运行",
+    "世界处理器在服务器端执行，不存在客户端同步问题",
+    "flag 参数为字符串类型（标记名），如 `\"myFlag\"`",
+    "**这是世界处理器间通信的重要方式**，可用于在不同世界处理器之间传递数据、同步状态"
+   ],
+   "unverified": [
+    "无"
+   ],
+   "trap": null,
+   "sem_note": "LStatements.java:2229-2258 -> SetFlagI (LExecutor.java:2131-2149).",
+   "ver": "v160.7_rt",
+   "src": [
+    "Logic-Docs-v1.1.0.md:4512",
+    "tools/instr_semantics.json#instructions.setflag"
+   ]
+  },
+  {
+   "num": "18",
+   "name": "setprop",
+   "title": "setprop（设置属性）",
+   "category": "world",
+   "format": "setprop <type> <of> <value>",
+   "arity": 3,
+   "params": [
+    "type",
+    "of",
+    "value"
+   ],
+   "defs": [],
+   "uses": [
+    0,
+    1,
+    2
+   ],
+   "tokens": {},
+   "since_build": 146,
+   "desc": "直接设置建筑的属性，包括物品数量、液体数量、启用状态等。根据 type 参数的不同，设置不同的属性。",
+   "doc_params": [
+    [
+     "type",
+     "Content",
+     "属性类型：物品（如 `@copper`）、液体（如 `@water`）或 sensor 属性（如 `@enabled`）"
+    ],
+    [
+     "of",
+     "哭建筑引用",
+     "目标建筑"
+    ],
+    [
+     "value",
+     "数值",
+     "要设置的值"
+    ]
+   ],
+   "notes": [
+    "此指令为 **privileged（特权）** 指令，只能在世界处理器上运行",
+    "世界处理器在服务器端执行，不存在客户端同步问题",
+    "type 参数可以是物品（`@copper` 等）、液体（`@water` 等）或 sensor 属性（`@enabled` 等）",
+    "此指令直接修改建筑的内部数据，可以绕过正常的物品/液体传输限制"
+   ],
+   "unverified": [
+    "无"
+   ],
+   "trap": null,
+   "sem_note": "LStatements.java:2260-2371 -> SetPropI (LExecutor.java:2193-2220): index1 must be a Settable object, index0 an LAccess or UnlockableContent; both are vars (they can hold objects).",
+   "ver": "v160.7_rt",
+   "src": [
+    "Logic-Docs-v1.1.0.md:4566",
+    "tools/instr_semantics.json#instructions.setprop"
+   ]
+  },
+  {
+   "num": "19",
+   "name": "playsound",
+   "title": "playsound（播放音效）",
+   "category": "world",
+   "format": "playsound <positional> <id> <volume> <pitch> <pan/x> <y> <limit>",
+   "arity": 8,
+   "params": [
+    "positional",
+    "id",
+    "volume",
+    "pitch",
+    "pan",
+    "x",
+    "y",
+    "limit"
+   ],
+   "defs": [],
+   "uses": [
+    1
+   ],
+   "tokens": {
+    "0": "boolean"
+   },
+   "since_build": 146,
+   "desc": "播放音效。可以选择全局播放（所有玩家听到相同音量）或定位播放（根据玩家位置衰减音量）。",
+   "doc_params": [
+    [
+     "positional",
+     "数值",
+     "是否为定位音效（1=定位，0=全局）"
+    ],
+    [
+     "id",
+     "数值",
+     "音效 ID"
+    ],
+    [
+     "volume",
+     "数值",
+     "音量（0-1，1 为最大）"
+    ],
+    [
+     "pitch",
+     "数值",
+     "音调（1 为原始音调）"
+    ],
+    [
+     "pan",
+     "数值",
+     "全局模式下的声相（-1 左到 1 右）"
+    ],
+    [
+     "x",
+     "数值",
+     "定位模式下的 X 坐标（全局模式下无效）"
+    ],
+    [
+     "y",
+     "数值",
+     "定位模式下的 Y 坐标（全局模式下无效）"
+    ],
+    [
+     "limit",
+     "数值",
+     "是否限制（1=是，0=否）"
+    ]
+   ],
+   "notes": [
+    "此指令为 **privileged（特权）** 指令，只能在世界处理器上运行",
+    "世界处理器在服务器端执行，不存在客户端同步问题",
+    "positional 参数决定播放模式：",
+    "id 参数为音效 ID，需要使用有效的音效资源 ID"
+   ],
+   "unverified": [
+    "无"
+   ],
+   "trap": "8 个参数，注意 pan 与 x/y 是并列关系（cmd_index.json 只记 7 个，漏了 pan）。",
+   "sem_note": "LStatements.java:2373-2444 -> PlaySoundI (LExecutor.java:2222-2251). index0 is a BOOLEAN literal (field 'boolean positional'), never a variable; docs list only 7 args (they merge pan/x). positional=true reads volume,pitch,x,y,limit and IGNORES pan (4); positional=false reads volume,pitch,pan,limit and ignores x,y.",
+   "ver": "v160.7_rt",
+   "src": [
+    "Logic-Docs-v1.1.0.md:4621",
+    "tools/instr_semantics.json#instructions.playsound"
+   ]
+  },
+  {
+   "num": "20",
+   "name": "playmusic",
+   "title": "playmusic（播放音乐）",
+   "category": "world",
+   "format": "playmusic <name> <interrupt>",
+   "arity": 2,
+   "params": [
+    "name",
+    "interrupt"
+   ],
+   "defs": [],
+   "uses": [
+    0,
+    1
+   ],
+   "tokens": {},
+   "since_build": 146,
+   "desc": "播放指定的背景音乐。可以选择立即打断当前正在播放的音乐，或等待当前音乐播放完毕后再播放。",
+   "doc_params": [
+    [
+     "name",
+     "字符串",
+     "音乐名"
+    ],
+    [
+     "interrupt",
+     "数值",
+     "是否打断当前音乐（1=打断，0=等待当前音乐结束）"
+    ]
+   ],
+   "notes": [
+    "此指令为 **privileged（特权）** 指令，只能在世界处理器上运行",
+    "世界处理器在服务器端执行，不存在客户端同步问题",
+    "name 参数为字符串类型的音乐名，需要使用有效的音乐资源名",
+    "音乐会影响所有在线玩家"
+   ],
+   "unverified": [
+    "音效 ID 的完整列表需要从源码确认"
+   ],
+   "trap": null,
+   "sem_note": "LStatements.java:2446-2473 -> PlayMusicI (LExecutor.java:2253-2272).",
+   "ver": "v160.7_rt",
+   "src": [
+    "Logic-Docs-v1.1.0.md:4679",
+    "tools/instr_semantics.json#instructions.playmusic"
+   ]
+  },
+  {
+   "num": "21",
+   "name": "setmarker",
+   "title": "setmarker（设置标记）",
+   "category": "world",
+   "format": "setmarker <type> <id> <p1> <p2> <p3>",
+   "arity": 5,
+   "params": [
+    "type",
+    "id",
+    "p1",
+    "p2",
+    "p3"
+   ],
+   "defs": [],
+   "uses": [
+    1
+   ],
+   "tokens": {
+    "0": "LMarkerControl"
+   },
+   "since_build": null,
+   "desc": "修改已存在的地图标记的属性。根据 type 参数的不同，可以修改标记的位置、颜色、文本等属性。地图标记是显示在世界地图上的可视化标记。",
+   "doc_params": [
+    [
+     "type",
+     "枚举",
+     "控制类型（LMarkerControl 枚举值，如 `pos`/`color`/`text`）"
+    ],
+    [
+     "id",
+     "数值",
+     "标记 ID（要修改的地图标记的唯一标识）"
+    ],
+    [
+     "p1",
+     "数值",
+     "参数1（具体含义取决于 type）"
+    ],
+    [
+     "p2",
+     "数值",
+     "参数2（具体含义取决于 type）"
+    ],
+    [
+     "p3",
+     "数值",
+     "参数3（具体含义取决于 type）"
+    ]
+   ],
+   "notes": [
+    "此指令为 **privileged（特权）** 指令，只能在世界处理器上运行",
+    "世界处理器在服务器端执行，不存在客户端同步问题",
+    "type 参数为 `LMarkerControl` 枚举值，必须使用有效值，否则会导致灰色积木",
+    "修改标记前，需要先通过 `makemarker` 创建该标记"
+   ],
+   "unverified": [
+    "音乐名的完整列表需要从源码确认"
+   ],
+   "trap": null,
+   "sem_note": "LStatements.java:2475-2565 -> SetMarkerI (LExecutor.java:2274-2312): id is always read; remove reads no p*, flushText reads p1, texture reads p1,p2, pos reads p1,p2,p3. index0 is an LMarkerControl token.",
+   "ver": "v160.7_rt",
+   "src": [
+    "Logic-Docs-v1.1.0.md:4727",
+    "tools/instr_semantics.json#instructions.setmarker"
+   ]
+  },
+  {
+   "num": "22",
+   "name": "makemarker",
+   "title": "makemarker（创建标记）",
+   "category": "world",
+   "format": "makemarker <type> <id> <x> <y> <replace>",
+   "arity": 5,
+   "params": [
+    "type",
+    "id",
+    "x",
+    "y",
+    "replace"
+   ],
+   "defs": [],
+   "uses": [
+    1,
+    2,
+    3,
+    4
+   ],
+   "tokens": {
+    "0": "LMarkerControl"
+   },
+   "since_build": null,
+   "desc": "创建新的地图标记。地图标记是显示在世界地图上的可视化标记，可以用于标记特定位置、绘制图形等。创建后可以通过 `setmarker` 修改其属性。",
+   "doc_params": [
+    [
+     "type",
+     "枚举",
+     "标记类型（如 `shape`/`text` 等）"
+    ],
+    [
+     "id",
+     "数值",
+     "标记 ID（唯一标识，用于后续 setmarker 修改）"
+    ],
+    [
+     "x",
+     "数值",
+     "标记位置 X（像素坐标）"
+    ],
+    [
+     "y",
+     "数值",
+     "标记位置 Y（像素坐标）"
+    ],
+    [
+     "replace",
+     "数值",
+     "是否替换已存在的同 ID 标记（1=替换，0=不替换）"
+    ]
+   ],
+   "notes": [
+    "此指令为 **privileged（特权）** 指令，只能在世界处理器上运行",
+    "世界处理器在服务器端执行，不存在客户端同步问题",
+    "type 参数为标记类型枚举值，必须使用有效值（如 `shape`/`text`）",
+    "id 参数为标记的唯一标识，建议使用不同的 ID 避免冲突"
+   ],
+   "unverified": [
+    "LMarkerControl 枚举的完整列表需要从源码确认"
+   ],
+   "trap": null,
+   "sem_note": "LStatements.java:2567-2611 -> MakeMarkerI (LExecutor.java:2314-2345).",
+   "ver": "v160.7_rt",
+   "src": [
+    "Logic-Docs-v1.1.0.md:4783",
+    "tools/instr_semantics.json#instructions.makemarker"
+   ]
+  },
+  {
+   "num": "23",
+   "name": "localeprint",
+   "title": "localeprint（本地化打印）",
+   "category": "world",
+   "format": "localeprint <value>",
+   "arity": 1,
+   "params": [
+    "value"
+   ],
+   "defs": [],
+   "uses": [
+    0
+   ],
+   "tokens": {},
+   "since_build": null,
+   "desc": "根据本地化键名，将对应的翻译文本写入打印信息缓存。文本内容取决于当前游戏语言设置。",
+   "doc_params": [
+    [
+     "value",
+     "字符串",
+     "本地化键名"
+    ]
+   ],
+   "notes": [
+    "此指令为 **privileged（特权）** 指令，只能在世界处理器上运行",
+    "世界处理器在服务器端执行，不存在客户端同步问题",
+    "value 参数为本地化键名（字符串），如 `\"name\"` 会显示游戏语言对应的翻译",
+    "写入的文本存储在打印信息缓存中，需要配合 `printflush` 或 `message` 指令输出"
+   ],
+   "unverified": [
+    "无"
+   ],
+   "trap": null,
+   "sem_note": "LStatements.java:2613-2636 -> LocalePrintI (LExecutor.java:2383-2414).",
+   "ver": "v160.7_rt",
+   "src": [
+    "Logic-Docs-v1.1.0.md:4842",
+    "tools/instr_semantics.json#instructions.localeprint"
+   ]
+  },
+  {
+   "num": "24",
+   "name": "sync",
+   "title": "sync（同步变量）",
+   "category": "world",
+   "format": "sync <variable>",
+   "arity": 1,
+   "params": [
+    "variable"
+   ],
+   "defs": [],
+   "uses": [
+    0
+   ],
+   "tokens": {},
+   "since_build": 146,
+   "desc": "将指定变量的值同步到所有客户端。在多人模式下，世界处理器在服务器端执行，变量默认只在服务器端存在。通过 `sync` 指令可以将变量值同步到所有客户端，使客户端逻辑也能读取到该值。",
+   "doc_params": [
+    [
+     "variable",
+     "变量名",
+     "要同步的变量名"
+    ]
+   ],
+   "notes": [
+    "此指令为 **privileged（特权）** 指令，只能在世界处理器上运行",
+    "世界处理器在服务器端执行，**但 sync 指令用于解决客户端同步问题**",
+    "用于多人模式下确保变量值在所有客户端一致",
+    "同步的变量在客户端可以被读取（通过 sensor 或直接引用）"
+   ],
+   "unverified": [
+    "无"
+   ],
+   "trap": null,
+   "sem_note": "LStatements.java:2137-2160 -> SyncI (LExecutor.java:2054-2074); ignores constant vars.",
+   "ver": "v160.7_rt",
+   "src": [
+    "Logic-Docs-v1.1.0.md:4891",
+    "tools/instr_semantics.json#instructions.sync"
+   ]
+  },
+  {
+   "num": "25",
+   "name": "query",
+   "title": "query（区域查询）",
+   "category": "world",
+   "format": "query <shape> <type> <team> <x> <y> <w> <h>",
+   "arity": 7,
+   "params": [
+    "shape",
+    "type",
+    "team",
+    "x",
+    "y",
+    "w",
+    "h"
+   ],
+   "defs": [],
+   "uses": [
+    2,
+    3,
+    4,
+    5,
+    6
+   ],
+   "tokens": {
+    "0": "QueryShape",
+    "1": "QueryType"
+   },
+   "since_build": null,
+   "desc": "查询指定区域内的单位或建筑数量。支持圆形和矩形两种查询形状。",
+   "doc_params": [
+    [
+     "shape",
+     "枚举",
+     "查询形状：`circle`（圆形）/`rect`（矩形）"
+    ],
+    [
+     "type",
+     "枚举",
+     "查询类型：`unit`（单位）/`building`（建筑）"
+    ],
+    [
+     "team",
+     "Team",
+     "队伍"
+    ],
+    [
+     "x",
+     "数值",
+     "中心坐标 X（像素坐标）"
+    ],
+    [
+     "y",
+     "数值",
+     "中心坐标 Y（像素坐标）"
+    ],
+    [
+     "w",
+     "数值",
+     "circle 模式下为半径；rect 模式下为宽度"
+    ],
+    [
+     "h",
+     "数值",
+     "rect 模式下为高度（circle 模式下无效）"
+    ]
+   ],
+   "notes": [
+    "此指令为 **privileged（特权）** 指令，只能在世界处理器上运行",
+    "世界处理器在服务器端执行，不存在客户端同步问题",
+    "shape 参数为枚举值（`circle`/`rect`），必须使用有效值",
+    "type 参数为枚举值（`unit`/`building`），必须使用有效值"
+   ],
+   "unverified": [
+    "无"
+   ],
+   "trap": null,
+   "sem_note": "LStatements.java:1303-1357 -> QueryI (LExecutor.java:1414-1506). No text destination: results go to the builtin @queries array, which only exists when the processor is privileged (LExecutor.java:135 puts @queries, GlobalVars.java). index0/1 are QueryShape/QueryType tokens. h (6) is only used for rect; for the bullet type the query returns immediately (:1462). Reads team (2) and x,y,w,h as vars.",
+   "ver": "v160.7_rt",
+   "src": [
+    "Logic-Docs-v1.1.0.md:4942",
+    "tools/instr_semantics.json#instructions.query"
+   ]
+  },
+  {
+   "num": "26",
+   "name": "clientdata",
+   "title": "clientdata（客户端数据）",
+   "category": "world",
+   "format": "clientdata <channel> <value> <reliable>",
+   "arity": 3,
+   "params": [
+    "channel",
+    "value",
+    "reliable"
+   ],
+   "defs": [],
+   "uses": [
+    0,
+    1,
+    2
+   ],
+   "tokens": {},
+   "since_build": null,
+   "desc": "在客户端之间发送自定义数据。通过频道名区分不同的数据通道，客户端可以监听指定频道并接收数据。此指令为隐藏指令，在编辑器中不显示。",
+   "doc_params": [
+    [
+     "channel",
+     "字符串",
+     "频道名（数据通道标识）"
+    ],
+    [
+     "value",
+     "数值",
+     "要发送的数据值"
+    ],
+    [
+     "reliable",
+     "数值",
+     "是否可靠传输（1=可靠，0=不可靠）"
+    ]
+   ],
+   "notes": [
+    "此指令为 **privileged（特权）** 指令，只能在世界处理器上运行",
+    "世界处理器在服务器端执行，但此指令涉及客户端数据传输",
+    "**此指令在编辑器中隐藏**，需要手动输入",
+    "需要游戏规则 `allowLogicData` 开启才能使用，否则指令无效"
+   ],
+   "unverified": [
+    "查询结果的具体读取方式需要从源码确认"
+   ],
+   "trap": null,
+   "sem_note": "LStatements.java:2162-2196 -> ClientDataI (LExecutor.java:2076-2099): channel must be a String; reliable is a number/boolean var.",
+   "ver": "v160.7_rt",
+   "src": [
+    "Logic-Docs-v1.1.0.md:5001",
+    "tools/instr_semantics.json#instructions.clientdata"
+   ]
+  }
+ ]
+}

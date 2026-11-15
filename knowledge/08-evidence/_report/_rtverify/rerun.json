@@ -1,0 +1,1499 @@
+{
+ "generated": "2026-11-08 05:40:08",
+ "rows": [
+  {
+   "group": "①",
+   "label": "tile = 8 px（tilesize）",
+   "src": "08-evidence/CHEAT.md",
+   "kws": [
+    "tile 与像素"
+   ],
+   "claim": 8.0,
+   "jar": 8,
+   "verdict": "PASS",
+   "ev": "L94"
+  },
+  {
+   "group": "①",
+   "label": "print 文本上限 150",
+   "src": "08-evidence/CHEAT.md",
+   "kws": [
+    "程序 / 文本上限"
+   ],
+   "claim": 150.0,
+   "jar": 150,
+   "verdict": "PASS",
+   "ev": "L100"
+  },
+  {
+   "group": "①",
+   "label": "单次执行上限 1000 行",
+   "src": "08-evidence/CHEAT.md",
+   "kws": [
+    "程序 / 文本上限"
+   ],
+   "claim": 1000.0,
+   "jar": 1000,
+   "verdict": "PASS",
+   "ev": "L100"
+  },
+  {
+   "group": "①",
+   "label": "print 缓冲 400 字符",
+   "src": "08-evidence/CHEAT.md",
+   "kws": [
+    "程序 / 文本上限"
+   ],
+   "claim": 400.0,
+   "jar": 400,
+   "verdict": "PASS",
+   "ev": "L100"
+  },
+  {
+   "group": "①",
+   "label": "turnDuration 7200",
+   "src": "08-evidence/CHEAT.md",
+   "kws": [
+    "turnDuration"
+   ],
+   "claim": 7200.0,
+   "jar": 7200,
+   "verdict": "PASS",
+   "ev": "L105"
+  },
+  {
+   "group": "①",
+   "label": "入侵宽限 20 分钟",
+   "src": "08-evidence/CHEAT.md",
+   "kws": [
+    "入侵宽限期"
+   ],
+   "claim": 20.0,
+   "jar": 20,
+   "verdict": "PASS",
+   "ev": "L106"
+  },
+  {
+   "group": "①",
+   "label": "入侵概率基数 1/100",
+   "src": "08-evidence/CHEAT.md",
+   "kws": [
+    "入侵概率"
+   ],
+   "claim": 0.01,
+   "jar": 0.01,
+   "verdict": "PASS",
+   "ev": "L107"
+  },
+  {
+   "group": "①",
+   "label": "护甲保底 0.1D",
+   "src": "08-evidence/CHEAT.md",
+   "kws": [
+    "护甲公式"
+   ],
+   "claim": 0.1,
+   "jar": 0.1,
+   "verdict": "PASS",
+   "ev": "L114"
+  },
+  {
+   "group": "①",
+   "label": "memory-cell 64 格（类默认 32 被覆盖）",
+   "src": "08-evidence/CHEAT.md",
+   "kws": [
+    "memory cell 格数"
+   ],
+   "claim": 64.0,
+   "jar": 64,
+   "verdict": "PASS",
+   "ev": "L101"
+  },
+  {
+   "group": "①",
+   "label": "memory-bank 512 格",
+   "src": "08-evidence/CHEAT.md",
+   "kws": [
+    "memory cell 格数"
+   ],
+   "claim": 512.0,
+   "jar": 512,
+   "verdict": "PASS",
+   "ev": "L101"
+  },
+  {
+   "group": "①",
+   "label": "waveSpacing 7200",
+   "src": "08-evidence/CHEAT.md",
+   "kws": [
+    "waveSpacing"
+   ],
+   "claim": 7200.0,
+   "jar": 7200,
+   "verdict": "PASS",
+   "ev": "L103"
+  },
+  {
+   "group": "①",
+   "label": "Serpulo 发射倍率 0.5",
+   "src": "08-evidence/CHEAT.md",
+   "kws": [
+    "发射容量倍率"
+   ],
+   "claim": 0.5,
+   "jar": 0.5,
+   "verdict": "PASS",
+   "ev": "L108"
+  },
+  {
+   "group": "①",
+   "label": "erekir 发射倍率 0.25",
+   "src": "08-evidence/CHEAT.md",
+   "kws": [
+    "发射容量倍率"
+   ],
+   "claim": 0.25,
+   "jar": 0.25,
+   "verdict": "PASS",
+   "ev": "L108"
+  },
+  {
+   "group": "①",
+   "label": "core-shard 容量 4000",
+   "src": "08-evidence/CHEAT.md",
+   "kws": [
+    "核心容量"
+   ],
+   "claim": 4000.0,
+   "jar": 4000,
+   "verdict": "PASS",
+   "ev": "L109"
+  },
+  {
+   "group": "①",
+   "label": "core-foundation 容量 9000",
+   "src": "08-evidence/CHEAT.md",
+   "kws": [
+    "核心容量"
+   ],
+   "claim": 9000.0,
+   "jar": 9000,
+   "verdict": "PASS",
+   "ev": "L109"
+  },
+  {
+   "group": "①",
+   "label": "core-nucleus 容量 13000",
+   "src": "08-evidence/CHEAT.md",
+   "kws": [
+    "核心容量"
+   ],
+   "claim": 13000.0,
+   "jar": 13000,
+   "verdict": "PASS",
+   "ev": "L109"
+  },
+  {
+   "group": "①",
+   "label": "核心单位上限 +8",
+   "src": "08-evidence/CHEAT.md",
+   "kws": [
+    "核心单位上限加成"
+   ],
+   "claim": 8.0,
+   "jar": 8,
+   "verdict": "PASS",
+   "ev": "L110"
+  },
+  {
+   "group": "①",
+   "label": "核心单位上限 +16",
+   "src": "08-evidence/CHEAT.md",
+   "kws": [
+    "核心单位上限加成"
+   ],
+   "claim": 16.0,
+   "jar": 16,
+   "verdict": "PASS",
+   "ev": "L110"
+  },
+  {
+   "group": "①",
+   "label": "核心单位上限 +24",
+   "src": "08-evidence/CHEAT.md",
+   "kws": [
+    "核心单位上限加成"
+   ],
+   "claim": 24.0,
+   "jar": 24,
+   "verdict": "PASS",
+   "ev": "L110"
+  },
+  {
+   "group": "①",
+   "label": "micro ipt 2（点/tick）",
+   "src": "08-evidence/CHEAT.md",
+   "kws": [
+    "处理器 ipt"
+   ],
+   "claim": 2.0,
+   "jar": 2,
+   "verdict": "PASS",
+   "ev": "L97"
+  },
+  {
+   "group": "①",
+   "label": "logic ipt 8（点/tick）",
+   "src": "08-evidence/CHEAT.md",
+   "kws": [
+    "处理器 ipt"
+   ],
+   "claim": 8.0,
+   "jar": 8,
+   "verdict": "PASS",
+   "ev": "L97"
+  },
+  {
+   "group": "①",
+   "label": "hyper ipt 25（点/tick）",
+   "src": "08-evidence/CHEAT.md",
+   "kws": [
+    "处理器 ipt"
+   ],
+   "claim": 25.0,
+   "jar": 25,
+   "verdict": "PASS",
+   "ev": "L97"
+  },
+  {
+   "group": "①",
+   "label": "单 tick 上限 40（micro）",
+   "src": "08-evidence/CHEAT.md",
+   "kws": [
+    "单 tick 预算上限"
+   ],
+   "claim": 40.0,
+   "jar": 40,
+   "verdict": "PASS",
+   "ev": "L99"
+  },
+  {
+   "group": "①",
+   "label": "单 tick 上限 40（logic）",
+   "src": "08-evidence/CHEAT.md",
+   "kws": [
+    "单 tick 预算上限"
+   ],
+   "claim": 40.0,
+   "jar": 40,
+   "verdict": "PASS",
+   "ev": "L99"
+  },
+  {
+   "group": "①",
+   "label": "单 tick 上限 40（hyper）",
+   "src": "08-evidence/CHEAT.md",
+   "kws": [
+    "单 tick 预算上限"
+   ],
+   "claim": 40.0,
+   "jar": 40,
+   "verdict": "PASS",
+   "ev": "L99"
+  },
+  {
+   "group": "①",
+   "label": "world 单次上限 1000",
+   "src": "08-evidence/CHEAT.md",
+   "kws": [
+    "world 处理器 ipt"
+   ],
+   "claim": 1000.0,
+   "jar": 1000,
+   "verdict": "PASS",
+   "ev": "L98"
+  },
+  {
+   "group": "②",
+   "label": "dagger 2×26 → 41.5",
+   "src": "03-combat/C10-numbers.md",
+   "kws": [
+    "dagger"
+   ],
+   "claim": 41.5,
+   "jar": 41.54,
+   "verdict": "PASS",
+   "ev": "L69"
+  },
+  {
+   "group": "②",
+   "label": "mace 2×44 → 201.8",
+   "src": "03-combat/C10-numbers.md",
+   "kws": [
+    "mace",
+    "flamethrower"
+   ],
+   "claim": 201.8,
+   "jar": 201.82,
+   "verdict": "PASS",
+   "ev": "L59"
+  },
+  {
+   "group": "②",
+   "label": "toxopid 主武器 2×60 → 440.0（含 shots 2）",
+   "src": "03-combat/C10-numbers.md",
+   "kws": [
+    "toxopid",
+    "large-purple"
+   ],
+   "claim": 440.0,
+   "jar": 440.0,
+   "verdict": "PASS",
+   "ev": "L71"
+  },
+  {
+   "group": "②",
+   "label": "toxopid 含副炮 → 454.3",
+   "src": "03-combat/C10-numbers.md",
+   "kws": [
+    "toxopid",
+    "cannon"
+   ],
+   "claim": 454.3,
+   "jar": 454.29,
+   "verdict": "PASS",
+   "ev": "L76"
+  },
+  {
+   "group": "②",
+   "label": "reign 2×18 → 533.3",
+   "src": "03-combat/C10-numbers.md",
+   "kws": [
+    "reign",
+    "reign-weapon"
+   ],
+   "claim": 533.3,
+   "jar": 533.33,
+   "verdict": "PASS",
+   "ev": "L60"
+  },
+  {
+   "group": "②",
+   "label": "omura 1×110 → 681.8",
+   "src": "03-combat/C10-numbers.md",
+   "kws": [
+    "omura",
+    "omura-cannon"
+   ],
+   "claim": 681.8,
+   "jar": 681.82,
+   "verdict": "PASS",
+   "ev": "L73"
+  },
+  {
+   "group": "②",
+   "label": "corvus 1×350 → 96.0",
+   "src": "03-combat/C10-numbers.md",
+   "kws": [
+    "corvus",
+    "corvus-weapon"
+   ],
+   "claim": 96.0,
+   "jar": 96.0,
+   "verdict": "PASS",
+   "ev": "L74"
+  },
+  {
+   "group": "②",
+   "label": "spectre vs toxopid TTK 91.67",
+   "src": "03-combat/C10-numbers.md",
+   "kws": [
+    "spectre",
+    "toxopid"
+   ],
+   "claim": 91.67,
+   "jar": 91.67,
+   "verdict": "PASS",
+   "ev": "L101"
+  },
+  {
+   "group": "②",
+   "label": "duo vs toxopid TTK 8148.15",
+   "src": "03-combat/C10-numbers.md",
+   "kws": [
+    "duo",
+    "toxopid"
+   ],
+   "claim": 8148.15,
+   "jar": 8148.15,
+   "verdict": "PASS",
+   "ev": "L102"
+  },
+  {
+   "group": "②",
+   "label": "meltdown vs toxopid TTK 32.74",
+   "src": "03-combat/C10-numbers.md",
+   "kws": [
+    "meltdown"
+   ],
+   "claim": 32.74,
+   "jar": 32.74,
+   "verdict": "PASS",
+   "ev": "L98"
+  },
+  {
+   "group": "②",
+   "label": "scorch vs toxopid TTK 1294.12",
+   "src": "03-combat/C10-numbers.md",
+   "kws": [
+    "scorch"
+   ],
+   "claim": 1294.12,
+   "jar": 1294.12,
+   "verdict": "PASS",
+   "ev": "L87"
+  },
+  {
+   "group": "②",
+   "label": "salvo vs toxopid TTK 7088.89",
+   "src": "03-combat/C10-numbers.md",
+   "kws": [
+    "salvo"
+   ],
+   "claim": 7088.89,
+   "jar": 7088.89,
+   "verdict": "PASS",
+   "ev": "L88"
+  },
+  {
+   "group": "②",
+   "label": "cyclone vs toxopid TTK 6111.11",
+   "src": "03-combat/C10-numbers.md",
+   "kws": [
+    "cyclone"
+   ],
+   "claim": 6111.11,
+   "jar": 6111.11,
+   "verdict": "PASS",
+   "ev": "L89"
+  },
+  {
+   "group": "②",
+   "label": "hail 实战 DPS 20",
+   "src": "03-combat/C10-numbers.md",
+   "kws": [
+    "hail",
+    "graphite"
+   ],
+   "claim": 20.0,
+   "jar": 20.0,
+   "verdict": "PASS",
+   "ev": "L56"
+  },
+  {
+   "group": "③",
+   "label": "conveyor speed 0.035 格/tick",
+   "src": "02-world/W06-logistics.md",
+   "kws": [
+    "conveyor",
+    "格/tick"
+   ],
+   "claim": 0.035,
+   "jar": 0.035,
+   "verdict": "PASS",
+   "ev": "L111"
+  },
+  {
+   "group": "③",
+   "label": "titanium-conveyor speed 0.0801",
+   "src": "02-world/W06-logistics.md",
+   "kws": [
+    "titanium-conveyor"
+   ],
+   "claim": 0.0801,
+   "jar": 0.0801,
+   "verdict": "PASS",
+   "ev": "L112"
+  },
+  {
+   "group": "③",
+   "label": "armored-conveyor speed 0.08",
+   "src": "02-world/W06-logistics.md",
+   "kws": [
+    "armored-conveyor"
+   ],
+   "claim": 0.08,
+   "jar": 0.08,
+   "verdict": "PASS",
+   "ev": "L113"
+  },
+  {
+   "group": "③",
+   "label": "plastanium speed 0.0667",
+   "src": "02-world/W06-logistics.md",
+   "kws": [
+    "plastanium-conveyor"
+   ],
+   "claim": 0.0667,
+   "jar": 0.0667,
+   "verdict": "PASS",
+   "ev": "L114"
+  },
+  {
+   "group": "③",
+   "label": "surge speed 0.0833",
+   "src": "02-world/W06-logistics.md",
+   "kws": [
+    "surge-conveyor"
+   ],
+   "claim": 0.0833,
+   "jar": 0.0833,
+   "verdict": "PASS",
+   "ev": "L115"
+  },
+  {
+   "group": "③",
+   "label": "duct speed 4（tick/件）",
+   "src": "02-world/W06-logistics.md",
+   "kws": [
+    "`duct`"
+   ],
+   "claim": 4.0,
+   "jar": 4,
+   "verdict": "PASS",
+   "ev": "L116"
+  },
+  {
+   "group": "③",
+   "label": "junction speed 26",
+   "src": "02-world/W06-logistics.md",
+   "kws": [
+    "junction"
+   ],
+   "claim": 26.0,
+   "jar": 26,
+   "verdict": "PASS",
+   "ev": "L40"
+  },
+  {
+   "group": "③",
+   "label": "junction displayedSpeed 13",
+   "src": "02-world/W06-logistics.md",
+   "kws": [
+    "junction"
+   ],
+   "claim": 13.0,
+   "jar": 13,
+   "verdict": "PASS",
+   "ev": "L40"
+  },
+  {
+   "group": "③",
+   "label": "router speed 8",
+   "src": "02-world/W06-logistics.md",
+   "kws": [
+    "router"
+   ],
+   "claim": 8.0,
+   "jar": 8,
+   "verdict": "PASS",
+   "ev": "L41"
+  },
+  {
+   "group": "③",
+   "label": "bridge range 4",
+   "src": "02-world/W06-logistics.md",
+   "kws": [
+    "bridge-conveyor"
+   ],
+   "claim": 4.0,
+   "jar": 4,
+   "verdict": "PASS",
+   "ev": "L83"
+  },
+  {
+   "group": "③",
+   "label": "bridge buffer 14",
+   "src": "02-world/W06-logistics.md",
+   "kws": [
+    "bridge-conveyor"
+   ],
+   "claim": 14.0,
+   "jar": 14,
+   "verdict": "PASS",
+   "ev": "L83"
+  },
+  {
+   "group": "③",
+   "label": "bridge speed 74",
+   "src": "02-world/W06-logistics.md",
+   "kws": [
+    "bridge-conveyor"
+   ],
+   "claim": 74.0,
+   "jar": 74,
+   "verdict": "PASS",
+   "ev": "L83"
+  },
+  {
+   "group": "③",
+   "label": "bridge displayedSpeed 11",
+   "src": "02-world/W06-logistics.md",
+   "kws": [
+    "bridge-conveyor"
+   ],
+   "claim": 11.0,
+   "jar": 11,
+   "verdict": "PASS",
+   "ev": "L83"
+  },
+  {
+   "group": "③",
+   "label": "phase-conveyor range 12",
+   "src": "02-world/W06-logistics.md",
+   "kws": [
+    "phase-conveyor"
+   ],
+   "claim": 12.0,
+   "jar": 12,
+   "verdict": "PASS",
+   "ev": "L85"
+  },
+  {
+   "group": "③",
+   "label": "phase-conveyor transportTime 2",
+   "src": "02-world/W06-logistics.md",
+   "kws": [
+    "phase-conveyor"
+   ],
+   "claim": 2.0,
+   "jar": 2,
+   "verdict": "PASS",
+   "ev": "L85"
+  },
+  {
+   "group": "③",
+   "label": "mass-driver range 440",
+   "src": "02-world/W06-logistics.md",
+   "kws": [
+    "mass-driver"
+   ],
+   "claim": 440.0,
+   "jar": 440,
+   "verdict": "PASS",
+   "ev": "L89"
+  },
+  {
+   "group": "③",
+   "label": "mass-driver reload 200",
+   "src": "02-world/W06-logistics.md",
+   "kws": [
+    "mass-driver"
+   ],
+   "claim": 200.0,
+   "jar": 200,
+   "verdict": "PASS",
+   "ev": "L89"
+  },
+  {
+   "group": "③",
+   "label": "mass-driver minDistribute 10",
+   "src": "02-world/W06-logistics.md",
+   "kws": [
+    "mass-driver"
+   ],
+   "claim": 10.0,
+   "jar": 10,
+   "verdict": "PASS",
+   "ev": "L89"
+  },
+  {
+   "group": "③",
+   "label": "unloader speed 5.4545",
+   "src": "02-world/W06-logistics.md",
+   "kws": [
+    "unloader"
+   ],
+   "claim": 5.4545,
+   "jar": 5.4545,
+   "verdict": "PASS",
+   "ev": "L100"
+  },
+  {
+   "group": "③",
+   "label": "duct-unloader speed 4",
+   "src": "02-world/W06-logistics.md",
+   "kws": [
+    "duct-unloader"
+   ],
+   "claim": 4.0,
+   "jar": 4,
+   "verdict": "PASS",
+   "ev": "L101"
+  },
+  {
+   "group": "③",
+   "label": "mechanical drillTime 600",
+   "src": "02-world/W07-drills-resources.md",
+   "kws": [
+    "mechanical-drill"
+   ],
+   "claim": 600.0,
+   "jar": 600,
+   "verdict": "PASS",
+   "ev": "L92"
+  },
+  {
+   "group": "③",
+   "label": "pneumatic drillTime 400",
+   "src": "02-world/W07-drills-resources.md",
+   "kws": [
+    "pneumatic-drill"
+   ],
+   "claim": 400.0,
+   "jar": 400,
+   "verdict": "PASS",
+   "ev": "L92"
+  },
+  {
+   "group": "③",
+   "label": "laser drillTime 280",
+   "src": "02-world/W07-drills-resources.md",
+   "kws": [
+    "laser-drill"
+   ],
+   "claim": 280.0,
+   "jar": 280,
+   "verdict": "PASS",
+   "ev": "L159"
+  },
+  {
+   "group": "③",
+   "label": "blast drillTime 280",
+   "src": "02-world/W07-drills-resources.md",
+   "kws": [
+    "blast-drill"
+   ],
+   "claim": 280.0,
+   "jar": 280,
+   "verdict": "PASS",
+   "ev": "L160"
+  },
+  {
+   "group": "③",
+   "label": "impact drillTime 720",
+   "src": "02-world/W07-drills-resources.md",
+   "kws": [
+    "impact-drill"
+   ],
+   "claim": 720.0,
+   "jar": 720,
+   "verdict": "PASS",
+   "ev": "L130"
+  },
+  {
+   "group": "③",
+   "label": "eruption drillTime 281.25",
+   "src": "02-world/W07-drills-resources.md",
+   "kws": [
+    "eruption-drill"
+   ],
+   "claim": 281.25,
+   "jar": 281.25,
+   "verdict": "PASS",
+   "ev": "L162"
+  },
+  {
+   "group": "③",
+   "label": "plasma-bore 160",
+   "src": "02-world/W07-drills-resources.md",
+   "kws": [
+    "plasma-bore"
+   ],
+   "claim": 160.0,
+   "jar": 160,
+   "verdict": "PASS",
+   "ev": "L163"
+  },
+  {
+   "group": "③",
+   "label": "large-plasma-bore 100",
+   "src": "02-world/W07-drills-resources.md",
+   "kws": [
+    "large-plasma-bore"
+   ],
+   "claim": 100.0,
+   "jar": 100,
+   "verdict": "PASS",
+   "ev": "L164"
+  },
+  {
+   "group": "③",
+   "label": "cliff-crusher 110",
+   "src": "02-world/W07-drills-resources.md",
+   "kws": [
+    "cliff-crusher"
+   ],
+   "claim": 110.0,
+   "jar": 110,
+   "verdict": "PASS",
+   "ev": "L165"
+  },
+  {
+   "group": "③",
+   "label": "large-cliff-crusher 48",
+   "src": "02-world/W07-drills-resources.md",
+   "kws": [
+    "large-cliff-crusher"
+   ],
+   "claim": 48.0,
+   "jar": 48,
+   "verdict": "PASS",
+   "ev": "L166"
+  },
+  {
+   "group": "③",
+   "label": "hardnessDrillMultiplier 50（mechanical）",
+   "src": "02-world/W07-drills-resources.md",
+   "kws": [
+    "mechanical-drill"
+   ],
+   "claim": 50.0,
+   "jar": 50,
+   "verdict": "PASS",
+   "ev": "L58"
+  },
+  {
+   "group": "③",
+   "label": "impact hardnessDrillMultiplier 0",
+   "src": "02-world/W07-drills-resources.md",
+   "kws": [
+    "impact-drill"
+   ],
+   "claim": 0.0,
+   "jar": 0,
+   "verdict": "PASS",
+   "ev": "L21"
+  },
+  {
+   "group": "③",
+   "label": "laser 耗电 1.1/tick",
+   "src": "02-world/W07-drills-resources.md",
+   "kws": [
+    "laser-drill"
+   ],
+   "claim": 1.1,
+   "jar": 1.1,
+   "verdict": "PASS",
+   "ev": "L159"
+  },
+  {
+   "group": "③",
+   "label": "blast 耗电 3/tick",
+   "src": "02-world/W07-drills-resources.md",
+   "kws": [
+    "blast-drill"
+   ],
+   "claim": 3.0,
+   "jar": 3,
+   "verdict": "PASS",
+   "ev": "L160"
+  },
+  {
+   "group": "③",
+   "label": "impact 耗电 2.6667/tick",
+   "src": "02-world/W07-drills-resources.md",
+   "kws": [
+    "impact-drill"
+   ],
+   "claim": 2.667,
+   "jar": 2.6667,
+   "verdict": "PASS",
+   "ev": "L161"
+  },
+  {
+   "group": "③",
+   "label": "eruption 耗电 6/tick",
+   "src": "02-world/W07-drills-resources.md",
+   "kws": [
+    "eruption-drill"
+   ],
+   "claim": 6.0,
+   "jar": 6,
+   "verdict": "PASS",
+   "ev": "L162"
+  },
+  {
+   "group": "③",
+   "label": "plasma-bore 0.15/tick",
+   "src": "02-world/W07-drills-resources.md",
+   "kws": [
+    "plasma-bore"
+   ],
+   "claim": 0.15,
+   "jar": 0.15,
+   "verdict": "PASS",
+   "ev": "L163"
+  },
+  {
+   "group": "③",
+   "label": "large-plasma-bore 0.8/tick",
+   "src": "02-world/W07-drills-resources.md",
+   "kws": [
+    "large-plasma-bore"
+   ],
+   "claim": 0.8,
+   "jar": 0.8,
+   "verdict": "PASS",
+   "ev": "L164"
+  },
+  {
+   "group": "③",
+   "label": "cliff-crusher 0.1833/tick",
+   "src": "02-world/W07-drills-resources.md",
+   "kws": [
+    "cliff-crusher"
+   ],
+   "claim": 0.1833,
+   "jar": 0.1833,
+   "verdict": "PASS",
+   "ev": "L165"
+  },
+  {
+   "group": "③",
+   "label": "large-cliff-crusher 1/tick",
+   "src": "02-world/W07-drills-resources.md",
+   "kws": [
+    "large-cliff-crusher"
+   ],
+   "claim": 1.0,
+   "jar": 1,
+   "verdict": "PASS",
+   "ev": "L166"
+  },
+  {
+   "group": "③",
+   "label": "mechanical 液体加速 1.6",
+   "src": "02-world/W07-drills-resources.md",
+   "kws": [
+    "mechanical-drill"
+   ],
+   "claim": 1.6,
+   "jar": 1.6,
+   "verdict": "PASS",
+   "ev": "L157"
+  }
+ ],
+ "c02": [
+  {
+   "id": "duo",
+   "verdict": "PASS",
+   "diffs": []
+  },
+  {
+   "id": "scatter",
+   "verdict": "PASS",
+   "diffs": []
+  },
+  {
+   "id": "scorch",
+   "verdict": "PASS",
+   "diffs": []
+  },
+  {
+   "id": "hail",
+   "verdict": "PASS",
+   "diffs": []
+  },
+  {
+   "id": "wave",
+   "verdict": "PASS",
+   "diffs": []
+  },
+  {
+   "id": "lancer",
+   "verdict": "PASS",
+   "diffs": []
+  },
+  {
+   "id": "arc",
+   "verdict": "PASS",
+   "diffs": []
+  },
+  {
+   "id": "parallax",
+   "verdict": "口径差",
+   "diffs": [
+    "reload: 文章=0 / jar 无字段",
+    "inacc: 文章=0 / jar 无字段",
+    "maxAmmo: 文章=0 / jar 无字段",
+    "ammoPerShot: 文章=0 / jar 无字段"
+   ]
+  },
+  {
+   "id": "swarmer",
+   "verdict": "口径差",
+   "diffs": [
+    "reload: 文章=34 / jar=34.2857"
+   ]
+  },
+  {
+   "id": "salvo",
+   "verdict": "PASS",
+   "diffs": []
+  },
+  {
+   "id": "segment",
+   "verdict": "口径差",
+   "diffs": [
+    "inacc: 文章=0 / jar 无字段",
+    "maxAmmo: 文章=0 / jar 无字段",
+    "ammoPerShot: 文章=0 / jar 无字段",
+    "targetAir: 文章=1 / jar 无字段",
+    "targetGround: 文章=1 / jar 无字段"
+   ]
+  },
+  {
+   "id": "tsunami",
+   "verdict": "PASS",
+   "diffs": []
+  },
+  {
+   "id": "fuse",
+   "verdict": "PASS",
+   "diffs": []
+  },
+  {
+   "id": "ripple",
+   "verdict": "PASS",
+   "diffs": []
+  },
+  {
+   "id": "cyclone",
+   "verdict": "PASS",
+   "diffs": []
+  },
+  {
+   "id": "foreshadow",
+   "verdict": "PASS",
+   "diffs": []
+  },
+  {
+   "id": "spectre",
+   "verdict": "PASS",
+   "diffs": []
+  },
+  {
+   "id": "meltdown",
+   "verdict": "PASS",
+   "diffs": []
+  },
+  {
+   "id": "breach",
+   "verdict": "PASS",
+   "diffs": []
+  },
+  {
+   "id": "diffuse",
+   "verdict": "PASS",
+   "diffs": []
+  },
+  {
+   "id": "sublimate",
+   "verdict": "PASS",
+   "diffs": []
+  },
+  {
+   "id": "titan",
+   "verdict": "PASS",
+   "diffs": []
+  },
+  {
+   "id": "disperse",
+   "verdict": "PASS",
+   "diffs": []
+  },
+  {
+   "id": "afflict",
+   "verdict": "PASS",
+   "diffs": []
+  },
+  {
+   "id": "lustre",
+   "verdict": "PASS",
+   "diffs": []
+  },
+  {
+   "id": "scathe",
+   "verdict": "PASS",
+   "diffs": []
+  },
+  {
+   "id": "smite",
+   "verdict": "PASS",
+   "diffs": []
+  },
+  {
+   "id": "malign",
+   "verdict": "PASS",
+   "diffs": []
+  }
+ ],
+ "c05": [
+  {
+   "id": "elude",
+   "verdict": "PASS",
+   "diffs": []
+  },
+  {
+   "id": "nova",
+   "verdict": "PASS",
+   "diffs": []
+  },
+  {
+   "id": "risso",
+   "verdict": "PASS",
+   "diffs": []
+  },
+  {
+   "id": "renale",
+   "verdict": "PASS",
+   "diffs": []
+  },
+  {
+   "id": "atrax",
+   "verdict": "PASS",
+   "diffs": []
+  },
+  {
+   "id": "horizon",
+   "verdict": "PASS",
+   "diffs": []
+  },
+  {
+   "id": "mega",
+   "verdict": "PASS",
+   "diffs": []
+  },
+  {
+   "id": "mace",
+   "verdict": "PASS",
+   "diffs": []
+  },
+  {
+   "id": "pulsar",
+   "verdict": "PASS",
+   "diffs": []
+  },
+  {
+   "id": "minke",
+   "verdict": "PASS",
+   "diffs": []
+  },
+  {
+   "id": "merui",
+   "verdict": "PASS",
+   "diffs": []
+  },
+  {
+   "id": "quell",
+   "verdict": "PASS",
+   "diffs": []
+  },
+  {
+   "id": "zenith",
+   "verdict": "PASS",
+   "diffs": []
+  },
+  {
+   "id": "cleroi",
+   "verdict": "PASS",
+   "diffs": []
+  },
+  {
+   "id": "tecta",
+   "verdict": "PASS",
+   "diffs": []
+  },
+  {
+   "id": "stell",
+   "verdict": "PASS",
+   "diffs": []
+  },
+  {
+   "id": "obviate",
+   "verdict": "PASS",
+   "diffs": []
+  },
+  {
+   "id": "anthicus",
+   "verdict": "PASS",
+   "diffs": []
+  },
+  {
+   "id": "locus",
+   "verdict": "PASS",
+   "diffs": []
+  },
+  {
+   "id": "fortress",
+   "verdict": "PASS",
+   "diffs": []
+  },
+  {
+   "id": "quasar",
+   "verdict": "PASS",
+   "diffs": []
+  },
+  {
+   "id": "spiroct",
+   "verdict": "PASS",
+   "diffs": []
+  },
+  {
+   "id": "collaris",
+   "verdict": "PASS",
+   "diffs": []
+  },
+  {
+   "id": "disrupt",
+   "verdict": "PASS",
+   "diffs": []
+  },
+  {
+   "id": "quad",
+   "verdict": "PASS",
+   "diffs": []
+  },
+  {
+   "id": "precept",
+   "verdict": "PASS",
+   "diffs": []
+  },
+  {
+   "id": "sei",
+   "verdict": "PASS",
+   "diffs": []
+  },
+  {
+   "id": "aegires",
+   "verdict": "PASS",
+   "diffs": []
+  },
+  {
+   "id": "latum",
+   "verdict": "PASS",
+   "diffs": []
+  },
+  {
+   "id": "corvus",
+   "verdict": "PASS",
+   "diffs": []
+  },
+  {
+   "id": "arkyid",
+   "verdict": "PASS",
+   "diffs": []
+  },
+  {
+   "id": "vela",
+   "verdict": "PASS",
+   "diffs": []
+  },
+  {
+   "id": "omura",
+   "verdict": "PASS",
+   "diffs": []
+  },
+  {
+   "id": "antumbra",
+   "verdict": "PASS",
+   "diffs": []
+  },
+  {
+   "id": "scepter",
+   "verdict": "PASS",
+   "diffs": []
+  },
+  {
+   "id": "navanax",
+   "verdict": "PASS",
+   "diffs": []
+  },
+  {
+   "id": "vanquish",
+   "verdict": "PASS",
+   "diffs": []
+  },
+  {
+   "id": "toxopid",
+   "verdict": "PASS",
+   "diffs": []
+  },
+  {
+   "id": "eclipse",
+   "verdict": "PASS",
+   "diffs": []
+  },
+  {
+   "id": "conquer",
+   "verdict": "PASS",
+   "diffs": []
+  },
+  {
+   "id": "reign",
+   "verdict": "PASS",
+   "diffs": []
+  }
+ ],
+ "c06": [
+  {
+   "id": "dagger",
+   "verdict": "PASS",
+   "diffs": []
+  },
+  {
+   "id": "mace",
+   "verdict": "PASS",
+   "diffs": []
+  },
+  {
+   "id": "fortress",
+   "verdict": "PASS",
+   "diffs": []
+  },
+  {
+   "id": "zenith",
+   "verdict": "PASS",
+   "diffs": []
+  },
+  {
+   "id": "stell",
+   "verdict": "PASS",
+   "diffs": []
+  },
+  {
+   "id": "locus",
+   "verdict": "PASS",
+   "diffs": []
+  },
+  {
+   "id": "precept",
+   "verdict": "PASS",
+   "diffs": []
+  },
+  {
+   "id": "vanquish",
+   "verdict": "PASS",
+   "diffs": []
+  },
+  {
+   "id": "conquer",
+   "verdict": "PASS",
+   "diffs": []
+  },
+  {
+   "id": "merui",
+   "verdict": "PASS",
+   "diffs": []
+  },
+  {
+   "id": "cleroi",
+   "verdict": "PASS",
+   "diffs": []
+  },
+  {
+   "id": "tecta",
+   "verdict": "PASS",
+   "diffs": []
+  },
+  {
+   "id": "collaris",
+   "verdict": "PASS",
+   "diffs": []
+  },
+  {
+   "id": "quell",
+   "verdict": "PASS",
+   "diffs": []
+  },
+  {
+   "id": "corvus",
+   "verdict": "PASS",
+   "diffs": []
+  },
+  {
+   "id": "scepter",
+   "verdict": "PASS",
+   "diffs": []
+  },
+  {
+   "id": "reign",
+   "verdict": "PASS",
+   "diffs": []
+  },
+  {
+   "id": "omura",
+   "verdict": "PASS",
+   "diffs": []
+  },
+  {
+   "id": "atrax",
+   "verdict": "PASS",
+   "diffs": []
+  },
+  {
+   "id": "spiroct",
+   "verdict": "PASS",
+   "diffs": []
+  },
+  {
+   "id": "arkyid",
+   "verdict": "PASS",
+   "diffs": []
+  },
+  {
+   "id": "toxopid",
+   "verdict": "PASS",
+   "diffs": []
+  },
+  {
+   "id": "eclipse",
+   "verdict": "PASS",
+   "diffs": []
+  },
+  {
+   "id": "nova",
+   "verdict": "PASS",
+   "diffs": []
+  },
+  {
+   "id": "quasar",
+   "verdict": "PASS",
+   "diffs": []
+  },
+  {
+   "id": "poly",
+   "verdict": "PASS",
+   "diffs": []
+  },
+  {
+   "id": "risso",
+   "verdict": "PASS",
+   "diffs": []
+  },
+  {
+   "id": "minke",
+   "verdict": "PASS",
+   "diffs": []
+  }
+ ],
+ "counts": {
+  "blocks": 447,
+  "items": 22,
+  "liquids": 11,
+  "units": 70,
+  "statusEffects": 23
+ },
+ "fail": []
+}

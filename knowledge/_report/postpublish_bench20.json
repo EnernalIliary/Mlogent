@@ -1,0 +1,658 @@
+{
+ "db": "<repo>\\out\\_kb\\kb.sqlite3",
+ "rows": [
+  {
+   "no": 1,
+   "q": "LExecutor 允许的单个处理器程序最多多少条指令（默认上限常量）？",
+   "gold": "Mindustry-Source/core/src/mindustry/logic/LExecutor.java:41",
+   "answer": "1000 条",
+   "domain": "执行模型",
+   "top": [
+    "knowledge/06-mlog/M08-性能与限制.md",
+    "knowledge/06-mlog/M07-单位与逻辑控制.md",
+    "knowledge/06-mlog/M02-变量与作用域.md",
+    "knowledge/06-mlog/M04-读写与感知.md",
+    "knowledge/06-mlog/M03-控制流.md",
+    "knowledge/01-execution/E02-指令语义陷阱.md"
+   ],
+   "hitA": [
+    true,
+    true,
+    true,
+    true,
+    true,
+    true
+   ],
+   "hitB": [
+    true,
+    false,
+    false,
+    false,
+    true,
+    true
+   ],
+   "ms": 75.7
+  },
+  {
+   "no": 16,
+   "q": "600 条指令的程序在默认 instructionsPerTick=1 下跑完一轮需要多少 tick、多少秒？",
+   "gold": "Mindustry-Source/core/src/mindustry/world/blocks/logic/LogicBlock.java:46",
+   "answer": "600 tick ≈ 10 秒",
+   "domain": "执行模型",
+   "top": [
+    "knowledge/06-mlog/M01-执行模型总览.md",
+    "knowledge/07-patterns/P06-performance.md",
+    "knowledge/08-evidence/CHEAT.md",
+    "knowledge/KB.md",
+    "knowledge/01-execution/E01-执行模型与预算.md",
+    "knowledge/07-patterns/P01-architecture.md"
+   ],
+   "hitA": [
+    true,
+    true,
+    true,
+    false,
+    true,
+    true
+   ],
+   "hitB": [
+    false,
+    true,
+    true,
+    false,
+    false,
+    true
+   ],
+   "ms": 66.0
+  },
+  {
+   "no": 31,
+   "q": "sensor 语句的第 0 个参数（文本第一个参数）是什么？\nA) 被读取的方块\nB) 属性名\nC) 过滤类型\nD) 结果目标变量（写入处）",
+   "gold": "tools/instr_semantics.json#sensor",
+   "answer": "D) 结果目标变量（写入处）",
+   "domain": "变量与作用域",
+   "top": [
+    "knowledge/01-execution/E05-链接与@常量.md",
+    "knowledge/06-mlog/M04-读写与感知.md",
+    "knowledge/02-world/W12-sandbox-editor.md",
+    "knowledge/02-world/W11-block-state.md",
+    "knowledge/06-mlog/M02-变量与作用域.md",
+    "knowledge/01-execution/E03-变量与内存边界.md"
+   ],
+   "hitA": [
+    true,
+    false,
+    false,
+    false,
+    true,
+    false
+   ],
+   "hitB": [
+    false,
+    false,
+    false,
+    false,
+    false,
+    false
+   ],
+   "ms": 69.3
+  },
+  {
+   "no": 46,
+   "q": "set i 0 后连续执行 5 次 op add i i 1，i 最终是多少？",
+   "gold": "tools/instr_semantics.json#op",
+   "answer": "= 5（0 + 5×1）",
+   "domain": "变量与作用域",
+   "top": [
+    "knowledge/06-mlog/M03-控制流.md",
+    "knowledge/06-mlog/M01-执行模型总览.md",
+    "knowledge/07-patterns/P02-state-machine.md",
+    "knowledge/08-evidence/CHEAT.md",
+    "knowledge/01-execution/E02-指令语义陷阱.md",
+    "knowledge/01-execution/E04-时间与wait精度.md"
+   ],
+   "hitA": [
+    false,
+    false,
+    false,
+    false,
+    false,
+    false
+   ],
+   "hitB": [
+    false,
+    false,
+    false,
+    false,
+    false,
+    false
+   ],
+   "ms": 76.2
+  },
+  {
+   "no": 61,
+   "q": "下面程序会打印几个数字？\n```mlog\nset i 0\njump greaterThanEq i 3 5\nprint i\nop add i i 1\njump always 1\nprintflush message1\n```",
+   "gold": "Mindustry-Source/core/src/mindustry/logic/LStatements.java:986-1069",
+   "answer": "打印 0、1、2，共 3 个",
+   "domain": "控制流",
+   "top": [
+    "knowledge/06-mlog/M03-控制流.md",
+    "knowledge/08-evidence/probes/README.md",
+    "knowledge/06-mlog/M05-绘制与文本.md",
+    "knowledge/08-evidence/CHEAT.md",
+    "knowledge/01-execution/E03-变量与内存边界.md",
+    "knowledge/03-combat/C06-unit-weapons.md"
+   ],
+   "hitA": [
+    true,
+    true,
+    false,
+    true,
+    false,
+    false
+   ],
+   "hitB": [
+    false,
+    false,
+    false,
+    false,
+    false,
+    false
+   ],
+   "ms": 75.7
+  },
+  {
+   "no": 76,
+   "q": "memory-cell（记忆库）有多少个存储格？",
+   "gold": "Mindustry-Source/core/src/mindustry/content/Blocks.java:6875",
+   "answer": "64 个",
+   "domain": "读写感知",
+   "top": [
+    "knowledge/07-patterns/P03-comm-bus.md",
+    "knowledge/08-evidence/probes/README.md",
+    "knowledge/01-execution/E03-变量与内存边界.md",
+    "knowledge/01-execution/E02-指令语义陷阱.md",
+    "knowledge/VERSION.md",
+    "knowledge/06-mlog/M02-变量与作用域.md"
+   ],
+   "hitA": [
+    true,
+    true,
+    true,
+    false,
+    false,
+    true
+   ],
+   "hitB": [
+    true,
+    true,
+    true,
+    true,
+    true,
+    true
+   ],
+   "ms": 107.6
+  },
+  {
+   "no": 91,
+   "q": "read 与 sensor 的核心区别是？\nA) read 只能读数字，sensor 能读对象\nB) sensor 只能读单位\nC) read 按地址读存储格；sensor 按属性名读方块字段\nD) 两者等价",
+   "gold": "Mindustry-Source/core/src/mindustry/logic/LExecutor.java:612-719",
+   "answer": "C) read 按地址读存储格；sensor 按属性名读方块字段",
+   "domain": "读写感知",
+   "top": [
+    "knowledge/07-patterns/P03-comm-bus.md",
+    "knowledge/08-evidence/anti-patterns.md",
+    "knowledge/06-mlog/M04-读写与感知.md",
+    "knowledge/02-world/W11-block-state.md",
+    "knowledge/06-mlog/M06-世界交互.md",
+    "knowledge/08-evidence/bench/README.md"
+   ],
+   "hitA": [
+    true,
+    true,
+    true,
+    true,
+    true,
+    true
+   ],
+   "hitB": [
+    false,
+    false,
+    false,
+    false,
+    false,
+    false
+   ],
+   "ms": 103.4
+  },
+  {
+   "no": 106,
+   "q": "printflush 的默认目标方块是？\nA) display1\nB) message1\nC) cell1\nD) switch1",
+   "gold": "Mindustry-Source/core/src/mindustry/logic/LStatements.java:388",
+   "answer": "B) message1",
+   "domain": "绘制文本",
+   "top": [
+    "knowledge/06-mlog/M05-绘制与文本.md",
+    "knowledge/02-world/W01-blocks-multiblock-anchor.md",
+    "knowledge/02-world/W12-sandbox-editor.md",
+    "knowledge/06-mlog/M06-世界交互.md",
+    "knowledge/02-world/W11-block-state.md",
+    "knowledge/04-units/U03-ai.md"
+   ],
+   "hitA": [
+    false,
+    false,
+    false,
+    true,
+    true,
+    false
+   ],
+   "hitB": [
+    false,
+    false,
+    false,
+    false,
+    false,
+    false
+   ],
+   "ms": 61.3
+  },
+  {
+   "no": 121,
+   "q": "一个 tick 内 draw 次数超过 256 后会怎样？\nA) 扩展到 1024\nB) 覆盖前 256 条\nC) 自动分行\nD) 超出部分被丢弃（缓冲满即 return）",
+   "gold": "Mindustry-Source/core/src/mindustry/logic/LExecutor.java:930",
+   "answer": "D) 超出部分被丢弃（缓冲满即 return）",
+   "domain": "绘制文本",
+   "top": [
+    "knowledge/06-mlog/M05-绘制与文本.md",
+    "knowledge/07-patterns/P04-data-structures.md",
+    "knowledge/08-evidence/anti-patterns.md",
+    "knowledge/06-mlog/M01-执行模型总览.md",
+    "knowledge/08-evidence/CHEAT.md",
+    "knowledge/01-execution/E04-时间与wait精度.md"
+   ],
+   "hitA": [
+    true,
+    false,
+    true,
+    true,
+    true,
+    true
+   ],
+   "hitB": [
+    false,
+    false,
+    false,
+    false,
+    false,
+    false
+   ],
+   "ms": 70.1
+  },
+  {
+   "no": 136,
+   "q": "status 语句的第一个参数（index0）是什么？\nA) 单位\nB) 布尔字面量：true 表示施加、false 表示移除\nC) 时长\nD) 状态效果名",
+   "gold": "Mindustry-Source/core/src/mindustry/logic/LStatements.java:1568-1625",
+   "answer": "B) 布尔字面量：true 表示施加、false 表示移除",
+   "domain": "世界交互",
+   "top": [
+    "knowledge/06-mlog/M04-读写与感知.md",
+    "knowledge/01-execution/E02-指令语义陷阱.md",
+    "knowledge/06-mlog/M02-变量与作用域.md",
+    "knowledge/01-execution/E03-变量与内存边界.md",
+    "knowledge/01-execution/E06-跨版本差异.md",
+    "knowledge/02-world/W12-sandbox-editor.md"
+   ],
+   "hitA": [
+    false,
+    false,
+    false,
+    false,
+    false,
+    false
+   ],
+   "hitB": [
+    false,
+    false,
+    false,
+    false,
+    false,
+    false
+   ],
+   "ms": 60.6
+  },
+  {
+   "no": 151,
+   "q": "LUnitControl 枚举一共有多少种 ucontrol 操作？",
+   "gold": "Mindustry-Source/core/src/mindustry/logic/LUnitControl.java",
+   "answer": "21 种",
+   "domain": "单位控制",
+   "top": [
+    "knowledge/06-mlog/M07-单位与逻辑控制.md",
+    "knowledge/08-evidence/bench/README.md",
+    "knowledge/04-units/U05-progression.md",
+    "knowledge/07-patterns/P02-state-machine.md",
+    "knowledge/06-mlog/M06-世界交互.md",
+    "knowledge/06-mlog/M03-控制流.md"
+   ],
+   "hitA": [
+    true,
+    true,
+    false,
+    false,
+    false,
+    false
+   ],
+   "hitB": [
+    true,
+    true,
+    true,
+    false,
+    true,
+    true
+   ],
+   "ms": 67.6
+  },
+  {
+   "no": 166,
+   "q": "绑定最近的 flare 并让它向左移动，程序怎么写？\n```mlog\nubind @flare\nucontrol move 40 80\n```",
+   "gold": "Mindustry-Source/core/src/mindustry/logic/LStatements.java:1070-1113",
+   "answer": "ubind @flare / ucontrol move 40 80",
+   "domain": "单位控制",
+   "top": [
+    "knowledge/06-mlog/M03-控制流.md",
+    "knowledge/06-mlog/M07-单位与逻辑控制.md",
+    "knowledge/07-patterns/P02-state-machine.md",
+    "knowledge/08-evidence/CHEAT.md",
+    "knowledge/04-units/U05-progression.md",
+    "knowledge/08-evidence/anti-patterns.md"
+   ],
+   "hitA": [
+    true,
+    true,
+    true,
+    true,
+    true,
+    false
+   ],
+   "hitB": [
+    true,
+    false,
+    true,
+    true,
+    true,
+    true
+   ],
+   "ms": 67.2
+  },
+  {
+   "no": 181,
+   "q": "单 tick 绘制命令缓冲上限 maxGraphicsBuffer 是多少？",
+   "gold": "Mindustry-Source/core/src/mindustry/logic/LExecutor.java:44",
+   "answer": "256",
+   "domain": "性能限制",
+   "top": [
+    "knowledge/06-mlog/M08-性能与限制.md",
+    "knowledge/01-execution/E04-时间与wait精度.md",
+    "knowledge/07-patterns/P01-architecture.md",
+    "knowledge/06-mlog/M03-控制流.md",
+    "knowledge/07-patterns/P06-performance.md",
+    "knowledge/01-execution/E02-指令语义陷阱.md"
+   ],
+   "hitA": [
+    true,
+    true,
+    true,
+    true,
+    true,
+    true
+   ],
+   "hitB": [
+    false,
+    false,
+    false,
+    false,
+    false,
+    false
+   ],
+   "ms": 61.0
+  },
+  {
+   "no": 196,
+   "q": "为什么把循环内的常量运算提到循环外能提速？\nA) 提高 ipt\nB) 避免浮点误差\nC) 每条指令都占 ipt 预算，减少总条数直接缩短一轮所需 tick\nD) 减少内存占用",
+   "gold": "Mindustry-Source/core/src/mindustry/world/blocks/logic/LogicBlock.java:46",
+   "answer": "C) 每条指令都占 ipt 预算，减少总条数直接缩短一轮所需 tick",
+   "domain": "性能限制",
+   "top": [
+    "knowledge/01-execution/E01-执行模型与预算.md",
+    "knowledge/06-mlog/M03-控制流.md",
+    "knowledge/08-evidence/CHEAT.md",
+    "knowledge/06-mlog/M01-执行模型总览.md",
+    "knowledge/07-patterns/P01-architecture.md",
+    "knowledge/06-mlog/M08-性能与限制.md"
+   ],
+   "hitA": [
+    true,
+    false,
+    true,
+    true,
+    true,
+    true
+   ],
+   "hitB": [
+    false,
+    false,
+    false,
+    false,
+    false,
+    false
+   ],
+   "ms": 64.7
+  },
+  {
+   "no": 211,
+   "q": "logic-processor 的占地与建造成本是？\nA) size=3，silicon 200\nB) size=2，copper 500\nC) size=2，lead 320 + silicon 80 + graphite 60 + thorium 50\nD) size=1，lead 100",
+   "gold": "tools/block_attrs.json#logic-processor",
+   "answer": "C) size=2，lead 320 + silicon 80 + graphite 60 + thorium 50",
+   "domain": "方块与锚点",
+   "top": [
+    "knowledge/02-world/W01-blocks-multiblock-anchor.md",
+    "knowledge/04-units/U02-production.md",
+    "knowledge/02-world/W08-payloads.md",
+    "knowledge/AI-SETUP.md",
+    "knowledge/02-world/W07-drills-resources.md",
+    "knowledge/08-evidence/CHEAT.md"
+   ],
+   "hitA": [
+    true,
+    false,
+    false,
+    false,
+    false,
+    false
+   ],
+   "hitB": [
+    false,
+    false,
+    false,
+    false,
+    false,
+    false
+   ],
+   "ms": 68.3
+  },
+  {
+   "no": 226,
+   "q": "PowerGenerator 的默认发电量 powerProduction 是多少？",
+   "gold": "Mindustry-Source/core/src/mindustry/world/blocks/power/PowerGenerator.java",
+   "answer": "0（由子类赋值）",
+   "domain": "电力与热",
+   "top": [
+    "knowledge/02-world/W03-power.md",
+    "knowledge/02-world/W05-heat.md",
+    "knowledge/02-world/W12-sandbox-editor.md",
+    "knowledge/08-evidence/bench/README.md",
+    "knowledge/08-evidence/CHEAT.md",
+    "knowledge/03-combat/C02-turrets.md"
+   ],
+   "hitA": [
+    true,
+    false,
+    false,
+    true,
+    false,
+    false
+   ],
+   "hitB": [
+    false,
+    false,
+    false,
+    false,
+    false,
+    false
+   ],
+   "ms": 72.3
+  },
+  {
+   "no": 241,
+   "q": "power-node 与 power-node-large 的占地分别是？\nA) 2×2 与 3×3\nB) 都是 1×1\nC) 都是 2×2\nD) power-node 为 1×1，power-node-large 为 2×2",
+   "gold": "tools/block_attrs.json#power-node-large",
+   "answer": "D) power-node 为 1×1，power-node-large 为 2×2",
+   "domain": "电力与热",
+   "top": [
+    "knowledge/03-combat/C08-waves.md",
+    "knowledge/02-world/W03-power.md",
+    "knowledge/02-world/W11-block-state.md",
+    "knowledge/02-world/W08-payloads.md",
+    "knowledge/04-units/U02-production.md",
+    "knowledge/01-execution/E01-执行模型与预算.md"
+   ],
+   "hitA": [
+    false,
+    false,
+    false,
+    false,
+    false,
+    false
+   ],
+   "hitB": [
+    false,
+    false,
+    false,
+    false,
+    false,
+    false
+   ],
+   "ms": 64.2
+  },
+  {
+   "no": 256,
+   "q": "Liquid.gas 为 true 表示什么？\nA) 易燃\nB) 该液体是气体（渲染与流动行为不同）\nC) 不可运输\nD) 有爆炸性",
+   "gold": "Mindustry-Source/core/src/mindustry/type/Liquid.java:28",
+   "answer": "B) 该液体是气体（渲染与流动行为不同）",
+   "domain": "液体与物流",
+   "top": [
+    "knowledge/02-world/W05-heat.md",
+    "knowledge/02-world/W04-liquids.md",
+    "knowledge/03-combat/C03-bullets.md",
+    "knowledge/03-combat/C01-damage-pipeline.md",
+    "knowledge/02-world/W02-crafting-recipes.md",
+    "knowledge/03-combat/C02-turrets.md"
+   ],
+   "hitA": [
+    true,
+    true,
+    false,
+    false,
+    true,
+    false
+   ],
+   "hitB": [
+    false,
+    false,
+    false,
+    false,
+    false,
+    false
+   ],
+   "ms": 82.8
+  },
+  {
+   "no": 271,
+   "q": "liquids.json 的 color 字段用途是？\nA) 该液体的渲染颜色（十六进制）\nB) 温度值\nC) 粘度\nD) 物品 ID",
+   "gold": "data/game/liquids.json",
+   "answer": "A) 该液体的渲染颜色（十六进制）",
+   "domain": "液体与物流",
+   "top": [
+    "knowledge/08-evidence/bench/README.md",
+    "knowledge/02-world/W04-liquids.md",
+    "00-data/liquids.json",
+    "knowledge/06-mlog/M05-绘制与文本.md",
+    "knowledge/02-world/W10-storage.md",
+    "knowledge/02-world/W11-block-state.md"
+   ],
+   "hitA": [
+    true,
+    true,
+    false,
+    false,
+    false,
+    false
+   ],
+   "hitB": [
+    false,
+    false,
+    false,
+    false,
+    false,
+    false
+   ],
+   "ms": 64.1
+  },
+  {
+   "no": 286,
+   "q": "StatusEffect 默认的 effectChance 是多少？\nA) 0.05\nB) 0.15\nC) 0.5\nD) 1.0",
+   "gold": "Mindustry-Source/core/src/mindustry/type/StatusEffect.java:43",
+   "answer": "B) 0.15",
+   "domain": "战斗与单位",
+   "top": [
+    "knowledge/03-combat/C04-status.md",
+    "knowledge/03-combat/C08-waves.md",
+    "knowledge/08-evidence/bench/README.md",
+    "00-data/constants_rules_difficulty_drill_heat.json",
+    "00-data/rt_list_StatusEffect.json",
+    "knowledge/04-units/U05-progression.md"
+   ],
+   "hitA": [
+    true,
+    false,
+    true,
+    false,
+    false,
+    false
+   ],
+   "hitB": [
+    true,
+    false,
+    false,
+    false,
+    false,
+    false
+   ],
+   "ms": 65.1
+  }
+ ],
+ "summary": {
+  "n": 20,
+  "A1": 16,
+  "A3": 16,
+  "Ak": 17,
+  "B1": 5,
+  "B3": 6,
+  "Bk": 6,
+  "outside_top1": 0,
+  "p50_ms": 68.3,
+  "p90_ms": 103.4,
+  "warm_s": 1.0
+ }
+}

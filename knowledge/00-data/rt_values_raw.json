@@ -1,0 +1,154 @@
+{
+ "mindustry.Vars": {
+  "minArmorDamage": {
+   "const": 0.1,
+   "default": null,
+   "desc": "F"
+  },
+  "tilesize": {
+   "const": 8,
+   "default": null,
+   "desc": "I"
+  }
+ },
+ "mindustry.entities.bullet.BulletType": {
+  "buildingDamageMultiplier": {
+   "const": null,
+   "default": 1.0,
+   "desc": "F"
+  },
+  "splashDamage": {
+   "const": null,
+   "default": 0.0,
+   "desc": "F"
+  }
+ },
+ "mindustry.game.Rules": {
+  "deconstructRefundMultiplier": {
+   "const": null,
+   "default": 0.5,
+   "desc": "F"
+  },
+  "dropZoneRadius": {
+   "const": null,
+   "default": 300.0,
+   "desc": "F"
+  },
+  "enemyCoreBuildRadius": {
+   "const": null,
+   "default": 400.0,
+   "desc": "F"
+  },
+  "initialWaveSpacing": {
+   "const": null,
+   "default": 0.0,
+   "desc": "F"
+  },
+  "itemDepositCooldown": {
+   "const": null,
+   "default": 0.5,
+   "desc": "F"
+  },
+  "waveSpacing": {
+   "const": null,
+   "default": 7200.0,
+   "desc": "F"
+  }
+ },
+ "mindustry.game.SpawnGroup": {
+  "max": {
+   "const": null,
+   "default": 40,
+   "desc": "I"
+  },
+  "unitAmount": {
+   "const": null,
+   "default": 1,
+   "desc": "I"
+  }
+ },
+ "mindustry.type.StatusEffect": {
+  "damageMultiplier": {
+   "const": null,
+   "default": 1.0,
+   "desc": "F"
+  },
+  "healthMultiplier": {
+   "const": null,
+   "default": 1.0,
+   "desc": "F"
+  }
+ },
+ "mindustry.world.Block": {
+  "scaledHealth": {
+   "const": null,
+   "default": -1.0,
+   "desc": "F"
+  }
+ },
+ "mindustry.world.blocks.distribution.Conveyor": {
+  "speed": {
+   "const": null,
+   "default": 0.0,
+   "desc": "F"
+  }
+ },
+ "mindustry.world.blocks.heat.HeatConductor": {
+  "visualMaxHeat": {
+   "const": null,
+   "default": 15.0,
+   "desc": "F"
+  }
+ },
+ "mindustry.world.blocks.heat.HeatProducer": {
+  "heatOutput": {
+   "const": null,
+   "default": 10.0,
+   "desc": "F"
+  },
+  "warmupRate": {
+   "const": null,
+   "default": 0.15,
+   "desc": "F"
+  }
+ },
+ "mindustry.world.blocks.logic.LogicBlock": {
+  "instructionsPerTick": {
+   "const": null,
+   "default": 1,
+   "desc": "I"
+  },
+  "maxInstructionScale": {
+   "const": null,
+   "default": 5,
+   "desc": "I"
+  },
+  "maxInstructionsPerTick": {
+   "const": null,
+   "default": 40,
+   "desc": "I"
+  },
+  "range": {
+   "const": null,
+   "default": 80.0,
+   "desc": "F"
+  }
+ },
+ "mindustry.world.blocks.production.Drill": {
+  "drillTime": {
+   "const": null,
+   "default": 300.0,
+   "desc": "F"
+  },
+  "hardnessDrillMultiplier": {
+   "const": null,
+   "default": 50.0,
+   "desc": "F"
+  },
+  "liquidBoostIntensity": {
+   "const": null,
+   "default": 1.6,
+   "desc": "F"
+  }
+ }
+}

@@ -1,0 +1,687 @@
+{
+  "turrets": {
+    "duo": {
+      "tier": "B",
+      "role": "早期万金油 / 便宜的连发基线",
+      "title": "35 件买到的连发基线",
+      "oneliner": "duo 解决的是「开局没有火力」，不是「后期打不动」：35 件、1×1 占地，铜弹就能把 3 发/s 铺到 160 世界单位（20 格）内，空陆都打。代价是单发只有 9~18，穿甲几乎为零——换石墨后对 22 甲只剩 6.8 DPS，过了中期它就只配守后方或打杂兵。 [src: 00-data/turrets.json]",
+      "mechanics": [
+        "每触发 1 发，reload 20 tick；ShootAlternate(3.5f) 只是左右炮管交替，不增加发数，所以射速就是 60/20 = 3 发/s（铜弹） [src: 00-data/turrets.json]",
+        "三种弹药的曲线完全不同：石墨 67.5、铜 27、硅 24 单体 DPS；石墨靠 reloadMultiplier 0.80 把表里的发/s 抬到 3.75，单发 18 [src: 00-data/turrets.json]",
+        "硅弹买的是省弹与追踪：DPS/物品 60，铜只有 18；它的 24 DPS 比铜还低，但 0.4 件/s 的消耗几乎不吃供给 [src: 00-data/turrets.json]",
+        "冷却液倍率 10 是早期塔里最高档，接水能明显提高有效射速；但 1×1 的塔位往往比冷却更稀缺",
+        "空陆通吃（air True / ground True），是开局唯一能顺手照顾空投的低价塔"
+      ],
+      "strengths": [
+        "造价 35 件、建造 17.5 tick，开局几十秒就能架起两三门，回本极快 [src: 00-data/turrets.json]",
+        "1×1 占地，能塞进任何缝隙；石墨弹 67.5 DPS 在同造价段里是顶格（约 1.9 DPS/件） [src: 00-data/turrets.json]",
+        "铜、石墨、硅三种弹药全程可得，不会因为换矿线断供"
+      ],
+      "weaknesses": [
+        "穿甲是全家短板：石墨对 22 甲只剩 6.8 DPS，同口径 salvo 石墨是 93.1 [src: 00-data/turrets.json]",
+        "160 世界单位（20 格）的射界撑不到中期，敌人远程火力一到位就只能挨打 [src: 00-data/turrets.json]",
+        "单发太轻，靠数量堆伤害；塔位一挤，几门 duo 的输出会被摊薄到不够看 [src: 00-data/turrets.json]"
+      ],
+      "numbers_notes": [
+        "duo 的弹药没有溅射，面板 DPS 与单体 DPS 相同，0.75 折算对它不适用（对比 scatter 的 370 面板 vs 40 单体） [src: 00-data/turrets.json]",
+        "DPS/物品 72 意味着石墨满射速只吃 0.94 件/s，供给从来不是 duo 的瓶颈，位置才是 [src: 00-data/turrets.json]"
+      ],
+      "counterexamples": [
+        "反例：拿 4 门石墨 duo 打 22 甲重甲波，合计 27.2 DPS，不如一门 lancer 的单发穿透——对 22 甲时 duo 的 67.5 会掉到 6.8。复现：00-data/turrets.json 的 duo 石墨行「对22甲」列 × 4 [src: 00-data/turrets.json]",
+        "反例：把 duo 当远程塔摆在 160 世界单位外沿，敌人只要在射界外停下换目标，它的 27 DPS 就是 0。复现：对照 00-data/turrets.json 的 range 字段与实战敌人停火距离 [src: 00-data/turrets.json]"
+      ],
+      "misconceptions": [
+        "「4 根炮管 = 4 发」错：ShootAlternate 只交替炮管，shots 仍是 1，射速只由 reload 20 tick 决定 [src: 00-data/turrets.json]",
+        "「便宜所以弱」错：石墨 duo 的 67.5 DPS 在同造价里是顶格，弱的是穿甲与射界，不是数字 [src: 00-data/turrets.json]",
+        "「硅弹最强」错：硅弹只有 24 DPS，它买的是省弹（0.4 件/s）与追踪，不是伤害 [src: 00-data/turrets.json]"
+      ],
+      "related": [
+        "COMBAT.TURRET.110",
+        "COMBAT.TURRET.102"
+      ]
+    },
+    "scatter": {
+      "tier": "B",
+      "role": "近程防空 / 清弹幕",
+      "title": "222 面板 DPS 的空中清道夫",
+      "oneliner": "scatter 是全作第一个真正能应付空投的塔：只打空，一次两发，铅弹 222.5 面板 DPS，散射范围能把一整群飞行单位同时削掉。它的代价写在目标层上——不打地面，所以它从来不是「主力」，而是防空缺口处的补丁；且单发只有 3，对 22 甲连破甲都破不动。 [src: 00-data/turrets.json]",
+      "mechanics": [
+        "每触发 2 发（shots 2，shoot.shotDelay 拉开间隔），reload 18 tick；只打空中，地面目标一律不选 [src: 00-data/turrets.json]",
+        "伤害几乎全在溅射里：scrap 单发 3 直伤 + 33 溅射，所以单体 DPS 只有 40、面板 370；铅弹 3 + 40.5 是 222.5 面板、20 单体 [src: 00-data/turrets.json]",
+        "弹药是弹幕量而不是质量：scrap 的 reloadMultiplier 0.50 把发/s 推到 13.33，消耗 2.67 件/s，射速高到近乎泼水 [src: 00-data/turrets.json]",
+        "对 22 甲的有效输出只有 4.0（scrap），意味着它对重装飞行单位基本只能靠溅射叠加，而不可能靠单发 [src: 00-data/turrets.json]"
+      ],
+      "strengths": [
+        "只花 130 件就能拿到 222.5 面板 DPS，是早期防空里最便宜的高数值 [src: 00-data/turrets.json]",
+        "溅射半径覆盖整群，对付一团 flare 比单发狙击高效得多",
+        "射程 220 世界单位（27.5 格）比同期的 hail 略短，但足以覆盖核心区上空 [src: 00-data/turrets.json]"
+      ],
+      "weaknesses": [
+        "完全不落地：地面波次从它头顶过，它一枪不发，等于白占一个塔位",
+        "单发直伤只有 3，任何护甲单位都免疫它的直伤，只能靠溅射的固定值磨",
+        "对 22 甲 4.0 的 DPS 说明它是清杂兵的塔，不是打硬目标的塔 [src: 00-data/turrets.json]"
+      ],
+      "numbers_notes": [
+        "面板 DPS 里的 0.75 折算只对溅射成立：scrap 40 单体 / 370 面板，两者相差 9 倍，评价它时必须说清用哪个口径 [src: 00-data/turrets.json]",
+        "13.33 发/s × 2 件/发左右，意味着 2.67 件/s 的消耗——单条传送带供 4 门就到极限 [src: 00-data/turrets.json]"
+      ],
+      "counterexamples": [
+        "反例：拿 scatter 去挡地面重甲波，它的 0 直伤落地输出意味着波次里每一只 crawler 都要靠别的塔处理。复现：00-data/turrets.json 里 scatter 的 targetGround 为 false [src: 00-data/turrets.json]",
+        "反例：算「scatter 370 DPS 比 salvo 320.7 强」，是拿面板口径比单体口径；同一波里若只有一个目标，scatter 只有 40，salvo 有 320.7。复现：两张表分别看「单体DPS」与「面板DPS」列 [src: 00-data/turrets.json]"
+      ],
+      "misconceptions": [
+        "「溅射 DPS 高所以是主力」错：它只打空，地面波次里它的输出是 0，位置错了就完全没用",
+        "「3 点直伤太低是 bug」错：scatter 的伤害设计在溅射里，直伤只是触发器",
+        "「散射=命中率差」不完全对：inaccuracy 17 让弹着点散开，对群体是优点，对单点是缺点"
+      ],
+      "related": [
+        "COMBAT.TURRET.104",
+        "COMBAT.TURRET.115"
+      ]
+    },
+    "scorch": {
+      "tier": "C",
+      "role": "贴脸火墙 / 熔断近战",
+      "title": "60 世界单位的贴脸火盆",
+      "oneliner": "scorch 是「把火泼在门口」的塔：射界只有 60 世界单位（7.5 格），却能在 6 tick 的 reload 下每秒泼出 10 发 pyratite，300 单体 DPS 在贴脸距离上非常凶。问题是它只打地面、射界短到必须建在最前线，敌人一旦绕路或远程压制，它就只是个烧钱的装饰。 [src: 00-data/turrets.json]",
+      "mechanics": [
+        "每触发 1 发，reload 6 tick，射速 10 发/s；只打地面，空中目标不入选 [src: 00-data/turrets.json]",
+        "pyratite 单发 30 → 300 DPS、1.0 件/s；coal 单发 17 → 170 DPS 但要 3.33 件/s，是「便宜但费弹」的反向选择 [src: 00-data/turrets.json]",
+        "弹体只活 18 tick 左右（火焰类），等于有效射界比面板的 60 世界单位还短，必须贴脸放 [src: 00-data/turrets.json]",
+        "对 22 甲 pyratite 仍有 80 DPS，是早期少见的「不太怕护甲」的塔——因为它的单发够重"
+      ],
+      "strengths": [
+        "300 单体 DPS 只需要 47 件造价，是前期性价比最极端的塔之一 [src: 00-data/turrets.json]",
+        "对 22 甲 80 DPS，比同期的 duo 石墨（6.8）高一个数量级 [src: 00-data/turrets.json]",
+        "1×1 占地 + 短射界，天然适合塞在墙后、门口、传送带汇合处"
+      ],
+      "weaknesses": [
+        "60 世界单位（7.5 格）的射界意味着敌人站在射界外就能无损拆它 [src: 00-data/turrets.json]",
+        "只打地面，对空投完全无解",
+        "烧 pyratite 时 1.0 件/s，看似省，其实 pyratite 本身是二级产物，前期产能往往不够 [src: 00-data/turrets.json]"
+      ],
+      "numbers_notes": [
+        "「10 发/s × 30」= 300，是本库口径下 scorch 的满射速上限；实际战斗中火焰弹的飞行时间会吃掉近身前的部分输出 [src: 00-data/turrets.json]",
+        "面板 DPS = 单体 DPS，火焰弹没有溅射字段，0.75 折算不适用 [src: 00-data/turrets.json]"
+      ],
+      "counterexamples": [
+        "反例：把 scorch 排在二线当常规火力，7.5 格的射界会让它整场不输出；复现：00-data/turrets.json 里 scorch 的 range 为 60 世界单位，对比 duo 的 160 [src: 00-data/turrets.json]",
+        "反例：用 coal 追求「更省」，170 DPS 却要吃 3.33 件/s，实际是每点 DPS 消耗两倍煤；复现：对比表内 pyratite 与 coal 的「物品/秒」与「DPS/物品」两列 [src: 00-data/turrets.json]"
+      ],
+      "misconceptions": [
+        "「火焰塔射程长」错：scorch 只有 60 世界单位，是全家最短的几门之一",
+        "「scorch 打不了重甲」错：它单发 30，对 22 甲还有 80 DPS，真正的短板是射界与目标层"
+      ],
+      "related": [
+        "COMBAT.TURRET.101",
+        "COMBAT.TURRET.113"
+      ]
+    },
+    "hail": {
+      "tier": "B",
+      "role": "早期曲射 / 群体压制",
+      "title": "235 世界单位的单发炮击",
+      "oneliner": "hail 用一门 57 件的炮把火力投到 235 世界单位（29.38 格）外，是开局唯一能越过前排打后排的手段。它每 60 tick 才响一发，单体 25、面板 58.8，数字不好看；真正的问题是这发炮弹飞得慢、落点固定，敌人一走位就全空。 [src: 00-data/turrets.json]",
+      "mechanics": [
+        "每触发 1 发，reload 60 tick（1 发/s）；只打地面，空中目标不入选 [src: 00-data/turrets.json]",
+        "pyratite 25 直伤 + 45 溅射 → 面板 58.8；石墨 20 + 33 → 44.8；硅弹 reloadMultiplier 1.20 把射速压到 0.83 发/s，面板只有 37.3 [src: 00-data/turrets.json]",
+        "曲射弹道（ArtilleryBulletType）会越过墙体，所以它能打墙后的集结单位，这是它存在的核心理由",
+        "溅射半径是主要价值：单体 25 意味着它从来不是点杀塔，而是往人堆里丢石头"
+      ],
+      "strengths": [
+        "235 世界单位（29.38 格）的射界在前期无对手，能在敌人接近前就开始削血 [src: 00-data/turrets.json]",
+        "越墙曲射，能打到被墙挡住的地面单位",
+        "57 件造价 + 1 发/s，供给压力极小（0.25~0.5 件/s） [src: 00-data/turrets.json]"
+      ],
+      "weaknesses": [
+        "1 发/s 的节奏太慢，漏一发就少一发；对高机动目标命中率惨淡",
+        "不防空，空投波次里完全缺席",
+        "面板 58.8 在 130 件的 scatter（222.5）面前毫无竞争力，只赢在射界 [src: 00-data/turrets.json]"
+      ],
+      "numbers_notes": [
+        "面板 58.8 = 1 发/s × (25 + 0.75×45)，溅射占了大头；只报单体 25 会严重低估它，只报面板会高估单挑能力 [src: 00-data/turrets.json]"
+      ],
+      "counterexamples": [
+        "反例：用 hail 打单体 boss，1 发/s × 25 直伤 ≈ 25 DPS，连 duo 铜弹（27）都不如；复现：00-data/turrets.json 里 hail 单体 DPS 列与 duo 对比 [src: 00-data/turrets.json]",
+        "反例：把 hail 当防空，targetAir 为 false，飞行单位从头顶过也不开火；复现：同表 air/ground 字段 [src: 00-data/turrets.json]"
+      ],
+      "misconceptions": [
+        "「炮击塔伤害高」错：hail 单发只有 25，它的价值是射界与越墙，不是数字",
+        "「溅射能补足单发」部分对：面板 58.8 确实靠溅射撑起来，但前提是敌人聚团 [src: 00-data/turrets.json]"
+      ],
+      "related": [
+        "COMBAT.TURRET.114",
+        "COMBAT.TURRET.101"
+      ]
+    },
+    "wave": {
+      "tier": "A",
+      "role": "状态控制 / 灭火与击退",
+      "title": "20 发弹幕的灭火器",
+      "oneliner": "wave 的 DPS 几乎是零（water 0 伤、slag 也只有 80），但它做的是 DPS 表达不了的事：20 发/s 的液体弹幕带 0.7 击退，能把近战单位按在原地；water 与 cryofluid 带灭火标记，是唯一能压住燃烧波的手段。它不打输出，它买的是「不让敌人靠近」。 [src: 00-data/turrets.json]",
+      "mechanics": [
+        "reload 3 tick ⇒ 20 发/s，是全作射速最高的塔之一；弹药不是物品而是液体，靠管道/容器供给，断液即停火 [src: 00-data/turrets.json]",
+        "四种液体分工明确：water 0 伤纯击退+灭火、slag 4 伤（80 DPS，唯一有伤害）、cryofluid 0 伤冻结+灭火、oil 0 伤只上油",
+        "击退 0.7 是它的核心：对近战/自爆单位，把推进速度压下去等于给后排争取时间 [src: 00-data/turrets.json]",
+        "射界 110 世界单位（13.75 格）偏短，注定是二线/贴核心的塔，不是前线塔 [src: 00-data/turrets.json]"
+      ],
+      "strengths": [
+        "20 发/s 的击退是全家最强的软控制，对 crawler 这类贴脸单位效果拔群 [src: 00-data/turrets.json]",
+        "灭火标记能压住燃烧地面与燃烧单位，是防守图里的保险",
+        "slag 模式仍有 80 DPS，不至于完全没有输出"
+      ],
+      "weaknesses": [
+        "water/cryofluid/oil 三种弹药的直伤是 0，纯控制，遇到高血量推进单位只能拖延",
+        "液体供给链一旦被拆或断流，塔立刻变哑巴",
+        "13.75 格的射界意味着它护不住外圈，只能护核心 [src: 00-data/turrets.json]"
+      ],
+      "numbers_notes": [
+        "本库对液体塔不给「DPS 排名」：water 的 0 伤是设计，不是缺数据；要比较请用 0.7 击退与灭火标记 [src: 00-data/turrets.json]",
+        "slag 的 80 DPS 是 4 伤 × 20 发/s，别把它当成输出塔来规划火力"
+      ],
+      "counterexamples": [
+        "反例：用 wave 顶第一排挡重甲，80 DPS 对 22 甲几乎打不动，反而先被打掉；复现：00-data/turrets.json 里 wave 无 ammo[] 表，数值见 gen_turrets.py 的 MANUAL 块 [src: 00-data/turrets.json]",
+        "反例：把 wave 接 oil 当输出塔，0 直伤意味着它一发不杀，只上油；复现：MANUAL 表 oil 行 0 直伤 [src: 00-data/turrets.json]"
+      ],
+      "misconceptions": [
+        "「wave 是最强塔所以排第一」错：它强在控制与灭火，纯输出比不过任何同级炮塔",
+        "「液体塔不需要供给」错：断液立刻停火，比弹匣打空更致命"
+      ],
+      "related": [
+        "COMBAT.TURRET.112",
+        "COMBAT.TURRET.118"
+      ]
+    },
+    "lancer": {
+      "tier": "A",
+      "role": "反重甲 / 单发穿透",
+      "title": "140 直伤的重甲开罐器",
+      "oneliner": "lancer 是「一发换一个目标」的塔：140 直伤、0.75 发/s，0 甲 105 DPS；但它真正的卖点是 armorMultiplier 4——打 22 甲时目标护甲按 88 扣，单发只剩 52、DPS 掉到 39，仍是全家对重甲最稳的塔之一。代价是 360/s 的持续耗电和极慢的节奏，漏一发就白等 80 tick。 [src: 00-data/turrets.json]",
+      "mechanics": [
+        "每触发 1 发，reload 80 tick（0.75 发/s）；靠电工作，360/s 的耗电比同级炮塔高一个数量级 [src: 00-data/turrets.json]",
+        "armorMultiplier 4：计算伤害时目标护甲 ×4 参与减法，所以它打高甲目标掉得比别的塔慢，但打 0 甲目标也不占便宜 [src: 00-data/turrets.json]",
+        "pierceCap 4 意味着一条激光能串 4 个目标，排成线的敌人会吃满 [src: 00-data/turrets.json]",
+        "buildingDamageMultiplier 0.25：拆建筑只有四分之一伤害，它不是拆迁塔 [src: 00-data/turrets.json]"
+      ],
+      "strengths": [
+        "对 22 甲仍有 39 DPS，是同阶段对重甲最可靠的单塔 [src: 00-data/turrets.json]",
+        "穿 4 个目标，一条线站满时实际输出远超 105 [src: 00-data/turrets.json]",
+        "射界 165 世界单位（20.62 格）比 duo 长，能架在二线 [src: 00-data/turrets.json]"
+      ],
+      "weaknesses": [
+        "360/s 的耗电意味着必须有独立电网，前期根本供不起 [src: 00-data/turrets.json]",
+        "0.75 发/s 的节奏对高机动目标是灾难，打空一发就是 80 tick 的损失 [src: 00-data/turrets.json]",
+        "拆建筑只有 0.25 倍，攻坚时要另配拆迁手段 [src: 00-data/turrets.json]"
+      ],
+      "numbers_notes": [
+        "105 DPS 只在 0 甲成立；对 22 甲要按 (140 − 22×4) × 0.75 = 39 算，两个数字差 2.7 倍 [src: 00-data/turrets.json]",
+        "pierceCap 4 的收益不进单体 DPS，排线命中时请自行按目标数乘"
+      ],
+      "counterexamples": [
+        "反例：拿 lancer 打 0 甲的 crawler 群，105 DPS 只相当于两门 duo 石墨（67.5×2），却要 360/s 电；复现：00-data/turrets.json 里 lancer 的单体 DPS 与 duo 对比 [src: 00-data/turrets.json]",
+        "反例：以为 lancer 能拆家——buildingDamageMultiplier 0.25 让 140 直伤对建筑只剩 35；复现：gen_turrets.py 的 MANUAL lancer 表 notes [src: 00-data/turrets.json]"
+      ],
+      "misconceptions": [
+        "「armorMultiplier 4 = 伤害 ×4」错：它是让目标护甲 ×4 再相减，对 0 甲目标毫无加成",
+        "「lancer 是全能塔」错：慢射速+低拆建伤害，它只擅长打单个高甲目标"
+      ],
+      "related": [
+        "COMBAT.TURRET.116",
+        "COMBAT.TURRET.107"
+      ]
+    },
+    "arc": {
+      "tier": "B",
+      "role": "链式电击 / 打断控制",
+      "title": "链式电弧的 34 点秒伤",
+      "oneliner": "arc 的单体数字很难看：20 直伤、1.71 发/s，0 甲 34.3 DPS；它买的是链状闪电——一次放电会跳到相邻目标，并附上 shocked 状态打断敌人。所以它是「人多时强、单挑时废」的塔，还得接受它完全不防空。 [src: 00-data/turrets.json]",
+      "mechanics": [
+        "每触发 1 发，reload 35 tick（1.71 发/s），20 直伤，链长 25 世界单位 [src: 00-data/turrets.json]",
+        "collidesAir=false：完全不防空，飞行单位从头顶过它一枪不发 [src: 00-data/turrets.json]",
+        "链式伤害是对群补偿：单体 34.3 DPS 只是下限，敌人越密总输出越高 [src: 00-data/turrets.json]",
+        "附 shocked 状态（打断/削弱），价值不在数字里；耗电 198/s 是它唯一的重成本 [src: 00-data/turrets.json]"
+      ],
+      "strengths": [
+        "100 件造价 + 链式伤害，在密集地面波里是性价比很高的清杂手段 [src: 00-data/turrets.json]",
+        "shocked 状态能打断敌人动作，对近战冲锋有额外价值",
+        "1×1 占地，容易塞进任何防线缝隙"
+      ],
+      "weaknesses": [
+        "34.3 单体 DPS 是全作垫底档，单挑任何硬目标都打不动 [src: 00-data/turrets.json]",
+        "不防空，空投波次完全缺席",
+        "90 世界单位（11.25 格）的射界很短，必须贴前线 [src: 00-data/turrets.json]"
+      ],
+      "numbers_notes": [
+        "34.3 = 20 × 1.71，只算一个目标；链式命中 N 个目标时实际输出近似乘 N（未在库里建模，属估算） [src: 00-data/turrets.json]"
+      ],
+      "counterexamples": [
+        "反例：拿 arc 打 boss，34.3 DPS 不到一门 duo 石墨（67.5）的一半；复现：00-data/turrets.json 里 arc 无 ammo[] 表，数值见 MANUAL 块 [src: 00-data/turrets.json]",
+        "反例：以为 arc 能防空的常见排布，飞行单位会直接穿过它的射界；复现：MANUAL arc 表 notes 的 collidesAir=false [src: 00-data/turrets.json]"
+      ],
+      "misconceptions": [
+        "「电塔伤害都高」错：arc 的 20 直伤是全作最低档之一，它靠链与状态赚钱",
+        "「链状闪电能打空中」错：collidesAir 为 false，空中目标直接被过滤"
+      ],
+      "related": [
+        "COMBAT.TURRET.106",
+        "COMBAT.TURRET.108"
+      ]
+    },
+    "parallax": {
+      "tier": "A",
+      "role": "空中位移控制 / 推离",
+      "title": "16 牵引力的空中推手",
+      "oneliner": "parallax 不是杀伤塔，是位移塔：只打空中，用 16 的牵引力把飞行单位往外推，附带的伤害只有 30/s。它解决的是「飞行单位贴脸拆核心」，代价是它几乎不产生击杀——把它当防空 DPS 用会非常失望。 [src: 00-data/turrets.json]",
+      "mechanics": [
+        "只打空中（targetAir 为真、targetGround 为假），射界 300 世界单位（37.5 格）是防空塔里最远的 [src: 00-data/turrets.json]",
+        "牵引力 16、随距离缩放的分量 9：核心效果是把目标往外推，而不是打掉 [src: 00-data/turrets.json]",
+        "附带的伤害是 0.5/tick，换算 30/s——这个数字只是附赠，不足以击杀任何中后期单位 [src: 00-data/turrets.json]",
+        "耗电 198/s；它必须与真正的输出塔配对，单独成线等于没有输出 [src: 00-data/turrets.json]"
+      ],
+      "strengths": [
+        "37.5 格的射界让它能在很远的地方就开始推，给核心区争取缓冲 [src: 00-data/turrets.json]",
+        "对飞行单位是「软墙」：推离效果对轰炸机/投弹单位的压制远大于 30/s 的伤害 [src: 00-data/turrets.json]",
+        "只占一个塔位就能显著改变空投波的落点"
+      ],
+      "weaknesses": [
+        "30/s 的伤害意味着它几乎不能独立完成击杀，必须配输出塔 [src: 00-data/turrets.json]",
+        "对地面单位完全无效，地面波次里它是纯白板",
+        "198/s 的耗电换来的不是杀伤，规划时容易被误判为「防空塔」 [src: 00-data/turrets.json]"
+      ],
+      "numbers_notes": [
+        "本库不给 parallax 算 DPS 排名：30/s 是附带伤害，它的产出是位移量（牵引力 16），两者不可换算 [src: 00-data/turrets.json]"
+      ],
+      "counterexamples": [
+        "反例：用 parallax 单独守空投，30/s 打不掉任何中后期飞行单位，只能拖延；复现：gen_turrets.py 的 MANUAL parallax 表（force 16 / damage 0.5 per tick） [src: 00-data/turrets.json]",
+        "反例：把它摆在地面波次路线上，targetGround 为假，整波零输出；复现：00-data/turrets.json 里 parallax 的 targetGround 字段 [src: 00-data/turrets.json]"
+      ],
+      "misconceptions": [
+        "「parallax 是防空炮」错：它是位移工具，击杀要靠别的塔",
+        "「牵引力越大伤害越高」错：force 16 与 0.5/tick 是两套独立参数 [src: 00-data/turrets.json]"
+      ],
+      "related": [
+        "COMBAT.TURRET.109",
+        "COMBAT.TURRET.115"
+      ]
+    },
+    "swarmer": {
+      "tier": "A",
+      "role": "导弹群伤 / 中程防空",
+      "title": "4 发齐射的导弹雨",
+      "oneliner": "swarmer 是中期最舒服的「一发多弹」塔：每次触发 4 发导弹、8 根发射管轮转，surge-alloy 下单体 126、面板 309.8。它的问题是弹药质量决定一切——换成 pyratite 单体掉到 84，而 22 甲面前 surge 也只有 12.6，它清群很强、啃硬目标很弱。 [src: 00-data/turrets.json]",
+      "mechanics": [
+        "每触发 4 发（shots 4，ShootBarrel 8 管轮转），reload 34.29 tick，空陆都打 [src: 00-data/turrets.json]",
+        "surge-alloy 18 直伤 + 35 溅射 → 单体 126 / 面板 309.8；pyratite 12 + 45 → 84 / 320.3；blast-compound 10 + 45 → 70 / 306.3 [src: 00-data/turrets.json]",
+        "导弹是追踪类弹体，对移动目标命中率比曲射高，但飞行时间仍会让远距离目标少吃几发 [src: 00-data/turrets.json]",
+        "对 22 甲 surge 只剩 12.6，说明它是清群塔：护甲一高，导弹的 18 直伤就被吃光 [src: 00-data/turrets.json]"
+      ],
+      "strengths": [
+        "145 件造价拿到 309.8 面板 DPS，中期性价比很高 [src: 00-data/turrets.json]",
+        "4 发齐射 + 溅射，对聚团的飞行/地面单位都是成片掉血",
+        "30 格的射界在中期的空投波次里覆盖足够 [src: 00-data/turrets.json]"
+      ],
+      "weaknesses": [
+        "对 22 甲 12.6 DPS，遇到重甲推进单位几乎无解 [src: 00-data/turrets.json]",
+        "弹药消耗 1.75 件/s（surge），中期产能跟不上就降频 [src: 00-data/turrets.json]",
+        "导弹飞行时间 + inaccuracy 10，对高速目标的有效命中率低于表值 [src: 00-data/turrets.json]"
+      ],
+      "numbers_notes": [
+        "面板 309.8 与单体 126 的差来自溅射 0.75 折算，评估清群能力用面板、点杀用单体 [src: 00-data/turrets.json]",
+        "DPS/物品 72（surge）意味着它比 spectre 省弹，但单发质量差得多"
+      ],
+      "counterexamples": [
+        "反例：拿 swarmer 打 22 甲 boss，12.6 DPS 不如一门 lancer 的 39，还要 1.75 件/s 的 surge；复现：00-data/turrets.json 里 swarmer 与 lancer 的「对22甲」列 [src: 00-data/turrets.json]",
+        "反例：以为齐射=4 倍伤害，实际 4 发都会各自被护甲削减，对高甲目标 4 发不如 1 发重弹；复现：对比 swarmer 与 fuse 的对22甲 12.6 vs 426.9 [src: 00-data/turrets.json]"
+      ],
+      "misconceptions": [
+        "「导弹塔专打空中」不完全对：本库数据里 swarmer 空陆都选目标，它是通用群伤塔",
+        "「4 发就是 4 倍」错：4 发是 4 次独立的护甲减法，对高甲目标收益急剧下降"
+      ],
+      "related": [
+        "COMBAT.TURRET.115",
+        "COMBAT.TURRET.117"
+      ]
+    },
+    "salvo": {
+      "tier": "A",
+      "role": "中期主力 / 连发点杀",
+      "title": "4 连发 320 点秒伤的主力",
+      "oneliner": "salvo 是中期防线的标准答案：每次 4 连发、reload 29 tick，石墨弹单体 320.7 DPS，对 22 甲还有 93.1——同造价段没有第二门塔能同时给出这个数字与这个穿甲。它的代价是 2.59 件/s 的石墨消耗，以及 1×1 塔位挤不下几门。 [src: 00-data/turrets.json]",
+      "mechanics": [
+        "每触发 4 发（shots 4，shotDelay 拉开成连发），reload 29 tick，空陆都打 [src: 00-data/turrets.json]",
+        "石墨是主力弹：31 直伤、10.34 发/s → 320.7 DPS，且对 22 甲仍有 93.1，是全家最好的「便宜穿甲」 [src: 00-data/turrets.json]",
+        "thorium 28 直伤但 reloadMultiplier 1.00 → 231.7；硅弹 rm 1.50 把射速压到 5.52 发/s，只剩 126.9 [src: 00-data/turrets.json]",
+        "射界 190 世界单位（23.75 格），比 duo 长一截，能架在二线覆盖前排 [src: 00-data/turrets.json]"
+      ],
+      "strengths": [
+        "320.7 单体 DPS + 93.1 对 22 甲，是 230 件价位的最优解 [src: 00-data/turrets.json]",
+        "DPS/物品 124（石墨），供给效率比 spectre 的 160 更好，比 swarmer 的 72 高",
+        "4 连发的节奏让它在漏一发时损失可控，不像 lancer 那样一失手就白等"
+      ],
+      "weaknesses": [
+        "2.59 件/s 的石墨消耗，一条满速传送带只够喂 4 门左右 [src: 00-data/turrets.json]",
+        "1×1 占地（尺寸 1）挤不下几门，阵地规划会很快见顶",
+        "对 22 甲 93.1 虽然好，但仍低于 spectre/fuse 的量级，后期会被替换 [src: 00-data/turrets.json]"
+      ],
+      "numbers_notes": [
+        "93.1 = 10.34 发/s × (31 − 22)，护甲减法是逐发算的，所以连发塔的高射速在低甲时优势更大 [src: 00-data/turrets.json]",
+        "面板 DPS 与单体相同：salvo 的弹药没有溅射，0.75 折算不适用 [src: 00-data/turrets.json]"
+      ],
+      "counterexamples": [
+        "反例：拿 salvo 打 0 甲杂兵，320.7 DPS 是过剩的，同价位两门 duo 石墨（67.5×2）更便宜也更省弹；复现：00-data/turrets.json 里 salvo 与 duo 的造价/DPS 列 [src: 00-data/turrets.json]",
+        "反例：把 salvo 的 4 连发当 4 倍伤害算成 1282.8，实际表里 320.7 已经是 4 发合计；复现：同表 shots 4 与「单体DPS」列 [src: 00-data/turrets.json]"
+      ],
+      "misconceptions": [
+        "「连发塔=高 DPS」对，但代价是 2.59 件/s 的供给，断弹后它什么都不是 [src: 00-data/turrets.json]",
+        "「石墨只是过渡弹」错：石墨在 salvo 上给出 320.7，比 thorium 的 231.7 还高 [src: 00-data/turrets.json]"
+      ],
+      "related": [
+        "COMBAT.TURRET.113",
+        "COMBAT.TURRET.117"
+      ]
+    },
+    "segment": {
+      "tier": "A",
+      "role": "弹体拦截 / 防空清弹",
+      "title": "225 点每秒的弹体清道夫",
+      "oneliner": "segment 是唯一「不杀人只清弹」的塔：它瞄准的是敌方子弹而不是单位，单发 30 点对弹体伤害、7.5 发/s，合计 225/s 的拦截吞吐。它把空投波从威胁变成可算的数学题，代价是 480/s 的电和完全为零的杀伤——敌人不来弹幕，它就白拿一个塔位。 [src: 00-data/turrets.json]",
+      "mechanics": [
+        "PointDefenseTurret 类：目标过滤只保留敌方弹体（单位不入选），所以它永远不会替别的塔补输出 [src: 00-data/turrets.json]",
+        "reload 8 tick ⇒ 7.5 发/s，单发 bulletDamage 30 只对弹体结算，合计 225/s 的拦截吞吐 [src: 00-data/turrets.json]",
+        "拦截是概率性的：弹速越快、同时来弹越多，漏网率越高；225/s 是上限而不是保证 [src: 00-data/turrets.json]",
+        "射界 180 世界单位（22.5 格），需要覆盖在受威胁方向的前方，而不是贴核心 [src: 00-data/turrets.json]"
+      ],
+      "strengths": [
+        "拦下 225/s 的弹体伤害，等于把敌人的远程投射直接抹掉，对炮击/导弹波极为有效 [src: 00-data/turrets.json]",
+        "不消耗物品弹药，只吃 480/s 电，后期电网宽裕时供给压力为零 [src: 00-data/turrets.json]",
+        "覆盖 22.5 格，一座就能罩住一整段防线 [src: 00-data/turrets.json]"
+      ],
+      "weaknesses": [
+        "对单位零伤害：敌人走到弹幕之外、或用近战单位推进时，它整场没有贡献 [src: 00-data/turrets.json]",
+        "480/s 的耗电在中期是实打实的电价，需要单独电网或电池缓冲 [src: 00-data/turrets.json]",
+        "225/s 只是上限，面对高弹速的 surge 类弹体仍会漏 [src: 00-data/turrets.json]"
+      ],
+      "numbers_notes": [
+        "本库不给 segment 算「DPS」排名：30 是对弹体伤害，不进入单位伤害统计，225/s 是拦截吞吐而不是杀伤 [src: 00-data/turrets.json]"
+      ],
+      "counterexamples": [
+        "反例：用 segment 应付纯近战波（crawler/risser），它不选单位，整波零输出；复现：00-data/turrets.json 里 segment 的 target 字段与 MANUAL 表 notes「只打弹体不打单位」 [src: 00-data/turrets.json]",
+        "反例：拿 30 单发去算「30 × 7.5 = 225 DPS 所以能打单位」，225/s 的量级在真实 DPS 里只是中游，而且它根本不落在单位上 [src: 00-data/turrets.json]"
+      ],
+      "misconceptions": [
+        "「点防塔等于防空塔」错：它拦的是子弹，飞行单位本体不在它的目标集里",
+        "「拦截率 100%」错：225/s 是吞吐上限，来弹更密或更快就会漏 [src: 00-data/turrets.json]"
+      ],
+      "related": [
+        "COMBAT.TURRET.115",
+        "COMBAT.TURRET.108"
+      ]
+    },
+    "tsunami": {
+      "tier": "B",
+      "role": "液体双管 / 减益与清杂",
+      "title": "双管液体泼洒器",
+      "oneliner": "tsunami 是 wave 的放大版：双管、每触发 2 发、reload 3 tick，20 触发/s 的液体弹幕，slag 模式下 95 DPS，是液体塔里唯一能算输出的。它的问题是成本——850 件 + 每发 2.5 单位液体的消耗，以及 190 世界单位（23.75 格）的射界，注定它是核心区防线而不是前线塔。 [src: 00-data/turrets.json]",
+      "mechanics": [
+        "每触发 2 发（shots 2，ShootAlternate 双管交替），reload 3 tick ⇒ 约 20 触发/s [src: 00-data/turrets.json]",
+        "弹药是液体：water 单发 0.2、slag 4.75、cryofluid 0.2、oil 0.2；每发消耗 2.5 单位液体，20 触发/s 即 50 液体/s [src: 00-data/turrets.json]",
+        "四种液体的分工与 wave 一致：water/cryofluid 灭火、cryofluid 冻结、oil 上油、slag 是唯一有实伤的选项 [src: 00-data/turrets.json]",
+        "空陆都打，是液体塔里少见的通用目标层"
+      ],
+      "strengths": [
+        "slag 模式 95 DPS，是液体塔里唯一能当输出用的选项 [src: 00-data/turrets.json]",
+        "20 触发/s 的密度让减益（冻结/上油/灭火）覆盖极快，比 wave 更快铺满",
+        "2250 血量 + 3×3 占地，比 wave 耐打得多，能架在前排一点的位置"
+      ],
+      "weaknesses": [
+        "850 件造价 + 50 液体/s 的消耗，供给链成本远超同 DPS 的固体弹药塔 [src: 00-data/turrets.json]",
+        "95 DPS 在 405 件的 cyclone（415.5 面板）面前毫无竞争力，它只为减益存在 [src: 00-data/turrets.json]",
+        "23.75 格的射界限制它只能护核心，护不到外圈 [src: 00-data/turrets.json]"
+      ],
+      "numbers_notes": [
+        "事实卡 tsunami 表：slag 单发 4.75、0 甲 DPS 95；按 20 × 4.75 复算正好 95，与本表一致（若把双管各算一发会得到 190，本库不采用该口径） [src: 00-data/turrets.json]",
+        "每发 2.5 单位液体 × 20 触发/s = 50 液体/s，是规划管道时最该记住的数字 [src: 00-data/turrets.json]"
+      ],
+      "counterexamples": [
+        "反例：拿 tsunami 当主力输出，95 DPS 不及一门 duo 石墨（67.5）的 1.5 倍，却贵 24 倍；复现：00-data/turrets.json 里 tsunami 的 MANUAL 表与 duo 对比 [src: 00-data/turrets.json]",
+        "反例：以为双管=双倍 DPS，表里 95 与 190 的差别正是「按触发算还是按管算」，本库统一按触发算；复现：gen_turrets.py 的 MANUAL tsunami 表 notes [src: 00-data/turrets.json]"
+      ],
+      "misconceptions": [
+        "「液体塔伤害低所以没用」错：tsunami 的产出是冻结/上油/灭火这些减益，不是 DPS",
+        "「双管射速翻倍」错：shots 2 是每触发两发，触发频率本身由 reload 决定"
+      ],
+      "related": [
+        "COMBAT.TURRET.105",
+        "COMBAT.TURRET.118"
+      ]
+    },
+    "fuse": {
+      "tier": "S",
+      "role": "近程终局 / 反重甲爆发",
+      "title": "540 点秒伤的贴脸霰弹",
+      "oneliner": "fuse 是后期最强近防：每触发 3 发 thorium 霰弹、5.14 发/s，单体 540 DPS，对 22 甲仍有 426.9——这个数字比 spectre 的 497.1 只低一点，代价却是射界只有 90 世界单位（11.25 格）。它是「把敌人放进来再打死」的塔，摆错位置就等于没有。 [src: 00-data/turrets.json]",
+      "mechanics": [
+        "每触发 3 发（shots 3，ShootSpread 20 度扇形），reload 35 tick ⇒ 5.14 发/s；空陆都打 [src: 00-data/turrets.json]",
+        "thorium 单发 105 直伤 → 540 单体/540 面板（无溅射），对 22 甲 426.9，ips 1.03 [src: 00-data/turrets.json]",
+        "扇形散射让三发在近距离叠在同一目标上，远距离则散开，所以它的有效 DPS 随距离衰减得比表值快",
+        "1980 血量 + 3×3 占地，是能扛住一波贴脸的近防体格"
+      ],
+      "strengths": [
+        "540 单体 DPS / 426.9 对 22 甲，是 550 件价位最强的单点爆发 [src: 00-data/turrets.json]",
+        "1.03 件/s 的 thorium 消耗在后期产线里几乎无感 [src: 00-data/turrets.json]",
+        "扇形 3 发对贴脸的重甲单位，实际命中率比单发狙击高"
+      ],
+      "weaknesses": [
+        "90 世界单位（11.25 格）的射界是全家最短板之一，敌人远程压制时它全程不还手 [src: 00-data/turrets.json]",
+        "靠 thorium 供弹，前期没有 thorium 产线就完全用不了",
+        "扇形散射在远距离会散到空处，标称 DPS 只在贴脸成立 [src: 00-data/turrets.json]"
+      ],
+      "numbers_notes": [
+        "426.9 = 5.14 × (105 − 22)，护甲按每发减一次算；540 与 426.9 的差就是 22 甲的全部代价 [src: 00-data/turrets.json]",
+        "面板 DPS 与单体相同：fuse 的弹药没有溅射字段"
+      ],
+      "counterexamples": [
+        "反例：把 fuse 摆在能打到 20 格的地方，11.25 格的射界会让它在敌人靠近前一直沉默；复现：00-data/turrets.json 里 fuse 的 range 90 与 spectre 的 260 对比 [src: 00-data/turrets.json]",
+        "反例：以为 fuse 靠溅射清群，它的 3 发是扇形直伤、面板=单体，群伤能力远不如 cyclone 的 415.5 面板；复现：同表 fuse 与 cyclone 的「面板DPS」列 [src: 00-data/turrets.json]"
+      ],
+      "misconceptions": [
+        "「射界短所以弱」错：在同一波贴脸的单位面前，540 DPS 是全作最高档",
+        "「3 发=3 倍伤害」错：3 发是 shots 内已计入 540 的口径，别重复乘"
+      ],
+      "related": [
+        "COMBAT.TURRET.117",
+        "COMBAT.TURRET.106"
+      ]
+    },
+    "ripple": {
+      "tier": "A",
+      "role": "远程曲射压制",
+      "title": "290 世界单位外的四连炮击",
+      "oneliner": "ripple 是中期唯一能稳定打到 290 世界单位（36.25 格）外的地面火力：每触发 4 发、2 发/s，pyratite 下单体 96、面板 231，靠溅射覆盖整片集结区。它打不到空中，且 0.5 触发/s 的节奏意味着它对快速突进几乎无反应——它是「提前削血」的塔，不是「救火」的塔。 [src: 00-data/turrets.json]",
+      "mechanics": [
+        "每触发 4 发（shots 4），reload 120 tick ⇒ 0.5 触发/s、2 发/s；只打地面 [src: 00-data/turrets.json]",
+        "ammoPerShot 2：每次装填吃 2 件弹药，这是它弹耗看起来翻倍的原因 [src: 00-data/turrets.json]",
+        "pyratite 48 直伤 + 90 溅射 → 单体 96 / 面板 231；石墨 40 + 70 → 80 / 185 但 ips 2.0 更费弹 [src: 00-data/turrets.json]",
+        "曲射弹道越墙，能打被墙挡住的地面集结区"
+      ],
+      "strengths": [
+        "36.25 格射界 + 越墙曲射，中期没有任何地面塔能替代它的覆盖范围 [src: 00-data/turrets.json]",
+        "面板 231 的溅射输出对成团的地面波非常高效",
+        "对 22 甲 pyratite 仍有 52 DPS，比 hail 的 25 单体强得多"
+      ],
+      "weaknesses": [
+        "不能防空，空投波次完全缺席 [src: 00-data/turrets.json]",
+        "0.5 触发/s 太慢，对高速突进单位几乎打不中 [src: 00-data/turrets.json]",
+        "blast-compound 与 plastanium 的面板都停在 215，说明它的上限被 reload 卡死，换弹提升有限 [src: 00-data/turrets.json]"
+      ],
+      "numbers_notes": [
+        "231 = 2 发/s × (48 + 0.75×90)，溅射占六成；只报单体 96 会低估清群，只报面板会高估点杀 [src: 00-data/turrets.json]",
+        "ammoPerShot 2 意味着实际弹耗是 2 发/s × 2 = 4 件/s（pyratite 口径下 ips 1.0 已是按发计） [src: 00-data/turrets.json]"
+      ],
+      "counterexamples": [
+        "反例：用 ripple 打单体 boss，96 单体 DPS 只有 fuse 的 1/5，而造价 345 对 550；复现：00-data/turrets.json 里 ripple 与 fuse 的「单体DPS」列 [src: 00-data/turrets.json]",
+        "反例：以为换 blast-compound 能提 DPS，表里面板仍是 215、ips 1.0，提升只在溅射结构上；复现：同表 ripple 各弹药行 [src: 00-data/turrets.json]"
+      ],
+      "misconceptions": [
+        "「曲射塔射程远所以能替代前线塔」错：0.5 触发/s 的节奏挡不住突进 [src: 00-data/turrets.json]",
+        "「4 发就是 4 倍」错：2 发/s 已是 4 发摊平后的射速口径"
+      ],
+      "related": [
+        "COMBAT.TURRET.104",
+        "COMBAT.TURRET.116"
+      ]
+    },
+    "cyclone": {
+      "tier": "A",
+      "role": "防空群伤 / 中程弹幕",
+      "title": "415 面板 DPS 的防空核心",
+      "oneliner": "cyclone 是后期防空的主力：reload 10 tick、6 发/s，surge-alloy 下单体 78、面板 415.5，是空投波的天敌；射界 200 世界单位（25 格）也够用。它的短板很明确——对 22 甲只有 7.8 DPS，所以它清群无敌、啃重甲无力，遇到重装飞行单位要靠 fuse 或 spectre 补刀。 [src: 00-data/turrets.json]",
+      "mechanics": [
+        "每触发 1 发，reload 10 tick ⇒ 6 发/s；空陆都打，ShootBarrel 决定炮口位置 [src: 00-data/turrets.json]",
+        "surge-alloy 13 直伤 + 75 溅射 → 单体 78 / 面板 415.5；metaglass 6 + 45 但 rm 0.80 让射速升到 7.5 发/s，面板 298.1 [src: 00-data/turrets.json]",
+        "伤害结构是「少量直伤 + 大溅射」，所以它对群体的效率远高于对单体",
+        "405 件造价 + 1305 血量，中期就能成规模铺开"
+      ],
+      "strengths": [
+        "415.5 面板 DPS 是防空塔里的顶级数值，且只需 405 件 [src: 00-data/turrets.json]",
+        "6 发/s 的高射速让溅射持续覆盖空域，漏一发不致命",
+        "空陆通吃，地面波也不会浪费塔位"
+      ],
+      "weaknesses": [
+        "对 22 甲 7.8 DPS：13 点直伤被护甲吃光，只剩溅射的固定折损 [src: 00-data/turrets.json]",
+        "surge-alloy 1.2 件/s 的消耗需要合金产线支撑 [src: 00-data/turrets.json]",
+        "25 格射界对超远程轰炸单位仍偏短，需要 foreshadow 之类先手 [src: 00-data/turrets.json]"
+      ],
+      "numbers_notes": [
+        "415.5 = 6 × (13 + 0.75×75)，溅射贡献占九成以上；把 415.5 当单体 DPS 会高估五倍 [src: 00-data/turrets.json]",
+        "对 22 甲 7.8 与面板 415.5 的悬殊差距，是评价 cyclone 时最该摆出来的两个数字 [src: 00-data/turrets.json]"
+      ],
+      "counterexamples": [
+        "反例：用 cyclone 打 22 甲的重装飞行单位，7.8 DPS 等于没打；复现：00-data/turrets.json 里 cyclone 的「对22甲」列与 spectre 的 497.1 对比 [src: 00-data/turrets.json]",
+        "反例：拿 metaglass 追求「更便宜」，面板掉到 298.1 且 ips 3.75，是更费弹的选择；复现：同表 cyclone 各弹药行的 ips 列 [src: 00-data/turrets.json]"
+      ],
+      "misconceptions": [
+        "「面板 415 所以比 spectre 强」错：单体只有 78，spectre 是 685.7 [src: 00-data/turrets.json]",
+        "「防空塔只能打空」错：cyclone 空陆都打，地面波里它同样在输出"
+      ],
+      "related": [
+        "COMBAT.TURRET.117",
+        "COMBAT.TURRET.116"
+      ]
+    },
+    "foreshadow": {
+      "tier": "A",
+      "role": "超远程狙击 / 反重甲先手",
+      "title": "500 世界单位外的 405 点重锤",
+      "oneliner": "foreshadow 用 2700 件买一门能打到 500 世界单位（62.5 格）的炮：0.3 发/s、单发 1350 直伤、405 DPS，对 22 甲还有 398.4——护甲几乎不影响它。它是「在敌人进入任何其他塔射界之前就先削掉它」的塔，代价是 600/s 的电、5 件/发的弹药和极慢的节奏。 [src: 00-data/turrets.json]",
+      "mechanics": [
+        "每触发 1 发，reload 200 tick ⇒ 0.3 发/s；射界 500 世界单位（62.5 格）是全作最远 [src: 00-data/turrets.json]",
+        "surge-alloy 单发 1350 直伤 → 405 DPS，对 22 甲 398.4：一发就够破甲，护甲在它面前几乎不存在 [src: 00-data/turrets.json]",
+        "ammoPerShot 5 + maxAmmo 40：每次开火吃 5 件弹药，弹匣只够 8 发，供弹必须跟上",
+        "600/s 的耗电是全作最高档之一，没有独立电网根本带不动 [src: 00-data/turrets.json]"
+      ],
+      "strengths": [
+        "62.5 格射界 + 405 单体 DPS，让它能在其他塔全部沉默的距离上开火 [src: 00-data/turrets.json]",
+        "对 22 甲 398.4，是全作对重甲最有效的单塔（lancer 39、fuse 426.9 但射界 11.25 格） [src: 00-data/turrets.json]",
+        "一发 1350，对高血量单体目标是效率最高的爆发"
+      ],
+      "weaknesses": [
+        "0.3 发/s：一发打空就损失 3 秒以上，对高机动目标命中率是硬伤 [src: 00-data/turrets.json]",
+        "2700 件 + 600/s 电 + 5 件/发，是全家最贵的维持成本 [src: 00-data/turrets.json]",
+        "4×4 占地 + 极慢射速，前期完全不可用 [src: 00-data/turrets.json]"
+      ],
+      "numbers_notes": [
+        "398.4 = 0.3 × (1350 − 22)，与 405 只差 1.6%，这是「单发够重时护甲可忽略」的最好例证 [src: 00-data/turrets.json]",
+        "1.5 件/s = 0.3 发/s × 5 件/发，规划供弹时按这个数字算 [src: 00-data/turrets.json]"
+      ],
+      "counterexamples": [
+        "反例：用 foreshadow 打 crawler 群，0.3 发/s 一轮只杀一个，性价比远不如 cyclone 的 415.5 面板；复现：00-data/turrets.json 里 foreshadow 与 cyclone 的「面板DPS」列 [src: 00-data/turrets.json]",
+        "反例：以为它靠溅射清群，1350 是纯直伤、面板=单体，群伤能力为零；复现：同表 foreshadow 行 [src: 00-data/turrets.json]"
+      ],
+      "misconceptions": [
+        "「射程最远所以最强」错：0.3 发/s 的节奏让它在近身混战里几乎没有输出 [src: 00-data/turrets.json]",
+        "「高护甲目标打不动」错：对 22 甲仍有 398.4，是全作抗甲最好的塔之一 [src: 00-data/turrets.json]"
+      ],
+      "related": [
+        "COMBAT.TURRET.106",
+        "COMBAT.TURRET.117"
+      ]
+    },
+    "spectre": {
+      "tier": "S",
+      "role": "后期主力 / 全能点杀",
+      "title": "685 点秒伤的终局主炮",
+      "oneliner": "spectre 是后期防线的答案：reload 7 tick、8.57 发/s，thorium 下单体 685.7 DPS，对 22 甲 497.1，空陆通吃，射界 260 世界单位（32.5 格）。它唯一的问题是弹耗——4.29 件/s 的 thorium 意味着一条专用产线只够喂两门，且 1875 件的造价让成型很晚。 [src: 00-data/turrets.json]",
+      "mechanics": [
+        "每触发 1 发，reload 7 tick ⇒ 8.57 发/s；ShootAlternate 双管交替，空陆都打 [src: 00-data/turrets.json]",
+        "thorium 80 直伤 → 685.7 单体/面板，对 22 甲 497.1；pyratite 70 + 20 溅射 → 600 / 728.6 面板 [src: 00-data/turrets.json]",
+        "coolantMult 0.5：吃冷却液能把 reload 压到 3.5 tick，这是它真正的上限所在 [src: 00-data/turrets.json]",
+        "石墨模式 rm 1.70 把射速压到 5.04 发/s、DPS 252.1，说明它对弹药质量极度敏感 [src: 00-data/turrets.json]"
+      ],
+      "strengths": [
+        "685.7 单体 / 497.1 对 22 甲，是空陆通用的最强持续输出 [src: 00-data/turrets.json]",
+        "8.57 发/s 的高射速让漏发损失极小，输出极其稳定 [src: 00-data/turrets.json]",
+        "32.5 格射界 + 2560 血量，能架在二线并扛住零星反击 [src: 00-data/turrets.json]"
+      ],
+      "weaknesses": [
+        "4.29 件/s 的 thorium 消耗，供给线一断 DPS 立刻归零 [src: 00-data/turrets.json]",
+        "1875 件造价 + 4×4 占地，成型窗口很晚",
+        "对 0 甲不如 fuse 的 540 来得便宜，它的优势在护甲与射界 [src: 00-data/turrets.json]"
+      ],
+      "numbers_notes": [
+        "497.1 = 8.57 × (80 − 22)，thorium 模式下与 685.7 差 27.5%，护甲仍是要算的 [src: 00-data/turrets.json]",
+        "coolantMult 0.5 的收益不进本表 DPS：表值是不冷却口径，实际接冷却液会更高，别直接对比 [src: 00-data/turrets.json]"
+      ],
+      "counterexamples": [
+        "反例：以为 spectre 面板最高所以通杀，它的 728.6 是 pyratite 溅射口径，单体只有 600，比 thorium 的 685.7 低；复现：00-data/turrets.json 里 spectre 各弹药行的单体/面板列 [src: 00-data/turrets.json]",
+        "反例：拿 spectre 打早期波次，4.29 件/s 的 thorium 在前期根本供不起，实际 DPS 远低于标称；复现：同表 ips 列与 550 件的 fuse 对比 [src: 00-data/turrets.json]"
+      ],
+      "misconceptions": [
+        "「面板 DPS 就是实战 DPS」错：不冷却、零甲、满供弹三个前提缺一不可",
+        "「双管=双倍射速」错：8.57 发/s 已是 reload 7 的口径，炮管数只影响外观与弹道 [src: 00-data/turrets.json]"
+      ],
+      "related": [
+        "COMBAT.TURRET.113",
+        "COMBAT.TURRET.115"
+      ]
+    },
+    "meltdown": {
+      "tier": "S",
+      "role": "近程持续激光 / 高耗电清场",
+      "title": "936 点秒伤的熔断激光",
+      "oneliner": "meltdown 是后期近防的另一种答案：连续激光每 5 tick 结算 78 点，瞬时 936 DPS，持续 230 tick 后进入 90 tick 的冷却，平均下来 672.75。它把 1020/s 的电换成一整条被烧穿的地面/空中走廊，代价是它几乎必须贴着敌人放，且断电即失效。 [src: 00-data/turrets.json]",
+      "mechanics": [
+        "ContinuousTurret + ContinuousLaserBulletType：每 damageInterval 5 tick 结算 78 点 ⇒ 瞬时 936 DPS [src: 00-data/turrets.json]",
+        "shootDuration 230 tick 后停火，reload 90 tick：按 936 × 230/(230+90) 算平均 672.75 DPS [src: 00-data/turrets.json]",
+        "1020/s 的耗电是全作最高，必须有独立电网 + 电池组 [src: 00-data/turrets.json]",
+        "射界 195 世界单位（24.375 格），空陆都打，是少数能同时清地空的近程塔 [src: 00-data/turrets.json]"
+      ],
+      "strengths": [
+        "瞬时 936 DPS，是全作纸面最高的持续输出，且空陆通吃 [src: 00-data/turrets.json]",
+        "平均 672.75 DPS 仍高于 spectre 的 685.7 之下一点点，却只需要 2500 件 [src: 00-data/turrets.json]",
+        "光束无弹道飞行时间，命中即结算，对高机动目标没有提前量问题"
+      ],
+      "weaknesses": [
+        "1020/s 的耗电：电网一崩它立刻变砖，是全作对电最敏感的塔 [src: 00-data/turrets.json]",
+        "必须贴到 24.375 格内，敌人远程压制时它无法还手 [src: 00-data/turrets.json]",
+        "936 是瞬时值，30% 时间是冷却期，规划火力时要用 672.75 [src: 00-data/turrets.json]"
+      ],
+      "numbers_notes": [
+        "本库同时给两个数字：瞬时 936（936 = 78 × 12，12 = 60/5）与平均 672.75（含 90 tick 冷却），比较时必须说清用哪个 [src: 00-data/turrets.json]",
+        "672.75 的推导可在源码核对：Blocks.java:4323 reload=90f、:4325 shootDuration=230f、:4331 ContinuousLaserBulletType(78) [src: 00-data/turrets.json]"
+      ],
+      "counterexamples": [
+        "反例：用 936 去和 spectre 的 685.7 比较，忽略 90 tick 冷却会高估 39%；复现：按 936 × 230/320 = 672.75 复算 [src: 00-data/turrets.json]",
+        "反例：以为 meltdown 是远程塔，195 世界单位（24.375 格）比 spectre 的 260 还短；复现：00-data/turrets.json 里两者 range 字段 [src: 00-data/turrets.json]"
+      ],
+      "misconceptions": [
+        "「936 就是它每秒钟的伤害」只对前 230 tick 成立，长期平均要按 672.75 算 [src: 00-data/turrets.json]",
+        "「激光塔不耗电」错：1020/s 是全作最高档，它是最依赖电网的塔 [src: 00-data/turrets.json]"
+      ],
+      "related": [
+        "COMBAT.TURRET.117",
+        "COMBAT.TURRET.105"
+      ]
+    }
+  }
+}

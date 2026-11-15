@@ -1,0 +1,594 @@
+{
+ "mindustry.game.Rules": {
+  "airUseSpawns": {
+   "const": null,
+   "default": 0,
+   "desc": "Z"
+  },
+  "allowCoreUnloaders": {
+   "const": null,
+   "default": 1,
+   "desc": "Z"
+  },
+  "allowEditRules": {
+   "const": null,
+   "default": 0,
+   "desc": "Z"
+  },
+  "allowEditWorldProcessors": {
+   "const": null,
+   "default": 0,
+   "desc": "Z"
+  },
+  "allowEnvironmentDeconstruct": {
+   "const": null,
+   "default": 0,
+   "desc": "Z"
+  },
+  "allowLogicData": {
+   "const": null,
+   "default": 0,
+   "desc": "Z"
+  },
+  "alwaysPlayMusic": {
+   "const": null,
+   "default": 0,
+   "desc": "Z"
+  },
+  "ambientLight": {
+   "const": null,
+   "default": null,
+   "desc": "Larc/graphics/Color;"
+  },
+  "ambientMusic": {
+   "const": null,
+   "default": null,
+   "desc": "Larc/struct/Seq;"
+  },
+  "attackMode": {
+   "const": null,
+   "default": 0,
+   "desc": "Z"
+  },
+  "attributes": {
+   "const": null,
+   "default": null,
+   "desc": "Lmindustry/world/blocks/Attributes;"
+  },
+  "backgroundOffsetX": {
+   "const": null,
+   "default": 0.1,
+   "desc": "F"
+  },
+  "backgroundOffsetY": {
+   "const": null,
+   "default": 0.1,
+   "desc": "F"
+  },
+  "backgroundScl": {
+   "const": null,
+   "default": 1.0,
+   "desc": "F"
+  },
+  "backgroundSpeed": {
+   "const": null,
+   "default": 27000.0,
+   "desc": "F"
+  },
+  "backgroundTexture": {
+   "const": null,
+   "default": null,
+   "desc": "Ljava/lang/String;"
+  },
+  "bannedBlocks": {
+   "const": null,
+   "default": null,
+   "desc": "Larc/struct/ObjectSet;"
+  },
+  "bannedUnits": {
+   "const": null,
+   "default": null,
+   "desc": "Larc/struct/ObjectSet;"
+  },
+  "blockDamageMultiplier": {
+   "const": null,
+   "default": 1.0,
+   "desc": "F"
+  },
+  "blockHealthMultiplier": {
+   "const": null,
+   "default": 1.0,
+   "desc": "F"
+  },
+  "blockLimits": {
+   "const": null,
+   "default": null,
+   "desc": "Larc/struct/ObjectIntMap;"
+  },
+  "blockWhitelist": {
+   "const": null,
+   "default": 0,
+   "desc": "Z"
+  },
+  "borderDarkness": {
+   "const": null,
+   "default": 1,
+   "desc": "Z"
+  },
+  "buildCostMultiplier": {
+   "const": null,
+   "default": 1.0,
+   "desc": "F"
+  },
+  "buildSpeedMultiplier": {
+   "const": null,
+   "default": 1.0,
+   "desc": "F"
+  },
+  "canGameOver": {
+   "const": null,
+   "default": 1,
+   "desc": "Z"
+  },
+  "cleanupDeadTeams": {
+   "const": null,
+   "default": 1,
+   "desc": "Z"
+  },
+  "cloudColor": {
+   "const": null,
+   "default": null,
+   "desc": "Larc/graphics/Color;"
+  },
+  "coreBuildAndConfig": {
+   "const": null,
+   "default": 0,
+   "desc": "Z"
+  },
+  "coreCapture": {
+   "const": null,
+   "default": 0,
+   "desc": "Z"
+  },
+  "coreDestroyClear": {
+   "const": null,
+   "default": 0,
+   "desc": "Z"
+  },
+  "coreIncinerates": {
+   "const": null,
+   "default": 1,
+   "desc": "Z"
+  },
+  "customBackgroundCallback": {
+   "const": null,
+   "default": null,
+   "desc": "Ljava/lang/String;"
+  },
+  "damageExplosions": {
+   "const": null,
+   "default": 1,
+   "desc": "Z"
+  },
+  "darkMusic": {
+   "const": null,
+   "default": null,
+   "desc": "Larc/struct/Seq;"
+  },
+  "deconstructRefundMultiplier": {
+   "const": null,
+   "default": 0.5,
+   "desc": "F"
+  },
+  "defaultTeam": {
+   "const": null,
+   "default": null,
+   "desc": "Lmindustry/game/Team;"
+  },
+  "derelictRepair": {
+   "const": null,
+   "default": 1,
+   "desc": "Z"
+  },
+  "disableMusic": {
+   "const": null,
+   "default": 0,
+   "desc": "Z"
+  },
+  "disableOutsideArea": {
+   "const": null,
+   "default": 1,
+   "desc": "Z"
+  },
+  "disableUnitCap": {
+   "const": null,
+   "default": null,
+   "desc": "Z"
+  },
+  "disableWorldProcessors": {
+   "const": null,
+   "default": 0,
+   "desc": "Z"
+  },
+  "dragMultiplier": {
+   "const": null,
+   "default": 1.0,
+   "desc": "F"
+  },
+  "dropZoneRadius": {
+   "const": null,
+   "default": 300.0,
+   "desc": "F"
+  },
+  "dynamicColor": {
+   "const": null,
+   "default": null,
+   "desc": "Larc/graphics/Color;"
+  },
+  "editor": {
+   "const": null,
+   "default": 0,
+   "desc": "Z"
+  },
+  "enemyCoreBuildRadius": {
+   "const": null,
+   "default": 400.0,
+   "desc": "F"
+  },
+  "env": {
+   "const": null,
+   "default": 233,
+   "desc": "I"
+  },
+  "fire": {
+   "const": null,
+   "default": 1,
+   "desc": "Z"
+  },
+  "fog": {
+   "const": null,
+   "default": 0,
+   "desc": "Z"
+  },
+  "ghostBlocks": {
+   "const": null,
+   "default": 1,
+   "desc": "Z"
+  },
+  "hideBannedBlocks": {
+   "const": null,
+   "default": 0,
+   "desc": "Z"
+  },
+  "hideSpawns": {
+   "const": null,
+   "default": 1,
+   "desc": "Z"
+  },
+  "infiniteResources": {
+   "const": null,
+   "default": null,
+   "desc": "Z"
+  },
+  "initialWaveSpacing": {
+   "const": null,
+   "default": 0.0,
+   "desc": "F"
+  },
+  "instantBuild": {
+   "const": null,
+   "default": 0,
+   "desc": "Z"
+  },
+  "itemDepositCooldown": {
+   "const": null,
+   "default": 0.5,
+   "desc": "F"
+  },
+  "lighting": {
+   "const": null,
+   "default": 0,
+   "desc": "Z"
+  },
+  "limitHeight": {
+   "const": null,
+   "default": 1,
+   "desc": "I"
+  },
+  "limitMapArea": {
+   "const": null,
+   "default": 0,
+   "desc": "Z"
+  },
+  "limitWidth": {
+   "const": null,
+   "default": 1,
+   "desc": "I"
+  },
+  "limitX": {
+   "const": null,
+   "default": null,
+   "desc": "I"
+  },
+  "limitY": {
+   "const": null,
+   "default": null,
+   "desc": "I"
+  },
+  "loadout": {
+   "const": null,
+   "default": 1,
+   "desc": "Larc/struct/Seq;"
+  },
+  "logicUnitBuild": {
+   "const": null,
+   "default": 1,
+   "desc": "Z"
+  },
+  "logicUnitControl": {
+   "const": null,
+   "default": 1,
+   "desc": "Z"
+  },
+  "logicUnitDeconstruct": {
+   "const": null,
+   "default": 0,
+   "desc": "Z"
+  },
+  "mission": {
+   "const": null,
+   "default": null,
+   "desc": "Ljava/lang/String;"
+  },
+  "modeName": {
+   "const": null,
+   "default": null,
+   "desc": "Ljava/lang/String;"
+  },
+  "musicVolume": {
+   "const": null,
+   "default": 1.0,
+   "desc": "F"
+  },
+  "objectiveFlags": {
+   "const": null,
+   "default": null,
+   "desc": "Larc/struct/ObjectSet;"
+  },
+  "objectiveTimerMultiplier": {
+   "const": null,
+   "default": 1.0,
+   "desc": "F"
+  },
+  "objectives": {
+   "const": null,
+   "default": null,
+   "desc": "Lmindustry/game/MapObjectives;"
+  },
+  "onlyDepositCore": {
+   "const": null,
+   "default": 0,
+   "desc": "Z"
+  },
+  "pauseDisabled": {
+   "const": null,
+   "default": 0,
+   "desc": "Z"
+  },
+  "placeRangeCheck": {
+   "const": null,
+   "default": 0,
+   "desc": "Z"
+  },
+  "planet": {
+   "const": null,
+   "default": null,
+   "desc": "Lmindustry/type/Planet;"
+  },
+  "planetBackground": {
+   "const": null,
+   "default": null,
+   "desc": "Lmindustry/graphics/g3d/PlanetParams;"
+  },
+  "polygonCoreProtection": {
+   "const": null,
+   "default": 0,
+   "desc": "Z"
+  },
+  "possessionAllowed": {
+   "const": null,
+   "default": 1,
+   "desc": "Z"
+  },
+  "pvp": {
+   "const": null,
+   "default": null,
+   "desc": "Z"
+  },
+  "pvpAutoPause": {
+   "const": null,
+   "default": 1,
+   "desc": "Z"
+  },
+  "randomWaveAI": {
+   "const": null,
+   "default": 0,
+   "desc": "Z"
+  },
+  "reactorExplosions": {
+   "const": null,
+   "default": 1,
+   "desc": "Z"
+  },
+  "researched": {
+   "const": null,
+   "default": null,
+   "desc": "Larc/struct/ObjectSet;"
+  },
+  "revealedBlocks": {
+   "const": null,
+   "default": null,
+   "desc": "Larc/struct/ObjectSet;"
+  },
+  "schematicsAllowed": {
+   "const": null,
+   "default": 1,
+   "desc": "Z"
+  },
+  "sector": {
+   "const": null,
+   "default": null,
+   "desc": "Lmindustry/type/Sector;"
+  },
+  "showOtherTeamPings": {
+   "const": null,
+   "default": 0,
+   "desc": "Z"
+  },
+  "solarMultiplier": {
+   "const": null,
+   "default": 1.0,
+   "desc": "F"
+  },
+  "spawns": {
+   "const": null,
+   "default": null,
+   "desc": "Larc/struct/Seq;"
+  },
+  "staticColor": {
+   "const": null,
+   "default": null,
+   "desc": "Larc/graphics/Color;"
+  },
+  "staticFog": {
+   "const": null,
+   "default": 1,
+   "desc": "Z"
+  },
+  "tags": {
+   "const": null,
+   "default": null,
+   "desc": "Larc/struct/StringMap;"
+  },
+  "teams": {
+   "const": null,
+   "default": null,
+   "desc": "Lmindustry/game/Rules$TeamRules;"
+  },
+  "unitBuildSpeedMultiplier": {
+   "const": null,
+   "default": 1.0,
+   "desc": "F"
+  },
+  "unitCap": {
+   "const": null,
+   "default": 0,
+   "desc": "I"
+  },
+  "unitCapVariable": {
+   "const": null,
+   "default": 1,
+   "desc": "Z"
+  },
+  "unitCostMultiplier": {
+   "const": null,
+   "default": 1.0,
+   "desc": "F"
+  },
+  "unitCrashDamageMultiplier": {
+   "const": null,
+   "default": 1.0,
+   "desc": "F"
+  },
+  "unitDamageMultiplier": {
+   "const": null,
+   "default": 1.0,
+   "desc": "F"
+  },
+  "unitFactoryActivationDelay": {
+   "const": null,
+   "default": 0.0,
+   "desc": "F"
+  },
+  "unitHealthMultiplier": {
+   "const": null,
+   "default": 1.0,
+   "desc": "F"
+  },
+  "unitLight": {
+   "const": null,
+   "default": 1,
+   "desc": "Z"
+  },
+  "unitMineSpeedMultiplier": {
+   "const": null,
+   "default": 1.0,
+   "desc": "F"
+  },
+  "unitPayloadUpdate": {
+   "const": null,
+   "default": 0,
+   "desc": "Z"
+  },
+  "unitPayloadsExplode": {
+   "const": null,
+   "default": 0,
+   "desc": "Z"
+  },
+  "unitWhitelist": {
+   "const": null,
+   "default": 0,
+   "desc": "Z"
+  },
+  "waitEnemies": {
+   "const": null,
+   "default": 0,
+   "desc": "Z"
+  },
+  "waveSending": {
+   "const": null,
+   "default": 1,
+   "desc": "Z"
+  },
+  "waveSpacing": {
+   "const": null,
+   "default": 7200.0,
+   "desc": "F"
+  },
+  "waveTeam": {
+   "const": null,
+   "default": null,
+   "desc": "Lmindustry/game/Team;"
+  },
+  "waveTimer": {
+   "const": null,
+   "default": 1,
+   "desc": "Z"
+  },
+  "waves": {
+   "const": null,
+   "default": null,
+   "desc": "Z"
+  },
+  "wavesSpawnAtCores": {
+   "const": null,
+   "default": 1,
+   "desc": "Z"
+  },
+  "weather": {
+   "const": null,
+   "default": 2.0,
+   "desc": "Larc/struct/Seq;"
+  },
+  "winWave": {
+   "const": null,
+   "default": 0,
+   "desc": "I"
+  },
+  "worldProcessorPlayerLink": {
+   "const": null,
+   "default": 1,
+   "desc": "Z"
+  }
+ }
+}

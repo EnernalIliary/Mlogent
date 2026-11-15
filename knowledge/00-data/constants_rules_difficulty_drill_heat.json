@@ -1,0 +1,872 @@
+[
+ {
+  "table": "Rules",
+  "id": "DATA.CONST.RULES.001",
+  "name": "waveSpacing",
+  "value": 7200,
+  "unit": "tick（=2×Time.toMinutes=120 s）",
+  "src": "Mindustry-Source/core/src/mindustry/game/Rules.java:151",
+  "rt": "js runtime v160.7: rules.waveSpacing=7200",
+  "verified": "runtime",
+  "ver": [
+   "v159.3",
+   "v160.7"
+  ],
+  "conf": "S"
+ },
+ {
+  "table": "Rules",
+  "id": "DATA.CONST.RULES.002",
+  "name": "initialWaveSpacing",
+  "value": 0,
+  "unit": "tick",
+  "src": "Mindustry-Source/core/src/mindustry/game/Rules.java:153",
+  "rt": "js runtime v160.7: 0",
+  "verified": "runtime",
+  "ver": [
+   "v159.3",
+   "v160.7"
+  ],
+  "conf": "S"
+ },
+ {
+  "table": "Rules",
+  "id": "DATA.CONST.RULES.003",
+  "name": "winWave",
+  "value": 0,
+  "unit": "波（0=无限制）",
+  "src": "Mindustry-Source/core/src/mindustry/game/Rules.java:155",
+  "rt": "js runtime v160.7: 0",
+  "verified": "runtime",
+  "ver": [
+   "v159.3",
+   "v160.7"
+  ],
+  "conf": "S"
+ },
+ {
+  "table": "Rules",
+  "id": "DATA.CONST.RULES.004",
+  "name": "dropZoneRadius",
+  "value": 300,
+  "unit": "世界单位（÷8=37.5 格）",
+  "src": "Mindustry-Source/core/src/mindustry/game/Rules.java:149",
+  "rt": "js runtime v160.7: 300",
+  "verified": "runtime",
+  "ver": [
+   "v159.3",
+   "v160.7"
+  ],
+  "conf": "S"
+ },
+ {
+  "table": "Rules",
+  "id": "DATA.CONST.RULES.005",
+  "name": "enemyCoreBuildRadius",
+  "value": 400,
+  "unit": "世界单位（50 格）",
+  "src": "Mindustry-Source/core/src/mindustry/game/Rules.java:123",
+  "rt": "js runtime v160.7: 400",
+  "verified": "runtime",
+  "ver": [
+   "v159.3",
+   "v160.7"
+  ],
+  "conf": "S"
+ },
+ {
+  "table": "Rules",
+  "id": "DATA.CONST.RULES.006",
+  "name": "waves",
+  "value": false,
+  "unit": "bool（沙盒默认关波）",
+  "src": "Mindustry-Source/core/src/mindustry/game/Rules.java:35",
+  "rt": "js runtime v160.7: false",
+  "verified": "runtime",
+  "ver": [
+   "v159.3",
+   "v160.7"
+  ],
+  "conf": "S"
+ },
+ {
+  "table": "Rules",
+  "id": "DATA.CONST.RULES.007",
+  "name": "waveTimer",
+  "value": true,
+  "unit": "bool",
+  "src": "Mindustry-Source/core/src/mindustry/game/Rules.java:31",
+  "rt": "js runtime v160.7: true",
+  "verified": "runtime",
+  "ver": [
+   "v159.3",
+   "v160.7"
+  ],
+  "conf": "S"
+ },
+ {
+  "table": "Rules",
+  "id": "DATA.CONST.RULES.008",
+  "name": "attackMode",
+  "value": false,
+  "unit": "bool（PVP 进攻模式）",
+  "src": "Mindustry-Source/core/src/mindustry/game/Rules.java:49",
+  "rt": "js runtime v160.7: false",
+  "verified": "runtime",
+  "ver": [
+   "v159.3",
+   "v160.7"
+  ],
+  "conf": "S"
+ },
+ {
+  "table": "Rules",
+  "id": "DATA.CONST.RULES.009",
+  "name": "waitEnemies",
+  "value": false,
+  "unit": "bool（清完才下一波）",
+  "src": "Mindustry-Source/core/src/mindustry/game/Rules.java:47",
+  "rt": "js runtime v160.7: false",
+  "verified": "runtime",
+  "ver": [
+   "v159.3",
+   "v160.7"
+  ],
+  "conf": "S"
+ },
+ {
+  "table": "Rules",
+  "id": "DATA.CONST.RULES.010",
+  "name": "unitCap",
+  "value": 0,
+  "unit": "个（0=按地图默认）",
+  "src": "Mindustry-Source/core/src/mindustry/game/Rules.java:157",
+  "rt": "js runtime v160.7: 0",
+  "verified": "runtime",
+  "ver": [
+   "v159.3",
+   "v160.7"
+  ],
+  "conf": "S"
+ },
+ {
+  "table": "Rules",
+  "id": "DATA.CONST.RULES.011",
+  "name": "unitDamageMultiplier",
+  "value": 1,
+  "unit": "倍率",
+  "src": "Mindustry-Source/core/src/mindustry/game/Rules.java:85（TeamRules 同名 :374）",
+  "rt": "js runtime v160.7: 1",
+  "verified": "runtime",
+  "ver": [
+   "v159.3",
+   "v160.7"
+  ],
+  "conf": "S"
+ },
+ {
+  "table": "Rules",
+  "id": "DATA.CONST.RULES.012",
+  "name": "unitHealthMultiplier",
+  "value": 1,
+  "unit": "倍率",
+  "src": "Mindustry-Source/core/src/mindustry/game/Rules.java:87（TeamRules :382）",
+  "rt": "js runtime v160.7: 1",
+  "verified": "runtime",
+  "ver": [
+   "v159.3",
+   "v160.7"
+  ],
+  "conf": "S"
+ },
+ {
+  "table": "Rules",
+  "id": "DATA.CONST.RULES.013",
+  "name": "blockHealthMultiplier",
+  "value": 1,
+  "unit": "倍率",
+  "src": "Mindustry-Source/core/src/mindustry/game/Rules.java:111（TeamRules :384）",
+  "rt": "js runtime v160.7: 1",
+  "verified": "runtime",
+  "ver": [
+   "v159.3",
+   "v160.7"
+  ],
+  "conf": "S"
+ },
+ {
+  "table": "Rules",
+  "id": "DATA.CONST.RULES.014",
+  "name": "buildCostMultiplier",
+  "value": 1,
+  "unit": "倍率",
+  "src": "Mindustry-Source/core/src/mindustry/game/Rules.java:115",
+  "rt": "js runtime v160.7: 1",
+  "verified": "runtime",
+  "ver": [
+   "v159.3",
+   "v160.7"
+  ],
+  "conf": "S"
+ },
+ {
+  "table": "Rules",
+  "id": "DATA.CONST.RULES.015",
+  "name": "wavesSpawnAtCores",
+  "value": true,
+  "unit": "bool",
+  "src": "Mindustry-Source/core/src/mindustry/game/Rules.java:39",
+  "rt": null,
+  "verified": "source-only",
+  "ver": [
+   "v159.3",
+   "v160.7"
+  ],
+  "conf": "S"
+ },
+ {
+  "table": "Difficulty",
+  "id": "DATA.CONST.DIFF.001",
+  "name": "casual 三元组（敌血/数量/波纹时间）",
+  "value": "0.5 / 0.5 / 2",
+  "unit": "倍率 / 倍率 / 倍率",
+  "src": "Mindustry-Source/core/src/mindustry/game/Difficulty.java:6",
+  "rt": "js runtime: [0.5,0.5,2]",
+  "verified": "runtime",
+  "ver": [
+   "v159.3",
+   "v160.7"
+  ],
+  "conf": "S"
+ },
+ {
+  "table": "Difficulty",
+  "id": "DATA.CONST.DIFF.002",
+  "name": "easy 三元组（敌血/数量/波纹时间）",
+  "value": "1 / 0.75 / 1.5",
+  "unit": "倍率 / 倍率 / 倍率",
+  "src": "Mindustry-Source/core/src/mindustry/game/Difficulty.java:7",
+  "rt": "js runtime: [1,0.75,1.5]",
+  "verified": "runtime",
+  "ver": [
+   "v159.3",
+   "v160.7"
+  ],
+  "conf": "S"
+ },
+ {
+  "table": "Difficulty",
+  "id": "DATA.CONST.DIFF.003",
+  "name": "normal 三元组（敌血/数量/波纹时间）",
+  "value": "1 / 1 / 1",
+  "unit": "倍率 / 倍率 / 倍率",
+  "src": "Mindustry-Source/core/src/mindustry/game/Difficulty.java:8",
+  "rt": "js runtime: [1,1,1]",
+  "verified": "runtime",
+  "ver": [
+   "v159.3",
+   "v160.7"
+  ],
+  "conf": "S"
+ },
+ {
+  "table": "Difficulty",
+  "id": "DATA.CONST.DIFF.004",
+  "name": "hard 三元组（敌血/数量/波纹时间）",
+  "value": "1.25 / 1.5 / 0.8",
+  "unit": "倍率 / 倍率 / 倍率",
+  "src": "Mindustry-Source/core/src/mindustry/game/Difficulty.java:9",
+  "rt": "js runtime: [1.25,1.5,0.800000011920929]",
+  "verified": "runtime",
+  "ver": [
+   "v159.3",
+   "v160.7"
+  ],
+  "conf": "S"
+ },
+ {
+  "table": "Difficulty",
+  "id": "DATA.CONST.DIFF.005",
+  "name": "eradication 三元组（敌血/数量/波纹时间）",
+  "value": "1.5 / 2 / 0.6",
+  "unit": "倍率 / 倍率 / 倍率",
+  "src": "Mindustry-Source/core/src/mindustry/game/Difficulty.java:10",
+  "rt": "js runtime: [1.5,2,0.6000000238418579]",
+  "verified": "runtime",
+  "ver": [
+   "v159.3",
+   "v160.7"
+  ],
+  "conf": "S"
+ },
+ {
+  "table": "Drill",
+  "id": "DATA.CONST.DRILL.001",
+  "name": "drillTime",
+  "value": 300,
+  "unit": "tick",
+  "src": "Mindustry-Source/core/src/mindustry/world/blocks/production/Drill.java:36",
+  "rt": "jar v160.7 字段默认 300",
+  "verified": "jar",
+  "ver": [
+   "v159.3",
+   "v160.7"
+  ],
+  "conf": "S"
+ },
+ {
+  "table": "Drill",
+  "id": "DATA.CONST.DRILL.002",
+  "name": "hardnessDrillMultiplier",
+  "value": 50,
+  "unit": "tick/硬度等级",
+  "src": "Mindustry-Source/core/src/mindustry/.../Drill.java:28",
+  "rt": "jar 50",
+  "verified": "jar",
+  "ver": [
+   "v159.3",
+   "v160.7"
+  ],
+  "conf": "S"
+ },
+ {
+  "table": "Drill",
+  "id": "DATA.CONST.DRILL.003",
+  "name": "liquidBoostIntensity",
+  "value": 1.6,
+  "unit": "倍（满液体）",
+  "src": "Mindustry-Source/core/src/mindustry/.../Drill.java:38",
+  "rt": "jar 1.6",
+  "verified": "jar",
+  "ver": [
+   "v159.3",
+   "v160.7"
+  ],
+  "conf": "S"
+ },
+ {
+  "table": "Drill",
+  "id": "DATA.CONST.DRILL.004",
+  "name": "warmupSpeed",
+  "value": 0.015,
+  "unit": "每 tick（approachDelta）",
+  "src": "Mindustry-Source/core/src/mindustry/.../Drill.java:40",
+  "rt": "jar 0.015",
+  "verified": "jar",
+  "ver": [
+   "v159.3",
+   "v160.7"
+  ],
+  "conf": "S"
+ },
+ {
+  "table": "Drill",
+  "id": "DATA.CONST.DRILL.005",
+  "name": "getDrillTime 公式",
+  "value": "(drillTime + 50×hardness)/drillMultipliers.get(item,1)",
+  "unit": "tick",
+  "src": "Mindustry-Source/core/src/mindustry/.../Drill.java:171",
+  "rt": null,
+  "verified": "source-only",
+  "ver": [
+   "v159.3",
+   "v160.7"
+  ],
+  "conf": "S"
+ },
+ {
+  "table": "Drill",
+  "id": "DATA.CONST.DRILL.006",
+  "name": "Stat 显示速率",
+  "value": "60/drillTime × size²",
+  "unit": "items/s",
+  "src": "Mindustry-Source/core/src/mindustry/.../Drill.java:181",
+  "rt": null,
+  "verified": "source-only",
+  "ver": [
+   "v159.3",
+   "v160.7"
+  ],
+  "conf": "S"
+ },
+ {
+  "table": "Heat",
+  "id": "DATA.CONST.HEAT.001",
+  "name": "HeatProducer.heatOutput",
+  "value": 10,
+  "unit": "heat/tick（满热）",
+  "src": "Mindustry-Source/core/src/mindustry/world/blocks/heat/HeatProducer.java:14",
+  "rt": "jar 10",
+  "verified": "jar",
+  "ver": [
+   "v159.3",
+   "v160.7"
+  ],
+  "conf": "S"
+ },
+ {
+  "table": "Heat",
+  "id": "DATA.CONST.HEAT.002",
+  "name": "HeatProducer.warmupRate",
+  "value": 0.15,
+  "unit": "每 tick",
+  "src": "Mindustry-Source/core/src/mindustry/.../HeatProducer.java:15",
+  "rt": "jar 0.15",
+  "verified": "jar",
+  "ver": [
+   "v159.3",
+   "v160.7"
+  ],
+  "conf": "S"
+ },
+ {
+  "table": "Heat",
+  "id": "DATA.CONST.HEAT.003",
+  "name": "HeatConductor.visualMaxHeat",
+  "value": 15,
+  "unit": "heat（100% 显示）",
+  "src": "Mindustry-Source/core/src/mindustry/world/blocks/heat/HeatConductor.java:17",
+  "rt": "jar 15",
+  "verified": "jar",
+  "ver": [
+   "v159.3",
+   "v160.7"
+  ],
+  "conf": "S"
+ },
+ {
+  "table": "Heat",
+  "id": "DATA.CONST.HEAT.004",
+  "name": "HeatConductor.size",
+  "value": 3,
+  "unit": "格",
+  "src": "Mindustry-Source/core/src/mindustry/.../HeatConductor.java:25",
+  "rt": null,
+  "verified": "source-only",
+  "ver": [
+   "v159.3",
+   "v160.7"
+  ],
+  "conf": "S"
+ },
+ {
+  "table": "Heat",
+  "id": "DATA.CONST.HEAT.005",
+  "name": "splitHeat 分热系数",
+  "value": "add /= 3",
+  "unit": "倍",
+  "src": "Mindustry-Source/core/src/mindustry/entities/comp/BuildingComp.java:439-442",
+  "rt": null,
+  "verified": "source-only",
+  "ver": [
+   "v159.3",
+   "v160.7"
+  ],
+  "conf": "S"
+ },
+ {
+  "table": "Heat",
+  "id": "DATA.CONST.HEAT.006",
+  "name": "contactPoints 公式",
+  "value": "min((int)(size/2 + nsize/2 − diff), min(nsize, size))",
+  "unit": "点",
+  "src": "Mindustry-Source/core/src/mindustry/entities/comp/BuildingComp.java:433-435",
+  "rt": null,
+  "verified": "source-only",
+  "ver": [
+   "v159.3",
+   "v160.7"
+  ],
+  "conf": "S"
+ },
+ {
+  "table": "Conveyor",
+  "id": "DATA.CONST.CONV.001",
+  "name": "Conveyor.itemSpace",
+  "value": 0.4,
+  "unit": "格/件",
+  "src": "Mindustry-Source/core/src/mindustry/world/blocks/distribution/Conveyor.java:27",
+  "rt": null,
+  "verified": "source-only",
+  "ver": [
+   "v159.3",
+   "v160.7"
+  ],
+  "conf": "S"
+ },
+ {
+  "table": "Conveyor",
+  "id": "DATA.CONST.CONV.002",
+  "name": "Conveyor.capacity",
+  "value": 3,
+  "unit": "件",
+  "src": "Mindustry-Source/core/src/mindustry/.../Conveyor.java:28",
+  "rt": null,
+  "verified": "source-only",
+  "ver": [
+   "v159.3",
+   "v160.7"
+  ],
+  "conf": "S"
+ },
+ {
+  "table": "Conveyor",
+  "id": "DATA.CONST.CONV.003",
+  "name": "Conveyor.speed 基座默认",
+  "value": 0,
+  "unit": "格/tick（实块值在 Blocks.<clinit>）",
+  "src": "Mindustry-Source/core/src/mindustry/.../Conveyor.java:32",
+  "rt": "jar 0",
+  "verified": "jar",
+  "ver": [
+   "v159.3",
+   "v160.7"
+  ],
+  "conf": "S"
+ },
+ {
+  "table": "Conveyor",
+  "id": "DATA.CONST.CONV.004",
+  "name": "conveyor 实块 speed / displayedSpeed",
+  "value": "0.035 / 5（v160.7 jar）｜0.046 / 6.5（v159.3 源码，旧值）",
+  "unit": "格/tick / items/s",
+  "src": "jar:v160.7#mindustry.content.Blocks$202（speed/displayedSpeed）；Mindustry-Source/core/src/mindustry/content/Blocks.java（v159.3 旧值 0.046）",
+  "rt": "blocks.json#conveyor: speed=0.035、displayedSpeed=5（jar:v160.7#mindustry.content.Blocks$202）；src_anchors.json 的 0.046 是 v159.3 源码值",
+  "verified": "jar+source",
+  "ver": [
+   "v160.7",
+   "v159.3"
+  ],
+  "conf": "S"
+ },
+ {
+  "table": "Conveyor",
+  "id": "DATA.CONST.CONV.005",
+  "name": "titanium conveyor speed / displayedSpeed",
+  "value": "0.0801 / 10",
+  "unit": "格/tick / items/s",
+  "src": "Mindustry-Source/core/src/mindustry/content/Blocks.java",
+  "rt": "src_anchors.json: 0.0801 / 10",
+  "verified": "source-only",
+  "ver": [
+   "v159.3",
+   "v160.7"
+  ],
+  "conf": "S"
+ },
+ {
+  "table": "Conveyor",
+  "id": "DATA.CONST.CONV.006",
+  "name": "armored conveyor speed / displayedSpeed",
+  "value": "0.08 / 11",
+  "unit": "格/tick / items/s",
+  "src": "Mindustry-Source/core/src/mindustry/content/Blocks.java",
+  "rt": "src_anchors.json: 0.08 / 11",
+  "verified": "source-only",
+  "ver": [
+   "v159.3",
+   "v160.7"
+  ],
+  "conf": "S"
+ },
+ {
+  "table": "SpawnGroup",
+  "id": "DATA.CONST.SPAWN.001",
+  "name": "SpawnGroup.max",
+  "value": 40,
+  "unit": "个/波",
+  "src": "Mindustry-Source/core/src/mindustry/game/SpawnGroup.java:34",
+  "rt": "jar 40",
+  "verified": "jar",
+  "ver": [
+   "v159.3",
+   "v160.7"
+  ],
+  "conf": "S"
+ },
+ {
+  "table": "SpawnGroup",
+  "id": "DATA.CONST.SPAWN.002",
+  "name": "SpawnGroup.unitAmount",
+  "value": 1,
+  "unit": "个",
+  "src": "Mindustry-Source/core/src/mindustry/game/SpawnGroup.java:42",
+  "rt": "jar 1",
+  "verified": "jar",
+  "ver": [
+   "v159.3",
+   "v160.7"
+  ],
+  "conf": "S"
+ },
+ {
+  "table": "SpawnGroup",
+  "id": "DATA.CONST.SPAWN.003",
+  "name": "SpawnGroup.spacing",
+  "value": 1,
+  "unit": "波",
+  "src": "Mindustry-Source/core/src/mindustry/game/SpawnGroup.java:32",
+  "rt": null,
+  "verified": "source-only",
+  "ver": [
+   "v159.3",
+   "v160.7"
+  ],
+  "conf": "S"
+ },
+ {
+  "table": "SpawnGroup",
+  "id": "DATA.CONST.SPAWN.004",
+  "name": "SpawnGroup.shields / shieldScaling 默认",
+  "value": 0,
+  "unit": "护盾",
+  "src": "Mindustry-Source/core/src/mindustry/game/SpawnGroup.java:38-40",
+  "rt": null,
+  "verified": "source-only",
+  "ver": [
+   "v159.3",
+   "v160.7"
+  ],
+  "conf": "S"
+ },
+ {
+  "table": "LogicBlock",
+  "id": "DATA.CONST.LOGIC.001",
+  "name": "LogicBlock.instructionsPerTick",
+  "value": 1,
+  "unit": "指令/tick（=60/s）",
+  "src": "Mindustry-Source/core/src/mindustry/world/blocks/logic/LogicBlock.java:45",
+  "rt": "jar 1",
+  "verified": "jar",
+  "ver": [
+   "v159.3",
+   "v160.7"
+  ],
+  "conf": "S"
+ },
+ {
+  "table": "LogicBlock",
+  "id": "DATA.CONST.LOGIC.002",
+  "name": "LogicBlock.maxInstructionScale",
+  "value": 5,
+  "unit": "倍（积压上限）",
+  "src": "Mindustry-Source/core/src/mindustry/.../LogicBlock.java:49",
+  "rt": "jar 5",
+  "verified": "jar",
+  "ver": [
+   "v159.3",
+   "v160.7"
+  ],
+  "conf": "S"
+ },
+ {
+  "table": "LogicBlock",
+  "id": "DATA.CONST.LOGIC.003",
+  "name": "LogicBlock.maxInstructionsPerTick",
+  "value": 40,
+  "unit": "指令/tick（=2400/s）",
+  "src": "Mindustry-Source/core/src/mindustry/.../LogicBlock.java:47",
+  "rt": "jar 40",
+  "verified": "jar",
+  "ver": [
+   "v159.3",
+   "v160.7"
+  ],
+  "conf": "S"
+ },
+ {
+  "table": "LogicBlock",
+  "id": "DATA.CONST.LOGIC.004",
+  "name": "LogicBlock.range",
+  "value": 80,
+  "unit": "格（世界处理器）",
+  "src": "Mindustry-Source/core/src/mindustry/.../LogicBlock.java",
+  "rt": "jar 80",
+  "verified": "jar",
+  "ver": [
+   "v159.3",
+   "v160.7"
+  ],
+  "conf": "S"
+ },
+ {
+  "table": "StatusEffect",
+  "id": "DATA.CONST.STATUS.001",
+  "name": "StatusEffect.damageMultiplier 默认",
+  "value": 1,
+  "unit": "倍率",
+  "src": "Mindustry-Source/core/src/mindustry/type/StatusEffect.java",
+  "rt": "jar 1",
+  "verified": "jar",
+  "ver": [
+   "v159.3",
+   "v160.7"
+  ],
+  "conf": "S"
+ },
+ {
+  "table": "StatusEffect",
+  "id": "DATA.CONST.STATUS.002",
+  "name": "StatusEffect.healthMultiplier 默认",
+  "value": 1,
+  "unit": "倍率",
+  "src": "Mindustry-Source/core/src/mindustry/type/StatusEffect.java",
+  "rt": "jar 1",
+  "verified": "jar",
+  "ver": [
+   "v159.3",
+   "v160.7"
+  ],
+  "conf": "S"
+ },
+ {
+  "table": "StatusEffect",
+  "id": "DATA.CONST.STATUS.003",
+  "name": "StatusEffect.armorOverride 默认",
+  "value": -1,
+  "unit": "（-1=不覆盖）",
+  "src": "Mindustry-Source/core/src/mindustry/type/StatusEffect.java",
+  "rt": null,
+  "verified": "source-only",
+  "ver": [
+   "v159.3",
+   "v160.7"
+  ],
+  "conf": "S"
+ },
+ {
+  "table": "StatusEffect",
+  "id": "DATA.CONST.STATUS.004",
+  "name": "burning / freezing / wet 的 transitionDamage",
+  "value": "8 / 18 / 14",
+  "unit": "damage",
+  "src": "Mindustry-Source/core/src/mindustry/content/StatusEffects.java",
+  "rt": null,
+  "verified": "source-only",
+  "ver": [
+   "v159.3",
+   "v160.7"
+  ],
+  "conf": "S"
+ },
+ {
+  "table": "Bullet",
+  "id": "DATA.CONST.BULLET.001",
+  "name": "BulletType.splashDamage 默认",
+  "value": 0,
+  "unit": "damage",
+  "src": "Mindustry-Source/core/src/mindustry/entities/bullet/BulletType.java",
+  "rt": "jar 0",
+  "verified": "jar",
+  "ver": [
+   "v159.3",
+   "v160.7"
+  ],
+  "conf": "S"
+ },
+ {
+  "table": "Bullet",
+  "id": "DATA.CONST.BULLET.002",
+  "name": "BulletType.buildingDamageMultiplier 默认",
+  "value": 1,
+  "unit": "倍率",
+  "src": "Mindustry-Source/core/src/mindustry/.../BulletType.java",
+  "rt": "jar 1",
+  "verified": "jar",
+  "ver": [
+   "v159.3",
+   "v160.7"
+  ],
+  "conf": "S"
+ },
+ {
+  "table": "Bullet",
+  "id": "DATA.CONST.BULLET.003",
+  "name": "damage 溅射 falloff",
+  "value": 0.4,
+  "unit": "倍率",
+  "src": "Mindustry-Source/core/src/mindustry/entities/Damage.java:653",
+  "rt": null,
+  "verified": "source-only",
+  "ver": [
+   "v159.3",
+   "v160.7"
+  ],
+  "conf": "S"
+ },
+ {
+  "table": "Bullet",
+  "id": "DATA.CONST.BULLET.004",
+  "name": "建筑溅射 edgeScale",
+  "value": 0.6,
+  "unit": "倍率",
+  "src": "Mindustry-Source/core/src/mindustry/entities/Damage.java:600",
+  "rt": null,
+  "verified": "source-only",
+  "ver": [
+   "v159.3",
+   "v160.7"
+  ],
+  "conf": "S"
+ },
+ {
+  "table": "BlockVars",
+  "id": "DATA.CONST.BLOCK.001",
+  "name": "Block.scaledHealth 默认",
+  "value": -1,
+  "unit": "（-1=自动 40×需求加成）",
+  "src": "Mindustry-Source/core/src/mindustry/world/Block.java:188",
+  "rt": "jar -1",
+  "verified": "jar",
+  "ver": [
+   "v159.3",
+   "v160.7"
+  ],
+  "conf": "S"
+ },
+ {
+  "table": "BlockVars",
+  "id": "DATA.CONST.BLOCK.002",
+  "name": "默认每格血量基数",
+  "value": 40,
+  "unit": "血/格²",
+  "src": "Mindustry-Source/core/src/mindustry/world/Block.java:1381",
+  "rt": null,
+  "verified": "source-only",
+  "ver": [
+   "v159.3",
+   "v160.7"
+  ],
+  "conf": "S"
+ },
+ {
+  "table": "BlockVars",
+  "id": "DATA.CONST.VARS.001",
+  "name": "Vars.tilesize",
+  "value": 8,
+  "unit": "世界单位/格",
+  "src": "Mindustry-Source/core/src/mindustry/Vars.java",
+  "rt": "js runtime: 8",
+  "verified": "runtime",
+  "ver": [
+   "v159.3",
+   "v160.7"
+  ],
+  "conf": "S"
+ },
+ {
+  "table": "BlockVars",
+  "id": "DATA.CONST.VARS.002",
+  "name": "Vars.minArmorDamage",
+  "value": 0.1,
+  "unit": "倍率（保底伤害比）",
+  "src": "Mindustry-Source/core/src/mindustry/Vars.java:133",
+  "rt": "js runtime: 0.1",
+  "verified": "runtime",
+  "ver": [
+   "v159.3",
+   "v160.7"
+  ],
+  "conf": "S"
+ }
+]
