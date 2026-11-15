@@ -1,6 +1,6 @@
 {
  "version": "1",
- "generated": "2026-11-08T07:34:01+08:00",
+ "generated": "2026-11-14T14:17:29+08:00",
  "root": "knowledge",
  "read_order": [
   "index.json",
@@ -165,7 +165,7 @@
      "id": "WORLD.DRILLING.001",
      "path": "knowledge/02-world/W07-drills-resources.md",
      "title": "钻探与资源：钻头等级、硬度惩罚与矿层覆盖",
-     "tokens": 1847,
+     "tokens": 2010,
      "tokens_est": false,
      "conf": "E",
      "ver": [
@@ -174,7 +174,7 @@
      ],
      "status": "active",
      "domain": "world",
-     "lines": 244
+     "lines": 250
     },
     {
      "id": "WORLD.HEAT.001",
@@ -487,8 +487,8 @@
     {
      "id": "COMBAT.TURRET.002",
      "path": "knowledge/03-combat/C11-turret-verdict.md",
-     "title": "原版炮塔评价——该造哪门、值不值",
-     "tokens": 944,
+     "title": "原版炮塔评价总览与选型决策表（28 台逐台索引）",
+     "tokens": 821,
      "tokens_est": false,
      "conf": "I",
      "ver": [
@@ -497,7 +497,427 @@
      ],
      "status": "active",
      "domain": "combat",
-     "lines": 109
+     "lines": 110
+    },
+    {
+     "id": "COMBAT.TURRET.101",
+     "path": "knowledge/03-combat/turrets/T101-duo.md",
+     "title": "duo —— 35 件买到的连发基线",
+     "tokens": 661,
+     "tokens_est": false,
+     "conf": "I",
+     "ver": [
+      "v160.7_rt",
+      "v159.3_src"
+     ],
+     "status": "active",
+     "domain": "combat",
+     "lines": 93
+    },
+    {
+     "id": "COMBAT.TURRET.102",
+     "path": "knowledge/03-combat/turrets/T102-scatter.md",
+     "title": "scatter —— 222 面板 DPS 的空中清道夫",
+     "tokens": 635,
+     "tokens_est": false,
+     "conf": "I",
+     "ver": [
+      "v160.7_rt",
+      "v159.3_src"
+     ],
+     "status": "active",
+     "domain": "combat",
+     "lines": 95
+    },
+    {
+     "id": "COMBAT.TURRET.103",
+     "path": "knowledge/03-combat/turrets/T103-scorch.md",
+     "title": "scorch —— 60 世界单位的贴脸火盆",
+     "tokens": 558,
+     "tokens_est": false,
+     "conf": "I",
+     "ver": [
+      "v160.7_rt",
+      "v159.3_src"
+     ],
+     "status": "active",
+     "domain": "combat",
+     "lines": 90
+    },
+    {
+     "id": "COMBAT.TURRET.104",
+     "path": "knowledge/03-combat/turrets/T104-hail.md",
+     "title": "hail —— 235 世界单位的单发炮击",
+     "tokens": 520,
+     "tokens_est": false,
+     "conf": "I",
+     "ver": [
+      "v160.7_rt",
+      "v159.3_src"
+     ],
+     "status": "active",
+     "domain": "combat",
+     "lines": 90
+    },
+    {
+     "id": "COMBAT.TURRET.105",
+     "path": "knowledge/03-combat/turrets/T105-wave.md",
+     "title": "wave —— 20 发弹幕的灭火器",
+     "tokens": 623,
+     "tokens_est": false,
+     "conf": "I",
+     "ver": [
+      "v160.7_rt",
+      "v159.3_src"
+     ],
+     "status": "active",
+     "domain": "combat",
+     "lines": 95
+    },
+    {
+     "id": "COMBAT.TURRET.106",
+     "path": "knowledge/03-combat/turrets/T106-lancer.md",
+     "title": "lancer —— 140 直伤的重甲开罐器",
+     "tokens": 580,
+     "tokens_est": false,
+     "conf": "I",
+     "ver": [
+      "v160.7_rt",
+      "v159.3_src"
+     ],
+     "status": "active",
+     "domain": "combat",
+     "lines": 95
+    },
+    {
+     "id": "COMBAT.TURRET.107",
+     "path": "knowledge/03-combat/turrets/T107-arc.md",
+     "title": "arc —— 链式电弧的 34 点秒伤",
+     "tokens": 539,
+     "tokens_est": false,
+     "conf": "I",
+     "ver": [
+      "v160.7_rt",
+      "v159.3_src"
+     ],
+     "status": "active",
+     "domain": "combat",
+     "lines": 93
+    },
+    {
+     "id": "COMBAT.TURRET.108",
+     "path": "knowledge/03-combat/turrets/T108-parallax.md",
+     "title": "parallax —— 16 牵引力的空中推手",
+     "tokens": 573,
+     "tokens_est": false,
+     "conf": "I",
+     "ver": [
+      "v160.7_rt",
+      "v159.3_src"
+     ],
+     "status": "active",
+     "domain": "combat",
+     "lines": 93
+    },
+    {
+     "id": "COMBAT.TURRET.109",
+     "path": "knowledge/03-combat/turrets/T109-swarmer.md",
+     "title": "swarmer —— 4 发齐射的导弹雨",
+     "tokens": 563,
+     "tokens_est": false,
+     "conf": "I",
+     "ver": [
+      "v160.7_rt",
+      "v159.3_src"
+     ],
+     "status": "active",
+     "domain": "combat",
+     "lines": 95
+    },
+    {
+     "id": "COMBAT.TURRET.110",
+     "path": "knowledge/03-combat/turrets/T110-salvo.md",
+     "title": "salvo —— 4 连发 320 点秒伤的主力",
+     "tokens": 554,
+     "tokens_est": false,
+     "conf": "I",
+     "ver": [
+      "v160.7_rt",
+      "v159.3_src"
+     ],
+     "status": "active",
+     "domain": "combat",
+     "lines": 94
+    },
+    {
+     "id": "COMBAT.TURRET.111",
+     "path": "knowledge/03-combat/turrets/T111-segment.md",
+     "title": "segment —— 225 点每秒的弹体清道夫",
+     "tokens": 622,
+     "tokens_est": false,
+     "conf": "I",
+     "ver": [
+      "v160.7_rt",
+      "v159.3_src"
+     ],
+     "status": "active",
+     "domain": "combat",
+     "lines": 94
+    },
+    {
+     "id": "COMBAT.TURRET.112",
+     "path": "knowledge/03-combat/turrets/T112-tsunami.md",
+     "title": "tsunami —— 双管液体泼洒器",
+     "tokens": 621,
+     "tokens_est": false,
+     "conf": "I",
+     "ver": [
+      "v160.7_rt",
+      "v159.3_src"
+     ],
+     "status": "active",
+     "domain": "combat",
+     "lines": 98
+    },
+    {
+     "id": "COMBAT.TURRET.113",
+     "path": "knowledge/03-combat/turrets/T113-fuse.md",
+     "title": "fuse —— 540 点秒伤的贴脸霰弹",
+     "tokens": 528,
+     "tokens_est": false,
+     "conf": "I",
+     "ver": [
+      "v160.7_rt",
+      "v159.3_src"
+     ],
+     "status": "active",
+     "domain": "combat",
+     "lines": 92
+    },
+    {
+     "id": "COMBAT.TURRET.114",
+     "path": "knowledge/03-combat/turrets/T114-ripple.md",
+     "title": "ripple —— 290 世界单位外的四连炮击",
+     "tokens": 532,
+     "tokens_est": false,
+     "conf": "I",
+     "ver": [
+      "v160.7_rt",
+      "v159.3_src"
+     ],
+     "status": "active",
+     "domain": "combat",
+     "lines": 93
+    },
+    {
+     "id": "COMBAT.TURRET.115",
+     "path": "knowledge/03-combat/turrets/T115-cyclone.md",
+     "title": "cyclone —— 415 面板 DPS 的防空核心",
+     "tokens": 535,
+     "tokens_est": false,
+     "conf": "I",
+     "ver": [
+      "v160.7_rt",
+      "v159.3_src"
+     ],
+     "status": "active",
+     "domain": "combat",
+     "lines": 94
+    },
+    {
+     "id": "COMBAT.TURRET.116",
+     "path": "knowledge/03-combat/turrets/T116-foreshadow.md",
+     "title": "foreshadow —— 500 世界单位外的 405 点重锤",
+     "tokens": 527,
+     "tokens_est": false,
+     "conf": "I",
+     "ver": [
+      "v160.7_rt",
+      "v159.3_src"
+     ],
+     "status": "active",
+     "domain": "combat",
+     "lines": 88
+    },
+    {
+     "id": "COMBAT.TURRET.117",
+     "path": "knowledge/03-combat/turrets/T117-spectre.md",
+     "title": "spectre —— 685 点秒伤的终局主炮",
+     "tokens": 540,
+     "tokens_est": false,
+     "conf": "I",
+     "ver": [
+      "v160.7_rt",
+      "v159.3_src"
+     ],
+     "status": "active",
+     "domain": "combat",
+     "lines": 93
+    },
+    {
+     "id": "COMBAT.TURRET.118",
+     "path": "knowledge/03-combat/turrets/T118-meltdown.md",
+     "title": "meltdown —— 936 点秒伤的熔断激光",
+     "tokens": 598,
+     "tokens_est": false,
+     "conf": "I",
+     "ver": [
+      "v160.7_rt",
+      "v159.3_src"
+     ],
+     "status": "active",
+     "domain": "combat",
+     "lines": 94
+    },
+    {
+     "id": "COMBAT.TURRET.201",
+     "path": "knowledge/03-combat/turrets/T201-breach.md",
+     "title": "breach —— 325 单发、全场最密的开局炮",
+     "tokens": 610,
+     "tokens_est": false,
+     "conf": "I",
+     "ver": [
+      "v160.7_rt",
+      "v159.3_src"
+     ],
+     "status": "active",
+     "domain": "combat",
+     "lines": 91
+    },
+    {
+     "id": "COMBAT.TURRET.202",
+     "path": "knowledge/03-combat/turrets/T202-diffuse.md",
+     "title": "diffuse —— 15 发散射、料耗全库第一的贴脸武器",
+     "tokens": 587,
+     "tokens_est": false,
+     "conf": "I",
+     "ver": [
+      "v160.7_rt",
+      "v159.3_src"
+     ],
+     "status": "active",
+     "domain": "combat",
+     "lines": 91
+    },
+    {
+     "id": "COMBAT.TURRET.203",
+     "path": "knowledge/03-combat/turrets/T203-sublimate.md",
+     "title": "sublimate —— 每结算 130 的液体喷灯",
+     "tokens": 670,
+     "tokens_est": false,
+     "conf": "I",
+     "ver": [
+      "v160.7_rt",
+      "v159.3_src"
+     ],
+     "status": "active",
+     "domain": "combat",
+     "lines": 93
+    },
+    {
+     "id": "COMBAT.TURRET.204",
+     "path": "knowledge/03-combat/turrets/T204-titan.md",
+     "title": "titan —— 390 世界单位、几乎不吃护甲的攻城炮",
+     "tokens": 566,
+     "tokens_est": false,
+     "conf": "I",
+     "ver": [
+      "v160.7_rt",
+      "v159.3_src"
+     ],
+     "status": "active",
+     "domain": "combat",
+     "lines": 90
+    },
+    {
+     "id": "COMBAT.TURRET.205",
+     "path": "knowledge/03-combat/turrets/T205-disperse.md",
+     "title": "disperse —— 只打空、310 世界单位的高射炮",
+     "tokens": 549,
+     "tokens_est": false,
+     "conf": "I",
+     "ver": [
+      "v160.7_rt",
+      "v159.3_src"
+     ],
+     "status": "active",
+     "domain": "combat",
+     "lines": 96
+    },
+    {
+     "id": "COMBAT.TURRET.206",
+     "path": "knowledge/03-combat/turrets/T206-afflict.md",
+     "title": "afflict —— 368 世界单位、216 DPS 的穿甲电炮",
+     "tokens": 580,
+     "tokens_est": false,
+     "conf": "I",
+     "ver": [
+      "v160.7_rt",
+      "v159.3_src"
+     ],
+     "status": "active",
+     "domain": "combat",
+     "lines": 94
+    },
+    {
+     "id": "COMBAT.TURRET.207",
+     "path": "knowledge/03-combat/turrets/T207-lustre.md",
+     "title": "lustre —— 360° 射界、专挑最硬目标的激光",
+     "tokens": 663,
+     "tokens_est": false,
+     "conf": "I",
+     "ver": [
+      "v160.7_rt",
+      "v159.3_src"
+     ],
+     "status": "active",
+     "domain": "combat",
+     "lines": 94
+    },
+    {
+     "id": "COMBAT.TURRET.208",
+     "path": "knowledge/03-combat/turrets/T208-scathe.md",
+     "title": "scathe —— 1350 世界单位、十秒一发的导弹架",
+     "tokens": 572,
+     "tokens_est": false,
+     "conf": "I",
+     "ver": [
+      "v160.7_rt",
+      "v159.3_src"
+     ],
+     "status": "active",
+     "domain": "combat",
+     "lines": 93
+    },
+    {
+     "id": "COMBAT.TURRET.209",
+     "path": "knowledge/03-combat/turrets/T209-smite.md",
+     "title": "smite —— 五管重击、对 22 甲保留最高的后期主炮",
+     "tokens": 502,
+     "tokens_est": false,
+     "conf": "I",
+     "ver": [
+      "v160.7_rt",
+      "v159.3_src"
+     ],
+     "status": "active",
+     "domain": "combat",
+     "lines": 90
+    },
+    {
+     "id": "COMBAT.TURRET.210",
+     "path": "knowledge/03-combat/turrets/T210-malign.md",
+     "title": "malign —— 2400 电、每秒十七发的随机落点弹幕",
+     "tokens": 600,
+     "tokens_est": false,
+     "conf": "I",
+     "ver": [
+      "v160.7_rt",
+      "v159.3_src"
+     ],
+     "status": "active",
+     "domain": "combat",
+     "lines": 95
     },
     {
      "id": "COMBAT.UNITWEAPON.001",
@@ -892,6 +1312,21 @@
      "lines": 80
     },
     {
+     "id": "PATTERN.COUNTER.001",
+     "path": "knowledge/07-patterns/P08-counter-architectures.md",
+     "title": "@counter 高级架构与 name 打表：派发、收缩、建筑变量表",
+     "tokens": 1609,
+     "tokens_est": false,
+     "conf": "S",
+     "ver": [
+      "v159.3_src",
+      "v160.7_rt"
+     ],
+     "status": "active",
+     "domain": "pattern",
+     "lines": 210
+    },
+    {
      "id": "PATTERN.DATA.001",
      "path": "knowledge/07-patterns/P04-data-structures.md",
      "title": "数据结构：数组、队列、环形缓冲与画布的内存布局",
@@ -905,6 +1340,21 @@
      "status": "active",
      "domain": "pattern",
      "lines": 79
+    },
+    {
+     "id": "PATTERN.MULTI.001",
+     "path": "knowledge/07-patterns/P07-unit-multicontrol.md",
+     "title": "单位多控：@counter 派发、@controller 判活与搬运闭环",
+     "tokens": 1400,
+     "tokens_est": false,
+     "conf": "S",
+     "ver": [
+      "v159.3_src",
+      "v160.7_rt"
+     ],
+     "status": "active",
+     "domain": "pattern",
+     "lines": 165
     },
     {
      "id": "PATTERN.PERF.001",
@@ -1462,6 +1912,25 @@
     "speedMultiplier",
     "src",
     "transitionDamage",
+    "ver"
+   ]
+  },
+  {
+   "path": "knowledge/00-data/turret_shots.json",
+   "kind": "canonical",
+   "records": 28,
+   "bytes": 10494,
+   "keys": [
+    "barrels",
+    "class",
+    "evidence",
+    "firstShotDelay",
+    "id",
+    "name",
+    "pattern",
+    "shotDelay",
+    "shots",
+    "src",
     "ver"
    ]
   },
@@ -2453,8 +2922,8 @@
  "docs": [
   {
    "path": "knowledge/KB.md",
-   "bytes": 10287,
-   "tokens": 1372
+   "bytes": 10380,
+   "tokens": 1384
   },
   {
    "path": "knowledge/CONVENTIONS.md",
@@ -2473,19 +2942,19 @@
   }
  ],
  "counts": {
-  "articles": 63,
+  "articles": 93,
   "by_domain": {
    "01-execution": 6,
    "02-world": 16,
-   "03-combat": 11,
+   "03-combat": 39,
    "04-units": 6,
    "05-campaign": 6,
    "06-mlog": 8,
-   "07-patterns": 6,
+   "07-patterns": 8,
    "08-evidence": 4
   },
-  "data_tables": 11,
-  "data_records": 1011,
+  "data_tables": 12,
+  "data_records": 1039,
   "data_raw_tables": 7,
   "evidence_files": 142,
   "evidence_by_kind": {
@@ -2495,7 +2964,7 @@
    "probes": 84
   },
   "evidence_dirs": 2,
-  "tokens_total": 70930,
+  "tokens_total": 90199,
   "empty": false
  },
  "notes": [

@@ -64,7 +64,7 @@
 
 | 项 | 结果 | 复现命令 |
 |---|---|---|
-| 门禁 | **61 篇 / 0 error**（193 warning，全部提示级） | `check_kb.py --root knowledge --all` |
+| 门禁 | **63 篇 / 0 error**（193 warning，全部提示级） | `check_kb.py --root knowledge --all` |
 | 正式库 | **8,317 chunk / 146 files / 18 张数据表**（43.6MB，doc 1831 / code 6322 / data 163） | `dbstat.py out/_kb/kb.sqlite3` |
 | 发布后校验 | STRUCT / COUNT / RETRIEVAL **三项 PASS**（chunks 8317 = staging 8317、files 146，journal 已落盘） | `postpublish.py --db ... --staging ...` |
 | 300 题冻结评测 | coverage 100% / **hit@1 59.7% / hit@6 86.3%** / mrr 0.6932 / strong@6 94.2% / 库外槽 0%（v1.1 复跑，与 FINAL3 持平） | `08-evidence/bench/`（A+B+C 全开，k=6） |
@@ -85,6 +85,6 @@
 | 单位 | 6 | `04-units/`（U01-U06，含 U06 单位名对照） |
 | 战役 | 6 | `05-campaign/`（CAMP.*） |
 | mlog 语言 | 8 + 2 JSON | `06-mlog/`（M01-M08、instructions.json、enums.json） |
-| 蓝图模式 | 6 + JSON | `07-patterns/`（P01-P06、idioms.json） |
+| 蓝图模式 | 8 + JSON | `07-patterns/`（P01-P08、idioms.json） |
 | 证据/评测 | 2 + 300 题 + 探针 | `08-evidence/`（claims.jsonl、CHEAT.md、bench/、probes/） |
 | 数据表 | 11 张 canonical（+6 张 rt_list 抽查件） | `00-data/`（blocks/turrets/units/bullets/items/liquids/status/rules/formulas/constants/src_anchors） |

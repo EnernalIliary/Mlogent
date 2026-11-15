@@ -40,15 +40,6 @@ except Exception:                                   # pragma: no cover
 # instruction tables
 # --------------------------------------------------------------------------- #
 
-# statements that WRITE into their first operand (or a named output slot)
-# key -> parameter positions that are outputs (-1 = first operand)
-OUTPUT_SLOTS: dict[str, list[int]] = {
-    "sensor": [0], "getlink": [0], "op": [1], "set": [0], "select": [0],
-    "lookup": [1], "read": [0], "packcolor": [0], "unpackcolor": [0, 1, 2, 3],
-    "radar": [-1], "uradar": [-1], "ulocate": [-4, -3, -2, -1],
-    "sensor_": [0],
-}
-
 # statements with a side effect on the world / processor state
 SIDE_EFFECT = {
     "ubind", "ucontrol", "uradar", "ulocate", "control", "write", "read",

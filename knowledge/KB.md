@@ -2,7 +2,7 @@
 
 > 版本：v1.1 · 覆盖 Mindustry v160.7（数值）/ v159.3（源码语义）· 只收原版机制，不含模组与工具产品开发
 > 面向读者：**AI 与人类**。目标不是"能查到答案"，而是**能推导答案**。
-> 规模：**61 篇文章 / 11 张 canonical 数据表 / 85 条断言 / 20 条可执行探针 / 300 题评测**；检索库 8,317 chunk，实测 hit@1 **59.7%**、hit@6 **86.3%**（k=6，300 题冻结集）。
+> 规模：**63 篇文章 / 11 张 canonical 数据表 / 85 条断言 / 20 条可执行探针 / 300 题评测**；检索库 8,317 chunk，实测 hit@1 **59.7%**、hit@6 **86.3%**（k=6，300 题冻结集）。
 
 ## 0. 30 秒上手
 
@@ -24,7 +24,7 @@
 | `04-units/` | 单位类型/移动、生产、AI、能力、经验等级、单位名对照（U01-U06） | 单位行为与产能 |
 | `05-campaign/` | 波次、难度、胜负、敌基、版本差异、Rules 全字段（CAMP.*） | 战役与规则定制 |
 | `06-mlog/` | 指令表（73 条 instructions.json）+ 语言语义 8 篇（M01-M08） | 查指令参数、语义边界 |
-| `07-patterns/` | 架构、状态机、总线、数据结构、索敌、性能（P01-P06）+ idioms.json | 设计蓝图 |
+| `07-patterns/` | 架构、状态机、总线、数据结构、索敌、性能、单位多控、@counter 架构（P01-P08）+ idioms.json | 设计蓝图 |
 | `08-evidence/` | claims.jsonl（85 条可复测断言）、probes/（可执行探针）、idioms.json、anti-patterns.md、bench/（300 题 + 跨源推导题） | 验证与评测 |
 | `tools/` | extract_rt.py（jar 反射）、extract_src.py（源码）、check_kb.py、build_index.py、eval_kb.py、kb.py | 复现与维护 |
 
@@ -71,8 +71,8 @@
 | 4 | 读写与感知 | `06-mlog/M04` |
 | 5 | 绘制与文本 | `06-mlog/M05` |
 | 6 | 世界交互 | `06-mlog/M06`、`02-world/W11` |
-| 7 | 单位控制 | `06-mlog/M07`、`04-units/U03` |
-| 8 | 性能与预算 | `01-execution/E01`、`06-mlog/M08`、`07-patterns/P06` |
+| 7 | 单位控制 | `06-mlog/M07`、`04-units/U03`、`07-patterns/P07`、`07-patterns/P08` |
+| 8 | 性能与预算 | `01-execution/E01`、`06-mlog/M08`、`07-patterns/P06`、`07-patterns/P08` |
 | 9 | 方块/电力/热/物流 | `02-world/W01-W06` |
 | 10 | 战斗与伤害 | `03-combat/C01-C05` |
 | 11 | 单位与产能 | `04-units/U01-U05`、`03-combat/C06` |

@@ -43,6 +43,8 @@ MCP 侧冒烟：任意 `kb_search` 调用返回新文章路径（如 `knowledge/
 
 ## 3c. 一条命令跑完 3b（发布后校验）
 
+> 必须先执行第 0 步设置 `KB_ROOT/KB_KNOWLEDGE/KB_LIBS/KB_MODELS`；否则 bench20 会报 `no index yet: python tools/kb.py build`（实际只是缺模型/库路径，库本身没问题）。
+
 ```powershell
 & $py "$R\knowledge\tools\postpublish.py" --db "$R\out\_kb\kb.sqlite3" --knowledge "$R\knowledge" --staging "$W\_kb_build\kb.sqlite3" --min-a1 12 --out "$W\_report\postpublish.md"
 ```

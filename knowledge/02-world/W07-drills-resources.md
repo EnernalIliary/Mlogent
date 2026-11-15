@@ -23,7 +23,7 @@ data:
   - 00-data/blocks.json#id=plasma-bore
 depends: [WORLD.BLOCKS.001, WORLD.LOGISTICS.001, WORLD.LIQUIDS.001]
 tags: [drill, tier, hardness, ore, drillTime, laser-drill, 钻头, 矿层, 采掘]
-tokens: 1926
+tokens: 2010
 ---
 
 # 钻探与资源：钻头等级、硬度惩罚与矿层覆盖

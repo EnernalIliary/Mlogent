@@ -3,6 +3,8 @@
 日常只有两个入口：`mlog.py`（解析/检查/生成蓝图与逻辑）和 `mlogsim.py`（拿真执行器跑逻辑：默认官方 **v160.7** server jar `out/_server160.jar`；`MLOGSIM_JAR` 可切 `_server159.jar` / `_server146.jar`，见 `mlogsim.py:116-122`。注意数据表的 `source:` 仍写 v159.3 —— 那是数据表来源版本，不是模拟器版本）。
 其余文件是它们的数据、分析层和一次性维护脚本。
 
+环境：先跑 `python tools/mlog.py doctor`。静态分析（check/ir/values/pack/cross/report）**全部只用 Python 标准库**；只有 `kb.py` 的本地知识库检索要 `fastembed`（仓库根 `requirements.txt`）；模拟器要 Java 21 + server jar。全部可覆盖的环境变量见仓库根 `.env.example`。
+
 ## 常用命令
 
 | 想做什么 | 命令 |
@@ -11,6 +13,8 @@
 | 静态检查 | `python tools/mlog.py check x.mlog`（`--cost` 加成本/最坏指令数，`--rid` 每行尾部显示规则 id） |
 | 生成只含处理器的蓝图 | `python tools/mlog.py gen --name 名字 --code x.mlog` |
 | 模拟运行 | `python tools/mlogsim.py x.mlog --ticks 120 --trace t.csv` |
+| 调试着陆台（真 4×4 接收台，带水/卸货） | `python tools/mlogsim.py x.mlog --ticks 1200 --pads 9 --pad-drain 2 --units flare:1 --core-items copper:400` |
+| 超大场景（几千台）跑模拟 | `python tools/mlogsim.py 图.msch --ticks 110 --js-timeout 3600`（默认预算 180 s，几万台会把一条 js 命令跑到几分钟） |
 | 一次启动跑多个文件 | `python tools/mlogsim.py a.mlog b.mlog c.mlog --ticks 60` |
 | 预热模拟器（预处理时先起） | `python tools/mlogsim.py --daemon` → `python tools/mlogsim.py --remote x.mlog --ticks 60` |
 | 值域 / 跳转表 | `python tools/mlog.py ranges x.mlog --var n`；`python tools/mlog.py jumps x.mlog --var n` |
@@ -26,6 +30,23 @@
 | 自检工具链 | `python tools/mlog.py selftest`（`--jobs N` 分片）；`python tests/run_tests.py` |
 
 `mlog.py --help` 是子命令总表；`tools/mlogsim.py --help` 是模拟器参数（世界、单位、战斗 tick、trace/assert）。
+
+### 着陆台（`--pads N`）
+
+`--pads 9` 在处理器周围放 9 台真 `landing-pad`（4×4），按序接成 link 0..8（名字 `pad1..pad9`），每 tick 记一次落地，结束时打印
+`PAD <名字> <x> <y> cfg= <物品> arriving= <在途物品> cd= <冷却> items= <库存> water= <水> eff= <效率> landings= <落地次数>`
+（`--json` 里是 `rec["pads"]`）。默认每 tick 把水箱补满，`--no-pad-refill` 才能看到"两次落地后水空、eff=0"的真实供给约束；`--pad-drain N` 每 tick 从台里抽 N 件货（模拟输出物流，台子空仓才会再落）。
+
+两个不修就调不通的坑（都由 --pads 自动处理）：
+- **多格建筑是按中心对齐放置的**：`Tile.setBlock` 的偏移是 `-(size-1)/2`（Tile.java:255-288），4×4 台摆 origin 会覆盖处理器格 → 处理器 `isValid()` 变假 → 程序里所有 `read x @this <名字>` 恒 null（而 `sensor @this @type` 仍正常，很容易误判）。模拟器现在按居中矩形做避让。
+- **`LandingPad.config()` 在沙盒里被 `accessible()` 静默拒绝**（LandingPad.java:73-77、:160-163）：非战役非编辑器世界 `accessible()=false`，`control config` 不报错但 cfg 一直 null。`--pads` 会打开 `rules.allowEditWorldProcessors`（唯一不改变消耗语义的 accessible 分支）。
+
+## 大场景 / 长跑：`--js-timeout` 与分批装载
+
+- **一条 `js` 命令 = 一次墙钟预算**。场景模式把「摆方块 + 配置 + 整个 tick 循环 + 回收变量」全塞进一条命令，默认预算 180 s（`Server.js_timeout`，`Server.wait_for` 超时抛 `SimError("timeout waiting for ...")`）。台数一多必然超：d=64 的 3,758 台跑 120 tick 实测 **1,010 s**，不调预算就只会看到 `r*` 全 null。
+- 调法：CLI `--js-timeout SEC`（float，默认 180），库方式 `srv.js_timeout = 3600`。**只影响等待上限，不影响语义**；测试仍 50/50。
+- **第二条墙是单条命令的体积**。场景 JSON 里每条处理器都带全文代码，d=128（22,278 台 × ~850 行）拼成一条命令约 700 MB，GraalJS 会直接 `NullPointerException: ... FieldOrMethodRef.getType() because "m" is null`。解法是**分批装载**：先按批 `setBlock` 全部方块，再按批 `b.updateCode()` 并累积到全局 `procs`，最后单独发循环命令。参考实现 `out/_scratch/tfprobe3/_wpe_batch.py`（d=128 装载 50 s、2 tick 3 s）。
+- 回收变量时注意：`srv.js()` 返回的是**已去掉 `[none/base.js]:` 前缀**的行，直接喂 `parse_results`；拿 `srv.all` 会因时间戳前缀匹配不到。
 
 ## 模拟器 JS 控制台 API（`mlogsim.Server`）
 
