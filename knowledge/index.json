@@ -1,6 +1,6 @@
 {
  "version": "1",
- "generated": "2026-11-14T14:17:29+08:00",
+ "generated": "2026-11-15T19:00:27+08:00",
  "root": "knowledge",
  "read_order": [
   "index.json",
@@ -1157,7 +1157,7 @@
      "id": "MLOG.DRAW.001",
      "path": "knowledge/06-mlog/M05-绘制与文本.md",
      "title": "绘制与文本：draw 的 16 种命令、10 bit 打包与文本缓冲",
-     "tokens": 704,
+     "tokens": 839,
      "tokens_est": false,
      "conf": "S",
      "ver": [
@@ -1166,7 +1166,7 @@
      ],
      "status": "active",
      "domain": "mlog",
-     "lines": 139
+     "lines": 143
     },
     {
      "id": "MLOG.EXEC.001",
@@ -2922,8 +2922,8 @@
  "docs": [
   {
    "path": "knowledge/KB.md",
-   "bytes": 10380,
-   "tokens": 1384
+   "bytes": 10450,
+   "tokens": 1391
   },
   {
    "path": "knowledge/CONVENTIONS.md",
@@ -2932,13 +2932,13 @@
   },
   {
    "path": "knowledge/VERSION.md",
-   "bytes": 10129,
-   "tokens": 1260
+   "bytes": 11963,
+   "tokens": 1481
   },
   {
    "path": "knowledge/README.md",
-   "bytes": 5098,
-   "tokens": 618
+   "bytes": 5223,
+   "tokens": 632
   }
  ],
  "counts": {
@@ -2964,7 +2964,7 @@
    "probes": 84
   },
   "evidence_dirs": 2,
-  "tokens_total": 90199,
+  "tokens_total": 90576,
   "empty": false
  },
  "notes": [

@@ -1,0 +1,495 @@
+{
+ "table": "turret_shots",
+ "note": "源码派生表（非 jar 反射）：每触发发数 shots 与射击模式。shots 缺省为 1，见 ShootPattern.shots 默认值",
+ "src": "Mindustry-Source/core/src/mindustry/content/Blocks.java",
+ "shootpattern_src": "Mindustry-Source/core/src/mindustry/entities/pattern/ShootPattern.java:9",
+ "ver": "v159.3",
+ "generator": "knowledge/tools/gen_turret_shots.py",
+ "count": 28,
+ "records": [
+  {
+   "id": "duo",
+   "name": "duo",
+   "src": "src:Mindustry-Source/core/src/mindustry/content/Blocks.java:3258",
+   "ver": "v159.3",
+   "class": "ItemTurret",
+   "shots": 1,
+   "pattern": "ShootAlternate(3.5f)",
+   "barrels": 2,
+   "evidence": [
+    {
+     "line": 3300,
+     "contains": [
+      "ShootAlternate"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "scatter",
+   "name": "scatter",
+   "src": "src:Mindustry-Source/core/src/mindustry/content/Blocks.java:3333",
+   "ver": "v159.3",
+   "class": "ItemTurret",
+   "shots": 2,
+   "pattern": "ShootPattern + shotDelay",
+   "barrels": 1,
+   "evidence": [
+    {
+     "line": 3402,
+     "contains": [
+      "shotDelay"
+     ]
+    },
+    {
+     "line": 3403,
+     "contains": [
+      "shots",
+      "2"
+     ]
+    }
+   ],
+   "shotDelay": 5
+  },
+  {
+   "id": "scorch",
+   "name": "scorch",
+   "src": "src:Mindustry-Source/core/src/mindustry/content/Blocks.java:3419",
+   "ver": "v159.3",
+   "class": "ItemTurret",
+   "shots": 1,
+   "pattern": "ShootPattern(默认)",
+   "barrels": 1,
+   "evidence": []
+  },
+  {
+   "id": "hail",
+   "name": "hail",
+   "src": "src:Mindustry-Source/core/src/mindustry/content/Blocks.java:3463",
+   "ver": "v159.3",
+   "class": "ItemTurret",
+   "shots": 1,
+   "pattern": "ShootPattern(默认)",
+   "barrels": 1,
+   "evidence": []
+  },
+  {
+   "id": "wave",
+   "name": "wave",
+   "src": "src:Mindustry-Source/core/src/mindustry/content/Blocks.java:3529",
+   "ver": "v159.3",
+   "class": "LiquidTurret",
+   "shots": 1,
+   "pattern": "ShootPattern(默认)",
+   "barrels": 1,
+   "evidence": []
+  },
+  {
+   "id": "lancer",
+   "name": "lancer",
+   "src": "src:Mindustry-Source/core/src/mindustry/content/Blocks.java:3561",
+   "ver": "v159.3",
+   "class": "PowerTurret",
+   "shots": 1,
+   "pattern": "ShootPattern + firstShotDelay",
+   "barrels": 1,
+   "evidence": [
+    {
+     "line": 3565,
+     "contains": [
+      "firstShotDelay",
+      "40"
+     ]
+    }
+   ],
+   "firstShotDelay": 40
+  },
+  {
+   "id": "arc",
+   "name": "arc",
+   "src": "src:Mindustry-Source/core/src/mindustry/content/Blocks.java:3602",
+   "ver": "v159.3",
+   "class": "PowerTurret",
+   "shots": 1,
+   "pattern": "ShootPattern(默认)",
+   "barrels": 1,
+   "evidence": []
+  },
+  {
+   "id": "parallax",
+   "name": "parallax",
+   "src": "src:Mindustry-Source/core/src/mindustry/content/Blocks.java:3641",
+   "ver": "v159.3",
+   "class": "TractorBeamTurret",
+   "shots": 1,
+   "pattern": "无射击循环（持续牵引）",
+   "barrels": 1,
+   "evidence": []
+  },
+  {
+   "id": "swarmer",
+   "name": "swarmer",
+   "src": "src:Mindustry-Source/core/src/mindustry/content/Blocks.java:3656",
+   "ver": "v159.3",
+   "class": "ItemTurret",
+   "shots": 4,
+   "pattern": "ShootBarrel(barrels=8)",
+   "barrels": 8,
+   "evidence": [
+    {
+     "line": 3706,
+     "contains": [
+      "ShootBarrel"
+     ]
+    },
+    {
+     "line": 3712,
+     "contains": [
+      "shots",
+      "4"
+     ]
+    },
+    {
+     "line": 3713,
+     "contains": [
+      "shotDelay"
+     ]
+    }
+   ],
+   "shotDelay": 5
+  },
+  {
+   "id": "salvo",
+   "name": "salvo",
+   "src": "src:Mindustry-Source/core/src/mindustry/content/Blocks.java:3731",
+   "ver": "v159.3",
+   "class": "ItemTurret",
+   "shots": 4,
+   "pattern": "ShootPattern + shotDelay",
+   "barrels": 1,
+   "evidence": [
+    {
+     "line": 3824,
+     "contains": [
+      "shots",
+      "4"
+     ]
+    },
+    {
+     "line": 3825,
+     "contains": [
+      "shotDelay",
+      "3"
+     ]
+    }
+   ],
+   "shotDelay": 3
+  },
+  {
+   "id": "segment",
+   "name": "segment",
+   "src": "src:Mindustry-Source/core/src/mindustry/content/Blocks.java:3836",
+   "ver": "v159.3",
+   "class": "PointDefenseTurret",
+   "shots": 1,
+   "pattern": "点防（每触发拦截 1 枚弹体）",
+   "barrels": 1,
+   "evidence": []
+  },
+  {
+   "id": "tsunami",
+   "name": "tsunami",
+   "src": "src:Mindustry-Source/core/src/mindustry/content/Blocks.java:3850",
+   "ver": "v159.3",
+   "class": "LiquidTurret",
+   "shots": 2,
+   "pattern": "ShootAlternate(4f)",
+   "barrels": 2,
+   "evidence": [
+    {
+     "line": 3902,
+     "contains": [
+      "ShootAlternate"
+     ]
+    },
+    {
+     "line": 3903,
+     "contains": [
+      "shots",
+      "2"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "fuse",
+   "name": "fuse",
+   "src": "src:Mindustry-Source/core/src/mindustry/content/Blocks.java:3915",
+   "ver": "v159.3",
+   "class": "ItemTurret",
+   "shots": 3,
+   "pattern": "ShootSpread(3, 20f)",
+   "barrels": 1,
+   "evidence": [
+    {
+     "line": 3923,
+     "contains": [
+      "ShootSpread",
+      "3"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "ripple",
+   "name": "ripple",
+   "src": "src:Mindustry-Source/core/src/mindustry/content/Blocks.java:3955",
+   "ver": "v159.3",
+   "class": "ItemTurret",
+   "shots": 4,
+   "pattern": "ShootPattern",
+   "barrels": 1,
+   "evidence": [
+    {
+     "line": 4065,
+     "contains": [
+      "shots",
+      "4"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "cyclone",
+   "name": "cyclone",
+   "src": "src:Mindustry-Source/core/src/mindustry/content/Blocks.java:4085",
+   "ver": "v159.3",
+   "class": "ItemTurret",
+   "shots": 1,
+   "pattern": "ShootBarrel",
+   "barrels": 2,
+   "evidence": [
+    {
+     "line": 4166,
+     "contains": [
+      "ShootBarrel"
+     ]
+    },
+    {
+     "line": 4167,
+     "contains": [
+      "barrels"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "foreshadow",
+   "name": "foreshadow",
+   "src": "src:Mindustry-Source/core/src/mindustry/content/Blocks.java:4203",
+   "ver": "v159.3",
+   "class": "ItemTurret",
+   "shots": 1,
+   "pattern": "ShootPattern(默认)",
+   "barrels": 1,
+   "evidence": []
+  },
+  {
+   "id": "spectre",
+   "name": "spectre",
+   "src": "src:Mindustry-Source/core/src/mindustry/content/Blocks.java:4248",
+   "ver": "v159.3",
+   "class": "ItemTurret",
+   "shots": 1,
+   "pattern": "ShootAlternate(8f)",
+   "barrels": 2,
+   "evidence": [
+    {
+     "line": 4302,
+     "contains": [
+      "ShootAlternate"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "meltdown",
+   "name": "meltdown",
+   "src": "src:Mindustry-Source/core/src/mindustry/content/Blocks.java:4315",
+   "ver": "v159.3",
+   "class": "LaserTurret",
+   "shots": 1,
+   "pattern": "连续激光（shootDuration 230）",
+   "barrels": 1,
+   "evidence": []
+  },
+  {
+   "id": "breach",
+   "name": "breach",
+   "src": "src:Mindustry-Source/core/src/mindustry/content/Blocks.java:4351",
+   "ver": "v159.3",
+   "class": "ItemTurret",
+   "shots": 1,
+   "pattern": "ShootPattern(默认)",
+   "barrels": 1,
+   "evidence": []
+  },
+  {
+   "id": "diffuse",
+   "name": "diffuse",
+   "src": "src:Mindustry-Source/core/src/mindustry/content/Blocks.java:4463",
+   "ver": "v159.3",
+   "class": "ItemTurret",
+   "shots": 15,
+   "pattern": "ShootSpread(15, 4f)",
+   "barrels": 1,
+   "evidence": [
+    {
+     "line": 4515,
+     "contains": [
+      "ShootSpread",
+      "15"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "sublimate",
+   "name": "sublimate",
+   "src": "src:Mindustry-Source/core/src/mindustry/content/Blocks.java:4553",
+   "ver": "v159.3",
+   "class": "ContinuousLiquidTurret",
+   "shots": 1,
+   "pattern": "连续火焰",
+   "barrels": 1,
+   "evidence": []
+  },
+  {
+   "id": "titan",
+   "name": "titan",
+   "src": "src:Mindustry-Source/core/src/mindustry/content/Blocks.java:4639",
+   "ver": "v159.3",
+   "class": "ItemTurret",
+   "shots": 1,
+   "pattern": "ShootPattern(默认)",
+   "barrels": 1,
+   "evidence": []
+  },
+  {
+   "id": "disperse",
+   "name": "disperse",
+   "src": "src:Mindustry-Source/core/src/mindustry/content/Blocks.java:4840",
+   "ver": "v159.3",
+   "class": "ItemTurret",
+   "shots": 4,
+   "pattern": "ShootAlternate(4f) + shots/barrels",
+   "barrels": 4,
+   "evidence": [
+    {
+     "line": 5001,
+     "contains": [
+      "ShootAlternate"
+     ]
+    },
+    {
+     "line": 5003,
+     "contains": [
+      "shots",
+      "4"
+     ]
+    },
+    {
+     "line": 5004,
+     "contains": [
+      "barrels",
+      "4"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "afflict",
+   "name": "afflict",
+   "src": "src:Mindustry-Source/core/src/mindustry/content/Blocks.java:5024",
+   "ver": "v159.3",
+   "class": "PowerTurret",
+   "shots": 1,
+   "pattern": "ShootPattern(默认)",
+   "barrels": 1,
+   "evidence": []
+  },
+  {
+   "id": "lustre",
+   "name": "lustre",
+   "src": "src:Mindustry-Source/core/src/mindustry/content/Blocks.java:5147",
+   "ver": "v159.3",
+   "class": "ContinuousTurret",
+   "shots": 1,
+   "pattern": "连续光束",
+   "barrels": 1,
+   "evidence": []
+  },
+  {
+   "id": "scathe",
+   "name": "scathe",
+   "src": "src:Mindustry-Source/core/src/mindustry/content/Blocks.java:5212",
+   "ver": "v159.3",
+   "class": "ItemTurret",
+   "shots": 1,
+   "pattern": "发射 MissileUnitType 导弹单位",
+   "barrels": 1,
+   "evidence": [
+    {
+     "line": 5224,
+     "contains": [
+      "MissileUnitType"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "smite",
+   "name": "smite",
+   "src": "src:Mindustry-Source/core/src/mindustry/content/Blocks.java:5656",
+   "ver": "v159.3",
+   "class": "ItemTurret",
+   "shots": 5,
+   "pattern": "ShootMulti(ShootAlternate(5f) 派生) + shots=barrels=5",
+   "barrels": 5,
+   "evidence": [
+    {
+     "line": 5721,
+     "contains": [
+      "ShootAlternate"
+     ]
+    },
+    {
+     "line": 5723,
+     "contains": [
+      "shots",
+      "barrels",
+      "5"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "malign",
+   "name": "malign",
+   "src": "src:Mindustry-Source/core/src/mindustry/content/Blocks.java:5926",
+   "ver": "v159.3",
+   "class": "PowerTurret",
+   "shots": 1,
+   "pattern": "ShootSummon",
+   "barrels": 1,
+   "evidence": [
+    {
+     "line": 6246,
+     "contains": [
+      "ShootSummon"
+     ]
+    }
+   ]
+  }
+ ]
+}

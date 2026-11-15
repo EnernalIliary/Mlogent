@@ -37,7 +37,7 @@ python knowledge\tools\smoke_kb.py --db out\_kb\kb.sqlite3 --questions knowledge
 | `KB_ASCII_BOOST` | 1 | 查询里的 ASCII 标识符（`@counter`、`ucontrol`）加权，修中英混排 |
 | `KB_CANDIDATES` | 40 | 先取 40 条再重排/去重，最后截 k |
 
-三者合计把 300 题 hit@1 从 45% 提到 **59.7%**、hit@6 到 **86.3%**；关掉任一项都会明显下降。
+三者合计把 300 题 hit@1 从 45% 提到 **59.0%**、hit@6 到 **85.0%**；关掉任一项都会明显下降。
 
 ## 方式 C：MCP 服务（给 Agent 用）
 
@@ -68,7 +68,7 @@ python knowledge\tools\eval_kb.py --kb knowledge --root F:\OneDrive\桌面\Atomi
 
 - 题库：`08-evidence/bench/questions.jsonl`（300 题，12 域 × 25，难度 72/156/72）。
 - 另附 `questions-derive.jsonl`（跨源推导题，不进主指标）与 `subset_report.py`（按 source_kind 拆分）。
-- **参考结果（A+B+C 全开，k=6，已发布库 FINAL3）**：coverage 100% / hit@1 **59.7%** / hit@6 **86.3%** / mrr 0.6943 / strong@6 94.2% / 库外槽 0%；其中公式推导题 22 题 72.7%、跨源推导题 24 题 95.8%。
+- **参考结果（A+B+C 全开，k=6，已发布库 v1.2）**：coverage 100% / hit@1 **59.0%** / hit@6 **85.0%** / mrr 0.685 / strong@6 93.4% / 库外槽 0%；其中公式推导题 22 题 72.7%、跨源推导题 24 题 95.8%。
 - 对照：lexical 基线 45.3 / 78.7；未开三开关的 hybrid 45.0 / 67.5（库外文档占 52% 的槽）。演进与消融见 `bench/README.md` §10。
 
 ## 一句话

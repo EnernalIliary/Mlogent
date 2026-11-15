@@ -60,31 +60,41 @@
 - **交叉链接**：C02/C10 → `[[COMBAT.TURRET.002]]`；W01 → `[[WORLD.NAMES.001]]`-003；U01 → `[[UNIT.NAMES.001]]`；`08-evidence/CHEAT.md` 路由表下补一行「查中文名走哪」。
 - **重建结果**：门禁 **61 篇 / 0 error / 193 warning**；正式库 **8,317 chunk / 146 files**（43.6MB，doc 1831 / code 6322 / data 163）；postpublish 三项 PASS（A@1 16/20、库外 top1 0、p50 68.3ms）；300 题 **hit@1 59.7% / hit@6 86.3% / mrr 0.693 / strong@6 94.2%**（新增内容未抢金标，分数与上一版持平）。
 
-## 交付验收（v1.1，2026-11-08）
+## 2026-11-15 第三轮：逐台炮塔页 28 篇 + 结构整理
+
+- **新增 `03-combat/turrets/` 28 篇逐台炮塔页**：`COMBAT.TURRET.101`-`118`（塞普罗 18 门）/ `.201`-`.210`（埃里克尔 10 门），每页 4.7-5.7KB、七节齐全（DPS / 造价 / 弹药 / 射程 / 证据行），与总览 `C11-turret-verdict.md`（`COMBAT.TURRET.002`）互链 56 处。
+- **新增 `03-combat/_turrets/verdicts.serpulo.json`（52,441B）与 `verdicts.erekir.json`（32,534B）**：`tools/gen_turrets.py` 的评价文案源数据；改文案后重跑生成器即再生 28 页 + 总览。
+- **新增 `00-data/turret_shots.json`（10,494B / 28 条）**：唯一非 jar 反射的表，由 `tools/gen_turret_shots.py` 从 v159.3 源码派生 shots/pattern/barrels + 证据行 ⇒ canonical 数据表 11 → **12**。
+- **补提交 `07-patterns/P07-unit-multicontrol.md`、`P08-counter-architectures.md`**（此前只在未跟踪列表）⇒ 蓝图模式 8 篇。
+- **`C11-turret-verdict.md` 重写为总览**（98 行，七节齐全，56 处指向 T 页）；`KB.md` / `README.md` / `00-data/README.md` 同步结构树与篇数。
+- 注：`kb.py build` 的 chunk 数在 tokenizer 估算上非严格确定（同一份内容两次构建为 9,461 / 9,462），文档统一记作 ≈9,460。
+- **重建结果**：门禁 **91 篇 / 0 error / 187 warning**；`index.json` 重生成（articles 93 / canonical 12 / records 1039）；正式库 **≈9,460 chunk / 187 files / 19 张数据表**（46.6MB，doc 2,098 / code 7,196 / data 167）；postpublish 三项 PASS（bench20 A@1 16/20、库外 top1 0、p50 约 160ms（复跑 122-277ms，随机器负载波动））；300 题 hit@1 **59.0%**、hit@6 **85.0%**、mrr 0.685。
+
+## 交付验收（v1.2，2026-11-15）
 
 | 项 | 结果 | 复现命令 |
 |---|---|---|
-| 门禁 | **63 篇 / 0 error**（193 warning，全部提示级） | `check_kb.py --root knowledge --all` |
-| 正式库 | **8,317 chunk / 146 files / 18 张数据表**（43.6MB，doc 1831 / code 6322 / data 163） | `dbstat.py out/_kb/kb.sqlite3` |
-| 发布后校验 | STRUCT / COUNT / RETRIEVAL **三项 PASS**（chunks 8317 = staging 8317、files 146，journal 已落盘） | `postpublish.py --db ... --staging ...` |
-| 300 题冻结评测 | coverage 100% / **hit@1 59.7% / hit@6 86.3%** / mrr 0.6932 / strong@6 94.2% / 库外槽 0%（v1.1 复跑，与 FINAL3 持平） | `08-evidence/bench/`（A+B+C 全开，k=6） |
-| 推导题 | 公式 22 题 **72.7%**（16/22）、跨源 24 题 **95.8%**（23/24） | 同上 |
-| 20 题冒烟（bench20） | A@1 **16/20（80%）**、A@3 16、库外 top1 **0/20**、p50 68.3ms（旧版 4/20、库外 12/20） | `bench20.py --db out/_kb/kb.sqlite3` |
+| 门禁 | **91 篇 / 0 error**（187 warning，全部提示级） | `check_kb.py --root knowledge --all` |
+| 正式库 | **≈9,460 chunk / 187 files / 19 张数据表**（46.6MB，doc 2,098 / code 7,196 / data 167） | `dbstat.py out/_kb/kb.sqlite3` |
+| 发布后校验 | STRUCT / COUNT / RETRIEVAL **三项 PASS**（chunks 9,461 = staging 9,461、files 187，journal 已落盘） | `postpublish.py --db ... --staging ...` |
+| 300 题冻结评测 | coverage 100% / **hit@1 59.0% / hit@6 85.0%** / mrr 0.685 / strong@6 93.4% / 库外槽 0%（v1.2 复跑，含 28 篇炮塔页） | `08-evidence/bench/`（A+B+C 全开，k=6） |
+| 推导题 | 公式 22 题 hit@6 **72.7%**（16/22）/ hit@1 59.1%；跨源 24 题 hit@6 **83.3%**（20/24）/ hit@1 75.0% | `bench/questions-derive.jsonl`（k=6） |
+| 20 题冒烟（bench20） | A@1 **16/20（80%）**、A@3 16、库外 top1 **0/20**、p50 约 160ms（复跑 122-277ms，随机器负载波动） | `bench20.py --db out/_kb/kb.sqlite3` |
 | 可执行探针 | **17 PASS / 1 FAIL（已修claims）/ 2 INCONCLUSIVE** | `08-evidence/probes/_run_all.py` |
 | jar 真值核对 | **终版 RERUN：178 条 / PASS 175 / FAIL 0 / 口径差 3**（①CHEAT 26 · ②C10 14 · ③W06/W07 41 · ④C02 28(3 口径差) · ⑤C05 41 · ⑥C06 28），退出码 0 | `python knowledge/tools/rt_verify.py`；明细 `08-evidence/_report/_rtverify/RERUN.md` |
 
 检索三开关（默认全开，可用环境变量关）见 `tools/REBUILD.md` §4：`KB_ONLY_KNOWLEDGE`（只检索 knowledge/）、`KB_DEDUPE_FILE`（按文件去重）、`KB_ASCII_BOOST`（ASCII 标识符加权）。
 
-## 当前内容规模（v1.1）
+## 当前内容规模（v1.2）
 
 | 域 | 篇数 | 目录 |
 |---|---|---|
 | 执行模型 | 6 | `01-execution/`（E01-E06） |
 | 世界/方块 | 16 | `02-world/`（W01-W16，含 W13-W16 中英名对照） |
-| 战斗 | 11 | `03-combat/`（C01-C11，含 C11 炮塔评价） |
+| 战斗 | 39 | `03-combat/`（C01-C11 + `turrets/` T101-T210 逐台炮塔页） |
 | 单位 | 6 | `04-units/`（U01-U06，含 U06 单位名对照） |
 | 战役 | 6 | `05-campaign/`（CAMP.*） |
 | mlog 语言 | 8 + 2 JSON | `06-mlog/`（M01-M08、instructions.json、enums.json） |
 | 蓝图模式 | 8 + JSON | `07-patterns/`（P01-P08、idioms.json） |
 | 证据/评测 | 2 + 300 题 + 探针 | `08-evidence/`（claims.jsonl、CHEAT.md、bench/、probes/） |
-| 数据表 | 11 张 canonical（+6 张 rt_list 抽查件） | `00-data/`（blocks/turrets/units/bullets/items/liquids/status/rules/formulas/constants/src_anchors） |
+| 数据表 | 12 张 canonical（+7 张 raw 抽查件） | `00-data/`（blocks/turrets/turret_shots/units/bullets/items/liquids/status/rules/formulas/constants/src_anchors） |

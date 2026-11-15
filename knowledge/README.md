@@ -1,8 +1,8 @@
 # Mindustry 机制知识库（knowledge/）
 
-一份可被 AI 直接使用、也可被人阅读的 Mindustry 原版机制知识库：**63 篇文章 + 11 张 canonical 数据表（另 6 张 rt_list 抽查件）+ 85 条可复测断言 + 20 条可执行探针 + 300 题评测**，覆盖 v160.7（数值）与 v159.3（源码语义）双版本，已建成可检索的正式库（8,317 chunk）。
+一份可被 AI 直接使用、也可被人阅读的 Mindustry 原版机制知识库：**91 篇文章 + 12 张 canonical 数据表（另 6 张 rt_list 抽查件）+ 85 条可复测断言 + 20 条可执行探针 + 300 题评测**，覆盖 v160.7（数值）与 v159.3（源码语义）双版本，已建成可检索的正式库（9,397 chunk）。
 
-**实测指标**（A+B+C 检索全开，k=6，300 题冻结集）：hit@1 **59.7%**、hit@6 **86.3%**、mrr 0.693、库外槽 **0%**；20 题冒烟 A@1 **16/20**（旧版 4/20）。
+**实测指标**（A+B+C 检索全开，k=6，300 题冻结集）：hit@1 **59.0%**、hit@6 **85.0%**、mrr 0.685、库外槽 **0%**；20 题冒烟 A@1 **16/20**（旧版 4/20）。
 
 ## 从哪开始
 
@@ -23,11 +23,12 @@ knowledge/
 ├── INTEGRATION.md        旧知识库整合映射（停更/取代/仍独有）
 ├── CONVENTIONS.md        写作契约（frontmatter / 七节 / 数值来源 / 版本口径）
 ├── VERSION.md            双版本真源优先级 + 已知错误清单 + 交付验收 + 环境坑
-├── 00-data/              11 张 canonical 表 + 6 张 rt_list 抽查件（blocks 447 / turrets 26 / bullets 137 / units 70 /
+├── 00-data/              12 张 canonical 表 + 6 张 rt_list 抽查件（blocks 447 / turrets 31 / bullets 137 / units 70 / turret_shots 28 /
 │                         items 22 / liquids 11 / status 23 / rules 118 / formulas 19 …）
 ├── 01-execution/  E01-E06   执行模型、预算、语义陷阱 30 条、时间精度、链接与 @ 常量、跨版本
 ├── 02-world/      W01-W16   方块锚点、配方、电力、液体、热、物流、钻探、载荷、地形、存储、配置、沙盒、名对照×4
 ├── 03-combat/     C01-C11   伤害管线、炮塔、弹道、状态、护甲、单位武器、支援、波次、防御、跨层数值、炮塔评价
+│       └── turrets/  T101-T210  28 篇逐台炮塔页（_turrets/ 为评价文案源数据）
 ├── 04-units/      U01-U06   移动、生产、AI、能力、进阶（两版均无经验/等级系统）、单位名对照
 ├── 05-campaign/   CAMP.*    波次、难度、生成、胜负、星区、Rules 全字段
 ├── 06-mlog/       M01-M08   + instructions.json（73 条指令）+ enums.json（13 组枚举）
@@ -39,7 +40,7 @@ knowledge/
 ## 质量门禁
 
 ```powershell
-python knowledge\tools\check_kb.py --root knowledge --all     # 63 篇 0 error（warning 为提示级）
+python knowledge\tools\check_kb.py --root knowledge --all     # 91 篇 0 error（warning 为提示级）
 python knowledge\tools\build_index.py --root knowledge         # 生成 index.json
 python knowledge\tools\build_index.py --root knowledge --check # 校验索引与内容一致
 ```
@@ -52,7 +53,7 @@ python knowledge\tools\build_index.py --root knowledge --check # 校验索引与
 ```powershell
 $R="F:\OneDrive\桌面\AtomicStates"; $W="F:\OneDrive\文档\deepseek-harness\default-workspace"
 $env:KB_ROOT=$R; $env:KB_KNOWLEDGE="$R\knowledge"; $env:KB_DIR="$W\out\kb_build"
-python "$R\knowledge\tools\kb.py" build                       # 8317 chunk / 146 files
+python "$R\knowledge\tools\kb.py" build                       # ≈9,460 chunk / 187 files
 python "$R\knowledge\tools\publish_db.py" "$W\out\kb_build\kb.sqlite3" "$R\out\_kb\kb.sqlite3"
 python "$R\knowledge\tools\postpublish.py" --db "$R\out\_kb\kb.sqlite3" --staging "$W\out\kb_build\kb.sqlite3"
 ```

@@ -1,0 +1,390 @@
+{
+  "turrets": {
+    "breach": {
+      "tier": "B",
+      "role": "开局主力 / 高单发速射",
+      "title": "325 单发、全场最密的开局炮",
+      "oneliner": "breach 解决的是「Erekir 第一波怎么活」，不是「后期怎么打」：425 件、3×3 占地，carbide 把 reload 40 tick 乘 0.20 压到 8 tick，7.5 发/s × 325 直伤就是 2437.5 单体 DPS，对 22 甲还剩 2272.5（93%）。代价有两处：190 世界单位（23.75 格）的短射界，以及 carbide 7.5 件/s 的吞吐——单条带子供不起，断料就掉回 1.5 发/s 的 tungsten 曲线。 [src: 00-data/turrets.json]",
+      "mechanics": [
+        "carbide 的 reload 40 tick 被 rm 0.20 压到 8 tick：7.5 发/s × 325 直伤 = 2437.5 单体 DPS，对 22 甲 2272.5 [src: 00-data/turrets.json]",
+        "三种弹药是两条曲线：carbide 走高频（7.5 发/s、7.5 件/s），tungsten 与 beryllium 都是 1.5 发/s 的慢速线 [src: 00-data/turrets.json]",
+        "无溅射，面板 DPS 与单体 DPS 同值，0.75 折算对它不成立 [src: 00-data/turrets.json]",
+        "空陆通吃（air True / ground True），425 件、3×3、建造 540 tick，是 Erekir 最早补上的火力点 [src: Mindustry-Source/core/src/mindustry/content/Blocks.java:4351]",
+        "coolantMult 15 是 Erekir 高档冷却，但 3×3 塔位通常先缺料缺电，冷却不是第一瓶颈 [src: 00-data/turrets.json]"
+      ],
+      "strengths": [
+        "425 件买到 2437.5 DPS，是同价位没有第二台的数值密度：950 件的 titan 单体只有 285.3 [src: 00-data/turrets.json]",
+        "对 22 甲保留 93%，是 Erekir 少数「换不换弹药都能打重甲」的塔 [src: 00-data/turrets.json]",
+        "空陆通吃且 3×3，任何阵型缝隙都能塞，开局不用为它改布局 [src: 00-data/turrets.json]"
+      ],
+      "weaknesses": [
+        "190 世界单位（23.75 格）太短，中期以后敌人远程火力站在射界外就能磨它 [src: 00-data/turrets.json]",
+        "carbide 7.5 件/s 是全场最高吞吐之一，供给一断就退回 tungsten 的 106.9 DPS [src: 00-data/turrets.json]",
+        "beryllium 最省料但最弱：95.6 DPS、DPS/物品 31.9 是三种弹药最低 [src: 00-data/turrets.json]"
+      ],
+      "numbers_notes": [
+        "别把 reload 40 tick 当射速：carbide 曲线实际 8 tick 一发，40 tick 是表里的基座值 [src: 00-data/turrets.json]",
+        "maxAmmo 30 ÷ 7.5 件/s ≈ 4 秒，弹匣是缓冲不是续航 [src: 00-data/turrets.json]"
+      ],
+      "counterexamples": [
+        "反例：只接一条刚好 7.5 件/s 的 carbide 带，breach 在 4 秒内打空 maxAmmo 30 后进入「打一发等一发」；要连续 2437.5 DPS 得双线或仓储 [src: 00-data/turrets.json]",
+        "反例：拿 breach 打 22 甲还用 tungsten，单发 71.25 对 22 甲只剩 73.9 DPS，是同塔 carbide 的 1/30；复现看 对22甲 列的 2272.5 与 73.9 两行 [src: 00-data/turrets.json]"
+      ],
+      "misconceptions": [
+        "「breach 是前期塔，后期没用」错：carbide 2437.5 DPS 到终局仍是单塔最高档，它输在射程不在数字 [src: 00-data/turrets.json]",
+        "「单发 325 一定打得慢」错：rm 0.20 让它 7.5 发/s，比很多「速射塔」还密 [src: 00-data/turrets.json]",
+        "「beryllium 最划算」错：3.0 件/s 换 95.6 DPS，DPS/物品 31.9 是三种里最低 [src: 00-data/turrets.json]"
+      ],
+      "related": [
+        "COMBAT.TURRET.209",
+        "COMBAT.TURRET.001"
+      ]
+    },
+    "diffuse": {
+      "tier": "B",
+      "role": "近程清群 / 15 发散射",
+      "title": "15 发散射、料耗全库第一的贴脸武器",
+      "oneliner": "diffuse 解决「一群小单位贴脸」，不是「打硬目标」：600 件、空陆通吃，shots 15 的 ShootSpread 让它在 30 发/s 下把 oxide 的 67.5 单发泼成 2025 单体 DPS。代价写在两个数字上——只有 125 世界单位（15.62 格）的射界，以及 45 件/s 的料耗；换 graphite 或 silicon 后对 22 甲只剩 28% / 16%。 [src: 00-data/turrets.json]",
+      "mechanics": [
+        "shots 15 + ShootSpread(15, 4f)，reload 30 tick ⇒ 30 发/s；oxide 单发 67.5 → 2025 单体 DPS [src: 00-data/turrets.json]",
+        "ammoPerShot 3、物品/秒 45 是全场最高档——它把「清群」直接写成「烧料」 [src: 00-data/turrets.json]",
+        "graphite 30.75 与 silicon 26.25 的单发太轻：对 22 甲分别只剩 262.5 / 127.5 DPS（28% / 16%） [src: 00-data/turrets.json]",
+        "4f 是 ShootSpread 的散布角，不是发数倍增；真正发数来自 shots 15 [src: Mindustry-Source/core/src/mindustry/entities/pattern/ShootSpread.java:9]",
+        "空陆通吃，但 125 世界单位（15.62 格）比 breach 还短 65，定位就是贴脸武器 [src: Mindustry-Source/core/src/mindustry/content/Blocks.java:4463]"
+      ],
+      "strengths": [
+        "600 件 + 空陆通吃 + 30 发/s，是 Erekir 最便宜的高发数塔，清一波小单位回本极快 [src: 00-data/turrets.json]",
+        "15 发散射配 shootCone 40，对散开的飞行群也有覆盖，不要求精确瞄准 [src: 00-data/turrets.json]"
+      ],
+      "weaknesses": [
+        "125 世界单位（15.62 格）的射界太短，远程重甲波次可以站着打它 [src: 00-data/turrets.json]",
+        "oxide 45 件/s 的吞吐要两条满带，断供时 graphite 对 22 甲只剩 28% [src: 00-data/turrets.json]",
+        "单发轻：对 22 甲以上全靠 oxide 硬撑，换弹药就是换一门更弱的塔 [src: 00-data/turrets.json]"
+      ],
+      "numbers_notes": [
+        "面板 DPS 与单体相同（三种弹药 splash 都是 0），但 30 发/s 含 inaccuracy 0.2 的散布，实际命中低于纸面 [src: 00-data/turrets.json]"
+      ],
+      "counterexamples": [
+        "反例：把 diffuse 当主力打 22 甲波，silicon 单发 26.25 被护甲吃掉后只剩 127.5 DPS，不如一台 425 件的 breach carbide（2272.5）；复现看 对22甲 列的 127.5 与 2272.5 [src: 00-data/turrets.json]",
+        "反例：只接一条 20 件/s 的带子喂 diffuse，oxide 45 件/s 的需求只能满足 44%，射速打折后 2025 DPS 掉到约 900 [src: 00-data/turrets.json]"
+      ],
+      "misconceptions": [
+        "「shots 15 是一次 15 发齐射」错：ShootSpread 是散布，15 发在 30 tick 内打完，30 发/s 才是射速口径 [src: 00-data/turrets.json]",
+        "「它是溅射塔」错：三种弹药 splash 都是 0，面板 = 单体，靠数量不靠范围 [src: 00-data/turrets.json]",
+        "「silicon 便宜适合刷」错：silicon 的 DPS/物品 8.8 是三种最低，省下的料全变成更长的击杀时间 [src: 00-data/turrets.json]"
+      ],
+      "related": [
+        "COMBAT.TURRET.203",
+        "COMBAT.TURRET.001"
+      ]
+    },
+    "sublimate": {
+      "tier": "A",
+      "role": "持续火焰 / 换弹换射程",
+      "title": "每结算 130 的液体喷灯",
+      "oneliner": "sublimate 解决「持续灼烧 + 一条火线烧穿几个目标」，不是「爆发点杀」：ozone 每结算 60 给 720 DPS，换 cyanogen 每结算 130 直接翻到 1560，还附赠 rangeChange +70 与 pierceCap 3。代价是 18/s 的液体双层供给，以及不换 cyanogen 时 130 世界单位（16.25 格）的短射界。 [src: Mindustry-Source/core/src/mindustry/content/Blocks.java:4570]",
+      "mechanics": [
+        "连续火焰型，damageInterval 5 tick ⇒ ×12 结算；ozone 每结算 60 → 720 DPS，cyanogen 130 → 1560 DPS [src: Mindustry-Source/core/src/mindustry/content/Blocks.java:4570]",
+        "cyanogen 自带 rangeChange +70，把射程从 130 拉到 200 世界单位（25 格），是少数换弹药换射界的塔 [src: Mindustry-Source/core/src/mindustry/content/Blocks.java:4576]",
+        "pierceCap 2（ozone）/ 3（cyanogen）：一条火线能同时烧穿多个单位，密集队形下实际输出高于单体口径 [src: Mindustry-Source/core/src/mindustry/content/Blocks.java:4576]",
+        "液体消耗 18/s，比物品塔更吃管道：断液即停火，不存在「打空弹匣」 [src: Mindustry-Source/core/src/mindustry/content/Blocks.java:4553]",
+        "对 22 甲：ozone 每结算 60 剩 38（63%）、cyanogen 每结算 130 剩 108（83%）——单发越高，护甲惩罚越轻 [src: Mindustry-Source/core/src/mindustry/content/Blocks.java:4576]"
+      ],
+      "strengths": [
+        "1560 DPS + 穿透 3，是 Erekir 持续输出最高的塔之一，清重甲群不靠弹幕密度靠灼烧 [src: Mindustry-Source/core/src/mindustry/content/Blocks.java:4576]",
+        "换 cyanogen 自带 +70 射程，等于用弹药换了半门新塔 [src: Mindustry-Source/core/src/mindustry/content/Blocks.java:4576]",
+        "连续型不吃弹道与命中判定，目标在射界内就一直结算，数字极稳 [src: 00-data/turrets.json]"
+      ],
+      "weaknesses": [
+        "18/s 液体 + 电力/冷却，双层供给，一条管线断了整塔停摆 [src: Mindustry-Source/core/src/mindustry/content/Blocks.java:4570]",
+        "ozone 曲线只有 720 DPS，换不起 cyanogen 时它只是中游塔 [src: 00-data/turrets.json]",
+        "不换 cyanogen 时 130 世界单位（16.25 格）太短，够不到远程波次 [src: Mindustry-Source/core/src/mindustry/content/Blocks.java:4553]"
+      ],
+      "numbers_notes": [
+        "本库不给「对 22 甲」列（连续型没有 ammo[] 反射表），63% / 83% 是按每结算伤害套 max(d−22, 0.1d) 算的，口径见 [[COMBAT.NUMBERS.001]] [src: 00-data/turrets.json]"
+      ],
+      "counterexamples": [
+        "反例：把 sublimate 摆在 130 世界单位射界内等敌人走进来，敌人停在 200 格外时它 0 输出；换 cyanogen 才够到 200 世界单位 [src: Mindustry-Source/core/src/mindustry/content/Blocks.java:4576]",
+        "反例：按 18/s 液体配半条管线，1560 DPS 会按供给比例线性缩水，不是「少一点」 [src: Mindustry-Source/core/src/mindustry/content/Blocks.java:4570]"
+      ],
+      "misconceptions": [
+        "「火焰塔对护甲无效」错：它走普通直伤结算，cyanogen 对 22 甲仍保留 83% [src: Mindustry-Source/core/src/mindustry/content/Blocks.java:4576]",
+        "「720 DPS 是它的上限」错：ozone 只是零头，cyanogen 才是主曲线，两者差 2.17 倍 [src: 00-data/turrets.json]",
+        "「换弹只换伤害」错：cyanogen 同时换射程 +70、pierceCap 3，是三维升级 [src: Mindustry-Source/core/src/mindustry/content/Blocks.java:4576]"
+      ],
+      "related": [
+        "COMBAT.TURRET.118",
+        "COMBAT.TURRET.001"
+      ]
+    },
+    "titan": {
+      "tier": "A",
+      "role": "长程炮击 / 只打地面",
+      "title": "390 世界单位、几乎不吃护甲的攻城炮",
+      "oneliner": "titan 解决「在敌人射界外先手拆阵地」，不是「打单体」：390 世界单位（48.75 格）射程、carbide 单发 525 + 750 溅射，单体 285.3、面板 591.0，对 22 甲还有 273.4（96%）。代价是只打地面（air False）与 0.54 发/s 的慢节奏——空中波次时它是 950 件的摆设。 [src: 00-data/turrets.json]",
+      "mechanics": [
+        "reload 138 tick、carbide rm 0.80 ⇒ 0.54 发/s，单发 525 + 750 溅射：单体 285.3、面板 591.0 [src: 00-data/turrets.json]",
+        "只打地面（targetAir False），空中单位进射界也不开火 [src: 00-data/turrets.json]",
+        "390 世界单位（48.75 格）是 Erekir 常规塔最远档；4×4、950 件、4000 血 [src: Mindustry-Source/core/src/mindustry/content/Blocks.java:4639]",
+        "ammoPerShot 4、maxAmmo 12 ⇒ 一匣 3 发；carbide 2.17 件/s 的吞吐在 950 件塔上不算贵 [src: 00-data/turrets.json]",
+        "对 22 甲：carbide 273.4（96%）、oxide 126.1（90%）、thorium 104.6（92%）——高单发溅射塔几乎不被护甲咬 [src: 00-data/turrets.json]"
+      ],
+      "strengths": [
+        "面板 591.0 DPS + 750 溅射，隔着 48.75 格就能清一片，是 Erekir 唯一能先手开火的常规塔 [src: 00-data/turrets.json]",
+        "对 22 甲保留 96%，是全场最不吃护甲的塔（carbide 曲线） [src: 00-data/turrets.json]",
+        "4000 血 + 4×4，能顶在前排当半肉炮台 [src: 00-data/turrets.json]"
+      ],
+      "weaknesses": [
+        "完全不打空：对面空中波次时它 0 输出，防空得另配 disperse [src: 00-data/turrets.json]",
+        "0.54 发/s 的节奏，单点目标要两秒以上才结算一次，打高机动单位容易空放 [src: 00-data/turrets.json]",
+        "4×4 占地要求前排有视野与肉盾，摆位比数值更决定它好不好用 [src: 00-data/turrets.json]"
+      ],
+      "numbers_notes": [
+        "面板 591.0 与单体 285.3 差 2.07 倍：评价它时别拿面板比单体，溅射按 0.75 折是 BulletType.estimateDPS 的口径 [src: 00-data/turrets.json]"
+      ],
+      "counterexamples": [
+        "反例：用 titan 打空中波次，targetAir False 意味着那一波输出是 0；同价 950 件可以摆一门 disperse（650 件）加一门 breach [src: 00-data/turrets.json]",
+        "反例：算「titan 591.0 高于 smite 562.5」就把它当单体塔，打单个目标只有 285.3；复现看 单体DPS 列 285.3 与 面板DPS 列 591.0 [src: 00-data/turrets.json]"
+      ],
+      "misconceptions": [
+        "「溅射塔不需要预判」错：inaccuracy 0 但 0.54 发/s，落点固定仍要算走位 [src: 00-data/turrets.json]",
+        "「打得远就能当主力」错：只打地面 + 5.4 秒一发，主力位要的是持续覆盖，不是单点重击 [src: 00-data/turrets.json]",
+        "「4×4 是缺点」半错：4×4 换来 4000 血与 390 的覆盖，摆位对了是优点 [src: 00-data/turrets.json]"
+      ],
+      "related": [
+        "COMBAT.TURRET.205",
+        "COMBAT.TURRET.001"
+      ]
+    },
+    "disperse": {
+      "tier": "A",
+      "role": "专职防空 / 四管高射",
+      "title": "只打空、310 世界单位的高射炮",
+      "oneliner": "disperse 解决「空中波次怎么拦」，不解决「地面怎么打」：thorium 下 4 管交替 31.37 发/s × 67.5 = 2117.6 DPS、310 世界单位（38.75 格）覆盖大片空域。代价是 targetGround False——地面波次它整场 0 输出，而 31.37 件/s 的吞吐已经贴到单条满带极限。 [src: 00-data/turrets.json]",
+      "mechanics": [
+        "shots 4 + ShootAlternate(4f)，reload 9 tick：thorium rm 0.85 ⇒ 31.37 发/s × 67.5 = 2117.6 DPS [src: 00-data/turrets.json]",
+        "只打空中（ground False），地面单位进射界也不开火 [src: 00-data/turrets.json]",
+        "surge-alloy 用 11.85 件/s 换 1733.3 DPS，对 22 甲 951.1；tungsten 8.89 件/s 换 1300.0，是省料版 [src: 00-data/turrets.json]",
+        "silicon 单发 27.75 对 22 甲只剩 153.3（21%）——AA 塔也会被护甲咬，只是平时打的是低甲飞机 [src: 00-data/turrets.json]",
+        "310 世界单位（38.75 格）的覆盖，4×4、650 件、4480 血 [src: Mindustry-Source/core/src/mindustry/content/Blocks.java:4840]"
+      ],
+      "strengths": [
+        "2117.6 DPS + 310 覆盖，是 Erekir 唯一专职防空，空中波次没它就是漏 [src: 00-data/turrets.json]",
+        "31.37 发/s 配合四管交替，命中容错高，打散开的飞行群不易漏 [src: 00-data/turrets.json]",
+        "thorium 对 22 甲保留 67%，比大多数 Erekir 塔的低阶弹药曲线体面 [src: 00-data/turrets.json]"
+      ],
+      "weaknesses": [
+        "ground False：地面波次时 650 件的塔 0 输出，必须另配地面火力 [src: 00-data/turrets.json]",
+        "31.37 件/s 接近满带极限，断料立刻掉到 tungsten 的 26.67 发/s [src: 00-data/turrets.json]",
+        "silicon 曲线对 22 甲只剩 21%，别拿它打重甲飞行单位 [src: 00-data/turrets.json]"
+      ],
+      "numbers_notes": [
+        "面板 = 单体（无溅射）；四管是轮转不是四连发，射速口径按 31.37 发/s 看 [src: 00-data/turrets.json]"
+      ],
+      "counterexamples": [
+        "反例：拿 disperse 顶地面波次，targetGround False 让它整场 0 输出 [src: 00-data/turrets.json]",
+        "反例：只喂 silicon 打重甲飞行单位，对 22 甲 153.3 DPS 是 thorium 的 10.7%；复现看 对22甲 列 1427.5 与 153.3 [src: 00-data/turrets.json]"
+      ],
+      "misconceptions": [
+        "「AA 塔打甲无所谓」错：thorium 对 22 甲保留 67%，silicon 只剩 21% [src: 00-data/turrets.json]",
+        "「shots 4 是四连发」错：ShootAlternate 是四管轮转，31.37 发/s 是总射速 [src: 00-data/turrets.json]",
+        "「surge 一定最强」错：surge DPS 比 thorium 低 18%，它买的是更低吞吐（11.85 件/s） [src: 00-data/turrets.json]"
+      ],
+      "related": [
+        "COMBAT.TURRET.102",
+        "COMBAT.TURRET.001"
+      ]
+    },
+    "afflict": {
+      "tier": "B",
+      "role": "中口径电塔 / 穿刺射击",
+      "title": "368 世界单位、216 DPS 的穿甲电炮",
+      "oneliner": "afflict 解决「中期远程点掉两三个目标」，不是「终局主力」：reload 50 tick 的 180 直伤 = 216 DPS，pierceCap 2 让它在密集队形里打双份，368 世界单位（46.00 格）覆盖配 300 电/s。它不吃护甲惩罚（无 armorMultiplier，对 22 甲剩 158、88%），代价是慢弹道与对电网的绝对依赖。 [src: Mindustry-Source/core/src/mindustry/content/Blocks.java:5025]",
+      "mechanics": [
+        "reload 50 tick ⇒ 1.2 发/s，直伤 180 → 216 DPS [src: Mindustry-Source/core/src/mindustry/content/Blocks.java:5025]",
+        "pierceCap 2 可穿 2 个目标；speed 5、lifetime 80 ⇒ 弹道慢，打机动目标要预判 [src: Mindustry-Source/core/src/mindustry/content/Blocks.java:5030]",
+        "无 armorMultiplier，对 22 甲单发剩 158（88%），是 Erekir 中不吃护甲惩罚的中口径 [src: Mindustry-Source/core/src/mindustry/content/Blocks.java:5036]",
+        "耗电 300/s，4×4、590 件、3520 血 [src: 00-data/turrets.json]",
+        "368 世界单位（46.00 格）比 titan 短但比大多数 Erekir 塔远 [src: Mindustry-Source/core/src/mindustry/content/Blocks.java:5024]"
+      ],
+      "strengths": [
+        "590 件 + 368 覆盖，是 Erekir 中期最便宜的远程点名塔 [src: 00-data/turrets.json]",
+        "pierceCap 2 在密集队形里等效双倍输出，且不吃护甲惩罚 [src: Mindustry-Source/core/src/mindustry/content/Blocks.java:5030]"
+      ],
+      "weaknesses": [
+        "216 DPS 在 590 件档不算高：smite 562.5 只贵 3.7 倍 [src: 00-data/turrets.json]",
+        "300 电/s 需要独立电网，断电直接变摆设 [src: 00-data/turrets.json]",
+        "弹道 speed 5，对高速飞行/走位单位命中率打折 [src: Mindustry-Source/core/src/mindustry/content/Blocks.java:5030]"
+      ],
+      "numbers_notes": [
+        "本库没有 afflict 的 ammo[]（shootType 不在 bullets.json），180 与 1.2 发/s 来自源码手工表；158 是按 max(180−22, 18) 算的对 22 甲单发 [src: Mindustry-Source/core/src/mindustry/content/Blocks.java:5025]"
+      ],
+      "counterexamples": [
+        "反例：把 afflict 当防空用，弹道 speed 5 追不上高速飞行单位；同价 590 件的 lustre 是瞬时命中 [src: Mindustry-Source/core/src/mindustry/content/Blocks.java:5030]",
+        "反例：断电时 216 DPS 归零，一台 590 件的塔被电网单点故障整死 [src: 00-data/turrets.json]"
+      ],
+      "misconceptions": [
+        "「pierceCap 2 = 双倍 DPS」错：只有两个目标重叠站位时才成立 [src: Mindustry-Source/core/src/mindustry/content/Blocks.java:5030]",
+        "「电塔不吃弹药所以便宜」错：300 电/s 要占发电与储能，成本只是从料转到电 [src: 00-data/turrets.json]",
+        "「180 单发对 22 甲掉一半」错：剩 158，保留 88% [src: Mindustry-Source/core/src/mindustry/content/Blocks.java:5036]"
+      ],
+      "related": [
+        "COMBAT.TURRET.106",
+        "COMBAT.NUMBERS.001"
+      ]
+    },
+    "lustre": {
+      "tier": "A",
+      "role": "全向点杀 / 最强目标优先",
+      "title": "360° 射界、专挑最硬目标的激光",
+      "oneliner": "lustre 解决「阵地中央的点杀与补刀」：shootCone 360 的全向射界 + unitSort strongest，自动挑最硬的目标，不用为它调朝向；590 件、4×4，每次结算 210，对 22 甲单次保留 90%。代价是 200 电/s 加氮的双层供给，以及一个诚实的缺口——本库不给 DPS 数字，因为 ContinuousTurret 的结算间隔不在反射表里。 [src: Mindustry-Source/core/src/mindustry/content/Blocks.java:5148]",
+      "mechanics": [
+        "PointLaserBulletType，每次结算 210；shootCone 360 ⇒ 全向射界，不需要转向 [src: Mindustry-Source/core/src/mindustry/content/Blocks.java:5148]",
+        "unitSort strongest ⇒ 自动挑最硬/最贵的目标，是「优先级」而不是「最近」 [src: Mindustry-Source/core/src/mindustry/content/Blocks.java:5157]",
+        "消耗氮 + 电 200/s，双层供给；4×4、590 件、3360 血 [src: 00-data/turrets.json]",
+        "对 22 甲：每次结算 210 剩 188（90%），是护甲惩罚最轻的结算方式之一 [src: Mindustry-Source/core/src/mindustry/content/Blocks.java:5148]",
+        "250 世界单位（31.25 格）的覆盖，全向意味着实际覆盖是按它画的一个圆 [src: Mindustry-Source/core/src/mindustry/content/Blocks.java:5147]"
+      ],
+      "strengths": [
+        "360° + strongest，摆阵地正中能同时照顾四面，不需要为它改朝向 [src: Mindustry-Source/core/src/mindustry/content/Blocks.java:5160]",
+        "590 件是同档最便宜；单次结算 210 的瞬时命中不吃弹道 [src: 00-data/turrets.json]"
+      ],
+      "weaknesses": [
+        "本库不给 DPS 数字：结算间隔不在反射表里，硬写 DPS 就是编 [src: Mindustry-Source/core/src/mindustry/content/Blocks.java:5148]",
+        "200 电/s + 氮，双供给断一路就停火 [src: 00-data/turrets.json]",
+        "31.25 格的覆盖在后期偏近，会被 titan 的 48.75 格覆盖压制 [src: 00-data/turrets.json]"
+      ],
+      "numbers_notes": [
+        "别拿「每次结算 210」乘任意系数当 DPS：结算间隔本库没有，210 只能当一次命中的量级 [src: Mindustry-Source/core/src/mindustry/content/Blocks.java:5148]",
+        "对 22 甲的 90% 只是单次结算保留率，不是 DPS 保留率 [src: 00-data/turrets.json]"
+      ],
+      "counterexamples": [
+        "反例：把 210 当「210 DPS」去和 afflict 的 216 比，会得出 lustre 略弱的错误结论；实际它每秒结算多次，但本库没有间隔数字，不能反推 [src: Mindustry-Source/core/src/mindustry/content/Blocks.java:5148]",
+        "反例：把 lustre 摆到前线，它 31.25 格的有效距离先被 titan 的 48.75 格覆盖压制；它该放二线中央 [src: 00-data/turrets.json]"
+      ],
+      "misconceptions": [
+        "「光束塔 DPS 低」错：210 是单次结算量，间隔未知，不能当每秒伤害 [src: Mindustry-Source/core/src/mindustry/content/Blocks.java:5148]",
+        "「360° 只是好看」错：unitSort strongest 让它自动补刀最硬目标，省掉手动集火 [src: Mindustry-Source/core/src/mindustry/content/Blocks.java:5157]",
+        "「氮可以省」错：氮是它的第二供给，与电同级 [src: 00-data/turrets.json]"
+      ],
+      "related": [
+        "COMBAT.TURRET.206",
+        "COMBAT.NUMBERS.001"
+      ]
+    },
+    "scathe": {
+      "tier": "A",
+      "role": "跨屏导弹 / 战略打击",
+      "title": "1350 世界单位、十秒一发的导弹架",
+      "oneliner": "scathe 不是炮，是发射架：塔的弹体 BulletType(0,0) 只负责 spawnUnit，真伤害在导弹武器的 1000 溅射上，所以按塔面板算 DPS 会得到 0。它解决「打到屏幕外」——1350 世界单位（168.75 格）覆盖，10 秒一发、一匣 3 发；代价是 1650 件、只打地面，以及 30 秒的空窗风险。 [src: Mindustry-Source/core/src/mindustry/content/Blocks.java:5218]",
+      "mechanics": [
+        "塔的 shootType 是 BulletType(0,0) + spawnUnit 导弹单位：塔 0 伤害，真伤害在导弹武器溅射 1000 [src: Mindustry-Source/core/src/mindustry/content/Blocks.java:5218]",
+        "reload 600 tick ⇒ 10 秒一发；maxAmmo 45 / ammoPerShot 15 ⇒ 一匣 3 发 [src: 00-data/turrets.json]",
+        "1350 世界单位（168.75 格）是全作最远，属于跨屏战略武器 [src: 00-data/turrets.json]",
+        "只打地面（air False）；三种弹药 phase-fabric / surge-alloy / carbide 的 rm 0.80 / 0.90 / 1.00 只改装填节奏，不改伤害 [src: 00-data/turrets.json]",
+        "溅射 1000 对 22 甲剩 978（98%），几乎不吃护甲 [src: 00-data/turrets.json]"
+      ],
+      "strengths": [
+        "168.75 格覆盖让它在敌人进射界前就打掉对方阵地，是 Erekir 唯一的先手战略 [src: 00-data/turrets.json]",
+        "溅射 1000 对 22 甲保留 98%，重甲单位在它面前一样脆 [src: 00-data/turrets.json]"
+      ],
+      "weaknesses": [
+        "1650 件 + 10 秒一发：单塔持续输出低到可忽略，它买的是「一发清一片」 [src: 00-data/turrets.json]",
+        "只打地面，空中波次完全沉默 [src: 00-data/turrets.json]",
+        "一匣 3 发、ammoPerShot 15，补给断了就是 30 秒空窗 [src: 00-data/turrets.json]"
+      ],
+      "numbers_notes": [
+        "千万别用塔的直伤 0 去算 DPS：那是 spawnUnit 的占位弹，真伤害在 scathe-missile-weapon1 的溅射 1000 [src: 00-data/bullets.json]"
+      ],
+      "counterexamples": [
+        "反例：按塔面板算 scathe 的 DPS 会得到 0，从而把它评为最差塔；实际是 1000 溅射 × 3 发/匣 [src: 00-data/bullets.json]",
+        "反例：拿 scathe 打空中波次，air False 直接 0 输出 [src: 00-data/turrets.json]"
+      ],
+      "misconceptions": [
+        "「0 伤害 = 废塔」错：塔只是发射架，伤害在弹体上 [src: Mindustry-Source/core/src/mindustry/content/Blocks.java:5218]",
+        "「10 秒一发太慢」半错：它的价值是 168.75 格先手与 1000 溅射，不是 DPS [src: 00-data/turrets.json]",
+        "「换 carbide 伤害更高」错：三种弹药塔伤害都是 0，rm 只改装填速度 [src: 00-data/turrets.json]"
+      ],
+      "related": [
+        "COMBAT.TURRET.116",
+        "COMBAT.TURRET.001"
+      ]
+    },
+    "smite": {
+      "tier": "S",
+      "role": "后期主炮 / 五管重击",
+      "title": "五管重击、对 22 甲保留最高的后期主炮",
+      "oneliner": "smite 解决「后期重甲波次的主输出」，不解决「清群」：shots 5 的 ShootMulti 在 reload 100 tick 下给 3 发/s，单发 187.5 → 562.5 单体 DPS，对 22 甲 496.5（88%）——Erekir 通用塔里最高的护甲保留。代价是 2200 件、6 件/s 料耗与 5×5 占地，属于「一个塔位换一条战线」的买卖。 [src: 00-data/turrets.json]",
+      "mechanics": [
+        "shots 5 + ShootMulti(ShootAlternate(5f))，reload 100 tick ⇒ 3 发/s，单发 187.5 → 562.5 单体 DPS [src: Mindustry-Source/core/src/mindustry/entities/pattern/ShootMulti.java:30]",
+        "5 管是轮转不是同 tick 齐射；射速口径是 3 发/s，不是 15 发/s [src: 00-data/turret_shots.json]",
+        "对 22 甲 496.5（88%），是 Erekir 通用塔里最高的护甲保留 [src: 00-data/turrets.json]",
+        "耗料 6 件/s（surge-alloy），5×5、8750 血、2200 件、建造 2450 tick [src: Mindustry-Source/core/src/mindustry/content/Blocks.java:5656]",
+        "空陆通吃，300 世界单位（37.50 格）覆盖，是后期少有的能同时接两层的塔 [src: 00-data/turrets.json]"
+      ],
+      "strengths": [
+        "562.5 DPS + 88% 护甲保留 + 空陆通吃，是 Erekir 后期最稳的主力 [src: 00-data/turrets.json]",
+        "8750 血 + 5×5，能顶前排，不是后排玻璃炮 [src: 00-data/turrets.json]"
+      ],
+      "weaknesses": [
+        "2200 件 + 5×5 占地，一个塔位的机会成本极高 [src: 00-data/turrets.json]",
+        "3 发/s 对高速目标容错差，靠单发厚而不是弹幕密 [src: 00-data/turrets.json]",
+        "surge-alloy 6 件/s 要专门产线，与 breach 的 carbide 抢料 [src: 00-data/turrets.json]"
+      ],
+      "numbers_notes": [
+        "面板 = 单体（无溅射）；别把 shots 5 当 5 倍伤害，射速已经折算进 3 发/s [src: 00-data/turrets.json]"
+      ],
+      "counterexamples": [
+        "反例：用五台 smite 清一群小单位，562.5 DPS 却按 3 发/s 逐发结算，清群效率不如一台 malign 的 1200 DPS 弹幕 [src: 00-data/turrets.json]",
+        "反例：三台 smite 就是 18 件/s surge-alloy 的料耗，产线先崩再谈输出 [src: 00-data/turrets.json]"
+      ],
+      "misconceptions": [
+        "「5 管 = 5 倍 DPS」错：ShootAlternate 轮转，总射速 3 发/s [src: 00-data/turret_shots.json]",
+        "「2200 件太贵」半错：它买到 8750 血 + 空陆通吃 + 88% 保留，摊到战力上不贵 [src: 00-data/turrets.json]",
+        "「smite 对空弱」错：air True，187.5 单发打飞行单位一样不虚 [src: 00-data/turrets.json]"
+      ],
+      "related": [
+        "COMBAT.TURRET.210",
+        "COMBAT.TURRET.001"
+      ]
+    },
+    "malign": {
+      "tier": "S",
+      "role": "终局弹幕 / 覆盖式压制",
+      "title": "2400 电、每秒十七发的随机落点弹幕",
+      "oneliner": "malign 解决「终局的清场与压制」，不解决「精准点杀」：reload 3.5 tick 的 70 直伤给 17.14 发/s、1200 单体 DPS，每发还带 intervalBullet 雷电 18 与 fragBullet 激光 65，实际总输出高于 1200。代价是 2400 电/s（全作最高）与 ShootSummon 的随机落点——它按覆盖结算，不按瞄准结算。 [src: Mindustry-Source/core/src/mindustry/content/Blocks.java:5941]",
+      "mechanics": [
+        "reload 3.5 tick ⇒ 17.14 发/s，直伤 70 → 1200 单体 DPS [src: Mindustry-Source/core/src/mindustry/content/Blocks.java:5941]",
+        "每发还带 intervalBullet 雷电 18 与 fragBullet 激光 65，实际总输出高于 1200 [src: Mindustry-Source/core/src/mindustry/content/Blocks.java:5930]",
+        "ShootSummon 在半径内随机落点，是覆盖式弹幕不是精确瞄准 [src: Mindustry-Source/core/src/mindustry/content/Blocks.java:5926]",
+        "耗电 2400/s 是全作最高档，必须有独立电网 + 储能 [src: 00-data/turrets.json]",
+        "对 22 甲：单发 70 剩 48（69%），比 smite 的 88% 差一档——弹幕塔靠密度不靠单发 [src: Mindustry-Source/core/src/mindustry/content/Blocks.java:5941]"
+      ],
+      "strengths": [
+        "1200 DPS + 两种附弹，是 Erekir 清场效率最高的塔 [src: 00-data/turrets.json]",
+        "410 世界单位（51.25 格）覆盖 + 随机落点，压制面积极大 [src: 00-data/turrets.json]"
+      ],
+      "weaknesses": [
+        "2400 电/s 让它在电网波动时最先熄火，供电成本要算进总账 [src: 00-data/turrets.json]",
+        "随机落点打单体不如 smite 稳定，杀 boss 要配点杀塔 [src: 00-data/turrets.json]",
+        "5×5 + 2400 件，终局才有资格摆 [src: 00-data/turrets.json]"
+      ],
+      "numbers_notes": [
+        "面板 DPS 的 0.75 折算只对溅射成立，malign 的 70 是直伤；附弹（雷电 18 / 激光 65）不计入 1200 [src: 00-data/turrets.json]"
+      ],
+      "counterexamples": [
+        "反例：用 malign 单挑 22 甲 boss，单发 70 只剩 48，69% 保留 + 随机落点让它不如一台 smite 稳定 [src: 00-data/turrets.json]",
+        "反例：只配 1200 电/s 的电网，malign 会在其他塔用电时降到半速 [src: 00-data/turrets.json]"
+      ],
+      "misconceptions": [
+        "「1200 DPS 是精确单体」错：ShootSummon 随机落点，命中期望低于纸面 [src: Mindustry-Source/core/src/mindustry/entities/pattern/ShootSummon.java:20]",
+        "「耗电高所以弱」错：它买到的是覆盖面积，不是效率 [src: 00-data/turrets.json]",
+        "「附弹只是特效」错：雷电 18 + 激光 65 每发都带，实际输出高于 1200 [src: Mindustry-Source/core/src/mindustry/content/Blocks.java:5930]"
+      ],
+      "related": [
+        "COMBAT.TURRET.209",
+        "COMBAT.TURRET.001"
+      ]
+    }
+  }
+}
