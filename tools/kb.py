@@ -93,7 +93,10 @@ def _path_weight(path: str) -> float:
 # 依据 08-evidence/bench/README.md §10.5（冻结快照 300 题，k=6，candidates=40）：
 #   基线 67.5% → +A 73.5% → +A+B 78.2% → +A+B+C 85.6%（hit@6），库外槽位 18.5% → 0%。
 # 三项默认全开，各自可用环境变量置 0 回退（便于对照实验，不影响 CLI/MCP 签名）。
-#   A KB_ONLY_KNOWLEDGE=0  只检索 knowledge/（00-data 摘要仍保留）；显式 kind= 时放行全库
+#   A KB_ONLY_KNOWLEDGE=1（默认）只检索 knowledge/（00-data 摘要仍保留）；=0 放行全库
+#     （docs/ 与 tools/*.py 一并可召回）；显式 kind= 时无论开关都放行全库。
+#     注意：工具/文档类问题在默认档下**根本召回不到源码**，题面一变换就只见近义词——CLI 会
+#     在最高 sim < 0.45 时提示改用 --kind 或置 0。
 #   B KB_DEDUPE_FILE=0     结果按文件去重（k 数文档，同文件 top3 块合并、正文裁 1200 字）
 #   C KB_ASCII_BOOST=0     FTS 标识符加权（×2）+ dense 权重下调（0.7）
 def _flag(name: str, default: str = "1") -> bool:
@@ -182,19 +185,103 @@ def _section_chunks(text: str, path: str, kind: str) -> list[dict]:
     return out
 
 
+_SENT_RE = re.compile(r"[。！？；!?;]")
+
+
+def _atoms(lines: list[str], limit: int) -> list[tuple[str, int, bool]]:
+    """(text, 源行下标, 是否上一块的续行)：把超长单行先按句末标点、再硬切。
+
+    只有「一行本身超过 limit」时才产生续行块（cont=True）；块文本拼起来永远等于源文本。
+    """
+    out: list[tuple[str, int, bool]] = []
+    for idx, line in enumerate(lines):
+        if len(line) <= limit:
+            out.append((line, idx, False))
+            continue
+        rest, cont = line, False
+        while len(rest) > limit:
+            cut = limit
+            last = None
+            for m in _SENT_RE.finditer(rest[:limit]):
+                last = m
+            # 断点太靠前就宁可硬切：切出半句话比切短更糟
+            if last is not None and last.end() >= limit // 3:
+                cut = last.end()
+            out.append((rest[:cut], idx, cont))
+            rest, cont = rest[cut:], True
+        if rest:
+            out.append((rest, idx, cont))
+    return out
+
+
+def _join(atoms: list[tuple[str, int, bool]]) -> str:
+    parts = []
+    for i, (text, _idx, cont) in enumerate(atoms):
+        if i and not cont:
+            parts.append("\n")
+        parts.append(text)
+    return "".join(parts)
+
+
 def _split_long(body: str, start: int, limit: int) -> list[tuple[str, int, int]]:
-    """Split oversized text on paragraph boundaries; returns (text, start, end)."""
+    """Split oversized text on paragraph boundaries, then sentences; returns (text, start, end).
+
+    2026-11-15：旧实现是「一行行往里塞、塞满就切」，长段落会在句子中间断开，两半各是
+    半句话 —— 向量更泛，检索报告里点过这种半句块会抢 top1。现在两级退让：
+    1) 放不下时优先回退到最近的自然段边界（空行，且回退量不超过块的 40%）；
+    2) 单行本身超长时按句末标点切，标点太靠前（<1/3）才硬切。
+    行号仍按源行累加，块文本拼起来与源文本一致。
+    """
     if len(body) <= limit:
         return [(body, start, start + body.count("\n"))]
-    chunks, cur, cur_start = [], [], start
-    for line in body.splitlines():
-        cur.append(line)
-        if sum(len(x) + 1 for x in cur) >= limit:
+    if limit < 400:
+        # 代码块（120）与 00-data 摘要（120）保持旧行为不动：那里「一行 = 一条记录 / 一行
+        # 代码」，按更小的格子重排只会把记录撕碎（实测块数会 +58%），收益为零、风险不小。
+        chunks, cur, cur_start = [], [], start
+        for line in body.splitlines():
+            cur.append(line)
+            if sum(len(x) + 1 for x in cur) >= limit:
+                chunks.append(("\n".join(cur), cur_start, cur_start + len(cur) - 1))
+                cur_start += len(cur)
+                cur = []
+        if cur:
             chunks.append(("\n".join(cur), cur_start, cur_start + len(cur) - 1))
-            cur_start += len(cur)
-            cur = []
-    if cur:
-        chunks.append(("\n".join(cur), cur_start, cur_start + len(cur) - 1))
+        return chunks
+    lines = body.splitlines()
+    items = _atoms(lines, limit)
+    chunks: list[tuple[str, int, int]] = []
+    cur: list[tuple[str, int, bool]] = []
+    cur_len = 0
+
+    def flush() -> None:
+        nonlocal cur, cur_len
+        if cur:
+            chunks.append((_join(cur), start + cur[0][1], start + cur[-1][1]))
+        cur, cur_len = [], 0
+
+    for atom in items:
+        text = atom[0]
+        add = len(text) + (0 if (cur and atom[2]) else 1)
+        if cur and cur_len + add > limit:
+            # 回退到最近的自然段边界：只回退最后 40%，否则等于把整块搬走
+            keep = len(cur)
+            for j in range(len(cur) - 1, 0, -1):
+                if not cur[j][0].strip():
+                    tail_len = sum(len(t) + 1 for t, _i, _c in cur[j:])
+                    if tail_len <= limit * 0.4:
+                        keep = j
+                    break
+            if keep < len(cur):
+                head, tail = cur[:keep], cur[keep:]
+                chunks.append((_join(head), start + head[0][1], start + head[-1][1]))
+                cur = tail
+                cur_len = sum(len(t) + 1 for t, _i, _c in cur)
+            else:
+                flush()
+            add = len(text) + (0 if (cur and atom[2]) else 1)
+        cur.append(atom)
+        cur_len += add
+    flush()
     return chunks
 
 
@@ -458,7 +545,11 @@ def _sparse(conn, query: str, candidates: int) -> list[tuple[int, float]]:
 
 def search(query: str, k: int = 6, kind: str | None = None,
            rerank: bool = False, candidates: int | None = None) -> list[dict]:
-    """A/B/C 三开关默认全开（KB_ONLY_KNOWLEDGE / KB_DEDUPE_FILE / KB_ASCII_BOOST 置 0 回退）。"""
+    """A/B/C 三开关默认全开（KB_ONLY_KNOWLEDGE / KB_DEDUPE_FILE / KB_ASCII_BOOST 置 0 回退）。
+
+    返回项里的 score 是 RRF 融合分（名次派生，区分度天生只有百分之几），sim 是与问题的
+    余弦相似度（可读的相关性），二者用途不同：排序看 score，判断「像不像」看 sim。
+    """
     import numpy as np
     if candidates is None:
         candidates = CANDIDATES
@@ -476,6 +567,10 @@ def search(query: str, k: int = 6, kind: str | None = None,
     dense = list(np.argsort(-sims)[:candidates])
     sparse = _sparse(conn, query, candidates)
     conn.close()
+    # RRF 的分数是「名次倒数」(1/(60+rank))，同分区分度必然只有百分之几 —— 报告里那串
+    # 0.0159/0.0167 就是名次 60 前后的倒数，不是置信度。真要一个能读的数字，得看余弦：
+    # 这里顺手把每条命中块与问题的余弦相似度捎出来（只用于显示，不参与排序）。
+    sim_by_id = {rows[i][0]: float(sims[i]) for i in range(len(rows))}
 
     wd = ASCII_DENSE_WEIGHT if ASCII_BOOST else 1.0
     fused: dict[int, float] = {}
@@ -506,7 +601,8 @@ def search(query: str, k: int = 6, kind: str | None = None,
         for cid in ordered:
             r = by_id[cid]
             out.append({"path": r[1], "start": r[2], "end": r[3], "kind": r[4],
-                        "heading": r[5], "text": r[6], "score": round(scores[cid], 4)})
+                        "heading": r[5], "text": r[6], "score": round(scores[cid], 4),
+                        "sim": round(sim_by_id.get(cid, 0.0), 3)})
         return out
 
     # B：k 数文档而不是 chunk —— 同一 .md 的连号块合并成一条，正文裁到 1200 字符。
@@ -532,7 +628,8 @@ def search(query: str, k: int = 6, kind: str | None = None,
         top = by_id[lst[0][1]]
         out.append({"path": path, "start": min(starts), "end": max(ends),
                     "kind": top[4], "heading": top[5] or "", "text": text,
-                    "score": round(sc, 4), "n_chunks": len(parts)})
+                    "score": round(sc, 4), "sim": round(sim_by_id.get(lst[0][1], 0.0), 3),
+                    "n_chunks": len(parts)})
     return out
 
 
@@ -543,7 +640,9 @@ def _format(results: list[dict]) -> str:
         if len(snippet) > 420:
             snippet = snippet[:420] + "…"
         head = f" — {r['heading']}" if r["heading"] else ""
-        lines.append(f"[{i}] {r['path']}:{r['start']}-{r['end']}{head}  score={r['score']}")
+        # score 是名次派生的（RRF），sim 才是余弦：看相关性读后者。
+        lines.append(f"[{i}] {r['path']}:{r['start']}-{r['end']}{head}"
+                     f"  score={r['score']} sim={r.get('sim', 0.0):.3f}")
         lines.append(f"    {snippet}")
     return "\n".join(lines) if lines else "(no results)"
 
@@ -636,6 +735,14 @@ def main(argv: list[str] | None = None) -> int:
         return 0
     res = search(args.query, args.k, args.kind, rerank=args.rerank)
     print(_format(res))
+    # 默认只检索 knowledge/：像「Server abspath」「mirror 同步」这类问工具实现的问题，
+    # 在这个档下最高余弦也只有 0.4 上下，返回的全是近义词邻居 —— 与其让人以为库里没写，
+    # 不如直接提示怎么放开范围。
+    if ONLY_KNOWLEDGE and not args.kind:
+        top = max((r.get("sim", 0.0) for r in res), default=0.0)
+        if top < 0.45:
+            print("  (hint: 默认只检索 knowledge/；问工具实现或某篇文档请加 --kind code|doc，"
+                  "或设 KB_ONLY_KNOWLEDGE=0 放开全库)", file=sys.stderr)
     return 0
 
 
