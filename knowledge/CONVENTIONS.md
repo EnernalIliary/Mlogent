@@ -121,7 +121,7 @@ tokens 由 check 脚本回填，不用手写精确值。
 |---|---|---|
 | `Logic-Docs-v1.1.0.md` | 存档（部分吸收） | `tests/docsig/run_docsig.py`、`rules/slot-not-in-enum.json`、`rules/under-arity.json` 的 src |
 | `mlog工作笔记.md` | 存档（部分吸收） | `tests/docsig/run_docsig.py` |
-| `蓝图逻辑模式库.md` / `蓝图层逐类精讲.md` | 存档（已重构为 07-patterns） | docsig；skill 里的 `PATTERNS.md` / `BLUEPRINT-ANALYSIS.md` 由它们派生 |
+| `蓝图逻辑模式库.md` / `蓝图层逐类精讲.md` | **根级副本已物理删除（2026-11-15）**；模式库内容在 07-patterns | 现存副本 `mindustry-blueprint/PATTERNS.md` / `BLUEPRINT-ANALYSIS.md` 现在是 docsig 的输入源，不再由根级派生 |
 | `docs/游戏速查/` | 存档（薄投影，数值已作废） | `tools/kb.py` 的 DOC_GLOBS（检索语料） |
 | `docs/断言表.md` / `docs/验证记录.md` | 存档（真机制部分已分层进 claims/probes） | 产品侧流程引用 |
 

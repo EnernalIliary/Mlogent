@@ -38,8 +38,8 @@ tokens: 0
 | 经验笔记 | `mlog工作笔记.md` | 227KB / 12 章 | **部分吸收**（铁律→陷阱/反模式） | `01-execution/E02`、`08-evidence/CHEAT.md`、`07-patterns/anti-patterns.md` | 笔记里"已推翻的旧结论"未逐条搬入，遇到自相矛盾以本库为准 |
 | 断言库 | `docs/断言表.md` | 202 条 | **已分层**：真机制 102 条 → claims.jsonl(85) + probes(20)；工具开发 82 条 **丢弃** | `08-evidence/claims.jsonl`、`probes/` | 原表 41% 是 jobqueue/undo/面板宽度这类产品断言，不属机制知识 |
 | 验证记录 | `docs/验证记录.md` | 91KB / 120 条 | **部分吸收**（59.4% 覆盖区） | `08-evidence/probes/` 20 条可执行探针 + `claims.jsonl` 的 verdict | 本库改成"可重跑脚本 + 快照输出"，比纯文字记录可复验 |
-| 模式库 | `PATTERNS.md` / `蓝图逻辑模式库.md` | 107KB / 79KB（两文件 2471 行仅 82 处链接前缀差异） | **已重构** | `07-patterns/P01-P08` + `idioms.json`(30) + `anti-patterns.md`(AP-01..20) | 旧文的"567 处 bug"是 1081 逻辑块口径，本库实测 `.mlog` 口径是 677 处（142 文件），两口径并列记录 |
-| 蓝图精讲 | `BLUEPRINT-ANALYSIS.md` / `蓝图层逐类精讲.md` | 79KB / 1875 行 | **未吸收**（属"蓝图逐类拆解"，非机制） | — | 需要"某个成品蓝图的实现思路"时才查 |
+| 模式库 | `PATTERNS.md`（根级 `蓝图逻辑模式库.md` 已于 2026-11-15 删除） | 107KB / 2471 行 | **已重构** | `07-patterns/P01-P08` + `idioms.json`(30) + `anti-patterns.md`(AP-01..20) | 旧文的"567 处 bug"是 1081 逻辑块口径，本库实测 `.mlog` 口径是 677 处（142 文件），两口径并列记录 |
+| 蓝图精讲 | `BLUEPRINT-ANALYSIS.md`（根级 `蓝图层逐类精讲.md` 已于 2026-11-15 删除） | 79KB / 1875 行 | **未并入 07-patterns**（属"蓝图逐类拆解"，非机制） | — | 需要"某个成品蓝图的实现思路"时才查；删除只是去掉重复副本，正文随 skill 文档保留 |
 | 实测层 | `MBO/docs` 00-23 + README | 22 篇 / 21KB | **部分吸收** | `02-world/W06/W07/W10` 引用了传动带 4.9/s、硅 2.973/s 等 | 实测值标注 `conf: E`；与字段值冲突时先信字段，再解释"实测为何不同" |
 | 配比模型 | `ratio-calc`（gamedata.js 1.13MB） | 33 工厂/17 兵厂/14 发电/10 钻头 | **未吸收**（是计算器，不是知识） | `02-world/W02` 只讲配方机制 | 要算"某产线要几台"仍用它 |
 | 配比文档（我建） | `docs/MBO与配比计算器.md` | 246 行 | **已退场（2026-11-08）** | 机制/数值并入 `02-world/W02/W03/W06/W07` + `04-units/U02`；工程部分由 `ratio-calc/README.md` 承接 | 用户要求"以后统一提交到 knowledge"，平行知识库会造成双真源 |
@@ -65,6 +65,6 @@ tokens: 0
 
 1. **单一真源**：数值 → `00-data/`（jar 反射）；语义 → `Mindustry-Source` + 文章锚点；不再保留第二份手抄数值表。
 2. **口径写进文件头**：每篇文章 `ver:` 标双版本，正文出现两版差异时用「版本注」而不是并列两张表。
-3. **旧副本不删但"停更"**：仓库里 `PATTERNS.md`、`Logic-Docs-v1.1.0.md`、`蓝图逻辑模式库.md` 等仍在原地（有外部引用），但**任何机制修正只改 `knowledge/`**；下次发现旧文与本库冲突，按 `CONVENTIONS.md` 的"冲突处理"提 claims 条目。
+3. **旧副本"停更"**：`PATTERNS.md`、`Logic-Docs-v1.1.0.md` 等仍在原地（有外部引用），但**任何机制修正只改 `knowledge/`**；下次发现旧文与本库冲突，按 `CONVENTIONS.md` 的"冲突处理"提 claims 条目。（2026-11-15 例外：用户裁定根级 `蓝图逻辑模式库.md` / `蓝图层逐类精讲.md` 与其 skill 副本重复，两个根级文件已物理删除，正文仍在 `mindustry-blueprint/` 下。）
 
 > **2026-11-08 收紧**：新知识**只提交到 `knowledge/`**（规则见 `CONVENTIONS.md` §9）；旧文档降为只读存档，不再接收新内容。物理删除前必须同步改 `tests/docsig/run_docsig.py` 与 `rules/*.json` 的 `src`（它们仍把这些文件当输入），再跑 `python gate.py --full`。同期已清理知识库自身的工作产物：`knowledge/_report/attic`（6 份旧 kb.sqlite3，198 MB）与 46 个一次性探针脚本（`p_*.py` 等），门禁仍 `RESULT: PASS`、索引与库一致。

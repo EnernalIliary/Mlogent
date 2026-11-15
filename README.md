@@ -3,8 +3,9 @@
 Mindustry mlog 逻辑的静态分析、规则审计、真执行器模拟，外加两个 DSH skill、一个 Agent 预设，以及一套可从零推导结论的机制知识库。
 
 **本仓只含工具与知识库**：`tools/`、`rules/`、`tests/`、`docs/`（断言表 / 验证记录 / 速查卡 / 游戏速查）、
-`knowledge/`（机制知识库：63 篇文章 + 11 张数据表 + 85 条可复测断言 + 300 题评测）、三个根级知识文档
-（`蓝图逻辑模式库.md`、`蓝图层逐类精讲.md`、`Logic-Docs-v1.1.0.md`）、`mindustry-blueprint/`（技能文档）、
+`knowledge/`（机制知识库：63 篇文章 + 11 张数据表 + 85 条可复测断言 + 300 题评测）、根级
+`Logic-Docs-v1.1.0.md`（mlog 语言手册）、`mindustry-blueprint/`（技能文档，模式库 `PATTERNS.md` 与逐类精讲
+`BLUEPRINT-ANALYSIS.md` 在这里）、
 `.dsh/skills/`（技能安装副本）、`dsh-preset-mlog/`（Agent 预设）、`data/game/`（从 v160.7 导出的游戏事实）。
 个人语料、工作笔记（`mlog工作笔记.md`）、场景截图、两个游戏内模组、本地 sidecar（`tools/logicd.py`）、门禁脚本（`gate.py`）
 以及 `tools/dev/` 下的一次性拓荒脚本都不在本仓；文档里保留的、指向这些内容的命令与路径是作者本地的执行记录。
@@ -57,7 +58,7 @@ python tools/mlogsim.py logic.mlog --save scene.msav --units mono:1 --core-items
 | `tests/` | 75 个 golden 用例，`python tests/run_tests.py`；外加 `tests/docsig/`、`tests/ruleids/`、`tests/shapes/` 与运行期探针 `tests/probes/` |
 | `docs/` | `断言表.md`（每条结论的出处与验证方式）、`验证记录.md`（逐条实测）、`速查卡.md`（速查）、`游戏速查/`（物品/方块/单位/配方） |
 | `knowledge/` | 机制知识库（Mindustry v160.7 数值 / v159.3 语义）：`KB.md` 是入口与 AI 使用协议，`00-data/` 是机器可读事实表，`01-execution/`…`07-patterns/` 是 63 篇文章，`08-evidence/` 是 85 条可复测断言 + 可执行探针 + 300 题评测，`tools/` 是复现脚本 |
-| `蓝图逻辑模式库.md` 等 | 三个根级知识文档（模式库 / 逐类精讲 / mlog 语言文档），`tests/docsig/` 会逐条机检里面的语句签名 |
+| `Logic-Docs-v1.1.0.md` | 根级 mlog 语言手册；模式库 / 逐类精讲已并入 `knowledge/07-patterns/`，现存副本在 `mindustry-blueprint/`。`tests/docsig/` 会逐条机检这些文档里的语句签名 |
 | `data/game/` | 从 v160.7 真执行器导出的游戏事实（物品/液体/方块/单位/别名），供 `game.py` 与知识库使用 |
 | `.dsh/skills/` | `mlog-agentskill`（可独立拷走）与 `mindustry-blueprint` 安装副本 |
 | `dsh-preset-mlog/` | DeepSeek Harness 的 `mlog` Agent 预设（persona + 技能根 + 工具集） |

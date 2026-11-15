@@ -21,7 +21,7 @@
 
 - 旧 data/game/*.json 的 craftTime **447 条全为 -1** → 弃用该字段。
 - docs/游戏速查/方块配方.md 的"耗电"列是**每 tick**，标签却写 /s → 差 60 倍。
-- 蓝图逻辑模式库.md / 蓝图层逐类精讲.md 与 mindustry-blueprint 下两份是近重复副本，以 skill 目录版为准。
+- 蓝图逻辑模式库.md / 蓝图层逐类精讲.md 的根级副本已删除（2026-11-15，内容与 07-patterns 重复），现存以 `mindustry-blueprint/PATTERNS.md` / `BLUEPRINT-ANALYSIS.md` 为准。
 - instr_semantics.json 存在 3 个尺寸版本，以仓库 tools/ 版（56.5KB）为准；instr_enums.json（v160.7）作枚举补充。
 - **单位数值以 jar 为准**：toxopid 护甲 jar=22 / v159.3 源码=13；reign armor jar=30 / 源码=18；dagger 主武器 jar=2 挂点×reload 26（DPS 41.5）/ 源码单挂点 reload 13（DPS 83.1）。文章主值一律 jar，源码差异写在版本注里。
 - **连续伤害不是 estimateDPS**：meltdown 实战 DPS = damage/5×60 = **936**；旧稿 4680 是 BulletType.estimateDPS 的假设值，Turret 面板 3120 是重复除 reload 的产物。
