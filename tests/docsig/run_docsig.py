@@ -3,8 +3,9 @@
 
 Docs drift from the game silently.  On 2026-10-28 the maintainer asked why a
 tower-defense program "detected only one unit" -- the answer was that
-蓝图逻辑模式库.md described `radar <target> <relation> <sort> <direction> <building> <count> <output>`
-with a COUNT, and taught "at most 10, it is really the Nth one".  The engine has
+`PATTERNS.md` (then only a mirror of the since-deleted 蓝图逻辑模式库.md) described
+`radar <target> <relation> <sort> <direction> <building> <count> <output>` with a
+COUNT, and taught "at most 10, it is really the Nth one".  The engine has
 no count: LStatements.java:485-547 -> RadarI, the sixth operand is the sort
 DIRECTION (LExecutor.java:753 `sortOrder.bool() ? 1 : -1`) and the statement has
 exactly ONE output (LExecutor.java:802).  Every reader of that page was taught a
@@ -88,18 +89,23 @@ ROOT = Path(__file__).resolve().parents[2]
 # Docs written by hand.  Deliberately NOT scanned here:
 #   Logic/                 original read-only copies (never edited)
 #   out/, dist/            drafts and build output
-#   */PATTERNS.md, */BLUEPRINT-ANALYSIS.md
-#                          DERIVED, not written: they are 蓝图逻辑模式库.md and
-#                          蓝图层逐类精讲.md copied to a deeper directory by
-#                          tools/fix_skill_links.py (which rewrites the leading
+#   deeper */PATTERNS.md, */BLUEPRINT-ANALYSIS.md copies
+#                          DERIVED, not written: they are the two skill-dir
+#                          documents listed in DOCS copied to a deeper directory
+#                          by tools/fix_skill_links.py (which rewrites the leading
 #                          ../ of every link and renames the file).  Scanning
 #                          them here would report the same defect once per copy;
 #                          derived() below asserts they are content-identical
 #                          instead, which is the real invariant.
+#
+# 2026-11-15: the repository-root copies (蓝图逻辑模式库.md / 蓝图层逐类精讲.md) were
+# deleted at the maintainer's request -- their material lives in knowledge/07-patterns
+# and still ships as mindustry-blueprint/PATTERNS.md and .../BLUEPRINT-ANALYSIS.md.
+# Those two are now the sources this file scans; any deeper copy is derived from them.
 DOCS = [
-    "蓝图逻辑模式库.md",
+    "mindustry-blueprint/PATTERNS.md",
     "Logic-Docs-v1.1.0.md",
-    "蓝图层逐类精讲.md",
+    "mindustry-blueprint/BLUEPRINT-ANALYSIS.md",
     "mlog工作笔记.md",
     "docs/速查卡.md",
 ]
@@ -114,8 +120,11 @@ STRICT = {
 }
 
 # hand-written source -> derived copies, discovered by walking the tree (a new
-# mirror must not be able to escape this check by not being listed).
-DERIVED_SOURCES = ["蓝图逻辑模式库.md", "蓝图层逐类精讲.md"]
+# mirror must not be able to escape this check by not being listed).  Since
+# 2026-11-15 the sources are the skill-dir documents (the root copies are gone);
+# .dsh/skills/mindustry-blueprint/ holds the deeper derived pair.
+DERIVED_SOURCES = ["mindustry-blueprint/PATTERNS.md",
+                   "mindustry-blueprint/BLUEPRINT-ANALYSIS.md"]
 DERIVED_SKIP = ("out", "dist", "Logic", ".git", "logic-corpus", "saves")
 
 PLACE = re.compile(r"^<[^<>]{1,40}>$")
@@ -410,10 +419,11 @@ def derived(root=ROOT, verbose=False):
         for fn in filenames:
             if fn in ("PATTERNS.md", "BLUEPRINT-ANALYSIS.md"):
                 copies.append(rel_dir / fn)
-    src_of = {"PATTERNS.md": "蓝图逻辑模式库.md",
-              "BLUEPRINT-ANALYSIS.md": "蓝图层逐类精讲.md"}
+    src_of = {Path(rel).name: Path(rel) for rel in DERIVED_SOURCES}
     for copy in sorted(copies):
         src = root / src_of[copy.name]
+        if copy == src_of[copy.name]:
+            continue
         if not src.is_file():
             problems.append(f"{copy.as_posix()}: source {src.name} is gone")
             continue
@@ -491,6 +501,11 @@ def check(sem, verbose=False, root=ROOT):
     for rel in DOCS:
         path = Path(root) / rel
         if not path.is_file():
+            # Not an error: the public checkout deliberately omits the two
+            # mindustry-blueprint/ documents (_sync_public.py excludes them).
+            # Say so out loud -- a DOCS entry that quietly drops out is how the
+            # coverage of this gate would shrink without anyone noticing.
+            print("note: %s not in this checkout, skipped" % rel)
             continue
         stats["files"] += 1
         scan_lines(rel, doc_lines(path), sem, stats, problems, vocab)
