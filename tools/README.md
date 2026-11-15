@@ -3,6 +3,8 @@
 日常只有两个入口：`mlog.py`（解析/检查/生成蓝图与逻辑）和 `mlogsim.py`（拿真执行器跑逻辑：默认官方 **v160.7** server jar `out/_server160.jar`；`MLOGSIM_JAR` 可切 `_server159.jar` / `_server146.jar`，见 `mlogsim.py:116-122`。注意数据表的 `source:` 仍写 v159.3 —— 那是数据表来源版本，不是模拟器版本）。
 其余文件是它们的数据、分析层和一次性维护脚本。
 
+环境：先跑 `python tools/mlog.py doctor`。静态分析（check/ir/values/pack/cross/report）**全部只用 Python 标准库**；只有 `kb.py` 的本地知识库检索要 `fastembed`（仓库根 `requirements.txt`）；模拟器要 Java 21 + server jar。全部可覆盖的环境变量见仓库根 `.env.example`。
+
 ## 常用命令
 
 | 想做什么 | 命令 |

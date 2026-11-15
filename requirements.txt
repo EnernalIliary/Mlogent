@@ -1,0 +1,24 @@
+# mlog-agentskill — 可选依赖
+#
+# 先说结论：静态分析、检查、生成、蓝图解析（tools/ 下全部模块，以及
+# .dsh/skills/mlog-agentskill 的技能副本）**只用 Python 标准库**，
+# 一个 pip 包都不需要 —— check / ir / values / pack / cross / report 直接能跑。
+#
+# 唯一需要 pip 的是本地知识库检索 tools/kb.py（knowledge/ 快照的 FTS + 向量混合检索 +
+# 交叉编码器重排，见 tools/kb.py 顶部注释与 knowledge/KB.md）：
+#
+#   pip install -r requirements.txt
+#   python tools/kb.py build                      # 建 out/_kb/kb.sqlite3
+#   python tools/kb.py search "sensor 误报"        # 检索
+#
+# fastembed 会连带装 onnxruntime / tokenizers / numpy / huggingface_hub。
+# 实测快照（Python 3.11.4，本机 out/_kblibs，2026-10 重建 5,374 chunks）：
+#   fastembed 0.9.0 / onnxruntime 1.31.0 / tokenizers 0.23.3 / numpy 2.5.4
+#   huggingface_hub 1.33.0 / pyyaml 6.0.3 / pillow 12.3.0
+# 模型：BAAI/bge-small-zh-v1.5（向量）+ BAAI/bge-reranker-base（重排），
+# 首次 build 会下载到 out/_kbmodels（可用 KB_MODELS 改），之后可离线（HF_HUB_OFFLINE=1）。
+#
+# 另外一件不是 pip 的事：真执行器模拟器 tools/mlogsim.py 需要 Java 21 +
+# out/_server160.jar（用 MLOGSIM_JAR / MLOGSIM_JAVA 覆盖，见 .env.example）。
+
+fastembed==0.9.0

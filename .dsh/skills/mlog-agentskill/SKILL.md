@@ -2,27 +2,49 @@
 name: mlog-agentskill
 description: 审查 Mindustry mlog 逻辑时使用：一次跑完静态检查/成本/不可达代码/死存储/常量分支/可证 null/打包配置，按证据强弱给出先看哪里，并附每层的校准数字与"不能证明什么"。
 whenToUse: 需要审查或解释一段 mlog（.mlog 源码或 .msch 蓝图里的逻辑块）、判断某条语句是否白算、某个分支是否恒真、某个变量是否可能为 null、或某个数字打包了几层字段时。
+metadata:
+  version: "1.1.1"
+  license: "MIT"
+  repository: "https://github.com/EnernalIliary/mlog-agentskill"
 ---
 
 # MLOGAGENT — mlog 逻辑分析
 
-一个入口把六种分析全部跑一遍，并告诉你**先看哪里**。自带完整副本（`tools/` 里 8 个模块 + 5 个数据文件 + `MANIFEST.sha256`），整个目录拷走就能用，不依赖仓库其他部分。
+## 0. 加载顺序（硬规则：路径先于命令）
+
+这份 `SKILL.md` 所在的目录记为 **`SKILL_DIR`**（绝对路径）；仓库根记为 **`REPO`**（单独拷走的副本没有 `REPO`）。本文所有命令里的 ${SKILL_DIR} / ${REPO} 是**占位符**：执行前字面替换成真实绝对路径（正斜杠，Windows 也认）。
+
+- **不要 `cd`**，不要依赖当前目录，也不要假设 `tools/` 就在脚下。
+- 不要把它们改写成「相对仓库根」的路径 —— 副本一被挪走就全失效，这正是上一版的问题。
+
+**第 0 步（必须，每次都跑）**：`python "${SKILL_DIR}/tools/mlogagent.py" info --verify`
+
+- 退出码非 0 ⇒ 这份副本坏了（`MISMATCH` 会点名是哪个文件）。**停**：不要改文件、不要重算 `MANIFEST.sha256`、不要跳过自检去跑别的命令；把 `MISMATCH` 行原样报给用户，让他重新装一次。
+- 打印 `no MANIFEST.sha256 ...` ⇒ 这份没有完整性哈希（公开导出仓会剥掉它：脱敏改了文件内容，母本哈希对不上）。可以继续，但要告诉用户「这份没有完整性保护」。
+
+**第 1 步**：`python "${SKILL_DIR}/tools/mlog.py" doctor` —— 看 Python 版本、jar / JRE21 在不在（只影响模拟器，不影响静态分析）。
+
+**Windows**：`python3` 不存在、或静默退出（WindowsApps 的桩以 9009 退出且无输出）时，改用 `python`。
+
+**副本边界**：本目录 `tools/` 只有静态分析用的 11 个模块 + 11 张数据表（`mlogagent` / `mlog` / `mlogcheck` / `mlogir` / `mlogval` / `mlogpack` / `mlogcross` / `msch` / `mschgen` / `aigenerated` / `rule_ids`）。模拟器、逐条审计、批量语料、规则库只在 `${REPO}/tools/`：用到时先确认 `REPO` 存在；不存在就把那一步标成「需要仓库」并说清楚，**不要拿副本里的东西假装跑过**。清单见文末「这份副本里有什么、没有什么」。
+
+一个入口把六种分析全部跑一遍，并告诉你**先看哪里**。自带完整副本（`tools/` 里 11 个模块 + 11 张数据表 + `MANIFEST.sha256`），整个目录拷走就能做静态分析，不依赖仓库其他部分。
 
 ```bash
-python tools/mlogagent.py report logic.mlog            # 全部
-python tools/mlogagent.py report logic.mlog --brief    # 只要 VERDICT 两行
-python tools/mlogagent.py report out.msch              # 蓝图里每个逻辑块各跑一遍
-python tools/mlogagent.py info                         # 数据版本 / 模块清单
-python tools/mlogagent.py info --verify                # 校验 MANIFEST.sha256
+python "${SKILL_DIR}/tools/mlogagent.py" report logic.mlog            # 全部
+python "${SKILL_DIR}/tools/mlogagent.py" report logic.mlog --brief    # 只要 VERDICT 两行
+python "${SKILL_DIR}/tools/mlogagent.py" report out.msch              # 蓝图里每个逻辑块各跑一遍
+python "${SKILL_DIR}/tools/mlogagent.py" info                         # 数据版本 / 模块清单
+python "${SKILL_DIR}/tools/mlogagent.py" info --verify                # 校验 MANIFEST.sha256
 ```
 
 位置参数按**后缀**分派：`.msch` 走蓝图解析（一个逻辑块一节），其余按 UTF-8 文本读。
 
-审计一条命令：`python tools/review.py run --pages 2`（抓图+分析+写清单，重写前自动读回上次判定）。
+审计一条命令：`python "${REPO}/tools/review.py" run --pages 2`（抓图+分析+写清单，重写前自动读回上次判定）。
 
 ## 工具索引（一条命令一行）
 
-`mlog.py` 是唯一入口，`python mlog.py <子命令> --help` 看全部参数。
+`mlog.py` 是唯一入口，`python "${SKILL_DIR}/tools/mlog.py" <子命令> --help` 看全部参数。
 
 | 子命令 | 一句话 | 什么时候用 |
 |---|---|---|
@@ -49,9 +71,9 @@ python tools/mlogagent.py info --verify                # 校验 MANIFEST.sha256
 批量与并行：
 
 ```powershell
-python tools\corpus\_sweep_saves.py        # 1,421 个存档：34 秒
-python tools\corpus\_sweep_analyse.py      # 加六种分析：127 秒
-python mindustry-blueprint\tools\parallel.py --items 1421   # 它会开几个 worker、为什么
+python "${REPO}/tools/corpus/_sweep_saves.py"        # 1,421 个存档：34 秒
+python "${REPO}/tools/corpus/_sweep_analyse.py"      # 加六种分析：127 秒
+python "${REPO}/mindustry-blueprint/tools/parallel.py" --items 1421   # 它会开几个 worker、为什么
 ```
 
 ## 语义从哪来：双实现确认
@@ -192,17 +214,17 @@ mlog **只有 `#` 起注释**（`LParser.java:98-99`），没有行尾注释 —
 这份副本只做静态分析；`mlogsim.py` 在本仓库根的 `tools/`，不在本目录里。它驱动真 `LExecutor`（默认 v160.7 + JRE21，`MLOGSIM_JAR`/`MLOGSIM_JAVA` 可换），不是重写的 VM。
 
 ```bash
-python tools/mlogsim.py logic.mlog --steps 20                    # 指令级，不跑世界
-python tools/mlogsim.py logic.mlog --ticks 120 --update all      # tick 级，工厂/单位也动
-python tools/mlogsim.py logic.mlog --save scene.msav --units fortress:1 \
+python "${REPO}/tools/mlogsim.py" logic.mlog --steps 20                    # 指令级，不跑世界
+python "${REPO}/tools/mlogsim.py" logic.mlog --ticks 120 --update all      # tick 级，工厂/单位也动
+python "${REPO}/tools/mlogsim.py" logic.mlog --save scene.msav --units fortress:1 \
   --ticks 120 --trace out/t.csv --assert-last "chp < 3500"
 ```
 
 - 世界：空白 64×64（默认）/ `--host` 随机真实图 / `--save` 载存档（自动在我方核心旁放处理器，`--base X,Y` 覆盖）。
 - 单位：`--units name:count`、`--unit-pos X,Y`、`--unit-ai all`（场景原有单位按 AI 行动）。单位落在实体格会在第一次 `update()` 被 `kill()`，所以 tick 1 会跑 `PREFLIGHT:`（编译失败、单位没生成、落地即死都会直接报，不用等 1200 tick）。
 - 库存：`--core-items silicon:400,copper:200` 给核心灌料（空白世界会自动放一个 `core-shard`）；`ulocate` 找核心、`itemTake`/`itemDrop` 取放料由此可断言（距离上限 `45 world + 方块半宽`，先 `approach` 到 2 格内）。
-- 值域 / 跳转表：`python tools/mlog.py ranges logic.mlog --var unit.n`、`python tools/mlog.py jumps logic.mlog --var unit.n`（也可直接跑 `mlogrange.py`，但它不在本副本）。只从写点推区间，`sensor`/`read`/`ubind`/`ulocate` 一律 unknown；`jumps` 只展开 `op add/sub @counter`。
-- MCP：`python tools/mlog_mcp.py` 把 `mlog_check/ir/values/gen/sim` 暴露成工具；会话里能看到就直接调用（服务端保温，返回 JSON），不用拼 shell。
+- 值域 / 跳转表：`python "${SKILL_DIR}/tools/mlog.py" ranges logic.mlog --var unit.n`、`python "${SKILL_DIR}/tools/mlog.py" jumps logic.mlog --var unit.n`（也可直接跑 `mlogrange.py`，但它不在本副本）。只从写点推区间，`sensor`/`read`/`ubind`/`ulocate` 一律 unknown；`jumps` 只展开 `op add/sub @counter`。
+- MCP：`python "${REPO}/tools/mlog_mcp.py"` 把 `mlog_check/ir/values/gen/sim` 暴露成工具；会话里能看到就直接调用（服务端保温，返回 JSON），不用拼 shell。
 - 指令级执行流：`--itrace out/it.tsv --itrace-var unit.n`，每执行一条语句一行 `tick pc vars source`；`pc` 就是当时的 `@counter`。逐指令有开销，`.msch` 暂不支持。
 - 批量 / 预热：`mlogsim.py a.mlog b.mlog --ticks 60` 只起一次 JVM，每个文件前重载世界；`--daemon` 后台预热、`--remote x.mlog --ticks 60` 投任务（单文件约 0.6 s，冷启动约 3.7 s）。预处理阶段可以先起 daemon，检查跑完再 remote。
 - 链接：裸 `.mlog` 没有链接表；`--links auto`（默认）会找出读而不赋值的链接名（`cell1`、`bank1`、`message1`、`dome1`）自动放同类方块并接线（同队、10 格内），`--links off` 才是 `null`。`.msch` 用自己的链接表。没放成/超 10 格会在预检报 `PREFLIGHT: link 'x' did not bind`。
@@ -232,21 +254,37 @@ python tools/mlogsim.py logic.mlog --save scene.msav --units fortress:1 \
 
 ## 环境（这份副本可以单独拿走）
 
-- **Python 3.10+，只用标准库**，没有第三方依赖。
-- `tools/` 里 16 个文件自带齐全，`SKILL.md` 与 `MANIFEST.sha256` 一起拷走即可；`python tools/mlogagent.py info --verify` 会核对每个文件的 SHA256。
+- **Python 3.10+，只用标准库** —— 本副本 23 个文件没有任何第三方依赖，`pip` 都不用跑。
+- `tools/` 全部文件 + `SKILL.md` + `MANIFEST.sha256` 一起拷走即可；`info --verify` 会逐个核对 SHA256。
+- 仓库根另有两类**可选**依赖，副本里用不到：`${REPO}/tools/kb.py` 的本地知识库检索要 `fastembed`（见 `${REPO}/requirements.txt`）；`${REPO}/tools/mlogsim.py` 要 Java 21 + `out/_server160.jar`，可用 `${REPO}/.env.example` 里的 `MLOGSIM_JAR` / `MLOGSIM_JAVA` 覆盖。
 - 要分析的蓝图可以是 `.msch` 二进制、base64 文本或整个目录；**不读游戏安装目录**，只读你给的文件。
-- 控制台需要 UTF-8（`chcp 65001`），否则中文变量名显示为乱码（文件本身没问题）。
+- 控制台需要 UTF-8（`chcp 65001`，或 `PYTHONIOENCODING=utf-8`），否则中文变量名显示为乱码（文件本身没问题）。
+
+## 这份副本里有什么、没有什么
+
+| 在副本里（`${SKILL_DIR}/tools/`） | 只在仓库里（`${REPO}/tools/`） |
+|---|---|
+| `mlog.py` 全部子命令（check/ir/values/pack/cross/parse/text/gen/map/style/explain/sensor/unit/block/find/item/id/cmd/selftest/ranges/jumps） | `mlogsim.py` 真执行器模拟器（Java 21 + jar） |
+| `mlogagent.py report` / `info`（六种分析一次跑完 + 完整性自检） | `review.py` 逐条审计（抓图 + `判定:` 回读） |
+| 11 张数据表：`block_attrs` / `sensor_attrs` / `unit_attrs` / `cmd_index` / `instr_semantics` / `instr_enums` / `block_sizes` / `wiki_block_ids` / `item_ids` / `status_names` / `content_names` | `rule_capture.py` / `rule_audit.py` 与 `rules/` 规则库 |
+| `msch.py`（蓝图解析）、`mschgen.py`（合成蓝图） | `mlog_mcp.py`（MCP 服务）、`mlogrange.py`（值域/跳转表独立入口） |
+| | `corpus/_sweep_*.py`、`parallel.py`（批量语料）、`sync_mlogagent.py`（同步副本） |
+
+`style` / `find` 要语料目录（`MLOG_CORPUS`，默认找游戏存档里的 `schematics`）；副本默认没有语料，缺语料时会明确打 `corpus not found: … (set MLOG_CORPUS or pass --corpus)`，不会假装有结果。
 
 ## 维护
 
-这个技能的 `tools/` 是从 `mindustry-blueprint/tools/` **整份拷过来的副本**，不是链接 —— 目的就是让目录能被单独拷走。改了任何模块之后在仓库里跑：
+这个技能的 `tools/` 是从仓库 `${REPO}/tools/` **整份拷过来的副本**，不是链接 —— 目的就是让目录能被单独拷走。改了任何模块之后在仓库里跑（三处镜像一起对齐，别只改一处）：
 
-```
-python mindustry-blueprint/tools/sync_mlogagent.py          # 重新拷贝 + 重写 MANIFEST.sha256
-python mindustry-blueprint/tools/sync_mlogagent.py --check  # 只比对，过期时 exit 1
+```bash
+python "${REPO}/tools/sync_mlogagent.py" --mirror all           # tools/ → bp/tools 与 .dsh 两处技能副本，重写 MANIFEST
+python "${REPO}/tools/sync_mlogagent.py" --mirror all --check   # 只比对，过期时 exit 1
+python "${REPO}/tools/sync_mlogagent.py" --global             # 装进用户级 ~/.dsh/skills（技能真正被加载的那份）
 ```
 
-本目录的 `SKILL.md` **不参与同步**（它只属于这个技能；蓝图技能有自己的一份）。两份工具不一致时 `mlogagent.py info --verify` 会报 `MISMATCH` 并指出是哪几个文件。
+- 本目录的 `SKILL.md` **不参与** `--mirror`（它只属于这个技能；蓝图技能有自己的一份）；`--global` 会把 `SKILL.md` 一起装，所以发布前先让 `--check` 变绿。
+- 副本与仓库不一致时 `mlogagent.py info --verify` 会报 `MISMATCH` 并指出是哪几个文件。
+- 版本号写在 frontmatter 的 `metadata.version`，与公开仓 tag 对齐。只改文档不动工具时也一起撞版本，否则用户看不出「手里这份是不是旧的」。
 
 ## 死循环
 
@@ -263,8 +301,8 @@ python mindustry-blueprint/tools/sync_mlogagent.py --check  # 只比对，过期
 `block_attrs.json` 由 `tools/blocks_from_source.py` 从 `Blocks.java` 抽，253 个方块有行为记录。
 
 ```bash
-python mlog.py block cryofluid-mixer     # 一个方块的完整画像
-python mlog.py block --accepts coal      # 谁吃煤（按 recipe / ammo / any / custom 分组）
+python "${SKILL_DIR}/tools/mlog.py" block cryofluid-mixer     # 一个方块的完整画像
+python "${SKILL_DIR}/tools/mlog.py" block --accepts coal      # 谁吃煤（按 recipe / ammo / any / custom 分组）
 ```
 
 一个方块能查到：
@@ -287,9 +325,9 @@ python mlog.py block --accepts coal      # 谁吃煤（按 recipe / ammo / any /
 ## 读整个存档里的逻辑：`mlog.py map`
 
 ```bash
-python tools/mlog.py map "C:/Users/<you>/AppData/Roaming/Mindustry/saves/430.msav"
-python tools/mlog.py map <save.msav> --verbose --show 0   # 连干净的一起列，只报汇总
-python tools/mlog.py map <save.msav> --code 3            # 每块再打前 3 行源码
+python "${SKILL_DIR}/tools/mlog.py" map "C:/Users/<you>/AppData/Roaming/Mindustry/saves/430.msav"
+python "${SKILL_DIR}/tools/mlog.py" map <save.msav> --verbose --show 0   # 连干净的一起列，只报汇总
+python "${SKILL_DIR}/tools/mlog.py" map <save.msav> --code 3            # 每块再打前 3 行源码
 ```
 
 支持 build 146 之后的三种瓦片布局（存档版本 7–9 shortchunk、10–13 现代）；
@@ -328,9 +366,9 @@ python tools/mlog.py map <save.msav> --code 3            # 每块再打前 3 行
 ### 批量跑语料
 
 ```powershell
-python tools\corpus\_sweep_saves.py              # 1,421 个存档：34 秒
-python tools\corpus\_sweep_analyse.py            # 加六种分析：127 秒
-python mindustry-blueprint\tools\parallel.py --items 1421   # 先看它会开几个 worker、为什么
+python "${REPO}/tools/corpus/_sweep_saves.py"              # 1,421 个存档：34 秒
+python "${REPO}/tools/corpus/_sweep_analyse.py"            # 加六种分析：127 秒
+python "${REPO}/mindustry-blueprint/tools/parallel.py" --items 1421   # 先看它会开几个 worker、为什么
 ```
 
 `parallel.py` 自己算 worker 数：核数、可用内存、**最大文件**三个上限取最小。重文件
@@ -340,7 +378,7 @@ python mindustry-blueprint\tools\parallel.py --items 1421   # 先看它会开几
 ### 病毒逻辑（自我复制）
 
 ```powershell
-python mlog.py check someone.msch --msch      # 命中会打 [INFO] virus-logic
+python "${SKILL_DIR}/tools/mlog.py" check someone.msch --msch      # 命中会打 [INFO] virus-logic
 ```
 
 判据只有一行：`ucontrol build <x> <y> <块> <朝向> @this` —— 最后一个参数是新方块的 config，
@@ -352,21 +390,21 @@ python mlog.py check someone.msch --msch      # 命中会打 [INFO] virus-logic
 
 ### 规则与逐条审计（`rules/` + `review.py`）
 
-python tools/review.py md --unjudged         # out/audit_review.md：源码 + `判定:` 空位，在编辑器里逐条判
-python tools/review.py ingest                # 把 md 里填的 ok/bad/unsure/skip 读回 out/verdicts.csv
+python "${REPO}/tools/review.py" md --unjudged         # out/audit_review.md：源码 + `判定:` 空位，在编辑器里逐条判
+python "${REPO}/tools/review.py" ingest                # 把 md 里填的 ok/bad/unsure/skip 读回 out/verdicts.csv
 分析器说的每一句「这行有问题」，都该能追到一条**有证据、有反例**的规则；
 而每条规则都该能被一个人判成「对 / 错 / 不知道」。
 
 ```bash
-python tools/rule_capture.py list            # 39 条规则，带实测命中数
-python tools/rule_capture.py lint -v         # schema + 反例必须不命中
-python tools/rule_audit.py --dir out/maps    # 按规则统计噪声 → out/rule_audit_maps.md
-python tools/review.py build --dir out/maps  # 压成可判的行 → out/audit_rows.json
-python tools/review.py list --unjudged       # 还没判的
-python tools/review.py show <id>             # 该行上下文（>>>> 标出）
-python tools/review.py bad <id> --note "为什么"
-python tools/review.py stats                 # 每条规则你判了几条、错了几条
-python tools/review.py export                # out/audit.md，分组表格
+python "${REPO}/tools/rule_capture.py" list            # 39 条规则，带实测命中数
+python "${REPO}/tools/rule_capture.py" lint -v         # schema + 反例必须不命中
+python "${REPO}/tools/rule_audit.py" --dir out/maps    # 按规则统计噪声 → out/rule_audit_maps.md
+python "${REPO}/tools/review.py" build --dir out/maps  # 压成可判的行 → out/audit_rows.json
+python "${REPO}/tools/review.py" list --unjudged       # 还没判的
+python "${REPO}/tools/review.py" show <id>             # 该行上下文（>>>> 标出）
+python "${REPO}/tools/review.py" bad <id> --note "为什么"
+python "${REPO}/tools/review.py" stats                 # 每条规则你判了几条、错了几条
+python "${REPO}/tools/review.py" export                # out/audit.md，分组表格
 ```
 
 - **kind**：`semantics`（游戏就是这样，禁止自动降级）/ `heuristic`（统计，可降级）/ `negative`（看着像错其实对，用来挡住想写的规则）。

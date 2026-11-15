@@ -11,7 +11,10 @@ Mindustry mlog 逻辑的静态分析、规则审计、真执行器模拟，外�
 
 ## 快速开始
 
+下面的命令都在**仓库根**执行（`cd <repo>`）。如果拿到的是 `.dsh/skills/mlog-agentskill` 那份可独立拷走的技能副本，就照它的 `SKILL.md` §0 做：用绝对路径调用、不要 `cd`、第一步先 `info --verify`。
+
 ```bash
+python tools/mlogagent.py info --verify        # 第一步：副本完整性（非零即停，别改文件绕过）
 python tools/mlog.py doctor                    # 环境自检：入口、Java、server jar
 python tools/mlog.py selftest                  # 工具自检（430 项蓝图往返）
 python tools/mlog.py check logic.mlog          # 静态检查
@@ -23,6 +26,8 @@ python tests/ruleids/run_ruleids.py            # 每条规则必须在某个用�
 python tests/shapes/run_shapes.py              # 检查器自身的语句形状不变量
 python tests/probes/run_probes.py              # 运行期探针（真执行器，需要 JRE + server jar）
 ```
+
+依赖：静态分析全部只用 Python 标准库（不用 `pip install`）；`pip install -r requirements.txt` 只为本地知识库 `tools/kb.py`（fastembed 向量 + 重排）；模拟器要 Java 21，环境变量样例见 `.env.example`。
 
 四套测试各有分工：`tests/run_tests.py` 是 golden 断言；`tests/docsig/` 防文档教错语法（槽位数、槽位序、
 示例参数数、枚举槽名字——`ucontrol`/`draw`/`ulocate` 子命令、`status` 布尔第一槽、`sensor` 属性必须是 LAccess/Content）；
@@ -45,6 +50,7 @@ python tools/mlogsim.py logic.mlog --save scene.msav --units mono:1 --core-items
 
 | 路径 | 内容 |
 |---|---|
+| `requirements.txt` / `.env.example` | 唯一需要 pip 的依赖（`kb.py` 的 fastembed，可选）与全部环境变量样例（`MLOGSIM_JAR`、`MLOG_CORPUS`、`KB_*` …） |
 | `tools/` | 统一入口 `mlog.py`、模拟器 `mlogsim.py`、检查器/IR/值域、MCP 服务、签名、知识库构建（见 `tools/README.md`） |
 | `mindustry-blueprint/` | 蓝图/逻辑技能文档（SKILL / REFERENCE / EMULATOR-CROSSCHECK）与参考数据 |
 | `rules/` | 47 条规则（12 ERR / 12 WARN / 15 INFO / 8 SUPPRESSED），一条一个 JSON，供 `review.py` 逐条审计 |
