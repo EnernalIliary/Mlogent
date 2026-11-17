@@ -37,6 +37,7 @@ Windows checkout and a Linux one agree.
 import argparse
 import hashlib
 import os
+import subprocess
 import sys
 
 MANIFEST_NAME = "MANIFEST.repo.sha256"
@@ -55,7 +56,23 @@ SKIP_PARTS = ("__pycache__", ".pytest_cache")
 SKIP_SUFFIX = (".pyc", ".bak")
 
 
+def _tracked(root):
+    """repo-tracked paths, or None when this is not a git checkout.
+
+    清单只该描述"随仓库发出去的东西"：本机 out/ 下、被 .gitignore 挡住的临时脚本
+    不该让校验在别的机器上失败，所以有 git 时按索引过滤。
+    """
+    try:
+        raw = subprocess.run(["git", "-C", str(root), "ls-files", "-z"],
+                             stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
+                             check=True).stdout
+    except (OSError, subprocess.CalledProcessError):
+        return None
+    return {p for p in raw.decode("utf-8", "replace").split("\0") if p}
+
+
 def _iter_files(root):
+    tracked = _tracked(root)
     out = []
     for pat in PATTERNS:
         for path in root.glob(pat):
@@ -64,6 +81,8 @@ def _iter_files(root):
             rel = path.relative_to(root).as_posix()
             low = rel.lower()
             if any(p in low for p in SKIP_PARTS) or low.endswith(SKIP_SUFFIX) or ".bak" in low:
+                continue
+            if tracked is not None and rel not in tracked:
                 continue
             out.append(rel)
     return sorted(set(out))
