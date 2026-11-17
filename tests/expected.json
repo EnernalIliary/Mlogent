@@ -690,6 +690,7 @@
         "mindcode_compile",
         "mlog_validate",
         "scenario_run",
+        "mlog_diff",
         "mlog_fetch"
       ],
       "check": {

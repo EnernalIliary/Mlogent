@@ -53,9 +53,24 @@ Usage
 
 Exit codes: 0 everything passed, 1 an assertion failed (or the run errored),
 3 the environment cannot run it (no JVM / too-old java / no server jar).
-`--via world` answers `unsupported_environment` for now: the live world path is
-a separate host and is not wired to scenarios yet -- say so once, cleanly,
-instead of half-running an experiment.
+
+Two hosts, one result shape
+---------------------------
+`via="sim"` runs the scene on `tools/mlogsim.py` (a headless server whose clock
+this process drives).  `via="world"` runs the *same* scene file through
+`tools/world_client.py` on the live `tools/world_server.py` rig: it writes the
+scene v1 projection to `out/_scenario/world/`, applies it with `scene`, waits for
+the world clock to advance `limits.ticks`, then reads the processors back with
+`logic_vars` (and units/buildings/core with `js`).  Both paths return the same
+record -- `ticks`/`samples`/`finals`/`checks`/`report`/`refs` -- so the
+observation, the assertions and the envelope never fork on `via`.
+
+The live side genuinely cannot see everything the offline side can: the world
+clock is real (60 Hz wall clock, not `Time.delta=1` steps) so the per-tick trace
+becomes a ~5 Hz poll (`report["sampling"] == "poll"`, `report["sampling_detail"]`
+says how many polls).  A world that is not there -- no `out/_world/daemon.json`,
+a dead daemon, no JVM, no jar -- is `unsupported_environment` with exit 3, never
+a difference: an experiment that did not run must not look like a disagreement.
 """
 from __future__ import annotations
 
@@ -92,6 +107,18 @@ DEFAULT_LIMITS = {"ticks": 120, "timeout_s": 60.0}
 TICK_CHUNK = 30
 #: Mindustry v146+ needs a modern JVM; the box's PATH java is 8 and fails at boot.
 MIN_JAVA_MAJOR = 17
+
+#: Where the v1 projection handed to the live world is written.  The daemon is a
+#: separate process reading the file with `scene.load()`, so it must be scene v1
+#: (no scenario keys) at an absolute path (its cwd is its own data dir).
+WORLD_SCENE_DIR = os.path.join(ROOT, "out", "_scenario", "world")
+#: How often `via="world"` asks the host how far it has ticked (seconds).  The
+#: live clock is real time, so this is a poll rate, not a tick rate.
+WORLD_POLL_S = 0.2
+#: Units closer than this (tiles) to a scene spawn point count as "ours".  The
+#: scene's own spiral puts them exactly on those points; the radius only absorbs
+#: the pixel rounding `u.x/8` picks up on the way back.
+WORLD_UNIT_PICK_R = 4.0
 
 _ENV_CACHE: dict = {}
 
@@ -538,8 +565,13 @@ _SAMPLE_JS = (
 )
 
 
-def _step_js(ticks: int, sample: bool) -> str:
-    """One `js` command: run `ticks` world ticks with every scene processor."""
+def _step_js(ticks: int, sample: bool, push: str = "") -> str:
+    """One `js` command: run `ticks` world ticks with every scene processor.
+
+    `push`, when given, runs once per tick inside the loop (the state-mirror
+    call, see `_push_defs_js`); it is spliced in *after* the processors ran, so
+    the frame it writes is the state at the end of that tick.
+    """
     return (
         "var GS=Packages.mindustry.core.GameState,ST=GS.State;"
         "Vars.state.set(ST.playing);Time.delta=1.0;"
@@ -548,10 +580,30 @@ def _step_js(ticks: int, sample: bool) -> str:
         "worldTick();unitTick();"
         "var P=(typeof PROCS=='undefined'?[]:PROCS);"
         "for(var j=0;j<P.length;j++){P[j].updateTile();}"
-        "%s"
+        "%s%s"
         "}}finally{Vars.state.set(ST.paused);}"
-        % (ticks, _SAMPLE_JS if sample else "")
+        % (ticks, _SAMPLE_JS if sample else "", push)
     )
+
+
+def _push_defs_js(path: str, anchor=None) -> str:
+    """Declare `_pushNow()`: one frame of the world's units into a JSON file.
+
+    This is the offline half of the projection (`tools/projection.py` is the
+    other half): the live world reads that file and draws the simulation where
+    the sandbox frames are.  The body is `mlogsim.PUSH_DEF_JS` -- the same
+    payload `mlogsim --push` writes -- so both producers feed the daemon the
+    format it already understands ({"world", "anchor", "units"}).
+
+    Only the definitions come back: `mlogsim._push_js` also emits its per-tick
+    call keyed on *its* loop variable `i`, while `_step_js` loops over `t`.
+    """
+    import mlogsim
+
+    full = os.path.abspath(path).replace("\\", "/")
+    body = mlogsim.PUSH_DEF_JS.replace("__PATH__", json.dumps(full))
+    return body.replace("__ANCHOR__",
+                        json.dumps(list(anchor) if anchor else None))
 
 
 #: Final variable table.  mlogsim.SCENE_DUMP_JS does the same through
@@ -595,8 +647,16 @@ def _prepare_js(sc: dict) -> str:
     return "Vars.state.rules.unitCap=%d;" % max(64, total * 8 + 32)
 
 
-def _sim(sc: dict, deadline: float) -> dict:
-    """Lay the scene down, tick it, sample observations; returns the raw record."""
+def _sim(sc: dict, deadline: float, *, project: str | None = None,
+         every: int = 2, pace: float = 0.0) -> dict:
+    """Lay the scene down, tick it, sample observations; returns the raw record.
+
+    `project` asks for a state-mirror feed while it ticks: the file is rewritten
+    every `every` tick(s) with the world's unit snapshot, which is what the live
+    world's projection director watches.  `pace` slows the loop to `pace` seconds
+    of wall clock per second of world time (1.0 = real time, 0 = as fast as the
+    executor goes); a feed nobody can see move is not a projection.
+    """
     import mlogsim
 
     env = environment()
@@ -616,6 +676,11 @@ def _sim(sc: dict, deadline: float) -> dict:
             raise ScenarioError("scene did not apply: " + "; ".join(report["errors"]))
 
         refs = _scene.building_index(sc, report)
+        shift = list(report.get("shift") or [0, 0])[:2]
+        # The scene's units are picked out now, while they are still where the
+        # scene put them: by the end of the run they have moved (that is usually
+        # the point of the scenario), and a live world has other units anyway.
+        ids = _picked(_js(srv, _select_js(sc, shift, False))) if sc.get("units") else []
         observations = list(sc.get("observations") or [])
         specs = []
         for obs in observations:
@@ -634,13 +699,31 @@ def _sim(sc: dict, deadline: float) -> dict:
             _js(srv, mlogsim._world_js(1.0, "logic"))
 
         total = int(sc["limits"]["ticks"])
+        if project:
+            # absolute path inside the JVM's cwd-relative world: `_push_defs_js`
+            # already made it absolute, and the daemon reads it by that path.
+            os.makedirs(os.path.dirname(os.path.abspath(project)) or ".", exist_ok=True)
+            _js(srv, _push_defs_js(project, _scene.anchor_of(sc)))
         done = 0
+        wall = time.time()
         while done < total:
             _deadline_guard(deadline, done)
             step = min(TICK_CHUNK, total - done)
-            _js(srv, _step_js(step, bool(observations)))
+            push = ""
+            if project:
+                # `done` is the tick count before this chunk, so `t` counts the
+                # whole run: the feed cadence does not restart every chunk.
+                push = ("if((" + str(done) + "+t)%" + str(max(1, int(every)))
+                        + "==0)_pushNow();")
+            _js(srv, _step_js(step, bool(observations), push))
             done += step
+            if project and pace > 0:
+                behind = (done / 60.0) * pace - (time.time() - wall)
+                if behind > 0:
+                    time.sleep(min(behind, 2.0))
         _deadline_guard(deadline, done)
+        if project:
+            _js(srv, "_pushNow();")
 
         samples: dict[int, list] = {}
         if observations:
@@ -666,8 +749,14 @@ def _sim(sc: dict, deadline: float) -> dict:
             srv._scene_report = report
             checks = _scene.probe_sim(srv, sc)["checks"]
 
+        # The final state, so the offline side has something to compare against
+        # the live one: same two snapshots `_world()` takes, same `js` bodies.
+        units, _ = _snapshot(_js(srv, _units_js(ids, False)))
+        _, buildings = _snapshot(_js(srv, _builds_js(refs, False)))
+
         return {"ticks": done, "samples": samples, "finals": finals,
-                "checks": checks, "report": report, "refs": refs}
+                "checks": checks, "report": report, "refs": refs,
+                "units": units, "buildings": buildings}
     finally:
         try:
             srv.close()
@@ -689,6 +778,499 @@ def _record_name(sc: dict, refs: dict, label: str) -> str:
         if (x, y) == xy:
             return name
     return ""
+
+
+# ---------------------------------------------------------------- the live world
+#
+# Everything below is the `via="world"` half: it talks to `tools/world_server.py`
+# through `tools/world_client.py` (the daemon's JSON-line protocol) and returns
+# the same record `_sim()` does, so nothing above this line has to care which
+# host ran the scenario.  The ops used are:
+#
+#   status       map/world size/clock/paused -- the experiment's environment
+#   changes      the daemon's tile/config event log (ring buffer, `nextSeq`)
+#   js           one script, its lines come back (the daemon appends to `sb`)
+#   scene        apply a scene *file* (v1: the daemon loads it with scene.load)
+#   logic_vars   one processor's variable table, values already coerced
+#
+# Coordinates: the daemon speaks tiles for tile-addressed ops (`scene`,
+# `logic_vars`, `units`) and the scene's own spiral is in pixels (`*8`), so the
+# unit picker is the only place that divides.  `js` bodies must not contain a real
+# newline -- `World.js` folds the body onto one `js ...` console line.
+
+def _world_client():
+    """The daemon client, imported lazily: only `via="world"` needs it."""
+    import world_client
+
+    return world_client
+
+
+def _host_version(jar, java=None) -> tuple:
+    """(mindustry "vNNN", java "x.y.z") read off the daemon's own binaries.
+
+    Same two regexes `observation.detect_env()` uses, but pointed at the handshake
+    file so the live side reports the jar it is *actually* running, not the one
+    the offline host would pick.
+    """
+    mid = None
+    match = re.search(r"_server(\d+)\.jar", str(jar or ""))
+    if match:
+        mid = "v" + match.group(1)
+    ver = None
+    match = re.search(r"jdk-(\d+\.\d+\.\d+)", str(java or ""))
+    if match:
+        ver = match.group(1)
+    return mid, ver
+
+
+def world_environment() -> dict:
+    """Is a live world there, and what is it?  Never raises, says why it cannot.
+
+    A handshake file is not proof: a killed daemon leaves `daemon.json` behind
+    and every call then dies with a refused connection -- which must read as
+    "no environment", not as a difference between the two hosts.
+    """
+    out = {"ok": False, "why": "", "notes": [], "handshake": None, "status": None,
+           "mindustry": None, "java": None, "jar": None, "map": None,
+           "world_size": None, "tick": None, "paused": None}
+    try:
+        client = _world_client()
+    except Exception as exc:  # noqa: BLE001 -- a missing client is an environment fact
+        out["notes"].append("tools/world_client.py is not importable: %s: %s"
+                            % (type(exc).__name__, exc))
+        out["why"] = out["notes"][-1]
+        return out
+    try:
+        hs = client.handshake()
+    except Exception as exc:  # noqa: BLE001 -- WorldError when there is no file
+        out["notes"].append(str(exc))
+        out["why"] = str(exc)
+        return out
+    out["handshake"] = hs
+    out["java"], out["jar"] = hs.get("java"), hs.get("jar")
+    out["mindustry"], java_ver = _host_version(out["jar"], out["java"])
+    if java_ver:
+        out["notes"].append("world java %s" % java_ver)
+    try:
+        status = client.call({"op": "status"}, timeout=20.0, hs=hs)
+    except Exception as exc:  # noqa: BLE001
+        out["notes"].append("%s: %s" % (type(exc).__name__, exc))
+        where = os.path.relpath(str(getattr(client, "HANDSHAKE", "daemon.json")),
+                                ROOT)
+        out["why"] = ("%s exists but the daemon is not answering: %s"
+                      % (where, exc))
+        return out
+    if not isinstance(status, dict) or not status.get("ok"):
+        out["notes"].append("world status refused: %r" % (status,))
+        out["why"] = "the world daemon refused `status`: %r" % (
+            (status or {}).get("error"),)
+        return out
+    out["status"] = status
+    out["map"] = status.get("map")
+    out["world_size"] = [status.get("width"), status.get("height")]
+    out["tick"] = status.get("tick")
+    out["paused"] = bool(status.get("paused"))
+    out["ok"] = True
+    return out
+
+
+def _slug(sc: dict) -> str:
+    """A file-name-safe scenario id, derived from the path (never absolute)."""
+    stem = os.path.splitext(os.path.basename(str(sc.get("path") or "")))[0]
+    stem = stem or str(sc.get("id") or sc.get("name") or "scenario")
+    return re.sub(r"[^A-Za-z0-9_.-]+", "-", stem).strip("-") or "scenario"
+
+
+def _world_scene_file(sc: dict) -> str:
+    """Write the scene v1 projection the live world applies; return its path.
+
+    The daemon is a separate process: it reads this file with `scene.load()`, so
+    it must be plain scene v1 (no scenario keys, `code_inline` folded, `code`
+    paths absolute) at an absolute path -- the daemon's cwd is its data dir.
+
+    Two deliberate edits:
+
+    * `project.units = "spawn"`.  The default ("mirror") is a *display* mode: it
+      disables every processor and draws units as markers, which is the exact
+      opposite of an experiment.  The scene's units have to be real objects the
+      processor can bind, so the world spawns them.
+    * `project.at` / `project.anchor` dropped.  The offline host always applies
+      the scene at its own coordinates (`apply_sim` never translates), so moving
+      the live copy would compare two different experiments.
+    """
+    raw = _read_json(sc["path"])
+    proj = _strip_to_v1(raw, sc["path"])
+    project = dict(proj.get("project") or {})
+    project["units"] = "spawn"
+    project.pop("at", None)
+    project.pop("anchor", None)
+    proj["project"] = project
+    os.makedirs(WORLD_SCENE_DIR, exist_ok=True)
+    path = os.path.join(WORLD_SCENE_DIR, "%s.json" % _slug(sc))
+    with open(path, "w", encoding="utf-8", newline="\n") as fh:
+        json.dump(proj, fh, ensure_ascii=False, indent=2)
+    return path
+
+
+def _scene_team(sc: dict) -> str:
+    """The team the scenario speaks for: the first unit's, else a building's."""
+    for u in sc.get("units") or []:
+        if u.get("team"):
+            return str(u["team"])
+    for b in sc.get("buildings") or []:
+        if b.get("team"):
+            return str(b["team"])
+    return "sharded"
+
+
+def _text(value) -> str:
+    """A log value as text: 149, 149.0 and "149" are the same variable."""
+    number = _as_number(value)
+    if number is None:
+        return "" if value is None else str(value)
+    return str(_format_number(number))
+
+
+def _lines(res: dict) -> list:
+    return [str(ln) for ln in (res.get("lines") or [])]
+
+
+def _num(text):
+    """A dumped number: int when integral, float otherwise, None when unset."""
+    number = _as_number(text)
+    if number is None:
+        return None
+    return _format_number(number)
+
+
+def _rep(world: bool, expr: str) -> str:
+    """One report line: `print` offline, `sb.append(...+'\\n')` on the daemon."""
+    if world:
+        return "sb.append(%s+'\\n')" % expr
+    return "print(%s)" % expr
+
+
+def _picked(lines: list) -> list:
+    """The unit ids `_select_js` reported, in order."""
+    ids = []
+    for line in lines:
+        parts = str(line).split("\t")
+        if parts[0] == "I" and len(parts) > 1:
+            number = _num(parts[1])
+            if number is not None:
+                ids.append(int(number))
+    return ids
+
+
+def _select_js(sc: dict, shift, world: bool) -> str:
+    """Ids of the units the scene just spawned (the live world has others)."""
+    points = []
+    for u in sc.get("units") or []:
+        for wx, wy in _scene._unit_positions(u):
+            points.append([round(wx / 8.0, 3) + float(shift[0]),
+                           round(wy / 8.0, 3) + float(shift[1])])
+    return (
+        "var PTS=%s;var G=Packages.mindustry.gen.Groups.unit;"
+        "for(var i=0;i<G.size();i++){var u=G.index(i);"
+        "if(u==null||u.dead){continue;}"
+        "var ux=u.x/8,uy=u.y/8;"
+        "for(var k=0;k<PTS.length;k++){"
+        "var ddx=ux-PTS[k][0],ddy=uy-PTS[k][1];"
+        "if(ddx*ddx+ddy*ddy<=%f){%s;break;}}}"
+        % (json.dumps(points), WORLD_UNIT_PICK_R, _rep(world, "'I\\t'+u.id"))
+    )
+
+
+def _units_js(ids: list, world: bool) -> str:
+    """Final state of exactly those units, in tiles (pixels / 8)."""
+    return (
+        "var IDS=%s;var G=Packages.mindustry.gen.Groups.unit;"
+        "for(var i=0;i<IDS.length;i++){var u=G.getByID(IDS[i]);"
+        "if(u==null||u.dead){continue;}"
+        "var cu='';try{var ku=u.controller();"
+        "if(ku!=null){cu=ku.getClass().getSimpleName();}}catch(e0){}"
+        "var lx=Math.round(u.x/8*1000)/1000,ly=Math.round(u.y/8*1000)/1000;"
+        "%s}"
+        % (json.dumps([int(i) for i in ids]),
+           _rep(world, "'U\\t'+u.id+'\\t'+u.type.name+'\\t'+u.team.name+'\\t'"
+                       "+lx+'\\t'+ly+'\\t'+Math.round(u.health)+'\\t'+cu"))
+    )
+
+
+def _builds_js(refs: dict, world: bool) -> str:
+    """Per-building item counts; the daemon's `buildings` op only has the total."""
+    tiles = [[int(v[0]), int(v[1])] for v in refs.values()]
+    return (
+        "var TILES=%s;"
+        "for(var i=0;i<TILES.length;i++){"
+        "var bt=Vars.world.tile(TILES[i][0],TILES[i][1]);"
+        "var bb=bt==null?null:bt.build;if(bb==null){continue;}"
+        "var it='';try{var md=bb.items;if(md!=null){"
+        "var its=Vars.content.items();"
+        "for(var k=0;k<its.size;k++){var ii=its.get(k);var nn=md.get(ii);"
+        "if(nn>0){it+=(it?',':'')+ii.name+'='+nn;}}}}catch(e1){it='?';}"
+        "%s}"
+        % (json.dumps(tiles),
+           _rep(world, "'B\\t'+bb.tile.x+'\\t'+bb.tile.y+'\\t'+bb.block.name"
+                       "+'\\t'+bb.team.name+'\\t'+it"))
+    )
+
+
+def _core_js(world: bool = True) -> str:
+    """The team core's items: a core block is a StorageBlock, items live on it."""
+    return (
+        "var G=Packages.mindustry.gen.Groups.build;"
+        "for(var i=0;i<G.size();i++){var b=G.index(i);"
+        "if(b==null||b.block==null){continue;}"
+        "if(!(b.block instanceof "
+        "Packages.mindustry.world.blocks.storage.CoreBlock)){continue;}"
+        "var it='';try{var md=b.items;if(md!=null){"
+        "var its=Vars.content.items();"
+        "for(var k=0;k<its.size;k++){var ii=its.get(k);var nn=md.get(ii);"
+        "if(nn>0){it+=(it?',':'')+ii.name+'='+nn;}}}}catch(e2){it='?';}"
+        "%s}"
+        % _rep(world, "'C\\t'+b.tile.x+'\\t'+b.tile.y+'\\t'+b.team.name+'\\t'+it")
+    )
+
+
+def _sample_js(specs: list) -> str:
+    """One poll of every observation variable; `_SAMPLE_JS` is the per-tick twin."""
+    return (
+        "var OBS=%s;"
+        "for(var i=0;i<OBS.length;i++){var o=OBS[i],s='';"
+        "var tt=Vars.world.tile(o.x,o.y);var b=null;if(tt!=null){b=tt.build;}"
+        "var vs=null;if(b!=null){try{vs=b.executor.vars;}catch(e4){vs=null;}}"
+        "if(vs!=null){for(var q=0;q<vs.length;q++){if(vs[q].name==o.var){"
+        "try{s=vs[q].isobj?String(vs[q].objval):String(vs[q].numval);}"
+        "catch(e3){s='?';}break;}}}"
+        "%s}"
+        % (json.dumps(specs), _rep(True, "'OV\\t'+i+'\\t'+s"))
+    )
+
+
+def _items(text: str) -> dict:
+    """"copper=30,sand=12" -> {"copper": 30, "sand": 12}; "?" stays a marker."""
+    if not text or text == "?":
+        return {} if not text else {"?": text}
+    out = {}
+    for pair in text.split(","):
+        name, _, count = pair.partition("=")
+        if not name:
+            continue
+        out[name] = _num(count) if _num(count) is not None else count
+    return out
+
+
+def _snapshot(lines: list) -> tuple:
+    """(units, buildings) from one `js` reply, in the shape the payload wants."""
+    units, buildings = [], []
+    for line in lines:
+        parts = str(line).split("\t")
+        if parts[0] == "U" and len(parts) >= 7:
+            units.append({"id": _num(parts[1]), "type": parts[2], "team": parts[3],
+                          "x": _num(parts[4]), "y": _num(parts[5]),
+                          "hp": _num(parts[6]),
+                          "controller": parts[7] if len(parts) > 7 and parts[7] else None,
+                          "amount": None})
+        elif parts[0] == "B" and len(parts) >= 5:
+            # a building with no item module ends the line after its team
+            buildings.append({"block": parts[3], "x": _num(parts[1]),
+                              "y": _num(parts[2]), "team": parts[4],
+                              "items": _items(parts[5] if len(parts) > 5 else "")})
+    return units, buildings
+
+
+def _core(lines: list) -> dict:
+    for line in lines:
+        parts = str(line).split("\t")
+        if parts[0] == "C" and len(parts) >= 5:
+            return {"items": _items(parts[4]), "x": _num(parts[1]),
+                    "y": _num(parts[2]), "team": parts[3]}
+    return {}
+
+
+def _events(res: dict, tick0: int) -> list:
+    """Tile/config events as the run saw them, on a clock that starts at 0.
+
+    The daemon's ticks are absolute (`Vars.state.tick`, thousands by the time a
+    rig is up); relative ticks keep the trace comparable to the offline record,
+    whose clock always starts at 0.
+    """
+    kinds = {"P": "place", "B": "remove", "C": "config"}
+    out = []
+    for row in res.get("rows") or []:
+        tick = int(row.get("tick") or 0) - tick0
+        if tick < 0:
+            continue
+        out.append({"tick": tick,
+                    "type": kinds.get(str(row.get("kind")), str(row.get("kind"))),
+                    "block": row.get("block"), "x": row.get("x"), "y": row.get("y"),
+                    "team": row.get("team"), "seq": row.get("seq")})
+    out.sort(key=lambda e: (e["tick"], e["seq"] or 0))
+    return out
+
+
+def _collect_samples(res: dict, samples: dict) -> int:
+    """Append one poll's values; returns how many samples landed."""
+    got = 0
+    for line in _lines(res):
+        parts = line.split("\t")
+        if len(parts) >= 3 and parts[0] == "OV":
+            try:
+                samples.setdefault(int(parts[1]), []).append(parts[2])
+                got += 1
+            except ValueError:
+                continue
+    return got
+
+
+def _world(sc: dict, deadline: float) -> dict:
+    """Apply the scene to the live world, let it tick, read the rig back."""
+    env = world_environment()
+    if not env["ok"]:
+        raise _Environment(env["why"] or "; ".join(env["notes"]) or "no live world")
+
+    client = _world_client()
+    hs = env["handshake"]
+
+    def call(req: dict, timeout: float = 60.0) -> dict:
+        budget = max(5.0, min(timeout, deadline - time.time() + 5.0))
+        res = client.call(req, timeout=budget, hs=hs)
+        if not isinstance(res, dict):
+            raise ScenarioError("world answered %r to op %r" % (res, req.get("op")))
+        if not res.get("ok"):
+            raise ScenarioError("world op %r failed: %s"
+                                % (req.get("op"), res.get("error") or res))
+        return res
+
+    status = env["status"]
+    tick0 = int(status.get("tick") or 0)
+    size = [int(status.get("width") or 0), int(status.get("height") or 0)]
+    was_paused = bool(status.get("paused"))
+    since = int(call({"op": "changes", "since": 2 ** 31 - 1, "limit": 1},
+                     30.0).get("nextSeq") or 0)
+
+    scene_file = _world_scene_file(sc)
+    if sc.get("units"):
+        # A live world's unit cap comes from its cores; the scene's units must
+        # not be born dead the way a blank sim world's were (see _prepare_js).
+        call({"op": "js", "code": _prepare_js(sc)}, 30.0)
+    if was_paused:
+        call({"op": "pause", "on": False}, 30.0)
+    try:
+        report = dict(call({"op": "scene", "path": scene_file}, 180.0).get("scene") or {})
+        if report.get("errors"):
+            raise ScenarioError("scene did not apply: " + "; ".join(report["errors"]))
+        shift = list(report.get("shift") or [0, 0])[:2]
+        refs = _scene.building_index(sc, report)
+
+        picked = _lines(call({"op": "js", "code": _select_js(sc, shift, True)}, 30.0))
+        ids = _picked(picked)
+
+        observations = list(sc.get("observations") or [])
+        specs = []
+        for obs in observations:
+            where = refs.get(obs["logic"])
+            if where is None:
+                raise ScenarioError("observation %r: %r is not a placed building"
+                                    % (obs["name"], obs["logic"]))
+            specs.append({"x": where[0], "y": where[1], "var": obs["var"]})
+
+        total = int(sc["limits"]["ticks"])
+        samples: dict[int, list] = {i: [] for i in range(len(observations))}
+        polls = 0
+        done = 0
+        while done < total:
+            now = call({"op": "status"}, 30.0)
+            done = max(0, int(now.get("tick") or 0) - tick0)
+            if now.get("paused"):
+                call({"op": "pause", "on": False}, 30.0)
+            if done >= total:
+                break
+            _deadline_guard(deadline, done)
+            if specs:
+                _collect_samples(call({"op": "js", "code": _sample_js(specs)}, 30.0),
+                                 samples)
+                polls += 1
+            # The clock is real time at ~60 tick/s and the round trip costs more
+            # than a tick, so a fixed nap overshoots the budget.  Near the end,
+            # sleep only as long as the ticks that are left: a scenario that
+            # counts loop iterations cannot tell an overshoot from a fidelity
+            # gap, and this file is the measurement instrument.
+            left = max(0.0, (total - done) / 60.0)
+            time.sleep(min(WORLD_POLL_S, max(0.02, left)))
+        _deadline_guard(deadline, done)
+        if specs:
+            # one last read, so `last` is the final value and not the last poll
+            _collect_samples(call({"op": "js", "code": _sample_js(specs)}, 30.0),
+                             samples)
+            polls += 1
+        overshoot = max(0, done - total)
+
+        finals: dict[str, dict] = {}
+        for b in sc.get("buildings") or []:
+            if not b.get("code"):
+                continue
+            x, y = refs.get(b["name"], (b["x"], b["y"], b["block"]))[:2]
+            table = {}
+            for row in call({"op": "logic_vars", "x": x, "y": y}, 30.0).get("vars") or []:
+                table[str(row.get("name"))] = _text(row.get("value"))
+            finals[b["name"]] = table
+
+        vals = {(name, var): value for name, table in finals.items()
+                for var, value in table.items()}
+        checks = _scene.check_vars(sc, vals, report) if sc.get("checks") else []
+
+        units, _ = _snapshot(_lines(call({"op": "js", "code": _units_js(ids, True)},
+                                         30.0)))
+        _, buildings = _snapshot(_lines(call({"op": "js", "code": _builds_js(refs, True)},
+                                            30.0)))
+        core = _core(_lines(call({"op": "js", "code": _core_js()}, 30.0)))
+        events = _events(call({"op": "changes", "since": since, "limit": 500}, 60.0),
+                         tick0)
+
+        report["sampling"] = "poll"
+        report["sampling_detail"] = {
+            "mode": "poll", "poll_s": WORLD_POLL_S, "polls": polls,
+            "samples": sum(len(v) for v in samples.values()),
+            "note": "the live clock is real time, so this is a poll and not a "
+                    "per-tick trace: `last` is exact, `max`/`min` are close, "
+                    "`sum` is indicative",
+        }
+        report["world"] = {"map": env["map"], "world_size": size,
+                           "team": _scene_team(sc), "tick0": tick0,
+                           "tick1": tick0 + done, "ticks": done,
+                           "overshoot": overshoot,
+                           "paused_at_start": was_paused, "scene_file": scene_file,
+                           "api_port": hs.get("apiPort")}
+        payload = {
+            "scenario": str(sc.get("id") or sc.get("name") or ""),
+            "ticks": done,
+            "errors": [],
+            "scene": {"placed": report.get("placed"),
+                      "configured": report.get("configured"),
+                      "stocked": report.get("stocked"),
+                      "linked": report.get("linked"),
+                      "units": report.get("units"), "errors": []},
+            "logs": finals,
+            "units": units,
+            "buildings": buildings,
+            "core": core,
+            "events": events,
+            "env": {"mindustry": env["mindustry"], "java": env["java"] or None,
+                    "map": env["map"], "world_size": size,
+                    "team": _scene_team(sc), "update": "live", "sampling": "poll"},
+        }
+        return {"via": "world", "ticks": done, "samples": samples, "finals": finals,
+                "checks": checks, "report": report, "refs": refs,
+                "units": units, "buildings": buildings, "core": core,
+                "events": events, "payload": payload, "env": payload["env"]}
+    finally:
+        if was_paused:
+            try:
+                client.call({"op": "pause", "on": True}, timeout=20.0, hs=hs)
+            except Exception:  # noqa: BLE001 -- the rig may be gone; not our result
+                pass
 
 
 # ---------------------------------------------------------------- scoring
@@ -799,10 +1381,42 @@ def _report_texts(sc: dict, evaluated: list[dict], ticks: int) -> tuple:
 def run(sc: dict, *, via: str = "sim", level: str = "summary") -> dict:
     """Run a scenario and answer in the mlog_eval envelope.
 
-    `via="world"` is a deliberate `unsupported_environment`: the live world is a
-    different host (`tools/world_server.py`) and is not wired to scenarios yet,
-    so an experiment is refused once instead of half-executed.
+    `via="sim"` drives the offline executor (`tools/mlogsim.py`), `via="world"`
+    drives the live one (`tools/world_server.py`) through the daemon client.
+    Both return the same record shape, so scoring, assertions and the envelope
+    are one code path; what differs is only how the rig gets laid down and read.
+
+    A live world that is not there is `unsupported_environment` (exit 3), never a
+    result: an experiment that did not run has no outcome to report.
     """
+    return _execute(sc, via=via, level=level)[0]
+
+
+def run_record(sc: dict, *, via: str = "sim", level: str = "diagnostics") -> dict:
+    """`run()`, plus the raw record it scored: {"envelope", "record"}.
+
+    The differential runner needs both halves of one execution -- the envelope to
+    say whether this host ran at all, the record to turn into an observation.
+    Running twice would mean two different experiments.
+    """
+    envelope, record = _execute(sc, via=via, level=level)
+    return {"envelope": envelope, "record": record}
+
+
+def _env_artifacts(sc: dict, via: str, sid: str) -> dict:
+    """Why this host could not run it -- whichever host that was."""
+    if via == "world":
+        wenv = world_environment()
+        notes = ([wenv["why"]] if wenv.get("why") else []) + list(wenv["notes"])
+        return {"scenario": sid, "via": "world", "java": wenv.get("java"),
+                "jar": wenv.get("jar"), "notes": notes}
+    env = environment()
+    return {"scenario": sid, "via": "sim", "java": env["java"],
+            "jar": env["jar"], "notes": env["notes"]}
+
+
+def _execute(sc: dict, via: str = "sim", level: str = "summary") -> tuple:
+    """(envelope, raw record or None) for one host."""
     if isinstance(sc, str):
         sc = load(sc)
     if level not in ("summary", "diagnostics", "full"):
@@ -813,17 +1427,6 @@ def run(sc: dict, *, via: str = "sim", level: str = "summary") -> dict:
     sid = str(sc.get("id") or sc.get("name") or "(unnamed)")
     started = time.time()
 
-    if via == "world":
-        return result(
-            ok=False, stage="scenario", failure_type="unsupported_environment",
-            message="--via world is not implemented: scenarios run on the "
-                    "offline executor (via=sim) only",
-            next_steps=["Rerun without --via world.",
-                        "Use `python tools/world_mcp.py` if the rig has to be "
-                        "seen live in the game."],
-            artifacts={"scenario": sid, "via": "world"}, level=level,
-            elapsed_ms=int((time.time() - started) * 1000))
-
     errors = validate(sc)
     if errors:
         return result(
@@ -832,7 +1435,7 @@ def run(sc: dict, *, via: str = "sim", level: str = "summary") -> dict:
             next_steps=["Fix the scenario file: python tools/scenario.py check "
                         "%s" % (sc.get("path") or "FILE")],
             artifacts={"scenario": sid, "errors": errors}, level=level,
-            elapsed_ms=int((time.time() - started) * 1000))
+            elapsed_ms=int((time.time() - started) * 1000)), None
 
     limits = sc.get("limits") or dict(DEFAULT_LIMITS)
     timeout_s = float(limits.get("timeout_s") or DEFAULT_LIMITS["timeout_s"])
@@ -840,17 +1443,17 @@ def run(sc: dict, *, via: str = "sim", level: str = "summary") -> dict:
 
     diagnostics: list[dict] = []
     try:
-        sim = _sim(sc, deadline)
-        observations = _observe(sc, sim)
-        evaluated = _assertions(sc, sim, observations)
-        message, next_steps = _report_texts(sc, evaluated, sim["ticks"])
+        record = _world(sc, deadline) if via == "world" else _sim(sc, deadline)
+        observations = _observe(sc, record)
+        evaluated = _assertions(sc, record, observations)
+        message, next_steps = _report_texts(sc, evaluated, record["ticks"])
         failed = [a for a in evaluated if not a["ok"]]
         diagnostics = _diagnostics(evaluated, observations)
-        report = sim["report"]
+        report = record["report"]
         artifacts = {
             "scenario": sid,
-            "via": "sim",
-            "ticks": sim["ticks"],
+            "via": via,
+            "ticks": record["ticks"],
             "limits": {"ticks": int(limits.get("ticks") or 0), "timeout_s": timeout_s},
             "observations": {k: v["value"] for k, v in observations.items()},
             "assertions": [{k: a[k] for k in ("id", "ok", "expect", "actual")}
@@ -863,36 +1466,48 @@ def run(sc: dict, *, via: str = "sim", level: str = "summary") -> dict:
                       "errors": list(report.get("errors") or [])},
             "warnings": warnings(sc),
         }
+        if via == "world":
+            # A live run is a poll, not a per-tick trace: say so in the envelope
+            # rather than let `sum` observations look exact.
+            artifacts["sampling"] = report.get("sampling")
+            artifacts["sampling_detail"] = report.get("sampling_detail")
+            artifacts["world"] = report.get("world")
+        artifacts["state"] = {"units": len(record.get("units") or []),
+                              "buildings": len(record.get("buildings") or [])}
+        # The scored view rides with the record: a caller that wants to diff two
+        # hosts needs the same numbers the envelope was built from, per assertion.
+        record["assertions"] = evaluated
+        record["observations"] = {k: v["value"] for k, v in observations.items()}
         return result(
             ok=not failed, stage="scenario",
             failure_type="assertion_failed" if failed else None,
             message=message, diagnostics=diagnostics, artifacts=artifacts,
             next_steps=next_steps if failed else [], level=level,
-            # The tick loop really ran, so the simulation dimension is evidence;
-            # execution/static/real_runtime were never evaluated (None, not False).
-            levels={"simulation": True},
-            elapsed_ms=int((time.time() - started) * 1000))
+            # The tick loop really ran, so that host's dimension is evidence;
+            # the other three were never evaluated (None, not False).  A live run
+            # is real_runtime, an offline one is simulation -- they are not the
+            # same claim and must not be merged.
+            levels={"real_runtime": True} if via == "world" else {"simulation": True},
+            elapsed_ms=int((time.time() - started) * 1000)), record
     except _Environment as exc:
         return result(
             ok=False, stage="scenario", failure_type="unsupported_environment",
             message=str(exc),
-            next_steps=["Run `python tools/mlogsim.py --help` after fixing the "
-                        "JVM/jar; nothing about the scenario itself is wrong."],
-            artifacts={"scenario": sid, "java": environment()["java"],
-                       "jar": environment()["jar"], "notes": environment()["notes"]},
-            level=level, elapsed_ms=int((time.time() - started) * 1000))
+            next_steps=_env_steps(via),
+            artifacts=_env_artifacts(sc, via, sid),
+            level=level, elapsed_ms=int((time.time() - started) * 1000)), None
     except _Timeout as exc:
         return result(
             ok=False, stage="scenario", failure_type="timeout", message=str(exc),
-            artifacts={"scenario": sid, "timeout_s": timeout_s},
-            level=level, elapsed_ms=int((time.time() - started) * 1000))
+            artifacts={"scenario": sid, "via": via, "timeout_s": timeout_s},
+            level=level, elapsed_ms=int((time.time() - started) * 1000)), None
     except ScenarioError as exc:
         return result(
             ok=False, stage="scenario", failure_type="runtime_error",
             message=str(exc),
             diagnostics=[{"kind": "scene", "message": str(exc)}],
-            artifacts={"scenario": sid}, level=level,
-            elapsed_ms=int((time.time() - started) * 1000))
+            artifacts={"scenario": sid, "via": via}, level=level,
+            elapsed_ms=int((time.time() - started) * 1000)), None
     except Exception as exc:  # noqa: BLE001 -- a host crash is a result, not a traceback
         failure = classify(exc)
         if failure not in FAILURE_TYPES:
@@ -902,8 +1517,18 @@ def run(sc: dict, *, via: str = "sim", level: str = "summary") -> dict:
             message="%s: %s" % (type(exc).__name__, exc),
             diagnostics=[{"kind": "runtime",
                           "message": "%s: %s" % (type(exc).__name__, exc)}],
-            artifacts={"scenario": sid}, level=level,
-            elapsed_ms=int((time.time() - started) * 1000))
+            artifacts={"scenario": sid, "via": via}, level=level,
+            elapsed_ms=int((time.time() - started) * 1000)), None
+
+
+def _env_steps(via: str) -> list:
+    if via == "world":
+        return ["Start the live world: python tools/world_server.py --map Fork "
+                "(needs a JVM 17+ and out/_server160.jar)",
+                "Check it answers: python tools/world_client.py status",
+                "Then rerun: python tools/scenario.py run %s --via world" % "FILE"]
+    return ["Run `python tools/mlogsim.py --help` after fixing the JVM/jar; "
+            "nothing about the scenario itself is wrong."]
 
 
 def exit_code(env: dict) -> int:

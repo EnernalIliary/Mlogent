@@ -531,6 +531,29 @@ python tools/scenario.py list                                       # 有哪些�
 模板在 `scenes/scenarios/`（`unit-control` 绑单位走位、`building-interaction` 用方块、
 `processor-competition` 多处理器竞争）。MCP 侧是 `scenario_run`。
 
+## 差分验证（`observation.py` + `differential.py` + `fidelity.py`）
+
+离线执行器是**真执行器 + 真单位更新**，但不是游戏：没有波次 AI、没有电网、地形碰撞只到
+「B 级」。规划 §3 要求把同一个场景交给两边、**比较观察**，把差异变成有名字的边界。
+
+三个模块分工：
+
+| 模块 | 干什么 |
+|---|---|
+| `observation.py` | `mlog-observation/v1`：`summary/state/events/env` 四段，`from_scenario()` 与 `from_world()` 产出同构观察；`compare()` 四类规则（`exact`/`tolerance`/`match`/`ordered`），**禁止整体 JSON 相等** |
+| `differential.py` | 一个场景跑两遍（sim + 活世界），给出差分信封；不一致是 `simulation_real_difference`，世界不可用是 `unsupported_environment` + exit 3 |
+| `fidelity.py` | 15 条能力边界的判定表（verified/unverified/partial/unsupported/unknown），`annotate()` 把每条差异挂到已知边界上 |
+
+```bash
+python tools/fidelity.py list                       # 哪些能力离线可判、哪些不可
+python tools/differential.py run scenes/scenarios/unit-control.json --json
+python tools/differential.py parity scenes/scenarios/unit-control.json   # 只比环境
+python tools/observation.py compare a.json b.json   # 两个观察文件直接差分
+```
+
+比较规则写在 `docs/观察与差分-契约.md`（字段级容差、`"5%"` 相对容差、事件按 key 做子序列
+匹配 + tick 容差）。MCP 侧是 `mlog_diff`；`scenario_run` 的 `via=world` 走同一套。
+
 ## 文件分层
 
 1. **入口**：`mlog.py`（统一下发子命令）、`mlogagent.py`（`report` / `info` 一条命令跑完五层）、

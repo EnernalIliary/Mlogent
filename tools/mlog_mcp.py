@@ -193,6 +193,24 @@ TOOLS = [
         },
     },
     {
+        "name": "mlog_diff",
+        "description": "Run one scenario on the offline executor and on the live game "
+                       "world (python tools/world_server.py), then diff the two "
+                       "observations. Differences carry the fidelity verdict that "
+                       "explains them (tools/fidelity.py).",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "path": {"type": "string", "description": "scenario .json path"},
+                "spec": {"type": "object",
+                         "description": "optional per-section compare rules; see "
+                                        "docs/观察与差分-契约.md for the shape"},
+                "level": {"type": "string", "enum": ["summary", "diagnostics", "full"]},
+            },
+            "required": ["path"],
+        },
+    },
+    {
         "name": "mlog_fetch",
         "description": "Read an artifact that a previous call replaced with an "
                        "artifact_ref (large traces/variable dumps). Optional byte window.",
@@ -271,6 +289,16 @@ def tool_doctor(_args):
         mnd = _mnd.locate()
     except Exception as exc:                 # noqa: BLE001 -- optional module
         mnd = {"ok": False, "notes": ["mindcode.py unavailable: %s" % exc]}
+    # A differential run needs the live world too, and the only honest answer to
+    # "is it up?" is to ask it -- the handshake file survives a crashed daemon.
+    try:
+        import world_client as _wc
+        st = _wc.call({"op": "status"}) or {}
+        world = {"ok": bool(st.get("map") or st.get("paused") is not None),
+                 "map": st.get("map"), "paused": st.get("paused")}
+    except Exception as exc:                 # noqa: BLE001 -- optional rig
+        world = {"ok": False, "notes": ["world server not running: %s: %s"
+                                        % (type(exc).__name__, exc)]}
     return {
         "repo": str(root),
         "entry": str(HERE / "mlog.py"),
@@ -280,6 +308,8 @@ def tool_doctor(_args):
         "jre21": jre.exists(),
         "sim_ready": jar.exists() and jre.exists(),
         "mindcode": mnd,
+        "world": world,
+        "differential_ready": jar.exists() and jre.exists() and bool(world["ok"]),
         "commands": [
             "python tools/mlog.py check FILE --cost",
             "python tools/mlog.py ir FILE",
@@ -288,6 +318,7 @@ def tool_doctor(_args):
             "python tools/mlogsim.py FILE --ticks 120 --update all",
             "python tools/mindcode.py compile FILE.mnd -o FILE.mlog",
             "python tools/scenario.py run scenes/scenarios/unit-control.json",
+            "python tools/differential.py run scenes/scenarios/unit-control.json",
         ],
     }
 
@@ -576,6 +607,12 @@ def tool_scenario_run(args):
     return _scen.run(sc, via=args.get("via") or "sim", level=level)
 
 
+def tool_diff(args):
+    import differential as _diff
+    return _diff.run(args["path"], spec=args.get("spec"),
+                     level=args.get("level") or "summary")
+
+
 def tool_fetch(args):
     ref = args.get("ref")
     text = _ARTIFACTS.get(ref)
@@ -600,6 +637,7 @@ HANDLERS = {
     "mindcode_compile": tool_mindcode_compile,
     "mlog_validate": tool_mlog_validate,
     "scenario_run": tool_scenario_run,
+    "mlog_diff": tool_diff,
     "mlog_fetch": tool_fetch,
 }
 

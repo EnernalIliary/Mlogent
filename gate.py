@@ -166,6 +166,14 @@ def build_steps(full: bool, only: str | None) -> list[tuple[str, list[str] | Non
         # silently drift apart if the shape were only asserted in their own
         # tests, so it is asserted on its own here (tests/eval/).
         ("eval", ["tests/eval/run_eval_tests.py"], ""),
+        # The observation schema (tools/observation.py) is what makes two runs
+        # comparable at all; the differential runner is layered on it.  Pure
+        # data, so it runs everywhere -- only the live-world half can skip.
+        ("observation", ["tests/observation/run_observation_tests.py"], ""),
+        # The fidelity envelope (tools/fidelity.py) is what turns a simulated-vs-
+        # live difference into a named boundary instead of a mystery; it is data,
+        # so its selftest runs everywhere.
+        ("fidelity", ["tools/fidelity.py", "selftest"], ""),
         ("lint", ["tools/rule_capture.py", "lint"], ""),
         # the checkers' own invariant: a malformed statement must still be
         # caught after junk tokens are appended, i.e. no check may parse a
@@ -222,6 +230,9 @@ def build_steps(full: bool, only: str | None) -> list[tuple[str, list[str] | Non
         # same executor as mlogsim; the runner is what makes "did the rig work"
         # a single verdict instead of a var dump.
         ("scenario", ["tests/scenario/run_scenario_tests.py"], ""),
+        # Differential runs need a live world *and* the offline executor, so in a
+        # clean checkout they exits 3 (SKIP) instead of pretending to pass.
+        ("differential", ["tests/differential/run_differential_tests.py"], ""),
     ]
     global_skill = (Path(os.environ.get("DSH_HOME") or (Path.home() / ".dsh"))
                     / "skills" / "mlog-agentskill")

@@ -141,6 +141,23 @@ python tools/scenario.py list
 - 卸载器不往相邻容器/核心推货，必须经传送带；
 - 控制台脚本别以 `for(...){}` 结尾（会回显值，`mlogsim` 等 `undefined` 会挂死到超时）。
 
+## 差分：离线跑过了，游戏里还对吗
+
+同一个场景可以交给两个宿主：`tools/mlogsim.py`（离线真执行器）和 `tools/world_server.py`
+（活的游戏世界）。两边各产出一份 `mlog-observation/v1` 观察，比较后才叫「验证过」。
+
+```bash
+python tools/differential.py run scenes/scenarios/unit-control.json --json
+python tools/differential.py parity scenes/scenarios/unit-control.json   # 只比环境
+python tools/fidelity.py list        # 哪些能力离线可判、哪些根本不可
+```
+
+**差异不等于 bug**。离线执行器没有波次 AI、没有电网、地形碰撞只到「B 级」；这些写在
+`tools/fidelity.py` 的 15 条边界里（verified / unverified / partial / unsupported / unknown），
+差分报告会给每条差异挂上解释——挂不上的才是真谜团。比较规则按类型分开：数字给容差
+（坐标 0.5 格、血量 5%），事件按 key 做子序列匹配加 tick 容差，**不许整体 JSON 相等**。
+世界没起、没有 JVM 时是 `unsupported_environment` + exit 3，绝不会伪装成差异。
+
 ## 标准流程
 
 ```

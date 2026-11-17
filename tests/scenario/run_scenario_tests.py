@@ -260,10 +260,21 @@ def test_envelope() -> None:
     """run() must answer in mlog_eval's vocabulary, not its own."""
     import mlog_eval as E
 
-    world_env = scenario.run(str(SCEN / "unit-control.json"), via="world")
+    # Whether a live world happens to be running must not change what this file
+    # asserts (and it does move: CI has none, the dev box often does).  Force the
+    # probe to answer "no world" so the refusal path is tested, not skipped.
+    real_world_env = scenario.world_environment
+    scenario.world_environment = lambda: {
+        "ok": False, "why": "forced: no live world", "notes": ["forced"],
+        "handshake": None, "status": None, "mindustry": None, "java": None,
+        "jar": None, "map": None, "world_size": None, "tick": None}
+    try:
+        world_env = scenario.run(str(SCEN / "unit-control.json"), via="world")
+    finally:
+        scenario.world_environment = real_world_env
     ok(world_env["ok"] is False
        and world_env["failure_type"] == "unsupported_environment",
-       "via=world refuses cleanly")
+       "via=world refuses cleanly when no world is up")
     ok(world_env["next_steps"], "via=world suggests a next step")
     ok(scenario.exit_code(world_env) == 3, "unsupported_environment exits 3")
     ok(scenario.exit_code({"ok": True}) == 0, "a pass exits 0")
