@@ -1,0 +1,111 @@
+{
+  "name": "物流沙盘（搬运 v27）",
+  "version": 1,
+  "notes": "搬运闭环沙盘：micro 跑多控搬运 v27，sorter1 配铜，container1 是投递口，container2 只为对齐 getlink 下标（0=container2，1=container1，2=sorter1）。单位不真刷，靠投影显示。锚点 = 沙盘中心。",
+  "world": {
+    "size": 512,
+    "rules": {
+      "infiniteResources": true,
+      "waves": false,
+      "canGameOver": false,
+      "logicUnitControl": true,
+      "allowEditWorldProcessors": true,
+      "possessionAllowed": true
+    }
+  },
+  "clear": [
+    288,
+    238,
+    24,
+    24
+  ],
+  "frame": [
+    286,
+    236,
+    28,
+    28
+  ],
+  "project": {
+    "units": "mirror",
+    "anchor": [
+      300,
+      250
+    ]
+  },
+  "buildings": [
+    {
+      "block": "micro-processor",
+      "x": 294,
+      "y": 250,
+      "name": "proc",
+      "code": "Logic/单位多控-搬运-v27.mlog",
+      "links": [
+        "container2",
+        "container1",
+        "sorter1"
+      ]
+    },
+    {
+      "block": "sorter",
+      "x": 295,
+      "y": 252,
+      "name": "sorter1",
+      "config": {
+        "item": "copper"
+      }
+    },
+    {
+      "block": "container",
+      "x": 298,
+      "y": 250,
+      "name": "container1",
+      "items": {
+        "copper": 90
+      }
+    },
+    {
+      "block": "container",
+      "x": 298,
+      "y": 253,
+      "name": "container2"
+    },
+    {
+      "block": "core-shard",
+      "x": 294,
+      "y": 243,
+      "name": "core",
+      "items": {
+        "copper": 400
+      }
+    }
+  ],
+  "units": [
+    {
+      "type": "poly",
+      "count": 8,
+      "team": "sharded",
+      "at": [
+        300,
+        262
+      ],
+      "radius": 4
+    }
+  ],
+  "checks": [
+    {
+      "logic": "proc",
+      "var": "N",
+      "equals": 8
+    },
+    {
+      "logic": "proc",
+      "var": "cfg.item",
+      "equals": "copper"
+    },
+    {
+      "logic": "proc",
+      "var": "tmp.lnk",
+      "equals": "container1"
+    }
+  ]
+}

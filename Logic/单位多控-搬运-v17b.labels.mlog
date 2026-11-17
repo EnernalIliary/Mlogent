@@ -1,0 +1,1226 @@
+# mlogc 生成：mode=haul slots=26 type=@flare refill=2000ms cap=0 source=core live
+# 热循环 445 条 -> micro 满载每圈 222.50 tick / 3.708 s
+# 全程序 973 条（含补员突发）；micro(2 ipt) 最坏整圈 486 tick / 8.11 s
+init:
+set N 8
+set L 1
+boot:
+ubind @flare
+sensor cfg.utype @unit @type
+jump boot strictEqual cfg.utype null
+op mul cfg.cap N 2
+op add cfg.cap cfg.cap 4
+set cfg.next 0
+set cfg.nloc 0
+set sx @thisx
+set sy @thisy
+set lx @thisx
+set ly @thisy
+set cfg.tgt 1
+op min N N 26
+op max N N 1
+set L N
+set tmp.base @counter
+op add tmp.off tmp.base 445
+hot:
+op mul tmp.p L -17
+op add @counter tmp.off tmp.p
+u26:
+ubind u26
+sensor tmp.f @unit @firstItem
+jump u26d notEqual tmp.f null
+ucontrol move sx sy 3 0 0
+ulocate building storage 0 0 vx vy tmp.g2 vault
+jump u26k equal vault tmp.lnk
+ucontrol itemTake vault cfg.item 999 0 0
+u26k:
+ucontrol itemTake st cfg.item 999 0 0
+ucontrol move lx ly 3 0 0
+jump u26e always
+u26d:
+jump u26j notEqual tmp.f cfg.item
+ucontrol move lx ly 3 0 0
+ucontrol itemDrop tmp.lnk 999 0 0 0
+ucontrol move sx sy 3 0 0
+jump u26e always
+u26j:
+ucontrol move cbx cby 3 0 0
+ucontrol itemDrop cbc 999 0 0 0
+u26e:
+u25:
+ubind u25
+sensor tmp.f @unit @firstItem
+jump u25d notEqual tmp.f null
+ucontrol move sx sy 3 0 0
+ulocate building storage 0 0 vx vy tmp.g2 vault
+jump u25k equal vault tmp.lnk
+ucontrol itemTake vault cfg.item 999 0 0
+u25k:
+ucontrol itemTake st cfg.item 999 0 0
+ucontrol move lx ly 3 0 0
+jump u25e always
+u25d:
+jump u25j notEqual tmp.f cfg.item
+ucontrol move lx ly 3 0 0
+ucontrol itemDrop tmp.lnk 999 0 0 0
+ucontrol move sx sy 3 0 0
+jump u25e always
+u25j:
+ucontrol move cbx cby 3 0 0
+ucontrol itemDrop cbc 999 0 0 0
+u25e:
+u24:
+ubind u24
+sensor tmp.f @unit @firstItem
+jump u24d notEqual tmp.f null
+ucontrol move sx sy 3 0 0
+ulocate building storage 0 0 vx vy tmp.g2 vault
+jump u24k equal vault tmp.lnk
+ucontrol itemTake vault cfg.item 999 0 0
+u24k:
+ucontrol itemTake st cfg.item 999 0 0
+ucontrol move lx ly 3 0 0
+jump u24e always
+u24d:
+jump u24j notEqual tmp.f cfg.item
+ucontrol move lx ly 3 0 0
+ucontrol itemDrop tmp.lnk 999 0 0 0
+ucontrol move sx sy 3 0 0
+jump u24e always
+u24j:
+ucontrol move cbx cby 3 0 0
+ucontrol itemDrop cbc 999 0 0 0
+u24e:
+u23:
+ubind u23
+sensor tmp.f @unit @firstItem
+jump u23d notEqual tmp.f null
+ucontrol move sx sy 3 0 0
+ulocate building storage 0 0 vx vy tmp.g2 vault
+jump u23k equal vault tmp.lnk
+ucontrol itemTake vault cfg.item 999 0 0
+u23k:
+ucontrol itemTake st cfg.item 999 0 0
+ucontrol move lx ly 3 0 0
+jump u23e always
+u23d:
+jump u23j notEqual tmp.f cfg.item
+ucontrol move lx ly 3 0 0
+ucontrol itemDrop tmp.lnk 999 0 0 0
+ucontrol move sx sy 3 0 0
+jump u23e always
+u23j:
+ucontrol move cbx cby 3 0 0
+ucontrol itemDrop cbc 999 0 0 0
+u23e:
+u22:
+ubind u22
+sensor tmp.f @unit @firstItem
+jump u22d notEqual tmp.f null
+ucontrol move sx sy 3 0 0
+ulocate building storage 0 0 vx vy tmp.g2 vault
+jump u22k equal vault tmp.lnk
+ucontrol itemTake vault cfg.item 999 0 0
+u22k:
+ucontrol itemTake st cfg.item 999 0 0
+ucontrol move lx ly 3 0 0
+jump u22e always
+u22d:
+jump u22j notEqual tmp.f cfg.item
+ucontrol move lx ly 3 0 0
+ucontrol itemDrop tmp.lnk 999 0 0 0
+ucontrol move sx sy 3 0 0
+jump u22e always
+u22j:
+ucontrol move cbx cby 3 0 0
+ucontrol itemDrop cbc 999 0 0 0
+u22e:
+u21:
+ubind u21
+sensor tmp.f @unit @firstItem
+jump u21d notEqual tmp.f null
+ucontrol move sx sy 3 0 0
+ulocate building storage 0 0 vx vy tmp.g2 vault
+jump u21k equal vault tmp.lnk
+ucontrol itemTake vault cfg.item 999 0 0
+u21k:
+ucontrol itemTake st cfg.item 999 0 0
+ucontrol move lx ly 3 0 0
+jump u21e always
+u21d:
+jump u21j notEqual tmp.f cfg.item
+ucontrol move lx ly 3 0 0
+ucontrol itemDrop tmp.lnk 999 0 0 0
+ucontrol move sx sy 3 0 0
+jump u21e always
+u21j:
+ucontrol move cbx cby 3 0 0
+ucontrol itemDrop cbc 999 0 0 0
+u21e:
+u20:
+ubind u20
+sensor tmp.f @unit @firstItem
+jump u20d notEqual tmp.f null
+ucontrol move sx sy 3 0 0
+ulocate building storage 0 0 vx vy tmp.g2 vault
+jump u20k equal vault tmp.lnk
+ucontrol itemTake vault cfg.item 999 0 0
+u20k:
+ucontrol itemTake st cfg.item 999 0 0
+ucontrol move lx ly 3 0 0
+jump u20e always
+u20d:
+jump u20j notEqual tmp.f cfg.item
+ucontrol move lx ly 3 0 0
+ucontrol itemDrop tmp.lnk 999 0 0 0
+ucontrol move sx sy 3 0 0
+jump u20e always
+u20j:
+ucontrol move cbx cby 3 0 0
+ucontrol itemDrop cbc 999 0 0 0
+u20e:
+u19:
+ubind u19
+sensor tmp.f @unit @firstItem
+jump u19d notEqual tmp.f null
+ucontrol move sx sy 3 0 0
+ulocate building storage 0 0 vx vy tmp.g2 vault
+jump u19k equal vault tmp.lnk
+ucontrol itemTake vault cfg.item 999 0 0
+u19k:
+ucontrol itemTake st cfg.item 999 0 0
+ucontrol move lx ly 3 0 0
+jump u19e always
+u19d:
+jump u19j notEqual tmp.f cfg.item
+ucontrol move lx ly 3 0 0
+ucontrol itemDrop tmp.lnk 999 0 0 0
+ucontrol move sx sy 3 0 0
+jump u19e always
+u19j:
+ucontrol move cbx cby 3 0 0
+ucontrol itemDrop cbc 999 0 0 0
+u19e:
+u18:
+ubind u18
+sensor tmp.f @unit @firstItem
+jump u18d notEqual tmp.f null
+ucontrol move sx sy 3 0 0
+ulocate building storage 0 0 vx vy tmp.g2 vault
+jump u18k equal vault tmp.lnk
+ucontrol itemTake vault cfg.item 999 0 0
+u18k:
+ucontrol itemTake st cfg.item 999 0 0
+ucontrol move lx ly 3 0 0
+jump u18e always
+u18d:
+jump u18j notEqual tmp.f cfg.item
+ucontrol move lx ly 3 0 0
+ucontrol itemDrop tmp.lnk 999 0 0 0
+ucontrol move sx sy 3 0 0
+jump u18e always
+u18j:
+ucontrol move cbx cby 3 0 0
+ucontrol itemDrop cbc 999 0 0 0
+u18e:
+u17:
+ubind u17
+sensor tmp.f @unit @firstItem
+jump u17d notEqual tmp.f null
+ucontrol move sx sy 3 0 0
+ulocate building storage 0 0 vx vy tmp.g2 vault
+jump u17k equal vault tmp.lnk
+ucontrol itemTake vault cfg.item 999 0 0
+u17k:
+ucontrol itemTake st cfg.item 999 0 0
+ucontrol move lx ly 3 0 0
+jump u17e always
+u17d:
+jump u17j notEqual tmp.f cfg.item
+ucontrol move lx ly 3 0 0
+ucontrol itemDrop tmp.lnk 999 0 0 0
+ucontrol move sx sy 3 0 0
+jump u17e always
+u17j:
+ucontrol move cbx cby 3 0 0
+ucontrol itemDrop cbc 999 0 0 0
+u17e:
+u16:
+ubind u16
+sensor tmp.f @unit @firstItem
+jump u16d notEqual tmp.f null
+ucontrol move sx sy 3 0 0
+ulocate building storage 0 0 vx vy tmp.g2 vault
+jump u16k equal vault tmp.lnk
+ucontrol itemTake vault cfg.item 999 0 0
+u16k:
+ucontrol itemTake st cfg.item 999 0 0
+ucontrol move lx ly 3 0 0
+jump u16e always
+u16d:
+jump u16j notEqual tmp.f cfg.item
+ucontrol move lx ly 3 0 0
+ucontrol itemDrop tmp.lnk 999 0 0 0
+ucontrol move sx sy 3 0 0
+jump u16e always
+u16j:
+ucontrol move cbx cby 3 0 0
+ucontrol itemDrop cbc 999 0 0 0
+u16e:
+u15:
+ubind u15
+sensor tmp.f @unit @firstItem
+jump u15d notEqual tmp.f null
+ucontrol move sx sy 3 0 0
+ulocate building storage 0 0 vx vy tmp.g2 vault
+jump u15k equal vault tmp.lnk
+ucontrol itemTake vault cfg.item 999 0 0
+u15k:
+ucontrol itemTake st cfg.item 999 0 0
+ucontrol move lx ly 3 0 0
+jump u15e always
+u15d:
+jump u15j notEqual tmp.f cfg.item
+ucontrol move lx ly 3 0 0
+ucontrol itemDrop tmp.lnk 999 0 0 0
+ucontrol move sx sy 3 0 0
+jump u15e always
+u15j:
+ucontrol move cbx cby 3 0 0
+ucontrol itemDrop cbc 999 0 0 0
+u15e:
+u14:
+ubind u14
+sensor tmp.f @unit @firstItem
+jump u14d notEqual tmp.f null
+ucontrol move sx sy 3 0 0
+ulocate building storage 0 0 vx vy tmp.g2 vault
+jump u14k equal vault tmp.lnk
+ucontrol itemTake vault cfg.item 999 0 0
+u14k:
+ucontrol itemTake st cfg.item 999 0 0
+ucontrol move lx ly 3 0 0
+jump u14e always
+u14d:
+jump u14j notEqual tmp.f cfg.item
+ucontrol move lx ly 3 0 0
+ucontrol itemDrop tmp.lnk 999 0 0 0
+ucontrol move sx sy 3 0 0
+jump u14e always
+u14j:
+ucontrol move cbx cby 3 0 0
+ucontrol itemDrop cbc 999 0 0 0
+u14e:
+u13:
+ubind u13
+sensor tmp.f @unit @firstItem
+jump u13d notEqual tmp.f null
+ucontrol move sx sy 3 0 0
+ulocate building storage 0 0 vx vy tmp.g2 vault
+jump u13k equal vault tmp.lnk
+ucontrol itemTake vault cfg.item 999 0 0
+u13k:
+ucontrol itemTake st cfg.item 999 0 0
+ucontrol move lx ly 3 0 0
+jump u13e always
+u13d:
+jump u13j notEqual tmp.f cfg.item
+ucontrol move lx ly 3 0 0
+ucontrol itemDrop tmp.lnk 999 0 0 0
+ucontrol move sx sy 3 0 0
+jump u13e always
+u13j:
+ucontrol move cbx cby 3 0 0
+ucontrol itemDrop cbc 999 0 0 0
+u13e:
+u12:
+ubind u12
+sensor tmp.f @unit @firstItem
+jump u12d notEqual tmp.f null
+ucontrol move sx sy 3 0 0
+ulocate building storage 0 0 vx vy tmp.g2 vault
+jump u12k equal vault tmp.lnk
+ucontrol itemTake vault cfg.item 999 0 0
+u12k:
+ucontrol itemTake st cfg.item 999 0 0
+ucontrol move lx ly 3 0 0
+jump u12e always
+u12d:
+jump u12j notEqual tmp.f cfg.item
+ucontrol move lx ly 3 0 0
+ucontrol itemDrop tmp.lnk 999 0 0 0
+ucontrol move sx sy 3 0 0
+jump u12e always
+u12j:
+ucontrol move cbx cby 3 0 0
+ucontrol itemDrop cbc 999 0 0 0
+u12e:
+u11:
+ubind u11
+sensor tmp.f @unit @firstItem
+jump u11d notEqual tmp.f null
+ucontrol move sx sy 3 0 0
+ulocate building storage 0 0 vx vy tmp.g2 vault
+jump u11k equal vault tmp.lnk
+ucontrol itemTake vault cfg.item 999 0 0
+u11k:
+ucontrol itemTake st cfg.item 999 0 0
+ucontrol move lx ly 3 0 0
+jump u11e always
+u11d:
+jump u11j notEqual tmp.f cfg.item
+ucontrol move lx ly 3 0 0
+ucontrol itemDrop tmp.lnk 999 0 0 0
+ucontrol move sx sy 3 0 0
+jump u11e always
+u11j:
+ucontrol move cbx cby 3 0 0
+ucontrol itemDrop cbc 999 0 0 0
+u11e:
+u10:
+ubind u10
+sensor tmp.f @unit @firstItem
+jump u10d notEqual tmp.f null
+ucontrol move sx sy 3 0 0
+ulocate building storage 0 0 vx vy tmp.g2 vault
+jump u10k equal vault tmp.lnk
+ucontrol itemTake vault cfg.item 999 0 0
+u10k:
+ucontrol itemTake st cfg.item 999 0 0
+ucontrol move lx ly 3 0 0
+jump u10e always
+u10d:
+jump u10j notEqual tmp.f cfg.item
+ucontrol move lx ly 3 0 0
+ucontrol itemDrop tmp.lnk 999 0 0 0
+ucontrol move sx sy 3 0 0
+jump u10e always
+u10j:
+ucontrol move cbx cby 3 0 0
+ucontrol itemDrop cbc 999 0 0 0
+u10e:
+u9:
+ubind u9
+sensor tmp.f @unit @firstItem
+jump u9d notEqual tmp.f null
+ucontrol move sx sy 3 0 0
+ulocate building storage 0 0 vx vy tmp.g2 vault
+jump u9k equal vault tmp.lnk
+ucontrol itemTake vault cfg.item 999 0 0
+u9k:
+ucontrol itemTake st cfg.item 999 0 0
+ucontrol move lx ly 3 0 0
+jump u9e always
+u9d:
+jump u9j notEqual tmp.f cfg.item
+ucontrol move lx ly 3 0 0
+ucontrol itemDrop tmp.lnk 999 0 0 0
+ucontrol move sx sy 3 0 0
+jump u9e always
+u9j:
+ucontrol move cbx cby 3 0 0
+ucontrol itemDrop cbc 999 0 0 0
+u9e:
+u8:
+ubind u8
+sensor tmp.f @unit @firstItem
+jump u8d notEqual tmp.f null
+ucontrol move sx sy 3 0 0
+ulocate building storage 0 0 vx vy tmp.g2 vault
+jump u8k equal vault tmp.lnk
+ucontrol itemTake vault cfg.item 999 0 0
+u8k:
+ucontrol itemTake st cfg.item 999 0 0
+ucontrol move lx ly 3 0 0
+jump u8e always
+u8d:
+jump u8j notEqual tmp.f cfg.item
+ucontrol move lx ly 3 0 0
+ucontrol itemDrop tmp.lnk 999 0 0 0
+ucontrol move sx sy 3 0 0
+jump u8e always
+u8j:
+ucontrol move cbx cby 3 0 0
+ucontrol itemDrop cbc 999 0 0 0
+u8e:
+u7:
+ubind u7
+sensor tmp.f @unit @firstItem
+jump u7d notEqual tmp.f null
+ucontrol move sx sy 3 0 0
+ulocate building storage 0 0 vx vy tmp.g2 vault
+jump u7k equal vault tmp.lnk
+ucontrol itemTake vault cfg.item 999 0 0
+u7k:
+ucontrol itemTake st cfg.item 999 0 0
+ucontrol move lx ly 3 0 0
+jump u7e always
+u7d:
+jump u7j notEqual tmp.f cfg.item
+ucontrol move lx ly 3 0 0
+ucontrol itemDrop tmp.lnk 999 0 0 0
+ucontrol move sx sy 3 0 0
+jump u7e always
+u7j:
+ucontrol move cbx cby 3 0 0
+ucontrol itemDrop cbc 999 0 0 0
+u7e:
+u6:
+ubind u6
+sensor tmp.f @unit @firstItem
+jump u6d notEqual tmp.f null
+ucontrol move sx sy 3 0 0
+ulocate building storage 0 0 vx vy tmp.g2 vault
+jump u6k equal vault tmp.lnk
+ucontrol itemTake vault cfg.item 999 0 0
+u6k:
+ucontrol itemTake st cfg.item 999 0 0
+ucontrol move lx ly 3 0 0
+jump u6e always
+u6d:
+jump u6j notEqual tmp.f cfg.item
+ucontrol move lx ly 3 0 0
+ucontrol itemDrop tmp.lnk 999 0 0 0
+ucontrol move sx sy 3 0 0
+jump u6e always
+u6j:
+ucontrol move cbx cby 3 0 0
+ucontrol itemDrop cbc 999 0 0 0
+u6e:
+u5:
+ubind u5
+sensor tmp.f @unit @firstItem
+jump u5d notEqual tmp.f null
+ucontrol move sx sy 3 0 0
+ulocate building storage 0 0 vx vy tmp.g2 vault
+jump u5k equal vault tmp.lnk
+ucontrol itemTake vault cfg.item 999 0 0
+u5k:
+ucontrol itemTake st cfg.item 999 0 0
+ucontrol move lx ly 3 0 0
+jump u5e always
+u5d:
+jump u5j notEqual tmp.f cfg.item
+ucontrol move lx ly 3 0 0
+ucontrol itemDrop tmp.lnk 999 0 0 0
+ucontrol move sx sy 3 0 0
+jump u5e always
+u5j:
+ucontrol move cbx cby 3 0 0
+ucontrol itemDrop cbc 999 0 0 0
+u5e:
+u4:
+ubind u4
+sensor tmp.f @unit @firstItem
+jump u4d notEqual tmp.f null
+ucontrol move sx sy 3 0 0
+ulocate building storage 0 0 vx vy tmp.g2 vault
+jump u4k equal vault tmp.lnk
+ucontrol itemTake vault cfg.item 999 0 0
+u4k:
+ucontrol itemTake st cfg.item 999 0 0
+ucontrol move lx ly 3 0 0
+jump u4e always
+u4d:
+jump u4j notEqual tmp.f cfg.item
+ucontrol move lx ly 3 0 0
+ucontrol itemDrop tmp.lnk 999 0 0 0
+ucontrol move sx sy 3 0 0
+jump u4e always
+u4j:
+ucontrol move cbx cby 3 0 0
+ucontrol itemDrop cbc 999 0 0 0
+u4e:
+u3:
+ubind u3
+sensor tmp.f @unit @firstItem
+jump u3d notEqual tmp.f null
+ucontrol move sx sy 3 0 0
+ulocate building storage 0 0 vx vy tmp.g2 vault
+jump u3k equal vault tmp.lnk
+ucontrol itemTake vault cfg.item 999 0 0
+u3k:
+ucontrol itemTake st cfg.item 999 0 0
+ucontrol move lx ly 3 0 0
+jump u3e always
+u3d:
+jump u3j notEqual tmp.f cfg.item
+ucontrol move lx ly 3 0 0
+ucontrol itemDrop tmp.lnk 999 0 0 0
+ucontrol move sx sy 3 0 0
+jump u3e always
+u3j:
+ucontrol move cbx cby 3 0 0
+ucontrol itemDrop cbc 999 0 0 0
+u3e:
+u2:
+ubind u2
+sensor tmp.f @unit @firstItem
+jump u2d notEqual tmp.f null
+ucontrol move sx sy 3 0 0
+ulocate building storage 0 0 vx vy tmp.g2 vault
+jump u2k equal vault tmp.lnk
+ucontrol itemTake vault cfg.item 999 0 0
+u2k:
+ucontrol itemTake st cfg.item 999 0 0
+ucontrol move lx ly 3 0 0
+jump u2e always
+u2d:
+jump u2j notEqual tmp.f cfg.item
+ucontrol move lx ly 3 0 0
+ucontrol itemDrop tmp.lnk 999 0 0 0
+ucontrol move sx sy 3 0 0
+jump u2e always
+u2j:
+ucontrol move cbx cby 3 0 0
+ucontrol itemDrop cbc 999 0 0 0
+u2e:
+u1:
+ubind u1
+sensor tmp.f @unit @firstItem
+jump u1d notEqual tmp.f null
+ucontrol move sx sy 3 0 0
+ulocate building storage 0 0 vx vy tmp.g2 vault
+jump u1k equal vault tmp.lnk
+ucontrol itemTake vault cfg.item 999 0 0
+u1k:
+ucontrol itemTake st cfg.item 999 0 0
+ucontrol move lx ly 3 0 0
+jump u1e always
+u1d:
+jump u1j notEqual tmp.f cfg.item
+ucontrol move lx ly 3 0 0
+ucontrol itemDrop tmp.lnk 999 0 0 0
+ucontrol move sx sy 3 0 0
+jump u1e always
+u1j:
+ucontrol move cbx cby 3 0 0
+ucontrol itemDrop cbc 999 0 0 0
+u1e:
+jump hot lessThan @time cfg.next
+refill:
+op add cfg.next @time 2000
+set tmp.shr @counter
+op mul tmp.p L -4
+op add tmp.shrb tmp.shr 107
+op add @counter tmp.shrb tmp.p
+sh26:
+jump sh25 notEqual L 26
+sensor tmp.c u26 @controller
+jump sh25 equal tmp.c @this
+op sub L L 1
+sh25:
+jump sh24 notEqual L 25
+sensor tmp.c u25 @controller
+jump sh24 equal tmp.c @this
+op sub L L 1
+sh24:
+jump sh23 notEqual L 24
+sensor tmp.c u24 @controller
+jump sh23 equal tmp.c @this
+op sub L L 1
+sh23:
+jump sh22 notEqual L 23
+sensor tmp.c u23 @controller
+jump sh22 equal tmp.c @this
+op sub L L 1
+sh22:
+jump sh21 notEqual L 22
+sensor tmp.c u22 @controller
+jump sh21 equal tmp.c @this
+op sub L L 1
+sh21:
+jump sh20 notEqual L 21
+sensor tmp.c u21 @controller
+jump sh20 equal tmp.c @this
+op sub L L 1
+sh20:
+jump sh19 notEqual L 20
+sensor tmp.c u20 @controller
+jump sh19 equal tmp.c @this
+op sub L L 1
+sh19:
+jump sh18 notEqual L 19
+sensor tmp.c u19 @controller
+jump sh18 equal tmp.c @this
+op sub L L 1
+sh18:
+jump sh17 notEqual L 18
+sensor tmp.c u18 @controller
+jump sh17 equal tmp.c @this
+op sub L L 1
+sh17:
+jump sh16 notEqual L 17
+sensor tmp.c u17 @controller
+jump sh16 equal tmp.c @this
+op sub L L 1
+sh16:
+jump sh15 notEqual L 16
+sensor tmp.c u16 @controller
+jump sh15 equal tmp.c @this
+op sub L L 1
+sh15:
+jump sh14 notEqual L 15
+sensor tmp.c u15 @controller
+jump sh14 equal tmp.c @this
+op sub L L 1
+sh14:
+jump sh13 notEqual L 14
+sensor tmp.c u14 @controller
+jump sh13 equal tmp.c @this
+op sub L L 1
+sh13:
+jump sh12 notEqual L 13
+sensor tmp.c u13 @controller
+jump sh12 equal tmp.c @this
+op sub L L 1
+sh12:
+jump sh11 notEqual L 12
+sensor tmp.c u12 @controller
+jump sh11 equal tmp.c @this
+op sub L L 1
+sh11:
+jump sh10 notEqual L 11
+sensor tmp.c u11 @controller
+jump sh10 equal tmp.c @this
+op sub L L 1
+sh10:
+jump sh9 notEqual L 10
+sensor tmp.c u10 @controller
+jump sh9 equal tmp.c @this
+op sub L L 1
+sh9:
+jump sh8 notEqual L 9
+sensor tmp.c u9 @controller
+jump sh8 equal tmp.c @this
+op sub L L 1
+sh8:
+jump sh7 notEqual L 8
+sensor tmp.c u8 @controller
+jump sh7 equal tmp.c @this
+op sub L L 1
+sh7:
+jump sh6 notEqual L 7
+sensor tmp.c u7 @controller
+jump sh6 equal tmp.c @this
+op sub L L 1
+sh6:
+jump sh5 notEqual L 6
+sensor tmp.c u6 @controller
+jump sh5 equal tmp.c @this
+op sub L L 1
+sh5:
+jump sh4 notEqual L 5
+sensor tmp.c u5 @controller
+jump sh4 equal tmp.c @this
+op sub L L 1
+sh4:
+jump sh3 notEqual L 4
+sensor tmp.c u4 @controller
+jump sh3 equal tmp.c @this
+op sub L L 1
+sh3:
+jump sh2 notEqual L 3
+sensor tmp.c u3 @controller
+jump sh2 equal tmp.c @this
+op sub L L 1
+sh2:
+jump sh1 notEqual L 2
+sensor tmp.c u2 @controller
+jump sh1 equal tmp.c @this
+op sub L L 1
+sh1:
+jump sh0 notEqual L 1
+sensor tmp.c u1 @controller
+jump sh0 equal tmp.c @this
+op sub L L 1
+sh0:
+jump rf0 always
+rf0:
+op max L L 1
+set tmp.t 0
+getlink tmp.lnk 1
+jump rf1 strictEqual tmp.lnk null
+sensor lx tmp.lnk @x
+sensor ly tmp.lnk @y
+rf1:
+sensor tmp.ic tmp.lnk @config
+jump ic1 strictEqual tmp.ic null
+set cfg.item tmp.ic
+ic1:
+ubind cfg.utype
+sensor uty @unit @type
+jump hot strictEqual uty null
+set tmp.cbk @counter
+op mul tmp.p N -2
+op add tmp.cbo tmp.cbk 55
+op add @counter tmp.cbo tmp.p
+chk26:
+sensor tmp.c u26 @controller
+jump fill26 strictEqual tmp.c null
+chk25:
+sensor tmp.c u25 @controller
+jump fill25 strictEqual tmp.c null
+chk24:
+sensor tmp.c u24 @controller
+jump fill24 strictEqual tmp.c null
+chk23:
+sensor tmp.c u23 @controller
+jump fill23 strictEqual tmp.c null
+chk22:
+sensor tmp.c u22 @controller
+jump fill22 strictEqual tmp.c null
+chk21:
+sensor tmp.c u21 @controller
+jump fill21 strictEqual tmp.c null
+chk20:
+sensor tmp.c u20 @controller
+jump fill20 strictEqual tmp.c null
+chk19:
+sensor tmp.c u19 @controller
+jump fill19 strictEqual tmp.c null
+chk18:
+sensor tmp.c u18 @controller
+jump fill18 strictEqual tmp.c null
+chk17:
+sensor tmp.c u17 @controller
+jump fill17 strictEqual tmp.c null
+chk16:
+sensor tmp.c u16 @controller
+jump fill16 strictEqual tmp.c null
+chk15:
+sensor tmp.c u15 @controller
+jump fill15 strictEqual tmp.c null
+chk14:
+sensor tmp.c u14 @controller
+jump fill14 strictEqual tmp.c null
+chk13:
+sensor tmp.c u13 @controller
+jump fill13 strictEqual tmp.c null
+chk12:
+sensor tmp.c u12 @controller
+jump fill12 strictEqual tmp.c null
+chk11:
+sensor tmp.c u11 @controller
+jump fill11 strictEqual tmp.c null
+chk10:
+sensor tmp.c u10 @controller
+jump fill10 strictEqual tmp.c null
+chk9:
+sensor tmp.c u9 @controller
+jump fill9 strictEqual tmp.c null
+chk8:
+sensor tmp.c u8 @controller
+jump fill8 strictEqual tmp.c null
+chk7:
+sensor tmp.c u7 @controller
+jump fill7 strictEqual tmp.c null
+chk6:
+sensor tmp.c u6 @controller
+jump fill6 strictEqual tmp.c null
+chk5:
+sensor tmp.c u5 @controller
+jump fill5 strictEqual tmp.c null
+chk4:
+sensor tmp.c u4 @controller
+jump fill4 strictEqual tmp.c null
+chk3:
+sensor tmp.c u3 @controller
+jump fill3 strictEqual tmp.c null
+chk2:
+sensor tmp.c u2 @controller
+jump fill2 strictEqual tmp.c null
+chk1:
+sensor tmp.c u1 @controller
+jump fill1 strictEqual tmp.c null
+jump tail0 always
+fill26:
+jump chk25 lessThan L 25
+f26:
+op add tmp.t tmp.t 1
+jump tail0 greaterThan tmp.t cfg.cap
+ubind uty
+sensor tmp.c @unit @controller
+jump tail0 strictEqual @unit null
+jump f26 notEqual tmp.c @unit
+set u26 @unit
+op max L L 26
+ucontrol itemDrop cbc 999 0 0 0
+ucontrol move sx sy 3 0 0
+jump tail0 always
+fill25:
+jump chk24 lessThan L 24
+f25:
+op add tmp.t tmp.t 1
+jump tail0 greaterThan tmp.t cfg.cap
+ubind uty
+sensor tmp.c @unit @controller
+jump tail0 strictEqual @unit null
+jump f25 notEqual tmp.c @unit
+set u25 @unit
+op max L L 25
+ucontrol itemDrop cbc 999 0 0 0
+ucontrol move sx sy 3 0 0
+jump chk26 always
+fill24:
+jump chk23 lessThan L 23
+f24:
+op add tmp.t tmp.t 1
+jump tail0 greaterThan tmp.t cfg.cap
+ubind uty
+sensor tmp.c @unit @controller
+jump tail0 strictEqual @unit null
+jump f24 notEqual tmp.c @unit
+set u24 @unit
+op max L L 24
+ucontrol itemDrop cbc 999 0 0 0
+ucontrol move sx sy 3 0 0
+jump chk25 always
+fill23:
+jump chk22 lessThan L 22
+f23:
+op add tmp.t tmp.t 1
+jump tail0 greaterThan tmp.t cfg.cap
+ubind uty
+sensor tmp.c @unit @controller
+jump tail0 strictEqual @unit null
+jump f23 notEqual tmp.c @unit
+set u23 @unit
+op max L L 23
+ucontrol itemDrop cbc 999 0 0 0
+ucontrol move sx sy 3 0 0
+jump chk24 always
+fill22:
+jump chk21 lessThan L 21
+f22:
+op add tmp.t tmp.t 1
+jump tail0 greaterThan tmp.t cfg.cap
+ubind uty
+sensor tmp.c @unit @controller
+jump tail0 strictEqual @unit null
+jump f22 notEqual tmp.c @unit
+set u22 @unit
+op max L L 22
+ucontrol itemDrop cbc 999 0 0 0
+ucontrol move sx sy 3 0 0
+jump chk23 always
+fill21:
+jump chk20 lessThan L 20
+f21:
+op add tmp.t tmp.t 1
+jump tail0 greaterThan tmp.t cfg.cap
+ubind uty
+sensor tmp.c @unit @controller
+jump tail0 strictEqual @unit null
+jump f21 notEqual tmp.c @unit
+set u21 @unit
+op max L L 21
+ucontrol itemDrop cbc 999 0 0 0
+ucontrol move sx sy 3 0 0
+jump chk22 always
+fill20:
+jump chk19 lessThan L 19
+f20:
+op add tmp.t tmp.t 1
+jump tail0 greaterThan tmp.t cfg.cap
+ubind uty
+sensor tmp.c @unit @controller
+jump tail0 strictEqual @unit null
+jump f20 notEqual tmp.c @unit
+set u20 @unit
+op max L L 20
+ucontrol itemDrop cbc 999 0 0 0
+ucontrol move sx sy 3 0 0
+jump chk21 always
+fill19:
+jump chk18 lessThan L 18
+f19:
+op add tmp.t tmp.t 1
+jump tail0 greaterThan tmp.t cfg.cap
+ubind uty
+sensor tmp.c @unit @controller
+jump tail0 strictEqual @unit null
+jump f19 notEqual tmp.c @unit
+set u19 @unit
+op max L L 19
+ucontrol itemDrop cbc 999 0 0 0
+ucontrol move sx sy 3 0 0
+jump chk20 always
+fill18:
+jump chk17 lessThan L 17
+f18:
+op add tmp.t tmp.t 1
+jump tail0 greaterThan tmp.t cfg.cap
+ubind uty
+sensor tmp.c @unit @controller
+jump tail0 strictEqual @unit null
+jump f18 notEqual tmp.c @unit
+set u18 @unit
+op max L L 18
+ucontrol itemDrop cbc 999 0 0 0
+ucontrol move sx sy 3 0 0
+jump chk19 always
+fill17:
+jump chk16 lessThan L 16
+f17:
+op add tmp.t tmp.t 1
+jump tail0 greaterThan tmp.t cfg.cap
+ubind uty
+sensor tmp.c @unit @controller
+jump tail0 strictEqual @unit null
+jump f17 notEqual tmp.c @unit
+set u17 @unit
+op max L L 17
+ucontrol itemDrop cbc 999 0 0 0
+ucontrol move sx sy 3 0 0
+jump chk18 always
+fill16:
+jump chk15 lessThan L 15
+f16:
+op add tmp.t tmp.t 1
+jump tail0 greaterThan tmp.t cfg.cap
+ubind uty
+sensor tmp.c @unit @controller
+jump tail0 strictEqual @unit null
+jump f16 notEqual tmp.c @unit
+set u16 @unit
+op max L L 16
+ucontrol itemDrop cbc 999 0 0 0
+ucontrol move sx sy 3 0 0
+jump chk17 always
+fill15:
+jump chk14 lessThan L 14
+f15:
+op add tmp.t tmp.t 1
+jump tail0 greaterThan tmp.t cfg.cap
+ubind uty
+sensor tmp.c @unit @controller
+jump tail0 strictEqual @unit null
+jump f15 notEqual tmp.c @unit
+set u15 @unit
+op max L L 15
+ucontrol itemDrop cbc 999 0 0 0
+ucontrol move sx sy 3 0 0
+jump chk16 always
+fill14:
+jump chk13 lessThan L 13
+f14:
+op add tmp.t tmp.t 1
+jump tail0 greaterThan tmp.t cfg.cap
+ubind uty
+sensor tmp.c @unit @controller
+jump tail0 strictEqual @unit null
+jump f14 notEqual tmp.c @unit
+set u14 @unit
+op max L L 14
+ucontrol itemDrop cbc 999 0 0 0
+ucontrol move sx sy 3 0 0
+jump chk15 always
+fill13:
+jump chk12 lessThan L 12
+f13:
+op add tmp.t tmp.t 1
+jump tail0 greaterThan tmp.t cfg.cap
+ubind uty
+sensor tmp.c @unit @controller
+jump tail0 strictEqual @unit null
+jump f13 notEqual tmp.c @unit
+set u13 @unit
+op max L L 13
+ucontrol itemDrop cbc 999 0 0 0
+ucontrol move sx sy 3 0 0
+jump chk14 always
+fill12:
+jump chk11 lessThan L 11
+f12:
+op add tmp.t tmp.t 1
+jump tail0 greaterThan tmp.t cfg.cap
+ubind uty
+sensor tmp.c @unit @controller
+jump tail0 strictEqual @unit null
+jump f12 notEqual tmp.c @unit
+set u12 @unit
+op max L L 12
+ucontrol itemDrop cbc 999 0 0 0
+ucontrol move sx sy 3 0 0
+jump chk13 always
+fill11:
+jump chk10 lessThan L 10
+f11:
+op add tmp.t tmp.t 1
+jump tail0 greaterThan tmp.t cfg.cap
+ubind uty
+sensor tmp.c @unit @controller
+jump tail0 strictEqual @unit null
+jump f11 notEqual tmp.c @unit
+set u11 @unit
+op max L L 11
+ucontrol itemDrop cbc 999 0 0 0
+ucontrol move sx sy 3 0 0
+jump chk12 always
+fill10:
+jump chk9 lessThan L 9
+f10:
+op add tmp.t tmp.t 1
+jump tail0 greaterThan tmp.t cfg.cap
+ubind uty
+sensor tmp.c @unit @controller
+jump tail0 strictEqual @unit null
+jump f10 notEqual tmp.c @unit
+set u10 @unit
+op max L L 10
+ucontrol itemDrop cbc 999 0 0 0
+ucontrol move sx sy 3 0 0
+jump chk11 always
+fill9:
+jump chk8 lessThan L 8
+f9:
+op add tmp.t tmp.t 1
+jump tail0 greaterThan tmp.t cfg.cap
+ubind uty
+sensor tmp.c @unit @controller
+jump tail0 strictEqual @unit null
+jump f9 notEqual tmp.c @unit
+set u9 @unit
+op max L L 9
+ucontrol itemDrop cbc 999 0 0 0
+ucontrol move sx sy 3 0 0
+jump chk10 always
+fill8:
+jump chk7 lessThan L 7
+f8:
+op add tmp.t tmp.t 1
+jump tail0 greaterThan tmp.t cfg.cap
+ubind uty
+sensor tmp.c @unit @controller
+jump tail0 strictEqual @unit null
+jump f8 notEqual tmp.c @unit
+set u8 @unit
+op max L L 8
+ucontrol itemDrop cbc 999 0 0 0
+ucontrol move sx sy 3 0 0
+jump chk9 always
+fill7:
+jump chk6 lessThan L 6
+f7:
+op add tmp.t tmp.t 1
+jump tail0 greaterThan tmp.t cfg.cap
+ubind uty
+sensor tmp.c @unit @controller
+jump tail0 strictEqual @unit null
+jump f7 notEqual tmp.c @unit
+set u7 @unit
+op max L L 7
+ucontrol itemDrop cbc 999 0 0 0
+ucontrol move sx sy 3 0 0
+jump chk8 always
+fill6:
+jump chk5 lessThan L 5
+f6:
+op add tmp.t tmp.t 1
+jump tail0 greaterThan tmp.t cfg.cap
+ubind uty
+sensor tmp.c @unit @controller
+jump tail0 strictEqual @unit null
+jump f6 notEqual tmp.c @unit
+set u6 @unit
+op max L L 6
+ucontrol itemDrop cbc 999 0 0 0
+ucontrol move sx sy 3 0 0
+jump chk7 always
+fill5:
+jump chk4 lessThan L 4
+f5:
+op add tmp.t tmp.t 1
+jump tail0 greaterThan tmp.t cfg.cap
+ubind uty
+sensor tmp.c @unit @controller
+jump tail0 strictEqual @unit null
+jump f5 notEqual tmp.c @unit
+set u5 @unit
+op max L L 5
+ucontrol itemDrop cbc 999 0 0 0
+ucontrol move sx sy 3 0 0
+jump chk6 always
+fill4:
+jump chk3 lessThan L 3
+f4:
+op add tmp.t tmp.t 1
+jump tail0 greaterThan tmp.t cfg.cap
+ubind uty
+sensor tmp.c @unit @controller
+jump tail0 strictEqual @unit null
+jump f4 notEqual tmp.c @unit
+set u4 @unit
+op max L L 4
+ucontrol itemDrop cbc 999 0 0 0
+ucontrol move sx sy 3 0 0
+jump chk5 always
+fill3:
+jump chk2 lessThan L 2
+f3:
+op add tmp.t tmp.t 1
+jump tail0 greaterThan tmp.t cfg.cap
+ubind uty
+sensor tmp.c @unit @controller
+jump tail0 strictEqual @unit null
+jump f3 notEqual tmp.c @unit
+set u3 @unit
+op max L L 3
+ucontrol itemDrop cbc 999 0 0 0
+ucontrol move sx sy 3 0 0
+jump chk4 always
+fill2:
+jump chk1 lessThan L 1
+f2:
+op add tmp.t tmp.t 1
+jump tail0 greaterThan tmp.t cfg.cap
+ubind uty
+sensor tmp.c @unit @controller
+jump tail0 strictEqual @unit null
+jump f2 notEqual tmp.c @unit
+set u2 @unit
+op max L L 2
+ucontrol itemDrop cbc 999 0 0 0
+ucontrol move sx sy 3 0 0
+jump chk3 always
+fill1:
+jump tail0 lessThan L 0
+f1:
+op add tmp.t tmp.t 1
+jump tail0 greaterThan tmp.t cfg.cap
+ubind uty
+sensor tmp.c @unit @controller
+jump tail0 strictEqual @unit null
+jump f1 notEqual tmp.c @unit
+set u1 @unit
+op max L L 1
+ucontrol itemDrop cbc 999 0 0 0
+ucontrol move sx sy 3 0 0
+jump chk2 always
+tail0:
+jump loc always
+loc:
+ubind u1
+jump loc0 notEqual @unit null
+jump hot always
+loc0:
+jump locgo strictEqual cbc null
+jump locF strictEqual st null
+sensor tmp.cap tmp.lnk @itemCapacity
+sensor tmp.amt tmp.lnk @totalItems
+jump locr lessThan tmp.amt tmp.cap
+locF:
+jump locr lessThan @time cfg.nloc
+locgo:
+ulocate building core 0 cfg.item sx sy tmp.g st
+ulocate building core 0 0 cbx cby tmp.g3 cbc
+op add cfg.nloc @time 3000
+jump rf2 notEqual st tmp.lnk
+set st null
+rf2:
+jump rf3 notEqual tmp.lnk null
+set st null
+rf3:
+locr:
+jump hot always

@@ -1,0 +1,133 @@
+set copper 0.5
+set lead 0.5
+set metaglass 1
+set graphite 1
+set titanium 5
+set thorium 2
+set silicon 5
+set plastanium 0.8
+set phase-fabric 0.1
+set surge-alloy 1
+set blast-compound 0.01
+set pyratite 0.01
+set wt 0
+set npad 0
+set p 0
+set i 0
+set mx 0
+set sum 0
+set vol 0
+set pf 0
+set core null
+set last -1
+set uiok 0
+wait wt
+set wt 10
+sensor tmp.tot core @totalItems
+jump 28 notEqual tmp.tot last
+jump 23 always
+set npad 0
+set p 0
+jump 38 greaterThanEq p @links
+getlink b p
+jump 36 strictEqual b null
+sensor ty b @type
+jump 36 notEqual ty @landing-pad
+op add npad npad 1
+op add p p 1
+jump 30 always
+jump 47 greaterThan npad 0
+print "[#ffd166]"
+printchar @landing-pad
+print "  pads="
+print npad
+print "  "
+sensor tmp.ct core @type
+printchar tmp.ct
+print "\n"
+sensor cap core @itemCapacity
+jump 70 notEqual cap null
+set core null
+set ui uiok
+lookup unit uty ui
+ubind uty
+jump 57 notEqual @unit null
+op add ui ui 1
+jump 51 lessThan ui 52
+jump 61 always
+set uiok ui
+ulocate building core false 0 cx cy f core
+ucontrol unbind 0 0 0 0 0
+jump 70 notEqual core null
+set p 0
+jump 70 greaterThanEq p @links
+getlink b p
+op add p p 1
+jump 62 strictEqual b null
+sensor cap b @itemCapacity
+jump 62 strictEqual cap null
+jump 62 lessThan cap 4000
+set core b
+jump 130 strictEqual core null
+set i 0
+set mx 0
+lookup item it i
+sensor amt core it
+op max mx mx amt
+op add i i 1
+jump 73 lessThan i @itemCount
+op max mx mx 1
+set i 0
+set sum 0
+lookup item it i
+sensor amt core it
+op sub d mx amt
+sensor nm it @name
+read w @this nm
+op mul d d w
+op pow d d @e
+op add sum sum d
+op add i i 1
+jump 81 lessThan i @itemCount
+op div vol sum npad
+jump 94 greaterThan vol 0
+jump 130 always
+set i 0
+set pf 0
+set p 0
+set cnt 0
+lookup item it i
+sensor amt core it
+op sub d mx amt
+sensor nm it @name
+read w @this nm
+op mul d d w
+op pow d d @e
+jump 119 lessThanEq d 0
+op add pf pf d
+jump 119 lessThan pf vol
+jump 119 greaterThanEq p @links
+getlink b p
+op add p p 1
+jump 108 strictEqual b null
+sensor ty b @type
+jump 108 notEqual ty @landing-pad
+control config b it
+control enabled b true
+op add cnt cnt 1
+op sub pf pf vol
+jump 108 greaterThanEq pf vol
+jump 125 lessThanEq cnt 0
+print "  "
+printchar it
+print " x"
+print cnt
+print "\n"
+op add i i 1
+jump 97 lessThan i @itemCount
+printflush message1
+sensor last core @totalItems
+jump 23 always
+printflush message1
+set wt 2
+jump 23 always 0 "aigenerated:DeepSeek:f1288c2f1add"

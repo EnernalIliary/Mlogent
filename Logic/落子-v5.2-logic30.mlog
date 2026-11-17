@@ -1,0 +1,149 @@
+set copper 0.5
+set lead 0.5
+set metaglass 1
+set graphite 1
+set titanium 5
+set thorium 2
+set silicon 5
+set plastanium 0.8
+set phase-fabric 0.1
+set surge-alloy 1
+set blast-compound 0.01
+set pyratite 0.01
+set next 0
+set core null
+set last -1
+set uiok 0
+set time.rec @time
+jump 19 greaterThanEq @time next
+jump 17 always
+op add next @time 4000
+sensor tmp.tot core @totalItems
+jump 23 notEqual tmp.tot last
+jump 17 always
+set npad 0
+set p 0
+jump 33 greaterThanEq p @links
+getlink b p
+jump 31 strictEqual b null
+sensor ty b @type
+jump 31 notEqual ty @landing-pad
+op add npad npad 1
+op add p p 1
+jump 25 always
+sensor cap core @itemCapacity
+jump 58 notEqual cap null
+set core null
+set ui uiok
+lookup unit uty ui
+ubind uty
+jump 43 notEqual @unit null
+op add ui ui 1
+jump 37 lessThan ui 52
+jump 47 always
+set uiok ui
+ulocate building core false 0 cx cy f core
+ucontrol unbind 0 0 0 0 0
+jump 58 notEqual core null
+print "[#ffd166] 落子 LUOZI[]\n-调和+占空着陆控制逻辑  \n\n[red]启动受阻[gray]\n[yellow]检查你是否有任意可用单位。[]\n若有、链接任意数量接收台。而后即可开始。\n\nBy - [blue]DeepSeek[] x [blue]Ili[#8abcd1]ary[#654321]艾铭[#ffb6c1]✽"
+printflush message1
+set p 0
+jump 58 greaterThanEq p @links
+getlink b p
+op add p p 1
+jump 50 strictEqual b null
+sensor cap b @itemCapacity
+jump 50 strictEqual cap null
+jump 50 lessThan cap 4000
+set core b
+jump 141 strictEqual core null
+set i 0
+set mx 0
+lookup item it i
+sensor amt core it
+op max mx mx amt
+op add i i 1
+jump 61 lessThan i @itemCount
+op max mx mx 1
+set i 0
+set sum 0
+lookup item it i
+sensor amt core it
+op sub d mx amt
+sensor nm it @name
+read w @this nm
+op mul d d w
+read uo @this nm
+op add uf uo 0.02
+op div d d uf
+op add sum sum d
+op add i i 1
+jump 69 lessThan i @itemCount
+jump 83 greaterThan sum 0
+jump 141 always
+set i 0
+set cu 0
+set p 0
+set cnt 0
+set busy 0
+lookup item it i
+sensor amt core it
+op sub d mx amt
+sensor nm it @name
+read w @this nm
+op mul d d w
+read uo @this nm
+op add uf uo 0.02
+op div d d uf
+jump 116 lessThanEq d 0
+op add cu cu d
+op mul tk npad cu
+op div tk tk sum
+op floor tk tk
+jump 116 greaterThanEq cnt tk
+jump 116 greaterThanEq p @links
+getlink b p
+op add p p 1
+jump 103 strictEqual b null
+sensor ty b @type
+jump 103 notEqual ty @landing-pad
+control config b it
+control enabled b true
+op add cnt cnt 1
+sensor bt b @totalItems
+op add busy busy bt
+printchar it
+jump 103 lessThan cnt tk
+jump 120 lessThanEq cnt 0
+op div smp busy cnt
+op div smp smp 100
+jump 121 always
+set smp 0
+op sub tmp.d smp uo
+op mul tmp.d tmp.d 0.25
+op add smp uo tmp.d
+write smp @this nm
+jump 127 lessThanEq cnt 0
+print "\n"
+op add i i 1
+jump 86 lessThan i @itemCount
+op sub delta.s @time time.rec
+op idiv delta.s delta.s 10
+op div delta.s delta.s 100
+set time.rec @time
+print "\n控制周期：{0}s"
+format delta.s
+print "\nBy - [blue]DeepSeek[] x [blue]Ili[#8abcd1]ary[#654321]艾铭[#ffb6c1]✽"
+printflush message1
+print "[#ffd166] 落子 LUOZI[]\n-调和+占空着陆控制逻辑  \n\n正在调配\n{0}  x\n\n"
+format npad
+sensor last core @totalItems
+jump 17 always
+printflush message1
+op add next @time 2000
+jump 17 always
+draw triangle copper lead metaglass graphite sand coal
+draw triangle titanium thorium scrap silicon plastanium phase-fabric
+draw triangle surge-alloy spore-pod blast-compound pyratite beryllium tungsten
+draw triangle oxide carbide
+jump 17 always 0 "aigenerated:DeepSeek:98541a2839ac"

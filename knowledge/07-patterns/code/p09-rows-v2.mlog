@@ -1,0 +1,71 @@
+print "[#ffd166]行表多控[] v2 · 建筑变量存单位"
+print "By DeepSeek"
+print "表 = 处理器变量空间(@this)：行键 = 单位类型名，行值 = 一只单位对象"
+print "遍历 lookup unit i -> sensor @name -> read u @this 名 -> ubind u"
+print "空行 6 条(3 tick)，满行 17 条(8.5 tick)；50 行满扫约 2.9 s"
+print "行键在末尾 draw 声明（不可达，零开销）：@this 只写已存在的变量"
+set cfg.next 0
+set cfg.item null
+set tmp.lnk null
+set sx @thisx
+set sy @thisy
+set lx @thisx
+set ly @thisy
+set tmp.i 0
+lookup unit tmp.ty tmp.i
+sensor tmp.nm tmp.ty @name
+read u @this tmp.nm
+jump 31 strictEqual u null
+ubind u
+jump 31 strictEqual @unit null
+sensor tmp.f @unit @firstItem
+jump 25 notEqual tmp.f null
+ucontrol approach sx sy 6.5 0 0
+ucontrol itemTake st cfg.item 999 0 0
+jump 31 always
+jump 29 notEqual tmp.f cfg.item
+ucontrol approach lx ly 6.5 0 0
+ucontrol itemDrop tmp.lnk 999 0 0
+jump 31 always
+ucontrol approach sx sy 6.5 0 0
+ucontrol itemDrop st 999 0 0
+op add tmp.i tmp.i 1
+jump 14 lessThan tmp.i 50
+jump 13 lessThan @time cfg.next
+op add cfg.next @time 2000
+getlink tmp.lnk 1
+sensor lx tmp.lnk @x
+sensor ly tmp.lnk @y
+sensor tmp.ic sorter1 @config
+jump 41 strictEqual tmp.ic null
+set cfg.item tmp.ic
+ubind @poly
+jump 44 strictEqual @unit null
+ulocate building core 0 0 sx sy tmp.g st
+set tmp.i 0
+set tmp.t 0
+lookup unit tmp.ty tmp.i
+sensor tmp.nm tmp.ty @name
+read u @this tmp.nm
+jump 58 notEqual u null
+ubind @poly
+jump 58 strictEqual @unit null
+sensor tmp.c @unit @controller
+jump 58 notEqual tmp.c @unit
+write @unit @this tmp.nm
+ucontrol payDrop
+op add tmp.t tmp.t 1
+jump 60 greaterThanEq tmp.t 6
+op add tmp.i tmp.i 1
+jump 46 lessThan tmp.i 50
+jump 13 always
+draw triangle dagger mace fortress scepter reign nova
+draw triangle pulsar quasar vela corvus crawler atrax
+draw triangle spiroct arkyid toxopid flare horizon zenith
+draw triangle antumbra eclipse mono poly mega quad
+draw triangle oct risso minke bryde sei omura
+draw triangle retusa oxynoe cyerce aegires navanax alpha
+draw triangle beta gamma stell locus precept vanquish
+draw triangle conquer merui cleroi anthicus tecta collaris
+draw triangle elude avert
+jump 13 always 0 "aigenerated:DeepSeek:6102cb1316d2"

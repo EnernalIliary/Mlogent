@@ -1,0 +1,298 @@
+set N 8
+set cfg.cap 12
+set cfg.next 0
+set sx @thisx
+set sy @thisy
+set lx @thisx
+set ly @thisy
+set cfg.tgt 1
+ubind u1
+jump 24 strictEqual st null
+jump 18 greaterThan s1 0
+ucontrol move sx sy 3 0 0
+ucontrol itemTake vault cfg.item 999 0 0
+ucontrol itemTake st cfg.item 999 0 0
+sensor tmp.f @unit @firstItem
+jump 24 notEqual tmp.f cfg.item
+jump 24 strictEqual tmp.lnk null
+set s1 1
+ucontrol move lx ly 3 0 0
+ucontrol itemDrop tmp.lnk 999 0 0 0
+sensor tmp.f @unit @firstItem
+jump 24 notEqual tmp.f null
+set s1 0
+ucontrol move sx sy 3 0 0
+ubind u2
+jump 40 strictEqual st null
+jump 34 greaterThan s2 0
+ucontrol move sx sy 3 0 0
+ucontrol itemTake vault cfg.item 999 0 0
+ucontrol itemTake st cfg.item 999 0 0
+sensor tmp.f @unit @firstItem
+jump 40 notEqual tmp.f cfg.item
+jump 40 strictEqual tmp.lnk null
+set s2 1
+ucontrol move lx ly 3 0 0
+ucontrol itemDrop tmp.lnk 999 0 0 0
+sensor tmp.f @unit @firstItem
+jump 40 notEqual tmp.f null
+set s2 0
+ucontrol move sx sy 3 0 0
+ubind u3
+jump 56 strictEqual st null
+jump 50 greaterThan s3 0
+ucontrol move sx sy 3 0 0
+ucontrol itemTake vault cfg.item 999 0 0
+ucontrol itemTake st cfg.item 999 0 0
+sensor tmp.f @unit @firstItem
+jump 56 notEqual tmp.f cfg.item
+jump 56 strictEqual tmp.lnk null
+set s3 1
+ucontrol move lx ly 3 0 0
+ucontrol itemDrop tmp.lnk 999 0 0 0
+sensor tmp.f @unit @firstItem
+jump 56 notEqual tmp.f null
+set s3 0
+ucontrol move sx sy 3 0 0
+ubind u4
+jump 72 strictEqual st null
+jump 66 greaterThan s4 0
+ucontrol move sx sy 3 0 0
+ucontrol itemTake vault cfg.item 999 0 0
+ucontrol itemTake st cfg.item 999 0 0
+sensor tmp.f @unit @firstItem
+jump 72 notEqual tmp.f cfg.item
+jump 72 strictEqual tmp.lnk null
+set s4 1
+ucontrol move lx ly 3 0 0
+ucontrol itemDrop tmp.lnk 999 0 0 0
+sensor tmp.f @unit @firstItem
+jump 72 notEqual tmp.f null
+set s4 0
+ucontrol move sx sy 3 0 0
+ubind u5
+jump 88 strictEqual st null
+jump 82 greaterThan s5 0
+ucontrol move sx sy 3 0 0
+ucontrol itemTake vault cfg.item 999 0 0
+ucontrol itemTake st cfg.item 999 0 0
+sensor tmp.f @unit @firstItem
+jump 88 notEqual tmp.f cfg.item
+jump 88 strictEqual tmp.lnk null
+set s5 1
+ucontrol move lx ly 3 0 0
+ucontrol itemDrop tmp.lnk 999 0 0 0
+sensor tmp.f @unit @firstItem
+jump 88 notEqual tmp.f null
+set s5 0
+ucontrol move sx sy 3 0 0
+ubind u6
+jump 104 strictEqual st null
+jump 98 greaterThan s6 0
+ucontrol move sx sy 3 0 0
+ucontrol itemTake vault cfg.item 999 0 0
+ucontrol itemTake st cfg.item 999 0 0
+sensor tmp.f @unit @firstItem
+jump 104 notEqual tmp.f cfg.item
+jump 104 strictEqual tmp.lnk null
+set s6 1
+ucontrol move lx ly 3 0 0
+ucontrol itemDrop tmp.lnk 999 0 0 0
+sensor tmp.f @unit @firstItem
+jump 104 notEqual tmp.f null
+set s6 0
+ucontrol move sx sy 3 0 0
+ubind u7
+jump 120 strictEqual st null
+jump 114 greaterThan s7 0
+ucontrol move sx sy 3 0 0
+ucontrol itemTake vault cfg.item 999 0 0
+ucontrol itemTake st cfg.item 999 0 0
+sensor tmp.f @unit @firstItem
+jump 120 notEqual tmp.f cfg.item
+jump 120 strictEqual tmp.lnk null
+set s7 1
+ucontrol move lx ly 3 0 0
+ucontrol itemDrop tmp.lnk 999 0 0 0
+sensor tmp.f @unit @firstItem
+jump 120 notEqual tmp.f null
+set s7 0
+ucontrol move sx sy 3 0 0
+ubind u8
+jump 136 strictEqual st null
+jump 130 greaterThan s8 0
+ucontrol move sx sy 3 0 0
+ucontrol itemTake vault cfg.item 999 0 0
+ucontrol itemTake st cfg.item 999 0 0
+sensor tmp.f @unit @firstItem
+jump 136 notEqual tmp.f cfg.item
+jump 136 strictEqual tmp.lnk null
+set s8 1
+ucontrol move lx ly 3 0 0
+ucontrol itemDrop tmp.lnk 999 0 0 0
+sensor tmp.f @unit @firstItem
+jump 136 notEqual tmp.f null
+set s8 0
+ucontrol move sx sy 3 0 0
+jump 8 lessThan @time cfg.next
+op add cfg.next @time 2000
+set tmp.t 0
+getlink tmp.lnk cfg.tgt
+jump 143 strictEqual tmp.lnk null
+sensor lx tmp.lnk @x
+sensor ly tmp.lnk @y
+sensor cfg.item sorter1 @config
+ubind @flare
+sensor uty @unit @type
+jump 8 strictEqual uty null
+ulocate building core 0 cfg.item sx sy tmp.g st
+ulocate building storage 0 cfg.item vx vy tmp.g2 vault
+jump 151 notEqual vault tmp.lnk
+set vault null
+jump 153 notEqual st tmp.lnk
+set st null
+sensor tmp.c u1 @controller
+jump 171 equal tmp.c @this
+jump 159 strictEqual tmp.c null
+ubind u1
+ucontrol move sx sy 3 0 0
+jump 171 always
+jump 171 greaterThan 1 N
+op add tmp.t tmp.t 1
+jump 171 greaterThan tmp.t cfg.cap
+ubind uty
+sensor tmp.c @unit @controller
+jump 171 strictEqual @unit null
+jump 160 notEqual tmp.c @unit
+set u1 @unit
+set s1 0
+ucontrol itemDrop core 999 0 0 0
+ucontrol move sx sy 3 0 0
+jump 171 always
+sensor tmp.c u2 @controller
+jump 189 equal tmp.c @this
+jump 177 strictEqual tmp.c null
+ubind u2
+ucontrol move sx sy 3 0 0
+jump 189 always
+jump 189 greaterThan 2 N
+op add tmp.t tmp.t 1
+jump 189 greaterThan tmp.t cfg.cap
+ubind uty
+sensor tmp.c @unit @controller
+jump 189 strictEqual @unit null
+jump 178 notEqual tmp.c @unit
+set u2 @unit
+set s2 0
+ucontrol itemDrop core 999 0 0 0
+ucontrol move sx sy 3 0 0
+jump 189 always
+sensor tmp.c u3 @controller
+jump 207 equal tmp.c @this
+jump 195 strictEqual tmp.c null
+ubind u3
+ucontrol move sx sy 3 0 0
+jump 207 always
+jump 207 greaterThan 3 N
+op add tmp.t tmp.t 1
+jump 207 greaterThan tmp.t cfg.cap
+ubind uty
+sensor tmp.c @unit @controller
+jump 207 strictEqual @unit null
+jump 196 notEqual tmp.c @unit
+set u3 @unit
+set s3 0
+ucontrol itemDrop core 999 0 0 0
+ucontrol move sx sy 3 0 0
+jump 207 always
+sensor tmp.c u4 @controller
+jump 225 equal tmp.c @this
+jump 213 strictEqual tmp.c null
+ubind u4
+ucontrol move sx sy 3 0 0
+jump 225 always
+jump 225 greaterThan 4 N
+op add tmp.t tmp.t 1
+jump 225 greaterThan tmp.t cfg.cap
+ubind uty
+sensor tmp.c @unit @controller
+jump 225 strictEqual @unit null
+jump 214 notEqual tmp.c @unit
+set u4 @unit
+set s4 0
+ucontrol itemDrop core 999 0 0 0
+ucontrol move sx sy 3 0 0
+jump 225 always
+sensor tmp.c u5 @controller
+jump 243 equal tmp.c @this
+jump 231 strictEqual tmp.c null
+ubind u5
+ucontrol move sx sy 3 0 0
+jump 243 always
+jump 243 greaterThan 5 N
+op add tmp.t tmp.t 1
+jump 243 greaterThan tmp.t cfg.cap
+ubind uty
+sensor tmp.c @unit @controller
+jump 243 strictEqual @unit null
+jump 232 notEqual tmp.c @unit
+set u5 @unit
+set s5 0
+ucontrol itemDrop core 999 0 0 0
+ucontrol move sx sy 3 0 0
+jump 243 always
+sensor tmp.c u6 @controller
+jump 261 equal tmp.c @this
+jump 249 strictEqual tmp.c null
+ubind u6
+ucontrol move sx sy 3 0 0
+jump 261 always
+jump 261 greaterThan 6 N
+op add tmp.t tmp.t 1
+jump 261 greaterThan tmp.t cfg.cap
+ubind uty
+sensor tmp.c @unit @controller
+jump 261 strictEqual @unit null
+jump 250 notEqual tmp.c @unit
+set u6 @unit
+set s6 0
+ucontrol itemDrop core 999 0 0 0
+ucontrol move sx sy 3 0 0
+jump 261 always
+sensor tmp.c u7 @controller
+jump 279 equal tmp.c @this
+jump 267 strictEqual tmp.c null
+ubind u7
+ucontrol move sx sy 3 0 0
+jump 279 always
+jump 279 greaterThan 7 N
+op add tmp.t tmp.t 1
+jump 279 greaterThan tmp.t cfg.cap
+ubind uty
+sensor tmp.c @unit @controller
+jump 279 strictEqual @unit null
+jump 268 notEqual tmp.c @unit
+set u7 @unit
+set s7 0
+ucontrol itemDrop core 999 0 0 0
+ucontrol move sx sy 3 0 0
+jump 279 always
+sensor tmp.c u8 @controller
+jump 286 strictEqual tmp.c null
+jump 283 notEqual tmp.c @this
+jump 8 always
+ubind u8
+ucontrol move sx sy 3 0 0
+jump 8 always
+jump 8 greaterThan 8 N
+op add tmp.t tmp.t 1
+jump 8 greaterThan tmp.t cfg.cap
+ubind uty
+sensor tmp.c @unit @controller
+jump 8 strictEqual @unit null
+jump 287 notEqual tmp.c @unit
+set u8 @unit
+set s8 0
+ucontrol itemDrop core 999 0 0 0
+ucontrol move sx sy 3 0 0
+jump 8 always 0 "aigenerated:MAI:c71dc144df3a:enjaNczBSsMwAAbgV_mZF4Va07hpe4j4HmWHEjMtpqS03cGbIkJFZjdwIrohOwhjIvMgCFJ9GpN66ytIHX4P8Pm-YxGrtYZIqkOO6ubR5MO6vI_UgWBHQV8ilSpLmYvsJBZsvyeDRCARvVBKRgkhUQoexMyhSFU_4YJxlYhW1_Lp6q3OX_TXorpewqEezHSGzT1EIU8UzLLQg_H350Dn7-b2FTttu0OQhfwYW3BssttB2kzbq0lfzKv5lf4oQD23meoy18Pnn9mTHt1VizNdjOrysi4f_vZ1ijDONmAmp3pamPGbnuRw2t7_T-222_TdX7ymbJo"

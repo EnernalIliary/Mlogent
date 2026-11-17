@@ -1,6 +1,6 @@
 {
  "version": "1",
- "generated": "2026-11-15T19:00:27+08:00",
+ "generated": "2026-11-15T20:02:27+08:00",
  "root": "knowledge",
  "read_order": [
   "index.json",
@@ -1295,6 +1295,21 @@
      "status": "active",
      "domain": "pattern",
      "lines": 98
+    },
+    {
+     "id": "PATTERN.CODE.001",
+     "path": "knowledge/07-patterns/P09-code-examples.md",
+     "title": "成品逻辑代码库：多控搬运、多控挖矿、行表与着陆台调度",
+     "tokens": 793,
+     "tokens_est": false,
+     "conf": "E",
+     "ver": [
+      "v160.7_rt",
+      "v159.3_src"
+     ],
+     "status": "active",
+     "domain": "pattern",
+     "lines": 96
     },
     {
      "id": "PATTERN.COMM.001",
@@ -2922,27 +2937,27 @@
  "docs": [
   {
    "path": "knowledge/KB.md",
-   "bytes": 10450,
-   "tokens": 1391
+   "bytes": 10512,
+   "tokens": 1401
   },
   {
    "path": "knowledge/CONVENTIONS.md",
-   "bytes": 5953,
-   "tokens": 785
+   "bytes": 6046,
+   "tokens": 801
   },
   {
    "path": "knowledge/VERSION.md",
-   "bytes": 11963,
-   "tokens": 1481
+   "bytes": 13762,
+   "tokens": 1704
   },
   {
    "path": "knowledge/README.md",
-   "bytes": 5223,
-   "tokens": 632
+   "bytes": 5254,
+   "tokens": 636
   }
  ],
  "counts": {
-  "articles": 93,
+  "articles": 94,
   "by_domain": {
    "01-execution": 6,
    "02-world": 16,
@@ -2950,7 +2965,7 @@
    "04-units": 6,
    "05-campaign": 6,
    "06-mlog": 8,
-   "07-patterns": 8,
+   "07-patterns": 9,
    "08-evidence": 4
   },
   "data_tables": 12,
@@ -2964,7 +2979,7 @@
    "probes": 84
   },
   "evidence_dirs": 2,
-  "tokens_total": 90576,
+  "tokens_total": 91622,
   "empty": false
  },
  "notes": [

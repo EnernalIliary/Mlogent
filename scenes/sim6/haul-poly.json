@@ -1,0 +1,148 @@
+{
+  "name": "haul-poly * sim 64x64",
+  "world": {
+    "size": 64,
+    "rules": {
+      "infiniteResources": true,
+      "waves": false,
+      "canGameOver": false,
+      "logicUnitControl": true,
+      "allowEditWorldProcessors": true,
+      "possessionAllowed": true
+    }
+  },
+  "clear": [
+    20,
+    20,
+    24,
+    24
+  ],
+  "frame": [
+    18,
+    18,
+    28,
+    28
+  ],
+  "buildings": [
+    {
+      "block": "micro-processor",
+      "x": 26,
+      "y": 32,
+      "name": "proc",
+      "team": "sharded",
+      "config": null,
+      "items": {},
+      "liquids": {},
+      "health": null,
+      "rotation": 0,
+      "code": "out/sim6/haul-poly.mlog",
+      "links": [
+        "container2",
+        "container1",
+        "sorter1"
+      ]
+    },
+    {
+      "block": "sorter",
+      "x": 27,
+      "y": 34,
+      "name": "sorter1",
+      "team": "sharded",
+      "config": {
+        "item": "copper"
+      },
+      "items": {},
+      "liquids": {},
+      "health": null,
+      "rotation": 0,
+      "code": null,
+      "links": []
+    },
+    {
+      "block": "container",
+      "x": 30,
+      "y": 32,
+      "name": "container1",
+      "team": "sharded",
+      "config": null,
+      "items": {
+        "copper": 90
+      },
+      "liquids": {},
+      "health": null,
+      "rotation": 0,
+      "code": null,
+      "links": []
+    },
+    {
+      "block": "container",
+      "x": 30,
+      "y": 35,
+      "name": "container2",
+      "team": "sharded",
+      "config": null,
+      "items": {},
+      "liquids": {},
+      "health": null,
+      "rotation": 0,
+      "code": null,
+      "links": []
+    },
+    {
+      "block": "core-shard",
+      "x": 26,
+      "y": 25,
+      "name": "core",
+      "team": "sharded",
+      "config": null,
+      "items": {
+        "copper": 400
+      },
+      "liquids": {},
+      "health": null,
+      "rotation": 0,
+      "code": null,
+      "links": []
+    }
+  ],
+  "units": [
+    {
+      "type": "poly",
+      "count": 8,
+      "team": "sharded",
+      "at": [
+        32,
+        46
+      ],
+      "radius": 4
+    }
+  ],
+  "project": {
+    "units": "mirror",
+    "anchor": [
+      32,
+      32
+    ],
+    "at": null
+  },
+  "checks": [
+    {
+      "logic": "proc",
+      "var": "N",
+      "equals": 8,
+      "op": "eq"
+    },
+    {
+      "logic": "proc",
+      "var": "cfg.item",
+      "equals": "copper",
+      "op": "eq"
+    },
+    {
+      "logic": "proc",
+      "var": "tmp.lnk",
+      "equals": "container1",
+      "op": "eq"
+    }
+  ]
+}

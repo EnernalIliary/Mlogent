@@ -1,0 +1,463 @@
+print "[#ffd166] 落子 LUOZI[] v6 · 硬编码版（上限 8 台）\n"
+print "-调和+占空着陆控制逻辑 · 半编译产物\n\n"
+print "微处理器专用：一圈 408 条 = 3.40 s（2 ipt）\n"
+print "打分 = 权重 × 库存缺口（线性），三趟全展开\n"
+print "分配 = 累计切片（最大余数），末位台兜底不空转\n"
+print "上限 8 台 = 链接顺序上的前 8 个接收台\n"
+print "核心靠 ulocate 取，需至少 1 只可用单位\n\n"
+print "By - [blue]DeepSeek[] x [blue]Ili[#8abcd1]ary[#654321]艾铭[#ffb6c1]✽"
+printflush message1
+set w.copper 0.5
+set w.lead 0.5
+set w.metaglass 1
+set w.graphite 1
+set w.titanium 5
+set w.thorium 2
+set w.silicon 5
+set w.plastanium 0.8
+set w.phase_fabric 0.1
+set w.surge_alloy 1
+set w.blast_compound 0.01
+set w.pyratite 0.01
+set next 0
+set core null
+set last -1
+set uiok 0
+set time.rec @time
+jump 28 greaterThanEq @time next
+jump 26 always
+op add next @time 10000
+sensor tmp.tot core @totalItems
+jump 32 notEqual tmp.tot last
+jump 26 always
+set npad 0
+set p 0
+jump 43 greaterThanEq p @links
+jump 43 greaterThanEq npad 8
+getlink b p
+jump 41 strictEqual b null
+sensor ty b @type
+jump 41 notEqual ty @landing-pad
+op add npad npad 1
+op add p p 1
+jump 34 always
+sensor cap core @itemCapacity
+jump 68 notEqual cap null
+set core null
+set ui uiok
+lookup unit uty ui
+ubind uty
+jump 53 notEqual @unit null
+op add ui ui 1
+jump 47 lessThan ui 52
+jump 57 always
+set uiok ui
+ulocate building core false 0 cx cy f core
+ucontrol unbind 0 0 0 0 0
+jump 68 notEqual core null
+print "[#ffd166] 落子 LUOZI[]\n-调和+占空着陆控制逻辑  \n\n[red]启动受阻[gray]\n[yellow]检查你是否有任意可用单位。[]\n若有、链接任意数量接收台。而后即可开始。\n\nBy - [blue]DeepSeek[] x [blue]Ili[#8abcd1]ary[#654321]艾铭[#ffb6c1]✽"
+printflush message1
+set p 0
+jump 68 greaterThanEq p @links
+getlink b p
+op add p p 1
+jump 60 strictEqual b null
+sensor cap b @itemCapacity
+jump 60 strictEqual cap null
+jump 60 lessThan cap 4000
+set core b
+jump 460 strictEqual core null
+set mx 0
+set sw 0
+sensor amt core @copper
+op max mx mx amt
+op mul t amt w.copper
+op add sw sw t
+sensor amt core @lead
+op max mx mx amt
+op mul t amt w.lead
+op add sw sw t
+sensor amt core @metaglass
+op max mx mx amt
+op mul t amt w.metaglass
+op add sw sw t
+sensor amt core @graphite
+op max mx mx amt
+op mul t amt w.graphite
+op add sw sw t
+sensor amt core @sand
+op max mx mx amt
+sensor amt core @coal
+op max mx mx amt
+sensor amt core @titanium
+op max mx mx amt
+op mul t amt w.titanium
+op add sw sw t
+sensor amt core @thorium
+op max mx mx amt
+op mul t amt w.thorium
+op add sw sw t
+sensor amt core @scrap
+op max mx mx amt
+sensor amt core @silicon
+op max mx mx amt
+op mul t amt w.silicon
+op add sw sw t
+sensor amt core @plastanium
+op max mx mx amt
+op mul t amt w.plastanium
+op add sw sw t
+sensor amt core @phase-fabric
+op max mx mx amt
+op mul t amt w.phase_fabric
+op add sw sw t
+sensor amt core @surge-alloy
+op max mx mx amt
+op mul t amt w.surge_alloy
+op add sw sw t
+sensor amt core @spore-pod
+op max mx mx amt
+sensor amt core @blast-compound
+op max mx mx amt
+op mul t amt w.blast_compound
+op add sw sw t
+sensor amt core @pyratite
+op max mx mx amt
+op mul t amt w.pyratite
+op add sw sw t
+op max mx mx 1
+op mul sum mx 16.92
+op sub sum sum sw
+jump 132 greaterThan sum 0
+jump 460 always
+set cu 0
+op div rcp npad sum
+set cnt 0
+set p 0
+set nc 0
+set busy 0
+sensor amt core @copper
+op sub d mx amt
+op mul d d w.copper
+jump 159 lessThanEq d 0
+op add cu cu d
+op mul tk cu rcp
+op floor tk tk
+jump 159 greaterThanEq cnt tk
+set it @copper
+jump 159 greaterThanEq p @links
+getlink b p
+op add p p 1
+jump 147 strictEqual b null
+sensor ty b @type
+jump 147 notEqual ty @landing-pad
+control config b it
+control enabled b true
+op add cnt cnt 1
+op add nc nc 1
+printchar it
+jump 147 lessThan cnt tk
+jump 161 lessThanEq nc 0
+print "\n"
+set nc 0
+set busy 0
+sensor amt core @lead
+op sub d mx amt
+op mul d d w.lead
+jump 184 lessThanEq d 0
+op add cu cu d
+op mul tk cu rcp
+op floor tk tk
+jump 184 greaterThanEq cnt tk
+set it @lead
+jump 184 greaterThanEq p @links
+getlink b p
+op add p p 1
+jump 172 strictEqual b null
+sensor ty b @type
+jump 172 notEqual ty @landing-pad
+control config b it
+control enabled b true
+op add cnt cnt 1
+op add nc nc 1
+printchar it
+jump 172 lessThan cnt tk
+jump 186 lessThanEq nc 0
+print "\n"
+set nc 0
+set busy 0
+sensor amt core @metaglass
+op sub d mx amt
+op mul d d w.metaglass
+jump 209 lessThanEq d 0
+op add cu cu d
+op mul tk cu rcp
+op floor tk tk
+jump 209 greaterThanEq cnt tk
+set it @metaglass
+jump 209 greaterThanEq p @links
+getlink b p
+op add p p 1
+jump 197 strictEqual b null
+sensor ty b @type
+jump 197 notEqual ty @landing-pad
+control config b it
+control enabled b true
+op add cnt cnt 1
+op add nc nc 1
+printchar it
+jump 197 lessThan cnt tk
+jump 211 lessThanEq nc 0
+print "\n"
+set nc 0
+set busy 0
+sensor amt core @graphite
+op sub d mx amt
+op mul d d w.graphite
+jump 234 lessThanEq d 0
+op add cu cu d
+op mul tk cu rcp
+op floor tk tk
+jump 234 greaterThanEq cnt tk
+set it @graphite
+jump 234 greaterThanEq p @links
+getlink b p
+op add p p 1
+jump 222 strictEqual b null
+sensor ty b @type
+jump 222 notEqual ty @landing-pad
+control config b it
+control enabled b true
+op add cnt cnt 1
+op add nc nc 1
+printchar it
+jump 222 lessThan cnt tk
+jump 236 lessThanEq nc 0
+print "\n"
+set nc 0
+set busy 0
+sensor amt core @titanium
+op sub d mx amt
+op mul d d w.titanium
+jump 259 lessThanEq d 0
+op add cu cu d
+op mul tk cu rcp
+op floor tk tk
+jump 259 greaterThanEq cnt tk
+set it @titanium
+jump 259 greaterThanEq p @links
+getlink b p
+op add p p 1
+jump 247 strictEqual b null
+sensor ty b @type
+jump 247 notEqual ty @landing-pad
+control config b it
+control enabled b true
+op add cnt cnt 1
+op add nc nc 1
+printchar it
+jump 247 lessThan cnt tk
+jump 261 lessThanEq nc 0
+print "\n"
+set nc 0
+set busy 0
+sensor amt core @thorium
+op sub d mx amt
+op mul d d w.thorium
+jump 284 lessThanEq d 0
+op add cu cu d
+op mul tk cu rcp
+op floor tk tk
+jump 284 greaterThanEq cnt tk
+set it @thorium
+jump 284 greaterThanEq p @links
+getlink b p
+op add p p 1
+jump 272 strictEqual b null
+sensor ty b @type
+jump 272 notEqual ty @landing-pad
+control config b it
+control enabled b true
+op add cnt cnt 1
+op add nc nc 1
+printchar it
+jump 272 lessThan cnt tk
+jump 286 lessThanEq nc 0
+print "\n"
+set nc 0
+set busy 0
+sensor amt core @silicon
+op sub d mx amt
+op mul d d w.silicon
+jump 309 lessThanEq d 0
+op add cu cu d
+op mul tk cu rcp
+op floor tk tk
+jump 309 greaterThanEq cnt tk
+set it @silicon
+jump 309 greaterThanEq p @links
+getlink b p
+op add p p 1
+jump 297 strictEqual b null
+sensor ty b @type
+jump 297 notEqual ty @landing-pad
+control config b it
+control enabled b true
+op add cnt cnt 1
+op add nc nc 1
+printchar it
+jump 297 lessThan cnt tk
+jump 311 lessThanEq nc 0
+print "\n"
+set nc 0
+set busy 0
+sensor amt core @plastanium
+op sub d mx amt
+op mul d d w.plastanium
+jump 334 lessThanEq d 0
+op add cu cu d
+op mul tk cu rcp
+op floor tk tk
+jump 334 greaterThanEq cnt tk
+set it @plastanium
+jump 334 greaterThanEq p @links
+getlink b p
+op add p p 1
+jump 322 strictEqual b null
+sensor ty b @type
+jump 322 notEqual ty @landing-pad
+control config b it
+control enabled b true
+op add cnt cnt 1
+op add nc nc 1
+printchar it
+jump 322 lessThan cnt tk
+jump 336 lessThanEq nc 0
+print "\n"
+set nc 0
+set busy 0
+sensor amt core @phase-fabric
+op sub d mx amt
+op mul d d w.phase_fabric
+jump 359 lessThanEq d 0
+op add cu cu d
+op mul tk cu rcp
+op floor tk tk
+jump 359 greaterThanEq cnt tk
+set it @phase-fabric
+jump 359 greaterThanEq p @links
+getlink b p
+op add p p 1
+jump 347 strictEqual b null
+sensor ty b @type
+jump 347 notEqual ty @landing-pad
+control config b it
+control enabled b true
+op add cnt cnt 1
+op add nc nc 1
+printchar it
+jump 347 lessThan cnt tk
+jump 361 lessThanEq nc 0
+print "\n"
+set nc 0
+set busy 0
+sensor amt core @surge-alloy
+op sub d mx amt
+op mul d d w.surge_alloy
+jump 384 lessThanEq d 0
+op add cu cu d
+op mul tk cu rcp
+op floor tk tk
+jump 384 greaterThanEq cnt tk
+set it @surge-alloy
+jump 384 greaterThanEq p @links
+getlink b p
+op add p p 1
+jump 372 strictEqual b null
+sensor ty b @type
+jump 372 notEqual ty @landing-pad
+control config b it
+control enabled b true
+op add cnt cnt 1
+op add nc nc 1
+printchar it
+jump 372 lessThan cnt tk
+jump 386 lessThanEq nc 0
+print "\n"
+set nc 0
+set busy 0
+sensor amt core @blast-compound
+op sub d mx amt
+op mul d d w.blast_compound
+jump 409 lessThanEq d 0
+op add cu cu d
+op mul tk cu rcp
+op floor tk tk
+jump 409 greaterThanEq cnt tk
+set it @blast-compound
+jump 409 greaterThanEq p @links
+getlink b p
+op add p p 1
+jump 397 strictEqual b null
+sensor ty b @type
+jump 397 notEqual ty @landing-pad
+control config b it
+control enabled b true
+op add cnt cnt 1
+op add nc nc 1
+printchar it
+jump 397 lessThan cnt tk
+jump 411 lessThanEq nc 0
+print "\n"
+set nc 0
+set busy 0
+sensor amt core @pyratite
+op sub d mx amt
+op mul d d w.pyratite
+jump 434 lessThanEq d 0
+op add cu cu d
+op mul tk cu rcp
+op floor tk tk
+jump 434 greaterThanEq cnt tk
+set it @pyratite
+jump 434 greaterThanEq p @links
+getlink b p
+op add p p 1
+jump 422 strictEqual b null
+sensor ty b @type
+jump 422 notEqual ty @landing-pad
+control config b it
+control enabled b true
+op add cnt cnt 1
+op add nc nc 1
+printchar it
+jump 422 lessThan cnt tk
+jump 436 lessThanEq nc 0
+print "\n"
+jump 448 greaterThanEq cnt npad
+set it @pyratite
+jump 448 greaterThanEq p @links
+getlink b p
+op add p p 1
+jump 438 strictEqual b null
+sensor ty b @type
+jump 438 notEqual ty @landing-pad
+control config b it
+control enabled b true
+op add cnt cnt 1
+jump 436 always
+op sub delta.s @time time.rec
+op idiv delta.s delta.s 10
+op div delta.s delta.s 100
+set time.rec @time
+print "\n控制周期：{0}s"
+format delta.s
+print "\nBy - [blue]DeepSeek[] x [blue]Ili[#8abcd1]ary[#654321]艾铭[#ffb6c1]✽"
+printflush message1
+print "[#ffd166] 落子 LUOZI[]\n-调和+占空着陆控制逻辑  \n\n正在调配\n{0}  x\n\n"
+format npad
+sensor last core @totalItems
+jump 26 always
+printflush message1
+op add next @time 2000
+jump 26 always 0 "aigenerated:DeepSeek:8922af28ca6b"

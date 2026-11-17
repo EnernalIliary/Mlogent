@@ -1,0 +1,419 @@
+# mlogc 生成：mode=haul slots=8 type=@flare refill=2000ms cap=0 source=core twospeed
+# 一圈 42 条 (0.350 s)，每单位完整判定 8 条一轮 -> 2.80 s/单位
+# 全程序 356 条（含补员突发）；micro(2 ipt) 最坏整圈 178 tick / 2.97 s
+init:
+set N 8
+boot:
+ubind @flare
+sensor cfg.utype @unit @type
+jump boot strictEqual cfg.utype null
+op mul cfg.cap N 2
+op add cfg.cap cfg.cap 4
+set cfg.next 0
+set sx @thisx
+set sy @thisy
+set lx @thisx
+set ly @thisy
+set cfg.tgt sorter1
+set dx1 sx
+set dy1 sy
+set dx2 sx
+set dy2 sy
+set dx3 sx
+set dy3 sy
+set dx4 sx
+set dy4 sy
+set dx5 sx
+set dy5 sy
+set dx6 sx
+set dy6 sy
+set dx7 sx
+set dy7 sy
+set dx8 sx
+set dy8 sy
+op min N N 8
+op max N N 1
+hot:
+ubind u1
+ucontrol move dx1 dy1 3 0 0
+ubind u2
+ucontrol move dx2 dy2 3 0 0
+ubind u3
+ucontrol move dx3 dy3 3 0 0
+ubind u4
+ucontrol move dx4 dy4 3 0 0
+ubind u5
+ucontrol move dx5 dy5 3 0 0
+ubind u6
+ucontrol move dx6 dy6 3 0 0
+ubind u7
+ucontrol move dx7 dy7 3 0 0
+ubind u8
+ucontrol move dx8 dy8 3 0 0
+op add tmp.r tmp.r 1
+jump rok lessThanEq tmp.r N
+set tmp.r 1
+rok:
+set tmp.cb @counter
+op add tmp.offc tmp.cb 155
+op mul tmp.p tmp.r -19
+op add @counter tmp.offc tmp.p
+d8:
+ubind u8
+sensor tmp.f @unit @firstItem
+jump d8d notEqual tmp.f null
+set dx8 sx
+set dy8 sy
+ucontrol move sx sy 3 0 0
+ucontrol itemTake st cfg.item 999 0 0
+jump gate always
+d8d:
+jump d8j notEqual tmp.f cfg.item
+set dx8 lx
+set dy8 ly
+ucontrol move lx ly 3 0 0
+ucontrol itemDrop tmp.lnk 999 0 0 0
+jump gate always
+d8j:
+set dx8 cbx
+set dy8 cby
+ucontrol move cbx cby 3 0 0
+ucontrol itemDrop cbc 999 0 0 0
+jump gate always
+d7:
+ubind u7
+sensor tmp.f @unit @firstItem
+jump d7d notEqual tmp.f null
+set dx7 sx
+set dy7 sy
+ucontrol move sx sy 3 0 0
+ucontrol itemTake st cfg.item 999 0 0
+jump gate always
+d7d:
+jump d7j notEqual tmp.f cfg.item
+set dx7 lx
+set dy7 ly
+ucontrol move lx ly 3 0 0
+ucontrol itemDrop tmp.lnk 999 0 0 0
+jump gate always
+d7j:
+set dx7 cbx
+set dy7 cby
+ucontrol move cbx cby 3 0 0
+ucontrol itemDrop cbc 999 0 0 0
+jump gate always
+d6:
+ubind u6
+sensor tmp.f @unit @firstItem
+jump d6d notEqual tmp.f null
+set dx6 sx
+set dy6 sy
+ucontrol move sx sy 3 0 0
+ucontrol itemTake st cfg.item 999 0 0
+jump gate always
+d6d:
+jump d6j notEqual tmp.f cfg.item
+set dx6 lx
+set dy6 ly
+ucontrol move lx ly 3 0 0
+ucontrol itemDrop tmp.lnk 999 0 0 0
+jump gate always
+d6j:
+set dx6 cbx
+set dy6 cby
+ucontrol move cbx cby 3 0 0
+ucontrol itemDrop cbc 999 0 0 0
+jump gate always
+d5:
+ubind u5
+sensor tmp.f @unit @firstItem
+jump d5d notEqual tmp.f null
+set dx5 sx
+set dy5 sy
+ucontrol move sx sy 3 0 0
+ucontrol itemTake st cfg.item 999 0 0
+jump gate always
+d5d:
+jump d5j notEqual tmp.f cfg.item
+set dx5 lx
+set dy5 ly
+ucontrol move lx ly 3 0 0
+ucontrol itemDrop tmp.lnk 999 0 0 0
+jump gate always
+d5j:
+set dx5 cbx
+set dy5 cby
+ucontrol move cbx cby 3 0 0
+ucontrol itemDrop cbc 999 0 0 0
+jump gate always
+d4:
+ubind u4
+sensor tmp.f @unit @firstItem
+jump d4d notEqual tmp.f null
+set dx4 sx
+set dy4 sy
+ucontrol move sx sy 3 0 0
+ucontrol itemTake st cfg.item 999 0 0
+jump gate always
+d4d:
+jump d4j notEqual tmp.f cfg.item
+set dx4 lx
+set dy4 ly
+ucontrol move lx ly 3 0 0
+ucontrol itemDrop tmp.lnk 999 0 0 0
+jump gate always
+d4j:
+set dx4 cbx
+set dy4 cby
+ucontrol move cbx cby 3 0 0
+ucontrol itemDrop cbc 999 0 0 0
+jump gate always
+d3:
+ubind u3
+sensor tmp.f @unit @firstItem
+jump d3d notEqual tmp.f null
+set dx3 sx
+set dy3 sy
+ucontrol move sx sy 3 0 0
+ucontrol itemTake st cfg.item 999 0 0
+jump gate always
+d3d:
+jump d3j notEqual tmp.f cfg.item
+set dx3 lx
+set dy3 ly
+ucontrol move lx ly 3 0 0
+ucontrol itemDrop tmp.lnk 999 0 0 0
+jump gate always
+d3j:
+set dx3 cbx
+set dy3 cby
+ucontrol move cbx cby 3 0 0
+ucontrol itemDrop cbc 999 0 0 0
+jump gate always
+d2:
+ubind u2
+sensor tmp.f @unit @firstItem
+jump d2d notEqual tmp.f null
+set dx2 sx
+set dy2 sy
+ucontrol move sx sy 3 0 0
+ucontrol itemTake st cfg.item 999 0 0
+jump gate always
+d2d:
+jump d2j notEqual tmp.f cfg.item
+set dx2 lx
+set dy2 ly
+ucontrol move lx ly 3 0 0
+ucontrol itemDrop tmp.lnk 999 0 0 0
+jump gate always
+d2j:
+set dx2 cbx
+set dy2 cby
+ucontrol move cbx cby 3 0 0
+ucontrol itemDrop cbc 999 0 0 0
+jump gate always
+d1:
+ubind u1
+sensor tmp.f @unit @firstItem
+jump d1d notEqual tmp.f null
+set dx1 sx
+set dy1 sy
+ucontrol move sx sy 3 0 0
+ucontrol itemTake st cfg.item 999 0 0
+jump gate always
+d1d:
+jump d1j notEqual tmp.f cfg.item
+set dx1 lx
+set dy1 ly
+ucontrol move lx ly 3 0 0
+ucontrol itemDrop tmp.lnk 999 0 0 0
+jump gate always
+d1j:
+set dx1 cbx
+set dy1 cby
+ucontrol move cbx cby 3 0 0
+ucontrol itemDrop cbc 999 0 0 0
+jump gate always
+gate:
+jump hot lessThan @time cfg.next
+refill:
+op add cfg.next @time 2000
+set tmp.t 0
+set tmp.lnk sorter1
+jump rf1 strictEqual tmp.lnk null
+sensor lx tmp.lnk @x
+sensor ly tmp.lnk @y
+rf1:
+set cfg.item @copper
+ubind cfg.utype
+sensor uty @unit @type
+jump hot strictEqual uty null
+chk1:
+sensor tmp.c u1 @controller
+jump chk2 equal tmp.c @this
+jump fill1 strictEqual tmp.c null
+chk2:
+sensor tmp.c u2 @controller
+jump chk3 equal tmp.c @this
+jump fill2 strictEqual tmp.c null
+chk3:
+sensor tmp.c u3 @controller
+jump chk4 equal tmp.c @this
+jump fill3 strictEqual tmp.c null
+chk4:
+sensor tmp.c u4 @controller
+jump chk5 equal tmp.c @this
+jump fill4 strictEqual tmp.c null
+chk5:
+sensor tmp.c u5 @controller
+jump chk6 equal tmp.c @this
+jump fill5 strictEqual tmp.c null
+chk6:
+sensor tmp.c u6 @controller
+jump chk7 equal tmp.c @this
+jump fill6 strictEqual tmp.c null
+chk7:
+sensor tmp.c u7 @controller
+jump chk8 equal tmp.c @this
+jump fill7 strictEqual tmp.c null
+chk8:
+sensor tmp.c u8 @controller
+jump seal8 notEqual tmp.c @this
+jump hot always
+seal8:
+jump fill8 strictEqual tmp.c null
+jump hot always
+fill1:
+jump hot greaterThan 1 N
+f1:
+op add tmp.t tmp.t 1
+jump hot greaterThan tmp.t cfg.cap
+ubind uty
+sensor tmp.c @unit @controller
+jump hot strictEqual @unit null
+jump f1 notEqual tmp.c @unit
+set u1 @unit
+set dx1 sx
+set dy1 sy
+ucontrol itemDrop cbc 999 0 0 0
+ucontrol move sx sy 3 0 0
+jump chk2 always
+fill2:
+jump hot greaterThan 2 N
+f2:
+op add tmp.t tmp.t 1
+jump hot greaterThan tmp.t cfg.cap
+ubind uty
+sensor tmp.c @unit @controller
+jump hot strictEqual @unit null
+jump f2 notEqual tmp.c @unit
+set u2 @unit
+set dx2 sx
+set dy2 sy
+ucontrol itemDrop cbc 999 0 0 0
+ucontrol move sx sy 3 0 0
+jump chk3 always
+fill3:
+jump hot greaterThan 3 N
+f3:
+op add tmp.t tmp.t 1
+jump hot greaterThan tmp.t cfg.cap
+ubind uty
+sensor tmp.c @unit @controller
+jump hot strictEqual @unit null
+jump f3 notEqual tmp.c @unit
+set u3 @unit
+set dx3 sx
+set dy3 sy
+ucontrol itemDrop cbc 999 0 0 0
+ucontrol move sx sy 3 0 0
+jump chk4 always
+fill4:
+jump hot greaterThan 4 N
+f4:
+op add tmp.t tmp.t 1
+jump hot greaterThan tmp.t cfg.cap
+ubind uty
+sensor tmp.c @unit @controller
+jump hot strictEqual @unit null
+jump f4 notEqual tmp.c @unit
+set u4 @unit
+set dx4 sx
+set dy4 sy
+ucontrol itemDrop cbc 999 0 0 0
+ucontrol move sx sy 3 0 0
+jump chk5 always
+fill5:
+jump hot greaterThan 5 N
+f5:
+op add tmp.t tmp.t 1
+jump hot greaterThan tmp.t cfg.cap
+ubind uty
+sensor tmp.c @unit @controller
+jump hot strictEqual @unit null
+jump f5 notEqual tmp.c @unit
+set u5 @unit
+set dx5 sx
+set dy5 sy
+ucontrol itemDrop cbc 999 0 0 0
+ucontrol move sx sy 3 0 0
+jump chk6 always
+fill6:
+jump hot greaterThan 6 N
+f6:
+op add tmp.t tmp.t 1
+jump hot greaterThan tmp.t cfg.cap
+ubind uty
+sensor tmp.c @unit @controller
+jump hot strictEqual @unit null
+jump f6 notEqual tmp.c @unit
+set u6 @unit
+set dx6 sx
+set dy6 sy
+ucontrol itemDrop cbc 999 0 0 0
+ucontrol move sx sy 3 0 0
+jump chk7 always
+fill7:
+jump hot greaterThan 7 N
+f7:
+op add tmp.t tmp.t 1
+jump hot greaterThan tmp.t cfg.cap
+ubind uty
+sensor tmp.c @unit @controller
+jump hot strictEqual @unit null
+jump f7 notEqual tmp.c @unit
+set u7 @unit
+set dx7 sx
+set dy7 sy
+ucontrol itemDrop cbc 999 0 0 0
+ucontrol move sx sy 3 0 0
+jump chk8 always
+fill8:
+jump hot greaterThan 8 N
+f8:
+op add tmp.t tmp.t 1
+jump hot greaterThan tmp.t cfg.cap
+ubind uty
+sensor tmp.c @unit @controller
+jump hot strictEqual @unit null
+jump f8 notEqual tmp.c @unit
+set u8 @unit
+set dx8 sx
+set dy8 sy
+ucontrol itemDrop cbc 999 0 0 0
+ucontrol move sx sy 3 0 0
+jump loc always
+loc:
+ubind u1
+jump loc0 notEqual @unit null
+jump hot always
+loc0:
+ulocate building core 0 cfg.item sx sy tmp.g st
+ulocate building core 0 0 cbx cby tmp.g3 cbc
+jump rf2 notEqual st tmp.lnk
+set st null
+rf2:
+jump rf3 notEqual tmp.lnk null
+set st null
+rf3:
+jump hot always

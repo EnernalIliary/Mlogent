@@ -1,0 +1,935 @@
+print "[#ffd166]多控挖矿[] v2 · 30 槽单位多控"
+print "By - [blue]DeepSeek[]"
+print "半编译产物：硬编码 30 槽，set N 1~30，小逻辑满速"
+print "N=8 一圈 3+8*18 = 147 条 = 1.23 s（micro 2 ipt）"
+print "ulocate ore 只在时间闸门（3 s）重定位，全队共享矿区坐标"
+print "挖满才回投递点；卸空立刻回矿区；货不对 drop @air 清仓"
+print "矿种读 sorter1 的 @config（每 2 s 重读），投递 getlink 1"
+print "改兵种只改 ubind 一行（必须能挖：poly/mono）"
+print "注意：矿点离最近核心 < 27.5 格时引擎会自动把满仓矿倒进核心"
+
+set N 8
+ubind @poly
+sensor cfg.utype @unit @type
+jump 10 strictEqual cfg.utype null
+op mul cfg.cap N 2
+op add cfg.cap cfg.cap 4
+set cfg.next 0
+set cfg.nloc 0
+set sx @thisx
+set sy @thisy
+set lx @thisx
+set ly @thisy
+sensor tmp.ic sorter1 @config
+jump 24 strictEqual tmp.ic null
+set cfg.item tmp.ic
+set ox null
+set oy null
+set cfg.ore null
+op min N N 30
+op max N N 1
+op mul tmp.hp N -18
+op sub tmp.hp tmp.hp 3
+jump 573 always
+ubind u30
+sensor tmp.f @unit @firstItem
+jump 46 strictEqual tmp.f null
+jump 45 notEqual tmp.f cfg.item
+sensor tmp.n @unit @totalItems
+sensor tmp.c @unit @itemCapacity
+jump 46 lessThan tmp.n tmp.c
+jump 46 strictEqual tmp.lnk null
+ucontrol approach lx ly 6.5 0 0
+ucontrol itemDrop tmp.lnk 999 0 0 0
+sensor tmp.f @unit @firstItem
+jump 46 strictEqual tmp.f null
+jump 50 always
+ucontrol itemDrop @air 999 0 0 0
+jump 50 strictEqual ox null
+ucontrol approach ox oy 6.5 0 0
+ucontrol mine ox oy 0 0 0
+jump 50 always
+ubind u29
+sensor tmp.f @unit @firstItem
+jump 64 strictEqual tmp.f null
+jump 63 notEqual tmp.f cfg.item
+sensor tmp.n @unit @totalItems
+sensor tmp.c @unit @itemCapacity
+jump 64 lessThan tmp.n tmp.c
+jump 64 strictEqual tmp.lnk null
+ucontrol approach lx ly 6.5 0 0
+ucontrol itemDrop tmp.lnk 999 0 0 0
+sensor tmp.f @unit @firstItem
+jump 64 strictEqual tmp.f null
+jump 68 always
+ucontrol itemDrop @air 999 0 0 0
+jump 68 strictEqual ox null
+ucontrol approach ox oy 6.5 0 0
+ucontrol mine ox oy 0 0 0
+jump 68 always
+ubind u28
+sensor tmp.f @unit @firstItem
+jump 82 strictEqual tmp.f null
+jump 81 notEqual tmp.f cfg.item
+sensor tmp.n @unit @totalItems
+sensor tmp.c @unit @itemCapacity
+jump 82 lessThan tmp.n tmp.c
+jump 82 strictEqual tmp.lnk null
+ucontrol approach lx ly 6.5 0 0
+ucontrol itemDrop tmp.lnk 999 0 0 0
+sensor tmp.f @unit @firstItem
+jump 82 strictEqual tmp.f null
+jump 86 always
+ucontrol itemDrop @air 999 0 0 0
+jump 86 strictEqual ox null
+ucontrol approach ox oy 6.5 0 0
+ucontrol mine ox oy 0 0 0
+jump 86 always
+ubind u27
+sensor tmp.f @unit @firstItem
+jump 100 strictEqual tmp.f null
+jump 99 notEqual tmp.f cfg.item
+sensor tmp.n @unit @totalItems
+sensor tmp.c @unit @itemCapacity
+jump 100 lessThan tmp.n tmp.c
+jump 100 strictEqual tmp.lnk null
+ucontrol approach lx ly 6.5 0 0
+ucontrol itemDrop tmp.lnk 999 0 0 0
+sensor tmp.f @unit @firstItem
+jump 100 strictEqual tmp.f null
+jump 104 always
+ucontrol itemDrop @air 999 0 0 0
+jump 104 strictEqual ox null
+ucontrol approach ox oy 6.5 0 0
+ucontrol mine ox oy 0 0 0
+jump 104 always
+ubind u26
+sensor tmp.f @unit @firstItem
+jump 118 strictEqual tmp.f null
+jump 117 notEqual tmp.f cfg.item
+sensor tmp.n @unit @totalItems
+sensor tmp.c @unit @itemCapacity
+jump 118 lessThan tmp.n tmp.c
+jump 118 strictEqual tmp.lnk null
+ucontrol approach lx ly 6.5 0 0
+ucontrol itemDrop tmp.lnk 999 0 0 0
+sensor tmp.f @unit @firstItem
+jump 118 strictEqual tmp.f null
+jump 122 always
+ucontrol itemDrop @air 999 0 0 0
+jump 122 strictEqual ox null
+ucontrol approach ox oy 6.5 0 0
+ucontrol mine ox oy 0 0 0
+jump 122 always
+ubind u25
+sensor tmp.f @unit @firstItem
+jump 136 strictEqual tmp.f null
+jump 135 notEqual tmp.f cfg.item
+sensor tmp.n @unit @totalItems
+sensor tmp.c @unit @itemCapacity
+jump 136 lessThan tmp.n tmp.c
+jump 136 strictEqual tmp.lnk null
+ucontrol approach lx ly 6.5 0 0
+ucontrol itemDrop tmp.lnk 999 0 0 0
+sensor tmp.f @unit @firstItem
+jump 136 strictEqual tmp.f null
+jump 140 always
+ucontrol itemDrop @air 999 0 0 0
+jump 140 strictEqual ox null
+ucontrol approach ox oy 6.5 0 0
+ucontrol mine ox oy 0 0 0
+jump 140 always
+ubind u24
+sensor tmp.f @unit @firstItem
+jump 154 strictEqual tmp.f null
+jump 153 notEqual tmp.f cfg.item
+sensor tmp.n @unit @totalItems
+sensor tmp.c @unit @itemCapacity
+jump 154 lessThan tmp.n tmp.c
+jump 154 strictEqual tmp.lnk null
+ucontrol approach lx ly 6.5 0 0
+ucontrol itemDrop tmp.lnk 999 0 0 0
+sensor tmp.f @unit @firstItem
+jump 154 strictEqual tmp.f null
+jump 158 always
+ucontrol itemDrop @air 999 0 0 0
+jump 158 strictEqual ox null
+ucontrol approach ox oy 6.5 0 0
+ucontrol mine ox oy 0 0 0
+jump 158 always
+ubind u23
+sensor tmp.f @unit @firstItem
+jump 172 strictEqual tmp.f null
+jump 171 notEqual tmp.f cfg.item
+sensor tmp.n @unit @totalItems
+sensor tmp.c @unit @itemCapacity
+jump 172 lessThan tmp.n tmp.c
+jump 172 strictEqual tmp.lnk null
+ucontrol approach lx ly 6.5 0 0
+ucontrol itemDrop tmp.lnk 999 0 0 0
+sensor tmp.f @unit @firstItem
+jump 172 strictEqual tmp.f null
+jump 176 always
+ucontrol itemDrop @air 999 0 0 0
+jump 176 strictEqual ox null
+ucontrol approach ox oy 6.5 0 0
+ucontrol mine ox oy 0 0 0
+jump 176 always
+ubind u22
+sensor tmp.f @unit @firstItem
+jump 190 strictEqual tmp.f null
+jump 189 notEqual tmp.f cfg.item
+sensor tmp.n @unit @totalItems
+sensor tmp.c @unit @itemCapacity
+jump 190 lessThan tmp.n tmp.c
+jump 190 strictEqual tmp.lnk null
+ucontrol approach lx ly 6.5 0 0
+ucontrol itemDrop tmp.lnk 999 0 0 0
+sensor tmp.f @unit @firstItem
+jump 190 strictEqual tmp.f null
+jump 194 always
+ucontrol itemDrop @air 999 0 0 0
+jump 194 strictEqual ox null
+ucontrol approach ox oy 6.5 0 0
+ucontrol mine ox oy 0 0 0
+jump 194 always
+ubind u21
+sensor tmp.f @unit @firstItem
+jump 208 strictEqual tmp.f null
+jump 207 notEqual tmp.f cfg.item
+sensor tmp.n @unit @totalItems
+sensor tmp.c @unit @itemCapacity
+jump 208 lessThan tmp.n tmp.c
+jump 208 strictEqual tmp.lnk null
+ucontrol approach lx ly 6.5 0 0
+ucontrol itemDrop tmp.lnk 999 0 0 0
+sensor tmp.f @unit @firstItem
+jump 208 strictEqual tmp.f null
+jump 212 always
+ucontrol itemDrop @air 999 0 0 0
+jump 212 strictEqual ox null
+ucontrol approach ox oy 6.5 0 0
+ucontrol mine ox oy 0 0 0
+jump 212 always
+ubind u20
+sensor tmp.f @unit @firstItem
+jump 226 strictEqual tmp.f null
+jump 225 notEqual tmp.f cfg.item
+sensor tmp.n @unit @totalItems
+sensor tmp.c @unit @itemCapacity
+jump 226 lessThan tmp.n tmp.c
+jump 226 strictEqual tmp.lnk null
+ucontrol approach lx ly 6.5 0 0
+ucontrol itemDrop tmp.lnk 999 0 0 0
+sensor tmp.f @unit @firstItem
+jump 226 strictEqual tmp.f null
+jump 230 always
+ucontrol itemDrop @air 999 0 0 0
+jump 230 strictEqual ox null
+ucontrol approach ox oy 6.5 0 0
+ucontrol mine ox oy 0 0 0
+jump 230 always
+ubind u19
+sensor tmp.f @unit @firstItem
+jump 244 strictEqual tmp.f null
+jump 243 notEqual tmp.f cfg.item
+sensor tmp.n @unit @totalItems
+sensor tmp.c @unit @itemCapacity
+jump 244 lessThan tmp.n tmp.c
+jump 244 strictEqual tmp.lnk null
+ucontrol approach lx ly 6.5 0 0
+ucontrol itemDrop tmp.lnk 999 0 0 0
+sensor tmp.f @unit @firstItem
+jump 244 strictEqual tmp.f null
+jump 248 always
+ucontrol itemDrop @air 999 0 0 0
+jump 248 strictEqual ox null
+ucontrol approach ox oy 6.5 0 0
+ucontrol mine ox oy 0 0 0
+jump 248 always
+ubind u18
+sensor tmp.f @unit @firstItem
+jump 262 strictEqual tmp.f null
+jump 261 notEqual tmp.f cfg.item
+sensor tmp.n @unit @totalItems
+sensor tmp.c @unit @itemCapacity
+jump 262 lessThan tmp.n tmp.c
+jump 262 strictEqual tmp.lnk null
+ucontrol approach lx ly 6.5 0 0
+ucontrol itemDrop tmp.lnk 999 0 0 0
+sensor tmp.f @unit @firstItem
+jump 262 strictEqual tmp.f null
+jump 266 always
+ucontrol itemDrop @air 999 0 0 0
+jump 266 strictEqual ox null
+ucontrol approach ox oy 6.5 0 0
+ucontrol mine ox oy 0 0 0
+jump 266 always
+ubind u17
+sensor tmp.f @unit @firstItem
+jump 280 strictEqual tmp.f null
+jump 279 notEqual tmp.f cfg.item
+sensor tmp.n @unit @totalItems
+sensor tmp.c @unit @itemCapacity
+jump 280 lessThan tmp.n tmp.c
+jump 280 strictEqual tmp.lnk null
+ucontrol approach lx ly 6.5 0 0
+ucontrol itemDrop tmp.lnk 999 0 0 0
+sensor tmp.f @unit @firstItem
+jump 280 strictEqual tmp.f null
+jump 284 always
+ucontrol itemDrop @air 999 0 0 0
+jump 284 strictEqual ox null
+ucontrol approach ox oy 6.5 0 0
+ucontrol mine ox oy 0 0 0
+jump 284 always
+ubind u16
+sensor tmp.f @unit @firstItem
+jump 298 strictEqual tmp.f null
+jump 297 notEqual tmp.f cfg.item
+sensor tmp.n @unit @totalItems
+sensor tmp.c @unit @itemCapacity
+jump 298 lessThan tmp.n tmp.c
+jump 298 strictEqual tmp.lnk null
+ucontrol approach lx ly 6.5 0 0
+ucontrol itemDrop tmp.lnk 999 0 0 0
+sensor tmp.f @unit @firstItem
+jump 298 strictEqual tmp.f null
+jump 302 always
+ucontrol itemDrop @air 999 0 0 0
+jump 302 strictEqual ox null
+ucontrol approach ox oy 6.5 0 0
+ucontrol mine ox oy 0 0 0
+jump 302 always
+ubind u15
+sensor tmp.f @unit @firstItem
+jump 316 strictEqual tmp.f null
+jump 315 notEqual tmp.f cfg.item
+sensor tmp.n @unit @totalItems
+sensor tmp.c @unit @itemCapacity
+jump 316 lessThan tmp.n tmp.c
+jump 316 strictEqual tmp.lnk null
+ucontrol approach lx ly 6.5 0 0
+ucontrol itemDrop tmp.lnk 999 0 0 0
+sensor tmp.f @unit @firstItem
+jump 316 strictEqual tmp.f null
+jump 320 always
+ucontrol itemDrop @air 999 0 0 0
+jump 320 strictEqual ox null
+ucontrol approach ox oy 6.5 0 0
+ucontrol mine ox oy 0 0 0
+jump 320 always
+ubind u14
+sensor tmp.f @unit @firstItem
+jump 334 strictEqual tmp.f null
+jump 333 notEqual tmp.f cfg.item
+sensor tmp.n @unit @totalItems
+sensor tmp.c @unit @itemCapacity
+jump 334 lessThan tmp.n tmp.c
+jump 334 strictEqual tmp.lnk null
+ucontrol approach lx ly 6.5 0 0
+ucontrol itemDrop tmp.lnk 999 0 0 0
+sensor tmp.f @unit @firstItem
+jump 334 strictEqual tmp.f null
+jump 338 always
+ucontrol itemDrop @air 999 0 0 0
+jump 338 strictEqual ox null
+ucontrol approach ox oy 6.5 0 0
+ucontrol mine ox oy 0 0 0
+jump 338 always
+ubind u13
+sensor tmp.f @unit @firstItem
+jump 352 strictEqual tmp.f null
+jump 351 notEqual tmp.f cfg.item
+sensor tmp.n @unit @totalItems
+sensor tmp.c @unit @itemCapacity
+jump 352 lessThan tmp.n tmp.c
+jump 352 strictEqual tmp.lnk null
+ucontrol approach lx ly 6.5 0 0
+ucontrol itemDrop tmp.lnk 999 0 0 0
+sensor tmp.f @unit @firstItem
+jump 352 strictEqual tmp.f null
+jump 356 always
+ucontrol itemDrop @air 999 0 0 0
+jump 356 strictEqual ox null
+ucontrol approach ox oy 6.5 0 0
+ucontrol mine ox oy 0 0 0
+jump 356 always
+ubind u12
+sensor tmp.f @unit @firstItem
+jump 370 strictEqual tmp.f null
+jump 369 notEqual tmp.f cfg.item
+sensor tmp.n @unit @totalItems
+sensor tmp.c @unit @itemCapacity
+jump 370 lessThan tmp.n tmp.c
+jump 370 strictEqual tmp.lnk null
+ucontrol approach lx ly 6.5 0 0
+ucontrol itemDrop tmp.lnk 999 0 0 0
+sensor tmp.f @unit @firstItem
+jump 370 strictEqual tmp.f null
+jump 374 always
+ucontrol itemDrop @air 999 0 0 0
+jump 374 strictEqual ox null
+ucontrol approach ox oy 6.5 0 0
+ucontrol mine ox oy 0 0 0
+jump 374 always
+ubind u11
+sensor tmp.f @unit @firstItem
+jump 388 strictEqual tmp.f null
+jump 387 notEqual tmp.f cfg.item
+sensor tmp.n @unit @totalItems
+sensor tmp.c @unit @itemCapacity
+jump 388 lessThan tmp.n tmp.c
+jump 388 strictEqual tmp.lnk null
+ucontrol approach lx ly 6.5 0 0
+ucontrol itemDrop tmp.lnk 999 0 0 0
+sensor tmp.f @unit @firstItem
+jump 388 strictEqual tmp.f null
+jump 392 always
+ucontrol itemDrop @air 999 0 0 0
+jump 392 strictEqual ox null
+ucontrol approach ox oy 6.5 0 0
+ucontrol mine ox oy 0 0 0
+jump 392 always
+ubind u10
+sensor tmp.f @unit @firstItem
+jump 406 strictEqual tmp.f null
+jump 405 notEqual tmp.f cfg.item
+sensor tmp.n @unit @totalItems
+sensor tmp.c @unit @itemCapacity
+jump 406 lessThan tmp.n tmp.c
+jump 406 strictEqual tmp.lnk null
+ucontrol approach lx ly 6.5 0 0
+ucontrol itemDrop tmp.lnk 999 0 0 0
+sensor tmp.f @unit @firstItem
+jump 406 strictEqual tmp.f null
+jump 410 always
+ucontrol itemDrop @air 999 0 0 0
+jump 410 strictEqual ox null
+ucontrol approach ox oy 6.5 0 0
+ucontrol mine ox oy 0 0 0
+jump 410 always
+ubind u9
+sensor tmp.f @unit @firstItem
+jump 424 strictEqual tmp.f null
+jump 423 notEqual tmp.f cfg.item
+sensor tmp.n @unit @totalItems
+sensor tmp.c @unit @itemCapacity
+jump 424 lessThan tmp.n tmp.c
+jump 424 strictEqual tmp.lnk null
+ucontrol approach lx ly 6.5 0 0
+ucontrol itemDrop tmp.lnk 999 0 0 0
+sensor tmp.f @unit @firstItem
+jump 424 strictEqual tmp.f null
+jump 428 always
+ucontrol itemDrop @air 999 0 0 0
+jump 428 strictEqual ox null
+ucontrol approach ox oy 6.5 0 0
+ucontrol mine ox oy 0 0 0
+jump 428 always
+ubind u8
+sensor tmp.f @unit @firstItem
+jump 442 strictEqual tmp.f null
+jump 441 notEqual tmp.f cfg.item
+sensor tmp.n @unit @totalItems
+sensor tmp.c @unit @itemCapacity
+jump 442 lessThan tmp.n tmp.c
+jump 442 strictEqual tmp.lnk null
+ucontrol approach lx ly 6.5 0 0
+ucontrol itemDrop tmp.lnk 999 0 0 0
+sensor tmp.f @unit @firstItem
+jump 442 strictEqual tmp.f null
+jump 446 always
+ucontrol itemDrop @air 999 0 0 0
+jump 446 strictEqual ox null
+ucontrol approach ox oy 6.5 0 0
+ucontrol mine ox oy 0 0 0
+jump 446 always
+ubind u7
+sensor tmp.f @unit @firstItem
+jump 460 strictEqual tmp.f null
+jump 459 notEqual tmp.f cfg.item
+sensor tmp.n @unit @totalItems
+sensor tmp.c @unit @itemCapacity
+jump 460 lessThan tmp.n tmp.c
+jump 460 strictEqual tmp.lnk null
+ucontrol approach lx ly 6.5 0 0
+ucontrol itemDrop tmp.lnk 999 0 0 0
+sensor tmp.f @unit @firstItem
+jump 460 strictEqual tmp.f null
+jump 464 always
+ucontrol itemDrop @air 999 0 0 0
+jump 464 strictEqual ox null
+ucontrol approach ox oy 6.5 0 0
+ucontrol mine ox oy 0 0 0
+jump 464 always
+ubind u6
+sensor tmp.f @unit @firstItem
+jump 478 strictEqual tmp.f null
+jump 477 notEqual tmp.f cfg.item
+sensor tmp.n @unit @totalItems
+sensor tmp.c @unit @itemCapacity
+jump 478 lessThan tmp.n tmp.c
+jump 478 strictEqual tmp.lnk null
+ucontrol approach lx ly 6.5 0 0
+ucontrol itemDrop tmp.lnk 999 0 0 0
+sensor tmp.f @unit @firstItem
+jump 478 strictEqual tmp.f null
+jump 482 always
+ucontrol itemDrop @air 999 0 0 0
+jump 482 strictEqual ox null
+ucontrol approach ox oy 6.5 0 0
+ucontrol mine ox oy 0 0 0
+jump 482 always
+ubind u5
+sensor tmp.f @unit @firstItem
+jump 496 strictEqual tmp.f null
+jump 495 notEqual tmp.f cfg.item
+sensor tmp.n @unit @totalItems
+sensor tmp.c @unit @itemCapacity
+jump 496 lessThan tmp.n tmp.c
+jump 496 strictEqual tmp.lnk null
+ucontrol approach lx ly 6.5 0 0
+ucontrol itemDrop tmp.lnk 999 0 0 0
+sensor tmp.f @unit @firstItem
+jump 496 strictEqual tmp.f null
+jump 500 always
+ucontrol itemDrop @air 999 0 0 0
+jump 500 strictEqual ox null
+ucontrol approach ox oy 6.5 0 0
+ucontrol mine ox oy 0 0 0
+jump 500 always
+ubind u4
+sensor tmp.f @unit @firstItem
+jump 514 strictEqual tmp.f null
+jump 513 notEqual tmp.f cfg.item
+sensor tmp.n @unit @totalItems
+sensor tmp.c @unit @itemCapacity
+jump 514 lessThan tmp.n tmp.c
+jump 514 strictEqual tmp.lnk null
+ucontrol approach lx ly 6.5 0 0
+ucontrol itemDrop tmp.lnk 999 0 0 0
+sensor tmp.f @unit @firstItem
+jump 514 strictEqual tmp.f null
+jump 518 always
+ucontrol itemDrop @air 999 0 0 0
+jump 518 strictEqual ox null
+ucontrol approach ox oy 6.5 0 0
+ucontrol mine ox oy 0 0 0
+jump 518 always
+ubind u3
+sensor tmp.f @unit @firstItem
+jump 532 strictEqual tmp.f null
+jump 531 notEqual tmp.f cfg.item
+sensor tmp.n @unit @totalItems
+sensor tmp.c @unit @itemCapacity
+jump 532 lessThan tmp.n tmp.c
+jump 532 strictEqual tmp.lnk null
+ucontrol approach lx ly 6.5 0 0
+ucontrol itemDrop tmp.lnk 999 0 0 0
+sensor tmp.f @unit @firstItem
+jump 532 strictEqual tmp.f null
+jump 536 always
+ucontrol itemDrop @air 999 0 0 0
+jump 536 strictEqual ox null
+ucontrol approach ox oy 6.5 0 0
+ucontrol mine ox oy 0 0 0
+jump 536 always
+ubind u2
+sensor tmp.f @unit @firstItem
+jump 550 strictEqual tmp.f null
+jump 549 notEqual tmp.f cfg.item
+sensor tmp.n @unit @totalItems
+sensor tmp.c @unit @itemCapacity
+jump 550 lessThan tmp.n tmp.c
+jump 550 strictEqual tmp.lnk null
+ucontrol approach lx ly 6.5 0 0
+ucontrol itemDrop tmp.lnk 999 0 0 0
+sensor tmp.f @unit @firstItem
+jump 550 strictEqual tmp.f null
+jump 554 always
+ucontrol itemDrop @air 999 0 0 0
+jump 554 strictEqual ox null
+ucontrol approach ox oy 6.5 0 0
+ucontrol mine ox oy 0 0 0
+jump 554 always
+ubind u1
+sensor tmp.f @unit @firstItem
+jump 568 strictEqual tmp.f null
+jump 567 notEqual tmp.f cfg.item
+sensor tmp.n @unit @totalItems
+sensor tmp.c @unit @itemCapacity
+jump 568 lessThan tmp.n tmp.c
+jump 568 strictEqual tmp.lnk null
+ucontrol approach lx ly 6.5 0 0
+ucontrol itemDrop tmp.lnk 999 0 0 0
+sensor tmp.f @unit @firstItem
+jump 568 strictEqual tmp.f null
+jump 572 always
+ucontrol itemDrop @air 999 0 0 0
+jump 572 strictEqual ox null
+ucontrol approach ox oy 6.5 0 0
+ucontrol mine ox oy 0 0 0
+jump 572 always
+jump 575 greaterThanEq @time cfg.next
+jump 572 strictEqual cfg.item null
+op add @counter @counter tmp.hp
+op add cfg.next @time 2000
+sensor tmp.ic sorter1 @config
+jump 579 strictEqual tmp.ic null
+set cfg.item tmp.ic
+set tmp.t 0
+getlink tmp.lnk 1
+jump 584 strictEqual tmp.lnk null
+sensor lx tmp.lnk @x
+sensor ly tmp.lnk @y
+ubind cfg.utype
+sensor uty @unit @type
+jump 573 strictEqual uty null
+set tmp.cbk @counter
+op mul tmp.p N -2
+op add tmp.cbo tmp.cbk 63
+op add @counter tmp.cbo tmp.p
+sensor tmp.c u30 @controller
+jump 652 strictEqual tmp.c null
+sensor tmp.c u29 @controller
+jump 661 strictEqual tmp.c null
+sensor tmp.c u28 @controller
+jump 670 strictEqual tmp.c null
+sensor tmp.c u27 @controller
+jump 679 strictEqual tmp.c null
+sensor tmp.c u26 @controller
+jump 688 strictEqual tmp.c null
+sensor tmp.c u25 @controller
+jump 697 strictEqual tmp.c null
+sensor tmp.c u24 @controller
+jump 706 strictEqual tmp.c null
+sensor tmp.c u23 @controller
+jump 715 strictEqual tmp.c null
+sensor tmp.c u22 @controller
+jump 724 strictEqual tmp.c null
+sensor tmp.c u21 @controller
+jump 733 strictEqual tmp.c null
+sensor tmp.c u20 @controller
+jump 742 strictEqual tmp.c null
+sensor tmp.c u19 @controller
+jump 751 strictEqual tmp.c null
+sensor tmp.c u18 @controller
+jump 760 strictEqual tmp.c null
+sensor tmp.c u17 @controller
+jump 769 strictEqual tmp.c null
+sensor tmp.c u16 @controller
+jump 778 strictEqual tmp.c null
+sensor tmp.c u15 @controller
+jump 787 strictEqual tmp.c null
+sensor tmp.c u14 @controller
+jump 796 strictEqual tmp.c null
+sensor tmp.c u13 @controller
+jump 805 strictEqual tmp.c null
+sensor tmp.c u12 @controller
+jump 814 strictEqual tmp.c null
+sensor tmp.c u11 @controller
+jump 823 strictEqual tmp.c null
+sensor tmp.c u10 @controller
+jump 832 strictEqual tmp.c null
+sensor tmp.c u9 @controller
+jump 841 strictEqual tmp.c null
+sensor tmp.c u8 @controller
+jump 850 strictEqual tmp.c null
+sensor tmp.c u7 @controller
+jump 859 strictEqual tmp.c null
+sensor tmp.c u6 @controller
+jump 868 strictEqual tmp.c null
+sensor tmp.c u5 @controller
+jump 877 strictEqual tmp.c null
+sensor tmp.c u4 @controller
+jump 886 strictEqual tmp.c null
+sensor tmp.c u3 @controller
+jump 895 strictEqual tmp.c null
+sensor tmp.c u2 @controller
+jump 904 strictEqual tmp.c null
+sensor tmp.c u1 @controller
+jump 913 strictEqual tmp.c null
+jump 923 always
+op add tmp.t tmp.t 1
+jump 923 greaterThan tmp.t cfg.cap
+ubind uty
+sensor tmp.c @unit @controller
+jump 923 strictEqual @unit null
+jump 652 notEqual tmp.c @unit
+set u30 @unit
+ucontrol payDrop
+jump 593 always
+op add tmp.t tmp.t 1
+jump 923 greaterThan tmp.t cfg.cap
+ubind uty
+sensor tmp.c @unit @controller
+jump 923 strictEqual @unit null
+jump 661 notEqual tmp.c @unit
+set u29 @unit
+ucontrol payDrop
+jump 595 always
+op add tmp.t tmp.t 1
+jump 923 greaterThan tmp.t cfg.cap
+ubind uty
+sensor tmp.c @unit @controller
+jump 923 strictEqual @unit null
+jump 670 notEqual tmp.c @unit
+set u28 @unit
+ucontrol payDrop
+jump 597 always
+op add tmp.t tmp.t 1
+jump 923 greaterThan tmp.t cfg.cap
+ubind uty
+sensor tmp.c @unit @controller
+jump 923 strictEqual @unit null
+jump 679 notEqual tmp.c @unit
+set u27 @unit
+ucontrol payDrop
+jump 599 always
+op add tmp.t tmp.t 1
+jump 923 greaterThan tmp.t cfg.cap
+ubind uty
+sensor tmp.c @unit @controller
+jump 923 strictEqual @unit null
+jump 688 notEqual tmp.c @unit
+set u26 @unit
+ucontrol payDrop
+jump 601 always
+op add tmp.t tmp.t 1
+jump 923 greaterThan tmp.t cfg.cap
+ubind uty
+sensor tmp.c @unit @controller
+jump 923 strictEqual @unit null
+jump 697 notEqual tmp.c @unit
+set u25 @unit
+ucontrol payDrop
+jump 603 always
+op add tmp.t tmp.t 1
+jump 923 greaterThan tmp.t cfg.cap
+ubind uty
+sensor tmp.c @unit @controller
+jump 923 strictEqual @unit null
+jump 706 notEqual tmp.c @unit
+set u24 @unit
+ucontrol payDrop
+jump 605 always
+op add tmp.t tmp.t 1
+jump 923 greaterThan tmp.t cfg.cap
+ubind uty
+sensor tmp.c @unit @controller
+jump 923 strictEqual @unit null
+jump 715 notEqual tmp.c @unit
+set u23 @unit
+ucontrol payDrop
+jump 607 always
+op add tmp.t tmp.t 1
+jump 923 greaterThan tmp.t cfg.cap
+ubind uty
+sensor tmp.c @unit @controller
+jump 923 strictEqual @unit null
+jump 724 notEqual tmp.c @unit
+set u22 @unit
+ucontrol payDrop
+jump 609 always
+op add tmp.t tmp.t 1
+jump 923 greaterThan tmp.t cfg.cap
+ubind uty
+sensor tmp.c @unit @controller
+jump 923 strictEqual @unit null
+jump 733 notEqual tmp.c @unit
+set u21 @unit
+ucontrol payDrop
+jump 611 always
+op add tmp.t tmp.t 1
+jump 923 greaterThan tmp.t cfg.cap
+ubind uty
+sensor tmp.c @unit @controller
+jump 923 strictEqual @unit null
+jump 742 notEqual tmp.c @unit
+set u20 @unit
+ucontrol payDrop
+jump 613 always
+op add tmp.t tmp.t 1
+jump 923 greaterThan tmp.t cfg.cap
+ubind uty
+sensor tmp.c @unit @controller
+jump 923 strictEqual @unit null
+jump 751 notEqual tmp.c @unit
+set u19 @unit
+ucontrol payDrop
+jump 615 always
+op add tmp.t tmp.t 1
+jump 923 greaterThan tmp.t cfg.cap
+ubind uty
+sensor tmp.c @unit @controller
+jump 923 strictEqual @unit null
+jump 760 notEqual tmp.c @unit
+set u18 @unit
+ucontrol payDrop
+jump 617 always
+op add tmp.t tmp.t 1
+jump 923 greaterThan tmp.t cfg.cap
+ubind uty
+sensor tmp.c @unit @controller
+jump 923 strictEqual @unit null
+jump 769 notEqual tmp.c @unit
+set u17 @unit
+ucontrol payDrop
+jump 619 always
+op add tmp.t tmp.t 1
+jump 923 greaterThan tmp.t cfg.cap
+ubind uty
+sensor tmp.c @unit @controller
+jump 923 strictEqual @unit null
+jump 778 notEqual tmp.c @unit
+set u16 @unit
+ucontrol payDrop
+jump 621 always
+op add tmp.t tmp.t 1
+jump 923 greaterThan tmp.t cfg.cap
+ubind uty
+sensor tmp.c @unit @controller
+jump 923 strictEqual @unit null
+jump 787 notEqual tmp.c @unit
+set u15 @unit
+ucontrol payDrop
+jump 623 always
+op add tmp.t tmp.t 1
+jump 923 greaterThan tmp.t cfg.cap
+ubind uty
+sensor tmp.c @unit @controller
+jump 923 strictEqual @unit null
+jump 796 notEqual tmp.c @unit
+set u14 @unit
+ucontrol payDrop
+jump 625 always
+op add tmp.t tmp.t 1
+jump 923 greaterThan tmp.t cfg.cap
+ubind uty
+sensor tmp.c @unit @controller
+jump 923 strictEqual @unit null
+jump 805 notEqual tmp.c @unit
+set u13 @unit
+ucontrol payDrop
+jump 627 always
+op add tmp.t tmp.t 1
+jump 923 greaterThan tmp.t cfg.cap
+ubind uty
+sensor tmp.c @unit @controller
+jump 923 strictEqual @unit null
+jump 814 notEqual tmp.c @unit
+set u12 @unit
+ucontrol payDrop
+jump 629 always
+op add tmp.t tmp.t 1
+jump 923 greaterThan tmp.t cfg.cap
+ubind uty
+sensor tmp.c @unit @controller
+jump 923 strictEqual @unit null
+jump 823 notEqual tmp.c @unit
+set u11 @unit
+ucontrol payDrop
+jump 631 always
+op add tmp.t tmp.t 1
+jump 923 greaterThan tmp.t cfg.cap
+ubind uty
+sensor tmp.c @unit @controller
+jump 923 strictEqual @unit null
+jump 832 notEqual tmp.c @unit
+set u10 @unit
+ucontrol payDrop
+jump 633 always
+op add tmp.t tmp.t 1
+jump 923 greaterThan tmp.t cfg.cap
+ubind uty
+sensor tmp.c @unit @controller
+jump 923 strictEqual @unit null
+jump 841 notEqual tmp.c @unit
+set u9 @unit
+ucontrol payDrop
+jump 635 always
+op add tmp.t tmp.t 1
+jump 923 greaterThan tmp.t cfg.cap
+ubind uty
+sensor tmp.c @unit @controller
+jump 923 strictEqual @unit null
+jump 850 notEqual tmp.c @unit
+set u8 @unit
+ucontrol payDrop
+jump 637 always
+op add tmp.t tmp.t 1
+jump 923 greaterThan tmp.t cfg.cap
+ubind uty
+sensor tmp.c @unit @controller
+jump 923 strictEqual @unit null
+jump 859 notEqual tmp.c @unit
+set u7 @unit
+ucontrol payDrop
+jump 639 always
+op add tmp.t tmp.t 1
+jump 923 greaterThan tmp.t cfg.cap
+ubind uty
+sensor tmp.c @unit @controller
+jump 923 strictEqual @unit null
+jump 868 notEqual tmp.c @unit
+set u6 @unit
+ucontrol payDrop
+jump 641 always
+op add tmp.t tmp.t 1
+jump 923 greaterThan tmp.t cfg.cap
+ubind uty
+sensor tmp.c @unit @controller
+jump 923 strictEqual @unit null
+jump 877 notEqual tmp.c @unit
+set u5 @unit
+ucontrol payDrop
+jump 643 always
+op add tmp.t tmp.t 1
+jump 923 greaterThan tmp.t cfg.cap
+ubind uty
+sensor tmp.c @unit @controller
+jump 923 strictEqual @unit null
+jump 886 notEqual tmp.c @unit
+set u4 @unit
+ucontrol payDrop
+jump 645 always
+op add tmp.t tmp.t 1
+jump 923 greaterThan tmp.t cfg.cap
+ubind uty
+sensor tmp.c @unit @controller
+jump 923 strictEqual @unit null
+jump 895 notEqual tmp.c @unit
+set u3 @unit
+ucontrol payDrop
+jump 647 always
+op add tmp.t tmp.t 1
+jump 923 greaterThan tmp.t cfg.cap
+ubind uty
+sensor tmp.c @unit @controller
+jump 923 strictEqual @unit null
+jump 904 notEqual tmp.c @unit
+set u2 @unit
+ucontrol payDrop
+jump 649 always
+op add tmp.t tmp.t 1
+jump 923 greaterThan tmp.t cfg.cap
+ubind uty
+sensor tmp.c @unit @controller
+jump 923 strictEqual @unit null
+jump 913 notEqual tmp.c @unit
+set u1 @unit
+ucontrol payDrop
+jump 923 always
+jump 923 always
+ubind u1
+jump 926 notEqual @unit null
+jump 573 always
+sensor tmp.c @unit @controller
+jump 573 notEqual tmp.c @this
+jump 930 notEqual cfg.ore cfg.item
+jump 933 lessThan @time cfg.nloc
+ulocate ore core 0 cfg.item ox oy tmp.gm ob
+set cfg.ore cfg.item
+op add cfg.nloc @time 3000
+jump 573 always 0 "aigenerated:DeepSeek:b01fbbf52c04:enjaNc3BSsMwHIDxV_kzLwq1pmlr8RDxPcoOEqMEG1OaethNEaEi2A0URDekB2FsyC47zc63SbJbX8HW4fmD3xfHnoOc3g6IRF5QsM8fphg29ZuQZ4wIfsVAJTJXxEeQD1JGTlKZDCBj5zxJCEYICQX0NCUIlLzOKCNUZqzXd2K8Ze3dl_6Z2acFhIEPZlLB_jEITjMJ5rvarNdmUepxATjy3LB9cHoJBxC4IQ5BdY6_dfT91E4f9aqEo7a0TlMXejjfVJ969Gpnt7ocNfVDU7__2bsYeJrvgRnf6ElpXpbdIjjE_37kRl7H938BMQxqog"

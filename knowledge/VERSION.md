@@ -60,6 +60,13 @@
 - **交叉链接**：C02/C10 → `[[COMBAT.TURRET.002]]`；W01 → `[[WORLD.NAMES.001]]`-003；U01 → `[[UNIT.NAMES.001]]`；`08-evidence/CHEAT.md` 路由表下补一行「查中文名走哪」。
 - **重建结果**：门禁 **61 篇 / 0 error / 193 warning**；正式库 **8,317 chunk / 146 files**（43.6MB，doc 1831 / code 6322 / data 163）；postpublish 三项 PASS（A@1 16/20、库外 top1 0、p50 68.3ms）；300 题 **hit@1 59.7% / hit@6 86.3% / mrr 0.693 / strong@6 94.2%**（新增内容未抢金标，分数与上一版持平）。
 
+## 2026-11-15 第四轮：成品逻辑代码库（P09）
+
+- **新增目录 `07-patterns/code/`，收六份可直接粘贴的成品 .mlog**（逐字节复制自 `Logic/`）：`p09-haul-31slot-v27.mlog`（988 行 / 31 槽 / stride 19 / sig `40d4b4c5cfef`）、`p09-mine-30slot-v3.mlog`（966 行 / 30 槽 / stride 18 / 含 `ucontrol boost 1` ×30 / sig `daf5df426e9a`）、`p09-haul-8slot-research.mlog`（313 行 / 8 槽研究版 / sig `78b191d1de02`）、`p09-rows-v2.mlog`（71 行 / 50 行 name 表 / 声明移末尾 / sig `6102cb1316d2`）、`p09-luozi-v6-micro8.mlog`（463 行 / 着陆台硬编码 8 台 / sig `8922af28ca6b`）、`p09-luozi-v52-micro8.mlog`（149 行 / 循环版 / sig `b87d988e7ad9`）。子目录只放 .mlog —— 若放 .md 会因目录名不是域名报 `E_DOMAIN_DIR`。
+- **新增文章 `07-patterns/P09-code-examples.md`**（`PATTERN.CODE.001`「成品逻辑代码库」）：骨架公式（一圈 = 3 + N×stride；一圈时间 = 条数/(60×ipt)；相对派发 `tmp.hp = -(N×stride+3)`）+ 六文件规模表（带「来源」列）+ 五条实战反例（派发两 op 放表头会落到第 slots−N 槽、`itemDrop` 失败后紧跟返回腿会覆盖去程、loc 段 `ubind u1` 在单位数 < N 时恒空、着陆台累计配额 floor 和 < npad 少配一台、搬运闭环 itemTake 55 / itemDrop 48）。
+- **门禁结果**：`check_kb.py --root knowledge --write-tokens` ⇒ **PASS**，**92 篇 / 0 error / 192 warning**（warning 全为提示级；P09 自身 0 条，首轮 5 条 `W_NUM_NO_SOURCE` 已补 `[src:]`/`[实测:]` 标记与表格来源列）。
+- 注：正式库 chunk 未重建 —— 下次 `kb.py build` 才会把 P09 与 `code/` 纳入索引。
+
 ## 2026-11-15 第三轮：逐台炮塔页 28 篇 + 结构整理
 
 - **新增 `03-combat/turrets/` 28 篇逐台炮塔页**：`COMBAT.TURRET.101`-`118`（塞普罗 18 门）/ `.201`-`.210`（埃里克尔 10 门），每页 4.7-5.7KB、七节齐全（DPS / 造价 / 弹药 / 射程 / 证据行），与总览 `C11-turret-verdict.md`（`COMBAT.TURRET.002`）互链 56 处。
@@ -74,7 +81,7 @@
 
 | 项 | 结果 | 复现命令 |
 |---|---|---|
-| 门禁 | **91 篇 / 0 error**（187 warning，全部提示级） | `check_kb.py --root knowledge --all` |
+| 门禁 | **92 篇 / 0 error**（192 warning，全部提示级） | `check_kb.py --root knowledge --all` |
 | 正式库 | **≈9,460 chunk / 187 files / 19 张数据表**（46.6MB，doc 2,098 / code 7,196 / data 167） | `dbstat.py out/_kb/kb.sqlite3` |
 | 发布后校验 | STRUCT / COUNT / RETRIEVAL **三项 PASS**（chunks 9,461 = staging 9,461、files 187，journal 已落盘） | `postpublish.py --db ... --staging ...` |
 | 300 题冻结评测 | coverage 100% / **hit@1 59.0% / hit@6 85.0%** / mrr 0.685 / strong@6 93.4% / 库外槽 0%（v1.2 复跑，含 28 篇炮塔页） | `08-evidence/bench/`（A+B+C 全开，k=6） |
@@ -95,6 +102,6 @@
 | 单位 | 6 | `04-units/`（U01-U06，含 U06 单位名对照） |
 | 战役 | 6 | `05-campaign/`（CAMP.*） |
 | mlog 语言 | 8 + 2 JSON | `06-mlog/`（M01-M08、instructions.json、enums.json） |
-| 蓝图模式 | 8 + JSON | `07-patterns/`（P01-P08、idioms.json） |
+| 蓝图模式 | 9 + JSON | `07-patterns/`（P01-P09、`code/` 六份成品 .mlog、idioms.json） |
 | 证据/评测 | 2 + 300 题 + 探针 | `08-evidence/`（claims.jsonl、CHEAT.md、bench/、probes/） |
 | 数据表 | 12 张 canonical（+7 张 raw 抽查件） | `00-data/`（blocks/turrets/turret_shots/units/bullets/items/liquids/status/rules/formulas/constants/src_anchors） |

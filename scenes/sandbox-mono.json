@@ -1,0 +1,85 @@
+{
+  "name": "小矿工沙盘（mono ×8）",
+  "version": 1,
+  "notes": "第三个沙盘：mono 挖矿。区域按 --frame-cell 固定排布，坐标只是相对的。",
+  "world": {
+    "size": 512,
+    "rules": {
+      "infiniteResources": true,
+      "waves": false,
+      "canGameOver": false,
+      "logicUnitControl": true,
+      "allowEditWorldProcessors": true,
+      "possessionAllowed": true
+    }
+  },
+  "clear": [
+    238,
+    288,
+    24,
+    24
+  ],
+  "project": {
+    "units": "mirror",
+    "anchor": [
+      250,
+      300
+    ]
+  },
+  "buildings": [
+    {
+      "block": "micro-processor",
+      "x": 244,
+      "y": 300,
+      "name": "proc",
+      "code": "out/mine_mono.mlog",
+      "links": [
+        "container1"
+      ]
+    },
+    {
+      "block": "container",
+      "x": 248,
+      "y": 300,
+      "name": "container1"
+    },
+    {
+      "block": "core-shard",
+      "x": 244,
+      "y": 293,
+      "name": "core",
+      "items": {
+        "copper": 400
+      }
+    }
+  ],
+  "units": [
+    {
+      "type": "mono",
+      "count": 8,
+      "team": "sharded",
+      "at": [
+        250,
+        312
+      ],
+      "radius": 4
+    }
+  ],
+  "checks": [
+    {
+      "logic": "proc",
+      "var": "N",
+      "equals": 8
+    },
+    {
+      "logic": "proc",
+      "var": "cfg.item",
+      "equals": "copper"
+    },
+    {
+      "logic": "proc",
+      "var": "tmp.lnk",
+      "equals": "container1"
+    }
+  ]
+}

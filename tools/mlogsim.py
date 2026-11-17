@@ -551,7 +551,11 @@ class Server:
             self.js(self._init_src)
         if self._core_spec:
             self.fill_cores(self._core_spec)
-        if self._unit_spec:
+        if getattr(self, "_scene", None) is not None:
+            # a scene brings its own buildings/units, so --units is ignored here
+            import scene as _scene
+            self._scene_report = _scene.apply_sim(self, self._scene)
+        elif self._unit_spec:
             wx, wy = self._unit_pos or (self.base[0] * 8 + 4, self.base[1] * 8 + 4)
             self.js(UNIT_JS % {"spec": json.dumps(self._unit_spec), "wx": wx, "wy": wy})
         if self._weather_specs:
@@ -1297,6 +1301,54 @@ function itr_exec(obj, t){
 }
 """.strip()
 
+PUSH_DEF_JS = (
+    "var PUSHF = __PATH__;"
+    "_pushNow = function(){"
+    " var o = [];"
+    # EntityGroup has no get(int) in Rhino; each(Cons) coerces a JS function fine
+    " Packages.mindustry.gen.Groups.unit.each(function(u){"
+    "  if(u == null || u.dead) return;"
+    "  var c = 0, ct = u.controller();"
+    "  if(ct != null){ var cn = String(ct.getClass().getName());"
+    "   if(cn.indexOf('Player') >= 0) c = 2; else if(cn.indexOf('LogicAI') >= 0) c = 1; }"
+    "  var amt = 0, itm = null;"
+    "  try{ if(u.stack != null){ amt = u.stack.amount; itm = String(u.stack.item.name); } }catch(e0){}"
+    "  o.push({type: String(u.type.name), x: u.x / 8, y: u.y / 8, amount: amt, item: itm, ctrl: c, rot: u.rotation});"
+    " });"
+    # 直接覆写: 读端每 0.12 s 抽一次并自带重试, 偶尔抽到半截会重读.
+    # (试过 tmp + Files.move 原子改名: Windows 上读端正开着文件时改名会 AccessDenied)
+    # 数组带上"模拟器世界多大": 世界侧要把这个尺寸画成一个边界框,
+    # 让玩家一眼看出这块沙盘里仿真的范围(单位跑不出这个框)
+    " var pay = {world: [Vars.world.width(), Vars.world.height()], anchor: __ANCHOR__, units: o};"
+    " var w2 = new java.io.PrintWriter(PUSHF, 'UTF-8'); w2.print(JSON.stringify(pay)); w2.close();"
+    "};"
+)
+
+
+def _scene_anchor(srv):
+    """仿真场景的锚点(格); 没场景返回 None. feed 带上它, 世界侧才能把
+    "仿真坐标" 换成 "真世界坐标" (两边原点不同)."""
+    sc = getattr(srv, "_scene", None)
+    if not sc:
+        return None
+    try:
+        import scene as _sc
+        return _sc.anchor_of(sc)
+    except Exception:  # noqa: BLE001
+        return None
+
+
+def _push_js(path: str, every: int, anchor=None) -> str:
+    """状态镜推送: 每 every tick 把 Groups.unit 的 (兵种, 世界坐标, 携带量, 控制者)
+    覆写进一个 JSON 文件; world_server 的 mirror_feed 线程读它并画成 marker."""
+    # the JVM's cwd is a temp dir, so a relative path would land somewhere else
+    full = os.path.abspath(path).replace("\\", "/")
+    body = PUSH_DEF_JS.replace("__PATH__", json.dumps(full))
+    body = body.replace("__ANCHOR__", json.dumps(list(anchor) if anchor else None))
+    return (" if(i == 0){" + body + "}"
+            " if(i %% %d == 0) _pushNow();" % max(1, int(every)))
+
+
 def _loop_js(obj: str, steps: int, ticks: bool, update: str = "none", power: float = 1.0,
              combat: bool = False, trace: bool = False, unit_ai: str = "logic",
              preflight: bool = True, itrace: dict | None = None,
@@ -1488,7 +1540,8 @@ def run_mlog(srv: Server, name: str, code: str, steps: int, ticks: bool = False,
              itrace: str | None = None, itrace_vars: tuple = (),
              setup_js: str | None = None, pads: int = 0, pad_radius: int = 11,
              pad_water: float = -1.0, pad_drain: float = 0.0,
-             pad_refill: bool = True) -> dict:
+             pad_refill: bool = True, push_file: str | None = None,
+             push_every: int = 30, rt: float = 0.0) -> dict:
     # privileged statements exist only in world processors; selecting the block
     # that makes them compile is better than silently dropping whole lines.
     world_proc = processor == "world" or (processor == "auto" and PRIVILEGED_RE.search(code) is not None)
@@ -1498,6 +1551,10 @@ def run_mlog(srv: Server, name: str, code: str, steps: int, ticks: bool = False,
         # would add a second block under the same name (links are positional)
         link_specs = [s for s in link_specs if not re.fullmatch(r"pad\d+", s["name"])]
     pads_setup, pads_report = pads_js(pads, pad_radius, pad_water, pad_drain, pad_refill)
+    # a scene brings its own processors: they must tick alongside the one under test
+    scene_tick = ("var _p=(typeof PROCS=='undefined'?[]:PROCS);"
+                  "for(var si=0;si<_p.length;si++){_p[si].updateTile();}") \
+        if getattr(srv, "_scene", None) is not None else ""
     # a fresh processor keeps textBuffer/vars from leaking between programs
     srv.js(place_js(*srv.base, "world-processor" if world_proc else "micro-processor"))
     fd, path = tempfile.mkstemp(suffix=".mlog", dir=srv.workdir, text=True)
@@ -1515,7 +1572,12 @@ def run_mlog(srv: Server, name: str, code: str, steps: int, ticks: bool = False,
                         "pads_report": pads_report,
                         "loop": _loop_js("b", steps, ticks, update, power, combat, trace, unit_ai,
                                          preflight, itr,
-                                         tick_extra=" padTick();" if pads else "")}
+                                         tick_extra=(
+                                              ("try{ java.lang.Thread.sleep(%d); }catch(e9){} "
+                                               % int(1000.0 / 60.0 / rt) if rt > 0 else "")
+                                              + scene_tick + (" padTick();" if pads else "")
+                                              + (_push_js(push_file, push_every,
+                                                            anchor=_scene_anchor(srv)) if push_file else "")))}
         lines = srv.js(js)
         if preflight:
             warns = [ln.split("\t") for ln in lines if ln.startswith("LINKWARN\t")]
@@ -1732,7 +1794,8 @@ def serve_daemon(args, steps: int, ticks: bool, update: str, power: float, comba
                                          args.processor, combat, False, args.unit_ai,
                                          preflight, args.links,
                                          pads=args.pads, pad_radius=args.pad_radius,
-                                         pad_water=args.pad_water, pad_drain=args.pad_drain)]
+                                         pad_water=args.pad_water, pad_drain=args.pad_drain,
+                                         push_file=args.push, push_every=args.push_every, rt=args.rt)]
                     conn.sendall((json.dumps({"ok": True, "results": recs},
                                              ensure_ascii=False) + "\n").encode("utf-8"))
             except Exception as e:  # noqa: BLE001 - report to the client, keep serving
@@ -1793,14 +1856,21 @@ def main(argv=None):
     ap.add_argument("--js-timeout", type=float, default=180.0, metavar="SEC",
                     help="wall-clock budget for one internal js command (default 180); "
                          "raise it for huge scene schematics (a few thousand processors)")
-    ap.add_argument("--world", type=int, default=64, metavar="N",
-                    help="blank NxN world loaded with loadGenerator (default 64, 0 = host a random map)")
+    ap.add_argument("--world", type=int, default=None, metavar="N",
+                    help="blank NxN world loaded with loadGenerator (default 64, or the "
+                         "scene's world.size with --scene; 0 = host a random map)")
     ap.add_argument("--host", action="store_true",
                     help="host a random map instead of the blank world (needed for terrain/@mapw)")
     ap.add_argument("--jar", default=_default_jar())
     ap.add_argument("--java", default=_default_java())
     ap.add_argument("--init-js", metavar="FILE|CODE", default=None,
                     help="JS run once after the world exists: set rules, seed blocks")
+    ap.add_argument("--scene", metavar="FILE", default=None,
+                    help="scene JSON (tools/scene.py): place buildings/links/code/units "
+                         "exactly like the world server would; replaces --units")
+    ap.add_argument("--scene-probe", dest="scene_probe", action="store_true",
+                    help="after the run, dump the scene's logic variables and evaluate "
+                         "its \"checks\"")
     ap.add_argument("--units", metavar="NAME[:N],...", default=None,
                     help="spawn units near the processor as team sharded, e.g. flare:3,poly:1")
     ap.add_argument("--unit-pos", metavar="X,Y", default=None,
@@ -1849,6 +1919,12 @@ def main(argv=None):
                     help="auto (default): for a .mlog, place a block for every name it "
                          "reads but never assigns (cell1 -> memory-cell, message1 -> message) "
                          "and wire it; off: leave them null as a plain .mlog would")
+    ap.add_argument("--push", metavar="FILE", default=None,
+                    help="every --push-every ticks, overwrite FILE with a JSON snapshot of the "
+                         "world's units ([{type,x,y,amount,ctrl}], x/y in TILES). "
+                         "Pair it with the world server's mirror_feed to draw the sim as markers")
+    ap.add_argument("--push-every", type=int, default=30, metavar="N",
+                    help="ticks between snapshots (default 30 = twice a second at 60fps)")
     ap.add_argument("--pads", type=int, default=0, metavar="N",
                     help="also place N real landing pads (4x4) and wire them as link 0..N-1, "
                          "then report config/arriving/cooldown/items/water/landings per pad. "
@@ -1877,6 +1953,8 @@ def main(argv=None):
     ap.add_argument("--sweep-orphans", action="store_true",
                     help="kill simulator JVMs left behind by killed runs, then exit")
     ap.add_argument("--json", action="store_true")
+    ap.add_argument("--rt", type=float, default=0.0, metavar="X",
+                    help="throttle the sim so 1 sim-second takes X wall seconds (1 = realtime). Only useful for watching --push markers live.")
     args = ap.parse_args(argv)
 
     if args.sweep_orphans:
@@ -1896,25 +1974,48 @@ def main(argv=None):
     if not os.path.exists(args.jar):
         sys.exit(f"missing server jar: {args.jar}")
 
+    scene_obj = None
+    if getattr(args, "scene", None):
+        import scene as _scene_mod
+        try:
+            scene_obj = _scene_mod.load(args.scene)
+        except _scene_mod.SceneError as exc:
+            sys.exit(f"scene invalid: {exc}")
+        if args.world is None:
+            args.world = scene_obj["world"]["size"]
+    if args.world is None:
+        args.world = 64
+
     world_size = None if args.host or args.world == 0 else args.world
     if args.remote:
         return remote_client(args)
     if args.daemon:
         serve_daemon(args, steps, ticks, update, power, combat, preflight)
         return 0
-    if not args.files:
-        sys.exit("no input files (or use --daemon)")
+    if not args.files and scene_obj is None:
+        sys.exit("no input files (or use --daemon, or --scene with a logic file)")
     srv = Server(args.java, args.jar, world_size, args.save, ore=args.ore,
                  ore_at=_xy_arg(args.ore_at), ore_radius=args.ore_radius)
     configure_server(srv, args)
+    if scene_obj is not None:
+        srv._scene = scene_obj
     results = []
+    scene_probe = None
     try:
-        for idx, f in enumerate(args.files):
+        for idx, f in enumerate(args.files or [None]):
             if idx:
                 # one JVM for the whole batch: reload the world (~0.12 s) instead
                 # of paying the ~3 s server boot for every file
                 srv.reset_world()
             srv.prepare()
+            if f is None:
+                # scene-only run: the scene is applied by prepare(), keep a
+                # resident no-op program so the executor has something to run
+                results.append(run_mlog(srv, "<scene>", "end", steps, ticks, update, power,
+                                        args.processor, combat, want_trace, args.unit_ai,
+                                        preflight, args.links, None, (),
+                                        push_file=args.push, push_every=args.push_every, rt=args.rt))
+                continue
             if f.lower().endswith(".msch"):
                 results.extend(run_msch(srv, os.path.basename(f), f, steps, ticks, update, power,
                                         combat, want_trace, args.unit_ai, preflight))
@@ -1932,7 +2033,11 @@ def main(argv=None):
                                         itr_path, tuple(args.itrace_vars),
                                         pads=args.pads, pad_radius=args.pad_radius,
                                         pad_water=args.pad_water, pad_drain=args.pad_drain,
-                                        pad_refill=args.pad_refill))
+                                        pad_refill=args.pad_refill,
+                                         push_file=args.push, push_every=args.push_every, rt=args.rt))
+        if scene_obj is not None and getattr(args, "scene_probe", False):
+            import scene as _scene_probe_mod
+            scene_probe = _scene_probe_mod.probe_sim(srv, scene_obj)
     except FileNotFoundError as e:
         sys.exit(f"missing input: {e.filename}")
     except SimError as e:
@@ -1944,6 +2049,11 @@ def main(argv=None):
         except OSError:
             pass
         srv.close()
+
+    scene_report = getattr(srv, "_scene_report", None)
+    if results and (scene_report or scene_probe):
+        results[0]["scene"] = scene_report
+        results[0]["scene_probe"] = scene_probe
 
     trace_rows: list[list[str]] = []
     for r in results:
@@ -1971,6 +2081,23 @@ def main(argv=None):
                       + (f"  processor = {r['processor']}" if r.get("processor") else ""))
             if r.get("skipped"):
                 print(f"  skipped: {', '.join(r['skipped'])}")
+            if r.get("scene"):
+                sc_rep = r["scene"]
+                print(f"  scene: placed={sc_rep['placed']} config={sc_rep['configured']}"
+                      f" stock={sc_rep['stocked']} logic={sc_rep['linked']}"
+                      f" units={sc_rep['units']}")
+                for wmsg in sc_rep.get("warnings") or []:
+                    print(f"  scene warn: {wmsg}")
+                for emsg in sc_rep["errors"]:
+                    print(f"  scene ERROR: {emsg}")
+            if r.get("scene_probe"):
+                sp = r["scene_probe"]
+                for c in sp["checks"]:
+                    mark = "ok  " if c["ok"] else "FAIL"
+                    print(f"  check {mark} {c['logic']}.{c['var']} = {c['actual']!r}"
+                          f" (want {c['expect']!r})")
+                if not sp["checks"]:
+                    print("  probe: " + ", ".join(f"{k}={v}" for k, v in sp["vars"].items()))
             for pd in r.get("pads") or []:
                 num = lambda k, spec=".2f": ("?" if pd.get(k) is None else format(pd[k], spec))
                 print(f"  PAD {pd.get('name')} ({num('x', '.0f')},{num('y', '.0f')})"
@@ -1980,6 +2107,10 @@ def main(argv=None):
                       f" landings={num('landings', '.0f')}")
     if args.trace:
         print(f"TRACE  {len(trace_rows)} row(s) -> {args.trace}")
+    if scene_report and scene_report["errors"]:
+        failed += len(scene_report["errors"])
+    if scene_probe:
+        failed += sum(0 if c["ok"] else 1 for c in scene_probe["checks"])
     return 3 if failed else 0
 
 

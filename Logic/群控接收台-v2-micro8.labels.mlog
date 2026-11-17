@@ -1,0 +1,172 @@
+print "[#ffd166]群控接收台 v2.1 · 缺口加权调度（micro 8 台）[]"
+print "By DeepSeek"
+print "台数运行时 getlink 统计，物品 @itemCount 动态，每 10 s 重算；无台/无核心时 2 s 重试"
+print "score=(权重 x 库存缺口)^e，累计切片按可用台均分"
+print "资格：有水(@efficiency=1)且空仓(@totalItems=0)才算可用台"
+print "每圈 printflush 汇报 npad/core/sum/vol"
+printflush message1
+set copper 0.5
+set lead 0.5
+set metaglass 1
+set graphite 1
+set sand 0
+set coal 0
+set titanium 5
+set thorium 2
+set scrap 0
+set silicon 5
+set plastanium 0.8
+set phase-fabric 0.1
+set surge-alloy 1
+set spore-pod 0
+set blast-compound 0.01
+set pyratite 0.01
+set beryllium 0
+set tungsten 0
+set oxide 0
+set carbide 0
+set wt 0
+set npad 0
+set p 0
+set pf 0
+set vol 0
+set i 0
+set mx 0
+set sum 0
+set it null
+set core null
+set uiok 0
+set b null
+set cfg null
+main:
+wait wt
+work:
+set wt 10
+set npad 0
+set p 0
+c0:
+jump c1 greaterThanEq p @links
+getlink b p
+jump c2 strictEqual b null
+sensor ty b @type
+jump c2 notEqual ty @landing-pad
+sensor eff b @efficiency
+jump c2 lessThan eff 1
+sensor tot b @totalItems
+jump c2 greaterThan tot 0
+op add npad npad 1
+c2:
+op add p p 1
+jump c0 always
+c1:
+jump r0 greaterThan npad 0
+set wt 2
+jump done always
+r0:
+l0:
+sensor cap core @itemCapacity
+jump p1x greaterThanEq cap 4000
+set core null
+l1:
+jump p1x notEqual core null
+set ui uiok
+fc:
+lookup unit uty ui
+ubind uty
+jump fok notEqual @unit null
+op add ui ui 1
+jump fc lessThan ui 52
+jump l1b always
+fok:
+set uiok ui
+ulocate building core false 0 cx cy f core
+ucontrol unbind 0 0 0 0 0
+jump p1x notEqual core null
+l1b:
+set p 0
+l1c:
+jump p1x greaterThanEq p @links
+getlink b p
+op add p p 1
+jump l1c strictEqual b null
+sensor cap b @itemCapacity
+jump l1c strictEqual cap null
+jump l1c lessThan cap 4000
+set core b
+jump p1x always
+p1x:
+jump r1 notEqual core null
+set wt 2
+jump done always
+r1:
+set i 0
+set mx 0
+p1:
+lookup item it i
+sensor amt core it
+op max mx mx amt
+op add i i 1
+jump p1 lessThan i @itemCount
+op max mx mx 1
+set i 0
+set sum 0
+p2:
+lookup item it i
+sensor amt core it
+op sub d mx amt
+sensor nm it @name
+read w @this nm
+op mul d d w
+op pow d d @e
+op add sum sum d
+op add i i 1
+jump p2 lessThan i @itemCount
+op div vol sum npad
+jump p3 greaterThan vol 0
+set wt 2
+jump done always
+p3:
+set i 0
+set pf 0
+set p 0
+p3l:
+lookup item it i
+sensor amt core it
+op sub d mx amt
+sensor nm it @name
+read w @this nm
+op mul d d w
+op pow d d @e
+jump p3n lessThanEq d 0
+op add pf pf d
+jump p3n lessThan pf vol
+p3a:
+jump p3n greaterThanEq p @links
+getlink b p
+op add p p 1
+jump p3a strictEqual b null
+sensor ty b @type
+jump p3a notEqual ty @landing-pad
+sensor eff b @efficiency
+jump p3a lessThan eff 1
+sensor tot b @totalItems
+jump p3a greaterThan tot 0
+control config b it
+control enabled b true
+op sub pf pf vol
+jump p3a greaterThanEq pf vol
+p3n:
+op add i i 1
+jump p3l lessThan i @itemCount
+done:
+print "npad="
+print npad
+print " core="
+print core
+print " sum="
+print sum
+print " vol="
+print vol
+print "\n"
+printflush message1
+jump main always

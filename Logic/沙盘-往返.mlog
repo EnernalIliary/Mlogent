@@ -1,0 +1,10 @@
+set t 0
+ubind @mono
+jump 9 strictEqual @unit null
+op add t t 1
+op mod t t 2
+jump 8 equal t 1
+ucontrol move 84 96 0 0 0
+jump 1 always
+ucontrol move 96 84 0 0 0
+jump 1 always

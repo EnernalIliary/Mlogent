@@ -14,6 +14,7 @@
 | 生成只含处理器的蓝图 | `python tools/mlog.py gen --name 名字 --code x.mlog` |
 | 模拟运行 | `python tools/mlogsim.py x.mlog --ticks 120 --trace t.csv` |
 | 调试着陆台（真 4×4 接收台，带水/卸货） | `python tools/mlogsim.py x.mlog --ticks 1200 --pads 9 --pad-drain 2 --units flare:1 --core-items copper:400` |
+| 把仿真画进真世界（状态镜） | `python tools/mlogsim.py x.mlog --units poly:8 --ticks 240 --push out/_world/mirror.json --push-every 15`，服务端用 `--mirror-feed out/_world/mirror.json` 启动 |
 | 超大场景（几千台）跑模拟 | `python tools/mlogsim.py 图.msch --ticks 110 --js-timeout 3600`（默认预算 180 s，几万台会把一条 js 命令跑到几分钟） |
 | 一次启动跑多个文件 | `python tools/mlogsim.py a.mlog b.mlog c.mlog --ticks 60` |
 | 预热模拟器（预处理时先起） | `python tools/mlogsim.py --daemon` → `python tools/mlogsim.py --remote x.mlog --ticks 60` |
@@ -135,6 +136,96 @@ python tools/mlog_mcp.py          # stdio JSON-RPC，供 DSH / Claude Desktop �
         command: '<python.exe>'
         args: ['<repo>/tools/mlog_mcp.py']
 ```
+
+## 联机调试世界（`world_server.py` + `world_mcp.py`）
+
+把「一个真人玩家正在玩的 Mindustry 世界」暴露给模型：常驻的 headless 服务端负责世界，
+MCP 外壳只做翻译，所以 MCP 随会话重启时玩家不会掉线。详见 `docs/联机调试世界.md`。
+
+```powershell
+python tools/world_server.py --map Fork        # 起世界（前台；关掉即散场）
+python tools/world_client.py status            # 不开 MCP 也能问
+python tools/world_client.py units --radius 40 --x 149 --y 204
+python tools/world_mcp.py                      # stdio JSON-RPC，供 DSH 连接
+```
+
+工具（42 个）：`world_status`、`world_players`、`world_units`（`format:"table"` 出对齐表）、`world_unit`（按 id）、`world_changes`（建筑变更日志，`since` 增量）、`world_buildings`、`world_building`（查单格）、`world_maps`、
+`world_logic{,_code,_vars,_set}`、`world_place`、`world_clear`、`world_console`、`world_js`、
+`world_chat`（读玩家聊天，`since` 增量）、`world_push`（取走管理员在游戏里打的 `/push` 消息）、`world_say`、`world_pause`、`world_save`、`world_load`、`world_start`、`world_stop`，
+以及调试用的 `world_spawn`（造兵）、`world_kill_units`、`world_clear_buildings`、`world_reset`（重开图，
+默认走 `nextmap`+`gameover` **不踢人**）、`world_switch_map`（换图且保住玩家连接），
+还有 `world_scene` / `world_scene_probe`（铺场景文件 + 按 checks 判定变量）、`world_door`（点击门：注册/列出/清除/代按，`action=set|list|clear|enter`，默认 `kind=watch`；这个机制已废弃，只是还留着接口）、`world_taps`（谁点了哪一格），
+`world_arm`（启动「放雷即投影」监听，可给多个场景）、`world_projection`（手动开关投影）、`world_projstat`（看圆心/复刻清单/feed/偏移）、
+`world_frames`（多场景矩形边界：`action=list|clear|paint`，边界是一圈 `ShapeMarker`，**不动地形**），
+以及状态镜 `world_mirror_state`（给一组单位状态直接画 marker）、`world_mirror_feed`（盯住 mlogsim `--push` 写的 JSON 文件实时重画），
+还有文本日志板 `world_sblog`（`action=log|list|clear`：每块沙盘一块 `TextMarker` 面板，写 feed 龄 / 投影状态 / 建筑数 / 单位数 / 最近事件）。
+
+投影出来的处理器是 **`enabled=false`** 的模型（真跑逻辑的是仿真进程）；它的代码与 sorter 配置由
+`scene.py` 的 `configureAny(LogicBlock.compress(...))` 广播给客户端，投影铺完还会 RESYNC 补发一遍。
+每块沙盘另有一块 `TextMarker` 文本日志板（`world_sblog` 读）。细节见 `docs/联机调试世界.md` §15.7–15.8。
+
+「放一颗脉冲地雷就开始投影」的完整用法：
+
+```powershell
+# 服务端：director 在 boot 时就起来等雷；雷放在哪，场景就以哪为圆心复刻
+python tools/world_server.py --map '大肥鱼的调试世界' --watch-feed out/_world/mirror.json `
+  --watch-scene scenes/sandbox-mine.json --watch-scene scenes/sandbox-haul.json
+
+# 仿真：实时推 feed（--rt 1），js-timeout 要大于整段运行时间（默认 180 s 会中途掐断）
+python tools/mlogsim.py --scene scenes/sandbox-mine.json --ticks 36000 --rt 1 `
+  --push out/_world/mirror.json --push-every 3 --js-timeout 1200
+```
+
+玩家在任意位置放一颗 `shock-mine` → 场景在该处复刻（建筑真放、单位只有贴图 marker）；
+**把地雷拆掉 → 复刻出来的建筑（含核心）和全部 marker 一起消失**，玩家后放的方块不会被误拆。
+复刻出来的处理器会 **enabled=false**（仿真在跑同一份程序，世界里再来一份会抢单位）。
+
+多场景时用 `--watch-scene` 重复给，每个场景的矩形边界用一圈小方块 marker 画出来（`world_frames`），
+**不铺地板**：地形一点不动，玩家自己刷的染色地板不会被盖。雷放进哪个框就复刻哪个场景。
+
+两条硬规矩：**没有仿真就不画框**（feed 超过 10 s 没更新就擦掉，框本身就是"仿真在跑"的指示灯）；
+**场景固定排布**（`--frame-cell` 默认 64，按格从地图左上角起排，锚点在格心），雷放框外直接拒绝。
+
+三个必须知道的点：
+
+- 端口大概率不是 6567 —— Windows/Hyper-V 保留了 `6528-6727`，脚本会自己往上找，真实端口见握手与 `world_status.gamePort`。
+- `world_pause` 有玩家在线时会被解除，改完世界要复核 `paused`。
+- `world_js` 里没有 `Java`/`mindustry` 全局，静态方法走实例（`Vars.maps.all()`）；`tile.setBlock()` 放出来的方块是 `enabled=false` + `derelict`，要用 `world_place`。
+- `Groups.build` 只收**会 update** 的方块（核心、处理器），container/传送带/墙这类 `update=false` 的根本不在里面 —— 所以 `world_buildings`/`world_logic` 改成直接扫 tile，多格建筑只在原点格报一次。
+
+## 地图生成（`mapgen.py`）
+
+把一张图片（或空白画布）写成 Mindustry 的**染色地板**世界，导出成任意尺寸的 `.msav`。
+写档不自己实现格式：像素在 Python 侧算，落盘交给官方 headless 调它的 `SaveIO`，
+所以出来的文件与游戏里「编辑器保存」完全同构（v160.7 / SaveVersion 13）。
+
+```powershell
+# 空白调试世界：128x128，8 格细网格 + 32 格主线 + 中心十字 + 中心核心
+python tools/mapgen.py --size 128 --name '大肥鱼的调试世界' --preview out/map_preview.png -o maps/大肥鱼的调试世界.msav
+
+# 图片转染色地板：按图片逐像素上色（--fit contain 留边、--resample lanczos 抗锯齿）
+python tools/mapgen.py --image photo.png --size 128 --fit contain --resample lanczos --name 我的图 -o maps/my.msav
+```
+
+| 参数 | 说明 |
+| --- | --- |
+| `--size W` / `WxH` | 地图尺寸，默认 128x128 |
+| `--image P` | 源图；省略则画空白底 + 网格 |
+| `--fit stretch\|contain\|cover\|center` | 图片适配方式（默认 stretch） |
+| `--resample nearest\|bilinear\|bicubic\|lanczos` | 缩放算法（像素画用 nearest） |
+| `--alpha-flag 1\|0\|2` | Mindustry 的 alpha 字节：1=不与邻居混色（像素画，默认）、2=两角插值（照片更柔） |
+| `--flip-y` | 图片第 0 行当地图**顶部**（默认开；Mindustry 的 y 轴朝上） |
+| `--grid N` / `--major N` / `--axis` | 细网格 / 主线 / 中心十字（0 关） |
+| `--ticks N` / `--tick-color` | 每 N 格网格交点打一个亮点（数格子用，默认 0 关） |
+| `--rings "10,20,40"` / `--ring-color` | 以地图中心为圆心的等距圈（量交互/链接半径时读数） |
+| `--core core-shard\|none` | 中心放核心（默认 core-shard；要纯图就别放） |
+
+四个必须知道的点：
+
+- **矿物不是地图里的**：host 一张图时 `Map.filters()` 读 `tags['genfilters']`，缺失就走 `Maps.readFilters("")` 现造 35 个默认过滤器重新撒矿。脚本固定写 `genfilters='[]'`，所以生成的地图是 100% 干净的。
+- **alpha 字节是混色标志**，不是透明度；预览 PNG 会强制 alpha=255（否则看起来一片白）。
+- 名字要写进 `SaveOptions.extraTags`（`writeMeta` 只写标准键），只塞 `Map` 构造器的话游戏里显示 `unknown`。
+- 必须用**完整 JRE**（`out/jre21/...`）：Steam 自带的 jlink 裁剪版缺 `java.logging`，服务端起不来。
 
 ## 本地知识库（`kb.py`）
 
@@ -475,71 +566,18 @@ object ScrollPane` —— 而且 `clear()` 还在（`Group.java:357` 有 clear�
 
 ## 不要手改的副本
 
-一共四处，`tools/` 是唯一母本，其余全部由脚本从母本生成：
+### 场景文件（`scene.py`，模拟器与真世界共用）
 
-- `mindustry-blueprint/tools/`：超集（payload 20 个 + 本副本独有的 check_ops.py / map_site.py 等）。
-- `.dsh/skills/mlog-agentskill/tools/`：可整目录拷走的独立技能包。
-- `.dsh/skills/mindustry-blueprint/tools/`：**DSH 实际加载的安装副本**（改开发副本对 bot 不生效）。
-- `$DSH_HOME/skills/mlog-agentskill/tools/`（通常 `~/.dsh/skills`）：用户级、跨项目可见，opt-in。
+一份 JSON 描述整套台子（建筑/配置/物品/链接/代码/单位/断言），`mlogsim --scene` 和
+`world_client.py scene` 都能铺，省掉「模拟器调好再手抄坐标到游戏里」这一步。
 
-改顶层后：
+```powershell
+python tools/mlogsim.py --scene scenes/v27-rig.json --scene-probe --ticks 400
+python tools/world_client.py scene_probe scenes/v27-rig.json   # 铺 + 读变量判定
+python tools/scene.py check scenes/v27-rig.json                # 只校验
+python tools/scene.py emit --flavor sim scenes/v27-rig.json    # 看要执行什么
+```
 
-    python tools/sync_mlogagent.py --mirror all   # 三处仓库内副本 + 各自 MANIFEST.sha256
-    python tools/sync_mlogagent.py --mirror all --check   # 只比不写
-    python tools/sync_mlogagent.py --global      # 第四处（仓库外），需全权限
-    python tests/run_tests.py                     # 门禁：50 例（行为层；副本一致性由上面的 --check 负责）
-
-`--mirror` 只有 skill（默认）/ bp / install / all，**all 不含 global**；写完会对每个目标自动跑一次它自己的 `mlogagent.py info --verify`（要关掉加 `--no-verify`）。
-
-## 完整性清单（两份，各管一半）
-
-仓库里有两份 SHA-256 清单，覆盖集合不相交，别弄混：
-
-| 文件 | 谁验 | 覆盖什么 |
-| --- | --- | --- |
-| `<技能副本>/MANIFEST.sha256` | `python mlogagent.py info --verify` | 可整目录拷走的 payload：11 个模块 + 11 张数据表 |
-| `MANIFEST.repo.sha256`（仓库根） | `python tools/check_manifest.py` | `tools/*.py`、`tools/*.json`、`tools/corpus/*.py`、`tests/**`、`rules/**/*.json` |
-
-    python tools/check_manifest.py            # 校验（有漂移退 1，缺清单退 2）
-    python tools/check_manifest.py --write     # 改完工具/测试/规则后重算
-    python tools/check_manifest.py --root DIR  # 查别的树（导出链用它验公开树）
-
-第二份补的正是第一份够不到的地方：改 `tools/mlogsim.py`、改一条 golden、改一条规则，
-原先在仓库里没有任何人会发现。哈希按 CRLF→LF 归一化后算，与 `mlogagent._sha` 同口径，
-Windows 检出和 Linux 检出得同一个值。
-
-**故意不覆盖**（写进 `tools/check_manifest.py` 的 docstring）：`knowledge/`（天天在写，
-架构门禁走 `knowledge/tools/check_kb.py`）、`docs/`（散文每轮都改）、`.dsh/` 与
-`mindustry-blueprint/`（镜像副本各带自己的 MANIFEST.sha256）、`out/`·`dist/`·`saves/`·
-`assetsraw/`（草稿、构建产物、本地数据）。
-
-公开仓另带 `.github/workflows/gates.yml`：ubuntu + windows 双平台跑这五步
-（`check_manifest` → `run_tests` → `docsig` → `ruleids` → `shapes`）加一步
-`check_kb`。全部纯静态，不需要 Java、不需要联网。
-
-## 维护约定
-
-- 新写的一次性脚本先放 `tools/dev/`；成体系的语料分析放 `tools/corpus/`；稳定并有人引用后再提到顶层。
-- 提到顶层的门槛：`tests/run_tests.py` 有 golden 用例，或文档里有命令引用。
-- 顶层不放大文件、不放大图；截图/日志/导出物放 `out/`。
-
-## tools/dev/ —— 拓荒脚本（产品运行不需要）
-
-`tools/dev/` 放的是一次性脚本与实验脚本，跑它们通常要先反编译游戏源码树（`Mindustry-Source/`、
-`Arc-Source/`）或拿到 `out/_server160.jar`。产品链路（`mlog.py` / `mlogsim.py` / `mlogcheck.py` /
-`msch.py` / `jobqueue.py` / `logicd.py`）**不 import 它们**，删掉不影响任何测试与门禁。
-
-| 脚本 | 干什么 | 依赖 |
-|---|---|---|
-| `block_ids_from_source.py` | 从 `Block.java` 抽方块 id 表 | 反编译源码树 |
-| `blocks_from_source.py` | 抽方块尺寸 / 分类 | 反编译源码树 |
-| `content_names_from_source.py` | 抽内容名（物品/液体/单位） | 反编译源码树 |
-| `items_from_source.py` | 抽物品 id 与颜色 | 反编译源码树 |
-| `units_from_source.py` | 抽单位属性表 | 反编译源码树 |
-| `sensor_from_source.py` | 抽 `sensor` 可读字段清单（`sensor_attrs_from_jar.py` 的 DESC/TARGET 表在这里） | 反编译源码树 |
-| `sensor_attrs_from_jar.py` | 直接读 jar 里的类字段，产出 sensor 属性表 | `out/_server160.jar` |
-| `classdump.py` | 极简 class 文件解析（`tools/find_field_consts.py`、`tools/corpus/scan_mod_blocks.py` 会借它） | 反编译产物 |
-| `fix_skill_links.py` | 修 skill 文档里的相对链接 | 无 |
-
-其余 `tools/dev/_*.py` 是当次排查用的临时脚本，随时可删。
-
+顺序固定：place → config/items → links+code → units（链接要指向已存在的建筑）。
+报告带 `K` 行（执行器真实的 `getlink` 下标映射）与 `ERR` 行（声明 N 条链接只解析出 M 条），
+因为不合法链接会被 `updateCode()` 丢掉并把下标往前挤，光看坐标看不出错位。

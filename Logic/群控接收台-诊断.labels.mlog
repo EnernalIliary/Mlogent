@@ -1,0 +1,55 @@
+# 群控接收台 诊断（贴进处理器，配一个 message1 消息块看输出）
+# 打印：链接表（类型/水量闸门/库存/容量）、能否绑定到单位、能否 ulocate 到核心
+print "=== 群控接收台诊断 ===\n"
+print "links="
+print @links
+print "\n"
+set p 0
+c:
+jump e greaterThanEq p @links
+getlink b p
+sensor ty b @type
+sensor eff b @efficiency
+sensor tot b @totalItems
+sensor cap b @itemCapacity
+print "L"
+print p
+print " "
+print ty
+print " eff="
+print eff
+print " items="
+print tot
+print " cap="
+print cap
+print "\n"
+op add p p 1
+jump c always
+e:
+print "--- 单位 ---\n"
+set u 0
+set ut null
+f:
+lookup unit ut u
+ubind ut
+jump g notEqual @unit null
+op add u u 1
+jump f lessThan u 52
+g:
+print "unit="
+print @unit
+print "\n"
+jump h strictEqual @unit null
+ulocate building core false 0 cx cy fnd core
+ucontrol unbind 0 0 0 0 0
+h:
+print "core="
+print core
+print " x="
+print cx
+print " y="
+print cy
+print "\n"
+print "判定：eff!=1 的台没水；npad=0 就不会配置任何台\n"
+printflush message1
+wait 600

@@ -1,6 +1,6 @@
 # Mindustry 机制知识库（knowledge/）
 
-一份可被 AI 直接使用、也可被人阅读的 Mindustry 原版机制知识库：**91 篇文章 + 12 张 canonical 数据表（另 6 张 rt_list 抽查件）+ 85 条可复测断言 + 20 条可执行探针 + 300 题评测**，覆盖 v160.7（数值）与 v159.3（源码语义）双版本，已建成可检索的正式库（9,397 chunk）。
+一份可被 AI 直接使用、也可被人阅读的 Mindustry 原版机制知识库：**92 篇文章 + 12 张 canonical 数据表（另 6 张 rt_list 抽查件）+ 85 条可复测断言 + 20 条可执行探针 + 300 题评测**，覆盖 v160.7（数值）与 v159.3（源码语义）双版本，已建成可检索的正式库（9,397 chunk）。
 
 **实测指标**（A+B+C 检索全开，k=6，300 题冻结集）：hit@1 **59.0%**、hit@6 **85.0%**、mrr 0.685、库外槽 **0%**；20 题冒烟 A@1 **16/20**（旧版 4/20）。
 
@@ -32,7 +32,7 @@ knowledge/
 ├── 04-units/      U01-U06   移动、生产、AI、能力、进阶（两版均无经验/等级系统）、单位名对照
 ├── 05-campaign/   CAMP.*    波次、难度、生成、胜负、星区、Rules 全字段
 ├── 06-mlog/       M01-M08   + instructions.json（73 条指令）+ enums.json（13 组枚举）
-├── 07-patterns/   P01-P08   + idioms.json（30 惯用法）+ anti-patterns.md（AP-01..20）
+├── 07-patterns/   P01-P09   + code/（六份成品 .mlog）+ idioms.json（30 惯用法）+ anti-patterns.md（AP-01..20）
 ├── 08-evidence/   claims.jsonl(85) / CHEAT.md / probes/(20) / bench/(300+24 题)
 └── tools/         抽取（jar 反射/源码）、门禁、索引、检索、评测、发布
 ```
@@ -40,7 +40,7 @@ knowledge/
 ## 质量门禁
 
 ```powershell
-python knowledge\tools\check_kb.py --root knowledge --all     # 91 篇 0 error（warning 为提示级）
+python knowledge\tools\check_kb.py --root knowledge --all     # 92 篇 0 error（warning 为提示级）
 python knowledge\tools\build_index.py --root knowledge         # 生成 index.json
 python knowledge\tools\build_index.py --root knowledge --check # 校验索引与内容一致
 ```

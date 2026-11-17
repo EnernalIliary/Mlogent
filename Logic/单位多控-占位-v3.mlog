@@ -1,0 +1,165 @@
+set N 8
+set cfg.cap 12
+set cfg.next 0
+set sx @thisx
+set sy @thisy
+set lx @thisx
+set ly @thisy
+set cfg.tgt 1
+ubind u1
+ucontrol move @thisx @thisy 0 0 0
+jump 11 always
+ubind u2
+ucontrol move @thisx @thisy 0 0 0
+jump 14 always
+ubind u3
+ucontrol move @thisx @thisy 0 0 0
+jump 17 always
+ubind u4
+ucontrol move @thisx @thisy 0 0 0
+jump 20 always
+ubind u5
+ucontrol move @thisx @thisy 0 0 0
+jump 23 always
+ubind u6
+ucontrol move @thisx @thisy 0 0 0
+jump 26 always
+ubind u7
+ucontrol move @thisx @thisy 0 0 0
+jump 29 always
+ubind u8
+ucontrol move @thisx @thisy 0 0 0
+jump 32 always
+jump 8 lessThan @time cfg.next
+op add cfg.next @time 2000
+set tmp.t 0
+getlink tmp.lnk cfg.tgt
+jump 39 strictEqual tmp.lnk null
+sensor lx tmp.lnk @x
+sensor ly tmp.lnk @y
+sensor cfg.item sorter1 @config
+ubind @flare
+sensor uty @unit @type
+jump 8 strictEqual uty null
+sensor tmp.c u1 @controller
+jump 58 equal tmp.c @this
+jump 49 strictEqual tmp.c null
+ubind u1
+ucontrol move sx sy 3 0 0
+jump 58 always 0 0
+jump 58 greaterThan 1 N
+op add tmp.t tmp.t 1
+jump 58 greaterThan tmp.t cfg.cap
+ubind uty
+sensor tmp.c @unit @controller
+jump 58 strictEqual @unit null
+jump 50 notEqual tmp.c @unit
+set u1 @unit
+jump 58 always 0 0
+sensor tmp.c u2 @controller
+jump 73 equal tmp.c @this
+jump 64 strictEqual tmp.c null
+ubind u2
+ucontrol move sx sy 3 0 0
+jump 73 always 0 0
+jump 73 greaterThan 2 N
+op add tmp.t tmp.t 1
+jump 73 greaterThan tmp.t cfg.cap
+ubind uty
+sensor tmp.c @unit @controller
+jump 73 strictEqual @unit null
+jump 65 notEqual tmp.c @unit
+set u2 @unit
+jump 73 always 0 0
+sensor tmp.c u3 @controller
+jump 88 equal tmp.c @this
+jump 79 strictEqual tmp.c null
+ubind u3
+ucontrol move sx sy 3 0 0
+jump 88 always 0 0
+jump 88 greaterThan 3 N
+op add tmp.t tmp.t 1
+jump 88 greaterThan tmp.t cfg.cap
+ubind uty
+sensor tmp.c @unit @controller
+jump 88 strictEqual @unit null
+jump 80 notEqual tmp.c @unit
+set u3 @unit
+jump 88 always 0 0
+sensor tmp.c u4 @controller
+jump 103 equal tmp.c @this
+jump 94 strictEqual tmp.c null
+ubind u4
+ucontrol move sx sy 3 0 0
+jump 103 always 0 0
+jump 103 greaterThan 4 N
+op add tmp.t tmp.t 1
+jump 103 greaterThan tmp.t cfg.cap
+ubind uty
+sensor tmp.c @unit @controller
+jump 103 strictEqual @unit null
+jump 95 notEqual tmp.c @unit
+set u4 @unit
+jump 103 always 0 0
+sensor tmp.c u5 @controller
+jump 118 equal tmp.c @this
+jump 109 strictEqual tmp.c null
+ubind u5
+ucontrol move sx sy 3 0 0
+jump 118 always 0 0
+jump 118 greaterThan 5 N
+op add tmp.t tmp.t 1
+jump 118 greaterThan tmp.t cfg.cap
+ubind uty
+sensor tmp.c @unit @controller
+jump 118 strictEqual @unit null
+jump 110 notEqual tmp.c @unit
+set u5 @unit
+jump 118 always 0 0
+sensor tmp.c u6 @controller
+jump 133 equal tmp.c @this
+jump 124 strictEqual tmp.c null
+ubind u6
+ucontrol move sx sy 3 0 0
+jump 133 always 0 0
+jump 133 greaterThan 6 N
+op add tmp.t tmp.t 1
+jump 133 greaterThan tmp.t cfg.cap
+ubind uty
+sensor tmp.c @unit @controller
+jump 133 strictEqual @unit null
+jump 125 notEqual tmp.c @unit
+set u6 @unit
+jump 133 always 0 0
+sensor tmp.c u7 @controller
+jump 148 equal tmp.c @this
+jump 139 strictEqual tmp.c null
+ubind u7
+ucontrol move sx sy 3 0 0
+jump 148 always 0 0
+jump 148 greaterThan 7 N
+op add tmp.t tmp.t 1
+jump 148 greaterThan tmp.t cfg.cap
+ubind uty
+sensor tmp.c @unit @controller
+jump 148 strictEqual @unit null
+jump 140 notEqual tmp.c @unit
+set u7 @unit
+jump 148 always 0 0
+sensor tmp.c u8 @controller
+jump 155 strictEqual tmp.c null
+jump 152 notEqual tmp.c @this
+jump 8 always 0 0
+ubind u8
+ucontrol move sx sy 3 0 0
+jump 8 always 0 0
+jump 8 greaterThan 8 N
+op add tmp.t tmp.t 1
+jump 8 greaterThan tmp.t cfg.cap
+ubind uty
+sensor tmp.c @unit @controller
+jump 8 strictEqual @unit null
+jump 156 notEqual tmp.c @unit
+set u8 @unit
+jump 8 always 0 0
+jump 0 always 0 "aigenerated:MAI:b36cffab3b9d:enjaNczBSsMwAAbgV_mZF4Va08zNXiK-R9lhZJkWU1KaevCmiFCR2Q2ciG7IDsLYkHkQBKk-jUm99RWkDr8H-ILAc4jT2EAk1SFHeftks2FVPESqJ9iRkj1oqVLNfKSnsWAHfdlNBBLRD6VklBASafBuzDwKrU4SLhhXiWh0nICu3_LixXwtypsVaAt2OsP2PqKQJwp2lZvB-PtzYLJ3e_cKj7otgjTkx9gBcSnxoeuouY7M5bycX5uPHF57t56qIjPD5c_s2Yzuy8W5yUdVcVUVj3_7JkUYp1uwkzMzze34zUwy-PS_99zmXr13fgH_sGwZ"

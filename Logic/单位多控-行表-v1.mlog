@@ -1,0 +1,111 @@
+print "[#ffd166]行表多控[] v1 · 建筑变量存单位"
+print "By DeepSeek"
+print "表 = 处理器变量空间(@this)，行键 = 单位类型名，行值 = 一只单位对象"
+print "遍历：lookup unit i -> sensor @name -> read u @this 名 -> ubind u"
+print "空行 6 条(3 tick)，满行 17 条(8.5 tick)；50 行满扫约 2.9 s"
+print "行键要先 set 一次：@this 只写已存在的变量(LogicBlock.java:644-650)"
+set dagger null
+set mace null
+set fortress null
+set scepter null
+set reign null
+set nova null
+set pulsar null
+set quasar null
+set vela null
+set corvus null
+set crawler null
+set atrax null
+set spiroct null
+set arkyid null
+set toxopid null
+set flare null
+set horizon null
+set zenith null
+set antumbra null
+set eclipse null
+set mono null
+set poly null
+set mega null
+set quad null
+set oct null
+set risso null
+set minke null
+set bryde null
+set sei null
+set omura null
+set retusa null
+set oxynoe null
+set cyerce null
+set aegires null
+set navanax null
+set alpha null
+set beta null
+set gamma null
+set stell null
+set locus null
+set precept null
+set vanquish null
+set conquer null
+set merui null
+set cleroi null
+set anthicus null
+set tecta null
+set collaris null
+set elude null
+set avert null
+set cfg.next 0
+set cfg.item null
+set tmp.lnk null
+set sx @thisx
+set sy @thisy
+set lx @thisx
+set ly @thisy
+set tmp.i 0
+lookup unit tmp.ty tmp.i
+sensor tmp.nm tmp.ty @name
+read u @this tmp.nm
+jump 81 strictEqual u null
+ubind u
+jump 81 strictEqual @unit null
+sensor tmp.f @unit @firstItem
+jump 75 notEqual tmp.f null
+ucontrol approach sx sy 6.5 0 0
+ucontrol itemTake st cfg.item 999 0 0
+jump 81 always
+jump 79 notEqual tmp.f cfg.item
+ucontrol approach lx ly 6.5 0 0
+ucontrol itemDrop tmp.lnk 999 0 0
+jump 81 always
+ucontrol approach sx sy 6.5 0 0
+ucontrol itemDrop st 999 0 0
+op add tmp.i tmp.i 1
+jump 64 lessThan tmp.i 50
+jump 63 lessThan @time cfg.next
+op add cfg.next @time 2000
+getlink tmp.lnk 1
+sensor lx tmp.lnk @x
+sensor ly tmp.lnk @y
+sensor tmp.ic sorter1 @config
+jump 91 strictEqual tmp.ic null
+set cfg.item tmp.ic
+ubind @poly
+jump 94 strictEqual @unit null
+ulocate building core 0 0 sx sy tmp.g st
+set tmp.i 0
+set tmp.t 0
+lookup unit tmp.ty tmp.i
+sensor tmp.nm tmp.ty @name
+read u @this tmp.nm
+jump 108 notEqual u null
+ubind @poly
+jump 108 strictEqual @unit null
+sensor tmp.c @unit @controller
+jump 108 notEqual tmp.c @unit
+write @unit @this tmp.nm
+ucontrol payDrop
+op add tmp.t tmp.t 1
+jump 110 greaterThanEq tmp.t 6
+op add tmp.i tmp.i 1
+jump 96 lessThan tmp.i 50
+jump 63 always 0 "aigenerated:DeepSeek:95f239833e08"

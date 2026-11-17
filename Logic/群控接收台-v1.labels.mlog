@@ -1,0 +1,113 @@
+print "[#ffd166]群控接收台 · 缺口加权调度 v1[]"
+print "By DeepSeek  ·  抄 [blue]Il[#7d9396]ia[#716b5b]ry[#654321]艾铭[] 的权重表"
+print "N 台 / @itemCount 件；score=(权重x缺口)^e，累计切片分配"
+print "link0=message1，link1..N=着陆台；改台数只改 set npad"
+printflush message1
+set copper 0.5
+set lead 0.5
+set metaglass 1
+set graphite 1
+set sand 0
+set coal 0
+set titanium 5
+set thorium 2
+set scrap 0
+set silicon 5
+set plastanium 0.8
+set phase-fabric 0.1
+set surge-alloy 1
+set spore-pod 0
+set blast-compound 0.01
+set pyratite 0.01
+set beryllium 0
+set tungsten 0
+set oxide 0
+set carbide 0
+set gate 0
+set npad 15
+main:
+jump work greaterThanEq @time gate
+jump main always
+work:
+jump p1 notEqual core null
+set ui 0
+fc:
+lookup unit uty ui
+ubind uty
+op add ui ui 1
+jump fok notEqual @unit null
+jump fc lessThan ui 52
+fok:
+jump main strictEqual @unit null
+ulocate building core false @copper cx cy f core
+ucontrol unbind 0 0 0 0 0
+jump main strictEqual core null
+p1:
+set i 0
+set mx 0
+p1l:
+lookup item it i
+sensor amt core it
+op max mx mx amt
+op add i i 1
+jump p1l lessThan i @itemCount
+set i 0
+set sum 0
+p2l:
+lookup item it i
+sensor amt core it
+op sub d mx amt
+sensor nm it @name
+read w @this nm
+op mul d d w
+op pow d d @e
+op add sum sum d
+op add i i 1
+jump p2l lessThan i @itemCount
+op div vol sum npad
+jump p3 greaterThan vol 0
+jump done always
+p3:
+set i 0
+set pf 0
+set cfg null
+set pk 1
+p3l:
+lookup item it i
+sensor amt core it
+op sub d mx amt
+sensor nm it @name
+read w @this nm
+op mul d d w
+op pow d d @e
+jump p3n lessThanEq d 0
+jump p3c notEqual pf 0
+set cfg it
+p3c:
+op add pf pf d
+p3p:
+jump p3n lessThan pf vol
+jump p3k greaterThan pk npad
+getlink pad pk
+jump p3s strictEqual pad null
+sensor eff pad @efficiency
+jump p3s lessThan eff 1
+sensor tot pad @totalItems
+jump p3s greaterThan tot 0
+control config pad cfg 0 0 0
+control enabled pad true 0 0 0
+op sub pf pf vol
+set cfg it
+op add pk pk 1
+jump p3p always
+p3s:
+op add pk pk 1
+jump p3p always
+p3k:
+jump done always
+p3n:
+op add i i 1
+jump p3l lessThan i @itemCount
+done:
+op add gate @time 6000
+jump main always

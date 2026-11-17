@@ -2,7 +2,7 @@
 
 > 版本：v1.2 · 覆盖 Mindustry v160.7（数值）/ v159.3（源码语义）· 只收原版机制，不含模组与工具产品开发
 > 面向读者：**AI 与人类**。目标不是"能查到答案"，而是**能推导答案**。
-> 规模：**91 篇文章 / 12 张 canonical 数据表 / 85 条断言 / 20 条可执行探针 / 300 题评测**；检索库 ≈9,460 chunk，实测 hit@1 **59.0%**、hit@6 **85.0%**（k=6，300 题冻结集）。
+> 规模：**92 篇文章 / 12 张 canonical 数据表 / 85 条断言 / 20 条可执行探针 / 300 题评测**；检索库 ≈9,460 chunk，实测 hit@1 **59.0%**、hit@6 **85.0%**（k=6，300 题冻结集）。
 
 ## 0. 30 秒上手
 
@@ -24,7 +24,7 @@
 | `04-units/` | 单位类型/移动、生产、AI、能力、经验等级、单位名对照（U01-U06） | 单位行为与产能 |
 | `05-campaign/` | 波次、难度、胜负、敌基、版本差异、Rules 全字段（CAMP.*） | 战役与规则定制 |
 | `06-mlog/` | 指令表（73 条 instructions.json）+ 语言语义 8 篇（M01-M08） | 查指令参数、语义边界 |
-| `07-patterns/` | 架构、状态机、总线、数据结构、索敌、性能、单位多控、@counter 架构（P01-P08）+ idioms.json | 设计蓝图 |
+| `07-patterns/` | 架构、状态机、总线、数据结构、索敌、性能、单位多控、@counter 架构、成品代码库（P01-P09）+ `code/` 六份可粘贴 .mlog + idioms.json | 设计蓝图 / 抄成品 |
 | `08-evidence/` | claims.jsonl（85 条可复测断言）、probes/（可执行探针）、idioms.json、anti-patterns.md、bench/（300 题 + 跨源推导题） | 验证与评测 |
 | `tools/` | extract_rt.py（jar 反射）、extract_src.py（源码）、check_kb.py、build_index.py、eval_kb.py、kb.py | 复现与维护 |
 

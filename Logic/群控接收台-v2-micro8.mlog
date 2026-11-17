@@ -1,0 +1,138 @@
+print "群控接收台 v2.3 · micro 8 台"
+printflush message1
+set copper 0.5
+set lead 0.5
+set metaglass 1
+set graphite 1
+set sand 0
+set coal 0
+set titanium 5
+set thorium 2
+set scrap 0
+set silicon 5
+set plastanium 0.8
+set phase-fabric 0.1
+set surge-alloy 1
+set spore-pod 0
+set blast-compound 0.01
+set pyratite 0.01
+set beryllium 0
+set tungsten 0
+set oxide 0
+set carbide 0
+set wt 0
+set npad 0
+set p 0
+set pf 0
+set vol 0
+set i 0
+set mx 0
+set sum 0
+set it null
+set core null
+set uiok 0
+set b null
+set cfg null
+wait wt
+set wt 10
+set npad 0
+set p 0
+jump 47 greaterThanEq p @links
+getlink b p
+jump 45 strictEqual b null
+sensor ty b @type
+jump 45 notEqual ty @landing-pad
+op add npad npad 1
+op add p p 1
+jump 39 always
+jump 50 greaterThan npad 0
+set wt 2
+jump 127 always
+sensor cap core @itemCapacity
+jump 75 notEqual cap null
+set core null
+jump 75 notEqual core null
+set ui uiok
+lookup unit uty ui
+ubind uty
+jump 61 notEqual @unit null
+op add ui ui 1
+jump 55 lessThan ui 52
+jump 65 always
+set uiok ui
+ulocate building core false 0 cx cy f core
+ucontrol unbind 0 0 0 0 0
+jump 75 notEqual core null
+set p 0
+jump 75 greaterThanEq p @links
+getlink b p
+op add p p 1
+jump 66 strictEqual b null
+sensor cap b @itemCapacity
+jump 66 strictEqual cap null
+jump 66 lessThan cap 4000
+set core b
+jump 75 always
+jump 78 notEqual core null
+set wt 2
+jump 127 always
+set i 0
+set mx 0
+lookup item it i
+sensor amt core it
+op max mx mx amt
+op add i i 1
+jump 80 lessThan i @itemCount
+op max mx mx 1
+set i 0
+set sum 0
+lookup item it i
+sensor amt core it
+op sub d mx amt
+sensor nm it @name
+read w @this nm
+op mul d d w
+op pow d d @e
+op add sum sum d
+op add i i 1
+jump 88 lessThan i @itemCount
+op div vol sum npad
+jump 102 greaterThan vol 0
+set wt 2
+jump 127 always
+set i 0
+set pf 0
+set p 0
+lookup item it i
+sensor amt core it
+op sub d mx amt
+sensor nm it @name
+read w @this nm
+op mul d d w
+op pow d d @e
+jump 125 lessThanEq d 0
+op add pf pf d
+jump 125 lessThan pf vol
+jump 125 greaterThanEq p @links
+getlink b p
+op add p p 1
+jump 115 strictEqual b null
+sensor ty b @type
+jump 115 notEqual ty @landing-pad
+control config b it
+control enabled b true
+op sub pf pf vol
+jump 115 greaterThanEq pf vol
+op add i i 1
+jump 105 lessThan i @itemCount
+print "npad="
+print npad
+print " core="
+print core
+print " sum="
+print sum
+print " vol="
+print vol
+print "\n"
+printflush message1
+jump 35 always 0 "aigenerated:DeepSeek:83ff8580cda9"

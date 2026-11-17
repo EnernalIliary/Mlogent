@@ -1,0 +1,147 @@
+print "群控接收台 v3 · micro 8 台"
+print "按库存缺口打分，累计切片分台"
+print "信息板：display1 上每个图标 = 一台的当前物品"
+set copper 0.5
+set lead 0.5
+set metaglass 1
+set graphite 1
+set titanium 5
+set thorium 2
+set silicon 5
+set plastanium 0.8
+set phase-fabric 0.1
+set surge-alloy 1
+set blast-compound 0.01
+set pyratite 0.01
+set wt 0
+set npad 0
+set p 0
+set i 0
+set mx 0
+set sum 0
+set vol 0
+set pf 0
+set core null
+set last -1
+set uiok 0
+wait wt
+set wt 10
+draw clear 0.02 0.03 0.05
+sensor tmp.ds display1 @displayWidth
+jump 32 notEqual tmp.ds null
+set tmp.ds 64
+op div tmp.cell tmp.ds 8
+op sub tmp.sz tmp.cell 1
+op sub tmp.ty tmp.ds 12
+draw color 255 200 90 255
+print "PADS "
+print npad
+draw print 2 tmp.ty bottomLeft
+set p 0
+set hx 1
+op sub hy tmp.ds 20
+jump 56 greaterThanEq p @links
+getlink b p
+op add p p 1
+jump 42 strictEqual b null
+sensor ty b @type
+jump 42 notEqual ty @landing-pad
+sensor cf b @config
+jump 42 strictEqual cf null
+draw image hx hy cf tmp.sz 0
+op add hx hx tmp.cell
+jump 42 lessThan hx tmp.ds
+set hx 1
+op sub hy hy tmp.cell
+jump 42 greaterThanEq hy 0
+drawflush display1
+sensor tmp.tot core @totalItems
+jump 60 notEqual tmp.tot last
+jump 26 always
+set npad 0
+set p 0
+jump 70 greaterThanEq p @links
+getlink b p
+jump 68 strictEqual b null
+sensor ty b @type
+jump 68 notEqual ty @landing-pad
+op add npad npad 1
+op add p p 1
+jump 62 always
+jump 71 greaterThan npad 0
+sensor cap core @itemCapacity
+jump 94 notEqual cap null
+set core null
+set ui uiok
+lookup unit uty ui
+ubind uty
+jump 81 notEqual @unit null
+op add ui ui 1
+jump 75 lessThan ui 52
+jump 85 always
+set uiok ui
+ulocate building core false 0 cx cy f core
+ucontrol unbind 0 0 0 0 0
+jump 94 notEqual core null
+set p 0
+jump 94 greaterThanEq p @links
+getlink b p
+op add p p 1
+jump 86 strictEqual b null
+sensor cap b @itemCapacity
+jump 86 strictEqual cap null
+jump 86 lessThan cap 4000
+set core b
+jump 145 strictEqual core null
+set i 0
+set mx 0
+lookup item it i
+sensor amt core it
+op max mx mx amt
+op add i i 1
+jump 97 lessThan i @itemCount
+op max mx mx 1
+set i 0
+set sum 0
+lookup item it i
+sensor amt core it
+op sub d mx amt
+sensor nm it @name
+read w @this nm
+op mul d d w
+op pow d d @e
+op add sum sum d
+op add i i 1
+jump 105 lessThan i @itemCount
+op div vol sum npad
+jump 118 greaterThan vol 0
+jump 145 always
+set i 0
+set pf 0
+set p 0
+lookup item it i
+sensor amt core it
+op sub d mx amt
+sensor nm it @name
+read w @this nm
+op mul d d w
+op pow d d @e
+jump 141 lessThanEq d 0
+op add pf pf d
+jump 141 lessThan pf vol
+jump 141 greaterThanEq p @links
+getlink b p
+op add p p 1
+jump 131 strictEqual b null
+sensor ty b @type
+jump 131 notEqual ty @landing-pad
+control config b it
+control enabled b true
+op sub pf pf vol
+jump 131 greaterThanEq pf vol
+op add i i 1
+jump 121 lessThan i @itemCount
+sensor last core @totalItems
+jump 26 always
+set wt 2
+jump 26 always 0 "aigenerated:DeepSeek:953c866cee37"

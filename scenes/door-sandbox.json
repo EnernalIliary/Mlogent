@@ -1,0 +1,59 @@
+{
+  "name": "门后的沙盘（占位逻辑）",
+  "version": 1,
+  "notes": "点脉冲地雷后铺出来的小世界：micro 跑「单位多控-占位-v3」，8 只 poly 由逻辑接管，核心供单位上限。",
+  "world": {
+    "size": 128,
+    "rules": {
+      "infiniteResources": true,
+      "waves": false,
+      "canGameOver": false,
+      "logicUnitControl": true,
+      "allowEditWorldProcessors": true,
+      "possessionAllowed": true
+    }
+  },
+  "clear": [
+    84,
+    84,
+    14,
+    14
+  ],
+  "buildings": [
+    {
+      "block": "micro-processor",
+      "x": 86,
+      "y": 86,
+      "name": "proc",
+      "code": "Logic/沙盘-往返.mlog"
+    },
+    {
+      "block": "core-shard",
+      "x": 90,
+      "y": 92,
+      "name": "core",
+      "items": {
+        "copper": 400
+      }
+    }
+  ],
+  "units": [
+    {
+      "type": "mono",
+      "count": 8,
+      "team": "sharded",
+      "at": [
+        88,
+        90
+      ],
+      "radius": 2
+    }
+  ],
+  "checks": [
+    {
+      "logic": "proc",
+      "var": "t",
+      "equals": 1
+    }
+  ]
+}
