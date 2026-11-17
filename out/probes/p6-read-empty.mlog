@@ -1,8 +1,0 @@
-read x cell1 0
-jump iszero equal x 0
-print "P6 read-unset-mem = "
-print x
-end
-iszero:
-print "P6-OK read-unset-mem = 0"
-end

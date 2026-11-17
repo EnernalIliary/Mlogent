@@ -1,8 +1,0 @@
-sensor d @unit @dead
-jump isnull strictEqual d null
-print "P4 dead-of-null = "
-print d
-end
-isnull:
-print "P4-NULL dead-of-null is null"
-end

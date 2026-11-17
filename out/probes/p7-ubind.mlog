@@ -1,9 +1,0 @@
-ubind @flare
-sensor d @unit @dead
-jump isnull strictEqual @unit null
-print "P7 ubind gave a unit; @dead = "
-print d
-end
-isnull:
-print "P7-NOUNIT ubind produced no unit (@unit stays null)"
-end

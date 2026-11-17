@@ -1,8 +1,0 @@
-op div q 1 0
-jump ok strictEqual q null
-print "P3-FAIL 1/0 is NOT null"
-print q
-end
-ok:
-print "P3-OK 1/0 is null (inf -> null)"
-end

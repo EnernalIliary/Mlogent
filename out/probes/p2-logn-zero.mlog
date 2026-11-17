@@ -1,9 +1,0 @@
-set z 0
-op logn r z 2
-jump ok strictEqual r null
-print "P2-FAIL logn(0,2) is NOT null"
-print r
-end
-ok:
-print "P2-OK logn(0,2) is null (log2 -> -inf -> null)"
-end

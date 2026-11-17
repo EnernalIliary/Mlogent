@@ -17,9 +17,30 @@
 __pycache__/
 *.pyc
 
-# out/ 是工作区：里面 143 个产物是跟踪的，其余是一次性探针脚本/仿真缓存/备份。
-# 整目录忽略，免得几千个散文件把 `git status` 淹掉；要提交某个新产物用 `git add -f`。
+# out/ 是工作区：整目录忽略，免得几千个散文件把 `git status` 淹掉。
+# 产物都是可重建的（tools/ 里的脚本 + 知识库索引）；确实要留档的用 `git add -f`。
 /out/
+
+# ── 公开面收敛：以下内容留在本机，不进仓库 ─────────────────────────────
+# 蓝图本体与仿真场景（配套 Logic/ 与 scenes/ 的路径，公开仓库只留工具链）
+/Logic/
+/scenes/
+/maps/
+
+# 私人笔记
+mlog工作笔记.md
+docs/Mlog辅助-*.md
+docs/N动态-方案-v1.md
+docs/群控接收台-架构-v2.md
+docs/联机调试世界.md
+docs/地图-大肥鱼的调试世界.md
+
+# 一次性脚本（下划线开头的是临时补丁/探针/转储；tools/corpus 只留被知识库引用与门禁用到的）
+/tools/dev/_*
+/tools/corpus/*
+!/tools/corpus/mine_idioms.py
+!/tools/corpus/check_corpus.py
+!/tools/corpus/instr_coverage.py
 
 # 系统文件
 desktop.ini

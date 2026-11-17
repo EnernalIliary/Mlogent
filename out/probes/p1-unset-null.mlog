@@ -1,6 +1,0 @@
-jump ok equal neverassigned null
-print "P1-FAIL equal unset null did NOT jump"
-end
-ok:
-print "P1-OK equal unset null is true (unset reads as 0)"
-end
