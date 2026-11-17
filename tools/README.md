@@ -122,8 +122,14 @@ python tools/mlogsim.py --sweep-orphans     # orphan sweep: N stale JVM(s) 1234 
 python tools/mlog_mcp.py          # stdio JSON-RPC，供 DSH / Claude Desktop 连接
 ```
 
-工具：`mlog_doctor`、`mlog_check{path,cost}`、`mlog_ir{path}`、`mlog_values{path}`、
-`mlog_gen{source|logic,name,links,blocks,out}`、`mlog_sim{path|logic,ticks,units,save,...}`。
+工具（10 个）：`mlog_doctor`、`mlog_check{path,cost,limit,level}`、`mlog_ir{path}`、
+`mlog_values{path}`、`mlog_gen{source|logic,name,links,blocks,out}`、
+`mlog_sim{path|logic,ticks,units,save,...}`、`mindcode_compile{source|path,target,optimize,out}`、
+`mlog_validate{path|logic|mind|mnd_path,ticks,expect,level}`、`scenario_run{path,via,level}`、
+`mlog_fetch{ref,offset,limit}`。
+每个工具都接受 `level: summary|diagnostics|full`，返回同一个 `mlog-eval/v1` 信封
+（见 `tools/mlog_eval.py`）：默认只回 9 个键的摘要，大块内容（mlog 源码、变量转储、
+完整轨迹）自动换成 `artifact_ref`，用 `mlog_fetch` 取回。
 模拟器在服务进程内保温，首次约 3.7 s，之后约 0.6 s。DSH 侧配置片段：
 
 ```yaml
@@ -472,6 +478,58 @@ object ScrollPane` —— 而且 `clear()` 还在（`Group.java:357` 有 clear�
 游戏只执行 `scripts/main.js`（`Mods.java:809`），其它脚本文件靠 `require()` 进来
 （`Scripts.java:30-32` 装了 CommonJS 模块提供器）—— v160.7 实测 `typeof require` 是函数。
 
+
+## 评估信封（`mlog_eval.py`）
+
+所有工具对外的「结果」是同一个结构，而不是各自拍脑袋的 dict。Agent 拿到的永远是
+`ok / stage / failure_type / message / levels / next_steps`，深浅由 `level` 决定：
+
+| level | 内容 | 典型用量 |
+|---|---|---|
+| `summary` | 9 个键：`schema ok stage failure_type message level levels next_steps elapsed_ms`（外加 `*_ref` 引用） | 每轮默认 |
+| `diagnostics` | 再加 `diagnostics`（逐条发现/断言失败）与 `artifacts` | 要看为什么失败 |
+| `full` | 再加 `trace`（逐 tick 变量轨迹） | 复现疑难 |
+
+失败原因走**封闭词表**（`compilation_error`、`static_analysis_error`、`runtime_error`、
+`assertion_failed`、`timeout`、`unsupported_environment`、`simulation_real_difference`），
+`ok=False` 却不给类型会直接抛 `ValueError` —— 「未分类的失败」是这套东西要防的头号问题。
+
+`levels` 是四个成功维度（`execution` / `static` / `simulation` / `real_runtime`）：
+`true` 是通过、`false` 是失败、**`null` 是没跑**。「执行器跑完了」不等于「程序写对了」。
+
+```bash
+python tools/mlog_eval.py selftest        # 22 项契约自检
+python tests/eval/run_eval_tests.py       # 信封/裁剪/断言流水线
+```
+
+## Mindcode 编译前端（`mindcode.py`）
+
+把 `.mnd`（Mindcode 高级语言）编成 mlog，然后照常走静态检查与仿真。详见
+`docs/Mindcode集成.md`；一句话：**默认 3.19.3，因为最新的 3.21.0 在本机 `cm` 会永久挂住**
+（更新检查里 dev.dirs 的 PowerShell 子进程互锁，doctor 用真编译冒烟能测出来）。
+
+```bash
+python tools/mindcode.py version           # 定位 jar/java
+python tools/mindcode.py doctor --json     # 候选表 + 兼容性 + 冒烟编译
+python tools/mindcode.py compile demo.mnd -o demo.mlog --target 7.0
+python tests/mindcode/run_mindcode_tests.py   # exit 3 = 本机没有可用编译器
+```
+
+jar/JRE 走 `MINDCODE_JAR` / `MINDCODE_JAVA`；默认落点 `out/_mindcode/`（gitignored）。
+注意 3.19.3 要 **Java 22+**，仓库自带的 JRE 21 装不了它。
+
+## 场景（`scenario.py`）
+
+一个场景 = 世界 + 程序 + 观测 + 断言，跑完给**一个判决**，而不是一堆变量：
+
+```bash
+python tools/scenario.py check scenes/scenarios/unit-control.json   # 只校验 schema
+python tools/scenario.py run   scenes/scenarios/unit-control.json --level summary
+python tools/scenario.py list                                       # 有哪些模板
+```
+
+模板在 `scenes/scenarios/`（`unit-control` 绑单位走位、`building-interaction` 用方块、
+`processor-competition` 多处理器竞争）。MCP 侧是 `scenario_run`。
 
 ## 文件分层
 

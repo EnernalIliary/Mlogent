@@ -1,0 +1,44 @@
+{
+  "id": "unit-control",
+  "title": "ubind + ucontrol move: a logic-bound flare flies to a waypoint",
+  "goal": "Prove that a micro-processor can bind a unit and steer it: the flare spawns at (24,32), the processor keeps issuing ucontrol move towards (40,32), and after the tick budget the unit is still alive, its own @x sensor reads past the halfway point, and the max aggregate shows how far right it ever got.",
+  "version": 2,
+  "notes": "The processor reads @x/@y/@health of the bound unit every cycle, so the observations are the unit's real state, not a number the mlog asserts about itself. ux_max uses the max aggregate: it is the movement claim even if the unit later drifts back. Requires a raised rules.unitCap (a blank simulator world has no cores, so spawns would be born dead) -- tools/scenario.py sets it before the scene is applied.",
+  "world": { "size": 64 },
+  "buildings": [
+    {
+      "name": "ctrl",
+      "block": "micro-processor",
+      "x": 20,
+      "y": 32,
+      "code_inline": [
+        "ubind @flare",
+        "sensor ux @unit @x",
+        "sensor uy @unit @y",
+        "sensor uhp @unit @health",
+        "ucontrol move 40 32 0 0",
+        "op add n n 1"
+      ]
+    }
+  ],
+  "units": [
+    { "type": "flare", "count": 1, "at": [24, 32], "team": "sharded" }
+  ],
+  "limits": { "ticks": 240, "timeout_s": 180 },
+  "observations": [
+    { "name": "ux", "logic": "ctrl", "var": "ux", "aggregate": "last" },
+    { "name": "uy", "logic": "ctrl", "var": "uy", "aggregate": "last" },
+    { "name": "ux_max", "logic": "ctrl", "var": "ux", "aggregate": "max" },
+    { "name": "hp", "logic": "ctrl", "var": "uhp", "aggregate": "last" },
+    { "name": "cycles", "logic": "ctrl", "var": "n", "aggregate": "last" }
+  ],
+  "assertions": [
+    { "id": "A1", "desc": "the processor ran: enough bind/sensor/move cycles", "logic": "ctrl", "var": "n", "op": "ge", "value": 20 },
+    { "id": "A2", "desc": "the unit got well past the halfway point of the 24 -> 40 leg", "logic": "ctrl", "var": "ux", "op": "ge", "value": 36 },
+    { "id": "A3", "desc": "the max aggregate saw it at the waypoint", "logic": "ctrl", "var": "ux", "observation": "ux_max", "op": "ge", "value": 36 },
+    { "id": "A4", "desc": "it flew along the row instead of wandering off it", "logic": "ctrl", "var": "uy", "op": "ge", "value": 30 },
+    { "id": "A5", "desc": "and not above the row either", "logic": "ctrl", "var": "uy", "op": "le", "value": 34 },
+    { "id": "A6", "desc": "the unit is still alive at the end (no crash into terrain or friendly fire)", "logic": "ctrl", "var": "uhp", "op": "gt", "value": 0 }
+  ],
+  "success_criteria": { "all_assertions": true }
+}

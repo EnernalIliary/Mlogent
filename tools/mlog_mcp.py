@@ -1,14 +1,25 @@
 #!/usr/bin/env python
 """mlog_mcp.py -- MCP (stdio) server for the mlog toolkit.
 
-Exposes the analysis side of `mlog.py` and the real-executor simulator
-(`mlogsim.py`) as MCP tools, so a model does not have to discover the repo
-layout or pipe PowerShell output.  Everything is JSON in / JSON out.
+Exposes the analysis side of `mlog.py`, the real-executor simulator
+(`mlogsim.py`), the Mindcode compiler front end (`mindcode.py`) and the scenario
+runner (`scenario.py`) as MCP tools, so a model does not have to discover the
+repo layout or pipe PowerShell output.  Everything is JSON in / JSON out.
+
+Two conventions keep the tool surface cheap to use:
+
+* every answer says *which stage* produced it and, on failure, *which kind* of
+  failure it is (``tools/mlog_eval.py`` builds that envelope).  A model can pick
+  its repair move without reading 60 findings first;
+* ``level`` ("summary" | "diagnostics" | "full") is the token budget, and any
+  blob that survives the trim is stored behind an ``artifact_ref`` that
+  ``mlog_fetch`` hands back on demand -- large output is opt-in, not default.
 
 Run:  python tools/mlog_mcp.py
 """
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import subprocess
@@ -24,6 +35,7 @@ import mlogcheck as _check  # noqa: E402
 import mlogir as _ir  # noqa: E402
 import mlogval as _val  # noqa: E402
 import msch  # noqa: E402
+import mlog_eval as _eval  # noqa: E402
 import mlogsim as _sim  # noqa: E402
 
 try:  # every byte this process writes is UTF-8
@@ -35,24 +47,34 @@ except Exception:  # pragma: no cover
 
 PROTO = "2024-11-05"
 NAME = "mlog-toolkit"
-VERSION = "0.1.0"
+VERSION = "0.2.0"
+
+#: Blobs bigger than this are moved behind an artifact ref when the caller did
+#: not ask for "full".  2 KB is roughly the point where a truncated preview
+#: stops being cheaper than just reading the thing.
+ARTIFACT_THRESHOLD = 2000
 
 TOOLS = [
     {
         "name": "mlog_doctor",
-        "description": "Environment check: repo root, python, UTF-8, server jar, JRE21, "
-                       "and the five canonical commands. Run this first in a new workspace.",
+        "description": "Start here. Environment check: repo root, python, JRE/server "
+                       "jar, simulator readiness, and the Mindcode front end "
+                       "(jar + java it will use).",
         "inputSchema": {"type": "object", "properties": {}},
     },
     {
         "name": "mlog_check",
-        "description": "Static analysis of mlog (.mlog or processors inside .msch). "
-                       "Returns findings: severity, line (1-based), code, message.",
+        "description": "Static analysis of mlog (.mlog, or every processor in a "
+                       ".msch). One finding per line: sev, line, code, message.",
         "inputSchema": {
             "type": "object",
             "properties": {
                 "path": {"type": "string", "description": ".mlog or .msch path"},
                 "cost": {"type": "boolean", "description": "also include the cost/loop report"},
+                "limit": {"type": "integer",
+                          "description": "max findings per program (default 20)"},
+                "level": {"type": "string", "enum": ["summary", "diagnostics", "full"],
+                          "description": "summary = counts only (default)"},
             },
             "required": ["path"],
         },
@@ -79,7 +101,7 @@ TOOLS = [
     },
     {
         "name": "mlog_gen",
-        "description": "Compile mlog source into a blueprint paste code (base64 .msch). "
+        "description": "Turn mlog source into a blueprint paste code (base64 .msch). "
                        "Optionally writes the binary and signs the source.",
         "inputSchema": {
             "type": "object",
@@ -97,8 +119,8 @@ TOOLS = [
     },
     {
         "name": "mlog_sim",
-        "description": "Run code on the real v160.7 executor (warm server, ~0.6s after "
-                       "first call). Returns variables, @counter, text buffer.",
+        "description": "Run code on the real v160.7 executor (warm server, ~0.6 s after "
+                       "the first call). Returns variables, @counter and the text buffer.",
         "inputSchema": {
             "type": "object",
             "properties": {
@@ -116,7 +138,95 @@ TOOLS = [
             "required": [],
         },
     },
+    {
+        "name": "mindcode_compile",
+        "description": "Compile Mindcode (.mnd, the high-level language) to mlog. Returns "
+                       "the mlog plus file:line:col diagnostics; nothing is written to "
+                       "disk unless you pass out.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "source": {"type": "string", "description": "inline Mindcode source"},
+                "path": {"type": "string", "description": ".mnd file (instead of source)"},
+                "target": {"type": "string",
+                           "description": "Mindustry target version, default 7.0"},
+                "optimize": {"type": "boolean", "description": "run the optimizer (default true)"},
+                "out": {"type": "string", "description": "optional .mlog output path"},
+                "level": {"type": "string", "enum": ["summary", "diagnostics", "full"]},
+            },
+        },
+    },
+    {
+        "name": "mlog_validate",
+        "description": "One call that answers \"does this work?\": static analysis, then "
+                       "(optionally) a real run, then your expectations. Returns a single "
+                       "verdict with a failure_type and the next step.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "path": {"type": "string", "description": ".mlog or .msch"},
+                "logic": {"type": "string", "description": "inline mlog"},
+                "mind": {"type": "string",
+                         "description": "inline Mindcode (.mnd); compiled first, then validated"},
+                "mnd_path": {"type": "string", "description": "a .mnd file to compile first"},
+                "target": {"type": "string", "description": "Mindustry target for Mindcode, default 7.0"},
+                "ticks": {"type": "integer",
+                          "description": "also run this many ticks on the executor"},
+                "expect": {"type": "array", "description": "list of {var, op, value}",
+                           "items": {"type": "object"}},
+                "level": {"type": "string", "enum": ["summary", "diagnostics", "full"]},
+            },
+        },
+    },
+    {
+        "name": "scenario_run",
+        "description": "Run a scenario file (scenes/scenarios/*.json: world + program + "
+                       "observations + assertions) and evaluate its assertions.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "path": {"type": "string", "description": "scenario .json path"},
+                "via": {"type": "string", "enum": ["sim", "world"]},
+                "level": {"type": "string", "enum": ["summary", "diagnostics", "full"]},
+            },
+            "required": ["path"],
+        },
+    },
+    {
+        "name": "mlog_fetch",
+        "description": "Read an artifact that a previous call replaced with an "
+                       "artifact_ref (large traces/variable dumps). Optional byte window.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "ref": {"type": "string"},
+                "offset": {"type": "integer", "description": "byte offset, default 0"},
+                "limit": {"type": "integer", "description": "max bytes, default 40000"},
+            },
+            "required": ["ref"],
+        },
+    },
 ]
+
+#: ref -> the text it stands for.  Bounded so a long session cannot grow without
+#: limit; the oldest entry is dropped (the caller can always rerun the tool).
+_ARTIFACTS: dict[str, str] = {}
+_ARTIFACT_ORDER: list[str] = []
+_ARTIFACT_MAX = 32
+
+
+def _stash(text: str) -> dict:
+    """Store *text* and return the reference record that goes in its place."""
+    ref = "a" + hashlib.sha1(text.encode("utf-8", "replace")).hexdigest()[:12]
+    if ref not in _ARTIFACTS:
+        _ARTIFACTS[ref] = text
+        _ARTIFACT_ORDER.append(ref)
+        while len(_ARTIFACT_ORDER) > _ARTIFACT_MAX:
+            _ARTIFACTS.pop(_ARTIFACT_ORDER.pop(0), None)
+    return {"artifact_ref": ref, "bytes": len(text),
+            "preview": text[:200].replace("\n", " ")[:200],
+            "how": "call mlog_fetch with this ref"}
+
 
 _SRV = None
 _SRV_KEY = None
@@ -156,6 +266,11 @@ def tool_doctor(_args):
     root = HERE.parent
     jar = root / "out" / "_server160.jar"
     jre = root / "out" / "jre21" / "jdk-21.0.5+11-jre" / "bin" / "java.exe"
+    try:
+        import mindcode as _mnd
+        mnd = _mnd.locate()
+    except Exception as exc:                 # noqa: BLE001 -- optional module
+        mnd = {"ok": False, "notes": ["mindcode.py unavailable: %s" % exc]}
     return {
         "repo": str(root),
         "entry": str(HERE / "mlog.py"),
@@ -164,29 +279,41 @@ def tool_doctor(_args):
         "server_jar": jar.exists(),
         "jre21": jre.exists(),
         "sim_ready": jar.exists() and jre.exists(),
+        "mindcode": mnd,
         "commands": [
             "python tools/mlog.py check FILE --cost",
             "python tools/mlog.py ir FILE",
             "python tools/mlog.py values FILE",
             "python tools/mlog.py gen --source FILE --name demo",
             "python tools/mlogsim.py FILE --ticks 120 --update all",
+            "python tools/mindcode.py compile FILE.mnd -o FILE.mlog",
+            "python tools/scenario.py run scenes/scenarios/unit-control.json",
         ],
     }
 
 
 def tool_check(args):
+    level = args.get("level") or "summary"
+    limit = int(args.get("limit") or (20 if level == "summary" else 200))
     out = []
     for label, lines, names in _programs(args["path"]):
         fs = _check.analyse(lines, names)
-        out.append({
-            "program": label,
-            "findings": [{"sev": f.sev, "line": f.line, "code": f.code, "msg": f.msg}
-                         for f in fs[:60]],
-            "counts": {s: sum(1 for f in fs if f.sev == s)
-                       for s in ("ERR", "SUSPECT", "WARN", "INFO")},
-        })
+        counts = {s: sum(1 for f in fs if f.sev == s)
+                  for s in ("ERR", "SUSPECT", "WARN", "INFO")}
+        rec = {"program": label, "counts": counts}
+        if level != "summary":
+            findings = [{"sev": f.sev, "line": f.line, "code": f.code, "msg": f.msg}
+                        for f in fs]
+            if len(findings) > limit:
+                rec["findings"] = findings[:limit]
+                rec["more"] = _stash(json.dumps(findings[limit:], ensure_ascii=False))
+            else:
+                rec["findings"] = findings
         if args.get("cost"):
-            out[-1]["cost"] = _check.cost_report(_check.prepare(lines), names)[:4000]
+            cost = _check.cost_report(_check.prepare(lines), names)
+            cost = cost if isinstance(cost, str) else str(cost)
+            rec["cost"] = cost[:4000] if level == "full" else _stash(cost)
+        out.append(rec)
     return out
 
 
@@ -209,8 +336,9 @@ def tool_values(args):
     for label, lines, names in _programs(args["path"]):
         prog = _ir.parse(lines)
         st = _val.analyze(prog)
+        report = _val.format_report(label, prog, st)
         out.append({"program": label,
-                    "report": _val.format_report(label, prog, st)[:5000]})
+                    "report": report[:5000] if len(report) <= 5000 else _stash(report)})
     return out
 
 
@@ -274,6 +402,15 @@ def _sim_subprocess(args):
     return rec
 
 
+def _run_code(path: str | None, logic: str | None, args: dict):
+    """Return the executor record for an inline program or a file path."""
+    if path and not path.lower().endswith(".msch"):
+        return None, Path(path).read_text(encoding="utf-8-sig")
+    if path and path.lower().endswith(".msch"):
+        return None, None
+    return None, logic
+
+
 def tool_sim(args):
     path = args.get("path")
     logic = args.get("logic")
@@ -297,14 +434,160 @@ def tool_sim(args):
             code = Path(path).read_text(encoding="utf-8-sig")
             rec = _sim.run_mlog(srv, path, code, steps, ticks=ticks,
                                 update=update, links=links)
+    text = rec.get("text") or ""
     return {
         "vars": rec.get("vars", {}),
         "counter": rec.get("counter"),
-        "text": (rec.get("text") or "")[:400],
+        "text": text[:400] if len(text) <= 400 else _stash(text),
         "mode": rec.get("mode"),
         "processor": rec.get("processor"),
         "links": rec.get("links", []),
     }
+
+
+def _compile_artifacts(res, level, out):
+    """The compiled mlog is the deliverable; in summary mode it travels as a
+    reference so the envelope stays small but nothing is lost."""
+    artifacts = {"stats": res.get("stats"), "tool": res.get("tool")}
+    if out:
+        artifacts["out"] = out
+    code = res.get("mlog") or ""
+    if code:
+        if level == "summary":
+            artifacts["mlog_ref"] = _stash(code)
+        else:
+            artifacts["mlog"] = code
+    return {k: v for k, v in artifacts.items() if v is not None}
+
+
+def tool_mindcode_compile(args):
+    import mindcode as _mnd
+    level = args.get("level") or "diagnostics"
+    if args.get("source"):
+        res = _mnd.compile_source(args["source"],
+                                  target=args.get("target") or "7.0",
+                                  optimize=args.get("optimize", True))
+    elif args.get("path"):
+        # compile_file keeps the caller's path in diagnostics (better than
+        # "<source>") and owns the BOM/encoding handling, so the two entry
+        # points cannot drift apart.
+        res = _mnd.compile_file(args["path"], target=args.get("target") or "7.0",
+                                optimize=args.get("optimize", True))
+    else:
+        raise ValueError("source or path required")
+    if res.get("ok") and args.get("out"):
+        Path(args["out"]).write_text(res["mlog"], encoding="utf-8")
+    failed = not res.get("ok")
+    failure = None
+    if failed:
+        # A missing/incompatible compiler is not a fault in the user's source:
+        # say so instead of blaming their code.
+        tool = res.get("tool") or {}
+        failure = ("compilation_error" if tool.get("jar") and tool.get("java")
+                   else "unsupported_environment")
+    env = _eval.result(
+        ok=not failed, stage="compilation", failure_type=failure,
+        message="" if not failed else (res.get("diagnostics") or
+                                       [{"message": "compilation failed"}])[0].get("message", ""),
+        diagnostics=res.get("diagnostics") or [],
+        artifacts=_compile_artifacts(res, level, args.get("out")),
+        level=level, elapsed_ms=res.get("elapsed_ms"),
+    )
+    return env
+
+
+def _compile_mind(args):
+    """Mindcode source -> mlog, or a finished failure envelope.
+
+    This is the whole point of having a compiler in the loop: an agent writes
+    .mnd, and the same call that compiles it also says whether the *compiled*
+    program is right.  A compilation failure is reported as such (stage
+    "compilation"), never as a static or simulation failure.
+    """
+    import mindcode as _mnd
+    if args.get("mind"):
+        res = _mnd.compile_source(args["mind"], target=args.get("target") or "7.0",
+                                  optimize=args.get("optimize", True))
+    else:
+        res = _mnd.compile_file(args["mnd_path"], target=args.get("target") or "7.0",
+                                optimize=args.get("optimize", True))
+    if res.get("ok"):
+        return res["mlog"], None
+    tool = res.get("tool") or {}
+    return None, _eval.result(
+        ok=False, stage="compilation",
+        failure_type=("compilation_error" if tool.get("jar") and tool.get("java")
+                      else "unsupported_environment"),
+        message=(res.get("diagnostics") or [{"message": "compilation failed"}])[0].get("message", ""),
+        diagnostics=res.get("diagnostics") or [],
+        artifacts={"stats": res.get("stats"), "tool": tool},
+        level=args.get("level") or "summary", elapsed_ms=res.get("elapsed_ms"))
+
+
+def tool_mlog_validate(args):
+    level = args.get("level") or "summary"
+    path, logic = args.get("path"), args.get("logic")
+    mind = args.get("mind") or args.get("mnd_path")
+    if not path and not logic and not mind:
+        raise ValueError("path, logic or mind required")
+    if mind:
+        logic, failed = _compile_mind(args)
+        if failed is not None:
+            return failed
+    programs = []
+    if path:
+        programs = [(label, "\n".join(lines), names)
+                    for label, lines, names in _programs(path)]
+    else:
+        programs = [("inline", logic, None)]
+    results = []
+    for label, code, _names in programs:
+        limits = {"ticks": int(args["ticks"])} if args.get("ticks") else {}
+        env = _eval.evaluate(mlog=code, limits=limits,
+                             expectations=args.get("expect") or None,
+                             level=level)
+        env["program"] = label
+        results.append(env)
+    if len(results) == 1:
+        return results[0]
+    ok = all(r.get("ok") for r in results)
+    failed = [r for r in results if not r.get("ok")]
+    # A batch is only as good as its weakest dimension: carry the per-program
+    # levels up so a caller can see "compiles everywhere, wrong in two".
+    levels = {}
+    for k in _eval.SUCCESS_LEVELS:
+        seen = [r["levels"][k] for r in results if (r.get("levels") or {}).get(k) is not None]
+        levels[k] = (False if False in seen else (True if seen else None))
+    return _eval.result(
+        ok=ok, stage="assertion" if ok else failed[0].get("stage", "static"),
+        failure_type=None if ok else failed[0].get("failure_type"),
+        message="" if ok else "%d of %d program(s) failed" % (len(failed), len(results)),
+        diagnostics=[d for r in failed for d in (r.get("diagnostics") or [])],
+        artifacts={"programs": [{k: r.get(k) for k in ("program", "ok", "stage",
+                                                       "failure_type", "message")}
+                                for r in results]},
+        level=level, levels=levels)
+
+
+def tool_scenario_run(args):
+    import scenario as _scen
+    level = args.get("level") or "summary"
+    sc = _scen.load(args["path"])
+    return _scen.run(sc, via=args.get("via") or "sim", level=level)
+
+
+def tool_fetch(args):
+    ref = args.get("ref")
+    text = _ARTIFACTS.get(ref)
+    if text is None:
+        raise ValueError("unknown artifact ref %r (re-run the tool that produced it)"
+                         % ref)
+    off = int(args.get("offset") or 0)
+    lim = int(args.get("limit") or 40000)
+    chunk = text[off:off + lim]
+    return {"ref": ref, "bytes": len(text), "offset": off,
+            "next_offset": off + len(chunk) if off + len(chunk) < len(text) else None,
+            "text": chunk}
 
 
 HANDLERS = {
@@ -314,6 +597,10 @@ HANDLERS = {
     "mlog_values": tool_values,
     "mlog_gen": tool_gen,
     "mlog_sim": tool_sim,
+    "mindcode_compile": tool_mindcode_compile,
+    "mlog_validate": tool_mlog_validate,
+    "scenario_run": tool_scenario_run,
+    "mlog_fetch": tool_fetch,
 }
 
 

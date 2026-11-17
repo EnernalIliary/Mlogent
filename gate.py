@@ -160,6 +160,12 @@ def build_steps(full: bool, only: str | None) -> list[tuple[str, list[str] | Non
     steps: list[tuple[str, list[str] | None, str]] = [
         ("mirror", ["tools/sync_mlogagent.py", "--mirror", "all", "--check"], ""),
         ("tests", ["tests/run_tests.py"], ""),
+        # The evaluation contract (tools/mlog_eval.py) is the interface the
+        # scenario runner, the MCP layer and the Mindcode front end all build
+        # on: one envelope, one closed failure vocabulary.  Three modules would
+        # silently drift apart if the shape were only asserted in their own
+        # tests, so it is asserted on its own here (tests/eval/).
+        ("eval", ["tests/eval/run_eval_tests.py"], ""),
         ("lint", ["tools/rule_capture.py", "lint"], ""),
         # the checkers' own invariant: a malformed statement must still be
         # caught after junk tokens are appended, i.e. no check may parse a
@@ -207,6 +213,15 @@ def build_steps(full: bool, only: str | None) -> list[tuple[str, list[str] | Non
         # check is node --check over every script + the pure-logic suite in plain
         # node.  No jar, no game, no Python deps -- it must stay under a second.
         ("gtb", ["tests/grief-to-ban/run_gtb_tests.py"], ""),
+        # Mindcode (.mnd -> mlog) is an external compiler driven as a
+        # subprocess; the tests SKIP (exit 3) when no JAR/JRE21 is present,
+        # which is the clean-checkout case.  Vendor a jar under
+        # out/_mindcode/ or set MINDCODE_JAR to run them.
+        ("mindcode", ["tests/mindcode/run_mindcode_tests.py"], ""),
+        # Scenario files (scene v1 + assertions/observations) run through the
+        # same executor as mlogsim; the runner is what makes "did the rig work"
+        # a single verdict instead of a var dump.
+        ("scenario", ["tests/scenario/run_scenario_tests.py"], ""),
     ]
     global_skill = (Path(os.environ.get("DSH_HOME") or (Path.home() / ".dsh"))
                     / "skills" / "mlog-agentskill")

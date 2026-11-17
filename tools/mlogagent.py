@@ -255,7 +255,10 @@ _DATA = ["wiki_block_ids.json", "block_sizes.json", "cmd_index.json",
 # still analyses, but every Finding.rid comes back None.
 _MODULES = ["mlog.py", "aigenerated.py", "mlogcheck.py", "mlogir.py",
             "mlogval.py", "mlogpack.py", "mlogcross.py", "msch.py",
-            "mschgen.py", "mlogagent.py", "rule_ids.py"]
+            "mschgen.py", "mlogagent.py", "rule_ids.py",
+            # stdlib-only: the evaluation envelope every other tool speaks,
+            # and the Mindcode front end (finds its jar/JRE at runtime).
+            "mlog_eval.py", "mindcode.py"]
 
 
 def _sha(path: Path) -> str:

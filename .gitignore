@@ -22,9 +22,11 @@ __pycache__/
 /out/
 
 # ── 公开面收敛：以下内容留在本机，不进仓库 ─────────────────────────────
-# 蓝图本体与仿真场景（配套 Logic/ 与 scenes/ 的路径，公开仓库只留工具链）
+# 蓝图本体与私有仿真场景（配套 Logic/ 与 scenes/ 的路径，公开仓库只留工具链）。
+# 例外：scenes/scenarios/ 是场景运行器的模板，属于工具链本身，测试直接读它们。
 /Logic/
-/scenes/
+/scenes/*
+!/scenes/scenarios/
 /maps/
 
 # 私人笔记

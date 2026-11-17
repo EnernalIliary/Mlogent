@@ -889,21 +889,21 @@ def uses_of(c: str) -> list[str]:
             return _vars(p[3:4])
         return _vars(p[3:5])
     if op == "ulocate":
-        return _vars([p[3], p[4]])
+        return _vars(p[3:5])
     if op == "set":
         return _vars(p[2:3])
     if op == "sensor":
-        return _vars([p[2]])
+        return _vars(p[2:3])
     if op == "getlink":
-        return _vars([p[2]])
+        return _vars(p[2:3])
     if op in ("select", "lookup"):
         return _vars(p[3:6])
     if op == "read":
-        return _vars([p[3]])
+        return _vars(p[3:4])
     if op == "write":
-        return _vars([p[1], p[3]])
+        return _vars(p[1:2] + p[3:4])
     if op == "radar":
-        return _vars([p[5]])
+        return _vars(p[5:6])
     if op == "uradar":
         return []
     if op == "ucontrol":

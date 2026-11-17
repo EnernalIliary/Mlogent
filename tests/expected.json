@@ -686,7 +686,11 @@
         "mlog_ir",
         "mlog_values",
         "mlog_gen",
-        "mlog_sim"
+        "mlog_sim",
+        "mindcode_compile",
+        "mlog_validate",
+        "scenario_run",
+        "mlog_fetch"
       ],
       "check": {
         "ERR": 0,

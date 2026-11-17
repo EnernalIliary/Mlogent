@@ -85,10 +85,61 @@ python tools/mlog.py doctor
 | **查一条指令的读写位** —— 哪个参数是输出 | `mlog.py explain <指令> [子命令]` |
 | **查这条语句要哪个版本** `format` 147 / `select` 150 | `BUILDS.md`（GitHub 发布说明摘要），`mlog.py explain <指令>` 会直接打印 |
 | **查这份逻辑要哪个 build** —— 蓝图不存版本号 | `mlog.py check` 的 `version gate` 行 / `mlogagent report` 的 `build >=N` |
+| **写 Mindcode (.mnd) 再编译成 mlog** —— 高级语言→逻辑 | `mindcode.py compile <x.mnd> -o <x.mlog>` |
+| **一次调用判定「对不对」** —— 静态 + 仿真 + 断言 | `mlog_validate`（MCP）/ `python tools/mlog_eval.py selftest` |
+| **跑一个完整场景** —— 世界+程序+断言 → 一个判决 | `scenario.py run scenes/scenarios/<x>.json` |
 | **跨处理器读写** —— 读到的到底是 null 还是常量 | `mlog.py cross <blueprint.msch>` |
 | **回归自测** —— 429 个真实蓝图往返校验 | `mlog.py selftest` |
 
 工具在 `tools/` 下,零第三方依赖(纯标准库)。`python tools/mlog.py --help`。
+
+## 结果长什么样：一个信封，四种深浅
+
+所有工具（含 MCP 的 10 个）返回同一个 `mlog-eval/v1` 结构：`ok / stage / failure_type /
+message / levels / next_steps`，`level` 控制深浅：
+
+| level | 多出什么 | 什么时候用 |
+|---|---|---|
+| `summary` | ——（9 个键，含 `levels`） | 每轮默认 |
+| `diagnostics` | 逐条发现、断言失败、artifacts | 为什么失败 |
+| `full` | 逐 tick `trace` | 复现疑难 |
+
+失败原因只能取这 7 个：`compilation_error / static_analysis_error / runtime_error /
+assertion_failed / timeout / unsupported_environment / simulation_real_difference`。
+**`levels` 的四维（execution/static/simulation/real_runtime）里 `null` = 没跑，不是通过** ——
+执行器跑完不等于程序写对了。
+
+## Mindcode：把 .mnd 编成 mlog
+
+```bash
+python tools/mindcode.py version            # 定位 jar/JRE
+python tools/mindcode.py doctor --json      # 候选表 + 兼容性 + 冒烟编译
+python tools/mindcode.py compile demo.mnd -o demo.mlog --target 7.0
+```
+
+**默认用 3.19.3**：3.21.0 在本机跑 `cm` 会永久挂住（更新检查里 dev.dirs 的 PowerShell
+子进程互锁，`--no-update-check` 因为注册在错误的 parser 上而无效）。3.19.3 要 **Java 22+**，
+仓库自带的 JRE 21 装不了。诊断是 `文件:行:列 类别: 消息`，源文件**不能带 BOM**。
+
+## 场景：把「跑一遍」变成「一个判决」
+
+`scenes/scenarios/*.json`（schema v2）= 世界 + 程序 + 观测 + 断言：
+
+```bash
+python tools/scenario.py check scenes/scenarios/unit-control.json   # 只校验 schema
+python tools/scenario.py run   scenes/scenarios/unit-control.json   # 跑并判
+python tools/scenario.py list
+```
+
+模板：`unit-control`（绑单位走位）、`building-interaction`（容器→卸载器→传送带→核心）、
+`processor-competition`（两个处理器共享记忆格互相探测）。断言失败会直接指出**哪一条**
+没中（`A1: expected ge 999, got 79`）并给出下一步。
+
+实测经验（写场景时会撞上）：
+- `op` 只认**长名**（`greaterThan`），`op gt` 被静默丢弃、变量永远是 null；
+- 空世界没有核心 → `unitCap=0` → 单位一生下来就是死的，得先给 `unitCap`；
+- 卸载器不往相邻容器/核心推货，必须经传送带；
+- 控制台脚本别以 `for(...){}` 结尾（会回显值，`mlogsim` 等 `undefined` 会挂死到超时）。
 
 ## 标准流程
 

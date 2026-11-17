@@ -1,0 +1,45 @@
+{
+  "id": "building-interaction",
+  "title": "unloader -> conveyor -> core: items move, logic counts them",
+  "goal": "Prove that logic can both drive and observe a real item pipeline: a container stocked with 90 copper feeds an unloader, two conveyors carry the copper into the core, and a micro-processor reads the container and the core with sensor. The scenario passes only if copper actually left the container, actually arrived in the core, and the total is conserved (nothing was teleported or duplicated).",
+  "version": 2,
+  "notes": "Geometry matters: the unloader must touch both the container and the first conveyor, and the last conveyor must be adjacent to the core, otherwise the pipeline stalls (items pile up on the belt and the conservation assertion still holds but nothing arrives). Layout: core-shard covers 37-39, conveyor2 sits at 36 and feeds 37; the container covers 32-33, the unloader at 34 touches both it and conveyor1 at 35.",
+  "world": { "size": 64 },
+  "buildings": [
+    { "name": "src", "block": "container", "x": 32, "y": 30, "items": { "copper": 90 } },
+    { "name": "lift", "block": "unloader", "x": 34, "y": 30 },
+    { "name": "belt1", "block": "conveyor", "x": 35, "y": 30, "rotation": 0 },
+    { "name": "belt2", "block": "conveyor", "x": 36, "y": 30, "rotation": 0 },
+    { "name": "hub", "block": "core-shard", "x": 38, "y": 30 },
+    {
+      "name": "watch",
+      "block": "micro-processor",
+      "x": 32,
+      "y": 34,
+      "links": ["src", "hub"],
+      "code_inline": [
+        "sensor a src @copper",
+        "sensor b hub @copper",
+        "op add tot a b",
+        "op add n n 1",
+        "set mode \"haul\""
+      ]
+    }
+  ],
+  "limits": { "ticks": 240, "timeout_s": 180 },
+  "observations": [
+    { "name": "src_copper", "logic": "watch", "var": "a", "aggregate": "last" },
+    { "name": "hub_copper", "logic": "watch", "var": "b", "aggregate": "last" },
+    { "name": "hub_min", "logic": "watch", "var": "b", "aggregate": "min" },
+    { "name": "total", "logic": "watch", "var": "tot", "aggregate": "last" }
+  ],
+  "assertions": [
+    { "id": "A1", "desc": "copper arrived in the core (the pipeline really carried it)", "logic": "watch", "var": "b", "op": "ge", "value": 10 },
+    { "id": "A2", "desc": "the container really lost copper", "logic": "watch", "var": "a", "op": "le", "value": 85 },
+    { "id": "A3", "desc": "nothing was created out of thin air", "logic": "watch", "var": "tot", "op": "le", "value": 90 },
+    { "id": "A4", "desc": "and nothing vanished either (a few items may sit in the unloader/belts)", "logic": "watch", "var": "tot", "op": "ge", "value": 80 },
+    { "id": "A5", "desc": "the processor kept sampling the pipeline", "logic": "watch", "var": "n", "op": "ge", "value": 10 },
+    { "id": "A6", "desc": "contains works on text variables too", "logic": "watch", "var": "mode", "op": "contains", "value": "aul" }
+  ],
+  "success_criteria": { "all_assertions": true }
+}

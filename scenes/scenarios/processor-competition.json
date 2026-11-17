@@ -1,0 +1,63 @@
+{
+  "id": "processor-competition",
+  "title": "two processors over one memory cell: each proves the other is alive",
+  "goal": "Prove that two processors really interact through a shared memory cell. pinger watches slot 0 and counts every jump larger than its own +1 (only ponger's +10 can cause one); ponger watches slot 1 (pinger's counter) and counts every time it grows. Either program alone would see nothing, so the assertions are a two-sided liveness check rather than 'the processor ran'.",
+  "version": 2,
+  "notes": "Micro-processor ipt is 2/tick, so a 7-9 instruction cycle repeats roughly every 4 ticks: 240 ticks give ~50 rounds and the thresholds sit at ~1/3 of the measured value. No jumps are used on purpose -- mlog jump targets are line numbers and scene.apply_sim counts source lines, so arithmetic (op gt + op add) keeps the programs robust to edits.",
+  "world": { "size": 64 },
+  "buildings": [
+    { "name": "cell", "block": "memory-cell", "x": 30, "y": 30 },
+    {
+      "name": "pinger",
+      "block": "micro-processor",
+      "x": 27,
+      "y": 30,
+      "links": ["cell"],
+      "code_inline": [
+        "read v cell 0",
+        "op sub d v prev",
+        "op greaterThan g d 1",
+        "op add hit hit g",
+        "set prev v",
+        "write hit cell 1",
+        "set tag \"ping-pong\"",
+        "op add n n 1"
+      ]
+    },
+    {
+      "name": "ponger",
+      "block": "micro-processor",
+      "x": 33,
+      "y": 30,
+      "links": ["cell"],
+      "code_inline": [
+        "read v cell 0",
+        "op add v v 10",
+        "write v cell 0",
+        "read h cell 1",
+        "op sub dh h lastH",
+        "op greaterThan g2 dh 0",
+        "op add saw saw g2",
+        "set lastH h",
+        "op add rounds rounds 1"
+      ]
+    }
+  ],
+  "limits": { "ticks": 240, "timeout_s": 180 },
+  "observations": [
+    { "name": "shared", "logic": "pinger", "var": "v", "aggregate": "last" },
+    { "name": "pinger_hit", "logic": "pinger", "var": "hit", "aggregate": "last" },
+    { "name": "pinger_rounds", "logic": "pinger", "var": "n", "aggregate": "last" },
+    { "name": "ponger_saw", "logic": "ponger", "var": "saw", "aggregate": "last" },
+    { "name": "ponger_rounds", "logic": "ponger", "var": "rounds", "aggregate": "last" }
+  ],
+  "assertions": [
+    { "id": "A1", "desc": "ponger kept adding 10 to the shared cell", "logic": "ponger", "var": "rounds", "op": "ge", "value": 15 },
+    { "id": "A2", "desc": "pinger saw those +10 jumps (its own writes are +1, so d>1 can only be ponger)", "logic": "pinger", "var": "hit", "op": "ge", "value": 30 },
+    { "id": "A3", "desc": "pinger's own counter kept running", "logic": "pinger", "var": "n", "op": "ge", "value": 20 },
+    { "id": "A4", "desc": "ponger saw pinger's counter grow -- the other direction of the link", "logic": "ponger", "var": "saw", "op": "ge", "value": 25 },
+    { "id": "A5", "desc": "the shared value accumulated ponger's increments", "logic": "pinger", "var": "v", "op": "ge", "value": 300 },
+    { "id": "A6", "desc": "text variables survive the trip too", "logic": "pinger", "var": "tag", "op": "contains", "value": "pong" }
+  ],
+  "success_criteria": { "all_assertions": true }
+}

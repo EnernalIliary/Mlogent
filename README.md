@@ -18,20 +18,26 @@ python gate.py --full                          # 再加 430 项蓝图自检 + �
 python tests/probes/run_probes.py              # 只跑运行期探针（真执行器，断言语义）
 python tools/logicd.py                         # Mlog辅助的本地 sidecar（游戏内模组 MlogAuxiliary/ 的后端）
 python tests/logicd/run_logicd_tests.py        # sidecar 契约：协议 + 把载荷灌进真处理器回读
-python tests/mlogauxiliary/run_quickcheck_tests.py  # 游戏内快检：规则表没漂移 + 14 个用例 + 不误报交叉验证
-python tests/mlogauxiliary/run_rhino_parity.py      # 同一批用例在真 v160.7 的 Rhino 里重跑，与 node 逐条比对
-python tests/mlogauxiliary/run_ui_smoke.py         # 整个 main.js 在真引擎里初始化 + 设置表格布线（无 JRE 则 SKIP）
-python tests/grief-to-ban/run_gtb_tests.py         # Grief to Ban：语法 + 275 条纯逻辑断言（纯 node，0.5 s）
-python tests/grief-to-ban/run_server_probe.py      # Grief to Ban：真服务端加载模组 + 模组内自检 21 条（无 jar 则 SKIP）
+python tools/mindcode.py doctor                # Mindcode 编译器定位（jar/JRE，默认 3.19.3）
+python tools/mindcode.py compile x.mnd -o x.mlog   # .mnd → mlog
+python tools/scenario.py run scenes/scenarios/unit-control.json   # 一个场景 → 一个判决
+python tools/mlog_eval.py selftest             # 评估信封契约自检
 ```
+
+两个模组（`MlogAuxiliary/`、`GriefToBan/`）是与本仓库同级的独立项目，不在此 checkout 里，
+所以 `gate.py` 的相关步骤报 SKIP；需要时在它们的目录里跑：
+`run_quickcheck_tests.py`、`run_rhino_parity.py`、`run_ui_smoke.py`、`run_gtb_tests.py`、
+`run_server_probe.py`。
 
 `python gate.py` 依次跑：`mirror`（`tools/` 与三处副本是否一致 —— 测试实际上导入的是
 `mindustry-blueprint/tools` 副本，副本陈旧会让整套测试“绿着但测的是旧代码”）、`tests`、
+`eval`（评估信封契约：`mlog-eval/v1` 的键集、`level` 裁剪、7 个失败类型、四维成功级别）、
 `rule_capture.py lint`、`tests/shapes/run_shapes.py`（检查器自身的语句形状不变量：
 语句尾部追加惰性 token 后规则仍须开火，防整行锚定正则 fail-open）、`tests/docsig/run_docsig.py`（文档里的语句签名与 `tools/instr_semantics.json` 机检：槽位数、槽位序、示例参数数、参数表、枚举槽名字（`ucontrol`/`draw`/`ulocate` 子命令、`status` 布尔第一槽、`sensor` 属性必须是 LAccess/Content）；
 文档教错语法会在这里红）、`tests/ruleids/run_ruleids.py`（每条规则必须在某个 `tests/cases/*.mlog` 上真点火一次，
-且 rid → 用例的映射与 `tests/rule-coverage.json` 一致——只写反例的规则在这里红）、`quickcheck`（游戏内快检 `MlogAuxiliary/scripts/quickcheck.js` 的规则表由 `tools/rules_export.py` 从 `instr_semantics.json` 生成：先验表没漂移，再跑 14 个用例，并用全量检查器做**单向**交叉验证——快检说断链的行，全量检查必须也这么说；少报允许，瞎报不允许）、`rhinoparity`（同一批用例在真 v160.7 的 Rhino 里重跑；node 永远看不见 split(正则) 按字符切的那个 bug）、`ui`（把 MlogAuxiliary/scripts/main.js 整段按 Mods.loadScripts 的方式加载进真引擎的脚本作用域，再让模组把设置表格造到一张假表上——抓 Table/Cell 漂移和初始化抛错，这些 node 侧一条也发现不了）、`gtb`（Grief to Ban 模组：`node --check` 三个脚本 + 275 条纯逻辑断言；纯 JS，必须 <1 s）、`global`（用户级技能副本）、`kb`（`out/_kb/kb.sqlite3` 是否比
-`docs/断言表.md`、`tools/*.py` 旧）。默认档约 5 s，够日常改完就看；`--full` 追加 `mlog.py selftest` / `probes` / `logicd` / `gtbprobe`（真服务端加载 Grief to Ban 并跑模组内自检 21 条）/ `corpus` / `coverage` 六步——它们互不依赖（各自起 JVM、各写各的 `out/_bench` 文件），所以**并发跑**；两条长杆内部再各自并行（`probes` 20 个 JVM、`selftest` 8 进程 + 验证重建用 deflate 1 级），合计 100 s → **约 25 s**，`--serial` 恢复串行。`--kb-build` 在 KB
+且 rid → 用例的映射与 `tests/rule-coverage.json` 一致——只写反例的规则在这里红）、`quickcheck`（游戏内快检 `MlogAuxiliary/scripts/quickcheck.js` 的规则表由 `tools/rules_export.py` 从 `instr_semantics.json` 生成：先验表没漂移，再跑 14 个用例，并用全量检查器做**单向**交叉验证——快检说断链的行，全量检查必须也这么说；少报允许，瞎报不允许）、`rhinoparity`（同一批用例在真 v160.7 的 Rhino 里重跑；node 永远看不见 split(正则) 按字符切的那个 bug）、`ui`（把 MlogAuxiliary/scripts/main.js 整段按 Mods.loadScripts 的方式加载进真引擎的脚本作用域，再让模组把设置表格造到一张假表上——抓 Table/Cell 漂移和初始化抛错，这些 node 侧一条也发现不了）、`gtb`（Grief to Ban 模组：`node --check` 三个脚本 + 275 条纯逻辑断言；纯 JS，必须 <1 s）、`mindcode`（`.mnd → mlog` 前端：定位 jar/JRE、真编译、BOM 与超时；没有编译器时报 SKIP）、
+`scenario`（场景运行器：schema 校验 + 真执行 + 断言判决）、`global`（用户级技能副本）、`kb`（`out/_kb/kb.sqlite3` 是否比
+`docs/断言表.md`、`tools/*.py` 旧）。默认档约 36 s（`mindcode`、`scenario` 要真起 JVM），够日常改完就看；`--full` 追加 `mlog.py selftest` / `probes` / `logicd` / `gtbprobe`（真服务端加载 Grief to Ban 并跑模组内自检 21 条）/ `corpus` / `coverage` 六步——它们互不依赖（各自起 JVM、各写各的 `out/_bench` 文件），所以**并发跑**；两条长杆内部再各自并行（`probes` 20 个 JVM、`selftest` 8 进程 + 验证重建用 deflate 1 级），合计 100 s → **约 25 s**，`--serial` 恢复串行。`--kb-build` 在 KB
 陈旧时自动重建，`--only test` 只跑名字含某子串的步骤，`--strict` 把 WARN **和 SKIP** 都当失败
 （`probes`/`corpus` 的跳过条件正好是干净 checkout 的默认状态，不 strict 的话它们可以永久静默）。
 `--full` 里的 `probes` 用真执行器跑 `tests/probes/manifest.json` 里的程序并比对数字（例如
