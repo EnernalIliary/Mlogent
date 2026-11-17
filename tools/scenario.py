@@ -565,13 +565,8 @@ _SAMPLE_JS = (
 )
 
 
-def _step_js(ticks: int, sample: bool, push: str = "") -> str:
-    """One `js` command: run `ticks` world ticks with every scene processor.
-
-    `push`, when given, runs once per tick inside the loop (the state-mirror
-    call, see `_push_defs_js`); it is spliced in *after* the processors ran, so
-    the frame it writes is the state at the end of that tick.
-    """
+def _step_js(ticks: int, sample: bool) -> str:
+    """One `js` command: run `ticks` world ticks with every scene processor."""
     return (
         "var GS=Packages.mindustry.core.GameState,ST=GS.State;"
         "Vars.state.set(ST.playing);Time.delta=1.0;"
@@ -580,31 +575,10 @@ def _step_js(ticks: int, sample: bool, push: str = "") -> str:
         "worldTick();unitTick();"
         "var P=(typeof PROCS=='undefined'?[]:PROCS);"
         "for(var j=0;j<P.length;j++){P[j].updateTile();}"
-        "%s%s"
+        "%s"
         "}}finally{Vars.state.set(ST.paused);}"
-        % (ticks, _SAMPLE_JS if sample else "", push)
+        % (ticks, _SAMPLE_JS if sample else "")
     )
-
-
-def _push_defs_js(path: str, anchor=None) -> str:
-    """Declare `_pushNow()`: one frame of the world's units into a JSON file.
-
-    This is the offline half of the projection (`tools/projection.py` is the
-    other half): the live world reads that file and draws the simulation where
-    the sandbox frames are.  The body is `mlogsim.PUSH_DEF_JS` -- the same
-    payload `mlogsim --push` writes -- so both producers feed the daemon the
-    format it already understands ({"world", "anchor", "units"}).
-
-    Only the definitions come back: `mlogsim._push_js` also emits its per-tick
-    call keyed on *its* loop variable `i`, while `_step_js` loops over `t`.
-    """
-    import mlogsim
-
-    full = os.path.abspath(path).replace("\\", "/")
-    body = mlogsim.PUSH_DEF_JS.replace("__PATH__", json.dumps(full))
-    return body.replace("__ANCHOR__",
-                        json.dumps(list(anchor) if anchor else None))
-
 
 #: Final variable table.  mlogsim.SCENE_DUMP_JS does the same through
 #: `globalThis.procs`, which this Rhino does not have -- a top-level `var` is the
@@ -647,15 +621,12 @@ def _prepare_js(sc: dict) -> str:
     return "Vars.state.rules.unitCap=%d;" % max(64, total * 8 + 32)
 
 
-def _sim(sc: dict, deadline: float, *, project: str | None = None,
-         every: int = 2, pace: float = 0.0) -> dict:
+def _sim(sc: dict, deadline: float) -> dict:
     """Lay the scene down, tick it, sample observations; returns the raw record.
 
-    `project` asks for a state-mirror feed while it ticks: the file is rewritten
-    every `every` tick(s) with the world's unit snapshot, which is what the live
-    world's projection director watches.  `pace` slows the loop to `pace` seconds
-    of wall clock per second of world time (1.0 = real time, 0 = as fast as the
-    executor goes); a feed nobody can see move is not a projection.
+    To watch a run in the live world, project it with the tools that already do
+    that (`mlogsim.py --push` feeding `world_client.py arm`): the scenario runner
+    stays one experiment, not one experiment plus a renderer.
     """
     import mlogsim
 
@@ -699,31 +670,13 @@ def _sim(sc: dict, deadline: float, *, project: str | None = None,
             _js(srv, mlogsim._world_js(1.0, "logic"))
 
         total = int(sc["limits"]["ticks"])
-        if project:
-            # absolute path inside the JVM's cwd-relative world: `_push_defs_js`
-            # already made it absolute, and the daemon reads it by that path.
-            os.makedirs(os.path.dirname(os.path.abspath(project)) or ".", exist_ok=True)
-            _js(srv, _push_defs_js(project, _scene.anchor_of(sc)))
         done = 0
-        wall = time.time()
         while done < total:
             _deadline_guard(deadline, done)
             step = min(TICK_CHUNK, total - done)
-            push = ""
-            if project:
-                # `done` is the tick count before this chunk, so `t` counts the
-                # whole run: the feed cadence does not restart every chunk.
-                push = ("if((" + str(done) + "+t)%" + str(max(1, int(every)))
-                        + "==0)_pushNow();")
-            _js(srv, _step_js(step, bool(observations), push))
+            _js(srv, _step_js(step, bool(observations)))
             done += step
-            if project and pace > 0:
-                behind = (done / 60.0) * pace - (time.time() - wall)
-                if behind > 0:
-                    time.sleep(min(behind, 2.0))
         _deadline_guard(deadline, done)
-        if project:
-            _js(srv, "_pushNow();")
 
         samples: dict[int, list] = {}
         if observations:
