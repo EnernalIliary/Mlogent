@@ -203,9 +203,9 @@ def build_steps(full: bool, only: str | None) -> list[tuple[str, list[str] | Non
         # uninstall.ps1 against a throwaway saves\mods, VERSION.txt hashes, and a
         # zip without __pycache__.
         ("package", ["tests/packaging/run_pack_tests.py"], ""),
-        # Grief to Ban is a separate mod in this repo: pure JS, so the check is
-        # node --check over every script + the pure-logic suite in plain node.
-        # No jar, no game, no Python deps -- it must stay under a second.
+        # Grief to Ban is a separate project (see MOD_DEPS below): pure JS, so the
+        # check is node --check over every script + the pure-logic suite in plain
+        # node.  No jar, no game, no Python deps -- it must stay under a second.
         ("gtb", ["tests/grief-to-ban/run_gtb_tests.py"], ""),
     ]
     global_skill = (Path(os.environ.get("DSH_HOME") or (Path.home() / ".dsh"))
@@ -260,6 +260,18 @@ def build_steps(full: bool, only: str | None) -> list[tuple[str, list[str] | Non
             steps.append(("corpus", None, "no corpus at " + str(corpus) + " (MLOG_CORPUS overrides)"))
             steps.append(("coverage", None, "no corpus at " + str(corpus) + " (MLOG_CORPUS overrides)"))
     steps.append(("kb", None, ""))                # handled inline, see main()
+    # The two mods live in their own projects, side by side with this checkout
+    # (D:\Develop\MlogAuxiliary, D:\Develop\GriefToBan), not underneath it: this
+    # repo is the toolchain they call into.  When a mod is absent, its steps are
+    # reported as SKIP instead of failing, so a checkout holding only the tools
+    # still gates cleanly.  Put the mod back in the repo root and the steps run
+    # again -- nothing here depends on where the flat layout came from.
+    deps = {"quickcheck": "MlogAuxiliary", "rhinoparity": "MlogAuxiliary",
+            "ui": "MlogAuxiliary", "package": "MlogAuxiliary",
+            "gtb": "GriefToBan", "gtbprobe": "GriefToBan"}
+    steps = [(n, None, deps[n] + "/ is a separate project (absent from this checkout)")
+             if (a is not None and n in deps and not (ROOT / deps[n]).is_dir())
+             else (n, a, s) for n, a, s in steps]
     if only:
         steps = [s for s in steps if only.lower() in s[0].lower()]
     return steps

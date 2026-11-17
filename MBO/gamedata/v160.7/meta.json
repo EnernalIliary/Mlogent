@@ -1,7 +1,0 @@
-{
-  "snapshot": "v160.7",
-  "gamedata_json": "gamedata.json",
-  "sha256": "400da43e85807124171925eca3486e2948b4d8c87307eb80de9135b320063509",
-  "source": "official server jar reflection dump (spikes/data/extract_game_data.py)",
-  "extracted_at": null
-}

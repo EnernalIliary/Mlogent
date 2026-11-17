@@ -1,8 +1,12 @@
 # -*- coding: utf-8 -*-
+import pathlib as _pl
+_HERE = _pl.Path(__file__).resolve().parent          # knowledge/08-evidence/bench/_scripts
+_KB = _HERE.parents[2]                               # knowledge
+_REPO = _HERE.parents[3]                             # 仓库根
 import json, sys
 from pathlib import Path
 sys.stdout.reconfigure(encoding="utf-8")
-d = Path(r"F:\OneDrive\文档\deepseek-harness\default-workspace\kb-stage\08-evidence\bench\snap_ab.json")
+d = _HERE.parent / "snap_ab.json"
 j = json.loads(d.read_text(encoding="utf-8"))
 print("top keys", list(j.keys()))
 print("meta", json.dumps(j.get("meta", {}), ensure_ascii=False)[:400])

@@ -7,12 +7,16 @@
   srcs   : [>=2 个真源，与 src 同格式]
   derive : 一句话说明「为什么必须组合」（哪两个源各提供什么）
 """
+import pathlib as _pl
+_HERE = _pl.Path(__file__).resolve().parent          # knowledge/08-evidence/bench/_scripts
+_KB = _HERE.parents[2]                               # knowledge
+_REPO = _HERE.parents[3]                             # 仓库根
 import json
 import os
 import re
 from pathlib import Path
 
-REPO = Path(os.environ.get("AS_REPO", r"F:\OneDrive\桌面\AtomicStates"))
+REPO = Path(os.environ.get("AS_REPO", str(Path(__file__).resolve().parents[4])))
 OUT = Path(__file__).resolve().parent / "questions-derive.jsonl"
 SRC = "Mindustry-Source/core/src/mindustry/"
 

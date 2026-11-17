@@ -18,11 +18,11 @@ import os
 import sys
 import time
 
-REPO = r"F:\OneDrive\桌面\AtomicStates"
+HERE = os.path.dirname(os.path.abspath(__file__))
+REPO = os.path.dirname(os.path.dirname(HERE))     # knowledge/tools -> 仓库根
 sys.path.insert(0, os.path.join(REPO, "tools"))
 import mlogsim as M  # noqa: E402
 
-HERE = os.path.dirname(os.path.abspath(__file__))
 VER = "v160.7"
 SRC_PREFIX = "jar:v160.7#"
 EXPECT = {"blocks": 447, "items": 22, "liquids": 11, "units": 70}

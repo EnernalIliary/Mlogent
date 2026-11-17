@@ -1,9 +1,13 @@
 # -*- coding: utf-8 -*-
 """题库核心：真源加载 + 题目构造助手。所有数值均从真源读取，不凭记忆。"""
+import pathlib as _pl
+_HERE = _pl.Path(__file__).resolve().parent          # knowledge/08-evidence/bench/_scripts
+_KB = _HERE.parents[2]                               # knowledge
+_REPO = _HERE.parents[3]                             # 仓库根
 import json, os, random
 from pathlib import Path
 
-REPO = Path(os.environ.get("AS_REPO", r"F:\OneDrive\桌面\AtomicStates"))
+REPO = Path(os.environ.get("AS_REPO", str(Path(__file__).resolve().parents[4])))
 OUT = Path(__file__).resolve().parent
 
 def _j(rel):

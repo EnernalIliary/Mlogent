@@ -248,7 +248,7 @@ python tools/kb.py serve
 ```json
 {"mcpServers": {"mlog-kb": {
   "command": "python",
-  "args": ["F:/OneDrive/桌面/AtomicStates/tools/kb.py", "serve"],
+  "args": ["tools/kb.py", "serve"],
   "env": {"HF_ENDPOINT": "https://hf-mirror.com"}
 }}}
 ```

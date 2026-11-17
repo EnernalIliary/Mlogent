@@ -1,9 +1,0 @@
-{
-  "name": "示例补丁：原版电力节点零成本、秒建",
-  "block": {
-    "power-node": {
-      "instantBuild": true,
-      "buildCostMultiplier": 0
-    }
-  }
-}

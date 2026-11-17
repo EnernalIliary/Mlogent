@@ -1,7 +1,11 @@
 
+import pathlib as _pl
+_HERE = _pl.Path(__file__).resolve().parent          # knowledge/08-evidence/bench/_scripts
+_KB = _HERE.parents[2]                               # knowledge
+_REPO = _HERE.parents[3]                             # 仓库根
 import json, sys, collections, os
 sys.stdout.reconfigure(encoding="utf-8")
-p = r"F:\OneDrive\文档\deepseek-harness\default-workspace\kb-stage\08-evidence\bench\questions.jsonl"
+p = str(_HERE.parent / "questions.jsonl")
 rows = [json.loads(l) for l in open(p, encoding="utf-8")]
 print("n", len(rows), "bytes", os.path.getsize(p))
 print("keys", sorted(rows[0]))

@@ -51,7 +51,7 @@ python knowledge\tools\build_index.py --root knowledge --check # 校验索引与
 ## 重建与发布（MCP 正式库）
 
 ```powershell
-$R="F:\OneDrive\桌面\AtomicStates"; $W="F:\OneDrive\文档\deepseek-harness\default-workspace"
+$R="<仓库根>"; $W="<临时暂存目录>"   # $R 为本机仓库绝对路径；$W 为任意本地目录，脚本按参数/环境变量取
 $env:KB_ROOT=$R; $env:KB_KNOWLEDGE="$R\knowledge"; $env:KB_DIR="$W\out\kb_build"
 python "$R\knowledge\tools\kb.py" build                       # ≈9,460 chunk / 187 files
 python "$R\knowledge\tools\publish_db.py" "$W\out\kb_build\kb.sqlite3" "$R\out\_kb\kb.sqlite3"

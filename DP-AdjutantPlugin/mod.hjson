@@ -1,6 +1,0 @@
-name: "adjutant-debug"
-displayName: "副官调试插件"
-author: "DP"
-description: "调试辅助模组：可拖动/可折叠的「副官调试面板」+ 控制台 adj.help() + 联机聊天栏 !adj help；自动副官（自动修理/回血/补料）、事件日志、沙盒开关。"
-version: "3.3"
-minGameVersion: "159.3"

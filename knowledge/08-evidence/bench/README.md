@@ -6,7 +6,7 @@
 
 > 结论先行：题目是**真源驱动**生成的（不凭记忆），难度按 24/52/24 归一；
 > 检索侧用 `coverage / hit@1 / hit@k / mrr / strong@k` 五个指标衡量，
-> 当前库（kb-stage 镜像，104 个文件 / 1051 chunk，2026-11-08）lexical 基线为
+> 当前库（<临时暂存目录> 镜像，104 个文件 / 1051 chunk，2026-11-08）lexical 基线为
 > **coverage 100% / hit@1 45.3% / hit@6 78.7% / mrr 0.582 / strong@6 92.2%**；
 > 更早的 74 文件快照 coverage 只有 87%（39 条缺口），两次快照并列在 §4。
 
@@ -38,7 +38,7 @@
 重新生成题库（**必须**指向仓库根；脚本只读仓库、不写仓库）：
 
 ```powershell
-$env:AS_REPO='F:\OneDrive\桌面\AtomicStates'
+$env:AS_REPO='<仓库根>'
 $env:PYTHONIOENCODING='utf-8'
 python gen_questions.py     # 断言 300 题 / 每域 25 / 难度 6-13-6，并校验 src 存在性与行号
 ```
@@ -103,7 +103,7 @@ python gen_questions.py     # 断言 300 题 / 每域 25 / 难度 6-13-6，并�
 python tools/eval_kb.py --kb . --engine lexical -k 6
 
 # 用产品检索器（tools/kb.py 混合检索，需要 out/_kb/kb.sqlite3 + out/_kblibs/_kbmodels）
-python tools/eval_kb.py --engine kb --root F:\OneDrive\桌面\AtomicStates -k 6
+python tools/eval_kb.py --engine kb --root <仓库根> -k 6
 ```
 
 判定 gold 的方式：取 `src` 的 basename（如 `LExecutor.java`），
@@ -123,8 +123,8 @@ python tools/eval_kb.py --engine kb --root F:\OneDrive\桌面\AtomicStates -k 6
 
 | # | 引擎 | 语料（文件数 / chunk 数） | 题数 | coverage | hit@1 | hit@6 | mrr | strong@6 |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| L1 | lexical BM25 | kb-stage 104 文件 / 1051 chunk（2026-11-08 04:18，§5 缺口已补齐） | 300 | 100% | 45.3% | 78.7% | 0.582 | 92.2% |
-| L0 | lexical BM25 | kb-stage 74 文件 / 798 chunk（同日更早快照，39 条缺口未补） | 300 | 87.0% | 49.4% | 77.0% | 0.602 | 93.8% |
+| L1 | lexical BM25 | <临时暂存目录> 104 文件 / 1051 chunk（2026-11-08 04:18，§5 缺口已补齐） | 300 | 100% | 45.3% | 78.7% | 0.582 | 92.2% |
+| L0 | lexical BM25 | <临时暂存目录> 74 文件 / 798 chunk（同日更早快照，39 条缺口未补） | 300 | 87.0% | 49.4% | 77.0% | 0.602 | 93.8% |
 | H0 | kb.py 混合 | 仓库 knowledge 47 文件（旧快照，40 题抽样） | 40 | 100% | 20.0% | 52.5% | 0.327 | 55.6% |
 | H1 | kb.py hybrid | 仓库 knowledge 48 篇（库总 8113 chunk / 140 files，DB READY 快照） | 300 | 100% | 28.3% | 54.7% | 0.372 | 62.2% |
 
@@ -141,7 +141,7 @@ python tools/eval_kb.py --engine kb --root F:\OneDrive\桌面\AtomicStates -k 6
 
 ## 5. 已知 KB 缺口（39 题，按源文件聚合）
 
-> **状态（2026-11-08 04:18）**：这批缺口在 kb-stage 镜像里已全部补上（L1 快照 coverage=100%），
+> **状态（2026-11-08 04:18）**：这批缺口在 <临时暂存目录> 镜像里已全部补上（L1 快照 coverage=100%），
 > 本表保留为历史记录与派活依据（证据原文：L0 快照 coverage 87.0%）。补法见 §8。
 
 这些源文件在原知识库里**一次都没被提到**，对应题必然 coverage 未命中 —— 补文档优先写它们：
@@ -321,7 +321,7 @@ H2 = recon-d 的 1FB23F2A 基线（软路径权重 + depth 40）；H3 = 现行�
 
 | # | 引擎 | 语料 | coverage | hit@1 | hit@6 | mrr | strong@6 | knowledge 外命中 |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| L1 | lexical BM25 | kb-stage 104 文件 / 1051 chunk | 100% | **45.3%** | **78.7%** | **0.582** | **92.2%** | —（语料即知识库本身） |
+| L1 | lexical BM25 | <临时暂存目录> 104 文件 / 1051 chunk | 100% | **45.3%** | **78.7%** | **0.582** | **92.2%** | —（语料即知识库本身） |
 | H1 | kb.py hybrid（dense bge-small-zh + FTS5 + RRF） | 仓库 knowledge 48 篇 + tools/docs/blueprint（库总 8113 chunk / 140 files） | 100% | 28.3% | 54.7% | 0.372 | 62.2% | **top-6 槽 52.3% 落在 knowledge 外；top-1 有 45.3% 的题首选库外文档** |
 | H2 | kb.py hybrid + 软路径权重（1FB23F2A） | 冻结快照 63 md + 18 表（索引 8164 chunk / 138 files，depth 40） | 99.3% | 45.0% | 67.5% | 0.528 | 82.9% | 18.5% |
 | H3 | **+A 硬过滤 +B 去重 +C ASCII（现行默认）** | 同上（索引 8167 chunk / 138 files，仓库全库 build） | 99.3% | **58.1%** | **85.6%** | **0.682** | **97.1%** | **0%** |
@@ -396,10 +396,10 @@ RRF 融合后库外长文档（tools/*.py，6266 个 code chunk）更容易挤�
 
 ### 10.5 检索策略对照实验：A 硬过滤 / B 按文件去重 / C ASCII 标识符加权（2026-11-08）
 
-lead 采纳「A+B+C 一起做」后，在 `kb-stage/tools/kb_scope.py`（仓库 `tools/kb.py` 的副本，**未改仓库版**）
+lead 采纳「A+B+C 一起做」后，在 `<临时暂存目录>/tools/kb_scope.py`（仓库 `tools/kb.py` 的副本，**未改仓库版**）
 实现三个可独立开关的策略，用同一套冻结 300 题 + 24 题跨源草案跑对照。
 
-**口径（重要）**：本表用**冻结语料快照** `kb-stage/out/_snap_knowledge`（63 篇 md + 18 张 00-data 摘要表，
+**口径（重要）**：本表用**冻结语料快照** `<临时暂存目录>/out/_snap_knowledge`（63 篇 md + 18 张 00-data 摘要表，
 2026-11-08 04:49 复制；基线索引 8164 chunk / 硬过滤索引 921 chunk）。此前的五组数字是在 writer 持续加文章时
 跑的（同一 runner 三次跑出 144 / 182 / 63 篇 gold），已作废 —— 本表与 §10.1 的 H2/H3 同源，可并读。
 k=6、candidates=40、coverage 99.3%（298/300：快照里缺 2 题的真源，不是检索失败）。
@@ -453,19 +453,19 @@ k=6、candidates=40、coverage 99.3%（298/300：快照里缺 2 题的真源，�
 
 **产物 / 复现**
 
-- `kb-stage/tools/kb_scope.py`（三开关副本，仓库 kb.py 未动）；`08-evidence/bench/kb_scope_eval.py`（6 变体 runner）
+- `<临时暂存目录>/tools/kb_scope.py`（三开关副本，仓库 kb.py 未动）；`08-evidence/bench/kb_scope_eval.py`（6 变体 runner）
 - `08-evidence/bench/snap_ab.json` + `snap_ab_pq.json`（本表原始数据）；`scope_ab.json`（旧语料，作废仅留档）
-- 快照：`kb-stage/out/_snap_knowledge`；索引：`kb-stage/out/_kb_base_snap`（8164 chunk）、`_kb_scope_snap`（921 chunk）
+- 快照：`<临时暂存目录>/out/_snap_knowledge`；索引：`<临时暂存目录>/out/_kb_base_snap`（8164 chunk）、`_kb_scope_snap`（921 chunk）
 
 ### 10.6 固化：`tools/kb.py` 默认开启 A+B+C
 
-lead 要求「固化进仓库要用的那一个文件，不要另起 kb_scope.py」，已直接改 `kb-stage/tools/kb.py`（同步到仓库 `tools/kb.py`）：
+lead 要求「固化进仓库要用的那一个文件，不要另起 kb_scope.py」，已直接改 `<临时暂存目录>/tools/kb.py`（同步到仓库 `tools/kb.py`）：
 
 | 项 | 值 |
 | --- | --- |
-| 文件 | `tools/kb.py`（kb-stage 版，待 Lead 同步进仓库） |
+| 文件 | `tools/kb.py`（<临时暂存目录> 版，待 Lead 同步进仓库） |
 | md5 / 大小 | **1289C89F**28B4238C988B8415FB8ED562 / 26,338 B |
-| build（`KB_DIR=kb-stage/_kb_final`） | **8167 chunks / 138 files / 18 data_tables** |
+| build（`KB_DIR=<临时暂存目录>/_kb_final`） | **8167 chunks / 138 files / 18 data_tables** |
 | bench20（前 20 题，新库） | **hit@1 65.0%、hit@6 95.0%、mrr 0.745、库外槽 0%**（20 题冒烟，非全量） |
 
 **三个开关（默认全开，置 0 回退到 1FB23F2A 行为；CLI 与 MCP 签名不变）**
@@ -592,9 +592,9 @@ KS_DB_BASE=<仓库>/out/_kb/kb.sqlite3 KS_DB_SCOPE=<仓库>/out/_kb/kb.sqlite3 \
 **题号级差异：0/300**。逐题比对 `hit` / `rank` / `top-6` 三个字段：lost hit **0**、gained hit **0**、rank 变化 **0** —— 新库多出的 7 个 doc chunk 来自 C06/C10 的 DPS 行修正，未触及任何一题的 gold 文档与 top-6 排序，因此指标与 FINAL2 逐位相同（59.67 / 86.33 / 0.6943 / 94.21）。最弱 3 域仍为变量与作用域 76.0%、方块与锚点 76.0%、电力与热 76.0%。
 
 ```bash
-# 复现（FINAL3；脚本已移入 _scripts/，用 KS_STAGE 指回 kb-stage）
+# 复现（FINAL3；脚本已移入 _scripts/，用 KS_STAGE 指回 <临时暂存目录>）
 cd knowledge/08-evidence/bench
-KS_STAGE=<仓库>/kb-stage KS_DB_BASE=<仓库>/out/_kb/kb.sqlite3 KS_DB_SCOPE=<仓库>/out/_kb/kb.sqlite3 \
+KS_STAGE=<临时暂存目录> KS_DB_BASE=<仓库>/out/_kb/kb.sqlite3 KS_DB_SCOPE=<仓库>/out/_kb/kb.sqlite3 \
   python _scripts/kb_scope_eval.py --questions questions.jsonl --source-kinds source_kind.json \
     --derive _scripts/questions-derive.jsonl --variants baseline \
     --out final_ab3.json --per-question final_ab3_pq.json
@@ -602,7 +602,7 @@ KS_STAGE=<仓库>/kb-stage KS_DB_BASE=<仓库>/out/_kb/kb.sqlite3 KS_DB_SCOPE=<�
 
 产物：`final_ab3.json`（2,448 B，MD5 `7102DF0B`）、`final_ab3_pq.json`（128,988 B，MD5 `D879B502`，逐题 `hit` / `rank` / `top`）。FINAL2 的 `final_ab2.json`（MD5 `079922AB`）留在 bench 根作对照，`final_ab2_pq.json` 已随中间件移入 `_scripts/`。**交付验收以 FINAL3 行为准：hit@1 59.7%、hit@6 86.3%、mrr 0.6943、strong@6 94.2%、库外槽 0%、公式 72.7%、跨源 95.8%**。
 
-注：`kb_scope_eval.py` 因移入 `_scripts/` 后 `HERE.parents[1]` 会少上溯一级，已加 `KS_STAGE` / `KS_STAGE_TOOLS` 环境变量覆写（默认行为不变），本次运行即用它指回 `kb-stage`。
+注：`kb_scope_eval.py` 因移入 `_scripts/` 后 `HERE.parents[1]` 会少上溯一级，已加 `KS_STAGE` / `KS_STAGE_TOOLS` 环境变量覆写（默认行为不变），本次运行即用它指回 `<临时暂存目录>`。
 
 ## 11. v2 草案：跨源推导题 24 道（`questions-derive.jsonl`，不进主指标）
 
@@ -631,7 +631,7 @@ v2 想解决的是 §9 暴露的结构性问题 —— 260/300（86.7%）的题�
   （`entities/Damage.java:659-660` + `Vars.java:133 minArmorDamage=0.1`）代入
   mace `armor=4`（`data/game/units.json`）→ 9 伤害打 5；armor=20 时被 0.9 保底 —— 三个源缺一不可。
 
-**草案已测（lexical，kb-stage 104 文件 / 1051 chunk）**：coverage 100%、hit@6 **91.7%**（22/24）。
+**草案已测（lexical，<临时暂存目录> 104 文件 / 1051 chunk）**：coverage 100%、hit@6 **91.7%**（22/24）。
 注意这个数字偏乐观：出题时已保证「每个源都有文章写过」，它测的是**组合检索**能不能一次捞到多个源，
 不测 AI 会不会主动想到组合。真正的 v2 验收标准应是「多源问答的正确率」，不是 hit@6。
 

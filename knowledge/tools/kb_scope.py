@@ -31,7 +31,7 @@ for _s in (sys.stdin, sys.stdout, sys.stderr):
         pass
 
 HERE = Path(__file__).resolve().parent
-REPO_DEFAULT = Path(r"F:\OneDrive\桌面\AtomicStates")
+REPO_DEFAULT = HERE.parents[1]   # knowledge/tools -> 仓库根（相对，仓库可整体搬移）
 ROOT = Path(os.environ.get("KB_ROOT", REPO_DEFAULT))
 KNOWLEDGE_DIR = Path(os.environ.get("KB_KNOWLEDGE", ROOT / "knowledge"))
 DATA_DIR = KNOWLEDGE_DIR / "00-data"

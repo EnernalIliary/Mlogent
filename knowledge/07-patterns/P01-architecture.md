@@ -68,7 +68,7 @@ while (accumulator >= 1) { runOnce(); accumulator--; }
 
 ## 实测与反例
 
-真实语料（../AtomicStates-logic-corpus/index.json：430 个蓝图、5774 个逻辑块、3,719,102 条语句）的处理器分布：
+真实语料（../../logic-corpus/_index.json：430 个蓝图、5774 个逻辑块、3,719,102 条语句）的处理器分布：
 
 | 处理器 | 逻辑块数 | 占比 |
 |---|---:|---:|

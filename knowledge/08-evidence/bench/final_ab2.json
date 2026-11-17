@@ -1,7 +1,7 @@
 {
   "k": 6,
   "candidates": 40,
-  "questions": "F:\\OneDrive\\文档\\deepseek-harness\\default-workspace\\kb-stage\\08-evidence\\bench\\questions.jsonl",
+  "questions": "08-evidence\\bench\\questions.jsonl",
   "variants": {
     "baseline": {
       "n": 300,

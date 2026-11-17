@@ -1,5 +1,5 @@
 ---
-tokens: 744
+tokens: 743
 id: UNIT.NAMES.001
 title: 单位名对照：70 个单位的英文名与中文名（其中 60 个有官方简中）
 domain: unit
@@ -7,8 +7,8 @@ status: active
 ver: [v160.7_rt, v159.3_src]
 conf: S
 src:
-  - "assetsraw/assets/bundles/bundle_zh_CN.properties:1-3038"
-  - "assetsraw/assets/bundles/bundle.properties:1-3438"
+  - "assets/bundles/bundle_zh_CN.properties:1-3038"
+  - "assets/bundles/bundle.properties:1-3438"
 data:
   - "00-data/units.json"
 depends: [UNIT.MOVE.001, UNIT.PRODUCE.001]
@@ -105,7 +105,7 @@ tags: [名词, 中文名, 英文名, 翻译, 对照表, 单位]
 
 ## 源码锚点
 
-- `assetsraw/assets/bundles/bundle_zh_CN.properties`（zh:N）与 `bundle.properties`（en:N）。
+- `assets/bundles/bundle_zh_CN.properties`（zh:N）与 `bundle.properties`（en:N）。
 - `00-data/units.json`：70 条单位记录，`id` 与 bundle key 一一对应。
 - 生成脚本 `knowledge/tools/gen_name_docs.py`。
 

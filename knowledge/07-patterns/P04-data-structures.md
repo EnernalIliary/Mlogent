@@ -13,7 +13,7 @@ src:
 data: []
 depends: [PATTERN.COMM.001]
 tags: [数据结构, 数组, 队列, 环形缓冲, 内存布局, 画布]
-tokens: 538
+tokens: 545
 ---
 
 ## 一句话
@@ -44,9 +44,9 @@ mlog 没有指针也没有长度，所有数据结构都是「内存建筑的索
 |---|---|---|
 | memory-cell / memory-bank 容量 | 64 / 512 格 | Blocks.java:6875 / 6881 |
 | 显示屏画布尺寸 | 64 x 64（tileable 为 32 x 32） | LogicDisplay.java:53 / TileableLogicDisplay.java:35 |
-| 2025 语料中 read 用量 | 8052 条 | ../AtomicStates-logic-corpus/idioms.json#unigrams |
-| 像素画蓝图数 / 语句量 | 18 个 / 约 140 万条 | mindustry-blueprint/PATTERNS.md:1774 |
-| 单蓝图 draw 峰值 | 126,759 条（intel corei3.msch） | mindustry-blueprint/PATTERNS.md:1786 |
+| 2025 语料中 read 用量 | 8052 条 | tools/corpus/mine_idioms.py 的 `unigrams` 统计 |
+| 像素画蓝图数 / 语句量 | 18 个 / 约 140 万条 | ../../mindustry-blueprint/PATTERNS.md:1774 |
+| 单蓝图 draw 峰值 | 126,759 条（intel corei3.msch） | ../../mindustry-blueprint/PATTERNS.md:1786 |
 
 画布成本可算：64x64 = 4096 像素，每像素一条 draw 指令 → 画满一帧 4096 条；hyper-processor 25 ipt 需要 4096/25 = 163.8 tick，即 163.8/60 = 2.73 s 画一帧。
 
@@ -62,7 +62,7 @@ mlog 没有指针也没有长度，所有数据结构都是「内存建筑的索
 
 **反例（环形缓冲用 if 归零）**：用 jump lessThan i N 分支归零需要 3 条指令且分支长度不等，而 op mod i i N 只要 1 条 —— 语料里 913 条的多单位搬运就是用 mod 做槽位轮转（BLUEPRINT-ANALYSIS.md 多单位搬运拆解）。
 
-**画布特例**：像素画蓝图占全部语料的绝大部分语句（18 个蓝图约 140 万条，PATTERNS.md:1774），它们是数据不是逻辑 —— 统计「逻辑技巧」时必须按 is_art 剔除，否则 draw 会以 1,305,167 次碾压所有真实指令（idioms.json#unigrams）。
+**画布特例**：像素画蓝图占全部语料的绝大部分语句（18 个蓝图约 140 万条，PATTERNS.md:1774），它们是数据不是逻辑 —— 统计「逻辑技巧」时必须按 is_art 剔除，否则 draw 会以 1,305,167 次碾压所有真实指令（同上，`mine_idioms.py` 的 unigrams 统计）。
 
 ## 常见误解
 

@@ -7,8 +7,8 @@ status: active
 ver: [v160.7_rt, v159.3_src]
 conf: S
 src:
-  - "assetsraw/assets/bundles/bundle_zh_CN.properties:1-3038"
-  - "assetsraw/assets/bundles/bundle.properties:1-3438"
+  - "assets/bundles/bundle_zh_CN.properties:1-3038"
+  - "assets/bundles/bundle.properties:1-3438"
 data:
   - "00-data/blocks.json"
 depends: [WORLD.BLOCKS.001, COMBAT.TURRET.001]
@@ -178,7 +178,7 @@ tags: [名词, 中文名, 英文名, 翻译, 对照表, 炮塔, 合成, 逻辑, 
 
 ## 源码锚点
 
-- `assetsraw/assets/bundles/bundle_zh_CN.properties`（zh:N）与 `bundle.properties`（en:N）。
+- `assets/bundles/bundle_zh_CN.properties`（zh:N）与 `bundle.properties`（en:N）。
 - `00-data/blocks.json`：`category` 分组；143 条中 143 条有中文名。
 - 生成脚本 `knowledge/tools/gen_name_docs.py`。
 

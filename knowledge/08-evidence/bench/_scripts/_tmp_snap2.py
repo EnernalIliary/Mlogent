@@ -1,9 +1,13 @@
 # -*- coding: utf-8 -*-
+import pathlib as _pl
+_HERE = _pl.Path(__file__).resolve().parent          # knowledge/08-evidence/bench/_scripts
+_KB = _HERE.parents[2]                               # knowledge
+_REPO = _HERE.parents[3]                             # 仓库根
 import shutil, sys
 from pathlib import Path
 sys.stdout.reconfigure(encoding="utf-8")
-SRC = Path(r"F:\OneDrive\桌面\AtomicStates\knowledge")
-DST = Path(r"F:\OneDrive\文档\deepseek-harness\default-workspace\kb-stage\out\_snap_knowledge")
+SRC = _KB
+DST = _KB / "out" / "_snap_knowledge"
 d2 = SRC / "00-data"
 n = 0
 for p in sorted(d2.glob("*.json")):

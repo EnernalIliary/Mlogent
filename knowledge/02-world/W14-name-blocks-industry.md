@@ -7,8 +7,8 @@ status: active
 ver: [v160.7_rt, v159.3_src]
 conf: S
 src:
-  - "assetsraw/assets/bundles/bundle_zh_CN.properties:1-3038"
-  - "assetsraw/assets/bundles/bundle.properties:1-3438"
+  - "assets/bundles/bundle_zh_CN.properties:1-3038"
+  - "assets/bundles/bundle.properties:1-3438"
 data:
   - "00-data/blocks.json"
 depends: [WORLD.BLOCKS.001, WORLD.LOGISTICS.001]
@@ -203,7 +203,7 @@ tags: [名词, 中文名, 英文名, 翻译, 对照表, 物流, 电力, 液体, 
 
 ## 源码锚点
 
-- `assetsraw/assets/bundles/bundle_zh_CN.properties`（中文名，zh:N 为行号）与 `bundle.properties`（英文名，en:N 为行号）。
+- `assets/bundles/bundle_zh_CN.properties`（中文名，zh:N 为行号）与 `bundle.properties`（英文名，en:N 为行号）。
 - `00-data/blocks.json` 的 `category` 字段是本文的分组依据；168 条中 146 条有中文名。
 - 生成脚本 `knowledge/tools/gen_name_docs.py`。
 

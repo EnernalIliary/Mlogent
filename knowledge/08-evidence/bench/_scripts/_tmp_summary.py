@@ -1,7 +1,11 @@
 # -*- coding: utf-8 -*-
+import pathlib as _pl
+_HERE = _pl.Path(__file__).resolve().parent          # knowledge/08-evidence/bench/_scripts
+_KB = _HERE.parents[2]                               # knowledge
+_REPO = _HERE.parents[3]                             # 仓库根
 import json, sys
 sys.stdout.reconfigure(encoding="utf-8")
-p = r"F:\OneDrive\文档\deepseek-harness\default-workspace\kb-stage\08-evidence\bench\scope_ab.json"
+p = str(_HERE.parent / "scope_ab.json")
 d = json.load(open(p, encoding="utf-8"))
 V = d["variants"]; names = list(V); doms = list(V["baseline"]["domains"])
 print("k", d["k"], "cand", d["candidates"])

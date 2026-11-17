@@ -2,6 +2,13 @@
 /Mindustry-Source/
 /Arc-Source/
 
+# 已拆出去的独立项目：它们是本仓库的同级目录（D:\Develop\...），不再进本仓库。
+# 名字里的 assetsraw 在盘上叫 Mindustry_assetsraw，清单里仍按旧名挡住。
+/assetsraw/
+/MBO/
+/ratio-calc/
+/pixil/
+
 # server runtime data if a headless server is started from the repo root
 /config/
 
@@ -9,6 +16,10 @@
 /out/npmcache/
 __pycache__/
 *.pyc
+
+# out/ 是工作区：里面 143 个产物是跟踪的，其余是一次性探针脚本/仿真缓存/备份。
+# 整目录忽略，免得几千个散文件把 `git status` 淹掉；要提交某个新产物用 `git add -f`。
+/out/
 
 # 系统文件
 desktop.ini

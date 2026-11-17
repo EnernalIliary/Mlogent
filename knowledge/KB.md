@@ -86,7 +86,7 @@
 2. `Mindustry-Source/core/src/**`（v159.3，语义权威）
 3. `08-evidence/claims.jsonl` 中 pass 的实测
 4. 本库文章正文
-5. 仓库其它笔记（`MBO/`、`docs/`、`Logic-Docs`）——**只作线索，不作证据**
+5. 仓库其它笔记（`../MBO/`、`docs/`、`Logic-Docs`）——**只作线索，不作证据**（`MBO/` 已拆为同级独立项目）
 
 已知错误清单（务必先看）：`VERSION.md` §已知错误。典型：`data/game` 的 craftTime 全为 -1；`docs/速查卡` 耗电列实际是 /tick 却标成 /s（差 60 倍）。
 
@@ -119,7 +119,7 @@ python knowledge/tools/extract_rt.py
 python knowledge/tools/build_index.py
 python knowledge/tools/check_kb.py --all
 # 重建检索库：KB_ROOT 必须是仓库根，KB_DIR 指定输出目录
-$env:KB_ROOT='F:\OneDrive\桌面\AtomicStates'; $env:KB_DIR='<临时目录>'
+$env:KB_ROOT='<仓库根>'; $env:KB_DIR='<临时目录>'
 python knowledge/tools/kb.py build
 # MCP 在跑时不要直接覆盖 out/_kb/kb.sqlite3（WinError 5），用 backup 原地发布
 python knowledge/tools/publish_db.py <临时目录>\kb.sqlite3 out\_kb\kb.sqlite3

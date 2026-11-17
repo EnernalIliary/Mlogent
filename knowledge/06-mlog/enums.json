@@ -1,6 +1,6 @@
 {
  "meta": {
-  "source": "F:\\OneDrive\\桌面\\AtomicStates\\tools\\instr_enums.json (v160.7 jar) + instr_semantics.json ops (v159.3 src) + LogicDisplay.java:290 GraphicsType + LogicRule.java:3 + FetchType.java:3 + ContentType.java:10 + sensor_attrs.json (LAccess 77)",
+  "source": "tools\\instr_enums.json (v160.7 jar) + instr_semantics.json ops (v159.3 src) + LogicDisplay.java:290 GraphicsType + LogicRule.java:3 + FetchType.java:3 + ContentType.java:10 + sensor_attrs.json (LAccess 77)",
   "ver": "v160.7_rt / v159.3_src",
   "note": "Slot VALUES only. Slot ORDER/arity lives in instructions.json. ContentType 的 *_UNUSED 成员不可作为 lookup 参数，错误类型一律解析为 error。"
  },

@@ -1,7 +1,11 @@
 
+import pathlib as _pl
+_HERE = _pl.Path(__file__).resolve().parent          # knowledge/08-evidence/bench/_scripts
+_KB = _HERE.parents[2]                               # knowledge
+_REPO = _HERE.parents[3]                             # 仓库根
 import json,os
-os.makedirs(r'F:\OneDrive\文档\deepseek-harness\default-workspace\kb-stage\08-evidence\bench',exist_ok=True)
-d=json.load(open(r'F:\OneDrive\桌面\AtomicStates\tools\instr_semantics.json',encoding='utf-8'))
+os.makedirs(str(_HERE.parent),exist_ok=True)
+d=json.load(open(str(_KB / "tools" / "instr_semantics.json"),encoding="utf-8"))
 print('OPS:', ','.join(d['ops'].keys()))
 for k in ['jump','setrate','print','draw','ucontrol','ulocate','radar','getblock','setblock','lookup','packcolor','sync','message','status','sensor','select','uradar','spawn','op','getlink','read','write']:
     v=d['instructions'].get(k)

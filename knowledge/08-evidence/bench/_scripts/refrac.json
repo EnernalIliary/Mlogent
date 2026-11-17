@@ -4,7 +4,7 @@
   "fetch": 50,
   "k": 6,
   "questions": 300,
-  "knowledge": "F:\\OneDrive\\桌面\\AtomicStates\\knowledge"
+  "knowledge": "knowledge"
  },
  "variants": {
   "as_is": {

@@ -62,11 +62,14 @@ python tools/mlogsim.py logic.mlog --save scene.msav --units mono:1 --core-items
 | `Logic/` | `逻辑代码规范.md` 与示例逻辑（个人程序） |
 | `out/scenes/` | 5 张现实场景 `.msav`、3 个合成台（`benches/`：core / memory / processor）、快照 |
 | `.dsh/skills/` | `mlog-agentskill`（可独立拷走）与 `mindustry-blueprint` 安装副本 |
-| `MlogAuxiliary/` | 游戏内模组（Rhino JS）：F4 一句话 → 本地 sidecar 选模板生成 + 预检 → 走原版 config 通道写进处理器；原版逻辑编辑器底部自动挂审查栏 |
-| `GriefToBan/` | 另一个游戏内模组（纯 Rhino JS）：反破坏 —— uid 黑名单进服即旁观、语言/行为识别（自复制逻辑、钍堆、爆混发电机、AFK、刷交互）、`/vote kick` 期间自动旁观；设置分类 `:hammer:` |
+| `../MlogAuxiliary/` | 游戏内模组（Rhino JS）：F4 一句话 → 本地 sidecar 选模板生成 + 预检 → 走原版 config 通道写进处理器；原版逻辑编辑器底部自动挂审查栏。**同级独立项目**，本仓库是它调用的工具链 |
+| `../GriefToBan/` | 另一个游戏内模组（纯 Rhino JS）：反破坏 —— uid 黑名单进服即旁观、语言/行为识别（自复制逻辑、钍堆、爆混发电机、AFK、刷交互）、`/vote kick` 期间自动旁观；设置分类 `:hammer:`。**同级独立项目** |
 | `dsh-preset-mlog/` | DeepSeek Harness 的 `mlog` Agent 预设（persona + 技能根 + 工具集） |
-| `MBO/` | 蓝图生成/搜索/优化/真机验证（`python -m mbo …`，`docs/00-23`，`runs/` 里是真机实测的蓝图与画廊） |
-| `ratio-calc/` | 自动配比计算器单页网页（双击 `index.html`；`core.js` 内核与 MBO 规则一致） |
+| `../MBO/` | 蓝图生成/搜索/优化/真机验证（`python -m mbo …`，`docs/00-23`，`runs/` 里是真机实测的蓝图与画廊）。**同级独立项目** |
+| `../ratio-calc/` | 自动配比计算器单页网页（双击 `index.html`；`core.js` 内核与 MBO 规则一致）。**同级独立项目** |
+
+带 `../` 的几行是**同级独立项目**（与本仓库同在 `D:\Develop\` 下，各自是独立目录）：本仓库只留它们的入口文档与调用约定，代码和数据不在本仓库内。
+
 
 ## 规则与边界
 

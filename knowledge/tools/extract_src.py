@@ -3,7 +3,7 @@
 
 用法:
     python -u kb-stage/tools/extract_src.py
-    python -u kb-stage/tools/extract_src.py --src "F:/OneDrive/桌面/AtomicStates/Mindustry-Source/core/src" --out <json>
+    python -u knowledge/tools/extract_src.py --src Mindustry-Source/core/src --out <json>
 
 设计取舍: **不解析 Java AST**。每个锚点声明为
     (id, 相对路径, 起始正则, 取数方式, 说明)
@@ -22,7 +22,9 @@ import json
 import os
 import re
 
-DEFAULT_SRC = r"F:\OneDrive\桌面\AtomicStates\Mindustry-Source\core\src"
+DEFAULT_SRC = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
+    "Mindustry-Source", "core", "src")   # knowledge/tools -> 仓库根（相对）
 VER = "v159.3"
 
 def _num(s):

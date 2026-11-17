@@ -669,7 +669,7 @@
   },
   "hybrid": {
     "engine": "kb.py hybrid (dense bge-small-zh + FTS5 BM25 + RRF)",
-    "knowledge": "F:\\OneDrive\\桌面\\AtomicStates\\knowledge",
+    "knowledge": "knowledge",
     "questions": 300,
     "topk": 6,
     "coverage": 1.0,

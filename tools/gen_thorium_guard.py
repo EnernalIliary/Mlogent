@@ -13,7 +13,7 @@ limitation of the exporter, so the reactor is placed here explicitly and
 import pathlib
 import sys
 
-HERE = pathlib.Path("F:/OneDrive/桌面/AtomicStates")
+HERE = pathlib.Path(__file__).resolve().parent.parent   # tools/ -> 仓库根
 sys.path.insert(0, str(HERE / "mindustry-blueprint" / "tools"))
 import msch, mschgen  # noqa: E402
 

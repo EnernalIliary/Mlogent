@@ -1476,8 +1476,8 @@ python tools/mlog.py selftest                 # 429 个蓝图往返校验
 **已安装到本项目的专有 skill 库**:
 
 ```
-F:\OneDrive\桌面\AtomicStates\.dsh\skills\mindustry-blueprint\    ← 生效位置
-F:\OneDrive\桌面\AtomicStates\mindustry-blueprint\                ← 开发位置
+.dsh/skills/mindustry-blueprint/    ← 生效位置
+mindustry-blueprint/                ← 开发位置
 ```
 
 **Skills Manager 插件**(`@michengai/dsh-skills-manager`)的路径表(README 原文):

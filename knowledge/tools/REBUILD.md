@@ -5,7 +5,7 @@
 
 ## 0. 准备（一次性）
 ```powershell
-$R = "F:\OneDrive\桌面\AtomicStates"; $W = "F:\OneDrive\文档\deepseek-harness\default-workspace\kb-stage"
+$R = "<仓库根>"; $W = "<临时暂存目录>"   # 仓库根为本机仓库绝对路径；$W 为任意本地目录，脚本按参数/环境变量取
 $py = "C:\Users\lliary\AppData\Local\Programs\Python\Python311\python.exe"
 $env:KB_ROOT = $R; $env:KB_KNOWLEDGE = "$R\knowledge"
 $env:KB_LIBS = "$R\out\_kblibs311"; $env:KB_MODELS = "$R\out\_kbmodels"

@@ -1,9 +1,13 @@
 # -*- coding: utf-8 -*-
+import pathlib as _pl
+_HERE = _pl.Path(__file__).resolve().parent          # knowledge/08-evidence/bench/_scripts
+_KB = _HERE.parents[2]                               # knowledge
+_REPO = _HERE.parents[3]                             # 仓库根
 import shutil, sys
 from pathlib import Path
 sys.stdout.reconfigure(encoding="utf-8")
-SRC = Path(r"F:\OneDrive\桌面\AtomicStates\knowledge")
-DST = Path(r"F:\OneDrive\文档\deepseek-harness\default-workspace\kb-stage\out\_snap_knowledge")
+SRC = _KB
+DST = _KB / "out" / "_snap_knowledge"
 EX = {"__pycache__", "out", ".git"}
 n = 0; total = 0
 if DST.exists():

@@ -10,7 +10,7 @@ reflection, no subprocess CLI): the same code path the MCP tool mlog_sim uses.
 One JVM boot ~6 s; the server is cached per process so several probes in one
 python process pay it once.
 
-Repository location: env MLOG_REPO, default F:\OneDrive\桌面\AtomicStates.
+Repository location: env MLOG_REPO, default the repo root this file lives in.
 """
 import atexit
 import json
@@ -19,8 +19,9 @@ import pathlib
 import sys
 import tempfile
 
-REPO = pathlib.Path(os.environ.get("MLOG_REPO", r"F:\OneDrive\桌面\AtomicStates"))
 HERE = pathlib.Path(__file__).resolve().parent
+REPO = pathlib.Path(os.environ.get(
+    "MLOG_REPO", HERE.parents[3]))   # knowledge/08-evidence/probes -> 仓库根
 OUT = HERE / "out"
 FENCE = chr(96) * 3
 

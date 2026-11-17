@@ -10,6 +10,11 @@ data 槽占比（00-data 摘要块）、公式题 hit@6（source_kind.json 标�
 """
 from __future__ import annotations
 
+import pathlib as _pl
+_HERE = _pl.Path(__file__).resolve().parent          # knowledge/08-evidence/bench/_scripts
+_KB = _HERE.parents[2]                               # knowledge
+_REPO = _HERE.parents[3]                             # 仓库根
+
 import argparse
 import importlib.util
 import json
@@ -28,7 +33,7 @@ for _s in (sys.stdin, sys.stdout, sys.stderr):
 HERE = Path(__file__).resolve().parent
 STAGE = HERE.parents[1]
 STAGE_TOOLS = STAGE / "tools"
-REPO = Path(r"F:\OneDrive\桌面\AtomicStates")
+REPO = Path(__file__).resolve().parents[4]   # _scripts -> 仓库根
 KNOW = Path(os.environ.get("KS_KNOW") or (REPO / "knowledge"))
 DB_BASE = Path(os.environ.get("KS_DB_BASE") or (STAGE / "out" / "_kb_base" / "kb.sqlite3"))
 DB_SCOPE = Path(os.environ.get("KS_DB_SCOPE") or (STAGE / "out" / "_kb_scope" / "kb.sqlite3"))

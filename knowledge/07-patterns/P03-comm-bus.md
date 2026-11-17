@@ -49,7 +49,7 @@ read/write 的地址参数有两种形态，语义完全不同：
 | memory-bank 格数 | 512 | [src: Blocks.java:6881] |
 | 大型内存（世界处理器侧） | 512 | [src: Blocks.java:6967] |
 | sensor/radar 结果刷新窗口 | 30 tick（0.5 s） | [src: LExecutor.java:761-763] |
-| 语料 read 指令用量 | 8052 条 | ../AtomicStates-logic-corpus/idioms.json#unigrams |
+| 语料 read 指令用量 | 8052 条 | tools/corpus/mine_idioms.py 的 `unigrams` 统计 |
 
 ## 源码锚点
 

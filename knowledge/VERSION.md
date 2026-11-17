@@ -38,7 +38,7 @@
 ## 环境坑（重建/复现前必读）
 
 1. `out/_kb/kb.sqlite3` 在 OneDrive 下是 Pinned 只读：MCP 持句柄时 `unlink` 会 WinError 5 并把库清成 24KB 空库 → 必须用 `tools/publish_db.py`（sqlite3 backup 原地重写）。
-2. 重建时 `KB_ROOT` 必须是**仓库根**（`F:/OneDrive/桌面/AtomicStates`），`KB_DIR` 指向临时目录；`KB_ROOT` 若设成 `knowledge` 会去找 `knowledge/out/_kblibs` → `ModuleNotFoundError: fastembed`。
+2. 重建时 `KB_ROOT` 必须是**仓库根**（整个仓库的根目录），`KB_DIR` 指向临时目录；`KB_ROOT` 若设成 `knowledge` 会去找 `knowledge/out/_kblibs` → `ModuleNotFoundError: fastembed`。
 3. `tools/mlogsim.py` 的 `tempfile.mkdtemp(dir=<repo>/out/_sim)` 在 OneDrive 同步目录下可能卡死数分钟（爬到 `tempfile.py:375` 不动）；设环境变量 `MLOG_SIM_BASEDIR` 指向本地非同步目录即可绕过（已支持）。
 4. 门禁 `check_kb.py` 的 warning 是提示级（exit 0 即合规）；`W_NUM_NO_SOURCE` 多为源码行号与举例数值，不必逐行补来源。
 
@@ -56,7 +56,7 @@
 
 - **新增 `03-combat/C11-turret-verdict.md`**（`COMBAT.TURRET.002`，conf I）：13 门主力的 DPS/造价、按目标护甲选型、7 门不能打空的防空缺口。表 1/表 2 的 DPS(0甲) 与 A* 逐格等于 C10 表 3/表 4；造价=件数之和、耗电=`usagePerSecond`、射程=`range/8` 已逐条复算通过；`targetAir=false` 恰为 arc / hail / lancer / ripple / scathe / scorch / titan（31 条 turrets 记录里非战斗 3 条：build-tower / repair-point / repair-turret）。
 - **新增中英名对照 5 篇**：`02-world/W13-W15-name-blocks-*.md` 合计 **447 条 = `00-data/blocks.json` 全量**（136 + 168 + 143，无重无漏）；`W16-name-items.md`（22 物品 + 11 液体 + 23 状态 = 56）；`04-units/U06-name-units.md`（70 单位，60 有官方简中）。
-- **名称真源**：`assetsraw/assets/bundles/bundle.properties` + `bundle_zh_CN.properties`（2867 个 key）——`out/_server160.jar` 里没有任何 bundle 条目（服务端 jar 剥掉资源），所以名称只能取 assetsraw；生成器 `tools/gen_name_docs.py`（key 规则 `<kind>.<id>.name`）。缺名的 36 方块 / 10 单位 / 3 状态全是内部占位（air、build1-7、`*-missile`、dummy、turret-unit-build-tower…）。
+- **名称真源**：素材包里的 `assets/bundles/bundle.properties` + `bundle_zh_CN.properties`（2867 个 key；素材目录已拆为同级独立项目，盘上现名 `../TextureMDT/`，查找顺序见 `knowledge/tools/gen_name_docs.py` 的 `_assets_root()`）——`out/_server160.jar` 里没有任何 bundle 条目（服务端 jar 剥掉资源），所以名称只能取自素材包；生成器 `tools/gen_name_docs.py`（key 规则 `<kind>.<id>.name`）。缺名的 36 方块 / 10 单位 / 3 状态全是内部占位（air、build1-7、`*-missile`、dummy、turret-unit-build-tower…）。
 - **交叉链接**：C02/C10 → `[[COMBAT.TURRET.002]]`；W01 → `[[WORLD.NAMES.001]]`-003；U01 → `[[UNIT.NAMES.001]]`；`08-evidence/CHEAT.md` 路由表下补一行「查中文名走哪」。
 - **重建结果**：门禁 **61 篇 / 0 error / 193 warning**；正式库 **8,317 chunk / 146 files**（43.6MB，doc 1831 / code 6322 / data 163）；postpublish 三项 PASS（A@1 16/20、库外 top1 0、p50 68.3ms）；300 题 **hit@1 59.7% / hit@6 86.3% / mrr 0.693 / strong@6 94.2%**（新增内容未抢金标，分数与上一版持平）。
 

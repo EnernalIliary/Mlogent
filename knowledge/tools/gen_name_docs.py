@@ -7,14 +7,17 @@
     python knowledge/tools/gen_name_docs.py --check    # 只报告覆盖率与行数，不写文件
 
 数据源:
-    assetsraw/assets/bundles/bundle.properties       英文显示名
-    assetsraw/assets/bundles/bundle_zh_CN.properties 中文显示名
+    <assets>/assets/bundles/bundle.properties       英文显示名
+    <assets>/assets/bundles/bundle_zh_CN.properties 中文显示名
     knowledge/00-data/{blocks,units,items,liquids,status}.json  (id 全集与分组)
+    <assets> 依次找 $MLOG_ASSETS、本仓库下的 assetsraw/、以及同级的
+    TextureMDT/（游戏素材拆出去后的目录名）—— 素材不在本仓库里。
 key 规则: <kind>.<id>.name，kind ∈ block/unit/item/liquid/status。
 """
 from __future__ import annotations
 
 import json
+import os
 import re
 import sys
 from pathlib import Path
@@ -22,8 +25,24 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 KB = HERE.parent
 REPO = KB.parent
-B_EN = REPO / "assetsraw/assets/bundles/bundle.properties"
-B_ZH = REPO / "assetsraw/assets/bundles/bundle_zh_CN.properties"
+
+
+def _asset_root() -> Path:
+    """Where the extracted game assets live (they are no longer in this repo)."""
+    cands = [os.environ.get("MLOG_ASSETS"),
+             REPO / "assetsraw",
+             REPO.parent / "TextureMDT",
+             REPO.parent / "Mindustry_assetsraw",
+             REPO.parent / "assetsraw"]
+    for c in cands:
+        if c and (Path(c) / "assets" / "bundles").is_dir():
+            return Path(c)
+    return REPO / "assetsraw"
+
+
+ASSETS = _asset_root()
+B_EN = ASSETS / "assets/bundles/bundle.properties"
+B_ZH = ASSETS / "assets/bundles/bundle_zh_CN.properties"
 DATA = KB / "00-data"
 
 KV_RE = re.compile(r"^\s*([A-Za-z0-9_.\-]+)\s*=\s*(.*)$")
@@ -116,8 +135,8 @@ def coverage(kind, idents):
 
 def fm(art_id, title, data_refs, depends, tags, extra_src=()):
     src = [
-        "assetsraw/assets/bundles/bundle_zh_CN.properties:1-3038",
-        "assetsraw/assets/bundles/bundle.properties:1-3438",
+        "assets/bundles/bundle_zh_CN.properties:1-3038",
+        "assets/bundles/bundle.properties:1-3438",
     ] + list(extra_src)
     lines = ["---", "id: " + art_id, "title: " + title, "domain: " +
              ("world" if art_id.startswith("WORLD") else "unit"),
@@ -174,8 +193,8 @@ def doc1():
         "",
         "## 源码锚点",
         "",
-        "- `assetsraw/assets/bundles/bundle_zh_CN.properties` —— 中文显示名；表内「中文名出处 zh:N」即该文件第 N 行。",
-        "- `assetsraw/assets/bundles/bundle.properties` —— 英文显示名；「英文名出处 en:N」即该文件第 N 行。",
+        "- `assets/bundles/bundle_zh_CN.properties` —— 中文显示名；表内「中文名出处 zh:N」即该文件第 N 行。",
+        "- `assets/bundles/bundle.properties` —— 英文显示名；「英文名出处 en:N」即该文件第 N 行。",
         "- `00-data/blocks.json` —— `id` / `types` / `category` 字段；本文按 `types` 过滤出 %d 条（其中 %d 条有中文名）。" % (total, zh_only),
         "- 生成脚本 `knowledge/tools/gen_name_docs.py`（游戏版本更新后重跑即可，不改 00-data）。",
         "",
@@ -238,7 +257,7 @@ def doc2():
         "",
         "## 源码锚点",
         "",
-        "- `assetsraw/assets/bundles/bundle_zh_CN.properties`（中文名，zh:N 为行号）与 `bundle.properties`（英文名，en:N 为行号）。",
+        "- `assets/bundles/bundle_zh_CN.properties`（中文名，zh:N 为行号）与 `bundle.properties`（英文名，en:N 为行号）。",
         "- `00-data/blocks.json` 的 `category` 字段是本文的分组依据；%d 条中 %d 条有中文名。" % (total, zh_only),
         "- 生成脚本 `knowledge/tools/gen_name_docs.py`。",
         "",
@@ -301,7 +320,7 @@ def doc3():
         "",
         "## 源码锚点",
         "",
-        "- `assetsraw/assets/bundles/bundle_zh_CN.properties`（zh:N）与 `bundle.properties`（en:N）。",
+        "- `assets/bundles/bundle_zh_CN.properties`（zh:N）与 `bundle.properties`（en:N）。",
         "- `00-data/blocks.json`：`category` 分组；%d 条中 %d 条有中文名。" % (total, zh_only),
         "- 生成脚本 `knowledge/tools/gen_name_docs.py`。",
         "",
@@ -375,7 +394,7 @@ def doc4():
         "",
         "## 源码锚点",
         "",
-        "- `assetsraw/assets/bundles/bundle_zh_CN.properties`（zh:N）与 `bundle.properties`（en:N）。",
+        "- `assets/bundles/bundle_zh_CN.properties`（zh:N）与 `bundle.properties`（en:N）。",
         "- `00-data/items.json`（%d 条）/ `liquids.json`（%d 条）/ `status.json`（%d 条）；三类共 %d 条，%d 条有中文名。"
         % (len(items), len(liqs), len(sts), total, zh_hit),
         "- 生成脚本 `knowledge/tools/gen_name_docs.py`。",
@@ -437,7 +456,7 @@ def doc5():
         "",
         "## 源码锚点",
         "",
-        "- `assetsraw/assets/bundles/bundle_zh_CN.properties`（zh:N）与 `bundle.properties`（en:N）。",
+        "- `assets/bundles/bundle_zh_CN.properties`（zh:N）与 `bundle.properties`（en:N）。",
         "- `00-data/units.json`：%d 条单位记录，`id` 与 bundle key 一一对应。" % total,
         "- 生成脚本 `knowledge/tools/gen_name_docs.py`。",
         "",

@@ -16,8 +16,8 @@
 
 ```powershell
 # 1) 建库（KB_ROOT 必须是仓库根，不是 knowledge 目录！）
-$env:KB_ROOT='F:\OneDrive\桌面\AtomicStates'
-$env:KB_DIR='F:\OneDrive\桌面\AtomicStates\out\_kb_build'
+$env:KB_ROOT='<仓库根>'
+$env:KB_DIR='<仓库根>\out\_kb_build'
 python knowledge\tools\kb.py build
 # 2) 发布（MCP 持句柄时不能直接覆盖，必须 backup 原地重写）
 python knowledge\tools\publish_db.py out\_kb_build\kb.sqlite3 out\_kb\kb.sqlite3
@@ -43,7 +43,7 @@ python knowledge\tools\smoke_kb.py --db out\_kb\kb.sqlite3 --questions knowledge
 
 仓库已带 MCP 服务（`tools/kb.py` 的 MCP 入口），暴露 `kb_search(query, k)`。Agent 侧挂上后，检索由模型自己发起，比手工投喂更省上下文。
 
-- 配置示例（`~/.dsh/profiles/default/cordis.patch.yml`）：`command: python`，`args: ["F:/OneDrive/桌面/AtomicStates/tools/kb.py", "serve"]`。
+- 配置示例（`~/.dsh/profiles/default/cordis.patch.yml`）：`command: python`，`args: ["tools/kb.py", "serve"]`。MCP 子进程的工作目录不受控，若需要绝对路径请按本机实际仓库位置填写（不要照抄旧盘符）。
 - **改过 `kb.py` 必须重启 MCP 进程**：`serve()` 是单进程 stdin 循环、启动即预热 embedder，没有 reload。数据更新（`out/_kb/kb.sqlite3`）不需要重启。
 - 查数据表用 `kind="data"`，查库外脚本用 `kind="code"`（会绕过只查 knowledge 的硬过滤）。
 
@@ -62,8 +62,8 @@ python knowledge\tools\smoke_kb.py --db out\_kb\kb.sqlite3 --questions knowledge
 ## 验证 AI 是否真的学会了（300 题）
 
 ```powershell
-python knowledge\tools\eval_kb.py --kb knowledge --root F:\OneDrive\桌面\AtomicStates --engine kb -k 6
-python knowledge\tools\eval_kb.py --kb knowledge --root F:\OneDrive\桌面\AtomicStates --engine lexical -k 6
+python knowledge\tools\eval_kb.py --kb knowledge --root <仓库根> --engine kb -k 6
+python knowledge\tools\eval_kb.py --kb knowledge --root <仓库根> --engine lexical -k 6
 ```
 
 - 题库：`08-evidence/bench/questions.jsonl`（300 题，12 域 × 25，难度 72/156/72）。
