@@ -1,0 +1,6 @@
+{"q":"护甲减伤公式","expect":["C05"]}
+{"q":"conveyor 每秒运几件","expect":["W"]}
+{"q":"ucontrol 参数顺序","expect":["REFERENCE"]}
+{"q":"多格方块 锚点 footprint","expect":["W01"]}
+{"q":"处理器每秒执行多少指令","expect":["E0"]}
+{"q":"wait 精度 tick","expect":["E0"]}

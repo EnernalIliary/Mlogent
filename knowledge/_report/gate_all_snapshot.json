@@ -1,0 +1,1254 @@
+﻿{
+  "root": "<repo>\\knowledge",
+  "files": 23,
+  "bytes": 155211,
+  "tokens": 16736,
+  "errors": 13,
+  "warnings": 157,
+  "ids": 23,
+  "domain_counts": {
+    "02-world": 3,
+    "03-combat": 4,
+    "06-mlog": 8,
+    "07-patterns": 6,
+    "08-evidence": 2
+  },
+  "data_tables": [
+    {
+      "path": "00-data/rt_list_Difficulty.json",
+      "records": 1,
+      "bad": 1,
+      "bytes": 1028
+    },
+    {
+      "path": "00-data/rt_list_LogicBlock.json",
+      "records": 1,
+      "bad": 1,
+      "bytes": 1030
+    },
+    {
+      "path": "00-data/rt_list_Rules.json",
+      "records": 1,
+      "bad": 1,
+      "bytes": 10428
+    },
+    {
+      "path": "00-data/rt_list_SpawnGroup.json",
+      "records": 1,
+      "bad": 1,
+      "bytes": 1318
+    },
+    {
+      "path": "00-data/rt_list_StatusEffect.json",
+      "records": 1,
+      "bad": 1,
+      "bytes": 2592
+    },
+    {
+      "path": "00-data/rt_list_WaveSpawner.json",
+      "records": 1,
+      "bad": 1,
+      "bytes": 688
+    },
+    {
+      "path": "00-data/rt_values_raw.json",
+      "records": 11,
+      "bad": 11,
+      "bytes": 2685
+    }
+  ],
+  "error_list": [
+    {
+      "level": "error",
+      "path": "07-patterns/P02-state-machine.md",
+      "line": 1,
+      "code": "E_MISSING_FIELD",
+      "msg": "frontmatter 缺必填字段: data"
+    },
+    {
+      "level": "error",
+      "path": "07-patterns/P05-radar-targeting.md",
+      "line": 1,
+      "code": "E_MISSING_FIELD",
+      "msg": "frontmatter 缺必填字段: data"
+    },
+    {
+      "level": "error",
+      "path": "07-patterns/P06-performance.md",
+      "line": 1,
+      "code": "E_MISSING_FIELD",
+      "msg": "frontmatter 缺必填字段: data"
+    },
+    {
+      "level": "error",
+      "path": "08-evidence/anti-patterns.md",
+      "line": 1,
+      "code": "E_DOMAIN_DIR",
+      "msg": "domain=pattern 与所在目录 08-evidence 的短名 evidence 不一致"
+    },
+    {
+      "level": "error",
+      "path": "08-evidence/README.md",
+      "line": 1,
+      "code": "E_MISSING_FIELD",
+      "msg": "frontmatter 缺必填字段: data"
+    },
+    {
+      "level": "error",
+      "path": "08-evidence/README.md",
+      "line": 1,
+      "code": "E_ID_FORMAT",
+      "msg": "id 格式非法: EVID.README.001（应为 DOMAIN.SUB.NNN，域码固定）"
+    },
+    {
+      "level": "error",
+      "path": "08-evidence/README.md",
+      "line": 1,
+      "code": "E_SECTION_MISSING",
+      "msg": "缺模板小节: 一句话"
+    },
+    {
+      "level": "error",
+      "path": "08-evidence/README.md",
+      "line": 1,
+      "code": "E_SECTION_MISSING",
+      "msg": "缺模板小节: 规则/公式"
+    },
+    {
+      "level": "error",
+      "path": "08-evidence/README.md",
+      "line": 1,
+      "code": "E_SECTION_MISSING",
+      "msg": "缺模板小节: 数值"
+    },
+    {
+      "level": "error",
+      "path": "08-evidence/README.md",
+      "line": 1,
+      "code": "E_SECTION_MISSING",
+      "msg": "缺模板小节: 源码锚点"
+    },
+    {
+      "level": "error",
+      "path": "08-evidence/README.md",
+      "line": 1,
+      "code": "E_SECTION_MISSING",
+      "msg": "缺模板小节: 实测与反例"
+    },
+    {
+      "level": "error",
+      "path": "08-evidence/README.md",
+      "line": 1,
+      "code": "E_SECTION_MISSING",
+      "msg": "缺模板小节: 常见误解"
+    },
+    {
+      "level": "error",
+      "path": "08-evidence/README.md",
+      "line": 1,
+      "code": "E_SECTION_MISSING",
+      "msg": "缺模板小节: 相关"
+    }
+  ],
+  "warning_list": [
+    {
+      "level": "warning",
+      "path": "01-execution",
+      "line": 0,
+      "code": "W_DOMAIN_EMPTY",
+      "msg": "域目录无文章: 01-execution"
+    },
+    {
+      "level": "warning",
+      "path": "04-units",
+      "line": 0,
+      "code": "W_DOMAIN_EMPTY",
+      "msg": "域目录无文章: 04-units"
+    },
+    {
+      "level": "warning",
+      "path": "05-campaign",
+      "line": 0,
+      "code": "W_DOMAIN_EMPTY",
+      "msg": "域目录无文章: 05-campaign"
+    },
+    {
+      "level": "warning",
+      "path": "02-world/W01-blocks-multiblock-anchor.md",
+      "line": 1,
+      "code": "W_SRC_FORMAT",
+      "msg": "src 条目不像 路径:行号 / jar: 形式: MBO/gamedata/v160.7/gamedata.json (jar 反射，447 blocks)"
+    },
+    {
+      "level": "warning",
+      "path": "02-world/W01-blocks-multiblock-anchor.md",
+      "line": 1,
+      "code": "W_DATA_FILE_MISSING",
+      "msg": "data 引用的 00-data 文件尚未生成: 00-data/blocks.json（--strict 或 00-data 落地后自动转 error）"
+    },
+    {
+      "level": "warning",
+      "path": "02-world/W01-blocks-multiblock-anchor.md",
+      "line": 125,
+      "code": "W_NUM_NO_SOURCE",
+      "msg": "数字声明缺来源标记: 其它计数（同一次 jar 反射）：`rotate=true` 92 个、`solid=true` 257 个、`underBullets=true` 40 个、"
+    },
+    {
+      "level": "warning",
+      "path": "02-world/W01-blocks-multiblock-anchor.md",
+      "line": 150,
+      "code": "W_NUM_NO_SOURCE",
+      "msg": "数字声明缺来源标记: 5. **\"8px 是渲染精度\"** → 8px 是**逻辑格**，与屏幕缩放无关；世界坐标 1 格 = 8 世界单位。"
+    },
+    {
+      "level": "warning",
+      "path": "02-world/W01-blocks-multiblock-anchor.md",
+      "line": 1,
+      "code": "W_TOKENS_STALE",
+      "msg": "tokens=1900 与当前估算 937 偏差过大，跑 --write-tokens 更新"
+    },
+    {
+      "level": "warning",
+      "path": "02-world/W02-crafting-recipes.md",
+      "line": 1,
+      "code": "W_SRC_FORMAT",
+      "msg": "src 条目不像 路径:行号 / jar: 形式: MBO/gamedata/v160.7/gamedata.json (jar 反射，33 个带 recipe 的方块)"
+    },
+    {
+      "level": "warning",
+      "path": "02-world/W02-crafting-recipes.md",
+      "line": 1,
+      "code": "W_DATA_FILE_MISSING",
+      "msg": "data 引用的 00-data 文件尚未生成: 00-data/blocks.json（--strict 或 00-data 落地后自动转 error）"
+    },
+    {
+      "level": "warning",
+      "path": "02-world/W02-crafting-recipes.md",
+      "line": 36,
+      "code": "W_NUM_NO_SOURCE",
+      "msg": "数字声明缺来源标记: | `craftTime` | **tick**（1 tick = 1/60 s） | 进度累加 | 周期 = craftTime/60 秒；速率 = 60/c"
+    },
+    {
+      "level": "warning",
+      "path": "02-world/W02-crafting-recipes.md",
+      "line": 118,
+      "code": "W_NUM_NO_SOURCE",
+      "msg": "数字声明缺来源标记: - 带 `recipe` 的方块 **33 个**；`craftTime` 分布（值×个数）：80×6、120×5、30×4、90×2、40×2、20×2、10"
+    },
+    {
+      "level": "warning",
+      "path": "02-world/W02-crafting-recipes.md",
+      "line": 121,
+      "code": "W_NUM_NO_SOURCE",
+      "msg": "数字声明缺来源标记: - 电解器可做质量守恒自检：进水 10/s，出 ozone 4/s + hydrogen 6/s = 10/s（1:1 分解）。"
+    },
+    {
+      "level": "warning",
+      "path": "02-world/W02-crafting-recipes.md",
+      "line": 125,
+      "code": "W_NUM_NO_SOURCE",
+      "msg": "数字声明缺来源标记: - `GenericCrafter.java:40` `public float craftTime = 80f;` —— 默认 80 tick（≈1.33 s"
+    },
+    {
+      "level": "warning",
+      "path": "02-world/W02-crafting-recipes.md",
+      "line": 126,
+      "code": "W_NUM_NO_SOURCE",
+      "msg": "数字声明缺来源标记: - `GenericCrafter.java:45` `warmupSpeed = 0.019f` —— 视觉预热，与产能无关。"
+    },
+    {
+      "level": "warning",
+      "path": "02-world/W02-crafting-recipes.md",
+      "line": 0,
+      "code": "W_NUM_NO_SOURCE",
+      "msg": "另有 6 行数字缺来源标记（同 E/W 略）"
+    },
+    {
+      "level": "warning",
+      "path": "02-world/W02-crafting-recipes.md",
+      "line": 1,
+      "code": "W_TOKENS_STALE",
+      "msg": "tokens=2300 与当前估算 1454 偏差过大，跑 --write-tokens 更新"
+    },
+    {
+      "level": "warning",
+      "path": "02-world/W03-power.md",
+      "line": 1,
+      "code": "W_SRC_FORMAT",
+      "msg": "src 条目不像 路径:行号 / jar: 形式: MBO/gamedata/v160.7/gamedata.json (jar 反射，129 个 hasPower 方块)"
+    },
+    {
+      "level": "warning",
+      "path": "02-world/W03-power.md",
+      "line": 1,
+      "code": "W_DATA_FILE_MISSING",
+      "msg": "data 引用的 00-data 文件尚未生成: 00-data/blocks.json（--strict 或 00-data 落地后自动转 error）"
+    },
+    {
+      "level": "warning",
+      "path": "02-world/W03-power.md",
+      "line": 114,
+      "code": "W_NUM_NO_SOURCE",
+      "msg": "数字声明缺来源标记: 原版**没有**过载烧毁/跳闸，也没有 `powerLoss` 字段（本仓库 v159.3 源码树与 v160.7 反射数据里都搜不到）。所谓\"过载\"只有一种表"
+    },
+    {
+      "level": "warning",
+      "path": "02-world/W03-power.md",
+      "line": 141,
+      "code": "W_NUM_NO_SOURCE",
+      "msg": "数字声明缺来源标记: | pyratite-mixer | 0.2 | 12 |"
+    },
+    {
+      "level": "warning",
+      "path": "02-world/W03-power.md",
+      "line": 142,
+      "code": "W_NUM_NO_SOURCE",
+      "msg": "数字声明缺来源标记: | silicon-smelter | 0.5 | 30 |"
+    },
+    {
+      "level": "warning",
+      "path": "02-world/W03-power.md",
+      "line": 146,
+      "code": "W_NUM_NO_SOURCE",
+      "msg": "数字声明缺来源标记: | power-void（沙盒，吸收一切） | Float.MAX_VALUE ≈ 3.4e38 | 无意义 |"
+    },
+    {
+      "level": "warning",
+      "path": "02-world/W03-power.md",
+      "line": 157,
+      "code": "W_NUM_NO_SOURCE",
+      "msg": "数字声明缺来源标记: 其它计数：`hasPower = true` 的方块 **129 个**（447 个方块中占 28.9%）。"
+    },
+    {
+      "level": "warning",
+      "path": "02-world/W03-power.md",
+      "line": 0,
+      "code": "W_NUM_NO_SOURCE",
+      "msg": "另有 3 行数字缺来源标记（同 E/W 略）"
+    },
+    {
+      "level": "warning",
+      "path": "02-world/W03-power.md",
+      "line": 1,
+      "code": "W_TOKENS_STALE",
+      "msg": "tokens=2400 与当前估算 1450 偏差过大，跑 --write-tokens 更新"
+    },
+    {
+      "level": "warning",
+      "path": "03-combat/C01-damage-pipeline.md",
+      "line": 1,
+      "code": "W_SRC_FORMAT",
+      "msg": "src 条目不像 路径:行号 / jar: 形式: KB/00-data/rt_values_raw.json (mindustry.Vars.minArmorDamage)"
+    },
+    {
+      "level": "warning",
+      "path": "03-combat/C01-damage-pipeline.md",
+      "line": 25,
+      "code": "W_NUM_NO_SOURCE",
+      "msg": "数字声明缺来源标记: 一次命中固定走 6 个阶段：**命中判定 → 伤害数值修饰（穿甲/护甲倍率/护盾上限）→ 护甲减免 → 单位系数（healthMultiplier、rules."
+    },
+    {
+      "level": "warning",
+      "path": "03-combat/C01-damage-pipeline.md",
+      "line": 63,
+      "code": "W_NUM_NO_SOURCE",
+      "msg": "数字声明缺来源标记: 等价写法：**实际伤害 = max(D - A, 0.1·D)**。当 `A ≥ 0.9·D` 时进入\"保底区\"，伤害恒为 `0.1·D`。"
+    },
+    {
+      "level": "warning",
+      "path": "03-combat/C01-damage-pipeline.md",
+      "line": 71,
+      "code": "W_NUM_NO_SOURCE",
+      "msg": "数字声明缺来源标记: - `healthMultiplier`：单位当前 status 乘出来的血量倍率（healthMultiplier 越**大**越硬，因为是除数）。冻结 fr"
+    },
+    {
+      "level": "warning",
+      "path": "03-combat/C01-damage-pipeline.md",
+      "line": 86,
+      "code": "W_NUM_NO_SOURCE",
+      "msg": "数字声明缺来源标记: `damageContinuous(amount)` = `damage(amount * Time.delta)`。**字段里的 damage 是\"每 tic"
+    },
+    {
+      "level": "warning",
+      "path": "03-combat/C01-damage-pipeline.md",
+      "line": 110,
+      "code": "W_NUM_NO_SOURCE",
+      "msg": "数字声明缺来源标记: - `entities/Damage.java:652-661`：`calculateDamage` 的 0.4 falloff 与 `applyArmor`。"
+    },
+    {
+      "level": "warning",
+      "path": "03-combat/C01-damage-pipeline.md",
+      "line": 0,
+      "code": "W_NUM_NO_SOURCE",
+      "msg": "另有 6 行数字缺来源标记（同 E/W 略）"
+    },
+    {
+      "level": "warning",
+      "path": "03-combat/C01-damage-pipeline.md",
+      "line": 1,
+      "code": "W_TOKENS_STALE",
+      "msg": "tokens=2200 与当前估算 774 偏差过大，跑 --write-tokens 更新"
+    },
+    {
+      "level": "warning",
+      "path": "03-combat/C02-turrets.md",
+      "line": 1,
+      "code": "W_SRC_FORMAT",
+      "msg": "src 条目不像 路径:行号 / jar: 形式: MBO/gamedata/v160.7/gamedata.json (jar 反射 raw 字段，28 个 turret)"
+    },
+    {
+      "level": "warning",
+      "path": "03-combat/C02-turrets.md",
+      "line": 1,
+      "code": "W_DATA_FILE_MISSING",
+      "msg": "data 引用的 00-data 文件尚未生成: 00-data/turrets.json（--strict 或 00-data 落地后自动转 error）"
+    },
+    {
+      "level": "warning",
+      "path": "03-combat/C02-turrets.md",
+      "line": 24,
+      "code": "W_NUM_NO_SOURCE",
+      "msg": "数字声明缺来源标记: 炮塔的全部节奏由三个计数器构成：**reloadCounter（装填）→ 满则开火 → 冷却期 cooldownTime**；冷却液不是\"加速装填百分比\"，而是"
+    },
+    {
+      "level": "warning",
+      "path": "03-combat/C02-turrets.md",
+      "line": 47,
+      "code": "W_NUM_NO_SOURCE",
+      "msg": "数字声明缺来源标记: 代入 duo（`coolant.amount = 0.1`，`coolantMultiplier = 10`）："
+    },
+    {
+      "level": "warning",
+      "path": "03-combat/C02-turrets.md",
+      "line": 51,
+      "code": "W_NUM_NO_SOURCE",
+      "msg": "数字声明缺来源标记: | 无 | — | 0 | 1.0× | 20 tick | 100% |"
+    },
+    {
+      "level": "warning",
+      "path": "03-combat/C02-turrets.md",
+      "line": 52,
+      "code": "W_NUM_NO_SOURCE",
+      "msg": "数字声明缺来源标记: | water | 0.4 | 0.10×0.4×10 = 0.4 | 1.4× | ≈14.3 tick | 140% |"
+    },
+    {
+      "level": "warning",
+      "path": "03-combat/C02-turrets.md",
+      "line": 53,
+      "code": "W_NUM_NO_SOURCE",
+      "msg": "数字声明缺来源标记: | oil | 0.7 | 0.7 | 1.7× | ≈11.8 tick | 170% |"
+    },
+    {
+      "level": "warning",
+      "path": "03-combat/C02-turrets.md",
+      "line": 0,
+      "code": "W_NUM_NO_SOURCE",
+      "msg": "另有 35 行数字缺来源标记（同 E/W 略）"
+    },
+    {
+      "level": "warning",
+      "path": "03-combat/C02-turrets.md",
+      "line": 1,
+      "code": "W_TOKENS_STALE",
+      "msg": "tokens=2600 与当前估算 983 偏差过大，跑 --write-tokens 更新"
+    },
+    {
+      "level": "warning",
+      "path": "03-combat/C03-bullets.md",
+      "line": 1,
+      "code": "W_SRC_FORMAT",
+      "msg": "src 条目不像 路径:行号 / jar: 形式: MBO/gamedata/v160.7/gamedata.json (28 turret raw)"
+    },
+    {
+      "level": "warning",
+      "path": "03-combat/C03-bullets.md",
+      "line": 1,
+      "code": "W_DATA_FILE_MISSING",
+      "msg": "data 引用的 00-data 文件尚未生成: 00-data/bullets.json（--strict 或 00-data 落地后自动转 error）"
+    },
+    {
+      "level": "warning",
+      "path": "03-combat/C03-bullets.md",
+      "line": 35,
+      "code": "W_NUM_NO_SOURCE",
+      "msg": "数字声明缺来源标记: - `speed` 单位是 **px/tick**（1 tile = 8px，60 tick = 1s）。速度 3.5 → 210 px/s ≈ 26 格/s。"
+    },
+    {
+      "level": "warning",
+      "path": "03-combat/C03-bullets.md",
+      "line": 36,
+      "code": "W_NUM_NO_SOURCE",
+      "msg": "数字声明缺来源标记: - `lifetime` 单位是 **tick**。dagger 的 basic 弹 speed 2.5、life 60 → 150px ≈ 18.75 格。"
+    },
+    {
+      "level": "warning",
+      "path": "03-combat/C03-bullets.md",
+      "line": 37,
+      "code": "W_NUM_NO_SOURCE",
+      "msg": "数字声明缺来源标记: - **drag > 0 时射程会饱和到 `speed/drag`**，永远达不到 speed×lifetime：speed=2.5、drag=0.1、life"
+    },
+    {
+      "level": "warning",
+      "path": "03-combat/C03-bullets.md",
+      "line": 61,
+      "code": "W_NUM_NO_SOURCE",
+      "msg": "数字声明缺来源标记: **溅射半径是\"像素\"**（要除 8 才是格）：fortress 的 artillery `splash 80 r35` = 35px ≈ 4.4 格。"
+    },
+    {
+      "level": "warning",
+      "path": "03-combat/C03-bullets.md",
+      "line": 83,
+      "code": "W_NUM_NO_SOURCE",
+      "msg": "数字声明缺来源标记: | `lifetime` | 40 tick | BulletType.java:33 |"
+    },
+    {
+      "level": "warning",
+      "path": "03-combat/C03-bullets.md",
+      "line": 0,
+      "code": "W_NUM_NO_SOURCE",
+      "msg": "另有 7 行数字缺来源标记（同 E/W 略）"
+    },
+    {
+      "level": "warning",
+      "path": "03-combat/C03-bullets.md",
+      "line": 1,
+      "code": "W_TOKENS_STALE",
+      "msg": "tokens=2400 与当前估算 746 偏差过大，跑 --write-tokens 更新"
+    },
+    {
+      "level": "warning",
+      "path": "03-combat/C04-status.md",
+      "line": 1,
+      "code": "W_SRC_FORMAT",
+      "msg": "src 条目不像 路径:行号 / jar: 形式: KB/00-data/rt_list_StatusEffect.json (v160.7 反射字段表)"
+    },
+    {
+      "level": "warning",
+      "path": "03-combat/C04-status.md",
+      "line": 1,
+      "code": "W_DATA_FILE_MISSING",
+      "msg": "data 引用的 00-data 文件尚未生成: 00-data/status.json（--strict 或 00-data 落地后自动转 error）"
+    },
+    {
+      "level": "warning",
+      "path": "03-combat/C04-status.md",
+      "line": 37,
+      "code": "W_NUM_NO_SOURCE",
+      "msg": "数字声明缺来源标记: - **时长单位是 tick**：`60*8 = 480` 就是 8 秒。"
+    },
+    {
+      "level": "warning",
+      "path": "03-combat/C04-status.md",
+      "line": 58,
+      "code": "W_NUM_NO_SOURCE",
+      "msg": "数字声明缺来源标记: **healthMultiplier 越\"小\"越脆**（因为它作为除数出现在伤害管线里：`applyArmor(...)/healthMultiplier`）。"
+    },
+    {
+      "level": "warning",
+      "path": "03-combat/C04-status.md",
+      "line": 64,
+      "code": "W_NUM_NO_SOURCE",
+      "msg": "数字声明缺来源标记: | burning | `damage = 0.167`/tick | 10.0 |"
+    },
+    {
+      "level": "warning",
+      "path": "03-combat/C04-status.md",
+      "line": 65,
+      "code": "W_NUM_NO_SOURCE",
+      "msg": "数字声明缺来源标记: | melting | `damage = 0.3`/tick | 18.0 |"
+    },
+    {
+      "level": "warning",
+      "path": "03-combat/C04-status.md",
+      "line": 66,
+      "code": "W_NUM_NO_SOURCE",
+      "msg": "数字声明缺来源标记: | corroded | `intervalDamage = 20`，`intervalDamageTime = 15` tick | 20/15×60 = 8"
+    },
+    {
+      "level": "warning",
+      "path": "03-combat/C04-status.md",
+      "line": 0,
+      "code": "W_NUM_NO_SOURCE",
+      "msg": "另有 7 行数字缺来源标记（同 E/W 略）"
+    },
+    {
+      "level": "warning",
+      "path": "03-combat/C04-status.md",
+      "line": 1,
+      "code": "W_TOKENS_STALE",
+      "msg": "tokens=2500 与当前估算 747 偏差过大，跑 --write-tokens 更新"
+    },
+    {
+      "level": "warning",
+      "path": "06-mlog/M01-执行模型总览.md",
+      "line": 47,
+      "code": "W_NUM_NO_SOURCE",
+      "msg": "数字声明缺来源标记: | 长期平均吞吐 = `ipt` 条/tick；60 tick/s ⇒ `ipt×60` 条/秒 | 由上式取稳态 |"
+    },
+    {
+      "level": "warning",
+      "path": "06-mlog/M01-执行模型总览.md",
+      "line": 1,
+      "code": "W_TOKENS_STALE",
+      "msg": "tokens=0 与当前估算 595 偏差过大，跑 --write-tokens 更新"
+    },
+    {
+      "level": "warning",
+      "path": "06-mlog/M02-变量与作用域.md",
+      "line": 1,
+      "code": "W_DATA_FRAGMENT",
+      "msg": "data 片段 instructions[name=read] 不在 06-mlog/instructions.json 的顶层键中"
+    },
+    {
+      "level": "warning",
+      "path": "06-mlog/M02-变量与作用域.md",
+      "line": 55,
+      "code": "W_NUM_NO_SOURCE",
+      "msg": "数字声明缺来源标记: - 0.00001 阈值只出现在 bool()，num() 没有阈值。"
+    },
+    {
+      "level": "warning",
+      "path": "06-mlog/M02-变量与作用域.md",
+      "line": 63,
+      "code": "W_NUM_NO_SOURCE",
+      "msg": "数字声明缺来源标记: ### 5. 内建变量（v159.3 源码口径：34 个只读 + 3 个特殊）"
+    },
+    {
+      "level": "warning",
+      "path": "06-mlog/M02-变量与作用域.md",
+      "line": 109,
+      "code": "W_NUM_NO_SOURCE",
+      "msg": "数字声明缺来源标记: - ✅【E】sensor_attrs.json 记录 @enabled/@color 是 v160.7 jar 新增（added_2026_10_25），v15"
+    },
+    {
+      "level": "warning",
+      "path": "06-mlog/M02-变量与作用域.md",
+      "line": 112,
+      "code": "W_NUM_NO_SOURCE",
+      "msg": "数字声明缺来源标记: - ✅【E】op select 在 v160.7 被静默替换为 noop（断言表 L1-25）：不报错、下标不变、结果变量保持旧值。"
+    },
+    {
+      "level": "warning",
+      "path": "06-mlog/M02-变量与作用域.md",
+      "line": 1,
+      "code": "W_TOKENS_STALE",
+      "msg": "tokens=0 与当前估算 686 偏差过大，跑 --write-tokens 更新"
+    },
+    {
+      "level": "warning",
+      "path": "06-mlog/M03-控制流.md",
+      "line": 1,
+      "code": "W_DATA_FRAGMENT",
+      "msg": "data 片段 instructions[name=jump] 不在 06-mlog/instructions.json 的顶层键中"
+    },
+    {
+      "level": "warning",
+      "path": "06-mlog/M03-控制流.md",
+      "line": 28,
+      "code": "W_NUM_NO_SOURCE",
+      "msg": "数字声明缺来源标记: ### 1. jump 的 8 个条件（ConditionOp 枚举，v160.7）"
+    },
+    {
+      "level": "warning",
+      "path": "06-mlog/M03-控制流.md",
+      "line": 81,
+      "code": "W_NUM_NO_SOURCE",
+      "msg": "数字声明缺来源标记: - 计时单位是 **tick**，内部累加 §curTime += Time.delta/60f§（LExecutor.java:1206-1234）；服务器 "
+    },
+    {
+      "level": "warning",
+      "path": "06-mlog/M03-控制流.md",
+      "line": 83,
+      "code": "W_NUM_NO_SOURCE",
+      "msg": "数字声明缺来源标记: - 因此「精确到毫秒的节拍器」做不到；要更细只能用多处理器错相位。断言表 L1-29 已确认粒度 1 tick。"
+    },
+    {
+      "level": "warning",
+      "path": "06-mlog/M03-控制流.md",
+      "line": 106,
+      "code": "W_NUM_NO_SOURCE",
+      "msg": "数字声明缺来源标记: - ✅【E】§wait 0§ 只让出不消耗预算（L1-30）；攒满突发池需 5 tick ≈ 0.0833 s（L1-31）。"
+    },
+    {
+      "level": "warning",
+      "path": "06-mlog/M03-控制流.md",
+      "line": 113,
+      "code": "W_NUM_NO_SOURCE",
+      "msg": "数字声明缺来源标记: 3. 「wait 能精确到帧」——精度 1 tick（≈16.7 ms），且受服务器 tick 率影响。"
+    },
+    {
+      "level": "warning",
+      "path": "06-mlog/M03-控制流.md",
+      "line": 1,
+      "code": "W_TOKENS_STALE",
+      "msg": "tokens=0 与当前估算 506 偏差过大，跑 --write-tokens 更新"
+    },
+    {
+      "level": "warning",
+      "path": "06-mlog/M04-读写与感知.md",
+      "line": 46,
+      "code": "W_NUM_NO_SOURCE",
+      "msg": "数字声明缺来源标记: ### 2. sensor 可读属性清单（v160.7 jar 反射：LAccess 77 项）"
+    },
+    {
+      "level": "warning",
+      "path": "06-mlog/M04-读写与感知.md",
+      "line": 109,
+      "code": "W_NUM_NO_SOURCE",
+      "msg": "数字声明缺来源标记: | sensor_attrs.json | 77 项 ACC_ENUM 反射结果（v160.7） |"
+    },
+    {
+      "level": "warning",
+      "path": "06-mlog/M04-读写与感知.md",
+      "line": 1,
+      "code": "W_TOKENS_STALE",
+      "msg": "tokens=0 与当前估算 627 偏差过大，跑 --write-tokens 更新"
+    },
+    {
+      "level": "warning",
+      "path": "06-mlog/M05-绘制与文本.md",
+      "line": 1,
+      "code": "W_DATA_FRAGMENT",
+      "msg": "data 片段 instructions[name=draw] 不在 06-mlog/instructions.json 的顶层键中"
+    },
+    {
+      "level": "warning",
+      "path": "06-mlog/M05-绘制与文本.md",
+      "line": 1,
+      "code": "W_TOKENS_STALE",
+      "msg": "tokens=0 与当前估算 704 偏差过大，跑 --write-tokens 更新"
+    },
+    {
+      "level": "warning",
+      "path": "06-mlog/M06-世界交互.md",
+      "line": 1,
+      "code": "W_TOKENS_STALE",
+      "msg": "tokens=0 与当前估算 624 偏差过大，跑 --write-tokens 更新"
+    },
+    {
+      "level": "warning",
+      "path": "06-mlog/M07-单位与逻辑控制.md",
+      "line": 1,
+      "code": "W_DATA_FRAGMENT",
+      "msg": "data 片段 instructions[name=ucontrol] 不在 06-mlog/instructions.json 的顶层键中"
+    },
+    {
+      "level": "warning",
+      "path": "06-mlog/M07-单位与逻辑控制.md",
+      "line": 101,
+      "code": "W_NUM_NO_SOURCE",
+      "msg": "数字声明缺来源标记: - ✅【E】§op select§ 被静默换成 noop（L1-25），所以「用 select 二选一改单位」在 v160.7 不成立。"
+    },
+    {
+      "level": "warning",
+      "path": "06-mlog/M07-单位与逻辑控制.md",
+      "line": 1,
+      "code": "W_TOKENS_STALE",
+      "msg": "tokens=0 与当前估算 550 偏差过大，跑 --write-tokens 更新"
+    },
+    {
+      "level": "warning",
+      "path": "06-mlog/M08-性能与限制.md",
+      "line": 52,
+      "code": "W_NUM_NO_SOURCE",
+      "msg": "数字声明缺来源标记: 实测口径：micro（ipt=2）从空到攒满 5×2=10 点需 **5 tick ≈ 0.0833 s**（断言表 L1-31，已实测）。"
+    },
+    {
+      "level": "warning",
+      "path": "06-mlog/M08-性能与限制.md",
+      "line": 58,
+      "code": "W_NUM_NO_SOURCE",
+      "msg": "数字声明缺来源标记: | 等 1 帧 | §wait 0§（当下 tick 让出） | 0 tick，但**不消耗预算** |"
+    },
+    {
+      "level": "warning",
+      "path": "06-mlog/M08-性能与限制.md",
+      "line": 59,
+      "code": "W_NUM_NO_SOURCE",
+      "msg": "数字声明缺来源标记: | 等 1/60 s | §wait 1§ | ±1 tick（受服务器 tick 率影响） |"
+    },
+    {
+      "level": "warning",
+      "path": "06-mlog/M08-性能与限制.md",
+      "line": 60,
+      "code": "W_NUM_NO_SOURCE",
+      "msg": "数字声明缺来源标记: | 精确节拍器 | 做不到 | 精度 1 tick（L1-29 已实测） |"
+    },
+    {
+      "level": "warning",
+      "path": "06-mlog/M08-性能与限制.md",
+      "line": 62,
+      "code": "W_NUM_NO_SOURCE",
+      "msg": "数字声明缺来源标记: §wait§ 用 §curTime += Time.delta/60f§ 累积（LExecutor.java:1206-1234），所以在 60 tick/s "
+    },
+    {
+      "level": "warning",
+      "path": "06-mlog/M08-性能与限制.md",
+      "line": 1,
+      "code": "W_TOKENS_STALE",
+      "msg": "tokens=0 与当前估算 522 偏差过大，跑 --write-tokens 更新"
+    },
+    {
+      "level": "warning",
+      "path": "07-patterns/P01-architecture.md",
+      "line": 1,
+      "code": "W_DATA_FILE_MISSING",
+      "msg": "data 引用的 00-data 文件尚未生成: ../<corpus-dir>/index.json（--strict 或 00-data 落地后自动转 error）"
+    },
+    {
+      "level": "warning",
+      "path": "07-patterns/P01-architecture.md",
+      "line": 35,
+      "code": "W_NUM_NO_SOURCE",
+      "msg": "数字声明缺来源标记: 1. 吞吐：额定条数/秒 = 60 x ipt（1 tick = 1/60 s）。"
+    },
+    {
+      "level": "warning",
+      "path": "07-patterns/P01-architecture.md",
+      "line": 54,
+      "code": "W_NUM_NO_SOURCE",
+      "msg": "数字声明缺来源标记: | micro-processor | 2 | 120 | 10 格 | 1x1 | 最省，适合小状态机 |"
+    },
+    {
+      "level": "warning",
+      "path": "07-patterns/P01-architecture.md",
+      "line": 55,
+      "code": "W_NUM_NO_SOURCE",
+      "msg": "数字声明缺来源标记: | logic-processor | 8 | 480 | 22 格 | 2x2 | 中量搬运/兵控 |"
+    },
+    {
+      "level": "warning",
+      "path": "07-patterns/P01-architecture.md",
+      "line": 56,
+      "code": "W_NUM_NO_SOURCE",
+      "msg": "数字声明缺来源标记: | hyper-processor | 25 | 1500 | 42 格 | 3x3 | 需冷却液，扛计算量 |"
+    },
+    {
+      "level": "warning",
+      "path": "07-patterns/P01-architecture.md",
+      "line": 75,
+      "code": "W_NUM_NO_SOURCE",
+      "msg": "数字声明缺来源标记: | micro-processor | 4823 | 83.5% |"
+    },
+    {
+      "level": "warning",
+      "path": "07-patterns/P01-architecture.md",
+      "line": 0,
+      "code": "W_NUM_NO_SOURCE",
+      "msg": "另有 5 行数字缺来源标记（同 E/W 略）"
+    },
+    {
+      "level": "warning",
+      "path": "07-patterns/P01-architecture.md",
+      "line": 1,
+      "code": "W_TOKENS_STALE",
+      "msg": "tokens=0 与当前估算 575 偏差过大，跑 --write-tokens 更新"
+    },
+    {
+      "level": "warning",
+      "path": "07-patterns/P02-state-machine.md",
+      "line": 1,
+      "code": "W_TOKENS_STALE",
+      "msg": "tokens=0 与当前估算 579 偏差过大，跑 --write-tokens 更新"
+    },
+    {
+      "level": "warning",
+      "path": "07-patterns/P03-comm-bus.md",
+      "line": 1,
+      "code": "W_DATA_FILE_MISSING",
+      "msg": "data 引用的 00-data 文件尚未生成: ../<corpus-dir>/idioms.json（--strict 或 00-data 落地后自动转 error）"
+    },
+    {
+      "level": "warning",
+      "path": "07-patterns/P03-comm-bus.md",
+      "line": 29,
+      "code": "W_NUM_NO_SOURCE",
+      "msg": "数字声明缺来源标记: | 数字索引 0..N-1 | 内存建筑（cell / bank） | 数字（引用不可依赖） | cell 64 格 / bank 512 格 |"
+    },
+    {
+      "level": "warning",
+      "path": "07-patterns/P03-comm-bus.md",
+      "line": 42,
+      "code": "W_NUM_NO_SOURCE",
+      "msg": "数字声明缺来源标记: - 同一 tick 内写入后立刻读取不保证读到新值（处理器按 @ipt 预算交错执行，且 sensor 有 30 tick 刷新窗口）。"
+    },
+    {
+      "level": "warning",
+      "path": "07-patterns/P03-comm-bus.md",
+      "line": 58,
+      "code": "W_NUM_NO_SOURCE",
+      "msg": "数字声明缺来源标记: - LExecutor.java:761-763 —— 注释原文 fixed 30 tick interval，timer.get(30f) 决定 sensor"
+    },
+    {
+      "level": "warning",
+      "path": "07-patterns/P03-comm-bus.md",
+      "line": 1,
+      "code": "W_TOKENS_STALE",
+      "msg": "tokens=0 与当前估算 566 偏差过大，跑 --write-tokens 更新"
+    },
+    {
+      "level": "warning",
+      "path": "07-patterns/P04-data-structures.md",
+      "line": 1,
+      "code": "W_DATA_FILE_MISSING",
+      "msg": "data 引用的 00-data 文件尚未生成: ../<corpus-dir>/idioms.json（--strict 或 00-data 落地后自动转 error）"
+    },
+    {
+      "level": "warning",
+      "path": "07-patterns/P04-data-structures.md",
+      "line": 51,
+      "code": "W_NUM_NO_SOURCE",
+      "msg": "数字声明缺来源标记: 画布成本可算：64x64 = 4096 像素，每像素一条 draw 指令 → 画满一帧 4096 条；hyper-processor 25 ipt 需要 409"
+    },
+    {
+      "level": "warning",
+      "path": "07-patterns/P04-data-structures.md",
+      "line": 61,
+      "code": "W_NUM_NO_SOURCE",
+      "msg": "数字声明缺来源标记: **反例（数组越界不报错）**：cell 只有 64 格，索引 64 以上读写静默无效（读到 0、写入丢弃）。表现是「表尾几项永远是 0」，排查时先打印索引范围"
+    },
+    {
+      "level": "warning",
+      "path": "07-patterns/P04-data-structures.md",
+      "line": 1,
+      "code": "W_TOKENS_STALE",
+      "msg": "tokens=0 与当前估算 538 偏差过大，跑 --write-tokens 更新"
+    },
+    {
+      "level": "warning",
+      "path": "07-patterns/P05-radar-targeting.md",
+      "line": 20,
+      "code": "W_NUM_NO_SOURCE",
+      "msg": "数字声明缺来源标记: radar 一条指令就完成「筛选 + 排序 + 取第一个」，因此索敌的正确写法是「用 filter 把不可能的目标排除掉、用 sort 决定优先级、用 orde"
+    },
+    {
+      "level": "warning",
+      "path": "07-patterns/P05-radar-targeting.md",
+      "line": 45,
+      "code": "W_NUM_NO_SOURCE",
+      "msg": "数字声明缺来源标记: 注意：mindustry-blueprint/PATTERNS.md:1300 附近写的是「radar/uradar 结果缓存 40 tick」，与源码 LEx"
+    },
+    {
+      "level": "warning",
+      "path": "07-patterns/P05-radar-targeting.md",
+      "line": 49,
+      "code": "W_NUM_NO_SOURCE",
+      "msg": "数字声明缺来源标记: - LExecutor.java:761 注释 `//timers update on a fixed 30 tick interval`；:763 `time"
+    },
+    {
+      "level": "warning",
+      "path": "07-patterns/P05-radar-targeting.md",
+      "line": 75,
+      "code": "W_NUM_NO_SOURCE",
+      "msg": "数字声明缺来源标记: **反例（把缓存当实时）**：雷达结果 30 tick 才重算一次，目标在 0.5 s 内移动/死亡，读到的是旧引用。必须先判 null 再用，且对「目标已死」"
+    },
+    {
+      "level": "warning",
+      "path": "07-patterns/P05-radar-targeting.md",
+      "line": 77,
+      "code": "W_NUM_NO_SOURCE",
+      "msg": "数字声明缺来源标记: **反例（uradar 掉控）**：uradar 不刷新 controlTimer，连续使用超过 10 s（600 帧）单位会脱离逻辑控回到 AI。修法：每轮插"
+    },
+    {
+      "level": "warning",
+      "path": "07-patterns/P05-radar-targeting.md",
+      "line": 1,
+      "code": "W_TOKENS_STALE",
+      "msg": "tokens=0 与当前估算 520 偏差过大，跑 --write-tokens 更新"
+    },
+    {
+      "level": "warning",
+      "path": "07-patterns/P06-performance.md",
+      "line": 62,
+      "code": "W_NUM_NO_SOURCE",
+      "msg": "数字声明缺来源标记: - LExecutor.java:763 —— 30 tick 刷新窗口，说明「不是所有 sensor 都是每 tick 真实读取」。"
+    },
+    {
+      "level": "warning",
+      "path": "07-patterns/P06-performance.md",
+      "line": 81,
+      "code": "W_NUM_NO_SOURCE",
+      "msg": "数字声明缺来源标记: **反例（每 tick 全量遍历 100 个炮塔）**：2 ipt 的 micro 一圈要 50 tick，实际射速被逻辑拖慢，且卡顿时积压到 5 x ipt "
+    },
+    {
+      "level": "warning",
+      "path": "07-patterns/P06-performance.md",
+      "line": 100,
+      "code": "W_NUM_NO_SOURCE",
+      "msg": "数字声明缺来源标记: - PATTERN.TARGET.001 雷达与索敌（30 tick 缓存）"
+    },
+    {
+      "level": "warning",
+      "path": "07-patterns/P06-performance.md",
+      "line": 1,
+      "code": "W_TOKENS_STALE",
+      "msg": "tokens=0 与当前估算 621 偏差过大，跑 --write-tokens 更新"
+    },
+    {
+      "level": "warning",
+      "path": "08-evidence/anti-patterns.md",
+      "line": 1,
+      "code": "W_SRC_FORMAT",
+      "msg": "src 条目不像 路径:行号 / jar: 形式: logic-corpus/_procs/*.mlog（1078 文件实测扫描）"
+    },
+    {
+      "level": "warning",
+      "path": "08-evidence/anti-patterns.md",
+      "line": 21,
+      "code": "W_NUM_NO_SOURCE",
+      "msg": "数字声明缺来源标记: 语料里 83.6% 的语句是绘制、67.7% 的一元运算多写了参数、17.8% 的文件里有自跳死循环 —— 这三条占了真实蓝图 bug 的绝大多数，而且全部可以"
+    },
+    {
+      "level": "warning",
+      "path": "08-evidence/anti-patterns.md",
+      "line": 36,
+      "code": "W_NUM_NO_SOURCE",
+      "msg": "数字声明缺来源标记: | draw 语句 | 325,586 | 占 389,341 行的 83.6% |"
+    },
+    {
+      "level": "warning",
+      "path": "08-evidence/anti-patterns.md",
+      "line": 37,
+      "code": "W_NUM_NO_SOURCE",
+      "msg": "数字声明缺来源标记: | @counter 引用 | 3,207 | 分布在 160/1078 文件（14.8%） |"
+    },
+    {
+      "level": "warning",
+      "path": "08-evidence/anti-patterns.md",
+      "line": 51,
+      "code": "W_NUM_NO_SOURCE",
+      "msg": "数字声明缺来源标记: - LExecutor.java:761-763 —— sensor/radar 结果 30 tick 刷新，是「读到旧值」的定量根因。"
+    },
+    {
+      "level": "warning",
+      "path": "08-evidence/anti-patterns.md",
+      "line": 81,
+      "code": "W_NUM_NO_SOURCE",
+      "msg": "数字声明缺来源标记: - 症状：2 ipt 的 micro 每 tick 遍历 100 个炮塔，一圈 50 tick，射速被逻辑拖慢。"
+    },
+    {
+      "level": "warning",
+      "path": "08-evidence/anti-patterns.md",
+      "line": 0,
+      "code": "W_NUM_NO_SOURCE",
+      "msg": "另有 5 行数字缺来源标记（同 E/W 略）"
+    },
+    {
+      "level": "warning",
+      "path": "08-evidence/anti-patterns.md",
+      "line": 1,
+      "code": "W_TOKENS_STALE",
+      "msg": "tokens=0 与当前估算 1431 偏差过大，跑 --write-tokens 更新"
+    },
+    {
+      "level": "warning",
+      "path": "08-evidence/README.md",
+      "line": 1,
+      "code": "W_SRC_FORMAT",
+      "msg": "src 条目不像 路径:行号 / jar: 形式: knowledge/08-evidence/claims.jsonl"
+    },
+    {
+      "level": "warning",
+      "path": "08-evidence/README.md",
+      "line": 1,
+      "code": "W_SRC_FORMAT",
+      "msg": "src 条目不像 路径:行号 / jar: 形式: docs/断言表.md"
+    },
+    {
+      "level": "warning",
+      "path": "08-evidence/README.md",
+      "line": 1,
+      "code": "W_NO_COUNTEREXAMPLE",
+      "msg": "实测与反例 / 常见误解 两节实质内容过少（契约要求每篇至少一个反例）"
+    },
+    {
+      "level": "warning",
+      "path": "08-evidence/README.md",
+      "line": 1,
+      "code": "W_TOKENS_STALE",
+      "msg": "tokens=700 与当前估算 1 偏差过大，跑 --write-tokens 更新"
+    },
+    {
+      "level": "warning",
+      "path": "02-world/W01-blocks-multiblock-anchor.md",
+      "line": 154,
+      "code": "W_REF_UNKNOWN",
+      "msg": "相关 引用的 ID 在库中不存在: WORLD.LOGISTICS.001"
+    },
+    {
+      "level": "warning",
+      "path": "02-world/W01-blocks-multiblock-anchor.md",
+      "line": 155,
+      "code": "W_REF_UNKNOWN",
+      "msg": "相关 引用的 ID 在库中不存在: WORLD.PAYLOAD.001"
+    },
+    {
+      "level": "warning",
+      "path": "02-world/W01-blocks-multiblock-anchor.md",
+      "line": 156,
+      "code": "W_REF_UNKNOWN",
+      "msg": "相关 引用的 ID 在库中不存在: WORLD.SANDBOX.001"
+    },
+    {
+      "level": "warning",
+      "path": "02-world/W02-crafting-recipes.md",
+      "line": 162,
+      "code": "W_REF_UNKNOWN",
+      "msg": "相关 引用的 ID 在库中不存在: WORLD.LIQUIDS.001"
+    },
+    {
+      "level": "warning",
+      "path": "02-world/W02-crafting-recipes.md",
+      "line": 163,
+      "code": "W_REF_UNKNOWN",
+      "msg": "相关 引用的 ID 在库中不存在: WORLD.HEAT.001"
+    },
+    {
+      "level": "warning",
+      "path": "02-world/W02-crafting-recipes.md",
+      "line": 164,
+      "code": "W_REF_UNKNOWN",
+      "msg": "相关 引用的 ID 在库中不存在: WORLD.LOGISTICS.001"
+    },
+    {
+      "level": "warning",
+      "path": "02-world/W03-power.md",
+      "line": 196,
+      "code": "W_REF_UNKNOWN",
+      "msg": "相关 引用的 ID 在库中不存在: WORLD.STORAGE.001"
+    },
+    {
+      "level": "warning",
+      "path": "02-world/W03-power.md",
+      "line": 197,
+      "code": "W_REF_UNKNOWN",
+      "msg": "相关 引用的 ID 在库中不存在: WORLD.HEAT.001"
+    },
+    {
+      "level": "warning",
+      "path": "02-world/W03-power.md",
+      "line": 198,
+      "code": "W_REF_UNKNOWN",
+      "msg": "相关 引用的 ID 在库中不存在: WORLD.LOGISTICS.001"
+    },
+    {
+      "level": "warning",
+      "path": "02-world/W03-power.md",
+      "line": 199,
+      "code": "W_REF_UNKNOWN",
+      "msg": "相关 引用的 ID 在库中不存在: WORLD.SANDBOX.001"
+    },
+    {
+      "level": "warning",
+      "path": "03-combat/C01-damage-pipeline.md",
+      "line": 137,
+      "code": "W_REF_UNKNOWN",
+      "msg": "相关 引用的 ID 在库中不存在: COMBAT.ARMOR.001"
+    },
+    {
+      "level": "warning",
+      "path": "03-combat/C01-damage-pipeline.md",
+      "line": 140,
+      "code": "W_REF_UNKNOWN",
+      "msg": "相关 引用的 ID 在库中不存在: COMBAT.NUMBERS.001"
+    },
+    {
+      "level": "warning",
+      "path": "03-combat/C02-turrets.md",
+      "line": 168,
+      "code": "W_REF_UNKNOWN",
+      "msg": "相关 引用的 ID 在库中不存在: COMBAT.NUMBERS.001"
+    },
+    {
+      "level": "warning",
+      "path": "03-combat/C03-bullets.md",
+      "line": 147,
+      "code": "W_REF_UNKNOWN",
+      "msg": "相关 引用的 ID 在库中不存在: COMBAT.NUMBERS.001"
+    },
+    {
+      "level": "warning",
+      "path": "03-combat/C04-status.md",
+      "line": 151,
+      "code": "W_REF_UNKNOWN",
+      "msg": "相关 引用的 ID 在库中不存在: COMBAT.ARMOR.001"
+    },
+    {
+      "level": "warning",
+      "path": "03-combat/C04-status.md",
+      "line": 152,
+      "code": "W_REF_UNKNOWN",
+      "msg": "相关 引用的 ID 在库中不存在: UNIT.ABILITY.001"
+    },
+    {
+      "level": "warning",
+      "path": "03-combat/C04-status.md",
+      "line": 153,
+      "code": "W_REF_UNKNOWN",
+      "msg": "相关 引用的 ID 在库中不存在: UNIT.MOVE.001"
+    },
+    {
+      "level": "warning",
+      "path": "07-patterns/P01-architecture.md",
+      "line": 95,
+      "code": "W_REF_UNKNOWN",
+      "msg": "相关 引用的 ID 在库中不存在: EXEC.PROCESSOR.001"
+    },
+    {
+      "level": "warning",
+      "path": "00-data/rt_list_Difficulty.json",
+      "line": 1,
+      "code": "W_DATA_RECORD",
+      "msg": "1/1 条记录缺 id/src/ver 之一，例: {'$VALUES': {'const': None, 'default': None, 'desc': '[Lmindustry/game/Difficulty;'}, 'all': {'const': None, 'default': "
+    },
+    {
+      "level": "warning",
+      "path": "00-data/rt_list_LogicBlock.json",
+      "line": 1,
+      "code": "W_DATA_RECORD",
+      "msg": "1/1 条记录缺 id/src/ver 之一，例: {'instructionsPerTick': {'const': None, 'default': 1, 'desc': 'I'}, 'maxByteLen': {'const': 102400, 'default': None, 'de"
+    },
+    {
+      "level": "warning",
+      "path": "00-data/rt_list_Rules.json",
+      "line": 1,
+      "code": "W_DATA_RECORD",
+      "msg": "1/1 条记录缺 id/src/ver 之一，例: {'airUseSpawns': {'const': None, 'default': 0, 'desc': 'Z'}, 'allowCoreUnloaders': {'const': None, 'default': 1, 'desc':"
+    },
+    {
+      "level": "warning",
+      "path": "00-data/rt_list_SpawnGroup.json",
+      "line": 1,
+      "code": "W_DATA_RECORD",
+      "msg": "1/1 条记录缺 id/src/ver 之一，例: {'begin': {'const': None, 'default': None, 'desc': 'I'}, 'effect': {'const': None, 'default': None, 'desc': 'Lmindustry/"
+    },
+    {
+      "level": "warning",
+      "path": "00-data/rt_list_StatusEffect.json",
+      "line": 1,
+      "code": "W_DATA_RECORD",
+      "msg": "1/1 条记录缺 id/src/ver 之一，例: {'affinities': {'const': None, 'default': None, 'desc': 'Larc/struct/ObjectSet;'}, 'applyColor': {'const': None, 'defaul"
+    },
+    {
+      "level": "warning",
+      "path": "00-data/rt_list_WaveSpawner.json",
+      "line": 1,
+      "code": "W_DATA_RECORD",
+      "msg": "1/1 条记录缺 id/src/ver 之一，例: {'any': {'const': None, 'default': 0, 'desc': 'Z'}, 'coreMargin': {'const': 16.0, 'default': None, 'desc': 'F'}, 'firstS"
+    },
+    {
+      "level": "warning",
+      "path": "00-data/rt_values_raw.json",
+      "line": 1,
+      "code": "W_DATA_RECORD",
+      "msg": "11/11 条记录缺 id/src/ver 之一，例: {'minArmorDamage': {'const': 0.1, 'default': None, 'desc': 'F'}, 'tilesize': {'const': 8, 'default': None, 'desc': 'I'}}"
+    },
+    {
+      "level": "warning",
+      "path": "00-data",
+      "line": 0,
+      "code": "W_DATA_README",
+      "msg": "00-data/README.md 缺失（须说明单位口径/生成脚本/时间/条数）"
+    }
+  ]
+}

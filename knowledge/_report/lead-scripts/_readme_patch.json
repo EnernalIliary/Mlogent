@@ -1,0 +1,38 @@
+[
+ [
+  "        \"turrets.json\": \"Turret 子类（ItemTurret/LiquidTurret/PowerTurret 等）\",",
+  "        \"turrets.json\": \"类继承链含 *Turret 的方块（29 条：弹药/能量/液体武器 + 2 光束 + 1 修理）\","
+ ],
+ [
+  "    A(\"- **单位口径**：时间/进度一律 **ticks**（\" + BT + \"reload\" + BT + \"、\" + BT + \"lifetime\" + BT + \"、\" +\n      BT + \"craftTime\" + BT + \"、\" + BT + \"drillTime\" + BT + \"）；功率一律 **power/tick**；速度 **tiles/tick**；\" +\n      \"距离 **tiles**。换算：**1/tick = 60/s**，字段名带 \" + BT + \"PerSecond\" + BT + \" 的才是派生的 /s 值。\")",
+  "    A(\"### 单位口径（jar 原值 → 游戏单位；换算规则引自 v159.3 源码树 = 语义权威）\")\n    A(\"\")\n    A(\"| 量 | 表内字段 | jar 单位 | 换算 | 源码依据 |\")\n    A(\"|---|---|---|---|---|\")\n    A(\"| 世界单位 | — | 1 tile = **8** world units | tiles = v / 8 | \" + BT + \"core/src/mindustry/Vars.java:135\" + BT + \"（tilesize = 8） |\")\n    A(\"| 时间/进度 | reload, lifetime, craftTime, drillTime, statusDuration | **ticks** | 秒 = v / 60 | \" + BT + \"core/src/mindustry/world/blocks/defense/turrets/Turret.java:183\" + BT + \" |\")\n    A(\"| 功率 | usage, production, capacity | **power/tick** | /s = v × 60 | \" + BT + \"ConsumePower.usage\" + BT + \" 由电网每 tick 结算 |\")\n    A(\"| 炮塔射程 | blocks/turrets 的 range | world units | tiles = range / 8 | \" + BT + \"core/src/mindustry/world/blocks/defense/turrets/Turret.java:421\" + BT + \"（range() = (range+…) / tilesize） |\")\n    A(\"| 弹体速度 | bullet speed | **world units/tick** | tiles/s = v × 60 / 8 | \" + BT + \"core/src/mindustry/entities/bullet/BulletType.java:439\" + BT + \"（range() = speed × lifetime） |\")\n    A(\"| 弹体射程 | bullet range | world units | tiles = range / 8 | 同上 |\")\n    A(\"| 单位速度 | unit speed | **world units/tick** | tiles/s = v × 60 / 8 | \" + BT + \"core/src/mindustry/type/UnitType.java:791,1441\" + BT + \"（speed*60f/tilesize） |\")\n    A(\"| 单位射程 | unit range / maxRange | world units | tiles = v / 8 | \" + BT + \"core/src/mindustry/type/UnitType.java:794\" + BT + \" |\")\n    A(\"| 单位体积 | hitSize | world units | blocks = v / 8 | \" + BT + \"core/src/mindustry/type/UnitType.java:792\" + BT + \" |\")\n    A(\"\")\n    A(\"校验样例：duo range=160 → 20 tiles；duo-copper bullet speed=2.5 × lifetime=70 → 175 units → 21.9 tiles；dagger speed=0.5 → 3.75 tiles/s、maxRange=146 → 18.25 tiles、hitSize=8 → 1 tile。\")\n    A(BT + \"itemCapacity\" + BT + \" 是件数；\" + BT + \"liquidCapacity\" + BT + \" 是液体单位原值（不换算）。\")"
+ ],
+ [
+  "      \"（v160 已并入其它机制，反射取不到时为 null）。\")",
+  "      \"（v160 已并入其它机制，反射取不到时为 null）。\")\n    A(\"**白名单是并集**：记录里没有该字段就是 \" + BT + \"null\" + BT + \"（如 parallax 无 reload）；v160.7 炮塔基类是 \" + BT + \"BaseTurret\" + BT + \"，parallax / segment / repair-turret 不在 \" + BT + \"Turret\" + BT + \" 分支下但仍归 \" + BT + \"turret\" + BT + \" 类型。\")"
+ ],
+ [
+  "    A(\"26 条。字段：\" + BT + \"range\" + BT + \"（tiles）、minRange、reload（ticks）、maxAmmo、ammoPerShot、clipSize、\" +\n      BT + \"shootCone\" + BT + \"（度）、inaccuracy（度）、rotateSpeed（度/tick）、targetAir/targetGround/targetBlocks、\" +\n      \"coolantMultiplier、ammoEjectBack、recoil、recoilTime、shootWarmupSpeed、minWarmup、velocityRnd、\" +\n      \"reloadWhileCharging、consumeAmmoOnce、displayAmmoMultiplier、buildTime、power{...}（同上）。\")",
+  "    A(\"**29 条**，按 \" + BT + \"kind\" + BT + \" 分三类：\" + BT + \"item\" + BT + \"（弹药炮塔，ammo[] 非空）、\" + BT + \"power/liquid\" + BT + \"（能量/液体炮塔，ammo[] 为空、耗能看 power.usage）、\" + BT + \"tractor/pointDefense/repair\" + BT + \"（parallax / segment / repair-turret，无 reload 循环）；\" + BT + \"turretClass\" + BT + \" 是命中的继承链类简名。\")\n    A(\"\")\n    A(\"字段：range（world units，÷8=tiles）、minRange、reload（ticks）、maxAmmo、ammoPerShot、clipSize、\" + BT + \"shootCone\" + BT + \"（度）、inaccuracy（度）、rotateSpeed（度/tick）、targetAir/targetGround/targetBlocks、\" +\n      \"coolantMultiplier、ammoEjectBack、recoil、recoilTime、shootWarmupSpeed、minWarmup、velocityRnd、\" +\n      \"reloadWhileCharging、consumeAmmoOnce、displayAmmoMultiplier、buildTime、power{...}（同上）。\")"
+ ],
+ [
+  "    A(\"字段：damage/speed（tiles per tick）/lifetime（ticks）/drag/pierce/pierceCap/splashDamage/splashDamageRadius/\" +",
+  "    A(\"字段：damage/speed（world units/tick，×60÷8 = tiles/s）/lifetime（ticks）/drag/pierce/pierceCap/splashDamage/splashDamageRadius/\" +"
+ ],
+ [
+  "    A(\"70 条。health/armor/speed（tiles/tick）/flying/naval/legCount/hitSize/range（tiles）/maxRange/itemCapacity/\" +",
+  "    A(\"70 条。health/armor/speed（world units/tick，×60÷8 = tiles/s）/flying/naval/legCount/hitSize（÷8 = blocks）/range、maxRange（÷8 = tiles）/itemCapacity/\" +"
+ ],
+ [
+  "    A(\"print(b['category'], b['size'], b['health'], b['range'], b['reload'], b['power'])   # blocks.json 已有炮塔字段\")",
+  "    A(\"print(b['category'], b['size'], b['health'], b['range'] / 8, 'tiles', b['reload'], 'ticks', b['power'])   # blocks.json 已有炮塔字段\")"
+ ],
+ [
+  "    A(\"    print(a['item'], bullets[a['bullet']]['damage'], bullets[a['bullet']]['speed'])\")",
+  "    A(\"    print(a['item'], bullets[a['bullet']]['damage'], bullets[a['bullet']]['speed'] * 60 / 8, 'tiles/s')\")"
+ ],
+ [
+  "    A(\"- v160.x 新增内容在 v159.3 源码树里没有：本表不回填源码行号；语义/S 级证据见 01–08 各篇。\")",
+  "    A(\"- v160.x 新增内容在 v159.3 源码树里没有：本表不回填源码行号；类层次差异（如 \" + BT + \"BaseTurret\" + BT + \" 层）以 jar 反射为准，语义/S 级证据见 01–08 各篇。\")"
+ ]
+]
