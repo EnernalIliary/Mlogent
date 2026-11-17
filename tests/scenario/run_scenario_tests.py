@@ -173,13 +173,27 @@ def test_schema_errors() -> None:
 
 
 def test_v1_scenes_still_work() -> None:
-    ok(V1_SCENE.is_file(), "v1 scene exists: %s" % V1_SCENE.name)
-    sc = scenario.load(str(V1_SCENE))
+    # scenes/ itself is not published (the rigs are private); the checked-in v1
+    # file is a convenience, not a fixture this suite may depend on.  A clean
+    # checkout still has to prove the v1 path loads, so synthesise one.
+    TMP.mkdir(parents=True, exist_ok=True)
+    if V1_SCENE.is_file():
+        src = V1_SCENE
+    else:
+        skip("the checked-in v1 scene (%s) is not published" % V1_SCENE.name)
+        src = TMP / "v1-synthetic.json"
+        src.write_text(json.dumps({
+            "name": "v1-synthetic", "version": 1, "world": {"size": 16},
+            "buildings": [{"name": "p", "block": "micro-processor", "x": 8, "y": 8,
+                           "code_inline": "set x 7\nend"}],
+            "checks": [{"logic": "p", "var": "x", "equals": 7}],
+        }), encoding="utf-8")
+    sc = scenario.load(str(src))
     ok(sc["version"] == 1, "v1 scene loads as version 1")
     ok(sc["assertions"] == [], "v1 scene has no v2 assertions")
     ok(scenario.validate(sc) == [], "v1 scene validates clean")
     ok(sc["checks"], "v1 scene keeps its checks")
-    env, rc = cli_json("check", str(V1_SCENE), "--json")
+    env, rc = cli_json("check", str(src), "--json")
     ok(rc == 0 and env["ok"] is True, "CLI check accepts the v1 scene")
     ok(env["version"] == 1 and env["checks"] == len(sc["checks"]),
        "check --json reports the v1 check count")
