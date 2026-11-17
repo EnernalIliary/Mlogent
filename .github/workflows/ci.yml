@@ -27,8 +27,13 @@ jobs:
         with:
           node-version: '20'
 
-      - name: 模组脚本语法
-        run: node --check MlogAuxiliary/scripts/main.js
+      # 模组（MlogAuxiliary / GriefToBan）已拆为同级独立项目，本仓库不再带它们的脚本，
+      # gate.py 会把依赖它们的步骤降级为 SKIP（quickcheck / rhinoparity / ui / package / gtb）。
+      - name: 仓库门禁
+        run: python gate.py
+
+      - name: 完整性清单
+        run: python tools/check_manifest.py
 
       - name: 检查器与工具链
         run: python tests/run_tests.py
@@ -38,9 +43,6 @@ jobs:
 
       - name: 规则覆盖（规则 id 与 fixture 对账）
         run: python tests/ruleids/run_ruleids.py
-
-      - name: 游戏内本地快检（quickcheck 与 python 检查器同规则）
-        run: python tests/mlogauxiliary/run_quickcheck_tests.py
 
   portability:
     name: 路径假设（linux，非阻塞）
