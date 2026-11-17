@@ -120,7 +120,9 @@ TOOLS = [
     {
         "name": "mlog_sim",
         "description": "Run code on the real v160.7 executor (warm server, ~0.6 s after "
-                       "the first call). Returns variables, @counter and the text buffer.",
+                       "the first call). Returns variables, @counter and the text buffer. "
+                       "Add project (a feed path) to also write the live-world projection "
+                       "feed; add rt to slow it down enough to watch in-game.",
         "inputSchema": {
             "type": "object",
             "properties": {
@@ -132,6 +134,18 @@ TOOLS = [
                 "unit_pos": {"type": "string", "description": "x,y tile position"},
                 "core_items": {"type": "string", "description": "e.g. 'silicon:400'"},
                 "save": {"type": "string", "description": ".msav scene to load"},
+                "scene": {"type": "string",
+                          "description": "v1 scene JSON to load (its processors, units and "
+                                         "buildings); the scene is also recorded in the "
+                                         "projection feed so the world can rebuild it"},
+                "project": {"type": "string",
+                            "description": "feed file to write each project_every ticks "
+                                           "(world_server --watch-feed reads it)"},
+                "project_every": {"type": "integer",
+                                  "description": "feed refresh period in ticks (default 3)"},
+                "rt": {"type": "number",
+                       "description": "realtime pacing: 1 = 60 ticks/s (watchable), "
+                                      "3 = 3x faster; omit to run flat out"},
                 "update": {"type": "string", "enum": ["all", "none"]},
                 "links": {"type": "string", "enum": ["auto", "off"]},
             },
@@ -405,12 +419,20 @@ def _sim_subprocess(args):
     cmd = [sys.executable, str(HERE / "mlogsim.py")]
     if args.get("path"):
         cmd.append(args["path"])
-    else:
+    elif args.get("logic"):
         cmd += ["--logic", args["logic"]]
+    # 只有 scene: 不传程序, 场景自带处理器
+    if args.get("scene"):
+        cmd += ["--scene", args["scene"]]
     if args.get("ticks"):
         cmd += ["--ticks", str(int(args["ticks"]))]
-    else:
+    elif not args.get("scene"):
         cmd += ["--steps", str(int(args.get("steps") or 60))]
+    if args.get("project"):
+        cmd += ["--push", args["project"]]
+        cmd += ["--push-every", str(int(args.get("project_every") or 3))]
+    if args.get("rt"):
+        cmd += ["--rt", str(args["rt"])]
     if args.get("units"):
         cmd += ["--units", args["units"]]
     if args.get("unit_pos"):
@@ -445,9 +467,13 @@ def _run_code(path: str | None, logic: str | None, args: dict):
 def tool_sim(args):
     path = args.get("path")
     logic = args.get("logic")
-    if not path and not logic:
-        raise ValueError("path or logic required")
-    if any(args.get(k) for k in ("units", "unit_pos", "core_items", "save")):
+    if not path and not logic and not args.get("scene"):
+        raise ValueError("path, logic or scene required")
+    if args.get("scene") or args.get("project"):
+        # 场景/投影走 CLI: 这两条路要 Java 侧的 _scene 与 push 循环, 进程内那条
+        # warm 路径只覆盖"跑一段看变量"的常见用法.
+        rec = _sim_subprocess(args)
+    elif any(args.get(k) for k in ("units", "unit_pos", "core_items", "save")):
         rec = _sim_subprocess(args)
     else:
         srv = _server(None)
@@ -466,7 +492,7 @@ def tool_sim(args):
             rec = _sim.run_mlog(srv, path, code, steps, ticks=ticks,
                                 update=update, links=links)
     text = rec.get("text") or ""
-    return {
+    out = {
         "vars": rec.get("vars", {}),
         "counter": rec.get("counter"),
         "text": text[:400] if len(text) <= 400 else _stash(text),
@@ -474,6 +500,17 @@ def tool_sim(args):
         "processor": rec.get("processor"),
         "links": rec.get("links", []),
     }
+    if args.get("project"):
+        # 投影这条路的"下一步"是可执行的: 一条命令就能把这帧画进游戏
+        feed = os.path.abspath(args["project"])
+        out["projection"] = {
+            "feed": feed,
+            "scene": os.path.abspath(args["scene"]) if args.get("scene") else None,
+            "watch": "python tools/world_server.py --watch-feed %s" % args["project"],
+            "note": "the scene path travels inside the feed, so --watch-scene is optional; "
+                    "start the world before or after the sim -- it attaches either way",
+        }
+    return out
 
 
 def _compile_artifacts(res, level, out):

@@ -1640,6 +1640,31 @@ def feed_anchor(path):
     return None
 
 
+def feed_scene(path):
+    """读 feed 里带的场景出处 {"path", "label"}; 老格式/没有返回 None.
+
+    `mlogsim --scene X --push F` 会把 X 的绝对路径和场景名写进 F。这样世界侧
+    只拿一条 feed 也能把建筑一起复刻出来，不必用 --watch-scene 再指一遍同一张
+    场景 —— 少了这个，feed 只够画单位影子，框/雷/日志板全都起不来。
+    """
+    if not path:
+        return None
+    try:
+        with open(path, "r", encoding="utf-8") as fh:
+            data = json.load(fh)
+    except Exception:  # noqa: BLE001
+        return None
+    if not isinstance(data, dict):
+        return None
+    sc = data.get("scene")
+    if not sc:
+        return None
+    sc = str(sc)
+    if not os.path.isfile(sc):
+        return None
+    return {"path": sc, "label": str(data.get("label") or "") or None}
+
+
 def feed_bbox(path, pad=2):
     """读一条 feed，返回里面所有单位的外接矩形 [x, y, w, h]（世界格，含 pad）。
 
@@ -1828,12 +1853,38 @@ def frame_clear(wd_, key=None):
     return 0
 
 
-def load_dir_scenes(paths):
-    """[scene path] -> [{path, sc, frame, anchor, label}], 全是场景自己的坐标."""
+def scenes_from_feeds(feeds):
+    """[feed] -> [场景路径], 顺序跟 feed 一一对应; 没有任何 feed 带场景时返回 [].
+
+    某条 feed 没带场景就借用第一条的 —— 让 layout/索引保持对齐（第 i 条 feed
+    仍然对应第 i 块沙盘），而不是塌成一条把后面的场景挤掉。
+    """
+    picked = []
+    for f in (feeds or []):
+        got = feed_scene(f)
+        picked.append(got["path"] if got else None)
+    first = next((p for p in picked if p), None)
+    if not first:
+        return []
+    return [p or first for p in picked]
+
+
+def load_dir_scenes(paths, skip_bad=False):
+    """[scene path] -> [{path, sc, frame, anchor, label}], 全是场景自己的坐标.
+
+    skip_bad=True 时跳过读不动的场景（feed 自带的场景路径是"别人写的提醒"，
+    坏一张不该把整个投影导演拖死；--watch-scene 显式给的仍然老实报错）。
+    """
     import scene as scene_mod
     out = []
     for p in (paths or []):
-        sc = scene_mod.load(str(p))
+        try:
+            sc = scene_mod.load(str(p))
+        except Exception as exc:  # noqa: BLE001
+            if not skip_bad:
+                raise
+            print("[warn] 跳过场景 %s: %s" % (p, exc), flush=True)
+            continue
         out.append({
             "path": str(p),
             "sc": sc,
@@ -1942,6 +1993,11 @@ def project_at(w, x, y, feed, scene_path=None, tell=True, anchor=None, slot=0, p
     slot = int(slot)
     if slot in _projs(w):
         end_projection(w, slot, "这个沙盘又放了一颗地雷")
+    if not scene_path:
+        # feed 自带场景出处时(mlogsim --scene X --push F)就不用手工再指一遍
+        got = feed_scene(feed)
+        if got:
+            scene_path = got["path"]
     x, y = int(x), int(y)
     shift = [0.0, 0.0]
     placed = 0
@@ -2070,9 +2126,19 @@ def projection_director(w, feed, scene_path=None, at=None, poll=0.5,
     w._dir_feeds = feeds0
     w._dir_feed = feeds0[0] if feeds0 else None
     paths = list(scenes) if scenes else ([scene_path] if scene_path else [])
+    from_feed = False
+    # feed 自足模式: 只给了 --watch-feed 时，按 feed 里记的场景出处补上场景。
+    # 顺序跟 feed 一一对应（第 i 条 feed -> 第 i 张场景）；某条 feed 没带场景就
+    # 借用第一条的，保证 layout/索引仍然对齐。
+    if not paths and feeds0:
+        from_feed = True
+        paths = scenes_from_feeds(feeds0)
+        if paths:
+            print("[info] 场景来自 feed: %s" % ", ".join(
+                os.path.basename(p) for p in paths), flush=True)
     if os.environ.get("WORLD_DEBUG_SCENES"):
         print("[info] 场景路径: %r" % (paths,), flush=True)
-    w._dir_scenes = load_dir_scenes(paths)
+    w._dir_scenes = load_dir_scenes(paths, skip_bad=from_feed)
     w._dir_frames = bool(frames)
     w._dir_frame_floor = frame_floor
     # 场景不再"跟着雷到处跑": 按 64x64 的格子从左上角开始固定排布,
@@ -2080,13 +2146,23 @@ def projection_director(w, feed, scene_path=None, at=None, poll=0.5,
     w._dir_cell = int(at_cell)
     # 仿真停下后投影/框还留多久(sblog 也用这个判 live) 
     w._dir_hold = float(hold or 0.0)
-    w._dir_scenes = layout_scenes(w, w._dir_scenes, cell=w._dir_cell)
-    for i, d in enumerate(w._dir_scenes):
-        d["feed"] = (feeds0[i] if i < len(feeds0)
-                     else (feeds0[0] if feeds0 else None))
-        print("[info] 沙盘 #%d %s 格子 %s -> 框 %s 锚点 %s feed %s"
-              % (i + 1, d["label"], d["cell"], d["frame"], d["anchor"],
-                 os.path.basename(d["feed"]) if d["feed"] else "-"), flush=True)
+
+    def arm_scenes(paths_, skip_bad=False):
+        """排布 + 配 feed; 启动时和"服务先起、仿真后到"的热接都走这里."""
+        ds = layout_scenes(w, load_dir_scenes(paths_, skip_bad=skip_bad),
+                           cell=w._dir_cell)
+        for i, d in enumerate(ds):
+            d["feed"] = (feeds0[i] if i < len(feeds0)
+                         else (feeds0[0] if feeds0 else None))
+            print("[info] 沙盘 #%d %s 格子 %s -> 框 %s 锚点 %s feed %s"
+                  % (i + 1, d["label"], d["cell"], d["frame"], d["anchor"],
+                     os.path.basename(d["feed"]) if d["feed"] else "-"), flush=True)
+        w._dir_scenes = ds
+        if ds:
+            w._dir_scene = ds[0]["path"]
+        return ds
+
+    arm_scenes(paths, skip_bad=from_feed)
     w._dir_frames_on = {}
     if w._dir_frames:
         try:
@@ -2108,6 +2184,14 @@ def projection_director(w, feed, scene_path=None, at=None, poll=0.5,
         while not getattr(w, "_dir_stop", False):
             time.sleep(poll)
             try:
+                # 服务先起、仿真后到: 启动时 feed 里还没有场景出处, 等它写出来
+                # 再补一次（否则得重启服务才有建筑/框/日志板）
+                if not w._dir_scenes and w._dir_feeds:
+                    got = scenes_from_feeds(w._dir_feeds)
+                    if got:
+                        print("[info] 场景来自 feed（热接）: %s" % ", ".join(
+                            os.path.basename(p) for p in got), flush=True)
+                        arm_scenes(got, skip_bad=True)
                 # 边界框: 只在仿真真的在跑时出现; 仿真一停就擦掉
                 if w._dir_frames:
                     onmap = getattr(w, "_dir_frames_on", None)
@@ -3557,10 +3641,13 @@ def main(argv=None):
     ap.add_argument("--watch-feed", default=None, metavar="FILE", action="append",
                     help="仿真 feed（mlogsim --push 写它），可重复给多条：按顺序与 "
                          "--watch-scene 一一配对（第 i 个场景盯第 i 条 feed），"
-                         "只给一条则所有场景共用；玩家放下脉冲地雷才开始投影")
+                         "只给一条则所有场景共用；默认 auto 模式：feed 新鲜就自己铺，"
+                         "不放雷也能看")
     ap.add_argument("--watch-scene", default=None, metavar="JSON", action="append",
                     help="要复刻的场景文件，可重复给多个：每个场景有自己的矩形边界，"
-                         "地雷落在哪个框里就复刻哪个场景（缺省=只做单位投影）")
+                         "地雷落在哪个框里就复刻哪个场景。缺省=用 feed 里记的场景"
+                         "（mlogsim --scene X --push F 会把 X 写进 F），也就是说只给 "
+                         "--watch-feed 就够；这里的显式值只用于覆盖/对照")
     ap.add_argument("--frame-floor", default="marker", metavar="X",
                     help="场景边界：marker（默认，用点状标记画框）/ none（不画）；"
                          "旧值 metal-floor 等仍接受但已改成 marker —— 不再动地形")

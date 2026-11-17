@@ -151,7 +151,8 @@ progress >= 1f  ->  craft(): consume(); 逐个 offload(outputItems); progress %=
 
 1. **"craftTime 是秒"** → 是 tick。`graphite-press` 的 90 不是 90 秒而是 1.5 秒一圈（这个错会把产能算小 60 倍）。
 2. **"outputLiquids 也是每次完工给一次"** → 是每 tick 连续给。所以液体产率 = `amount × 60`，与 craftTime 无关（见反例 2）。
-3. **"耗电 usage 单位是 /s"** → 是 /tick。`phase-weaver` 的 5 是 5/tick = 300/s，不是 5/s。速查表 `docs/游戏速查/方块配方.md` 的"耗电"列就是每 tick 值但表头写 /s，已记入 `VERSION.md`。
+3. **"耗电 usage 单位是 /s"** → 是 /tick。`phase-weaver` 的 5 是 5/tick = 300/s，不是 5/s。旧速查表（`docs/游戏速查/方块配方.md`，2026-11-17 已删）的"耗电"列就是每 tick 值却标了 /s，这个坑已记入 `VERSION.md`。
+   反查「谁消耗某物品」时不要手抄：对 `00-data/blocks.json` 的 `consumers[].items[].item` 做反向 join 即可。
 4. **"缺电只是变慢，材料照扣"** → 物品在 `craft()` 完工时才扣，效率 0 就不完工、不扣物品；但液体消费者由 `BuildingComp.java:2005` 门控，仅当 `efficiency > 0` 才扣——效率被输出满限速时会出现"进度变慢、液体照满额扣"的浪费。
 5. **"蓝图会带上工厂里的库存和进度"** → `Schematic.Stile` 只有 block/x/y/config/rotation 四个字段，进度与库存不进蓝图（详见上文「蓝图里有什么」）。
 6. **"工厂和制造机是两类方块"** → 原版只有 `GenericCrafter`/`HeatCrafter`/`AttributeCrafter`/`HeatProducer`/`Separator` 这几种实现类，玩家俗称不构成机制差异。

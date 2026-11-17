@@ -31,7 +31,7 @@
 - **memory 容量不是 32**：memory-cell **64**、memory-bank/world-cell **512**（32 只是 `MemoryBlock.java:12` 的类默认值，三个实例全部覆盖；v159.3 与 v160.7 一致）。
 - **记忆格越界读是 null（NaN），不是 0**；越界写静默丢弃（`MemoryBlock.java:64-81` 注释原文 `Return null when out of bounds. (instead of 0)`）。
 - **`format` 一次只吃 1 个值**，填「已在文本缓冲里」的**最低编号**占位符，必须先 `print` 再 `format`；占位符只认单数字 0-9（`{10}` 不替换）。
-- **ipt 的单位是「点/tick」不是点/s**：micro 2 / logic 8 / hyper 25 ⇒ 120/480/1500 点/s；单 tick 上限是 `min(5×ipt, maxInstructionsPerTick)`，hyper 的 125 被截到 **40**。
+- **ipt 的单位是「点/tick」不是点/s**：micro 2 / logic 8 / hyper 25 ⇒ 120/480/1500 点/s。累积池上限是 **5×ipt**（micro 10 / logic 40 / hyper **125**）；`maxInstructionsPerTick` 只限 `setrate` 能设到的 ipt（非特权 40、世处 1000），**不参与削顶**（`LogicBlock.java:565` 用的是 `maxInstructionScale * ipt`，而 `:558-559` 每帧把非特权处理器的 ipt 复位成建筑默认值）。旧说法「hyper 的 125 被截到 40」是错的。
 - **单位护甲表不能混口径**：spiroct jar=9 / 源码=5、arkyid 14/6、toxopid 22/13、eclipse 22/13、antumbra 17/9、scepter 20/10、reign 30/18 —— U05/C05 已统一取 jar 并加版本注。
 - **炮塔 coolantMultiplier 没有 0**：最小 foreshadow **0.4**、spectre **0.5**、arc **30**（跨度 75 倍），旧表写 0 是错的。
 

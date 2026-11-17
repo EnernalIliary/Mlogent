@@ -170,24 +170,32 @@ python tools/world_mcp.py                      # stdio JSON-RPC，供 DSH 连接
 `scene.py` 的 `configureAny(LogicBlock.compress(...))` 广播给客户端，投影铺完还会 RESYNC 补发一遍。
 每块沙盘另有一块 `TextMarker` 文本日志板（`world_sblog` 读）。细节见 `docs/联机调试世界.md` §15.7–15.8。
 
-「放一颗脉冲地雷就开始投影」的完整用法：
+「把仿真画进游戏里」的完整用法（**场景自己会跟着 feed 走，不用再指一遍**）：
 
 ```powershell
-# 服务端：director 在 boot 时就起来等雷；雷放在哪，场景就以哪为圆心复刻
-python tools/world_server.py --map '大肥鱼的调试世界' --watch-feed out/_world/mirror.json `
-  --watch-scene scenes/sandbox-mine.json --watch-scene scenes/sandbox-haul.json
+# 服务端：只给 feed。场景从 feed 的 scene 字段里读，先起服务还是先起仿真都行
+python tools/world_server.py --map '大肥鱼的调试世界' --watch-feed out/_proj/feed.json
 
-# 仿真：实时推 feed（--rt 1），js-timeout 要大于整段运行时间（默认 180 s 会中途掐断）
-python tools/mlogsim.py --scene scenes/sandbox-mine.json --ticks 36000 --rt 1 `
-  --push out/_world/mirror.json --push-every 3 --js-timeout 1200
+# 仿真：--scene 决定复刻什么（路径会写进 feed），--rt 1 让人看得见
+python tools/mlogsim.py --scene scenes/sim/sandbox-haul.json --ticks 1200 --rt 1 `
+  --push out/_proj/feed.json --push-every 3
 ```
+
+`mlogsim --scene X --push F` 把 X 的绝对路径与场景名写进 F（`{"scene": ..., "label": ...}`）：
+只给 `--watch-feed` 时 director 按它补场景，建筑、落雷框、日志板、单位影子一起出来；
+`--watch-scene` 退化成「覆盖」，只有想拿另一张场景对照同一条 feed 时才需要。
+老格式 feed（没有 `scene`）仍按老行为只画影子，不会报错。
 
 玩家在任意位置放一颗 `shock-mine` → 场景在该处复刻（建筑真放、单位只有贴图 marker）；
 **把地雷拆掉 → 复刻出来的建筑（含核心）和全部 marker 一起消失**，玩家后放的方块不会被误拆。
 复刻出来的处理器会 **enabled=false**（仿真在跑同一份程序，世界里再来一份会抢单位）。
 
-多场景时用 `--watch-scene` 重复给，每个场景的矩形边界用一圈小方块 marker 画出来（`world_frames`），
-**不铺地板**：地形一点不动，玩家自己刷的染色地板不会被盖。雷放进哪个框就复刻哪个场景。
+多场景时用 `--watch-feed` 重复给（每条 feed 认自己带的场景），或 `--watch-scene` 重复给来覆盖；
+每个场景的矩形边界用一圈小方块 marker 画出来（`world_frames`），**不铺地板**：地形一点不动，
+玩家自己刷的染色地板不会被盖。雷放进哪个框就复刻哪个场景。
+
+Agent 侧的判据与排错见 `docs/联机调试世界.md` §17；MCP 一行版是
+`mlog_sim{scene, ticks, rt, project}`（返回 `projection.watch` 命令）+ `world_arm{feed}` + `world_projstat`。
 
 两条硬规矩：**没有仿真就不画框**（feed 超过 10 s 没更新就擦掉，框本身就是"仿真在跑"的指示灯）；
 **场景固定排布**（`--frame-cell` 默认 64，按格从地图左上角起排，锚点在格心），雷放框外直接拒绝。

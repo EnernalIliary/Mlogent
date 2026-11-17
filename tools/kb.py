@@ -72,7 +72,9 @@ DOC_FILES = [
     "knowledge/VERSION.md",
 ]
 CODE_GLOBS = ["tools/*.py", "tests/run_tests.py"]
-DOC_GLOBS = ["docs/游戏速查/*.md"]
+# 2026-11-17: docs/游戏速查/ 的薄投影已删（数值母本在 knowledge/00-data/*.json）。
+# 保留这个开关是为了以后还要索引"非 knowledge 的文档"时不必改逻辑。
+DOC_GLOBS: list[str] = []
 EXCLUDE_DIRS = {"__pycache__", "out", ".git", "assetsraw", "Mindustry-Source", "Arc-Source"}
 # 语料权重（20 题确定性样本对照实验，见 knowledge/_report/bench20_*.md）：
 # knowledge 文章是权威答案；tools/*.py 是原始实现，mlog 题上常抢 top1。

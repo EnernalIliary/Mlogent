@@ -372,12 +372,15 @@ TOOLS = [
         "description": "开启投影导演。默认 auto=true: 只要 feed 新鲜就自动把场景复刻到对应格子"
                        "(建筑真放, 单位画贴图 marker 跟着 feed 动), 不需要玩家放地雷; feed 一停就收摊。"
                        "auto=false 才退回「玩家放一颗 shock-mine 才开始」。"
-                       "feed=mlogsim --push 写的 JSON; scene=要复刻的场景文件。",
+                       "feed=mlogsim --push 写的 JSON。**场景通常不用给**: mlogsim --scene X --push F "
+                       "已经把 X 的路径写进 F, 导演会自己读出来; scene/scenes 只用于覆盖它"
+                       "(手写 feed、或想换一张场景来对照)。",
         "inputSchema": {
             "type": "object",
             "properties": {
                 "feed": {"type": "string", "description": "仿真 feed 文件路径"},
-                "scene": {"type": "string", "description": "放雷时要复刻的场景 JSON"},
+                "scene": {"type": "string",
+                          "description": "可选：覆盖 feed 里记的场景（放雷/自动投影时复刻哪张）"},
                 "scenes": {"type": "array", "items": {"type": "string"},
                            "description": "多个场景：每个场景有自己的矩形边界，"
                                           "地雷落在哪个框里就复刻哪个"},

@@ -80,6 +80,15 @@
 
 （完整文章清单由 `tools/build_index.py` 生成到 `index.json`。）
 
+### 3.1 问答路由：Mindcode 编译前端（`06-mlog/M09`，`MLOG.MIND.001`）
+
+| 问题 | 落点 |
+|---|---|
+| 「`.mnd` 怎么变成 mlog / 编译报错怎么读」 | `06-mlog/M09` §1–§3、§6 |
+| 「为什么默认 3.19.3 而不是 3.21.0」 | `06-mlog/M09` §5；长文依据 `docs/Mindcode集成.md:54-84` |
+| 「`mindcode_compile` / `mlog_validate(mind=…)` 怎么调」 | `06-mlog/M09` §3、§7 |
+| 「该报 `unsupported_environment` 还是 `compilation_error`」 | `06-mlog/M09` §8（先看 `diagnostics[0].kind`） |
+
 ## 4. 数值真源优先级
 
 1. `00-data/*.json`（由 v160.7 真服务器反射生成，`tools/extract_rt.py`）
@@ -88,7 +97,7 @@
 4. 本库文章正文
 5. 仓库其它笔记（`../MBO/`、`docs/`、`Logic-Docs`）——**只作线索，不作证据**（`MBO/` 已拆为同级独立项目）
 
-已知错误清单（务必先看）：`VERSION.md` §已知错误。典型：`data/game` 的 craftTime 全为 -1；`docs/速查卡` 耗电列实际是 /tick 却标成 /s（差 60 倍）。
+已知错误清单（务必先看）：`VERSION.md` §已知错误。典型：`data/game` 的 craftTime 全为 -1；已删的 `docs/游戏速查/方块配方.md` 耗电列实际是 /tick 却标成 /s（差 60 倍）。
 
 ## 5. 常见陷阱 Top 10（先记这些，能避开 80% 的错）
 

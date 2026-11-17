@@ -158,6 +158,40 @@ python tools/fidelity.py list        # 哪些能力离线可判、哪些根本�
 （坐标 0.5 格、血量 5%），事件按 key 做子序列匹配加 tick 容差，**不许整体 JSON 相等**。
 世界没起、没有 JVM 时是 `unsupported_environment` + exit 3，绝不会伪装成差异。
 
+## 投影：把仿真画进游戏里（给人看）
+
+离线跑出来的是数字。要让**人**一眼看懂发生了什么（谁卡住了、货堆在哪、传送带是不是反了），
+把仿真投影到活世界里：建筑真放、单位是跟着 feed 动的贴图 marker。
+
+```powershell
+# 世界侧：只给 feed（场景自己会跟着 feed 来）
+python tools/world_server.py --map '<图名>' --watch-feed out/_proj/feed.json
+
+# 仿真侧：--scene 决定复刻什么；--rt 1 = 60 tick/s（看得见的速度）
+python tools/mlogsim.py --scene scenes/sim/sandbox-haul.json --ticks 1200 --rt 1 `
+  --push out/_proj/feed.json --push-every 3
+```
+
+三条要知道的事：
+
+1. **场景不用再指一遍**。`--scene X --push F` 会把 X 写进 feed 的 `scene` 字段，director 自己读；
+   `--watch-scene` 只在想拿另一张场景对照同一条 feed 时才用。先起服务还是先起仿真都行（会「热接」）。
+2. **投影不是验证**。它是给人看的视图；判决仍然来自 `mlog_validate` / `mlog_sim --assert` /
+   `differential.py`。别拿「屏幕上看着对」当结论。
+3. **判据看数字**：`world_client.py projstat` 的 `count`（几块沙盘在投）、`builds`（复刻了几座建筑，
+   应等于场景 `buildings` 条目数）、`off`（坐标平移量）。`count == 0` 时先查 feed 有没有 `scene`、
+   场景的 `code` 路径是否还在。
+
+| 现象 | 多半是 |
+| --- | --- |
+| 有影子没建筑 | feed 是老格式（无 `scene`），或场景 `code` 指的文件没了 |
+| 建筑出现又消失 | feed 超 25 s 没更新（仿真结束/卡住） |
+| 框闪一下就没 | 帧龄 > 10 s；调试时用 `--hold 60` |
+| `连不上世界控制口` | 服务进程已死，`daemon.json` 是残留握手——重启服务，别信那个文件 |
+
+MCP 一行版：`mlog_sim{scene, ticks, rt, project}` → 返回里带 `projection.watch`（照抄就能起服务）；
+`world_arm{feed}`；`world_projstat{}`。完整排错见 `docs/联机调试世界.md` §17。
+
 ## 标准流程
 
 ```

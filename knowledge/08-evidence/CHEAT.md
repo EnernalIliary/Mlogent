@@ -98,7 +98,7 @@ tokens: 1893
 | @time / @second | @time 是毫秒；@second=tick/60 | core/GlobalVars.java:190-199 |
 | 处理器 ipt | micro 2 / logic 8 / hyper 25，单位是**点/tick**（点/s = 120 / 480 / 1500）| content/Blocks.java:6846-6869；v160.7 jar `instructionsPerTick` |
 | world 处理器 ipt | 8 点/tick（= 480 点/s），上限 1000 | content/Blocks.java:6949-6960 |
-| 单 tick 预算上限 | `min(5 × ipt, maxInstructionsPerTick)`：micro/logic/hyper 上限 40、world 1000 ⇒ hyper 的 125 实际被截到 **40** | logic/LogicBlock.java:564-579；v160.7 jar `maxInstructionScale=5` / `maxInstructionsPerTick` |
+| 单 tick 预算上限 | 累积池 = **5 × ipt**：micro **10** / logic **40** / hyper **125**；`maxInstructionsPerTick` 只是 `setrate` 能设到的 ipt 上限（非特权 40、世处 1000），**不参与削顶**（世处 `setrate 1000` ⇒ ipt 1000、池 5000）| logic/LogicBlock.java:565（`maxInstructionScale * ipt`）、`:558-559`（每帧复位 ipt）、LExecutor.java:2031（setrate clamp）|
 | 程序 / 文本上限 | 1000 行 / print 400 字符 / 聊天 150 | LParser.java:185；LExecutor.java:46；Vars.java:109 |
 | memory cell 格数 | memory-cell 64 / memory-bank 512 / world-cell 512（v159.3 源码与 v160.7 jar 实测一致；类默认 32 被实例覆盖）| content/Blocks.java:6875,6881,6967 |
 | radar 缓存 | 每 30 tick 重算 | logic/LExecutor.java:763 |

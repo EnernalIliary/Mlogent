@@ -1,6 +1,6 @@
 # 06-mlog 索引（文件名以 `_` 开头 ⇒ 门禁 check_kb.py 不当作文章扫描）
 
-mlog 语言层：8 篇文章 + 2 个机读表。写作口径来自 v159.3 源码（语义）与 v160.7 jar/真机（数值）。
+mlog 语言层：9 篇文章 + 2 个机读表。写作口径来自 v159.3 源码（语义）与 v160.7 jar/真机（数值）。
 
 ## 文章
 
@@ -14,6 +14,7 @@ mlog 语言层：8 篇文章 + 2 个机读表。写作口径来自 v159.3 源码
 | M06-世界交互.md | MLOG.WORLD.001 | 130 | control/setrule/world processor 26 指令 |
 | M07-单位与逻辑控制.md | MLOG.UNIT.001 | 117 | ubind/ucontrol 21 子命令/@unit 生命周期 |
 | M08-性能与限制.md | MLOG.PERF.001 | 116 | 预算上限/延迟/卡顿/内存上限 |
+| M09-Mindcode.md | MLOG.MIND.001 | 202 | .mnd→mlog 编译前端：cm/pm、三种入口、版本裁决、诊断三列、失败分类 |
 
 ## instructions.json（73 条指令）
 
@@ -88,3 +89,4 @@ mlog 语言层：8 篇文章 + 2 个机读表。写作口径来自 v159.3 源码
 |---|---|---|
 | 2026-11-08 | task-14 扩写：M03 加 ConditionOp 8 值全表 + test() :32-33 短路真相；M06 加 TileLayer 四层可写性表 + layer 在 0 号槽 + message/cutscene/query 四枚举；M07 加 ucontrol 21 行参数表（tile 坐标口径）+ radar target 8 / sort 5 / uradar 第 5 槽死槽 + ulocate 输出语义 | ConditionOp.java:6-13,:31-40；TileLayer.java:3-9；LUnitControl.java:4-24；RadarTarget.java:6-14；RadarSort.java:6-11；LLocate.java:3-7 |
 | 2026-11-08 | LogicRule 计数 30 -> 29（v159.3 源码逐行数） | LogicRule.java:4-34 |
+| 2026-11-17 | 新增 M09-Mindcode.md（MLOG.MIND.001，202 行）：编译前端 tools/mindcode.py 的三种入口、jar/java 定位顺序、3.21.0 死锁与 3.19.3 裁决、诊断三列、BOM 边界、`unsupported_environment` 与 `compilation_error` 分界 | tools/mindcode.py:113-120,:267-290,:487-569,:704-710；tools/mlog_mcp.py:531-564；docs/Mindcode集成.md:54-84 |

@@ -1319,7 +1319,11 @@ PUSH_DEF_JS = (
     # (试过 tmp + Files.move 原子改名: Windows 上读端正开着文件时改名会 AccessDenied)
     # 数组带上"模拟器世界多大": 世界侧要把这个尺寸画成一个边界框,
     # 让玩家一眼看出这块沙盘里仿真的范围(单位跑不出这个框)
-    " var pay = {world: [Vars.world.width(), Vars.world.height()], anchor: __ANCHOR__, units: o};"
+    # scene/label 让世界侧自己知道"这块影子是哪张场景铺出来的":
+    # 只给 --watch-feed 不配 --watch-scene 时，投影导演按这里给的路径补场景，
+    # 否则它只有单位没有建筑（框、雷、日志板全都起不来）。
+    " var pay = {world: [Vars.world.width(), Vars.world.height()], anchor: __ANCHOR__,"
+    " scene: __SCENE__, label: __LABEL__, units: o};"
     " var w2 = new java.io.PrintWriter(PUSHF, 'UTF-8'); w2.print(JSON.stringify(pay)); w2.close();"
     "};"
 )
@@ -1338,13 +1342,24 @@ def _scene_anchor(srv):
         return None
 
 
-def _push_js(path: str, every: int, anchor=None) -> str:
+def _scene_path(srv):
+    """仿真场景的绝对路径; 没场景返回 None. 写进 feed, 世界侧据此自己补场景."""
+    p = getattr(srv, "_scene_path", None)
+    return str(p) if p else None
+
+
+def _push_js(path: str, every: int, anchor=None, scene=None, label=None) -> str:
     """状态镜推送: 每 every tick 把 Groups.unit 的 (兵种, 世界坐标, 携带量, 控制者)
-    覆写进一个 JSON 文件; world_server 的 mirror_feed 线程读它并画成 marker."""
+    覆写进一个 JSON 文件; world_server 的 mirror_feed 线程读它并画成 marker.
+
+    scene / label 是"这张影子来自哪张场景"的出处: world_server 只拿到 feed 时
+    也能按它把建筑复刻出来（见 projection_director 的 feed 自足模式）。"""
     # the JVM's cwd is a temp dir, so a relative path would land somewhere else
     full = os.path.abspath(path).replace("\\", "/")
     body = PUSH_DEF_JS.replace("__PATH__", json.dumps(full))
     body = body.replace("__ANCHOR__", json.dumps(list(anchor) if anchor else None))
+    body = body.replace("__SCENE__", json.dumps(scene.replace("\\", "/") if scene else None))
+    body = body.replace("__LABEL__", json.dumps(label or None, ensure_ascii=False))
     return (" if(i == 0){" + body + "}"
             " if(i %% %d == 0) _pushNow();" % max(1, int(every)))
 
@@ -1577,7 +1592,10 @@ def run_mlog(srv: Server, name: str, code: str, steps: int, ticks: bool = False,
                                                % int(1000.0 / 60.0 / rt) if rt > 0 else "")
                                               + scene_tick + (" padTick();" if pads else "")
                                               + (_push_js(push_file, push_every,
-                                                            anchor=_scene_anchor(srv)) if push_file else "")))}
+                                                          anchor=_scene_anchor(srv),
+                                                          scene=_scene_path(srv),
+                                                          label=getattr(srv, "_scene_name", None))
+                                                 if push_file else "")))}
         lines = srv.js(js)
         if preflight:
             warns = [ln.split("\t") for ln in lines if ln.startswith("LINKWARN\t")]
@@ -1999,6 +2017,10 @@ def main(argv=None):
     configure_server(srv, args)
     if scene_obj is not None:
         srv._scene = scene_obj
+        # 路径与名字留给 --push: feed 里带上出处, 世界侧只拿 feed 也能补出建筑
+        srv._scene_path = os.path.abspath(args.scene)
+        srv._scene_name = scene_obj.get("name") or os.path.splitext(
+            os.path.basename(str(args.scene)))[0]
     results = []
     scene_probe = None
     try:
