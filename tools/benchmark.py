@@ -23,7 +23,7 @@ CLI
     python tools/benchmark.py score [--model X] [--host Y]
     python tools/benchmark.py selftest
 
-Runs are appended to ``out/benchmark/runs.jsonl`` ($MLOG_BENCH_DIR overrides);
+Runs are appended to ``bench/results/runs.jsonl`` ($MLOG_BENCH_DIR overrides);
 nothing is committed, only aggregated by ``score``.
 """
 from __future__ import annotations
@@ -48,7 +48,9 @@ METRICS = (
 
 
 def default_dir() -> str:
-    return os.environ.get("MLOG_BENCH_DIR") or os.path.join(ROOT, "out", "benchmark")
+    # bench/results, not out/: a benchmark number is only worth quoting if the
+    # row that produced it stays in version control next to the tasks.
+    return os.environ.get("MLOG_BENCH_DIR") or os.path.join(ROOT, "bench", "results")
 
 
 # --------------------------------------------------------------------------
@@ -359,10 +361,15 @@ def _selftest() -> int:
         ok(len(ids) == len(set(ids)), "task ids are unique")
         for task in known:
             ok(bool(task.get("prompt")), "%s has a prompt" % task["id"])
-            ok((task.get("acceptance") or {}).get("kind") in ("validate", "scene"),
+            kind = (task.get("acceptance") or {}).get("kind")
+            ok(kind in ("validate", "scene", "static"),
                "%s has a machine-checkable acceptance" % task["id"])
-            ok(bool((task.get("acceptance") or {}).get("checks")
-                    or (task.get("acceptance") or {}).get("expect")),
+            # a static task is judged by mlog_check being clean: there is no
+            # list of checks to be non-empty, so the rule is "not a validate
+            # task without checks".
+            ok(kind == "static"
+               or bool((task.get("acceptance") or {}).get("checks")
+                       or (task.get("acceptance") or {}).get("expect")),
                "%s actually checks something" % task["id"])
             ok(task["id"] not in task["prompt"],
                "%s: the prompt does not leak the id" % task["id"])

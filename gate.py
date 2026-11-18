@@ -253,6 +253,10 @@ def build_steps(full: bool, only: str | None) -> list[tuple[str, list[str] | Non
         # Differential runs need a live world *and* the offline executor, so in a
         # clean checkout they exits 3 (SKIP) instead of pretending to pass.
         ("differential", ["tests/differential/run_differential_tests.py"], ""),
+        # The claim ledger's evidence pointers are id anchors, not line numbers:
+        # line numbers rot in silence (89 of 168 had drifted by 2026-11-18), so
+        # every pointer is resolved against the table it names.
+        ("claims", ["tests/claims/run_claims_tests.py"], ""),
     ]
     global_skill = (Path(os.environ.get("DSH_HOME") or (Path.home() / ".dsh"))
                     / "skills" / "mlog-agentskill")

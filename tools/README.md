@@ -553,6 +553,23 @@ python tools/taskstate.py clear  ts-1a2b3c4d5e
 接线只需在 `mlog_eval.evaluate(..., task=task)` 传记录，MCP 侧传 `task`/`task_id` 给
 `mlog_validate` 即可，`mlog_task` 负责读、续跑与记笔记。
 
+## 证据指针（`claims.py`）
+
+`knowledge/08-evidence/claims.jsonl` 是 85 条断言的唯一出处，每条带一个 `src` 列表。
+这些指针原来写行号（`docs/断言表.md:19`），而文档每加一段上文，行号就整体下移 ——
+2026-11-18 实测 **168 个指针里 89 个已经指错**，而且没有任何东西会报错。
+
+现在指针写成 **id 锚点**：`docs/断言表.md#L1-01` 指「首列是 L1-01 的那一行」，`a/b` 拆分
+（`L2-10a`）也认。行号形式仍能读（老记录不炸），但会被**校验**而不是信任。
+
+```bash
+python tools/claims.py check          # 有指针指错就 exit 1（gate 的 claims 步）
+python tools/claims.py list L2-10     # 一条 claim 解析到哪里
+python tools/claims.py fix --write    # 把行号指针改写成锚点
+```
+
+`Mindustry-Source/` 这类不在本 checkout 里的源码指针只校验形状，不校验内容。
+
 ## 结果缓存（`cache.py`）
 
 同一段程序反复问同样的问题，是这个工具链最常见的浪费：一次 `cm` 编译要起 JVM（1 秒以上），
