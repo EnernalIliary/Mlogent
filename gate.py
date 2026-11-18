@@ -272,6 +272,10 @@ def build_steps(full: bool, only: str | None) -> list[tuple[str, list[str] | Non
         # codes, the 202-with-no-body notification rule, and the refusal to bind
         # publicly without a token.  No JVM, no fixed port.
         ("mcphttp", ["tests/mcphttp/run_mcp_http_tests.py"], ""),
+        # `mlog_kb` is the only tool that reads the knowledge base, and it must
+        # stay dependency-free: if it ever grows an embedder, a deployed server
+        # stops answering facts.  The tests pin ranking *and* the import set.
+        ("kbgrep", ["tests/kbgrep/run_kbgrep_tests.py"], ""),
     ]
     global_skill = (Path(os.environ.get("DSH_HOME") or (Path.home() / ".dsh"))
                     / "skills" / "mlog-agentskill")

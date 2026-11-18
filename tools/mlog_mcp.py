@@ -325,6 +325,26 @@ TOOLS = [
         },
     },
     {
+        "name": "mlog_kb",
+        "description": "Keyword search over knowledge/ (130+ articles: mechanics, "
+                       "numbers, source anchors) and optionally docs/. No embeddings, "
+                       "no index build: pure lexical BM25 over heading sections, so it "
+                       "works on a bare deployment. Use it to check a fact before you "
+                       "write mlog (what a block is called in Chinese, tick budgets, "
+                       "why a link variable reads null).",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "query": {"type": "string", "description": "what to look for"},
+                "k": {"type": "integer", "description": "hits, default 6"},
+                "kind": {"type": "string", "enum": ["knowledge", "all"],
+                         "description": "knowledge = articles only (default); "
+                                        "all = also docs/ (evidence and entry docs)"},
+            },
+            "required": ["query"],
+        },
+    },
+    {
         "name": "mlog_fetch",
         "description": "Read an artifact that a previous call replaced with an "
                        "artifact_ref (large traces/variable dumps). Optional byte window.",
@@ -419,6 +439,15 @@ def tool_doctor(_args):
         cache.update({k: _cache.stats()[k] for k in ("entries", "bytes")})
     except Exception as exc:                 # noqa: BLE001 -- optional module
         cache = {"enabled": False, "notes": ["cache.py unavailable: %s" % exc]}
+    # `mlog_kb` reads Markdown; a deployment without knowledge/ pays for the tool
+    # but gets an honest zero, so say which of the two it is.
+    kb_root = root / "knowledge"
+    try:
+        import kb_grep as _kbg
+        kb = {"present": kb_root.is_dir(), "root": str(kb_root),
+              "sections": len(_kbg.load(str(kb_root))) if kb_root.is_dir() else 0}
+    except Exception as exc:                 # noqa: BLE001 -- optional data
+        kb = {"present": False, "notes": ["knowledge/ unavailable: %s" % exc]}
     return {
         "repo": str(root),
         "entry": str(HERE / "mlog.py"),
@@ -431,6 +460,7 @@ def tool_doctor(_args):
         "world": world,
         "differential_ready": jar.exists() and jre.exists() and bool(world["ok"]),
         "cache": cache,
+        "knowledge": kb,
         "commands": [
             "python tools/mlog.py check FILE --cost",
             "python tools/mlog.py ir FILE",
@@ -952,6 +982,21 @@ def tool_fetch(args):
             "text": chunk}
 
 
+def tool_kb(args):
+    """Lexical retrieval.  `kb.py` is the better index; this one runs anywhere."""
+    import kb_grep
+    query = (args.get("query") or "").strip()
+    if not query:
+        raise ValueError("query is required")
+    k = max(1, min(int(args.get("k") or 6), 20))
+    kind = args.get("kind") or "knowledge"
+    hits = kb_grep.search(query, k=k, include_docs=(kind == "all"))
+    return {"count": len(hits), "mode": "keyword",
+            "note": "BM25 over knowledge/ sections, no embeddings. For semantic "
+                    "search with rerank use tools/kb.py locally.",
+            "hits": hits}
+
+
 HANDLERS = {
     "mlog_doctor": tool_doctor,
     "mlog_check": tool_check,
@@ -964,6 +1009,7 @@ HANDLERS = {
     "mlog_task": tool_task,
     "scenario_run": tool_scenario_run,
     "mlog_diff": tool_diff,
+    "mlog_kb": tool_kb,
     "mlog_fetch": tool_fetch,
     "mlog_fidelity": tool_fidelity,
     "mlog_observe": tool_observe,

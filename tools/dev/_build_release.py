@@ -85,12 +85,16 @@ PACKAGES = {
     "mcp": {
         "title": "MCP server (deployable)",
         "summary": "The HTTP form of the MCP server plus everything it reads: `tools/`, "
-                   "`rules/`, `data/`, and the systemd unit / Dockerfile / reverse-proxy "
-                   "notes under `deploy/`. No tests and no knowledge base: a server needs "
-                   "the interpreter and its data, and `mlog_doctor` says what is missing. "
+                   "`rules/`, `data/`, `knowledge/` (for `mlog_kb`), and the systemd "
+                   "unit / Dockerfile / reverse-proxy notes under `deploy/`. No tests: a "
+                   "server needs the interpreter and its data, and `mlog_doctor` says "
+                   "what is missing. "
                    "Start with `python tools/mlog_mcp_http.py --port 8765 --token ...`.",
+        # knowledge/ is here because `mlog_kb` reads it: a server that answers
+        # "what is core-shard called in Chinese" needs the articles, and the
+        # whole base is 1.35 MB -- cheaper than a tool that always returns zero.
         "pick": lambda rel: (
-            rel.startswith(("tools/", "rules/", "data/", "deploy/"))
+            rel.startswith(("tools/", "rules/", "data/", "deploy/", "knowledge/"))
             or rel in ("README.md", "LICENSE", "CHANGELOG.md", "SECURITY.md",
                        "docs/MCP部署.md")
         ) and keep_dev(rel),

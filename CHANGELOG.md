@@ -3,6 +3,17 @@
 只记对外可见的变化。工程日志（每一版的动机、踩过的坑、源码依据）见
 `MlogAuxiliary/HISTORY.md` 与 `docs/`。
 
+## 1.2.2 — 2026-11-18
+
+部署出去的 MCP 现在能查知识库了：新的 `mlog_kb` 工具（第 16 个）用纯词面 BM25 读
+`knowledge/**/*.md`，不建索引、不下载模型，所以一台只解压了包的服务器也能回答
+「`core-shard` 中文叫什么」「hyper 的累积池是多少」这类问题。语义检索仍归 `tools/kb.py`
+（`fastembed` + RRF + 可重排），两者分工写进 `tools/README.md`。
+`mcp` 包因此把 `knowledge/` 一起带上（+1.35 MB）—— 没有它，`mlog_kb` 只会老实回 0 条；
+`mlog_doctor` 的 `knowledge.present/sections` 会先说明是「没数据」还是「没命中」。
+新增 `tests/kbgrep/` 15 项（排序、 snippet 含命中词、缓存按 mtime 失效、导入集合必须
+只有标准库、MCP 工具在册且可调用）与 `gate.py` 的 `kbgrep` 步（30 步）。
+
 ## 1.2.1 — 2026-11-18
 
 MCP 可以部署到服务器了：`tools/mlog_mcp_http.py` 用同一份工具表回答 HTTP 请求（`POST /mcp`、

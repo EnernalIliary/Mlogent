@@ -695,6 +695,7 @@
         "mlog_fidelity",
         "mlog_observe",
         "mlog_explore",
+        "mlog_kb",
         "mlog_fetch"
       ],
       "check": {

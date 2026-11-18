@@ -123,14 +123,14 @@ python tools/mlogsim.py --sweep-orphans     # orphan sweep: N stale JVM(s) 1234 
 python tools/mlog_mcp.py          # stdio JSON-RPC，供 DSH / Claude Desktop 连接
 ```
 
-工具（15 个）：`mlog_doctor`、`mlog_check{path,cost,limit,level}`、`mlog_ir{path}`、
+工具（16 个）：`mlog_doctor`、`mlog_check{path,cost,limit,level}`、`mlog_ir{path}`、
 `mlog_values{path}`、`mlog_gen{source|logic,name,links,blocks,out}`、
 `mlog_sim{path|logic,ticks,units,save,...}`、`mindcode_compile{source|path,target,optimize,out,map}`、
 `mlog_validate{path|logic|mind|mnd_path,ticks,expect,level,task,hypothesis,next_step}`、
 `mlog_task{action,task_id,source,hypothesis,next_step}`、`scenario_run{path,via,level}`、
 `mlog_diff{path,spec,level}`、`mlog_fidelity{action,capability,difference}`、
 `mlog_observe{a,b,spec,level}`、`mlog_explore{action,template,seeds,params,modifiers,via,limit,shrink}`、
-`mlog_fetch{ref,offset,limit}`。
+`mlog_kb{query,k,kind}`、`mlog_fetch{ref,offset,limit}`。
 每个工具都接受 `level: summary|diagnostics|full`，返回同一个 `mlog-eval/v1` 信封
 （见 `tools/mlog_eval.py`）：默认只回 10 个键的摘要（`task` 恒在，未接任务时为 `null`），大块内容（mlog 源码、变量转储、
 完整轨迹）自动换成 `artifact_ref`，用 `mlog_fetch` 取回。
@@ -165,6 +165,23 @@ python tools/mlog_mcp_http.py --port 8765 --token "$TOKEN"    # POST /mcp, GET /
 
 部署物在 `deploy/`（systemd unit、Dockerfile、反代写法），完整说明见
 `docs/MCP部署.md`；契约测试在 `tests/mcphttp/`（11 项，不需要 JVM）。
+
+两个检索器，用途不同但都不需要联网：
+
+| | `tools/kb.py` | `tools/kb_grep.py` |
+|---|---|---|
+| 检索方式 | bge-small-zh 向量 + trigram BM25，RRF 融合，可 `--rerank` | 纯词面 BM25（ASCII 标识符 + 中文二元组） |
+| 前提 | `fastembed`、模型缓存、先 `build` 出 SQLite | 无。直接读 `knowledge/**/*.md` |
+| 质量 | 好（语义近的也能命中） | 够用（问「链接名读档」「Mindcode 内联」这类精确问题更稳） |
+| 谁在用 | 本机查资料、评测集 | MCP 的 `mlog_kb` 工具（服务器不能假设有 embedding） |
+
+```bash
+python tools/kb_grep.py search "链接名 读档 重算" -k 3     # 冷 300 ms / 热 80 ms
+python tools/kb_grep.py selftest                          # 7 条自查
+```
+
+没有 `knowledge/` 时 `mlog_kb` 老实回 0 条；`mlog_doctor` 的 `knowledge.present`
+会先告诉你到底是没有数据还是没命中。
 
 ## 联机调试世界（`world_server.py` + `world_mcp.py`）
 

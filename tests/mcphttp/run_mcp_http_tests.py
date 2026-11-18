@@ -24,6 +24,12 @@ import urllib.request
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 SERVER = os.path.join(ROOT, "tools", "mlog_mcp_http.py")
 
+TOOLS = os.path.join(ROOT, "tools")
+if TOOLS not in sys.path:
+    sys.path.insert(0, TOOLS)
+import mlog_mcp  # noqa: E402  (needs the path above; the count comes from here)
+
+
 
 def free_port() -> int:
     s = socket.socket()
@@ -131,7 +137,7 @@ class Protocol(unittest.TestCase):
         self.assertEqual(status, 200)
         doc = json.loads(body)
         self.assertTrue(doc["ok"])
-        self.assertEqual(doc["tools"], 15)
+        self.assertEqual(doc["tools"], len(mlog_mcp.TOOLS))
         self.assertIn("uptime_s", doc)
 
     def test_get_mcp_is_405_rather_than_a_broken_stream(self):

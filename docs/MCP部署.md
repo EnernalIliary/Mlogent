@@ -9,7 +9,7 @@
 
 ```
 POST /mcp     JSON-RPC 请求或批次 → 200 带回包；通知（无 id）→ 202 空包
-GET  /health  200 {"ok":true,"name","version","tools":15,"repo","uptime_s","pid"}
+GET  /health  200 {"ok":true,"name","version","tools":16,"repo","uptime_s","pid"}
 GET  /mcp     405 Allow: POST（这一版不提供服务端推送）
 ```
 
