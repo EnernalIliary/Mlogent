@@ -1,5 +1,4 @@
 ---
-tokens: 721
 id: WORLD.NAMES.004
 title: 物品 / 液体 / 状态效果名对照（56 条）
 domain: world
@@ -7,8 +6,8 @@ status: active
 ver: [v160.7_rt, v159.3_src]
 conf: S
 src:
-  - "assets/bundles/bundle_zh_CN.properties:1-3038"
-  - "assets/bundles/bundle.properties:1-3438"
+  - "data/game/bundles/bundle_zh_CN.properties:1-3037"
+  - "data/game/bundles/bundle.properties:1-3042"
 data:
   - "00-data/items.json"
   - "00-data/liquids.json"
@@ -105,7 +104,7 @@ tags: [名词, 中文名, 英文名, 翻译, 对照表, 物品, 液体, 状态]
 
 ## 源码锚点
 
-- `assets/bundles/bundle_zh_CN.properties`（zh:N）与 `bundle.properties`（en:N）。
+- `data/game/bundles/bundle_zh_CN.properties`（zh:N）与 `bundle.properties`（en:N）。
 - `00-data/items.json`（22 条）/ `liquids.json`（11 条）/ `status.json`（23 条）；三类共 56 条，53 条有中文名。
 - 生成脚本 `knowledge/tools/gen_name_docs.py`。
 

@@ -13,7 +13,10 @@
 
 用法:
     python knowledge/tools/gen_game_aliases.py           # 重写 data/game/aliases.json
-    python knowledge/tools/gen_game_aliases.py --check   # 只报告覆盖率与冲突，不写文件
+    python knowledge/tools/gen_game_aliases.py --check   # 与磁盘比对，漂移则退出码 1
+
+母本默认取仓库内的 `data/game/bundles/bundle_zh_CN.properties`（`MLOG_BUNDLES` 可覆盖目录），
+所以干净 checkout / CI 里也能跑。
 """
 from __future__ import annotations
 
@@ -41,17 +44,28 @@ KV_RE = re.compile(r"^\s*([A-Za-z0-9_.\-]+)\s*=\s*(.*)$")
 TAG_RE = re.compile(r"\[[a-zA-Z#][a-zA-Z0-9#_]{0,15}\]")
 
 
-def _asset_root() -> Path:
-    """素材目录（游戏素材已拆出仓库，与 gen_name_docs.py 的查找顺序一致）。"""
-    cands = [os.environ.get("MLOG_ASSETS"),
-             REPO / "assetsraw",
-             REPO.parent / "TextureMDT",
-             REPO.parent / "Mindustry_assetsraw",
-             REPO.parent / "assetsraw"]
-    for c in cands:
-        if c and (Path(c) / "assets" / "bundles").is_dir():
-            return Path(c)
-    return REPO / "assetsraw"
+def _bundle_dirs():
+    """Candidate bundle directories, most local first (same order as gen_name_docs.py).
+
+    `data/game/bundles/` is vendored into the repo, so this runs in a clean
+    checkout; the asset tree outside the repo is only an override.
+    """
+    return [os.environ.get("MLOG_BUNDLES"),
+            REPO / "data" / "game" / "bundles",
+            REPO / "assetsraw" / "assets" / "bundles",
+            REPO.parent / "TextureMDT" / "assets" / "bundles",
+            REPO.parent / "Mindustry_assetsraw" / "assets" / "bundles",
+            REPO.parent / "assetsraw" / "assets" / "bundles"]
+
+
+def _bundle(name: str) -> Path:
+    for d in _bundle_dirs():
+        if not d:
+            continue
+        p = Path(d) / name
+        if p.is_file():
+            return p
+    return Path("") / name
 
 
 def clean(text: str) -> str:
@@ -90,7 +104,7 @@ def ids_of(name: str) -> list[str]:
 
 def main(argv: list[str]) -> int:
     check = "--check" in argv
-    zh = load_bundle(_asset_root() / "assets/bundles/bundle_zh_CN.properties")
+    zh = load_bundle(_bundle("bundle_zh_CN.properties"))
     if not zh:
         sys.exit("missing bundle_zh_CN.properties; set MLOG_ASSETS or put the assets next to the repo")
 
@@ -136,9 +150,6 @@ def main(argv: list[str]) -> int:
     print("official %(official)d, no official name %(no_official)d, "
           "extras kept %(extras_kept)d, extras dropped %(extras_dropped)d" % stats)
     print("kinds: " + report)
-    if check:
-        return 0
-
     lines = ["{"]
     kinds = list(result)
     for ki, kind in enumerate(kinds):
@@ -150,9 +161,18 @@ def main(argv: list[str]) -> int:
             lines.append('    %s: [%s]%s' % (json.dumps(ident, ensure_ascii=False), arr, comma))
         lines.append("  }" + ("," if ki < len(kinds) - 1 else ""))
     lines.append("}")
-    OUT.write_text("\n".join(lines) + "\n", encoding="utf-8", newline="\n")
-    print("wrote %s (%d ids)" % (OUT.relative_to(REPO).as_posix(),
-                                 sum(len(v) for v in result.values())))
+    text = "\n".join(lines) + "\n"
+    ids = sum(len(v) for v in result.values())
+    if check:
+        have = OUT.read_text(encoding="utf-8") if OUT.is_file() else ""
+        if have != text:
+            print("drift: %s does not match the bundle (%d ids would be written)"
+                  % (OUT.relative_to(REPO).as_posix(), ids))
+            return 1
+        print("in sync: %s (%d ids)" % (OUT.relative_to(REPO).as_posix(), ids))
+        return 0
+    OUT.write_text(text, encoding="utf-8", newline="\n")
+    print("wrote %s (%d ids)" % (OUT.relative_to(REPO).as_posix(), ids))
     return 0
 
 

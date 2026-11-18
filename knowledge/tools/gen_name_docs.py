@@ -4,14 +4,14 @@
 
 用法:
     python knowledge/tools/gen_name_docs.py            # 生成 02-world/W13..W16 与 04-units/U06
-    python knowledge/tools/gen_name_docs.py --check    # 只报告覆盖率与行数，不写文件
+    python knowledge/tools/gen_name_docs.py --check    # 与磁盘比对（漂移则退出码 1），不写文件
 
 数据源:
-    <assets>/assets/bundles/bundle.properties       英文显示名
-    <assets>/assets/bundles/bundle_zh_CN.properties 中文显示名
+    data/game/bundles/bundle.properties       英文显示名（仓库内，首选）
+    data/game/bundles/bundle_zh_CN.properties 中文显示名（仓库内，首选）
     knowledge/00-data/{blocks,units,items,liquids,status}.json  (id 全集与分组)
-    <assets> 依次找 $MLOG_ASSETS、本仓库下的 assetsraw/、以及同级的
-    TextureMDT/（游戏素材拆出去后的目录名）—— 素材不在本仓库里。
+    bundle 目录依次找 $MLOG_BUNDLES、本仓库的 data/game/bundles/、assetsraw/、以及同级的
+    TextureMDT/（游戏素材拆出去后的目录名）—— 素材树只是覆盖用，行号须与仓库内一致。
 key 规则: <kind>.<id>.name，kind ∈ block/unit/item/liquid/status。
 """
 from __future__ import annotations
@@ -27,28 +27,62 @@ KB = HERE.parent
 REPO = KB.parent
 
 
-def _asset_root() -> Path:
-    """Where the extracted game assets live (they are no longer in this repo)."""
-    cands = [os.environ.get("MLOG_ASSETS"),
-             REPO / "assetsraw",
-             REPO.parent / "TextureMDT",
-             REPO.parent / "Mindustry_assetsraw",
-             REPO.parent / "assetsraw"]
-    for c in cands:
-        if c and (Path(c) / "assets" / "bundles").is_dir():
-            return Path(c)
-    return REPO / "assetsraw"
+def _bundle_dirs():
+    """Candidate bundle directories, most local first.
+
+    `data/game/bundles/` wins so the generator runs in a clean checkout (CI
+    included).  The extracted asset tree stays as an override: `MLOG_BUNDLES`
+    for an explicit directory, then the sibling TextureMDT / assetsraw trees
+    people keep outside the repo.  Line numbers baked into the generated docs
+    ("zh:N" / "en:N") are line numbers *of these files*, so an override only
+    stays honest while it is byte-identical to the vendored copy.
+    """
+    return [os.environ.get("MLOG_BUNDLES"),
+            REPO / "data" / "game" / "bundles",
+            REPO / "assetsraw" / "assets" / "bundles",
+            REPO.parent / "TextureMDT" / "assets" / "bundles",
+            REPO.parent / "Mindustry_assetsraw" / "assets" / "bundles",
+            REPO.parent / "assetsraw" / "assets" / "bundles"]
 
 
-ASSETS = _asset_root()
-B_EN = ASSETS / "assets/bundles/bundle.properties"
-B_ZH = ASSETS / "assets/bundles/bundle_zh_CN.properties"
+def _bundle(name: str) -> Path:
+    for d in _bundle_dirs():
+        if not d:
+            continue
+        p = Path(d) / name
+        if p.is_file():
+            return p
+    raise SystemExit("%s not found; looked in:\n  %s"
+                     % (name, "\n  ".join(str(d) for d in _bundle_dirs() if d)))
+
+
+B_EN = _bundle("bundle.properties")
+B_ZH = _bundle("bundle_zh_CN.properties")
 DATA = KB / "00-data"
 
 KV_RE = re.compile(r"^\s*([A-Za-z0-9_.\-]+)\s*=\s*(.*)$")
 # Mindustry 的颜色/标记形式，如 [lightgray]、[accent]、[#ff0000]
 TAG_RE = re.compile(r"\[[a-zA-Z#][a-zA-Z0-9#_]{0,15}\]")
 MAX_LINES = 250
+
+
+def _dep(path: Path) -> str:
+    """Path as written into front matter: repo-relative when it is in the repo.
+
+    `MLOG_BUNDLES` may point at an asset checkout elsewhere (that is how you
+    check line provenance against a freshly extracted tree), and front matter
+    must not blow up on a path outside the repo.
+    """
+    try:
+        return path.relative_to(REPO).as_posix()
+    except ValueError:
+        return path.as_posix()
+
+
+def _line_count(path: Path) -> int:
+    """Lines in a bundle file -- the docs cite "zh:N", so the count must be real."""
+    with path.open(encoding="utf-8-sig", errors="replace") as fh:
+        return sum(1 for _ in fh)
 
 
 def load_bundle(path: Path):
@@ -135,8 +169,8 @@ def coverage(kind, idents):
 
 def fm(art_id, title, data_refs, depends, tags, extra_src=()):
     src = [
-        "assets/bundles/bundle_zh_CN.properties:1-3038",
-        "assets/bundles/bundle.properties:1-3438",
+        "%s:1-%d" % (_dep(B_ZH), _line_count(B_ZH)),
+        "%s:1-%d" % (_dep(B_EN), _line_count(B_EN)),
     ] + list(extra_src)
     lines = ["---", "id: " + art_id, "title: " + title, "domain: " +
              ("world" if art_id.startswith("WORLD") else "unit"),
@@ -193,8 +227,8 @@ def doc1():
         "",
         "## 源码锚点",
         "",
-        "- `assets/bundles/bundle_zh_CN.properties` —— 中文显示名；表内「中文名出处 zh:N」即该文件第 N 行。",
-        "- `assets/bundles/bundle.properties` —— 英文显示名；「英文名出处 en:N」即该文件第 N 行。",
+        "- `data/game/bundles/bundle_zh_CN.properties` —— 中文显示名；表内「中文名出处 zh:N」即该文件第 N 行。",
+        "- `data/game/bundles/bundle.properties` —— 英文显示名；「英文名出处 en:N」即该文件第 N 行。",
         "- `00-data/blocks.json` —— `id` / `types` / `category` 字段；本文按 `types` 过滤出 %d 条（其中 %d 条有中文名）。" % (total, zh_only),
         "- 生成脚本 `knowledge/tools/gen_name_docs.py`（游戏版本更新后重跑即可，不改 00-data）。",
         "",
@@ -257,7 +291,7 @@ def doc2():
         "",
         "## 源码锚点",
         "",
-        "- `assets/bundles/bundle_zh_CN.properties`（中文名，zh:N 为行号）与 `bundle.properties`（英文名，en:N 为行号）。",
+        "- `data/game/bundles/bundle_zh_CN.properties`（中文名，zh:N 为行号）与 `bundle.properties`（英文名，en:N 为行号）。",
         "- `00-data/blocks.json` 的 `category` 字段是本文的分组依据；%d 条中 %d 条有中文名。" % (total, zh_only),
         "- 生成脚本 `knowledge/tools/gen_name_docs.py`。",
         "",
@@ -320,7 +354,7 @@ def doc3():
         "",
         "## 源码锚点",
         "",
-        "- `assets/bundles/bundle_zh_CN.properties`（zh:N）与 `bundle.properties`（en:N）。",
+        "- `data/game/bundles/bundle_zh_CN.properties`（zh:N）与 `bundle.properties`（en:N）。",
         "- `00-data/blocks.json`：`category` 分组；%d 条中 %d 条有中文名。" % (total, zh_only),
         "- 生成脚本 `knowledge/tools/gen_name_docs.py`。",
         "",
@@ -394,7 +428,7 @@ def doc4():
         "",
         "## 源码锚点",
         "",
-        "- `assets/bundles/bundle_zh_CN.properties`（zh:N）与 `bundle.properties`（en:N）。",
+        "- `data/game/bundles/bundle_zh_CN.properties`（zh:N）与 `bundle.properties`（en:N）。",
         "- `00-data/items.json`（%d 条）/ `liquids.json`（%d 条）/ `status.json`（%d 条）；三类共 %d 条，%d 条有中文名。"
         % (len(items), len(liqs), len(sts), total, zh_hit),
         "- 生成脚本 `knowledge/tools/gen_name_docs.py`。",
@@ -456,7 +490,7 @@ def doc5():
         "",
         "## 源码锚点",
         "",
-        "- `assets/bundles/bundle_zh_CN.properties`（zh:N）与 `bundle.properties`（en:N）。",
+        "- `data/game/bundles/bundle_zh_CN.properties`（zh:N）与 `bundle.properties`（en:N）。",
         "- `00-data/units.json`：%d 条单位记录，`id` 与 bundle key 一一对应。" % total,
         "- 生成脚本 `knowledge/tools/gen_name_docs.py`。",
         "",
@@ -490,22 +524,31 @@ def main(argv):
     check_only = "--check" in argv
     docs = [doc1(), doc2(), doc3(), doc4(), doc5()]
     bad = 0
+    drift = 0
     for art, rel, lines in docs:
         text = "\n".join(lines).replace("`", chr(96)) + "\n"
         n = text.count("\n")
-        flag = "  <== 超过 %d 行" % MAX_LINES if n > MAX_LINES else ""
+        flag = ""
         if n > MAX_LINES:
             bad += 1
-        print("%-14s %-42s %4d 行  %6d B%s" % (art, rel, n, len(text.encode("utf-8")), flag))
-        if not check_only:
-            p = KB / rel
+            flag = "  <== 超过 %d 行" % MAX_LINES
+        p = KB / rel
+        if check_only:
+            have = p.read_text(encoding="utf-8") if p.is_file() else ""
+            if have != text:
+                drift += 1
+                flag += "  <== 与磁盘不一致"
+        else:
             p.parent.mkdir(parents=True, exist_ok=True)
             with p.open("w", encoding="utf-8", newline="\n") as fh:
                 fh.write(text)
+        print("%-14s %-42s %4d 行  %6d B%s" % (art, rel, n, len(text.encode("utf-8")), flag))
     bhit, bzh, btot = coverage("block", [b["id"] for b in BLOCKS])
     uhit, uzh, utot = coverage("unit", [u["id"] for u in UNITS])
     print("覆盖: blocks 中文名 %d/%d, units 中文名 %d/%d" % (bzh, btot, uzh, utot))
-    return 1 if bad else 0
+    if check_only and drift:
+        print("%d 篇与磁盘不一致：跑一遍不带 --check 重新生成" % drift)
+    return 1 if (bad or drift) else 0
 
 
 if __name__ == "__main__":

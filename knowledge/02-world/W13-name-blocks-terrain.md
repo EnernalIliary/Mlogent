@@ -1,5 +1,4 @@
 ---
-tokens: 1503
 id: WORLD.NAMES.001
 title: 方块名对照①：地形 / 矿石 / 墙壁（136 条）
 domain: world
@@ -7,8 +6,8 @@ status: active
 ver: [v160.7_rt, v159.3_src]
 conf: S
 src:
-  - "assets/bundles/bundle_zh_CN.properties:1-3038"
-  - "assets/bundles/bundle.properties:1-3438"
+  - "data/game/bundles/bundle_zh_CN.properties:1-3037"
+  - "data/game/bundles/bundle.properties:1-3042"
 data:
   - "00-data/blocks.json"
 depends: [WORLD.BLOCKS.001, WORLD.TERRAIN.001]
@@ -171,8 +170,8 @@ tags: [名词, 中文名, 英文名, 翻译, 对照表, 地形, 矿石, 墙壁]
 
 ## 源码锚点
 
-- `assets/bundles/bundle_zh_CN.properties` —— 中文显示名；表内「中文名出处 zh:N」即该文件第 N 行。
-- `assets/bundles/bundle.properties` —— 英文显示名；「英文名出处 en:N」即该文件第 N 行。
+- `data/game/bundles/bundle_zh_CN.properties` —— 中文显示名；表内「中文名出处 zh:N」即该文件第 N 行。
+- `data/game/bundles/bundle.properties` —— 英文显示名；「英文名出处 en:N」即该文件第 N 行。
 - `00-data/blocks.json` —— `id` / `types` / `category` 字段；本文按 `types` 过滤出 136 条（其中 122 条有中文名）。
 - 生成脚本 `knowledge/tools/gen_name_docs.py`（游戏版本更新后重跑即可，不改 00-data）。
 

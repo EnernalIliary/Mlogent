@@ -203,7 +203,12 @@ Agent 侧的判据与排错见 `docs/联机调试世界.md` §17；MCP 一行版
 
 三个必须知道的点：
 
-- 端口大概率不是 6567 —— Windows/Hyper-V 保留了 `6528-6727`，脚本会自己往上找，真实端口见握手与 `world_status.gamePort`。
+- 端口大概率不是 6567 —— Windows/Hyper-V 会在动态端口段里圈走成片的端口，脚本用 `port_free()`
+  （TCP+UDP 都试）探一遍、失败就从 15000 往上找，真实端口见握手与 `world_status.gamePort`。
+  被圈走的端口 bind 报 **WinError 10013（拒绝访问）**，不是「占用」，但游戏客户端会把两种失败都打印成
+  `Port 6567 already in use`。看圈子：`netsh interface ipv4 show excludedportrange protocol=tcp`；
+  修法（管理员）：`net stop winnat` → `netsh int ipv4 set dynamicport tcp start=49152 num=16384` →
+  `net start winnat`，之后 6xxx 不再被预留。`world_server.py` 自己会绕，**游戏客户端里的 Host 没有退路**。
 - `world_pause` 有玩家在线时会被解除，改完世界要复核 `paused`。
 - `world_js` 里没有 `Java`/`mindustry` 全局，静态方法走实例（`Vars.maps.all()`）；`tile.setBlock()` 放出来的方块是 `enabled=false` + `derelict`，要用 `world_place`。
 - `Groups.build` 只收**会 update** 的方块（核心、处理器），container/传送带/墙这类 `update=false` 的根本不在里面 —— 所以 `world_buildings`/`world_logic` 改成直接扫 tile，多格建筑只在原点格报一次。

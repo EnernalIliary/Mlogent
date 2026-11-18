@@ -174,6 +174,11 @@ def build_steps(full: bool, only: str | None) -> list[tuple[str, list[str] | Non
         # unless MLOG_CACHE=1; a stale hit would be indistinguishable from a
         # wrong answer, so the key/eviction rules get their own step.
         ("cache", ["tests/cache/run_cache_tests.py"], ""),
+        # The two name generators read a language pack, not the game: the files
+        # are vendored under data/game/bundles/ so a clean checkout can rerun
+        # them.  What drifts silently is the generated side -- aliases.json and
+        # the five W13..W16/U06 docs -- hence --check compares with the disk.
+        ("bundles", ["tests/bundles/run_bundle_tests.py"], ""),
         # The observation schema (tools/observation.py) is what makes two runs
         # comparable at all; the differential runner is layered on it.  Pure
         # data, so it runs everywhere -- only the live-world half can skip.
