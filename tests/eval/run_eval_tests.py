@@ -35,7 +35,7 @@ def ok(cond: bool, what: str) -> None:
 def test_envelope_shape() -> None:
     s = E.result(ok=True, stage="static", level="summary")
     ok(set(s) == {"schema", "ok", "stage", "failure_type", "message", "level",
-                  "levels", "next_steps", "elapsed_ms"}, "summary envelope keys")
+                  "levels", "next_steps", "elapsed_ms", "task"}, "summary envelope keys")
     ok(s["schema"] == "mlog-eval/v1", "schema tag is stable")
     ok(s["failure_type"] is None, "a pass carries no failure_type")
     ok(s["next_steps"] == [], "a pass suggests no next step")

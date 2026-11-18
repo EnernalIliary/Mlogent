@@ -122,13 +122,14 @@ python tools/mlogsim.py --sweep-orphans     # orphan sweep: N stale JVM(s) 1234 
 python tools/mlog_mcp.py          # stdio JSON-RPC，供 DSH / Claude Desktop 连接
 ```
 
-工具（10 个）：`mlog_doctor`、`mlog_check{path,cost,limit,level}`、`mlog_ir{path}`、
+工具（12 个）：`mlog_doctor`、`mlog_check{path,cost,limit,level}`、`mlog_ir{path}`、
 `mlog_values{path}`、`mlog_gen{source|logic,name,links,blocks,out}`、
 `mlog_sim{path|logic,ticks,units,save,...}`、`mindcode_compile{source|path,target,optimize,out}`、
-`mlog_validate{path|logic|mind|mnd_path,ticks,expect,level}`、`scenario_run{path,via,level}`、
-`mlog_fetch{ref,offset,limit}`。
+`mlog_validate{path|logic|mind|mnd_path,ticks,expect,level,task,hypothesis,next_step}`、
+`mlog_task{action,task_id,source,hypothesis,next_step}`、`scenario_run{path,via,level}`、
+`mlog_diff{path,spec,level}`、`mlog_fetch{ref,offset,limit}`。
 每个工具都接受 `level: summary|diagnostics|full`，返回同一个 `mlog-eval/v1` 信封
-（见 `tools/mlog_eval.py`）：默认只回 9 个键的摘要，大块内容（mlog 源码、变量转储、
+（见 `tools/mlog_eval.py`）：默认只回 10 个键的摘要（`task` 恒在，未接任务时为 `null`），大块内容（mlog 源码、变量转储、
 完整轨迹）自动换成 `artifact_ref`，用 `mlog_fetch` 取回。
 模拟器在服务进程内保温，首次约 3.7 s，之后约 0.6 s。DSH 侧配置片段：
 
@@ -525,6 +526,32 @@ python tests/mindcode/run_mindcode_tests.py   # exit 3 = 本机没有可用编�
 
 jar/JRE 走 `MINDCODE_JAR` / `MINDCODE_JAVA`；默认落点 `out/_mindcode/`（gitignored）。
 注意 3.19.3 要 **Java 22+**，仓库自带的 JRE 21 装不了它。
+
+## 任务进度（`taskstate.py`）
+
+一条流水线跑三遍最容易亏在哪儿：第一遍编译、静态、仿真都过了，改一行又从头来，
+而且第二遍失败时没人记得第一遍过了什么。`taskstate.py` 把进度落成**一个 JSON 文件**
+（默认 `out/tasks/`，`$MLOG_TASK_DIR` 可改）：
+
+```bash
+python tools/taskstate.py list                     # 有哪些任务、各自到哪一步
+python tools/taskstate.py show   ts-1a2b3c4d5e     # 完整记录（含 history）
+python tools/taskstate.py resume ts-1a2b3c4d5e --source prog.mlog
+python tools/taskstate.py clear  ts-1a2b3c4d5e
+```
+
+规划 §5 要求的六个字段是记录的主干：`task_id`、`source_version`（源码的 12 位内容哈希）、
+`completed_stages`、`failed_stages`、`current_hypothesis`、`next_step`。三条语义值得记住：
+
+- **进度属于某个版本的源码**。源码一改，旧的 `completed_stages` 降级进 `stale_stages`
+  （"在另一个程序上验过"是事实，但不构成跳过工作的理由），`resume()` 会说明原因。
+- **失败从不等于跳过**。`failed_stages` 里的阶段在 `resume()` 里是 `recheck`，优先于
+  "下一步该跑什么"。
+- **先落盘再上报**。`record()` 在信封返回之前写文件，所以中途崩掉也留得下"跑到哪儿"。
+
+落盘复用了 `jobqueue.Store`（tmp + `os.replace` + 争用重试），没有第二套写盘逻辑。
+接线只需在 `mlog_eval.evaluate(..., task=task)` 传记录，MCP 侧传 `task`/`task_id` 给
+`mlog_validate` 即可，`mlog_task` 负责读、续跑与记笔记。
 
 ## 场景（`scenario.py`）
 

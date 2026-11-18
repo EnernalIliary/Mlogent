@@ -166,6 +166,10 @@ def build_steps(full: bool, only: str | None) -> list[tuple[str, list[str] | Non
         # silently drift apart if the shape were only asserted in their own
         # tests, so it is asserted on its own here (tests/eval/).
         ("eval", ["tests/eval/run_eval_tests.py"], ""),
+        # Task progress (tools/taskstate.py) is what lets a retry resume at the
+        # stage that failed; the record is written before it is reported, and a
+        # changed source demotes old progress.  Plain files, so it runs everywhere.
+        ("taskstate", ["tests/taskstate/run_taskstate_tests.py"], ""),
         # The observation schema (tools/observation.py) is what makes two runs
         # comparable at all; the differential runner is layered on it.  Pure
         # data, so it runs everywhere -- only the live-world half can skip.

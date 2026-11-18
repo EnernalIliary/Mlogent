@@ -1,4 +1,4 @@
-"""游戏内容速查（数据由 out/_dump_game.py 从 v160.7 真执行器导出）。
+"""游戏内容速查（数据由 tools/dev/dump_game.py 从 v160.7 真执行器导出）。
 
     python tools/game.py item silicon
     python tools/game.py block silicon-smelter
@@ -20,7 +20,7 @@ DATA = ROOT / "data" / "game"
 
 def load() -> dict:
     if not (DATA / "blocks.json").is_file():
-        sys.exit(f"missing {DATA}; run: python out/_dump_game.py")
+        sys.exit(f"missing {DATA}; run: python tools/dev/dump_game.py")
     out = {}
     for name in ("items", "liquids", "blocks", "units"):
         out[name] = json.loads((DATA / f"{name}.json").read_text(encoding="utf-8"))
@@ -65,7 +65,8 @@ def fmt_cons(cons: list[dict]) -> str:
     parts = []
     for c in cons:
         if c["kind"] == "power":
-            parts.append(f"电 {_num(c['amount'])}/s")
+            # ConsumePower.usage 是每 tick 的电量，UI 的 /s 值要 ×60
+            parts.append(f"电 {_num(c['amount'])}/tick（{_num(c['amount'] * 60)}/s）")
         elif c["kind"] == "liquid":
             parts.append(f"{c['name']} {_num(c['amount'])}/s")
         else:
@@ -123,7 +124,13 @@ def cmd_block(game: dict, name: str) -> None:
     if b["outputs"]:
         print("产出：" + "、".join(fmt_stack(o) for o in b["outputs"]))
     if b["craftTime"] and b["craftTime"] > 0:
-        print(f"craftTime：{b['craftTime']} tick")
+        print(f"craftTime：{_num(b['craftTime'] / 60)} 秒（{_num(b['craftTime'])} tick，60 tick = 1 秒）")
+    cap = b.get("itemCapacity")
+    liq = b.get("liquidCapacity")
+    if cap is not None or liq is not None:
+        print(f"容量：物品 {cap}  液体 {_num(liq)}"
+              + (f"  射程 {_num(b['range'])}" if b.get("range") is not None else "")
+              + (f"  装填 {_num(b['reload'])}" if b.get("reload") is not None else ""))
 
 
 def cmd_unit(game: dict, name: str) -> None:

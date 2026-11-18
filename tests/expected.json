@@ -689,6 +689,7 @@
         "mlog_sim",
         "mindcode_compile",
         "mlog_validate",
+        "mlog_task",
         "scenario_run",
         "mlog_diff",
         "mlog_fetch"

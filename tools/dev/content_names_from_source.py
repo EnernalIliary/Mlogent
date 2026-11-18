@@ -17,7 +17,7 @@ at "sensor result target @name":
     see out/takeover-20261024/15-sensor-link-oracle.md.
 
 The names come from the v160.7 game dump that already ships in data/game/
-(made by out/_dump_game.py) and are then verified against the Java literals in
+(made by tools/dev/dump_game.py) and are then verified against the Java literals in
 Mindustry-Source -- a name that is not a quoted literal in its content file is
 reported under "unverified" rather than trusted blindly. Status effects come
 from tools/status_names.json (StatusEffects.java).

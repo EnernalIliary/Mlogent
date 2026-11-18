@@ -10,6 +10,14 @@
 - 语料分析脚本在 `tools/corpus/`，不在本目录：`_sweep_saves.py`、`_sweep_analyse.py`、`_label_programs.py`、`_err_table.py` 等。
 - 目录内容默认被 `.gitignore` 忽略；要保留某个脚本请 `git add -f`。
 
+## 可复现的数据导出器（例外：需要保留并被人引用）
+
+`dump_game.py` —— 从 v160.7 真执行器（`out/_server160.jar` + `out/jre21/`，可用 `MLOGSIM_JAR` / `MLOGSIM_JAVA` 覆盖）
+重导 `data/game/{items,liquids,blocks,units,meta}.json`：`python tools/dev/dump_game.py`。
+它已按本文的约定改成 `ROOT = Path(__file__).resolve().parents[2]`，所以在任何目录下都能跑；
+字段全部直接取自 `Vars.content` 反射，取不到的记 `null`（不再填 `-1` 之类的假值）。
+`tools/game.py` 的提示语与 `knowledge/` 的文档都指向这个路径。
+
 ## 源码拓荒脚本（从 tools/ 顶层移入）
 
 `block_ids_from_source.py`、`blocks_from_source.py`、`content_names_from_source.py`、

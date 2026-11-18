@@ -19,7 +19,7 @@
 
 ## 已知错误（不得继承）
 
-- 旧 data/game/*.json 的 craftTime **447 条全为 -1** → 弃用该字段。
+- ~~旧 data/game/*.json 的 craftTime **447 条全为 -1**~~ → **2026-11 已修复**：`tools/dev/dump_game.py` 直接读 `b.craftTime`，33 个方块有真值（10–600 tick），其余 414 个方块类上无此字段（记 `null`）。不再有 -1 哨兵值；读到 null 即"该方块没有 craftTime"，不是"瞬间完成"。
 - docs/游戏速查/方块配方.md 的"耗电"列是**每 tick**，标签却写 /s → 差 60 倍。
 - 蓝图逻辑模式库.md / 蓝图层逐类精讲.md 的根级副本已删除（2026-11-15，内容与 07-patterns 重复），现存以 `mindustry-blueprint/PATTERNS.md` / `BLUEPRINT-ANALYSIS.md` 为准。
 - instr_semantics.json 存在 3 个尺寸版本，以仓库 tools/ 版（56.5KB）为准；instr_enums.json（v160.7）作枚举补充。

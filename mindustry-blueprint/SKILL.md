@@ -145,6 +145,28 @@ python tools/scenario.py list
 - 卸载器不往相邻容器/核心推货，必须经传送带；
 - 控制台脚本别以 `for(...){}` 结尾（会回显值，`mlogsim` 等 `undefined` 会挂死到超时）。
 
+## 续跑：上一轮到哪一步停了
+
+同一个程序验三遍最亏：第一遍编译、静态、仿真全过，改一行又从零开始；第二轮失败时也没人记得
+第一轮过了什么。`mlog_task` 把进度存成一条记录（`out/tasks/` 下一个 JSON），下一次接着跑。
+
+```text
+mlog_validate{ logic: "...", ticks: 30, expect: [...], next_step: "接显示器" }
+  → 返回的 task 块里有 task_id 与 completed_stages
+mlog_task{ action: "resume", task_id: "ts-1a2b3c4d5e", source: "<现在的程序文本>" }
+  → { next_stage: "assertion", recheck: [], stale_stages: [], hint: "" }
+```
+
+读法很简单，三条**必须记住**：
+
+- `completed_stages` 属于 `source_version`（源码的内容哈希）。源码改了，旧进度降级进
+  `stale_stages` 并出 `hint`——**别把 stale 当通过**，那是「在另一个程序上验过」。
+- `failed_stages` / `recheck` 永远优先于 `next_stage`：先回去修失败的那一步。
+- `next_step` 是给人也是给下一轮自己的话；失败时就该写上「下一步试什么」。
+
+进度是**可选的**：不传 `task` 就是一次性验证，行为与以前一样。命令行等价物：
+`python tools/taskstate.py list|show|resume|clear`。
+
 ## 差分：离线跑过了，游戏里还对吗
 
 同一个场景可以交给两个宿主：`tools/mlogsim.py`（离线真执行器）和 `tools/world_server.py`

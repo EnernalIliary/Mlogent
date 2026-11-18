@@ -9,7 +9,11 @@
   "requirements": [],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": -1.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 1,
@@ -21,7 +25,11 @@
   "requirements": [],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 2,
@@ -33,7 +41,11 @@
   "requirements": [],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 3,
@@ -45,7 +57,11 @@
   "requirements": [],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 4,
@@ -57,7 +73,11 @@
   "requirements": [],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 5,
@@ -69,7 +89,11 @@
   "requirements": [],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 6,
@@ -81,7 +105,11 @@
   "requirements": [],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 7,
@@ -93,7 +121,11 @@
   "requirements": [],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 8,
@@ -105,7 +137,11 @@
   "requirements": [],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 9,
@@ -117,7 +153,11 @@
   "requirements": [],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 10,
@@ -129,7 +169,11 @@
   "requirements": [],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 11,
@@ -141,7 +185,11 @@
   "requirements": [],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 12,
@@ -153,7 +201,11 @@
   "requirements": [],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 13,
@@ -165,7 +217,11 @@
   "requirements": [],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 14,
@@ -177,7 +233,11 @@
   "requirements": [],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 15,
@@ -189,7 +249,11 @@
   "requirements": [],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 16,
@@ -201,7 +265,11 @@
   "requirements": [],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 17,
@@ -213,7 +281,11 @@
   "requirements": [],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 18,
@@ -225,7 +297,11 @@
   "requirements": [],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 19,
@@ -237,7 +313,11 @@
   "requirements": [],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 20,
@@ -249,7 +329,11 @@
   "requirements": [],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 21,
@@ -261,7 +345,11 @@
   "requirements": [],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 22,
@@ -273,7 +361,11 @@
   "requirements": [],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 23,
@@ -285,7 +377,11 @@
   "requirements": [],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 24,
@@ -297,7 +393,11 @@
   "requirements": [],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 25,
@@ -309,7 +409,11 @@
   "requirements": [],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 26,
@@ -321,7 +425,11 @@
   "requirements": [],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 27,
@@ -333,7 +441,11 @@
   "requirements": [],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 28,
@@ -345,7 +457,11 @@
   "requirements": [],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 29,
@@ -357,7 +473,11 @@
   "requirements": [],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 30,
@@ -369,7 +489,11 @@
   "requirements": [],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 31,
@@ -381,7 +505,11 @@
   "requirements": [],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 32,
@@ -393,7 +521,11 @@
   "requirements": [],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 33,
@@ -405,7 +537,11 @@
   "requirements": [],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 34,
@@ -417,7 +553,11 @@
   "requirements": [],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 35,
@@ -429,7 +569,11 @@
   "requirements": [],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 36,
@@ -441,7 +585,11 @@
   "requirements": [],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 37,
@@ -453,7 +601,11 @@
   "requirements": [],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 38,
@@ -465,7 +617,11 @@
   "requirements": [],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 39,
@@ -477,7 +633,11 @@
   "requirements": [],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 40,
@@ -489,7 +649,11 @@
   "requirements": [],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 41,
@@ -501,7 +665,11 @@
   "requirements": [],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 42,
@@ -513,7 +681,11 @@
   "requirements": [],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 43,
@@ -525,7 +697,11 @@
   "requirements": [],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 44,
@@ -537,7 +713,11 @@
   "requirements": [],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 45,
@@ -549,7 +729,11 @@
   "requirements": [],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 46,
@@ -561,7 +745,11 @@
   "requirements": [],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 47,
@@ -573,7 +761,11 @@
   "requirements": [],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 48,
@@ -585,7 +777,11 @@
   "requirements": [],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 49,
@@ -597,7 +793,11 @@
   "requirements": [],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 50,
@@ -609,7 +809,11 @@
   "requirements": [],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 51,
@@ -621,7 +825,11 @@
   "requirements": [],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 52,
@@ -633,7 +841,11 @@
   "requirements": [],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 53,
@@ -645,7 +857,11 @@
   "requirements": [],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 54,
@@ -657,7 +873,11 @@
   "requirements": [],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 55,
@@ -669,7 +889,11 @@
   "requirements": [],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 56,
@@ -681,7 +905,11 @@
   "requirements": [],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 57,
@@ -693,7 +921,11 @@
   "requirements": [],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 58,
@@ -705,7 +937,11 @@
   "requirements": [],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 59,
@@ -717,7 +953,11 @@
   "requirements": [],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 60,
@@ -729,7 +969,11 @@
   "requirements": [],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 61,
@@ -741,7 +985,11 @@
   "requirements": [],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 62,
@@ -753,7 +1001,11 @@
   "requirements": [],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 63,
@@ -765,7 +1017,11 @@
   "requirements": [],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 64,
@@ -777,7 +1033,11 @@
   "requirements": [],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 65,
@@ -789,7 +1049,11 @@
   "requirements": [],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 66,
@@ -801,7 +1065,11 @@
   "requirements": [],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 67,
@@ -813,7 +1081,11 @@
   "requirements": [],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 68,
@@ -825,7 +1097,11 @@
   "requirements": [],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 69,
@@ -837,7 +1113,11 @@
   "requirements": [],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 70,
@@ -849,7 +1129,11 @@
   "requirements": [],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 71,
@@ -861,7 +1145,11 @@
   "requirements": [],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 72,
@@ -873,7 +1161,11 @@
   "requirements": [],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 73,
@@ -885,7 +1177,11 @@
   "requirements": [],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 74,
@@ -897,7 +1193,11 @@
   "requirements": [],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 75,
@@ -909,7 +1209,11 @@
   "requirements": [],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 76,
@@ -921,7 +1225,11 @@
   "requirements": [],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 77,
@@ -933,7 +1241,11 @@
   "requirements": [],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 78,
@@ -945,7 +1257,11 @@
   "requirements": [],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 79,
@@ -957,7 +1273,11 @@
   "requirements": [],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 80,
@@ -969,7 +1289,11 @@
   "requirements": [],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 81,
@@ -981,7 +1305,11 @@
   "requirements": [],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 82,
@@ -993,7 +1321,11 @@
   "requirements": [],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 83,
@@ -1005,7 +1337,11 @@
   "requirements": [],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 84,
@@ -1017,7 +1353,11 @@
   "requirements": [],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 85,
@@ -1029,7 +1369,11 @@
   "requirements": [],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 86,
@@ -1041,7 +1385,11 @@
   "requirements": [],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 87,
@@ -1053,7 +1401,11 @@
   "requirements": [],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 88,
@@ -1065,7 +1417,11 @@
   "requirements": [],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 89,
@@ -1077,7 +1433,11 @@
   "requirements": [],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 90,
@@ -1089,7 +1449,11 @@
   "requirements": [],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 91,
@@ -1101,7 +1465,11 @@
   "requirements": [],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 92,
@@ -1113,7 +1481,11 @@
   "requirements": [],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 93,
@@ -1125,7 +1497,11 @@
   "requirements": [],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 94,
@@ -1137,7 +1513,11 @@
   "requirements": [],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 95,
@@ -1149,7 +1529,11 @@
   "requirements": [],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 96,
@@ -1161,7 +1545,11 @@
   "requirements": [],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 97,
@@ -1173,7 +1561,11 @@
   "requirements": [],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 98,
@@ -1185,7 +1577,11 @@
   "requirements": [],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 99,
@@ -1197,7 +1593,11 @@
   "requirements": [],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 100,
@@ -1209,7 +1609,11 @@
   "requirements": [],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 101,
@@ -1221,7 +1625,11 @@
   "requirements": [],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 102,
@@ -1233,7 +1641,11 @@
   "requirements": [],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 103,
@@ -1245,7 +1657,11 @@
   "requirements": [],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 104,
@@ -1257,7 +1673,11 @@
   "requirements": [],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 105,
@@ -1269,7 +1689,11 @@
   "requirements": [],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 106,
@@ -1281,7 +1705,11 @@
   "requirements": [],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 107,
@@ -1293,7 +1721,11 @@
   "requirements": [],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 108,
@@ -1305,7 +1737,11 @@
   "requirements": [],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 109,
@@ -1317,7 +1753,11 @@
   "requirements": [],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 110,
@@ -1329,7 +1769,11 @@
   "requirements": [],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 111,
@@ -1341,7 +1785,11 @@
   "requirements": [],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 112,
@@ -1353,7 +1801,11 @@
   "requirements": [],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 113,
@@ -1365,7 +1817,11 @@
   "requirements": [],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 114,
@@ -1377,7 +1833,11 @@
   "requirements": [],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 115,
@@ -1389,7 +1849,11 @@
   "requirements": [],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 116,
@@ -1401,7 +1865,11 @@
   "requirements": [],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 117,
@@ -1413,7 +1881,11 @@
   "requirements": [],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 118,
@@ -1425,7 +1897,11 @@
   "requirements": [],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 119,
@@ -1437,7 +1913,11 @@
   "requirements": [],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 120,
@@ -1449,7 +1929,11 @@
   "requirements": [],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 121,
@@ -1461,7 +1945,11 @@
   "requirements": [],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 122,
@@ -1473,7 +1961,11 @@
   "requirements": [],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 123,
@@ -1485,7 +1977,11 @@
   "requirements": [],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 124,
@@ -1497,7 +1993,11 @@
   "requirements": [],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 125,
@@ -1509,7 +2009,11 @@
   "requirements": [],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 126,
@@ -1521,7 +2025,11 @@
   "requirements": [],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 127,
@@ -1533,7 +2041,11 @@
   "requirements": [],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 128,
@@ -1545,7 +2057,11 @@
   "requirements": [],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 129,
@@ -1557,7 +2073,11 @@
   "requirements": [],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 130,
@@ -1569,7 +2089,11 @@
   "requirements": [],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 131,
@@ -1581,7 +2105,11 @@
   "requirements": [],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 132,
@@ -1593,7 +2121,11 @@
   "requirements": [],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 133,
@@ -1605,7 +2137,11 @@
   "requirements": [],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 134,
@@ -1617,7 +2153,11 @@
   "requirements": [],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 135,
@@ -1629,7 +2169,11 @@
   "requirements": [],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 136,
@@ -1641,7 +2185,11 @@
   "requirements": [],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 137,
@@ -1653,7 +2201,11 @@
   "requirements": [],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 138,
@@ -1665,7 +2217,11 @@
   "requirements": [],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 139,
@@ -1677,7 +2233,11 @@
   "requirements": [],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 140,
@@ -1689,7 +2249,11 @@
   "requirements": [],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 141,
@@ -1701,7 +2265,11 @@
   "requirements": [],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 142,
@@ -1713,7 +2281,11 @@
   "requirements": [],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 143,
@@ -1725,7 +2297,11 @@
   "requirements": [],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 144,
@@ -1737,7 +2313,11 @@
   "requirements": [],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 145,
@@ -1749,7 +2329,11 @@
   "requirements": [],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 146,
@@ -1761,7 +2345,11 @@
   "requirements": [],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 147,
@@ -1773,7 +2361,11 @@
   "requirements": [],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 148,
@@ -1785,7 +2377,11 @@
   "requirements": [],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 149,
@@ -1797,7 +2393,11 @@
   "requirements": [],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 150,
@@ -1809,7 +2409,11 @@
   "requirements": [],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 151,
@@ -1821,7 +2425,11 @@
   "requirements": [],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 152,
@@ -1833,7 +2441,11 @@
   "requirements": [],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 153,
@@ -1845,7 +2457,11 @@
   "requirements": [],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 154,
@@ -1857,7 +2473,11 @@
   "requirements": [],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 155,
@@ -1869,7 +2489,11 @@
   "requirements": [],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 156,
@@ -1881,7 +2505,11 @@
   "requirements": [],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 157,
@@ -1893,7 +2521,11 @@
   "requirements": [],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 158,
@@ -1905,7 +2537,11 @@
   "requirements": [],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 159,
@@ -1917,7 +2553,11 @@
   "requirements": [],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 160,
@@ -1929,7 +2569,11 @@
   "requirements": [],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 161,
@@ -1941,7 +2585,11 @@
   "requirements": [],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 162,
@@ -1953,7 +2601,11 @@
   "requirements": [],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 163,
@@ -1965,7 +2617,11 @@
   "requirements": [],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 164,
@@ -1977,7 +2633,11 @@
   "requirements": [],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 165,
@@ -1989,7 +2649,11 @@
   "requirements": [],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 166,
@@ -2001,7 +2665,11 @@
   "requirements": [],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 167,
@@ -2013,7 +2681,11 @@
   "requirements": [],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 168,
@@ -2025,7 +2697,11 @@
   "requirements": [],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 169,
@@ -2037,7 +2713,11 @@
   "requirements": [],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 170,
@@ -2049,7 +2729,11 @@
   "requirements": [],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 171,
@@ -2061,7 +2745,11 @@
   "requirements": [],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 172,
@@ -2073,7 +2761,11 @@
   "requirements": [],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 173,
@@ -2085,7 +2777,11 @@
   "requirements": [],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 174,
@@ -2097,7 +2793,11 @@
   "requirements": [],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 175,
@@ -2109,7 +2809,11 @@
   "requirements": [],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 176,
@@ -2121,7 +2825,11 @@
   "requirements": [],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 177,
@@ -2133,7 +2841,11 @@
   "requirements": [],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 178,
@@ -2145,7 +2857,11 @@
   "requirements": [],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 179,
@@ -2157,7 +2873,11 @@
   "requirements": [],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 180,
@@ -2169,7 +2889,11 @@
   "requirements": [],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 181,
@@ -2201,7 +2925,11 @@
     "amount": 1.0
    }
   ],
-  "craftTime": -1.0
+  "craftTime": 90.0,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 182,
@@ -2246,7 +2974,11 @@
     "amount": 2.0
    }
   ],
-  "craftTime": -1.0
+  "craftTime": 30.0,
+  "itemCapacity": 20,
+  "liquidCapacity": 60.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 183,
@@ -2288,7 +3020,11 @@
     "amount": 1.0
    }
   ],
-  "craftTime": -1.0
+  "craftTime": 40.0,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 184,
@@ -2343,7 +3079,11 @@
     "amount": 8.0
    }
   ],
-  "craftTime": -1.0
+  "craftTime": 90.0,
+  "itemCapacity": 30,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 185,
@@ -2389,7 +3129,11 @@
     "amount": 1.0
    }
   ],
-  "craftTime": -1.0
+  "craftTime": 30.0,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 186,
@@ -2434,7 +3178,11 @@
     "amount": 1.0
    }
   ],
-  "craftTime": -1.0
+  "craftTime": 60.0,
+  "itemCapacity": 10,
+  "liquidCapacity": 60.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 187,
@@ -2480,7 +3228,11 @@
     "amount": 1.0
    }
   ],
-  "craftTime": -1.0
+  "craftTime": 120.0,
+  "itemCapacity": 30,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 188,
@@ -2536,7 +3288,11 @@
     "amount": 1.0
    }
   ],
-  "craftTime": -1.0
+  "craftTime": 75.0,
+  "itemCapacity": 20,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 189,
@@ -2572,7 +3328,11 @@
    }
   ],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": 120.0,
+  "itemCapacity": 10,
+  "liquidCapacity": 36.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 190,
@@ -2619,7 +3379,11 @@
     "amount": 1.0
    }
   ],
-  "craftTime": -1.0
+  "craftTime": 80.0,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 191,
@@ -2661,7 +3425,11 @@
     "amount": 1.0
    }
   ],
-  "craftTime": -1.0
+  "craftTime": 80.0,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 192,
@@ -2697,7 +3465,11 @@
    }
   ],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": 10.0,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 193,
@@ -2723,8 +3495,29 @@
     "amount": 1.100000023841858
    }
   ],
-  "outputs": [],
-  "craftTime": -1.0
+  "outputs": [
+   {
+    "name": "copper",
+    "amount": 5.0
+   },
+   {
+    "name": "lead",
+    "amount": 3.0
+   },
+   {
+    "name": "graphite",
+    "amount": 2.0
+   },
+   {
+    "name": "titanium",
+    "amount": 2.0
+   }
+  ],
+  "craftTime": 35.0,
+  "itemCapacity": 10,
+  "liquidCapacity": 40.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 194,
@@ -2763,8 +3556,29 @@
     "amount": 1.0
    }
   ],
-  "outputs": [],
-  "craftTime": -1.0
+  "outputs": [
+   {
+    "name": "sand",
+    "amount": 2.0
+   },
+   {
+    "name": "graphite",
+    "amount": 1.0
+   },
+   {
+    "name": "titanium",
+    "amount": 1.0
+   },
+   {
+    "name": "thorium",
+    "amount": 1.0
+   }
+  ],
+  "craftTime": 15.0,
+  "itemCapacity": 20,
+  "liquidCapacity": 72.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 195,
@@ -2796,7 +3610,11 @@
    }
   ],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": 20.0,
+  "itemCapacity": 10,
+  "liquidCapacity": 60.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 196,
@@ -2833,7 +3651,11 @@
     "amount": 1.0
    }
   ],
-  "craftTime": -1.0
+  "craftTime": 40.0,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 197,
@@ -2869,7 +3691,11 @@
     "amount": 1.0
    }
   ],
-  "craftTime": -1.0
+  "craftTime": 30.0,
+  "itemCapacity": 10,
+  "liquidCapacity": 60.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 198,
@@ -2896,7 +3722,11 @@
    }
   ],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 199,
@@ -2938,7 +3768,11 @@
     "amount": 4.0
    }
   ],
-  "craftTime": -1.0
+  "craftTime": 50.0,
+  "itemCapacity": 30,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 200,
@@ -2973,7 +3807,11 @@
    }
   ],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": 10.0,
+  "itemCapacity": 0,
+  "liquidCapacity": 50.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 201,
@@ -3004,7 +3842,11 @@
    }
   ],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": 80.0,
+  "itemCapacity": 0,
+  "liquidCapacity": 60.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 202,
@@ -3049,7 +3891,11 @@
     "amount": 1.0
    }
   ],
-  "craftTime": -1.0
+  "craftTime": 120.0,
+  "itemCapacity": 10,
+  "liquidCapacity": 30.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 203,
@@ -3080,7 +3926,11 @@
    }
   ],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": 80.0,
+  "itemCapacity": 0,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 204,
@@ -3105,7 +3955,11 @@
   ],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": 80.0,
+  "itemCapacity": 0,
+  "liquidCapacity": 120.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 205,
@@ -3136,7 +3990,11 @@
    }
   ],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": 480.0,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 206,
@@ -3157,7 +4015,11 @@
   ],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 207,
@@ -3178,7 +4040,11 @@
   ],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 208,
@@ -3199,7 +4065,11 @@
   ],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 209,
@@ -3216,7 +4086,11 @@
   ],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 210,
@@ -3262,7 +4136,11 @@
     "amount": 1.0
    }
   ],
-  "craftTime": -1.0
+  "craftTime": 33.75,
+  "itemCapacity": 20,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 211,
@@ -3302,7 +4180,11 @@
    }
   ],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": 120.0,
+  "itemCapacity": 10,
+  "liquidCapacity": 80.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 212,
@@ -3347,7 +4229,11 @@
     "amount": 1.0
    }
   ],
-  "craftTime": -1.0
+  "craftTime": 45.0,
+  "itemCapacity": 20,
+  "liquidCapacity": 400.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 213,
@@ -3387,7 +4273,11 @@
    }
   ],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": 20.0,
+  "itemCapacity": 10,
+  "liquidCapacity": 80.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 214,
@@ -3437,7 +4327,11 @@
     "amount": 1.0
    }
   ],
-  "craftTime": -1.0
+  "craftTime": 30.0,
+  "itemCapacity": 40,
+  "liquidCapacity": 40.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 215,
@@ -3477,7 +4371,11 @@
     "amount": 1.0
    }
   ],
-  "craftTime": -1.0
+  "craftTime": 600.0,
+  "itemCapacity": 20,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 216,
@@ -3494,7 +4392,11 @@
   ],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 217,
@@ -3511,7 +4413,11 @@
   ],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 218,
@@ -3528,7 +4434,11 @@
   ],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 219,
@@ -3545,7 +4455,11 @@
   ],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 220,
@@ -3566,7 +4480,11 @@
   ],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 221,
@@ -3587,7 +4505,11 @@
   ],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 222,
@@ -3604,7 +4526,11 @@
   ],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 223,
@@ -3621,7 +4547,11 @@
   ],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 224,
@@ -3638,7 +4568,11 @@
   ],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 225,
@@ -3655,7 +4589,11 @@
   ],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 226,
@@ -3672,7 +4610,11 @@
   ],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 227,
@@ -3689,7 +4631,11 @@
   ],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 228,
@@ -3710,7 +4656,11 @@
   ],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 229,
@@ -3731,7 +4681,11 @@
   ],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 230,
@@ -3748,7 +4702,11 @@
   ],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 231,
@@ -3765,7 +4723,11 @@
   ],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 232,
@@ -3782,7 +4744,11 @@
   ],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 233,
@@ -3799,7 +4765,11 @@
   ],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 234,
@@ -3816,7 +4786,11 @@
   ],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 235,
@@ -3833,7 +4807,11 @@
   ],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 236,
@@ -3850,7 +4828,11 @@
   ],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 237,
@@ -3867,7 +4849,11 @@
   ],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 238,
@@ -3884,7 +4870,11 @@
   ],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 239,
@@ -3905,7 +4895,11 @@
   ],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 240,
@@ -3926,7 +4920,11 @@
   ],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 241,
@@ -3947,7 +4945,11 @@
   ],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 242,
@@ -3968,7 +4970,11 @@
   ],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 243,
@@ -3989,7 +4995,11 @@
   ],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 244,
@@ -4020,7 +5030,11 @@
    }
   ],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 245,
@@ -4052,7 +5066,11 @@
    }
   ],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": 40.0,
+  "reload": 200.0
  },
  {
   "id": 246,
@@ -4092,7 +5110,11 @@
    }
   ],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": 85.0,
+  "reload": 250.0
  },
  {
   "id": 247,
@@ -4132,7 +5154,11 @@
    }
   ],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": 80.0,
+  "reload": 60.0
  },
  {
   "id": 248,
@@ -4181,7 +5207,11 @@
    }
   ],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": 200.0,
+  "reload": 60.0
  },
  {
   "id": 249,
@@ -4217,7 +5247,11 @@
    }
   ],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 60.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 250,
@@ -4238,7 +5272,11 @@
   ],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 251,
@@ -4269,7 +5307,11 @@
    }
   ],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 252,
@@ -4300,7 +5342,11 @@
    }
   ],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 30.0,
+  "range": 200.0,
+  "reload": null
  },
  {
   "id": 253,
@@ -4340,7 +5386,11 @@
    }
   ],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": 28.0,
+  "reload": null
  },
  {
   "id": 254,
@@ -4380,7 +5430,11 @@
    }
   ],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 15.0,
+  "range": 170.0,
+  "reload": 80.0
  },
  {
   "id": 255,
@@ -4398,7 +5452,11 @@
    }
   ],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 256,
@@ -4416,7 +5474,11 @@
    }
   ],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 257,
@@ -4433,7 +5495,11 @@
   ],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 3,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 258,
@@ -4458,7 +5524,11 @@
   ],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 3,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 259,
@@ -4483,7 +5553,11 @@
   ],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 260,
@@ -4508,7 +5582,11 @@
   ],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 3,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 261,
@@ -4525,7 +5603,11 @@
   ],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 262,
@@ -4546,7 +5628,11 @@
   ],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": 4.0,
+  "reload": null
  },
  {
   "id": 263,
@@ -4581,7 +5667,11 @@
    }
   ],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": 12.0,
+  "reload": null
  },
  {
   "id": 264,
@@ -4602,7 +5692,11 @@
   ],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 265,
@@ -4623,7 +5717,11 @@
   ],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 266,
@@ -4640,7 +5738,11 @@
   ],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 1,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 267,
@@ -4661,7 +5763,11 @@
   ],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 1,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 268,
@@ -4682,7 +5788,11 @@
   ],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 0,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 269,
@@ -4703,7 +5813,11 @@
   ],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 0,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 270,
@@ -4724,7 +5838,11 @@
   ],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 0,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 271,
@@ -4759,7 +5877,11 @@
    }
   ],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 120,
+  "liquidCapacity": 10.0,
+  "range": 440.0,
+  "reload": 200.0
  },
  {
   "id": 272,
@@ -4776,7 +5898,11 @@
   ],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 1,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 273,
@@ -4797,7 +5923,11 @@
   ],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 1,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 274,
@@ -4814,7 +5944,11 @@
   ],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 1,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 275,
@@ -4835,7 +5969,11 @@
   ],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 1,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 276,
@@ -4856,7 +5994,11 @@
   ],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 1,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 277,
@@ -4873,7 +6015,11 @@
   ],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 4,
+  "liquidCapacity": 10.0,
+  "range": 4.0,
+  "reload": null
  },
  {
   "id": 278,
@@ -4898,7 +6044,11 @@
   ],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 0,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 279,
@@ -4925,7 +6075,11 @@
    }
   ],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 280,
@@ -4952,7 +6106,11 @@
    }
   ],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 281,
@@ -4983,7 +6141,11 @@
    }
   ],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 200,
+  "liquidCapacity": 100.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 282,
@@ -5004,7 +6166,11 @@
   ],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 100,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 283,
@@ -5025,7 +6191,11 @@
   ],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 20.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 284,
@@ -5060,7 +6230,11 @@
    }
   ],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 80.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 285,
@@ -5099,7 +6273,11 @@
    }
   ],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 200.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 286,
@@ -5116,7 +6294,11 @@
   ],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 20.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 287,
@@ -5137,7 +6319,11 @@
   ],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 40.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 288,
@@ -5162,7 +6348,11 @@
   ],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 50.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 289,
@@ -5183,7 +6373,11 @@
   ],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 120.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 290,
@@ -5204,7 +6398,11 @@
   ],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 700.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 291,
@@ -5225,7 +6423,11 @@
   ],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 1800.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 292,
@@ -5246,7 +6448,11 @@
   ],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 293,
@@ -5267,7 +6473,11 @@
   ],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 100.0,
+  "range": 4.0,
+  "reload": null
  },
  {
   "id": 294,
@@ -5302,7 +6512,11 @@
    }
   ],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 100.0,
+  "range": 12.0,
+  "reload": null
  },
  {
   "id": 295,
@@ -5327,7 +6541,11 @@
   ],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 160.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 296,
@@ -5344,7 +6562,11 @@
   ],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 50.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 297,
@@ -5365,7 +6587,11 @@
   ],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 298,
@@ -5386,7 +6612,11 @@
   ],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 120.0,
+  "range": 4.0,
+  "reload": null
  },
  {
   "id": 299,
@@ -5407,7 +6637,11 @@
   ],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 150.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 300,
@@ -5428,7 +6662,11 @@
   ],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 1000.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 301,
@@ -5449,7 +6687,11 @@
   ],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 2700.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 302,
@@ -5470,7 +6712,11 @@
   ],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 303,
@@ -5495,7 +6741,11 @@
   ],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 304,
@@ -5524,7 +6774,11 @@
   ],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 305,
@@ -5549,7 +6803,11 @@
   ],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 306,
@@ -5576,7 +6834,11 @@
    }
   ],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 307,
@@ -5607,7 +6869,11 @@
    }
   ],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 308,
@@ -5628,7 +6894,11 @@
   ],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 309,
@@ -5661,7 +6931,11 @@
   ],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 310,
@@ -5690,7 +6964,11 @@
   ],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 60.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 311,
@@ -5729,7 +7007,11 @@
    }
   ],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 60.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 312,
@@ -5762,7 +7044,11 @@
   ],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 313,
@@ -5783,7 +7069,11 @@
   ],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 314,
@@ -5808,7 +7098,11 @@
   ],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 315,
@@ -5847,7 +7141,11 @@
    }
   ],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 30,
+  "liquidCapacity": 30.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 316,
@@ -5895,7 +7193,11 @@
    }
   ],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 80.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 317,
@@ -5918,7 +7220,11 @@
    }
   ],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": 10.0,
+  "reload": null
  },
  {
   "id": 318,
@@ -5949,7 +7255,11 @@
    }
   ],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": 23.0,
+  "reload": null
  },
  {
   "id": 319,
@@ -5986,7 +7296,11 @@
   ],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 320,
@@ -6003,7 +7317,11 @@
   ],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 20.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 321,
@@ -6043,7 +7361,11 @@
    }
   ],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 100.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 322,
@@ -6083,7 +7405,11 @@
    }
   ],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 150.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 323,
@@ -6116,7 +7442,11 @@
   ],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 30.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 324,
@@ -6159,7 +7489,11 @@
    }
   ],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 80.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 325,
@@ -6176,7 +7510,11 @@
   ],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 30.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 326,
@@ -6197,7 +7535,11 @@
   ],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 35.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 327,
@@ -6232,7 +7574,11 @@
    }
   ],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 48.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 328,
@@ -6267,7 +7613,11 @@
    }
   ],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 20,
+  "liquidCapacity": 60.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 329,
@@ -6302,7 +7652,11 @@
    }
   ],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 40.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 330,
@@ -6338,7 +7692,11 @@
     "amount": 1.0
    }
   ],
-  "craftTime": -1.0
+  "craftTime": 100.0,
+  "itemCapacity": 10,
+  "liquidCapacity": 80.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 331,
@@ -6382,7 +7740,11 @@
    }
   ],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 40.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 332,
@@ -6409,7 +7771,11 @@
    }
   ],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": 120.0,
+  "itemCapacity": 0,
+  "liquidCapacity": 60.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 333,
@@ -6436,7 +7802,11 @@
    }
   ],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 334,
@@ -6476,7 +7846,11 @@
    }
   ],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 20,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 335,
@@ -6499,7 +7873,11 @@
    }
   ],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": 5.0,
+  "reload": null
  },
  {
   "id": 336,
@@ -6534,7 +7912,11 @@
    }
   ],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 20,
+  "liquidCapacity": 30.0,
+  "range": 6.0,
+  "reload": null
  },
  {
   "id": 337,
@@ -6565,7 +7947,11 @@
    }
   ],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 40,
+  "liquidCapacity": 100.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 338,
@@ -6600,7 +7986,11 @@
    }
   ],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 60,
+  "liquidCapacity": 40.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 339,
@@ -6621,7 +8011,11 @@
   ],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 4000,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 340,
@@ -6646,7 +8040,11 @@
   ],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 9000,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 341,
@@ -6675,7 +8073,11 @@
   ],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 13000,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 342,
@@ -6700,7 +8102,11 @@
   ],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 2000,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 343,
@@ -6729,7 +8135,11 @@
   ],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 3000,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 344,
@@ -6762,7 +8172,11 @@
   ],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 4000,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 345,
@@ -6779,7 +8193,11 @@
   ],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 300,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 346,
@@ -6800,7 +8218,11 @@
   ],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 1000,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 347,
@@ -6821,7 +8243,11 @@
   ],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 160,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 348,
@@ -6846,7 +8272,11 @@
   ],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 900,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 349,
@@ -6863,7 +8293,11 @@
   ],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 20.0,
+  "range": 160.0,
+  "reload": 20.0
  },
  {
   "id": 350,
@@ -6884,7 +8318,11 @@
   ],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 20.0,
+  "range": 220.0,
+  "reload": 18.0
  },
  {
   "id": 351,
@@ -6905,7 +8343,11 @@
   ],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 20.0,
+  "range": 60.0,
+  "reload": 6.0
  },
  {
   "id": 352,
@@ -6926,7 +8368,11 @@
   ],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 20.0,
+  "range": 235.0,
+  "reload": 60.0
  },
  {
   "id": 353,
@@ -6951,7 +8397,11 @@
   ],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": 110.0,
+  "reload": 3.0
  },
  {
   "id": 354,
@@ -6986,7 +8436,11 @@
    }
   ],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 20.0,
+  "range": 165.0,
+  "reload": 80.0
  },
  {
   "id": 355,
@@ -7013,7 +8467,11 @@
    }
   ],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 20.0,
+  "range": 90.0,
+  "reload": 35.0
  },
  {
   "id": 356,
@@ -7044,7 +8502,11 @@
    }
   ],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": 300.0,
+  "reload": null
  },
  {
   "id": 357,
@@ -7073,7 +8535,11 @@
   ],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 20.0,
+  "range": 240.0,
+  "reload": 34.28571319580078
  },
  {
   "id": 358,
@@ -7098,7 +8564,11 @@
   ],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 20.0,
+  "range": 190.0,
+  "reload": 29.0
  },
  {
   "id": 359,
@@ -7133,7 +8603,11 @@
    }
   ],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": 180.0,
+  "reload": 8.0
  },
  {
   "id": 360,
@@ -7162,7 +8636,11 @@
   ],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 40.0,
+  "range": 190.0,
+  "reload": 3.0
  },
  {
   "id": 361,
@@ -7187,7 +8665,11 @@
   ],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 20.0,
+  "range": 90.0,
+  "reload": 35.0
  },
  {
   "id": 362,
@@ -7212,7 +8694,11 @@
   ],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 20.0,
+  "range": 290.0,
+  "reload": 120.0
  },
  {
   "id": 363,
@@ -7237,7 +8723,11 @@
   ],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 20.0,
+  "range": 200.0,
+  "reload": 10.0
  },
  {
   "id": 364,
@@ -7276,7 +8766,11 @@
    }
   ],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 60.0,
+  "range": 500.0,
+  "reload": 200.0
  },
  {
   "id": 365,
@@ -7309,7 +8803,11 @@
   ],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 120.0,
+  "range": 260.0,
+  "reload": 7.0
  },
  {
   "id": 366,
@@ -7348,7 +8846,11 @@
    }
   ],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 60.0,
+  "range": 195.0,
+  "reload": 90.0
  },
  {
   "id": 367,
@@ -7373,7 +8875,11 @@
   ],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 20.0,
+  "range": 190.0,
+  "reload": 40.0
  },
  {
   "id": 368,
@@ -7402,7 +8908,11 @@
   ],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 20.0,
+  "range": 125.0,
+  "reload": 30.0
  },
  {
   "id": 369,
@@ -7431,7 +8941,11 @@
   ],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 50.0,
+  "range": 130.0,
+  "reload": 10.0
  },
  {
   "id": 370,
@@ -7456,7 +8970,11 @@
   ],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 20.0,
+  "range": 390.0,
+  "reload": 138.0
  },
  {
   "id": 371,
@@ -7485,7 +9003,11 @@
   ],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 20.0,
+  "range": 310.0,
+  "reload": 9.0
  },
  {
   "id": 372,
@@ -7520,7 +9042,11 @@
    }
   ],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 20.0,
+  "range": 368.0,
+  "reload": 50.0
  },
  {
   "id": 373,
@@ -7555,7 +9081,11 @@
    }
   ],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 20.0,
+  "range": 250.0,
+  "reload": 10.0
  },
  {
   "id": 374,
@@ -7588,7 +9118,11 @@
   ],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 20.0,
+  "range": 1350.0,
+  "reload": 600.0
  },
  {
   "id": 375,
@@ -7621,7 +9155,11 @@
   ],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 20.0,
+  "range": 300.0,
+  "reload": 100.0
  },
  {
   "id": 376,
@@ -7660,7 +9198,11 @@
    }
   ],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 20.0,
+  "range": 410.0,
+  "reload": 3.5
  },
  {
   "id": 377,
@@ -7691,7 +9233,11 @@
    }
   ],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 60,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 378,
@@ -7722,7 +9268,11 @@
    }
   ],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 60,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 379,
@@ -7753,7 +9303,11 @@
    }
   ],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 70,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 380,
@@ -7794,7 +9348,11 @@
    }
   ],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 80,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 381,
@@ -7844,7 +9402,11 @@
    }
   ],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 260,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 382,
@@ -7902,7 +9464,11 @@
    }
   ],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 1700,
+  "liquidCapacity": 600.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 383,
@@ -7965,7 +9531,11 @@
    }
   ],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 2000,
+  "liquidCapacity": 1800.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 384,
@@ -7996,7 +9566,11 @@
    }
   ],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 385,
@@ -8027,7 +9601,11 @@
    }
   ],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 96.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 386,
@@ -8054,7 +9632,11 @@
    }
   ],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 100,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 387,
@@ -8081,7 +9663,11 @@
    }
   ],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 140,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 388,
@@ -8112,7 +9698,11 @@
    }
   ],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 140,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 389,
@@ -8153,7 +9743,11 @@
    }
   ],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 80,
+  "liquidCapacity": 30.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 390,
@@ -8198,7 +9792,11 @@
    }
   ],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 120,
+  "liquidCapacity": 30.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 391,
@@ -8239,7 +9837,11 @@
    }
   ],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 100,
+  "liquidCapacity": 30.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 392,
@@ -8284,7 +9886,11 @@
    }
   ],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 200,
+  "liquidCapacity": 100.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 393,
@@ -8319,7 +9925,11 @@
    }
   ],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 90.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 394,
@@ -8358,7 +9968,11 @@
    }
   ],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 120.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 395,
@@ -8397,7 +10011,11 @@
    }
   ],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 120.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 396,
@@ -8432,7 +10050,11 @@
    }
   ],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 397,
@@ -8463,7 +10085,11 @@
    }
   ],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 30.0,
+  "range": 100.0,
+  "reload": null
  },
  {
   "id": 398,
@@ -8484,7 +10110,11 @@
   ],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 399,
@@ -8505,7 +10135,11 @@
   ],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 400,
@@ -8522,7 +10156,11 @@
   ],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 401,
@@ -8539,7 +10177,11 @@
   ],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 402,
@@ -8570,7 +10212,11 @@
    }
   ],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": 700.0,
+  "reload": 45.0
  },
  {
   "id": 403,
@@ -8609,7 +10255,11 @@
    }
   ],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": 2100.0,
+  "reload": 130.0
  },
  {
   "id": 404,
@@ -8644,7 +10294,11 @@
    }
   ],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 100,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 405,
@@ -8679,7 +10333,11 @@
    }
   ],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 320,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 406,
@@ -8710,7 +10368,11 @@
    }
   ],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 407,
@@ -8745,7 +10407,11 @@
    }
   ],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 408,
@@ -8776,7 +10442,11 @@
    }
   ],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 100,
+  "liquidCapacity": 100.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 409,
@@ -8807,7 +10477,11 @@
    }
   ],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 100,
+  "liquidCapacity": 100.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 410,
@@ -8819,7 +10493,11 @@
   "requirements": [],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 411,
@@ -8837,7 +10515,11 @@
    }
   ],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 412,
@@ -8849,7 +10531,11 @@
   "requirements": [],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 413,
@@ -8861,7 +10547,11 @@
   "requirements": [],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 414,
@@ -8873,7 +10563,11 @@
   "requirements": [],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10000.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 415,
@@ -8885,7 +10579,11 @@
   "requirements": [],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10000.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 416,
@@ -8897,7 +10595,11 @@
   "requirements": [],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 417,
@@ -8909,7 +10611,11 @@
   "requirements": [],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 418,
@@ -8921,7 +10627,11 @@
   "requirements": [],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": 80.0,
+  "itemCapacity": 0,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 419,
@@ -8933,7 +10643,11 @@
   "requirements": [],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 420,
@@ -8964,7 +10678,11 @@
    }
   ],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 421,
@@ -8976,7 +10694,11 @@
   "requirements": [],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 422,
@@ -8988,7 +10710,11 @@
   "requirements": [],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 423,
@@ -9000,7 +10726,11 @@
   "requirements": [],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 424,
@@ -9012,7 +10742,11 @@
   "requirements": [],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 425,
@@ -9024,7 +10758,11 @@
   "requirements": [],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 426,
@@ -9059,7 +10797,11 @@
    }
   ],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 100,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 427,
@@ -9094,7 +10836,11 @@
    }
   ],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 100,
+  "liquidCapacity": 40.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 428,
@@ -9119,7 +10865,11 @@
   ],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 100,
+  "liquidCapacity": 3000.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 429,
@@ -9182,7 +10932,11 @@
    }
   ],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 25000,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 430,
@@ -9203,7 +10957,11 @@
   ],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 431,
@@ -9224,7 +10982,11 @@
   ],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 432,
@@ -9249,7 +11011,11 @@
   ],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": 80.0,
+  "reload": null
  },
  {
   "id": 433,
@@ -9278,7 +11044,11 @@
   ],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": 176.0,
+  "reload": null
  },
  {
   "id": 434,
@@ -9307,7 +11077,11 @@
   ],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 48.0,
+  "range": 336.0,
+  "reload": null
  },
  {
   "id": 435,
@@ -9332,7 +11106,11 @@
   ],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 436,
@@ -9361,7 +11139,11 @@
   ],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 437,
@@ -9386,7 +11168,11 @@
   ],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 438,
@@ -9415,7 +11201,11 @@
   ],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 439,
@@ -9444,7 +11234,11 @@
   ],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 440,
@@ -9465,7 +11259,11 @@
   ],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 441,
@@ -9490,7 +11288,11 @@
   ],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 442,
@@ -9511,7 +11313,11 @@
   ],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 443,
@@ -9523,7 +11329,11 @@
   "requirements": [],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": 3.4028234663852886e+38,
+  "reload": null
  },
  {
   "id": 444,
@@ -9535,7 +11345,11 @@
   "requirements": [],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 445,
@@ -9547,7 +11361,11 @@
   "requirements": [],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  },
  {
   "id": 446,
@@ -9559,6 +11377,10 @@
   "requirements": [],
   "consumers": [],
   "outputs": [],
-  "craftTime": -1.0
+  "craftTime": null,
+  "itemCapacity": 10,
+  "liquidCapacity": 10.0,
+  "range": null,
+  "reload": null
  }
 ]

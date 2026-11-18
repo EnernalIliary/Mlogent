@@ -137,7 +137,7 @@ progress >= 1f  ->  craft(): consume(); 逐个 offload(outputItems); progress %=
 
 ## 实测与反例
 
-**反例 1（旧表的 craftTime 全是 -1）**：旧 `data/game/*.json` 里 447 个方块的 `craftTime` 一律是 `-1`，那是导出脚本没进反射字段的占位值。v160.7 jar 实测 **-1 的数量为 0**，真实区间是 10–600。凡是从旧表读到 -1 的，一律视为"该字段缺失"而不是"瞬间完成"。这条已记入 `VERSION.md` 的已知错误清单。
+**反例 1（旧表的 craftTime 全是 -1）**：旧 `data/game/*.json` 里 447 个方块的 `craftTime` 一律是 `-1`，那是导出脚本没进反射字段的占位值。v160.7 jar 实测 **-1 的数量为 0**，真实区间是 10–600。凡是从旧表读到 -1 的，一律视为"该字段缺失"而不是"瞬间完成"。**该缺陷已于 2026-11 修复**：`tools/dev/dump_game.py` 现在直接读 `b.craftTime`——33 个方块有真值，其余 414 个方块（传送带、塔、墙体、地板…）的类上根本没有这个字段，一律记 `null`（不是 0，也不是 -1）。这条已记入 `VERSION.md` 的已知错误清单。
 
 **反例 2（`recipe.outputLiquidsPerSecond` 这个派生字段是错的）**：gamedata.json 里 `cryofluid-mixer.outputLiquidsPerSecond = 0.1`、`melter = 1.2`、`electrolyzer = ozone 0.4 + hydrogen 0.6`。它把公式写成了 `amount / craftTime * 60`（按 per-craft 折算）。而源码 `GenericCrafter.java:243` 是每 tick 加一次 `output.amount * inc`，正确值应是 `amount × 60`：cryofluid 12/s、slag 12/s、ozone 4/s + hydrogen 6/s。用质量守恒立刻能判：电解器进水 10/s，派生字段的产物总和只有 1.0/s，违反 1:1 分解；源码口径 4+6=10/s 才对。**该派生字段不可直接采信。**
 

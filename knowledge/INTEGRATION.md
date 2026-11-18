@@ -35,7 +35,7 @@ tokens: 0
 |---|---|---|---|---|---|
 | 权威源码 v159.3 | `Mindustry-Source/core` | 807 .java / 5.9MB | **保留为语义真源** | 全库 `src:` 的 `core/...:行号` 均指它 | 只有 core 模块；数值一律以 v160.7 jar 覆盖 |
 | 运行时 dump v160.7 | `MBO/gamedata/v160.7/gamedata.json` | 3.0MB | **已提炼** | `00-data/*.json`（blocks/turrets/units/items/liquids/bullets/status/rules，447/26/70/22/11/137/23/118 条） | 原始 raw 参数（consumers[]）仍是查"某方块耗电/耗液细节"的最后一站 |
-| 薄投影 | `data/game/*.json` | 149KB+ | **作废**（9 字段、craftTime 全 -1、炮塔无射程/伤害） | `00-data/` | 别再引用，会答错 60 倍耗电 |
+| 薄投影 | `data/game/*.json` | 234KB（`aliases.json` 19KB） | **部分可用**（2026-11 由 `tools/dev/dump_game.py` 重导：blocks 14 字段，含 craftTime/容量/射程/装填；units 武器含真实射程；仍无 class/types/液体产出） | `00-data/` | 速查走 `tools/game.py`；精细语义（class/液体/75 列）仍查 `00-data/` |
 | 指令语义表 | `tools/instr_semantics.json` | 56.5KB | **已被取代**（口径是 LStatement 类=53 条） | `06-mlog/instructions.json`（73 条）+ `enums.json`（13 组） | 旧表只保留 arity/defs/uses 的考古价值；且已发现三处尺寸分叉（56.5/62.8/50.6KB） |
 | 枚举表 | `tools/instr_enums.json` | — | **已取代** | `06-mlog/enums.json` | 新增 RadarTarget/LLocate/LAccess 全量 |
 | 语言手册 | `Logic-Docs-v1.1.0.md` | 546KB / 1.22 万行 | **部分吸收** | `06-mlog/M01-M08` | 手册机制段仅 15-20%，其余是逐指令抄录；本库 73 条指令表已覆盖，但"某指令的冷门参数组合"仍可能只在那里 |
@@ -63,7 +63,7 @@ tokens: 0
 3. 需要**实测秒表类**数字，而本库只给了字段值（MBO/docs）；
 4. 需要**配比/产线台数**（ratio-calc）。
 
-除此之外，答案只能来自 `knowledge/`——因为旧资产里已知的错误至少 6 类（v159.3 源码当现值、craftTime 全 -1、耗电每 tick 当每秒、Logic-Docs 两份不一致、语义表三种尺寸、同结论多副本），本库已逐条修掉并有 `VERSION.md` 的已知错误清单兜底。
+除此之外，答案只能来自 `knowledge/`——因为旧资产里已知的错误至少 6 类（v159.3 源码当现值、craftTime 全 -1〔2026-11 已修复〕、耗电每 tick 当每秒、Logic-Docs 两份不一致、语义表三种尺寸、同结论多副本），本库已逐条修掉并有 `VERSION.md` 的已知错误清单兜底。
 
 ## 4. 整合时做过的三件"去重"动作（避免以后又分叉）
 

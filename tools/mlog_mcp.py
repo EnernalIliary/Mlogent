@@ -189,7 +189,36 @@ TOOLS = [
                 "expect": {"type": "array", "description": "list of {var, op, value}",
                            "items": {"type": "object"}},
                 "level": {"type": "string", "enum": ["summary", "diagnostics", "full"]},
+                "task": {"type": "string",
+                         "description": "task id to record this run into (see mlog_task); "
+                                        "omit the id to derive one from the source"},
+                "task_id": {"type": "string",
+                            "description": "alias of task, kept for callers that name it "
+                                           "after the plan's field"},
+                "hypothesis": {"type": "string", "description": "stored on the task record"},
+                "next_step": {"type": "string", "description": "stored on the task record"},
             },
+        },
+    },
+    {
+        "name": "mlog_task",
+        "description": "Task progress that survives between turns: what already ran, what "
+                       "failed, what to try next. Read it before re-validating, so a retry "
+                       "resumes at the stage that failed instead of redoing the pipeline.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "action": {"type": "string", "enum": ["show", "list", "resume", "note", "clear"],
+                           "description": "show=one record, list=all, resume=what is left, "
+                                          "note=set hypothesis/next_step, clear=delete"},
+                "task_id": {"type": "string", "description": "task id (ts-...)"},
+                "source": {"type": "string",
+                           "description": "resume: the current program text, to detect that "
+                                          "the record was measured on a different source"},
+                "hypothesis": {"type": "string"},
+                "next_step": {"type": "string"},
+            },
+            "required": ["action"],
         },
     },
     {
@@ -608,12 +637,22 @@ def tool_mlog_validate(args):
                     for label, lines, names in _programs(path)]
     else:
         programs = [("inline", logic, None)]
+    import taskstate as _ts
+    tid = args.get("task") or args.get("task_id")
+    task = None
+    if tid or args.get("hypothesis") or args.get("next_step"):
+        # One task per program: a batch that shares an id would overwrite the
+        # stages of the previous program with the next one's.
+        first = programs[0][1] if programs else ""
+        task = _ts.begin(task_id=tid or None, source=first,
+                         hypothesis=args.get("hypothesis") or "",
+                         next_step=args.get("next_step") or "")
     results = []
     for label, code, _names in programs:
         limits = {"ticks": int(args["ticks"])} if args.get("ticks") else {}
         env = _eval.evaluate(mlog=code, limits=limits,
                              expectations=args.get("expect") or None,
-                             level=level)
+                             level=level, task=task)
         env["program"] = label
         results.append(env)
     if len(results) == 1:
@@ -634,7 +673,43 @@ def tool_mlog_validate(args):
         artifacts={"programs": [{k: r.get(k) for k in ("program", "ok", "stage",
                                                        "failure_type", "message")}
                                 for r in results]},
-        level=level, levels=levels)
+        level=level, levels=levels, task=_eval._ts_summary(task))
+
+
+def tool_task(args):
+    import taskstate as _ts
+    action = args.get("action") or "list"
+    tid = args.get("task_id")
+    if action == "list":
+        rows = []
+        for one in _ts.ids():
+            try:
+                task = _ts.load(one)
+            except Exception:                # noqa: BLE001 -- half-written file
+                continue
+            if task:
+                rows.append({"task_id": one, "source_version": task.get("source_version"),
+                             "completed": task.get("completed_stages") or [],
+                             "failed": task.get("failed_stages") or [],
+                             "next_step": task.get("next_step") or "",
+                             "updated": task.get("updated")})
+        return {"dir": _ts.default_dir(), "count": len(rows), "tasks": rows}
+    if action == "clear":
+        return {"removed": _ts.clear(tid)}
+    if not tid:
+        raise ValueError("task_id required for action=%r" % action)
+    if action == "resume":
+        return _ts.resume(tid, source=args.get("source"))
+    if action == "note":
+        task = _ts.note(tid, hypothesis=args.get("hypothesis"),
+                        next_step=args.get("next_step"))
+        return _ts.summary_of(task)
+    if action == "show":
+        task = _ts.load(tid)
+        if task is None:
+            raise ValueError("no such task: %s" % tid)
+        return task
+    raise ValueError("unknown action %r (show|list|resume|note|clear)" % action)
 
 
 def tool_scenario_run(args):
@@ -673,6 +748,7 @@ HANDLERS = {
     "mlog_sim": tool_sim,
     "mindcode_compile": tool_mindcode_compile,
     "mlog_validate": tool_mlog_validate,
+    "mlog_task": tool_task,
     "scenario_run": tool_scenario_run,
     "mlog_diff": tool_diff,
     "mlog_fetch": tool_fetch,

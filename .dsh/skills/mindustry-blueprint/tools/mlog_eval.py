@@ -87,7 +87,7 @@ def _trim(env: dict, level: str) -> dict:
     if level not in LEVELS:
         raise ValueError("level must be one of %s, got %r" % (LEVELS, level))
     keep = ["schema", "ok", "stage", "failure_type", "message", "level",
-            "levels", "next_steps", "elapsed_ms"]
+            "levels", "next_steps", "elapsed_ms", "task"]
     if level in ("diagnostics", "full"):
         keep += ["diagnostics", "artifacts"]
     if level == "full":
@@ -107,7 +107,8 @@ def result(*, ok: bool, stage: str, failure_type: str | None = None,
            message: str = "", diagnostics: list | None = None,
            artifacts: dict | None = None, next_steps: list | None = None,
            trace: dict | None = None, level: str = "summary",
-           levels: dict | None = None, elapsed_ms: int | None = None) -> dict:
+           levels: dict | None = None, elapsed_ms: int | None = None,
+           task: dict | None = None) -> dict:
     """Build one envelope.  See the module docstring for the shape.
 
     ``ok=False`` requires a known ``failure_type`` -- an untyped failure is the
@@ -136,6 +137,9 @@ def result(*, ok: bool, stage: str, failure_type: str | None = None,
                            else ([NEXT_STEPS[failure_type]] if failure_type else [])),
         "trace": trace,
         "elapsed_ms": int(elapsed_ms) if elapsed_ms is not None else 0,
+        # The progress record (taskstate.summary_of), or None.  Always present so
+        # a caller can tell "no task" from "the key was trimmed away".
+        "task": task,
     }
     return _trim(env, level)
 
@@ -203,13 +207,17 @@ def _simulate(mlog: str, *, ticks: int = 60, steps: int | None = None,
 def evaluate(*, mlog: str | None = None, static: bool = True,
              sim: dict | None = None, expectations: list | None = None,
              limits: dict | None = None, level: str = "summary",
-             workdir: str | None = None) -> dict:
+             workdir: str | None = None, task: dict | None = None) -> dict:
     """Walk the pipeline stages this caller asked for and stop at the first
     failure.
 
     ``sim`` is the record produced by the simulation stage (or None to run it
     here when ``limits`` asks for it); ``expectations`` is a list of
     ``{"var": name, "op": ..., "value": ...}`` checked against the result.
+
+    ``task`` is an open ``taskstate`` record: when given, every stage outcome is
+    written into it before the envelope is returned, so a caller that dies
+    mid-pipeline still leaves behind which stages ran and which failed.
     """
     del workdir                            # reserved: callers may sandbox later
     t0 = time.time()
@@ -221,13 +229,27 @@ def evaluate(*, mlog: str | None = None, static: bool = True,
     # is skipped, so "the executor finished" never upgrades a static failure.
     lv = {k: None for k in SUCCESS_LEVELS}
 
+    def mark(stage: str, ok: bool, failure_type=None, message="") -> None:
+        """Write one stage into the task record (idempotent for a repeat)."""
+        if task is None:
+            return
+        import taskstate as _ts
+        last = task.get("last") or {}
+        if (last.get("stage") == stage and last.get("ok") == bool(ok)
+                and last.get("failure_type") == failure_type):
+            return
+        _ts.record(task, stage=stage, ok=ok, failure_type=failure_type,
+                   notes=message, source=mlog)
+
     def done(ok: bool, stage: str, failure_type=None, message="", extra=None) -> dict:
         if extra:
             artifacts.update(extra)
+        mark(stage, ok, failure_type, message)
+        block = _ts_summary(task)
         return result(ok=ok, stage=stage, failure_type=failure_type,
                       message=message, diagnostics=diagnostics,
                       artifacts=artifacts, level=level, levels=lv,
-                      elapsed_ms=int((time.time() - t0) * 1000))
+                      elapsed_ms=int((time.time() - t0) * 1000), task=block)
 
     if static and mlog is not None:
         try:
@@ -247,6 +269,7 @@ def evaluate(*, mlog: str | None = None, static: bool = True,
             return done(False, "static", "static_analysis_error",
                         "%d error-level finding(s)" % len(errors),
                         {"first_error": errors[0]})
+        mark("static", True)
 
     if sim is None and limits.get("ticks"):
         try:
@@ -265,6 +288,7 @@ def evaluate(*, mlog: str | None = None, static: bool = True,
             diagnostics.append({"kind": "sim", "message": str(sim["error"])})
             return done(False, "simulation", "runtime_error", str(sim["error"]))
         lv["execution"] = True
+        mark("simulation", True)
 
     if expectations and sim is not None:
         vals = sim.get("vars") or {}
@@ -276,6 +300,8 @@ def evaluate(*, mlog: str | None = None, static: bool = True,
                 failed.append({"var": name, "expect": exp.get("value"),
                                "op": exp.get("op", "eq"), "actual": actual})
         lv["simulation"] = not failed
+        if not failed:
+            mark("assertion", True)
         if failed:
             diagnostics.extend({"kind": "assertion", **f} for f in failed)
             return done(False, "assertion", "assertion_failed",
@@ -284,6 +310,14 @@ def evaluate(*, mlog: str | None = None, static: bool = True,
 
     stage = "assertion" if expectations else (limits.get("ticks") and "simulation" or "static")
     return done(True, stage)
+
+
+def _ts_summary(task: dict | None):
+    """The small task block an envelope carries; lazy so imports stay cheap."""
+    if task is None:
+        return None
+    import taskstate as _ts
+    return _ts.summary_of(task)
 
 
 def _matches(actual, op: str, expect) -> bool:
@@ -323,8 +357,8 @@ def selftest() -> int:
 
     s = result(ok=True, stage="static", level="summary")
     ok(set(s) == {"schema", "ok", "stage", "failure_type", "message", "level",
-                  "levels", "next_steps", "elapsed_ms"},
-       "summary keeps 9 keys, got %s" % sorted(s))
+                  "levels", "next_steps", "elapsed_ms", "task"},
+       "summary keeps 10 keys, got %s" % sorted(s))
     ok(set(s["levels"]) == set(SUCCESS_LEVELS) and not any(s["levels"].values()),
        "a bare result leaves every success level unevaluated")
     d = result(ok=False, stage="static", failure_type="static_analysis_error",

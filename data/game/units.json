@@ -32,7 +32,7 @@
     "name": "flamethrower",
     "damage": 74.0,
     "bulletSpeed": 4.199999809265137,
-    "bulletRange": 54.59999752044678,
+    "bulletRange": 54.599998474121094,
     "reload": 44.0
    }
   ]
@@ -77,14 +77,14 @@
     "name": "scepter-mount",
     "damage": 20.0,
     "bulletSpeed": 12.0,
-    "bulletRange": 208.00000762939453,
+    "bulletRange": 208.0,
     "reload": 24.0
    },
    {
     "name": "scepter-mount",
     "damage": 20.0,
     "bulletSpeed": 12.0,
-    "bulletRange": 208.00000762939453,
+    "bulletRange": 208.0,
     "reload": 30.0
    }
   ]
@@ -122,7 +122,7 @@
     "name": "heal-weapon",
     "damage": 13.0,
     "bulletSpeed": 5.199999809265137,
-    "bulletRange": 155.9999942779541,
+    "bulletRange": 156.0,
     "reload": 60.0
    }
   ]
@@ -141,7 +141,7 @@
     "name": "heal-shotgun-weapon",
     "damage": 15.0,
     "bulletSpeed": 0.0,
-    "bulletRange": 0.0,
+    "bulletRange": 69.0,
     "reload": 72.0
    }
   ]
@@ -160,7 +160,7 @@
     "name": "beam-weapon",
     "damage": 45.0,
     "bulletSpeed": 0.0,
-    "bulletRange": 0.0,
+    "bulletRange": 150.0,
     "reload": 110.0
    }
   ]
@@ -179,7 +179,7 @@
     "name": "vela-weapon",
     "damage": 35.0,
     "bulletSpeed": 0.0,
-    "bulletRange": 0.0,
+    "bulletRange": 180.0,
     "reload": 155.0
    },
    {
@@ -205,7 +205,7 @@
     "name": "corvus-weapon",
     "damage": 560.0,
     "bulletSpeed": 0.0,
-    "bulletRange": 0.0,
+    "bulletRange": 460.0,
     "reload": 350.0
    }
   ]
@@ -224,7 +224,7 @@
     "name": "",
     "damage": 1.0,
     "bulletSpeed": 0.0,
-    "bulletRange": 0.0,
+    "bulletRange": 25.0,
     "reload": 24.0
    }
   ]
@@ -243,7 +243,7 @@
     "name": "atrax-weapon",
     "damage": 13.0,
     "bulletSpeed": 2.5,
-    "bulletRange": 142.5,
+    "bulletRange": 111.85893249511719,
     "reload": 18.0
    }
   ]
@@ -262,14 +262,14 @@
     "name": "spiroct-weapon",
     "damage": 23.0,
     "bulletSpeed": 0.0,
-    "bulletRange": 0.0,
+    "bulletRange": 75.0,
     "reload": 28.0
    },
    {
     "name": "mount-purple-weapon",
     "damage": 18.0,
     "bulletSpeed": 0.0,
-    "bulletRange": 0.0,
+    "bulletRange": 40.0,
     "reload": 36.0
    }
   ]
@@ -288,21 +288,21 @@
     "name": "spiroct-weapon",
     "damage": 40.0,
     "bulletSpeed": 0.0,
-    "bulletRange": 0.0,
+    "bulletRange": 55.0,
     "reload": 18.0
    },
    {
     "name": "spiroct-weapon",
     "damage": 40.0,
     "bulletSpeed": 0.0,
-    "bulletRange": 0.0,
+    "bulletRange": 55.0,
     "reload": 28.0
    },
    {
     "name": "spiroct-weapon",
     "damage": 40.0,
     "bulletSpeed": 0.0,
-    "bulletRange": 0.0,
+    "bulletRange": 55.0,
     "reload": 44.0
    },
    {
@@ -328,7 +328,7 @@
     "name": "large-purple-mount",
     "damage": 110.0,
     "bulletSpeed": 0.0,
-    "bulletRange": 0.0,
+    "bulletRange": 90.0,
     "reload": 60.0
    },
    {
@@ -373,7 +373,7 @@
     "name": "",
     "damage": 13.5,
     "bulletSpeed": 0.699999988079071,
-    "bulletRange": 20.99999964237213,
+    "bulletRange": 10.995058059692383,
     "reload": 24.0
    }
   ]
@@ -392,7 +392,7 @@
     "name": "zenith-missiles",
     "damage": 14.0,
     "bulletSpeed": 3.0,
-    "bulletRange": 150.0,
+    "bulletRange": 161.57460021972656,
     "reload": 80.0
    }
   ]
@@ -411,14 +411,14 @@
     "name": "missiles-mount",
     "damage": 18.0,
     "bulletSpeed": 2.700000047683716,
-    "bulletRange": 135.0000023841858,
+    "bulletRange": 174.05038452148438,
     "reload": 40.0
    },
    {
     "name": "missiles-mount",
     "damage": 18.0,
     "bulletSpeed": 2.700000047683716,
-    "bulletRange": 135.0000023841858,
+    "bulletRange": 174.05038452148438,
     "reload": 70.0
    },
    {
@@ -444,7 +444,7 @@
     "name": "large-laser-mount",
     "damage": 115.0,
     "bulletSpeed": 0.0,
-    "bulletRange": 0.0,
+    "bulletRange": 230.0,
     "reload": 90.0
    },
    {
@@ -507,14 +507,14 @@
     "name": "heal-weapon-mount",
     "damage": 10.0,
     "bulletSpeed": 5.199999809265137,
-    "bulletRange": 181.99999332427979,
+    "bulletRange": 182.0,
     "reload": 48.0
    },
    {
     "name": "heal-weapon-mount",
     "damage": 8.0,
     "bulletSpeed": 5.199999809265137,
-    "bulletRange": 181.99999332427979,
+    "bulletRange": 182.0,
     "reload": 30.0
    }
   ]
@@ -570,7 +570,7 @@
     "name": "missiles-mount",
     "damage": 12.0,
     "bulletSpeed": 2.700000047683716,
-    "bulletRange": 175.50000309944153,
+    "bulletRange": 193.462158203125,
     "reload": 25.0
    }
   ]
@@ -589,7 +589,7 @@
     "name": "mount-weapon",
     "damage": 3.0,
     "bulletSpeed": 4.199999809265137,
-    "bulletRange": 220.49998998641968,
+    "bulletRange": 220.49998474121094,
     "reload": 20.0
    },
    {
@@ -615,14 +615,14 @@
     "name": "large-artillery",
     "damage": 15.0,
     "bulletSpeed": 3.200000047683716,
-    "bulletRange": 268.80000400543213,
+    "bulletRange": 268.8000183105469,
     "reload": 65.0
    },
    {
     "name": "missiles-mount",
     "damage": 12.0,
     "bulletSpeed": 2.700000047683716,
-    "bulletRange": 189.0000033378601,
+    "bulletRange": 209.96290588378906,
     "reload": 40.0
    }
   ]
@@ -641,7 +641,7 @@
     "name": "sei-launcher",
     "damage": 42.0,
     "bulletSpeed": 4.199999809265137,
-    "bulletRange": 260.3999881744385,
+    "bulletRange": 285.72381591796875,
     "reload": 45.0
    },
    {
@@ -667,7 +667,7 @@
     "name": "omura-cannon",
     "damage": 1250.0,
     "bulletSpeed": 0.0,
-    "bulletRange": 0.0,
+    "bulletRange": 500.0,
     "reload": 110.0
    }
   ]
@@ -693,14 +693,14 @@
     "name": "retusa-weapon",
     "damage": 12.0,
     "bulletSpeed": 5.199999809265137,
-    "bulletRange": 155.9999942779541,
+    "bulletRange": 156.0,
     "reload": 44.0
    },
    {
     "name": "",
     "damage": 1.0,
     "bulletSpeed": 0.699999988079071,
-    "bulletRange": 50.0,
+    "bulletRange": 137.2957000732422,
     "reload": 90.0
    }
   ]
@@ -719,7 +719,7 @@
     "name": "plasma-mount-weapon",
     "damage": 23.0,
     "bulletSpeed": 3.4000000953674316,
-    "bulletRange": 61.20000171661377,
+    "bulletRange": 61.20000076293945,
     "reload": 10.0
    },
    {
@@ -752,7 +752,7 @@
     "name": "plasma-missile-mount",
     "damage": 25.0,
     "bulletSpeed": 2.5,
-    "bulletRange": 200.0,
+    "bulletRange": 225.6621856689453,
     "reload": 120.0
    }
   ]
@@ -797,7 +797,7 @@
     "name": "plasma-laser-mount",
     "damage": 27.0,
     "bulletSpeed": 0.0,
-    "bulletRange": 90.0,
+    "bulletRange": 95.0,
     "reload": 170.0
    }
   ]
@@ -892,7 +892,7 @@
     "name": "locus-weapon",
     "damage": 36.0,
     "bulletSpeed": 0.0,
-    "bulletRange": 0.0,
+    "bulletRange": 160.0,
     "reload": 18.0
    }
   ]
@@ -1027,7 +1027,7 @@
     "name": "anthicus-weapon",
     "damage": 0.75,
     "bulletSpeed": 0.0,
-    "bulletRange": 0.0,
+    "bulletRange": 333.65997314453125,
     "reload": 260.0
    }
   ]
@@ -1046,7 +1046,7 @@
     "name": "",
     "damage": 1.0,
     "bulletSpeed": 0.0,
-    "bulletRange": 0.0,
+    "bulletRange": 20.0,
     "reload": 1.0
    }
   ]
@@ -1065,7 +1065,7 @@
     "name": "tecta-weapon",
     "damage": 38.25,
     "bulletSpeed": 4.199999809265137,
-    "bulletRange": 230.99998950958252,
+    "bulletRange": 230.99998474121094,
     "reload": 80.0
    }
   ]
@@ -1084,7 +1084,7 @@
     "name": "collaris-weapon",
     "damage": 195.0,
     "bulletSpeed": 5.5,
-    "bulletRange": 330.0,
+    "bulletRange": 385.0,
     "reload": 260.0
    }
   ]
@@ -1160,7 +1160,7 @@
     "name": "quell-weapon",
     "damage": 52.5,
     "bulletSpeed": 4.300000190734863,
-    "bulletRange": 127.96800666046147,
+    "bulletRange": 361.20001220703125,
     "reload": 110.0
    }
   ]
@@ -1179,7 +1179,7 @@
     "name": "",
     "damage": 1.0,
     "bulletSpeed": 0.0,
-    "bulletRange": 0.0,
+    "bulletRange": 20.0,
     "reload": 1.0
    }
   ]
@@ -1198,7 +1198,7 @@
     "name": "disrupt-weapon",
     "damage": 0.75,
     "bulletSpeed": 0.0,
-    "bulletRange": 0.0,
+    "bulletRange": 469.1999816894531,
     "reload": 140.0
    }
   ]
@@ -1217,7 +1217,7 @@
     "name": "",
     "damage": 1.0,
     "bulletSpeed": 0.0,
-    "bulletRange": 0.0,
+    "bulletRange": 20.0,
     "reload": 1.0
    }
   ]
@@ -1366,7 +1366,7 @@
     "name": "",
     "damage": 1.0,
     "bulletSpeed": 0.0,
-    "bulletRange": 0.0,
+    "bulletRange": 43.33333206176758,
     "reload": 1.0
    }
   ]
@@ -1385,7 +1385,7 @@
     "name": "",
     "damage": 1.0,
     "bulletSpeed": 0.0,
-    "bulletRange": 0.0,
+    "bulletRange": 80.0,
     "reload": 1.0
    }
   ]
@@ -1404,7 +1404,7 @@
     "name": "",
     "damage": 1.0,
     "bulletSpeed": 0.0,
-    "bulletRange": 0.0,
+    "bulletRange": 26.66666603088379,
     "reload": 2.0
    }
   ]
@@ -1423,7 +1423,7 @@
     "name": "",
     "damage": 1.0,
     "bulletSpeed": 0.0,
-    "bulletRange": 0.0,
+    "bulletRange": 23.33333396911621,
     "reload": 1.0
    }
   ]
