@@ -80,6 +80,13 @@
 
 （完整文章清单由 `tools/build_index.py` 生成到 `index.json`。）
 
+### 3.2 问答路由：Mindcode 语法怎么写
+
+「`if` 后面该写 `then` 还是 `do`」「函数会不会真的被调用」「数组怎么声明」这类问题，看
+`06-mlog/M10-Mindcode-Syntax.md`（`MLOG.MIND.002`）：每条语法都附了它编出来的 mlog，
+五个坑（`then` 不是 `do`、`end` 要分号、未用变量在优化下是错误、`stack` 不提供数组、
+末尾 banner 行）都有实测报错原文。编译选项与版本裁决仍看 M09。
+
 ### 3.1 问答路由：Mindcode 编译前端（`06-mlog/M09`，`MLOG.MIND.001`）
 
 | 问题 | 落点 |

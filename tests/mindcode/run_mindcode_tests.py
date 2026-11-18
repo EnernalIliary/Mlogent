@@ -281,6 +281,72 @@ def test_target_and_optimizer_flags():
           'ast_nodes changed with the optimizer flag')
 
 
+
+# --- the syntax claims in knowledge/06-mlog/M10-Mindcode-Syntax.md ----------
+# The article quotes real compiler output.  If a jar bump changes any of it, the
+# article is lying and this case says which line.
+SYNTAX_CLAIMS = {
+    "variables": ("a = 3;\nb = a + 4;\nprint(b);\n",
+                  ["set :a 3", "op add *tmp0 :a 4", "set :b *tmp0", "print :b"]),
+    "if_then": ('v = 7;\nif v > 5 then\n    print("big");\nelse\n'
+                '    print("small");\nend;\n',
+                ["op greaterThan *tmp0 :v 5", "jump 6 equal *tmp0 false",
+                 'print "big"', 'print "small"']),
+    "for_range": ("s = 0;\nfor n in 1..3 do\n    s += n;\nend;\n",
+                  ["set :s 0", "set :n 1", "jump 6 greaterThan :n 3",
+                   "op add :s :s :n", "jump 2 always 0 0"]),
+    "function_inlines": ("def twice(x)\n    return x * 2;\nend;\nprint(twice(5));\n",
+                         ["print 10"]),
+    "heap_index": ("allocate heap in cell1;\ndef store(i, v)\n    $i = v;\nend;\n"
+                   "store(0, 7);\n",
+                   ["set :store:i 0", "write :store:v cell1 0"]),
+    "const_folds": ("const L = 4;\nprint(L * 2);\n", ["print 8"]),
+}
+
+
+@case
+def test_documented_syntax_still_compiles_as_documented():
+    for name, (src, expect) in SYNTAX_CLAIMS.items():
+        got = MC.compile_source(src, target='7.0', optimize=False)
+        check(got['ok'], '%s no longer compiles: %r'
+              % (name, (got.get('diagnostics') or [])[:1]))
+        body = [ln.strip() for ln in (got.get('mlog') or '').split('\n') if ln.strip()]
+        for line in expect:
+            check(line in body, '%s lost %r (got %r)' % (name, line, body[:8]))
+
+
+@case
+def test_documented_gotchas_still_fail_the_documented_way():
+    # if ... do is a syntax error; only "then" opens a branch
+    bad = MC.compile_source('v = 1;\nif v > 0 do\n    print("x");\nend;\n',
+                            target='7.0', optimize=False)
+    check(not bad['ok'] and any('then' in (d.get('message') or '')
+                                for d in bad['diagnostics']),
+          'if/then regression: %r' % (bad.get('diagnostics') or [])[:1])
+    # a string literal plus a number is not concatenation
+    concat = MC.compile_source('i = 2;\nprint("i=" + i);\n',
+                               target='7.0', optimize=False)
+    check(not concat['ok'] and any('string' in (d.get('message') or '').lower()
+                                   for d in concat['diagnostics']),
+          'string concatenation stopped being an error')
+    # {i} inside $"..." is NOT interpolated -- it survives as text
+    braces = MC.compile_source('i = 2;\nprint($"i={i}");\n',
+                               target='7.0', optimize=False)
+    check(braces['ok'] and 'i={i}' in (braces.get('mlog') or ''),
+          'brace interpolation changed: %r' % (braces.get('mlog') or '')[:80])
+    # and $i does interpolate, as two separate prints
+    dollar = MC.compile_source('i = 2;\nprint($"i=$i");\n',
+                               target='7.0', optimize=False)
+    body = [ln.strip() for ln in (dollar.get('mlog') or '').split('\n') if ln.strip()]
+    check(dollar['ok'] and 'print "i="' in body and 'print :i' in body,
+          'dollar interpolation changed: %r' % body[:4])
+    # stack allocation does not serve external variables
+    stack = MC.compile_source('allocate stack in cell1;\ndef put(i, v)\n    $i = v;\nend;\n'
+                              'put(0, 9);\n', target='7.0', optimize=False)
+    check(not stack['ok'] and any('heap' in (d.get('message') or '').lower()
+                                  for d in stack['diagnostics']),
+          'stack/heap distinction changed')
+
 def main():
     info = MC.locate()
     if not info['ok']:
