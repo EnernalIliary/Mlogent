@@ -146,6 +146,8 @@ u8e:
 
 **反例 6（末尾没有回到热循环的 jump）**：程序跑完 @counter 归 0，从头重跑 init，把 N、sx/sy、cfg.nloc 全部刷回初始值，表现为单位周期性失去目标。
 
+**反例 7（单位刚 spawn 就 itemTake，第一次必失败）**：`ItemTakeI` 一进来就 `timeoutDone(unit, transferDelay)`，而 `transferDelay = 90 tick` 是以 `Time.time` 为准的；单位刚出生时这个时间戳还没走够，单条 `itemTake` **静默失败**，大约 30–40 tick 之后重试才成功 [实测: 2 只 flare 连核心、逐 tick 记录 @firstItem]。所以搬运段不能「绑上就取」，要么循环重试直到 `@firstItem` 非空，要么把取货段放在热循环里（每圈都会再试一次，天然自愈）。
+
 ## 常见误解
 
 1. 「micro 可以用 setrate 提速」—— 不能，setrate 是特权指令，只对世界处理器生效 [src: LogicBlock.java:48]。

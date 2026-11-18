@@ -84,6 +84,13 @@ tokens: 1430
 - 坐标/目标（Point2 或 Block）：mass-driver、payload-mass-driver、large-payload-mass-driver、launch-pad、landing-pad。
 - 文本与颜色：message、reinforced-message、switch、illuminator（LightBlock 存颜色）。
 - 单位生产（UnitType）：ground/air/naval-factory 与 8 个 reconstructor/refabricator；其中 tank/ship/mech-fabricator 只在 `logicConfigurable` 里，不在 `configurable` 里（见数值表）。
+
+### 6. 处理器为什么会「突然无效」
+
+`BuildingComp.isValid()` 的判据是 `tile.build == self() && !dead()`。多格建筑按中心对齐放置（`offset = -(size-1)/2`，见 [[WORLD.BLOCKS.001]]），所以 **4×4 的着陆台一旦压到处理器所在的那一格，处理器自己的 `tile.build` 就被换成了着陆台** ⇒ `isValid()` 变假 ⇒ 程序里所有 `read x @this <名字>` 恒 null；而 `sensor t @this @type` 仍然返回 `micro-processor`（`@this` 是 `exec.build` 的对象引用，不查 tile）。症状看起来像「变量没声明」，其实是方块被判无效 —— 排查顺序：先 `sensor t @this @type` 确认对象还在，再查它脚下有没有被多格建筑覆盖。
+
+判「这是不是处理器」也不要用 `building instanceof LogicBlock`：真实建筑是内部类 `LogicBlock$LogicBuild`，`instanceof` 恒假（断言表 L2-26）。鸭子判据是「有 `executor` 且有 `code`」。
+
 ## 数值
 
 表 A：配置类字段在 447 个注册方块里的分布（jar v160.7 反射 raw，占比按 447 计）[src: jar raw 447 条]。
