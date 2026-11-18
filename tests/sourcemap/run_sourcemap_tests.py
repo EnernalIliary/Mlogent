@@ -102,6 +102,45 @@ class Attribution(unittest.TestCase):
         after = set(os.listdir(tempfile.gettempdir()))
         self.assertEqual(before, after)
 
+    def test_the_map_can_be_read_backwards(self):
+        # Reading a trace asks the opposite question: "my line 2 misbehaves,
+        # which instructions are mine?"  by_source is that index, built once.
+        p = self._write('a = 1;\nb = a + 2;\nprint($"b={b}");\n')
+        res = S.build(p, optimize=False)
+        self.assertTrue(res["ok"], res)
+        by_source = res["by_source"]
+        self.assertTrue(by_source)
+        for key, lines in by_source.items():
+            self.assertEqual(lines, sorted(lines), key)
+            for ln in lines:
+                self.assertEqual(S.show(res, ln)["mnd_line"], int(key))
+        total = sum(len(v) for v in by_source.values())
+        self.assertEqual(total, sum(1 for m in res["map"] if m["mlog"] is not None))
+
+    def test_show_source_names_the_lines_and_says_why_when_there_are_none(self):
+        p = self._write('a = 1;\nb = a + 2;\n')
+        res = S.build(p, optimize=False)
+        got = S.show_source(res, 2)
+        self.assertTrue(got["mapped"], got)
+        self.assertEqual(got["text"].strip(), "b = a + 2;")
+        self.assertEqual(got["mlog_lines"], sorted(got["mlog_lines"]))
+        blank = S.show_source(res, 99)
+        self.assertFalse(blank["mapped"])
+        self.assertTrue(blank["why"])
+
+    def test_a_loop_body_answers_unmapped_in_both_directions(self):
+        src = 'i = 0;\nfor n in 1..3 do\n    i = i + n;\nend;\nprint($"i={i}");\n'
+        p = self._write(src)
+        res = S.build(p, optimize=False)
+        self.assertTrue(res["ok"], res)
+        inside = [m for m in res["map"] if (m.get("why") or "").startswith("inside control flow")]
+        if not inside:
+            self.skipTest("this compiler version attributed the loop body")
+        line = inside[0]["mnd_line"]
+        got = S.show_source(res, line)
+        self.assertFalse(got["mapped"], got)
+        self.assertIn("control flow", got["why"] or "")
+
     def test_compile_error_comes_back_as_diagnostics(self):
         p = self._write("a = ;\n")
         res = S.build(p)

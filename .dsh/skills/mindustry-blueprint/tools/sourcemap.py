@@ -131,7 +131,7 @@ def build(path: str, *, target: str = "7.0", optimize: bool = False,
             "optimize": bool(optimize), "mlog": produced,
             "source_sha256": full.get("source_sha256"),
             "diagnostics": full.get("diagnostics") or [],
-            "map": mapped, "notes": notes,
+            "map": mapped, "by_source": by_source(mapped), "notes": notes,
             "stats": full.get("stats") or {}}
 
 
@@ -150,12 +150,46 @@ def build_from_text(source: str, *, target: str = "7.0", optimize: bool = False,
         shutil.rmtree(tmp, ignore_errors=True)
 
 
+def by_source(mapped: list[dict]) -> dict:
+    """Invert the attribution: .mnd line -> the mlog lines it produced.
+
+    The forward map answers "where did this instruction come from"; the reverse
+    question -- "my line 7 misbehaves, which instructions are mine" -- is the one
+    a caller asks while reading a trace, and rebuilding it per call means
+    re-scanning the list on every line.
+    """
+    out: dict[str, list[int]] = {}
+    for m in mapped or []:
+        if m.get("mlog") is None:
+            continue
+        out.setdefault(str(m["mnd_line"]), []).append(int(m["mlog"]))
+    for v in out.values():
+        v.sort()
+    return out
+
+
 def show(mapping: dict, mlog_line: int) -> dict:
     """Which source line produced mlog line `mlog_line` (0-based)."""
     for m in mapping.get("map") or []:
         if m.get("mlog") == mlog_line:
             return m
     return {"mlog": mlog_line, "mnd_line": None, "why": "not attributed"}
+
+
+def show_source(mapping: dict, mnd_line: int) -> dict:
+    """Which mlog lines came from .mnd line `mnd_line` (1-based, as editors count)."""
+    rows = [m for m in mapping.get("map") or [] if m.get("mnd_line") == mnd_line]
+    if not rows:
+        return {"mnd_line": mnd_line, "mlog_lines": [], "mapped": False,
+                "why": "no statement on that line (blank, comment, or inside a block)"}
+    lines = sorted({int(m["mlog"]) for m in rows if m.get("mlog") is not None})
+    return {
+        "mnd_line": mnd_line,
+        "text": rows[0].get("text"),
+        "mlog_lines": lines,
+        "mapped": bool(lines),
+        "why": None if lines else (rows[0].get("why") or "not attributed"),
+    }
 
 
 def _selftest() -> int:
@@ -202,9 +236,12 @@ def main(argv=None) -> int:
     b.add_argument("--optimize", action="store_true",
                    help="开优化（默认关：内联/死代码会让映射漂移）")
     b.add_argument("--json", action="store_true")
-    s = sub.add_parser("show", help="查某条 mlog 来自哪一行源码")
+    s = sub.add_parser("show", help="查某条 mlog 来自哪一行源码（或反过来）")
     s.add_argument("path")
-    s.add_argument("--mlog", type=int, required=True, help="0-based mlog 行号")
+    s.add_argument("--mlog", type=int, default=None,
+                   help="0-based mlog 行号；查 mlog -> .mnd")
+    s.add_argument("--mnd", type=int, default=None,
+                   help="1-based .mnd 行号；查 .mnd -> mlog")
     sub.add_parser("selftest")
     args = ap.parse_args(argv)
 
@@ -216,7 +253,12 @@ def main(argv=None) -> int:
         if not res.get("ok"):
             print(json.dumps(res, ensure_ascii=False, indent=1))
             return 2
-        print(json.dumps(show(res, args.mlog), ensure_ascii=False, indent=1))
+        if args.mnd is None and args.mlog is None:
+            ap.error("show needs --mlog N (mlog -> .mnd) or --mnd N (.mnd -> mlog)")
+        if args.mnd is not None:
+            print(json.dumps(show_source(res, args.mnd), ensure_ascii=False, indent=1))
+        else:
+            print(json.dumps(show(res, args.mlog), ensure_ascii=False, indent=1))
         return 0
     if args.json:
         print(json.dumps(res, ensure_ascii=False, indent=1))

@@ -208,9 +208,17 @@ def annotate(difference: dict) -> str | None:
     # that a new area shows up as unexplained instead of silently absorbed.
     area = ""
     if path.startswith("state.units"):
-        area = "unit-motion"
+        # Only the fields that come out of Unit.update() inherit the physics
+        # boundary.  What a unit carries, who owns it and which type it is are
+        # decided by the instructions (ubind/unit itemTake/unit control), so a
+        # difference there is real and must stay unexplained.
+        tail = path.rsplit(".", 1)[-1].strip("]")
         if "hp" in path:
             area = "combat"
+        elif tail in _MOTION_FIELDS:
+            area = "unit-motion"
+        else:
+            area = ""
     elif path.startswith("state.buildings"):
         area = "logistics"
     elif path.startswith("state.core"):
@@ -240,6 +248,9 @@ def annotate(difference: dict) -> str | None:
 #: Processor variables that are copies of something physical, so a difference in
 #: them belongs to the physics boundary rather than to the instruction set.
 _PHYSICAL_VARS = {"x", "y", "ux", "uy", "hp", "uhp", "shx", "shy", "health"}
+
+#: Unit fields that are positions/velocities, i.e. what Unit.update() moves.
+_MOTION_FIELDS = {"x", "y", "ux", "uy", "rot", "shx", "shy", "speed", "velocity"}
 
 
 def _near(left, right, limit: float) -> bool:

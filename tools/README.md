@@ -123,12 +123,14 @@ python tools/mlogsim.py --sweep-orphans     # orphan sweep: N stale JVM(s) 1234 
 python tools/mlog_mcp.py          # stdio JSON-RPC，供 DSH / Claude Desktop 连接
 ```
 
-工具（12 个）：`mlog_doctor`、`mlog_check{path,cost,limit,level}`、`mlog_ir{path}`、
+工具（15 个）：`mlog_doctor`、`mlog_check{path,cost,limit,level}`、`mlog_ir{path}`、
 `mlog_values{path}`、`mlog_gen{source|logic,name,links,blocks,out}`、
-`mlog_sim{path|logic,ticks,units,save,...}`、`mindcode_compile{source|path,target,optimize,out}`、
+`mlog_sim{path|logic,ticks,units,save,...}`、`mindcode_compile{source|path,target,optimize,out,map}`、
 `mlog_validate{path|logic|mind|mnd_path,ticks,expect,level,task,hypothesis,next_step}`、
 `mlog_task{action,task_id,source,hypothesis,next_step}`、`scenario_run{path,via,level}`、
-`mlog_diff{path,spec,level}`、`mlog_fetch{ref,offset,limit}`。
+`mlog_diff{path,spec,level}`、`mlog_fidelity{action,capability,difference}`、
+`mlog_observe{a,b,spec,level}`、`mlog_explore{action,template,seeds,params,modifiers,via,limit,shrink}`、
+`mlog_fetch{ref,offset,limit}`。
 每个工具都接受 `level: summary|diagnostics|full`，返回同一个 `mlog-eval/v1` 信封
 （见 `tools/mlog_eval.py`）：默认只回 10 个键的摘要（`task` 恒在，未接任务时为 `null`），大块内容（mlog 源码、变量转储、
 完整轨迹）自动换成 `artifact_ref`，用 `mlog_fetch` 取回。
@@ -638,7 +640,7 @@ python tools/scenario.py run scenes/scenarios/generated-resource-drain.json --vi
 |---|---|
 | `observation.py` | `mlog-observation/v1`：`summary/state/events/env` 四段，`from_scenario()` 与 `from_world()` 产出同构观察；`compare()` 四类规则（`exact`/`tolerance`/`match`/`ordered`），**禁止整体 JSON 相等** |
 | `differential.py` | 一个场景跑两遍（sim + 活世界），给出差分信封；不一致是 `simulation_real_difference`，世界不可用是 `unsupported_environment` + exit 3 |
-| `fidelity.py` | 15 条能力边界的判定表（verified/unverified/partial/unsupported/unknown），`annotate()` 把每条差异挂到已知边界上 |
+| `fidelity.py` | 15 条能力边界的判定表（verified/unverified/partial/unsupported/unknown），`annotate()` 把每条差异挂到已知边界上（`state.units[].item` 这类由指令决定的字段**不算**动理学差异） |
 
 ```bash
 python tools/fidelity.py list                       # 哪些能力离线可判、哪些不可
@@ -648,7 +650,9 @@ python tools/observation.py compare a.json b.json   # 两个观察文件直接�
 ```
 
 比较规则写在 `docs/观察与差分-契约.md`（字段级容差、`"5%"` 相对容差、事件按 key 做子序列
-匹配 + tick 容差）。MCP 侧是 `mlog_diff`；`scenario_run` 的 `via=world` 走同一套。
+匹配 + tick 容差）。MCP 侧：`mlog_diff` 跑一个场景的两边，`mlog_fidelity` 判一条差异属于哪个
+已知边界（`action=explain` 返回 `null` = 这差异是真的），`mlog_observe` 比较两份观察文件；
+`scenario_run` 的 `via=world` 走同一套。
 
 ## 基准（`benchmark.py`）
 
@@ -740,6 +744,9 @@ python tools/explore.py shrink --seeds 7 --modifier-file mods.json --json
 
 只走 `via="sim"`：探索会把运行次数乘上几十倍，而活世界只有一个服、全排在它后面。真要跑真机，
 就用 `scenario.run(via="world")` 跑你挑中的那一个。
+
+MCP 侧是 `mlog_explore`（`action=list` 看模板与旋钮，`action=run` 传 `template`+`seeds`，
+`shrink=true` 顺手把第一个失败缩成最小复现）。
 
 ## 文件分层
 

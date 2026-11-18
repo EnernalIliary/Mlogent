@@ -259,6 +259,72 @@ TOOLS = [
         },
     },
     {
+        "name": "mlog_fidelity",
+        "description": "The fidelity boundary: which capabilities the offline executor "
+                       "actually reproduces, and which differences are explained by a "
+                       "known boundary. action=list returns the 15-row table, "
+                       "action=show takes one capability name, action=explain takes a "
+                       "difference ({path,left,right}) and names the boundary it falls "
+                       "in -- or returns null, which means the difference is real.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "action": {"type": "string", "enum": ["list", "show", "explain"],
+                           "description": "default list"},
+                "capability": {"type": "string",
+                               "description": "for action=show, e.g. unit-motion"},
+                "difference": {"type": "object",
+                               "description": "for action=explain: {path,left,right}"},
+            },
+        },
+    },
+    {
+        "name": "mlog_observe",
+        "description": "Compare two observations (mlog-observation/v1 JSON files) with "
+                       "the four rule kinds: exact, tolerance, match, ordered events. "
+                       "Use it on what differential_run wrote, or on two runs of your "
+                       "own. Notes are differences that do not change the verdict.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "a": {"type": "string", "description": "path to the left observation"},
+                "b": {"type": "string", "description": "path to the right observation"},
+                "spec": {"type": "object",
+                         "description": "optional per-section rule overrides"},
+                "level": {"type": "string", "enum": ["summary", "diagnostics", "full"]},
+            },
+            "required": ["a", "b"],
+        },
+    },
+    {
+        "name": "mlog_explore",
+        "description": "Enumerate scenario variants and keep the failures. action=list "
+                       "shows the templates and their knobs; action=run evaluates the "
+                       "cartesian product of seeds x modifier bundles (each point is a "
+                       "fresh scenario), stops at limit, and with shrink=true reduces "
+                       "the first failure to the smallest bundle that still fails.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "action": {"type": "string", "enum": ["list", "run"],
+                           "description": "default list"},
+                "template": {"type": "string",
+                             "description": "unit-control or resource-drain"},
+                "seeds": {"type": "array", "items": {"type": "integer"},
+                          "description": "one point per seed, default [1]"},
+                "params": {"type": "object",
+                           "description": "template knobs; list shows the names"},
+                "modifiers": {"type": "array",
+                              "description": "one bundle (list of modifiers) per point"},
+                "via": {"type": "string", "enum": ["sim", "world"], "description": "default sim"},
+                "limit": {"type": "integer",
+                          "description": "stop after this many failures, default 1"},
+                "shrink": {"type": "boolean",
+                           "description": "reduce the first failure to a minimal repro"},
+            },
+        },
+    },
+    {
         "name": "mlog_fetch",
         "description": "Read an artifact that a previous call replaced with an "
                        "artifact_ref (large traces/variable dumps). Optional byte window.",
@@ -770,6 +836,108 @@ def tool_diff(args):
                      level=args.get("level") or "summary")
 
 
+def tool_fidelity(args):
+    import fidelity as _fid
+    action = args.get("action") or "list"
+    if action == "show":
+        name = args.get("capability")
+        got = _fid.lookup(name or "")
+        if got is None:
+            raise ValueError("unknown capability %r (action=list shows the names)" % name)
+        return got
+    if action == "explain":
+        diff = args.get("difference") or {}
+        if not isinstance(diff, dict):
+            raise ValueError("difference must be an object {path,left,right}")
+        line = _fid.annotate(diff)
+        if line is None:
+            return {"capability": None, "explained": False,
+                    "note": "no known boundary covers this difference: treat it as real"}
+        name = str(line).split(" (", 1)[0]
+        return {"capability": name, "explained": True, "line": line,
+                "detail": _fid.lookup(name)}
+    table = _fid.load()
+    rows = table.get("entries") or []
+    counts: dict[str, int] = {}
+    for row in rows:
+        v = row.get("verdict") or "unknown"
+        counts[v] = counts.get(v, 0) + 1
+    return {"count": len(rows), "counts": counts,
+            "capabilities": [{"name": r.get("id"), "verdict": r.get("verdict"),
+                              "scope": r.get("scope"), "note": r.get("note")}
+                             for r in rows]}
+
+
+def tool_observe(args):
+    import observation as _obs
+    a = _load_json(args["a"])
+    b = _load_json(args["b"])
+    got = _obs.compare(a, b, spec=args.get("spec"))
+    level = args.get("level") or "diagnostics"
+    if level == "summary":
+        diffs = got.get("differences") or []
+        return {"same": got.get("same"), "count": len(diffs),
+                "unexplained": sum(1 for d in diffs if not d.get("explained")),
+                "notes": got.get("notes") or [], "level": "summary"}
+    text = json.dumps(got, ensure_ascii=False)
+    if len(text) > 2000 and level != "full":
+        got = dict(got)
+        got["differences_ref"] = _stash(json.dumps(got.pop("differences") or [],
+                                                   ensure_ascii=False, indent=1))
+    return got
+
+
+def tool_explore(args):
+    import explore as _xp
+    action = args.get("action") or "list"
+    if action == "list":
+        return _xp.catalogue() if hasattr(_xp, "catalogue") else _explore_catalogue()
+    points = _xp.space(args.get("template") or "unit-control",
+                       seeds=tuple(args.get("seeds") or (1,)),
+                       params=args.get("params"),
+                       modifiers=args.get("modifiers"))
+    got = _xp.explore(points, via=args.get("via") or "sim",
+                      limit=int(args.get("limit") or 1))
+    summ = got.get("summary") or {}
+    out = {"template": args.get("template") or "unit-control",
+           "ran": summ.get("ran") or got.get("ran"),
+           "points": summ.get("points") or got.get("points"),
+           "failed": summ.get("failed"),
+           "skipped": summ.get("skipped"),
+           "ok": summ.get("ok")}
+    fails = got.get("failures") or []
+    out["failures"] = [{"seed": (f.get("point") or {}).get("seed"),
+                        "failure_type": f.get("failure_type"),
+                        "next_step": f.get("next_step")} for f in fails[:8]]
+    if args.get("shrink") and fails:
+        first = fails[0]
+        shr = _xp.shrink(first["point"], via=args.get("via") or "sim")
+        pt = shr.get("point") or {}
+        out["shrunk"] = {
+            "seed": pt.get("seed"),
+            "kept": sorted(m.get("kind") for m in (pt.get("modifiers") or [])),
+            "dropped": shr.get("dropped"),
+            "still_fails": shr.get("still_fails"),
+        }
+    return out
+
+
+def _explore_catalogue():
+    import scenario as _scen
+    rows = []
+    for name in _scen.TEMPLATE_ORDER:
+        rows.append({"template": name,
+                     "knobs": sorted((_scen.TEMPLATE_PARAMS.get(name) or {}).keys())})
+    return {"templates": rows,
+            "note": "action=run takes template + seeds (+ optional params/modifiers); "
+                    "each seed x modifier bundle is one fresh generated scenario"}
+
+
+def _load_json(path: str):
+    with open(path, "r", encoding="utf-8") as fh:
+        return json.load(fh)
+
+
 def tool_fetch(args):
     ref = args.get("ref")
     text = _ARTIFACTS.get(ref)
@@ -797,6 +965,9 @@ HANDLERS = {
     "scenario_run": tool_scenario_run,
     "mlog_diff": tool_diff,
     "mlog_fetch": tool_fetch,
+    "mlog_fidelity": tool_fidelity,
+    "mlog_observe": tool_observe,
+    "mlog_explore": tool_explore,
 }
 
 

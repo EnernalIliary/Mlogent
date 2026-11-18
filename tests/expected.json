@@ -692,6 +692,9 @@
         "mlog_task",
         "scenario_run",
         "mlog_diff",
+        "mlog_fidelity",
+        "mlog_observe",
+        "mlog_explore",
         "mlog_fetch"
       ],
       "check": {
