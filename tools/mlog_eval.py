@@ -175,8 +175,43 @@ def summarize(env: dict) -> str:
 
 # ---------------------------------------------------------------- evaluation
 
+def _analyzer_stamp() -> str:
+    """Identity of the analyzer: its bytes are the whole algorithm's input."""
+    import os
+
+    import mlogcheck as _check
+    path = getattr(_check, "__file__", "") or ""
+    try:
+        return "%s:%d" % (os.path.basename(path), int(os.path.getmtime(path)))
+    except OSError:
+        return os.path.basename(path)
+
+
 def _static_findings(mlog: str) -> list:
-    """Run the repo's own static analyzer over mlog source text."""
+    """Run the repo's own static analyzer over mlog source text.
+
+    Cached when ``MLOG_CACHE=1``: the findings are a pure function of the source
+    and of ``mlogcheck.py`` itself, both of which are in the key.  The default is
+    off, so a normal run always re-analyzes.
+    """
+    try:
+        import cache as _cache
+    except ImportError:
+        _cache = None
+    key = None
+    if _cache is not None and _cache.enabled():
+        key = _cache.key("static", mlog, _analyzer_stamp())
+        hit = _cache.get("static", key)
+        if isinstance(hit, list):
+            return hit
+    findings = _static_analyse(mlog)
+    if _cache is not None and key is not None:
+        _cache.put("static", key, findings)
+    return findings
+
+
+def _static_analyse(mlog: str) -> list:
+    """The uncached body of `_static_findings`."""
     import mlogcheck as _check
     lines = mlog.split("\n")
     try:

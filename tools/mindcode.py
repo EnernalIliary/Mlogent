@@ -484,8 +484,67 @@ def _temp_base(workdir: str | None) -> str | None:
     return str(MINDCODE_DIR) if MINDCODE_DIR.is_dir() else None
 
 
+def _cache_key(text: str, tool: dict, target: str, optimize: bool) -> str:
+    """Identity of a compile: source bytes + the exact compiler that reads them."""
+    import cache as _cache
+
+    jar = tool.get("jar") or ""
+    try:
+        import os as _os
+        stamp = "%s:%d" % (jar, int(_os.path.getmtime(jar))) if jar else ""
+    except OSError:
+        stamp = jar
+    return _cache.key("mindcode", hashlib.sha256(text.encode("utf-8")).hexdigest(),
+                      tool.get("version") or "", stamp, target, bool(optimize))
+
+
 def _compile(source: str, name: str, *, target: str, optimize: bool,
              timeout: float, workdir: str | None) -> dict:
+    """Compile with an optional content-addressed cache (``MLOG_CACHE=1``).
+
+    The cache is *opt-in* and lives outside the returned contract except for one
+    extra note; a hit skips the JVM entirely, which is the whole point (a 300 ms
+    compile becomes a file read).  Failures are cached too -- the same jar on the
+    same bytes fails the same way -- but the entry is keyed on the jar's mtime, so
+    dropping in a new compiler invalidates everything by itself.
+    """
+    try:
+        import cache as _cache
+    except ImportError:                      # tools/ not on sys.path: no caching
+        return _compile_uncached(source, name, target=target, optimize=optimize,
+                                 timeout=timeout, workdir=workdir)
+    if not _cache.enabled():
+        return _compile_uncached(source, name, target=target, optimize=optimize,
+                                 timeout=timeout, workdir=workdir)
+
+    started = time.perf_counter()
+    text = _strip_bom(source)
+    res = _resolve()
+    tool = {"name": "mindcode", "version": res["version"],
+            "jar": res["jar"], "java": res["java"]}
+    cache_key = _cache_key(text, tool, target, optimize)
+    hit = _cache.get("mindcode", cache_key)
+    if isinstance(hit, dict) and "ok" in hit:
+        notes = ["cached (mindcode %s, source %s)" % (tool.get("version") or "?",
+                                                      hashlib.sha256(text.encode("utf-8")).hexdigest()[:12])]
+        return _result(bool(hit["ok"]), hit.get("mlog"), hit.get("diagnostics") or [],
+                       hit.get("stats") or _blank_stats(), tool, started,
+                       hashlib.sha256(text.encode("utf-8")).hexdigest(), notes)
+
+    out = _compile_uncached(source, name, target=target, optimize=optimize,
+                            timeout=timeout, workdir=workdir)
+    # Only cache outcomes the compiler itself decided; an environment problem
+    # ("no java") must be retried next time, not remembered.
+    kinds = {d.get("kind") for d in out.get("diagnostics") or []}
+    if not (kinds & {"environment", "timeout", "io"}):
+        _cache.put("mindcode", cache_key,
+                   {"ok": out["ok"], "mlog": out["mlog"],
+                    "diagnostics": out["diagnostics"], "stats": out["stats"]})
+    return out
+
+
+def _compile_uncached(source: str, name: str, *, target: str, optimize: bool,
+                      timeout: float, workdir: str | None) -> dict:
     started = time.perf_counter()
     text = _strip_bom(source)
     sha = hashlib.sha256(text.encode("utf-8")).hexdigest()

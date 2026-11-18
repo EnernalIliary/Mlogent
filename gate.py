@@ -170,6 +170,10 @@ def build_steps(full: bool, only: str | None) -> list[tuple[str, list[str] | Non
         # stage that failed; the record is written before it is reported, and a
         # changed source demotes old progress.  Plain files, so it runs everywhere.
         ("taskstate", ["tests/taskstate/run_taskstate_tests.py"], ""),
+        # The result cache (tools/cache.py) is opt-in and must stay invisible
+        # unless MLOG_CACHE=1; a stale hit would be indistinguishable from a
+        # wrong answer, so the key/eviction rules get their own step.
+        ("cache", ["tests/cache/run_cache_tests.py"], ""),
         # The observation schema (tools/observation.py) is what makes two runs
         # comparable at all; the differential runner is layered on it.  Pure
         # data, so it runs everywhere -- only the live-world half can skip.

@@ -342,6 +342,12 @@ def tool_doctor(_args):
     except Exception as exc:                 # noqa: BLE001 -- optional rig
         world = {"ok": False, "notes": ["world server not running: %s: %s"
                                         % (type(exc).__name__, exc)]}
+    try:
+        import cache as _cache
+        cache = {"enabled": _cache.enabled(), "root": _cache.default_dir()}
+        cache.update({k: _cache.stats()[k] for k in ("entries", "bytes")})
+    except Exception as exc:                 # noqa: BLE001 -- optional module
+        cache = {"enabled": False, "notes": ["cache.py unavailable: %s" % exc]}
     return {
         "repo": str(root),
         "entry": str(HERE / "mlog.py"),
@@ -353,6 +359,7 @@ def tool_doctor(_args):
         "mindcode": mnd,
         "world": world,
         "differential_ready": jar.exists() and jre.exists() and bool(world["ok"]),
+        "cache": cache,
         "commands": [
             "python tools/mlog.py check FILE --cost",
             "python tools/mlog.py ir FILE",
@@ -362,6 +369,7 @@ def tool_doctor(_args):
             "python tools/mindcode.py compile FILE.mnd -o FILE.mlog",
             "python tools/scenario.py run scenes/scenarios/unit-control.json",
             "python tools/differential.py run scenes/scenarios/unit-control.json",
+            "MLOG_CACHE=1 python tools/cache.py stats     (opt-in result cache)",
         ],
     }
 

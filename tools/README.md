@@ -553,6 +553,30 @@ python tools/taskstate.py clear  ts-1a2b3c4d5e
 接线只需在 `mlog_eval.evaluate(..., task=task)` 传记录，MCP 侧传 `task`/`task_id` 给
 `mlog_validate` 即可，`mlog_task` 负责读、续跑与记笔记。
 
+## 结果缓存（`cache.py`）
+
+同一段程序反复问同样的问题，是这个工具链最常见的浪费：一次 `cm` 编译要起 JVM（1 秒以上），
+一次静态分析扫几百行（几十毫秒），而**输入字节没变，答案就不会变**。`cache.py` 是一个
+内容寻址的缓存，默认**关着**，只在你明确要的时候生效：
+
+```bash
+MLOG_CACHE=1 python tools/mlog.py check prog.mlog     # 这一次开始走缓存
+python tools/cache.py stats                           # 有多少条、占多少字节
+python tools/cache.py prune                           # 按 LRU 收到 4000 条 / 64 MB 内
+python tools/cache.py clear static                    # 清某个命名空间
+python tools/cache.py selftest
+```
+
+接线是两处，都只看输入：`mindcode.compile_source`（键 = 源码 sha256 + jar 版本 + jar mtime +
+target + 是否优化）和 `mlog_eval` 的静态分析（键 = 源码 + `mlogcheck.py` 的 mtime）。因此
+换 jar、换分析器、改参数都会自然失效，不需要手工清。三条约定：
+
+- **默认关闭**。不开 `MLOG_CACHE` 时返回值与从前逐字节相同，测试永远看不到缓存命中。
+- **失败也缓存，但环境类不缓存**。"没有 java" 这种下次可能好了，绝不该被记住。
+- **半截文件读作未命中**：`put` 先写 `.tmp` 再 `os.replace`，读到坏的 JSON 就当没缓存并删掉。
+
+`mlog_doctor` 会报当前是否开启、有多少条目、占多少字节——排查"为什么结果没变"先看这里。
+
 ## 场景（`scenario.py`）
 
 一个场景 = 世界 + 程序 + 观测 + 断言，跑完给**一个判决**，而不是一堆变量：
