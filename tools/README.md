@@ -29,6 +29,7 @@
 | 本地知识库（向量+可选重排） | `python tools/kb.py search "read @this 怎么写" -k 6` |
 | MCP 服务（模型直接调用工具） | `python tools/mlog_mcp.py`（stdio，见下节） |
 | 自检工具链 | `python tools/mlog.py selftest`（`--jobs N` 分片）；`python tests/run_tests.py` |
+| 调试世界契约 | `python tests/world/run_world_tests.py`（feed 读取 / 文本通道 / 43 个 MCP 工具的 schema 与协议，不需要 JVM） |
 
 `mlog.py --help` 是子命令总表；`tools/mlogsim.py --help` 是模拟器参数（世界、单位、战斗 tick、trace/assert）。
 
