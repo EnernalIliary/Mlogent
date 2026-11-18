@@ -156,7 +156,8 @@ TOOLS = [
         "name": "mindcode_compile",
         "description": "Compile Mindcode (.mnd, the high-level language) to mlog. Returns "
                        "the mlog plus file:line:col diagnostics; nothing is written to "
-                       "disk unless you pass out.",
+                       "disk unless you pass out. Pass map:true to also get the "
+                       "mlog->source line map.",
         "inputSchema": {
             "type": "object",
             "properties": {
@@ -166,6 +167,10 @@ TOOLS = [
                            "description": "Mindustry target version, default 7.0"},
                 "optimize": {"type": "boolean", "description": "run the optimizer (default true)"},
                 "out": {"type": "string", "description": "optional .mlog output path"},
+                "map": {"type": "boolean",
+                        "description": "also return an mlog line -> .mnd line map "
+                                       "(inferred by prefix compilation; loop bodies stay "
+                                       "unmapped on purpose)"},
                 "level": {"type": "string", "enum": ["summary", "diagnostics", "full"]},
             },
         },
@@ -550,6 +555,11 @@ def tool_sim(args):
     return out
 
 
+def _read_text(path):
+    with open(path, encoding="utf-8-sig") as fh:
+        return fh.read()
+
+
 def _compile_artifacts(res, level, out):
     """The compiled mlog is the deliverable; in summary mode it travels as a
     reference so the envelope stays small but nothing is lost."""
@@ -590,6 +600,31 @@ def tool_mindcode_compile(args):
         tool = res.get("tool") or {}
         failure = ("compilation_error" if tool.get("jar") and tool.get("java")
                    else "unsupported_environment")
+    _map = None
+    if args.get("map"):
+        # 源码映射是推断出来的，不塞进信封（信封只回答「成没成」），作为单独的键
+        # 返回：没接上的行带原因，读的人自己判断信不信。
+        # 映射固定用 optimize=False：优化器正是会把「想标位置的语句」删掉的那一步，
+        # 开着它去对齐，等于拿删干净的输出找原句。
+        try:
+            import sourcemap as _sm
+            src = args.get("source") or _read_text(args["path"])
+            built = _sm.build_from_text(src, target=args.get("target") or "7.0",
+                                        optimize=False)
+            if built.get("ok"):
+                entries = [{"mlog": m["mlog"], "mnd_line": m["mnd_line"], "why": m["why"]}
+                           for m in built.get("map") or [] if m["mlog"] is not None]
+                unmapped = [{"mnd_line": m["mnd_line"], "why": m["why"]}
+                            for m in built.get("map") or [] if m["mlog"] is None]
+                _map = {"schema": built.get("schema"),
+                              "mapped": len(entries), "unmapped": len(unmapped),
+                              "entries": entries[:200], "unmapped_why": unmapped[:20],
+                              "note": "prefix alignment, optimize=False; "
+                                      "control-flow bodies stay unmapped by design"}
+            else:
+                _map = {"ok": False, "diagnostics": built.get("diagnostics") or []}
+        except Exception as exc:      # noqa: BLE001 -- never fail a compile over a map
+            _map = {"ok": False, "error": str(exc)}
     env = _eval.result(
         ok=not failed, stage="compilation", failure_type=failure,
         message="" if not failed else (res.get("diagnostics") or
@@ -598,6 +633,8 @@ def tool_mindcode_compile(args):
         artifacts=_compile_artifacts(res, level, args.get("out")),
         level=level, elapsed_ms=res.get("elapsed_ms"),
     )
+    if _map is not None:
+        env["map"] = _map
     return env
 
 

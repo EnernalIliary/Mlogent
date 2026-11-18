@@ -125,6 +125,12 @@ python tools/mindcode.py compile demo.mnd -o demo.mlog --target 7.0
 §5 是 3.21.0 死锁的完整线程栈、§8 是「该报 unsupported_environment 还是 compilation_error」。
 它**不**讲 Mindcode 语法本身（`if`/`for`/`func`/`allocate`），语法查上游文档。
 
+**编出来的 mlog 报错时怎么回找源码**：`mindcode_compile{source, map:true}` 多回一个
+`map`（`mlog` 行 → `.mnd` 行，`tools/sourcemap.py`）。编译器不提供指令级映射，这张表是
+**前缀编译对齐**推出来的：块内语句（`for`/`while` 里）一律 `inside control flow`，不猜；
+产生不了指令的语句是 `dead code or folded`，也不是失败。所以「mlog 第 N 行错了」可以先查
+`entries`，查不到就老实回到源码读那一段，**别把推断当承诺**。
+
 ## 场景：把「跑一遍」变成「一个判决」
 
 `scenes/scenarios/*.json`（schema v2）= 世界 + 程序 + 观测 + 断言：

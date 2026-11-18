@@ -259,7 +259,7 @@ _MODULES = ["mlog.py", "aigenerated.py", "mlogcheck.py", "mlogir.py",
             # stdlib-only: the evaluation envelope every other tool speaks,
             # the Mindcode front end (finds its jar/JRE at runtime), and the
             # opt-in result cache both of them call into.
-            "mlog_eval.py", "mindcode.py", "cache.py"]
+            "mlog_eval.py", "mindcode.py", "cache.py", "sourcemap.py"]
 
 
 def _sha(path: Path) -> str:

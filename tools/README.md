@@ -660,6 +660,28 @@ python tools/modifier.py plan scenes/scenarios/unit-control.json --json   # 这�
 参数化生成：`scenario.py generate --template unit-control --seed 7` 按种子产出可复现的场景，
 障碍落点受世界尺寸与已有方块约束，同 seed 逐字节一致。
 
+## 源码映射（`sourcemap.py`）
+
+Mindcode **没有**指令级映射可用：`-r none|comments|passive|active` 只改日志注释（编出来的 mlog
+里没有注释行），`-u source` 不打 listing，`pm --trace-execution` 只给 instruction 编号。所以这
+张表是**推断**出来的，方法写在这里，读的人可以自己判断信不信：
+
+```bash
+python tools/sourcemap.py build demo.mnd            # mlog 行 -> .mnd 行
+python tools/sourcemap.py show demo.mnd 3           # 第 3 行 mlog 是从哪条语句来的
+python tools/sourcemap.py selftest
+```
+
+做法是**前缀编译对齐**：逐条顶层语句重编一次，用 `difflib.SequenceMatcher` 比对前后两份 mlog，
+只认 `insert/replace` 段。不能假设「前缀的输出是现在的尾巴」——死代码与被折叠的表达式会让某条
+语句**一条指令都不产生**，两段输出因此未必成前缀关系。由此有三条铁律：
+
+- 块内语句（`for`/`while`/`do` 里面）**不猜**，直接标 `inside control flow`：前缀编译到那里时
+  循环体还没展开，任何归因都是编的；
+- 产生不了指令的语句标 `no instruction of its own (dead code or folded)`，不是「映射失败」；
+- MCP 的 `mindcode_compile{map:true}` **固定 `optimize=False`** 建图：优化器正是把你想标位置的
+  语句删掉的那一步，开着它对齐等于拿删干净的输出找原句。
+
 ## 文件分层
 
 1. **入口**：`mlog.py`（统一下发子命令）、`mlogagent.py`（`report` / `info` 一条命令跑完五层）、

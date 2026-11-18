@@ -234,6 +234,9 @@ def build_steps(full: bool, only: str | None) -> list[tuple[str, list[str] | Non
         # which is the clean-checkout case.  Vendor a jar under
         # out/_mindcode/ or set MINDCODE_JAR to run them.
         ("mindcode", ["tests/mindcode/run_mindcode_tests.py"], ""),
+        # The source map (tools/sourcemap.py) is inferred, so its tests keep the
+        # inference honest: loop bodies must come back unmapped, not guessed.
+        ("sourcemap", ["tests/sourcemap/run_sourcemap_tests.py"], ""),
         # Scenario files (scene v1 + assertions/observations) run through the
         # same executor as mlogsim; the runner is what makes "did the rig work"
         # a single verdict instead of a var dump.

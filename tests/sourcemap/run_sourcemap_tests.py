@@ -1,0 +1,115 @@
+"""Tests for tools/sourcemap.py -- the inferred .mnd -> mlog map.
+
+Half of these are pure structure (statement splitting, mlog normalisation) and
+run anywhere.  The attribution half needs a compiler, so it exits 3 (SKIP, the
+gate's convention) when no jar is resolvable.
+"""
+import os
+import sys
+import tempfile
+import unittest
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+ROOT = os.path.dirname(os.path.dirname(HERE))
+sys.path.insert(0, os.path.join(ROOT, "tools"))
+
+import sourcemap as S                                     # noqa: E402
+
+
+def _ready():
+    try:
+        import mindcode as M
+    except Exception:                                      # noqa: BLE001
+        return False
+    return bool(M.locate().get("ok"))
+
+
+class Structure(unittest.TestCase):
+    def test_comments_and_blanks_are_not_statements(self):
+        src = "a = 1; // note\n\n   \nb = 2;\n"
+        got = S._lines(src)
+        self.assertEqual([g["text"] for g in got], ["a = 1;", "b = 2;"])
+        self.assertEqual([g["line"] for g in got], [1, 4])
+
+    def test_block_depth(self):
+        src = "s = 0;\nfor i in 0 .. 3 do\n    s += i;\nend;\nx = 1;\n"
+        got = S._lines(src)
+        self.assertEqual([g["depth"] for g in got], [0, 0, 1, 0, 0])
+
+    def test_nested_block_depth(self):
+        src = ("a = 0;\nwhile a < 3 do\n    if a == 1 do\n        b = 1;\n"
+               "    end;\n    a += 1;\nend;\n")
+        depths = [g["depth"] for g in S._lines(src)]
+        self.assertEqual(depths[0], 0)          # a = 0;
+        self.assertEqual(depths[1], 0)          # while ...
+        self.assertEqual(depths[2], 1)          #   if ...
+        self.assertEqual(depths[3], 2)          #     b = 1;
+        self.assertEqual(depths[4], 1)          #   end;   (closes the if)
+
+    def test_mlog_lines_drop_blanks(self):
+        self.assertEqual(S._mlog_lines("a\n\n  b  \n"), ["a", "b"])
+        self.assertEqual(S._mlog_lines(None), [])
+
+    def test_show_on_empty_map_says_so(self):
+        got = S.show({"map": []}, 3)
+        self.assertIsNone(got["mnd_line"])
+        self.assertIn("not attributed", got["why"])
+
+
+@unittest.skipUnless(_ready(), "no mindcode jar/java on this checkout")
+class Attribution(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.mkdtemp(prefix="mlog-sm-")
+
+    def _write(self, src):
+        p = os.path.join(self.tmp, "t.mnd")
+        with open(p, "w", encoding="utf-8", newline="\n") as fh:
+            fh.write(src)
+        return p
+
+    def test_straight_line_program_maps_its_output(self):
+        p = self._write('a = 1;\nb = a + 2;\nprint($"b={b}");\n')
+        res = S.build(p, optimize=False)
+        self.assertTrue(res["ok"], res)
+        mapped = [m for m in res["map"] if m["mlog"] is not None]
+        self.assertTrue(mapped, res["map"])
+        self.assertTrue(all(m["why"] == "prefix alignment" for m in mapped))
+        self.assertIn(mapped[0]["mnd_line"], (1, 2, 3))
+
+    def test_loop_body_is_reported_unmapped_not_guessed(self):
+        p = self._write("s = 0;\nfor i in 0 .. 3 do\n    s += i;\nend;\n")
+        res = S.build(p, optimize=False)
+        self.assertTrue(res["ok"], res)
+        inside = [m for m in res["map"] if m["mnd_line"] == 3]
+        self.assertTrue(inside)
+        self.assertTrue(all(m["mlog"] is None for m in inside))
+        self.assertEqual(inside[0]["why"], "inside control flow")
+
+    def test_build_from_text_matches_build(self):
+        src = 'a = 1;\nprint($"a={a}");\n'
+        p = self._write(src)
+        from_file = S.build(p, optimize=False)
+        from_text = S.build_from_text(src, optimize=False)
+        self.assertTrue(from_text["ok"], from_text)
+        self.assertEqual(len(from_file["map"]), len(from_text["map"]))
+
+    def test_map_from_text_uses_a_repo_local_temp_dir(self):
+        # Mindcode 写不了 %TEMP%（"Error writing file C:\\Users\\...\\Temp\\..."），
+        # 所以 build_from_text 自己起临时目录、用完就删；这条守的是「不留下东西」。
+        before = set(os.listdir(tempfile.gettempdir()))
+        res = S.build_from_text('print("x");\n')
+        self.assertTrue(res["ok"], res)
+        after = set(os.listdir(tempfile.gettempdir()))
+        self.assertEqual(before, after)
+
+    def test_compile_error_comes_back_as_diagnostics(self):
+        p = self._write("a = ;\n")
+        res = S.build(p)
+        self.assertFalse(res["ok"])
+        self.assertTrue(res["diagnostics"])
+
+
+if __name__ == "__main__":
+    if len(sys.argv) > 1 and sys.argv[1] == "--exit-if-no-jar" and not _ready():
+        raise SystemExit(3)
+    unittest.main(verbosity=2)
