@@ -1,0 +1,12 @@
+{
+ "id": "repair-a-static-error",
+ "title": "Repair a program with a static error",
+ "prompt": "This program has a jump target that does not exist:\n\n    set x 1\n    jump 99 always\n\nRepair it so the static analyzer reports no error.\nThis task is judged without running anything: `mlog_check` must be clean.",
+ "tools_hint": [
+  "mlog_check"
+ ],
+ "acceptance": {
+  "kind": "static",
+  "checks": []
+ }
+}

@@ -613,6 +613,53 @@ python tools/observation.py compare a.json b.json   # 两个观察文件直接�
 比较规则写在 `docs/观察与差分-契约.md`（字段级容差、`"5%"` 相对容差、事件按 key 做子序列
 匹配 + tick 容差）。MCP 侧是 `mlog_diff`；`scenario_run` 的 `via=world` 走同一套。
 
+## 基准（`benchmark.py`）
+
+「一个 Agent 第一次上手这套工具链，能不能把一件小事做成」——用机械判据量化，而不是让它自己打分。
+
+```bash
+python tools/benchmark.py list                     # 有哪些任务
+python tools/benchmark.py prompt arithmetic-constants  # 给冷启动 Agent 的题面
+python tools/benchmark.py verify arithmetic-constants --file out/answer.mlog
+python tools/benchmark.py record --task arithmetic-constants --success yes --tools 4 --tokens-in 1200 --tokens-out 90
+python tools/benchmark.py score                    # 每个模型/主机的成功率与 token 效率
+```
+
+任务在 `bench/tasks/*.json`（`id/title/prompt/tools_hint/acceptance`），运行记录追加进
+`out/benchmark/runs.jsonl`（`$MLOG_BENCH_DIR` 可改，不入库）。
+
+**判分只认观测到的状态**，不认 Agent 的自述：
+
+- `validate`：把答案喂给裸处理器，`--ticks N` 后读变量 / 文本缓冲；
+- `static`：不跑，只让分析器说话（无 jar 的干净 checkout 也能判，CI 因此覆盖得到）；
+- 检查项复用 `mlog_eval._matches`（`eq/ne/gt/ge/lt/le/contains`）与 `text_contains`。
+
+**为什么任务都很短**：执行器的「每 tick 跑几条指令」不稳定（实测同一个循环程序
+`--ticks 600` 到 n=32、`--ticks 1200` 反而停在 n=16），所以判据不能依赖循环跑完多少轮。
+现成的六个任务都在几条指令内到终态，`--ticks` 只是给足预算。
+
+已知短板（写在 `tests/benchmark` 的用例名里）：判官看的是程序变量，所以「直接把答案写进去」
+也能过；要堵住得用 trace 判分，而需要 rig 的移动类任务还没发布。
+
+## 场景扰动（`modifier.py`）
+
+一个场景是「世界 + 程序」，扰动是**在跑的过程中**往世界里塞变化：单位瞬移/生成/死亡、
+控制权整队易主、方块增删、核心缓冲加减、时间压力、规则键变更。
+
+```bash
+python tools/modifier.py list                      # 8 类可用的扰动
+python tools/modifier.py show unit_movement        # 参数与约束
+python tools/modifier.py plan scenes/scenarios/unit-control.json --json   # 这个场景能挂哪些
+```
+
+场景文件里写 `modifiers: [{kind, at_tick, params...}]`，`scenario.py` 按 `(at_tick, 声明序)`
+稳定排序后对 sim 侧分段执行、对活世界侧在轮询里触发（真实 tick 与计划不符会写进
+`artifacts.notes`）。**不适用的扰动会降级成 note 而不是让场景失败**，因为「这台机器上没有
+电网」和「程序写错了」不是一回事。
+
+参数化生成：`scenario.py generate --template unit-control --seed 7` 按种子产出可复现的场景，
+障碍落点受世界尺寸与已有方块约束，同 seed 逐字节一致。
+
 ## 文件分层
 
 1. **入口**：`mlog.py`（统一下发子命令）、`mlogagent.py`（`report` / `info` 一条命令跑完五层）、

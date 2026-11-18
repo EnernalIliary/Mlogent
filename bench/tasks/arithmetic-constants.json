@@ -1,0 +1,22 @@
+{
+ "id": "arithmetic-constants",
+ "title": "Set a variable from an arithmetic expression",
+ "prompt": "Write a Mindustry logic program (mlog) that stores 35 in the variable `r`.\nThe value must be computed, not typed: it is (3 + 4) * 5.",
+ "tools_hint": [
+  "mlog_check",
+  "mlog_validate"
+ ],
+ "acceptance": {
+  "kind": "validate",
+  "limits": {
+   "ticks": 400
+  },
+  "checks": [
+   {
+    "name": "r",
+    "op": "eq",
+    "value": 35
+   }
+  ]
+ }
+}

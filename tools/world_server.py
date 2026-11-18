@@ -47,6 +47,7 @@ from mlogsim import _win_kill_with_parent, sweep_orphans  # noqa: E402
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 WORLD = os.path.join(ROOT, "out", "_world")
+DEFAULT_FEED = os.path.join(WORLD, "feed.json")
 DATA = os.path.join(WORLD, "server")          # java cwd: ASCII, 持久
 HANDSHAKE = os.path.join(WORLD, "daemon.json")
 LOG = os.path.join(WORLD, "server.log")
@@ -3659,6 +3660,8 @@ def main(argv=None):
     ap.add_argument("--hold", type=float, default=0.0, metavar="SEC",
                     help="仿真停下后, 框和投影再多留 SEC 秒（默认 0 = 10 s 内收摊）; "
                          "tick 级调试跑完想停下来看的时候给 60 之类")
+    ap.add_argument("--no-projection", action="store_true",
+                    help="完全不开投影导演（连默认 feed 也不盯）")
     ap.add_argument("--manual", action="store_true",
                     help="关掉自动投影：只有放下脉冲地雷才开始（默认是有仿真就自己铺）")
     ap.add_argument("--no-push-admin", action="store_true",
@@ -3666,6 +3669,10 @@ def main(argv=None):
     ap.add_argument("--java", default=None)
     ap.add_argument("--jar", default=DEFAULT_JAR)
     a = ap.parse_args(argv)
+    if not a.watch_feed and not a.mirror_feed:
+        # 不给 --watch-feed 就盯默认 feed：任何 --project 的仿真一跑就自动
+        # 出现在地图上，跑完自动收摊。要看纯图就给 --no-projection。
+        a.watch_feed = [DEFAULT_FEED]
 
     java = find_java(a.java)
     jar = os.path.abspath(a.jar)

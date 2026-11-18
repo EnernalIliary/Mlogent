@@ -77,6 +77,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import random
 import re
 import subprocess
 import sys
@@ -88,6 +89,7 @@ if HERE not in sys.path:
     sys.path.insert(0, HERE)
 
 import scene as _scene  # noqa: E402
+import modifier as _modifier  # noqa: E402
 from mlog_eval import FAILURE_TYPES, classify, result  # noqa: E402
 
 SCENARIO_DIR = os.path.join(ROOT, "scenes", "scenarios")
@@ -96,7 +98,7 @@ SHADOW_DIR = os.path.join(ROOT, "out", "_scenario", "v1")
 
 #: Keys schema v2 adds on top of scene v1.
 V2_KEYS = ("id", "title", "goal", "limits", "observations", "assertions",
-           "success_criteria")
+           "success_criteria", "modifiers")
 ALLOWED_KEYS = set(_scene.TOP_KEYS) | set(V2_KEYS)
 AGGREGATES = ("last", "max", "min", "sum")
 OPS = ("eq", "ne", "gt", "ge", "lt", "le", "contains")
@@ -184,13 +186,18 @@ def _has_code_list(raw: dict) -> bool:
     return False
 
 
-def load(path: str) -> dict:
+def load(path: str, *, via: str | None = None) -> dict:
     """Read + validate + normalize a scenario file; the result carries "path".
 
     Raises ScenarioError when the file is not a scenario at all (unreadable JSON,
     unknown keys, scene-level errors).  Field-level v2 problems are collected by
     validate() and raised here as one message, so a caller never gets a
     half-normalized dict it would have to re-check.
+
+    ``via`` (§2 P2) asks one extra question at load time: can every modifier run
+    under that host?  A run-path caller leaves it empty and lets the modifier
+    list its own notes instead -- refusing to load would leave a world run with
+    nothing to say about the disturbance it could not fire.
     """
     full = path if os.path.isabs(path) else os.path.abspath(path)
     if not os.path.exists(full):
@@ -232,7 +239,7 @@ def load(path: str) -> dict:
         sc["name"] = str(raw["name"])
     _apply_v2(sc, raw, v2)
 
-    errors = validate(sc)
+    errors = validate(sc, via=via)
     if errors:
         raise ScenarioError("; ".join(errors))
     return sc
@@ -249,6 +256,7 @@ def _apply_v2(sc: dict, raw: dict, v2: bool) -> None:
         sc["observations"] = []
         sc["assertions"] = []
         sc["success_criteria"] = {"all_assertions": True}
+        sc["modifiers"] = []
         return
 
     sc["id"] = raw.get("id")
@@ -262,6 +270,9 @@ def _apply_v2(sc: dict, raw: dict, v2: bool) -> None:
     sc["assertions"] = assertions if isinstance(assertions, list) else (
         [] if assertions is None else assertions)
     sc["success_criteria"] = raw.get("success_criteria") or {"all_assertions": True}
+    modifiers = raw.get("modifiers")
+    sc["modifiers"] = modifiers if isinstance(modifiers, list) else (
+        [] if modifiers is None else modifiers)
 
 
 def _positive_int(value) -> bool:
@@ -273,7 +284,7 @@ def _positive_num(value) -> bool:
             and value > 0)
 
 
-def validate(sc: dict) -> list[str]:
+def validate(sc: dict, via: str | None = None) -> list[str]:
     """Everything wrong with this scenario, as text.  Empty list = runnable.
 
     Works on a hand-built dict as well as a loaded one: every field is read with
@@ -394,7 +405,52 @@ def validate(sc: dict) -> list[str]:
             if crit.get("all_assertions") is not True:
                 errs.append("success_criteria.all_assertions must be true: schema "
                             "v2 declares every assertion mandatory")
+
+    modifiers = sc.get("modifiers")
+    if modifiers is not None:
+        if not isinstance(modifiers, list):
+            errs.append("modifiers must be a list of {kind, at_tick, params} "
+                        "objects, got %s" % type(modifiers).__name__)
+        elif len(modifiers) > _modifier.MAX_ENTRIES:
+            errs.append("modifiers has %d entries; at most %d keep a timeline "
+                        "measurable" % (len(modifiers), _modifier.MAX_ENTRIES))
+        else:
+            ctx = _modifier_ctx(sc)
+            for i, entry in enumerate(modifiers):
+                _, problems = _modifier.validate_entry(entry, ctx)
+                for problem in problems:
+                    errs.append("modifiers[%d]: %s" % (i, problem))
+                kind = entry.get("kind") if isinstance(entry, dict) else None
+                hosts = _modifier.KINDS.get(kind, {}).get("via") if kind else None
+                if via and hosts and via not in hosts:
+                    errs.append("modifiers[%d]: %s does not run under via=%s "
+                                "(declared for %s)"
+                                % (i, kind, via, "/".join(hosts)))
     return errs
+
+
+def _modifier_ctx(sc: dict, via: str | None = None) -> dict:
+    """What a modifier may consult: world size, tick budget, team, the scene.
+
+    Kept separate from the run so `validate`/`load`/`generate` can check an
+    entry without an executor -- the same context the runtime passes down.
+    """
+    limits = sc.get("limits")
+    ticks = limits.get("ticks") if isinstance(limits, dict) else None
+    world = sc.get("world")
+    size = world.get("size") if isinstance(world, dict) else None
+    units = sc.get("units") or []
+    return {
+        "size": size if isinstance(size, int) and size > 0 else None,
+        "ticks": ticks if _positive_int(ticks) else None,
+        "team": _scene_team(sc),
+        "units": units,
+        "buildings": sc.get("buildings") or [],
+        # How many units the scene declares; a pick cannot count live units.
+        "pool": sum(int(u.get("count") or 1) for u in units if isinstance(u, dict)) or 1,
+        "via": via,
+    }
+
 
 
 def warnings(sc: dict) -> list[str]:
@@ -621,6 +677,114 @@ def _prepare_js(sc: dict) -> str:
     return "Vars.state.rules.unitCap=%d;" % max(64, total * 8 + 32)
 
 
+def _modifier_queue(sc: dict, via: str) -> list[dict]:
+    """Every declared disturbance, sorted by tick, with its JS prebuilt.
+
+    Sorting is `(at_tick, declaration index)` (``modifier.sort_entries``), so two
+    entries on the same tick fire in the order the file lists them.  An entry
+    that cannot run on this host is kept in the queue with ``executed=False`` and
+    the reason in ``notes``: the run records what did *not* happen too, rather
+    than dropping it or pretending.
+    """
+    entries = sc.get("modifiers") or []
+    if not entries:
+        return []
+    ctx = _modifier_ctx(sc, via)
+    # Structural problems (bad kind/params/at_tick) are a broken file: raise.
+    # Applicability (via, missing units/core) is *not*: it becomes a note, so a
+    # via=world run still reports the disturbance it could not fire.
+    shape = _modifier_ctx(sc)
+    queue = []
+    for index, entry in enumerate(entries):
+        norm, problems = _modifier.validate_entry(entry, shape)
+        if problems:
+            raise ScenarioError("modifiers[%d]: %s" % (index, "; ".join(problems)))
+        kind = norm["kind"]
+        rec = {"kind": kind, "at_tick": norm["at_tick"],
+               "params": dict(entry.get("params") or {}), "seed": norm.get("seed"),
+               "_index": index, "executed": False, "applied_at_tick": None,
+               "burned": 0, "plan": [], "lines": [], "error": "", "notes": []}
+        reasons = []
+        if via not in _modifier.KINDS[kind]["via"]:
+            reasons.append("declared for via=%s only; a via=%s run cannot fire it"
+                           % ("/".join(_modifier.KINDS[kind]["via"]), via))
+        reasons.extend(_modifier.requirements_errors(kind, ctx))
+        built = None
+        if not reasons:
+            try:
+                built = _modifier.script(norm, dict(ctx, via=via, flavor=via,
+                                                    at_tick=norm["at_tick"]))
+            except _modifier.ModifierError as exc:
+                raise ScenarioError("modifiers[%d]: %s" % (index, exc)) from exc
+        if reasons:
+            rec["notes"] = reasons
+        else:
+            rec["_script"] = built["script"]
+            rec["plan"] = built["plan"]
+            rec["_burn"] = int(built["skip"])
+        queue.append(rec)
+    return _modifier.sort_entries(queue)
+
+
+def _modifier_fire(rec: dict, apply_js, done: int) -> int:
+    """Apply one queued disturbance at tick ``done``; returns the new tick.
+
+    ``apply_js`` runs a one-line script on the host and returns its printed
+    lines.  A disturbance that throws is recorded, not raised: a scenario whose
+    program is under test should still report its assertions when a modifier
+    misfires.
+    """
+    if not rec.get("_script"):
+        return done
+    try:
+        lines = apply_js(rec["_script"]) or []
+    except Exception as exc:  # noqa: BLE001 -- recorded; the run continues
+        rec["error"] = "%s: %s" % (type(exc).__name__, exc)
+        return done
+    rec["lines"] = [str(line) for line in lines if str(line).startswith("MOD")]
+    bad = [line for line in rec["lines"] if line.startswith("MODERR")]
+    if bad:
+        rec["executed"] = False
+        rec["error"] = bad[0].split("\t", 2)[-1]
+    elif rec["lines"]:
+        rec["executed"] = True
+    else:
+        rec["executed"] = False
+        rec["error"] = "the host ran the script but printed no MOD line"
+    rec["applied_at_tick"] = done
+    burn = int(rec.pop("_burn", 0) or 0)
+    rec["burned"] = burn
+    return done + burn
+
+
+def _modifier_flush(queue: list[dict], fire, done: int) -> None:
+    """Fire every queued disturbance whose tick has been reached.
+
+    The live clock is polled, so an entry lands on the first poll *at or after*
+    its tick; the record keeps both numbers and says so in ``notes`` instead of
+    claiming the exact tick.
+    """
+    for rec in queue:
+        if not rec.get("_script") or rec.get("applied_at_tick") is not None:
+            continue
+        planned = int(rec["at_tick"])
+        if planned > done:
+            break  # the queue is sorted; nothing later is due yet
+        _modifier_fire(rec, fire, done)
+        if rec.get("applied_at_tick") is not None and rec["applied_at_tick"] != planned:
+            rec["notes"].append(
+                "fired at tick %d instead of %d: via=world polls the live clock "
+                "instead of stepping it (overshoot %d ticks)"
+                % (rec["applied_at_tick"], planned,
+                   rec["applied_at_tick"] - planned))
+
+
+def _public_modifiers(queue: list[dict]) -> list[dict]:
+    """Drop the private JS/burn keys before the record becomes JSON."""
+    return [{k: v for k, v in rec.items() if not k.startswith("_")}
+            for rec in queue]
+
+
 def _sim(sc: dict, deadline: float) -> dict:
     """Lay the scene down, tick it, sample observations; returns the raw record.
 
@@ -670,12 +834,28 @@ def _sim(sc: dict, deadline: float) -> dict:
             _js(srv, mlogsim._world_js(1.0, "logic"))
 
         total = int(sc["limits"]["ticks"])
+        mods = _modifier_queue(sc, "sim")
+        fire = lambda js: _js(srv, js)  # noqa: E731 -- one host call, one line
         done = 0
+        pending = 0
         while done < total:
             _deadline_guard(deadline, done)
-            step = min(TICK_CHUNK, total - done)
+            # A modifier acts *before* its tick, so the timeline is split at
+            # every at_tick: run 0 -> at_tick, apply the disturbance, continue.
+            while pending < len(mods) and int(mods[pending]["at_tick"]) <= done:
+                done = _modifier_fire(mods[pending], fire, done)
+                pending += 1
+            if done >= total:
+                break
+            nxt = int(mods[pending]["at_tick"]) if pending < len(mods) else total
+            step = min(TICK_CHUNK, total - done, max(1, nxt - done))
             _js(srv, _step_js(step, bool(observations)))
             done += step
+        # Everything at exactly limits.ticks still fires: no segment is left to
+        # run, but at_tick == total is a legal point on the timeline.
+        while pending < len(mods):
+            done = _modifier_fire(mods[pending], fire, done)
+            pending += 1
         _deadline_guard(deadline, done)
 
         samples: dict[int, list] = {}
@@ -709,7 +889,8 @@ def _sim(sc: dict, deadline: float) -> dict:
 
         return {"ticks": done, "samples": samples, "finals": finals,
                 "checks": checks, "report": report, "refs": refs,
-                "units": units, "buildings": buildings}
+                "units": units, "buildings": buildings,
+                "modifiers": _public_modifiers(mods)}
     finally:
         try:
             srv.close()
@@ -1130,6 +1311,8 @@ def _world(sc: dict, deadline: float) -> dict:
             specs.append({"x": where[0], "y": where[1], "var": obs["var"]})
 
         total = int(sc["limits"]["ticks"])
+        mods = _modifier_queue(sc, "world")
+        fire_world = lambda js: _lines(call({"op": "js", "code": js}, 30.0))  # noqa: E731
         samples: dict[int, list] = {i: [] for i in range(len(observations))}
         polls = 0
         done = 0
@@ -1138,6 +1321,7 @@ def _world(sc: dict, deadline: float) -> dict:
             done = max(0, int(now.get("tick") or 0) - tick0)
             if now.get("paused"):
                 call({"op": "pause", "on": False}, 30.0)
+            _modifier_flush(mods, fire_world, done)
             if done >= total:
                 break
             _deadline_guard(deadline, done)
@@ -1153,6 +1337,9 @@ def _world(sc: dict, deadline: float) -> dict:
             left = max(0.0, (total - done) / 60.0)
             time.sleep(min(WORLD_POLL_S, max(0.02, left)))
         _deadline_guard(deadline, done)
+        # Anything pinned to the final tick (or reached by the last poll) fires
+        # here, so `at_tick == limits.ticks` is not silently dropped.
+        _modifier_flush(mods, fire_world, done)
         if specs:
             # one last read, so `last` is the final value and not the last poll
             _collect_samples(call({"op": "js", "code": _sample_js(specs)}, 30.0),
@@ -1217,7 +1404,8 @@ def _world(sc: dict, deadline: float) -> dict:
         return {"via": "world", "ticks": done, "samples": samples, "finals": finals,
                 "checks": checks, "report": report, "refs": refs,
                 "units": units, "buildings": buildings, "core": core,
-                "events": events, "payload": payload, "env": payload["env"]}
+                "events": events, "payload": payload, "env": payload["env"],
+                "modifiers": _public_modifiers(mods)}
     finally:
         if was_paused:
             try:
@@ -1418,6 +1606,11 @@ def _execute(sc: dict, via: str = "sim", level: str = "summary") -> tuple:
                       "units": report.get("units"),
                       "errors": list(report.get("errors") or [])},
             "warnings": warnings(sc),
+            # What this run actually disturbed, in order, with the tick it
+            # really fired on and the seeded plan it executed.
+            "modifiers": list(record.get("modifiers") or []),
+            # A disturbance that could not run is a note, never a silent pass.
+            "notes": _modifier_notes(record.get("modifiers") or []),
         }
         if via == "world":
             # A live run is a poll, not a per-tick trace: say so in the envelope
@@ -1474,6 +1667,18 @@ def _execute(sc: dict, via: str = "sim", level: str = "summary") -> tuple:
             elapsed_ms=int((time.time() - started) * 1000)), None
 
 
+def _modifier_notes(mods: list[dict]) -> list[str]:
+    """One line per disturbance that did not apply, for the envelope's notes."""
+    out = []
+    for rec in mods:
+        if rec.get("executed"):
+            continue
+        why = "; ".join(rec.get("notes") or []) or rec.get("error") or "not applied"
+        out.append("modifier %s at tick %s was not applied: %s"
+                   % (rec.get("kind"), rec.get("at_tick"), why))
+    return out
+
+
 def _env_steps(via: str) -> list:
     if via == "world":
         return ["Start the live world: python tools/world_server.py --map Fork "
@@ -1511,12 +1716,360 @@ def _describe(sc: dict) -> str:
     for a in sc.get("assertions") or []:
         lines.append("assert   %s  %s.%s %s %r"
                      % (a["id"], a["logic"], a["var"], a.get("op", "eq"), a["value"]))
+    for i, m in enumerate(sc.get("modifiers") or []):
+        lines.append("modifier [%d] %s at tick %s %s"
+                     % (i, m.get("kind"), m.get("at_tick"),
+                        json.dumps(m.get("params") or {}, ensure_ascii=False)))
     return "\n".join(lines)
+
+
+# ---------------------------------------------------------------- generation
+#
+# Parametric templates, not random maps: every knob is clamped to a range, every
+# position is drawn from a candidate list that a constraint already filtered,
+# and the same template + params + seed yields byte-identical JSON.  The output
+# is a schema-v2 scenario, so `load()`/`run()` accept it with no extra step.
+
+GENERATED_DIR = os.path.join(ROOT, "out", "_scenario", "generated")
+
+TEMPLATE_ORDER = ("unit-control", "resource-drain")
+
+
+def _gp(kind, default, lo, hi, doc):
+    return {"kind": kind, "default": default, "min": lo, "max": hi, "doc": doc}
+
+
+#: The knobs planning asks the generator to expose: how many target units, how
+#: many distractors, where they start, how obstacles are spread, how many
+#: processors, and when the disturbance fires.  Widths/height stay inside
+#: scene.py's 8..1024 world limit and inside what a 240-tick run can cross.
+TEMPLATE_PARAMS: dict = {
+    "unit-control": {
+        "targets": _gp("int", 2, 1, 8,
+                       "units the program steers (one `ubind @flare` loop)"),
+        "distractors": _gp("int", 2, 0, 8,
+                           "units a mid-run `unit_spawn` adds, of another type "
+                           "so they cannot confuse the observations"),
+        "obstacles": _gp("int", 2, 0, 8,
+                         "router blocks scattered between the start and the "
+                         "target, never on the corridor"),
+        "processors": _gp("int", 1, 1, 3,
+                          "micro-processors placed; the first carries the code"),
+        "disturb_at": _gp("int", 120, 10, 900,
+                          "tick the disturbance fires (must be < ticks)"),
+        "start_x": _gp("int", 10, 6, 24, "tile x the steered units start on"),
+        "spread": _gp("float", 2.0, 0.0, 6.0,
+                      "radius of the start cluster in tiles (unit positions)"),
+        "size": _gp("int", 64, 40, 128, "square world size in tiles"),
+        "ticks": _gp("int", 240, 60, 900, "run length in ticks"),
+    },
+    "resource-drain": {
+        "stock": _gp("int", 100, 10, 500, "copper seeded into the core"),
+        "drain": _gp("int", 40, 1, 500,
+                     "copper the `resource_pressure` modifier removes"),
+        "obstacles": _gp("int", 1, 0, 8, "router blocks around the core"),
+        "processors": _gp("int", 1, 1, 3, "micro-processors; the first watches "
+                                          "the core"),
+        "disturb_at": _gp("int", 120, 10, 900, "tick the drain fires"),
+        "size": _gp("int", 64, 40, 128, "square world size in tiles"),
+        "ticks": _gp("int", 240, 60, 900, "run length in ticks"),
+    },
+}
+
+
+def _obstacle_tiles(rng, count: int, size: int, start_x: int, tx: int,
+                    cy: int, taken) -> list:
+    """`count` tiles off the corridor, drawn without replacement from a filter.
+
+    The filters are the constraint: inside the map margin, between the start and
+    the target, at least 3 tiles away from the steer line (so a steered unit is
+    never blocked), never on a building already placed.  That is what keeps
+    "random obstacles" from producing an unscorable scene.
+    """
+    if count <= 0:
+        return []
+    candidates = []
+    for x in range(start_x + 3, max(start_x + 4, tx - 2)):
+        for y in range(6, size - 6):
+            if abs(y - cy) < 3 or (x, y) in taken:
+                continue
+            candidates.append((x, y))
+    if len(candidates) < count:
+        raise ScenarioError("obstacles=%d does not fit: only %d tile(s) outside "
+                            "the corridor in a %dx%d world"
+                            % (count, len(candidates), size, size))
+    return rng.sample(candidates, count)
+
+
+def _template_unit_control(p: dict, rng, seed: int) -> dict:
+    size, ticks = int(p["size"]), int(p["ticks"])
+    cy = size // 2
+    start_x = int(p["start_x"])
+    tx = size - 12
+    if tx - start_x < 12:
+        raise ScenarioError("start_x=%d leaves no room to travel in a %dx%d "
+                            "world (need 12 tiles before x=%d)"
+                            % (start_x, size, size, tx))
+    code = ["ubind @flare",
+            "sensor ux @unit @x",
+            "sensor uy @unit @y",
+            "sensor uhp @unit @health",
+            "ucontrol move %d %d 0 0" % (tx, cy),
+            "op add n n 1"]
+    buildings = [{"name": "ctrl", "block": "micro-processor", "x": 6, "y": cy,
+                  "code_inline": code}]
+    for i in range(1, int(p["processors"])):
+        buildings.append({"name": "idle%d" % i, "block": "micro-processor",
+                          "x": 6, "y": cy + 3 * i})
+    taken = {(b["x"], b["y"]) for b in buildings}
+    for i, (x, y) in enumerate(
+            _obstacle_tiles(rng, int(p["obstacles"]), size, start_x, tx, cy, taken)):
+        buildings.append({"name": "wall%d" % i, "block": "router", "x": x, "y": y})
+    modifiers = []
+    if int(p["distractors"]) > 0:
+        modifiers.append({
+            "kind": "unit_spawn", "at_tick": int(p["disturb_at"]),
+            "params": {"type": "dagger", "count": int(p["distractors"]),
+                       "x": size - 6, "y": 6, "radius": 1.5,
+                       "team": "sharded", "seed": seed},
+        })
+    lo_ux = start_x + 1
+    return {
+        "title": "%d flare(s) steered across a field of %d obstacle(s), "
+                 "%d distractor(s) at tick %d"
+                 % (int(p["targets"]), int(p["obstacles"]),
+                    int(p["distractors"]), int(p["disturb_at"])),
+        "goal": "A micro-processor binds flares and drives them to (%d,%d) while "
+                "a disturbance fires at tick %d. The scenario passes only if the "
+                "processor keeps looping, the flares really move right, and they "
+                "stay near the corridor." % (tx, cy, int(p["disturb_at"])),
+        "notes": "Generated by `tools/scenario.py generate --template "
+                 "unit-control` (seed %d). units=%d spread=%.1f start_x=%d "
+                 "obstacles=%d processors=%d."
+                 % (seed, int(p["targets"]), float(p["spread"]), start_x,
+                    int(p["obstacles"]), int(p["processors"])),
+        "world": {"size": size},
+        "buildings": buildings,
+        "units": [{"type": "flare", "count": int(p["targets"]),
+                   "team": "sharded", "at": [start_x, cy],
+                   "radius": float(p["spread"])}],
+        "limits": {"ticks": ticks, "timeout_s": max(60.0, ticks / 2.0)},
+        "modifiers": modifiers,
+        "observations": [
+            {"name": "ux", "logic": "ctrl", "var": "ux", "aggregate": "last"},
+            {"name": "ux_max", "logic": "ctrl", "var": "ux", "aggregate": "max"},
+            {"name": "uy", "logic": "ctrl", "var": "uy", "aggregate": "last"},
+            {"name": "hp", "logic": "ctrl", "var": "uhp", "aggregate": "last"},
+            {"name": "cycles", "logic": "ctrl", "var": "n", "aggregate": "last"},
+        ],
+        "assertions": [
+            {"id": "A1", "desc": "the processor kept looping",
+             "logic": "ctrl", "var": "n", "op": "ge",
+             "value": max(5, ticks // 24)},
+            {"id": "A2", "desc": "the steered unit moved right of its start",
+             "logic": "ctrl", "var": "ux", "op": "ge", "value": lo_ux},
+            {"id": "A3", "desc": "it travelled at least 6 tiles",
+             "logic": "ctrl", "var": "ux", "observation": "ux_max", "op": "ge",
+             "value": min(tx - 1, start_x + 6)},
+            {"id": "A4", "desc": "it stayed on the side of the corridor it "
+                                 "started on",
+             "logic": "ctrl", "var": "uy", "op": "ge", "value": cy - 10},
+            {"id": "A5", "desc": "... but not below the corridor either",
+             "logic": "ctrl", "var": "uy", "op": "le", "value": cy + 10},
+            {"id": "A6", "desc": "the flare survived the disturbance",
+             "logic": "ctrl", "var": "uhp", "op": "gt", "value": 0},
+        ],
+        "success_criteria": {"all_assertions": True},
+    }
+
+
+def _template_resource_drain(p: dict, rng, seed: int) -> dict:
+    size, ticks = int(p["size"]), int(p["ticks"])
+    cy = size // 2
+    stock, drain = int(p["stock"]), int(p["drain"])
+    if drain > stock:
+        raise ScenarioError("drain=%d is more than stock=%d: the core cannot "
+                            "lose what it never had" % (drain, stock))
+    buildings = [
+        {"name": "hub", "block": "core-shard", "x": size - 12, "y": cy - 1,
+         "items": {"copper": stock}},
+        {"name": "watch", "block": "micro-processor", "x": size - 20, "y": cy - 1,
+         "links": ["hub"],
+         "code_inline": ["sensor c hub @copper", "op add n n 1"]},
+    ]
+    for i in range(1, int(p["processors"])):
+        buildings.append({"name": "idle%d" % i, "block": "micro-processor",
+                          "x": size - 20, "y": cy + 3 * i})
+    taken = {(b["x"], b["y"]) for b in buildings}
+    for i, (x, y) in enumerate(
+            _obstacle_tiles(rng, int(p["obstacles"]), size, size - 28, size - 20,
+                            cy, taken)):
+        buildings.append({"name": "wall%d" % i, "block": "router", "x": x, "y": y})
+    return {
+        "title": "core stocked with %d copper, %d drained at tick %d"
+                 % (stock, drain, int(p["disturb_at"])),
+        "goal": "A processor watches a core's copper. At tick %d a "
+                "resource_pressure modifier drains %d copper; the scenario passes "
+                "only if the buffer really fell by exactly that much and the "
+                "processor kept sampling." % (int(p["disturb_at"]), drain),
+        "notes": "Generated by `tools/scenario.py generate --template "
+                 "resource-drain` (seed %d). stock=%d drain=%d processors=%d."
+                 % (seed, stock, drain, int(p["processors"])),
+        "world": {"size": size},
+        "buildings": buildings,
+        "limits": {"ticks": ticks, "timeout_s": max(60.0, ticks / 2.0)},
+        "modifiers": [{"kind": "resource_pressure",
+                       "at_tick": int(p["disturb_at"]),
+                       "params": {"op": "drain", "item": "copper",
+                                  "amount": drain}}],
+        "observations": [
+            {"name": "copper", "logic": "watch", "var": "c", "aggregate": "last"},
+            {"name": "copper_min", "logic": "watch", "var": "c", "aggregate": "min"},
+            {"name": "cycles", "logic": "watch", "var": "n", "aggregate": "last"},
+        ],
+        "assertions": [
+            {"id": "A1", "desc": "the processor kept sampling",
+             "logic": "watch", "var": "n", "op": "ge", "value": max(5, ticks // 24)},
+            {"id": "A2", "desc": "the buffer fell to stock-drain",
+             "logic": "watch", "var": "c", "op": "le", "value": stock - drain},
+            {"id": "A3", "desc": "and it fell by the amount asked for, no more",
+             "logic": "watch", "var": "c", "op": "ge", "value": stock - drain},
+            {"id": "A4", "desc": "the dip really happened mid-run",
+             "logic": "watch", "var": "c", "observation": "copper_min", "op": "le",
+             "value": stock - drain},
+        ],
+        "success_criteria": {"all_assertions": True},
+    }
+
+
+TEMPLATES = {
+    "unit-control": _template_unit_control,
+    "resource-drain": _template_resource_drain,
+}
+
+
+def _gen_params(template: str, raw: dict, seed) -> dict:
+    """Clamp/validate the knobs.  Unknown knobs are refused, not ignored."""
+    if not isinstance(raw, dict):
+        raise ScenarioError("generate params must be an object, got %r" % (raw,))
+    if isinstance(seed, bool) or not isinstance(seed, int) or seed < 0:
+        raise ScenarioError("seed must be a non-negative integer, got %r" % (seed,))
+    spec = TEMPLATE_PARAMS[template]
+    unknown = sorted(set(raw) - set(spec))
+    if unknown:
+        raise ScenarioError("template %r has no param(s) %s (known: %s)"
+                            % (template, ", ".join(unknown), ", ".join(spec)))
+    out = {}
+    for name, ps in spec.items():
+        value = raw.get(name, ps["default"])
+        if ps["kind"] == "int":
+            if isinstance(value, bool) or not isinstance(value, int):
+                raise ScenarioError("%s must be an integer, got %r" % (name, value))
+        else:
+            if isinstance(value, bool) or not isinstance(value, (int, float)):
+                raise ScenarioError("%s must be a number, got %r" % (name, value))
+            value = float(value)
+        if value < ps["min"] or value > ps["max"]:
+            raise ScenarioError("%s=%r is outside %s..%s"
+                                % (name, value, ps["min"], ps["max"]))
+        out[name] = value
+    out["seed"] = seed
+    # Cross-knob constraint: a disturbance after the end of the run would be
+    # dead weight (and `load()` would refuse it as at_tick past limits.ticks).
+    if "disturb_at" in out and out["disturb_at"] >= out["ticks"]:
+        raise ScenarioError("disturb_at=%d must be < ticks=%d (a disturbance "
+                            "after the run never fires)"
+                            % (out["disturb_at"], out["ticks"]))
+    return out
+
+
+def generate(spec: dict) -> dict:
+    """Template + params + seed -> a schema-v2 scenario dict (no executor).
+
+    Pure and deterministic: same ``spec`` => same dict, so a generated file can
+    be diffed, regenerated and reviewed like a hand-written one.
+    """
+    if not isinstance(spec, dict):
+        raise ScenarioError("generate() takes {template, params, seed}")
+    template = spec.get("template") or "unit-control"
+    if template not in TEMPLATES:
+        raise ScenarioError("unknown template %r (known: %s)"
+                            % (template, ", ".join(TEMPLATE_ORDER)))
+    params = _gen_params(template, spec.get("params") or {}, spec.get("seed", 0))
+    seed = params.pop("seed")
+    sc = TEMPLATES[template](params, random.Random(seed), seed)
+    # scene.validate() reads sc["units"] directly, so a template with no units
+    # (resource-drain) must still emit the empty list rather than omit the key.
+    sc.setdefault("units", [])
+    sc["id"] = str(spec.get("id") or "%s-seed%d" % (template, seed))
+    sc["version"] = 2
+    return sc
+
+
+def _write_scenario(sc: dict, path: str) -> str:
+    directory = os.path.dirname(os.path.abspath(path))
+    os.makedirs(directory, exist_ok=True)
+    with open(path, "w", encoding="utf-8", newline="\n") as fh:
+        json.dump(sc, fh, ensure_ascii=False, indent=2)
+        fh.write("\n")
+    return path
+
+
+def _cmd_generate(args) -> int:
+    if args.list_templates:
+        rows = [(name, TEMPLATE_PARAMS[name]) for name in TEMPLATE_ORDER]
+        if args.json:
+            print(json.dumps({name: {k: {"default": v["default"],
+                                         "min": v["min"], "max": v["max"],
+                                         "doc": v["doc"]}
+                                     for k, v in ps.items()}
+                              for name, ps in rows}, ensure_ascii=False, indent=2))
+            return 0
+        for name, ps in rows:
+            print("%s" % name)
+            for key, v in ps.items():
+                print("  %-12s %-6s default=%-6r range=%s..%s  %s"
+                      % (key, v["kind"], v["default"], v["min"], v["max"], v["doc"]))
+        return 0
+    try:
+        params = json.loads(args.params or "{}")
+    except json.JSONDecodeError as exc:
+        print("--params is not JSON: %s" % exc, file=sys.stderr)
+        return 2
+    try:
+        sc = generate({"template": args.template, "params": params,
+                       "seed": args.seed, "id": args.id})
+    except ScenarioError as exc:
+        print("cannot generate: %s" % exc, file=sys.stderr)
+        return 2
+    out = args.out or os.path.join(GENERATED_DIR, "%s.json" % sc["id"])
+    _write_scenario(sc, out)
+    try:
+        loaded = load(out)  # the generated file must pass the same gate
+    except ScenarioError as exc:
+        print("generated %s but it is invalid: %s" % (out, exc), file=sys.stderr)
+        return 1
+    if args.json:
+        print(json.dumps({"ok": True, "path": loaded["path"], "id": loaded["id"],
+                          "template": args.template, "seed": args.seed,
+                          "buildings": len(loaded["buildings"]),
+                          "units": sum(u["count"] for u in loaded["units"]),
+                          "modifiers": loaded.get("modifiers") or [],
+                          "assertions": len(loaded.get("assertions") or [])},
+                         ensure_ascii=False, indent=2))
+        return 0
+    if args.dump:
+        print(json.dumps(sc, ensure_ascii=False, indent=2))
+        return 0
+    print("generated %s" % loaded["path"])
+    print(_describe(loaded))
+    print("ok       scenario valid")
+    return 0
 
 
 def _cmd_check(args) -> int:
     try:
-        sc = load(args.path)
+        sc = load(args.path, via=getattr(args, "via", None))
     except ScenarioError as exc:
         if args.json:
             print(json.dumps({"ok": False, "path": args.path,
@@ -1570,6 +2123,14 @@ def _cmd_run(args) -> int:
             print("  %s %-14s %s.%s %s %r  (got %r)"
                   % ("ok  " if d["ok"] else "FAIL", d["id"], d["logic"], d["var"],
                      d["op"], d["expect"], d["actual"]))
+        for rec in (env.get("artifacts") or {}).get("modifiers") or []:
+            state = ("applied at tick %s" % rec.get("applied_at_tick")
+                     if rec.get("executed") else "NOT APPLIED")
+            print("  mod %-20s at_tick=%-4s %s%s"
+                  % (rec.get("kind"), rec.get("at_tick"), state,
+                     ("  (%s)" % rec["error"]) if rec.get("error") else ""))
+        for note in (env.get("artifacts") or {}).get("notes") or []:
+            print("  note " + note)
         for step in env.get("next_steps") or []:
             print("  -> " + step)
         print("  %d ms" % (env.get("elapsed_ms") or 0))
@@ -1618,6 +2179,8 @@ def main(argv=None) -> int:
     c = sub.add_parser("check", help="validate a scenario without running it")
     c.add_argument("path")
     c.add_argument("--json", action="store_true")
+    c.add_argument("--via", default=None, choices=["sim", "world"],
+                   help="also refuse modifiers that cannot run under this host")
 
     r = sub.add_parser("run", help="run a scenario and report the envelope")
     r.add_argument("path")
@@ -1629,11 +2192,27 @@ def main(argv=None) -> int:
     ls = sub.add_parser("list", help="list scenarios in scenes/scenarios/")
     ls.add_argument("--json", action="store_true")
 
+    g = sub.add_parser("generate", help="build a scenario from a template + params")
+    g.add_argument("--template", default="unit-control",
+                   choices=list(TEMPLATE_ORDER))
+    g.add_argument("--params", default="{}",
+                   help='JSON object of template knobs, e.g. \'{"targets": 4}\'')
+    g.add_argument("--seed", type=int, default=0,
+                   help="seed for the constrained choices (same seed, same file)")
+    g.add_argument("--id", default=None, help="scenario id (default: template+seed)")
+    g.add_argument("--out", default=None,
+                   help="write here (default: out/_scenario/generated/<id>.json)")
+    g.add_argument("--list", action="store_true", dest="list_templates",
+                   help="print the templates and their knobs")
+    g.add_argument("--dump", action="store_true", help="print the JSON, write nothing")
+    g.add_argument("--json", action="store_true")
+
     args = ap.parse_args(argv)
     if not args.cmd:
         ap.print_help()
         return 2
-    return {"check": _cmd_check, "run": _cmd_run, "list": _cmd_list}[args.cmd](args)
+    return {"check": _cmd_check, "run": _cmd_run, "list": _cmd_list,
+            "generate": _cmd_generate}[args.cmd](args)
 
 
 if __name__ == "__main__":

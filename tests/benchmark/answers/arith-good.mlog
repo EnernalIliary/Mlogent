@@ -1,0 +1,2 @@
+op add t 3 4
+op mul r t 5

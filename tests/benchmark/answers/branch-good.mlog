@@ -1,0 +1,5 @@
+op greaterThan c 6 4
+jump 3 equal c 0
+set flag 1
+jump 0 always
+set flag 0

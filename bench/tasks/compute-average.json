@@ -1,0 +1,22 @@
+{
+ "id": "compute-average",
+ "title": "Compute an average",
+ "prompt": "Write an mlog program that stores the mean of 10, 20 and 30 in `avg`.\nInteger division is fine; the expected value is exact.",
+ "tools_hint": [
+  "mlog_check",
+  "mlog_validate"
+ ],
+ "acceptance": {
+  "kind": "validate",
+  "limits": {
+   "ticks": 400
+  },
+  "checks": [
+   {
+    "name": "avg",
+    "op": "eq",
+    "value": 20
+   }
+  ]
+ }
+}

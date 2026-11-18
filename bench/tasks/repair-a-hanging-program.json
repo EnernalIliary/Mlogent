@@ -1,0 +1,23 @@
+{
+ "id": "repair-a-hanging-program",
+ "title": "Repair a program that never finishes",
+ "prompt": "This program never terminates:\n\n    spin:\n    jump spin always\n\nFix it so it sets `done` to 1 and then stops spinning.",
+ "tools_hint": [
+  "mlog_check",
+  "mlog_ir",
+  "mlog_validate"
+ ],
+ "acceptance": {
+  "kind": "validate",
+  "limits": {
+   "ticks": 400
+  },
+  "checks": [
+   {
+    "name": "done",
+    "op": "eq",
+    "value": 1
+   }
+  ]
+ }
+}

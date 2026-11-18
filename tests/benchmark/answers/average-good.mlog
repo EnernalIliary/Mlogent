@@ -1,0 +1,3 @@
+op add t 10 20
+op add t t 30
+op div avg t 3

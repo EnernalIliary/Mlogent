@@ -1937,6 +1937,9 @@ def main(argv=None):
                     help="auto (default): for a .mlog, place a block for every name it "
                          "reads but never assigns (cell1 -> memory-cell, message1 -> message) "
                          "and wire it; off: leave them null as a plain .mlog would")
+    ap.add_argument("--project", action="store_true",
+                    help="--push <repo>/out/_world/feed.json 的简写：世界服默认盯这条 feed，"
+                         "所以「跑仿真就自动投影」只要这一个开关")
     ap.add_argument("--push", metavar="FILE", default=None,
                     help="every --push-every ticks, overwrite FILE with a JSON snapshot of the "
                          "world's units ([{type,x,y,amount,ctrl}], x/y in TILES). "
@@ -1974,6 +1977,9 @@ def main(argv=None):
     ap.add_argument("--rt", type=float, default=0.0, metavar="X",
                     help="throttle the sim so 1 sim-second takes X wall seconds (1 = realtime). Only useful for watching --push markers live.")
     args = ap.parse_args(argv)
+    if args.project and not args.push:
+        args.push = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                                 "out", "_world", "feed.json")
 
     if args.sweep_orphans:
         killed = sweep_orphans()

@@ -1,0 +1,20 @@
+{
+ "id": "emit-a-text-report",
+ "title": "Emit a text report",
+ "prompt": "Write an mlog program that puts the text `ok=1` into the text buffer.\nDo not flush it: the buffer is what gets read.",
+ "tools_hint": [
+  "mlog_check",
+  "mlog_validate"
+ ],
+ "acceptance": {
+  "kind": "validate",
+  "limits": {
+   "ticks": 400
+  },
+  "checks": [
+   {
+    "text_contains": "ok=1"
+   }
+  ]
+ }
+}

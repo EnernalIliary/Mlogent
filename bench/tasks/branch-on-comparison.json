@@ -1,0 +1,23 @@
+{
+ "id": "branch-on-comparison",
+ "title": "Branch on a comparison",
+ "prompt": "Write an mlog program that sets `flag` to 1 when 6 is greater than 4 and to 0 otherwise.\nUse a jump; a program that hardcodes the answer will be rejected by the scenario suite even though this check cannot see how you got there.",
+ "tools_hint": [
+  "mlog_check",
+  "mlog_ir",
+  "mlog_validate"
+ ],
+ "acceptance": {
+  "kind": "validate",
+  "limits": {
+   "ticks": 400
+  },
+  "checks": [
+   {
+    "name": "flag",
+    "op": "eq",
+    "value": 1
+   }
+  ]
+ }
+}

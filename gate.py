@@ -238,6 +238,12 @@ def build_steps(full: bool, only: str | None) -> list[tuple[str, list[str] | Non
         # same executor as mlogsim; the runner is what makes "did the rig work"
         # a single verdict instead of a var dump.
         ("scenario", ["tests/scenario/run_scenario_tests.py"], ""),
+        # Modifiers are scenario fixtures that fire on a schedule, so they ride
+        # with the scenario suite: index grammar here, real effects in both rigs.
+        ("modifier", ["tests/modifier/run_modifier_tests.py"], ""),
+        # The onboarding benchmark: task files, the judge, and the run ledger.
+        # Its Judge half skips without a jar, its task/ledger half always runs.
+        ("benchmark", ["tests/benchmark/run_benchmark_tests.py"], ""),
         # Differential runs need a live world *and* the offline executor, so in a
         # clean checkout they exits 3 (SKIP) instead of pretending to pass.
         ("differential", ["tests/differential/run_differential_tests.py"], ""),
