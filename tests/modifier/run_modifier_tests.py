@@ -284,6 +284,36 @@ def test_seed_reproducibility() -> None:
     ok(clock["skip"] == 25, "time_pressure reports the ticks it burns (skip=25)")
 
 
+def test_reports_on_both_hosts() -> None:
+    """A report line has to be readable where it is printed.
+
+    The offline host captures `print(...)`; the live daemon captures only what
+    the script appends to its `sb` builder.  Every kind used to hard-code
+    `print`, so `--via world` ran the disturbance and then reported "NOT
+    APPLIED (the host ran the script but printed no MOD line)" -- a silent
+    disagreement between two hosts that no offline test could see.
+    """
+    print("reports")
+    c = ctx()
+    samples = {k: dict(v) for k, v in M._EXAMPLES.items()}
+    for kind, params in samples.items():
+        entry = {"kind": kind, "at_tick": 20, "params": params}
+        world = M.script(copy.deepcopy(entry), dict(c, flavor="world", via="world"))
+        text = world["script"]
+        ok(text.count("print(") == 1,
+           "%s: the world script has no bare print() outside MOD_say" % kind)
+        ok("MOD_say(" in text, "%s: reports go through MOD_say" % kind)
+        ok("sb.append(" in text, "%s: MOD_say reaches the daemon's sb builder" % kind)
+        sim = M.script(copy.deepcopy(entry), dict(c, flavor="sim", via="sim"))
+        ok("MOD_say(" in sim["script"],
+           "%s: the same helper serves the offline host" % kind)
+
+    ok("typeof sb" in M.script({"kind": "time_pressure", "at_tick": 5,
+                                "params": {"burn": 1}},
+                               dict(c, flavor="world", via="world"))["script"],
+       "the helper picks the host at run time, not at build time")
+
+
 def test_ordering() -> None:
     print("ordering")
     entries = [
@@ -512,6 +542,7 @@ def main(argv: list[str] | None = None) -> int:
     test_param_validation()
     test_requirements()
     test_seed_reproducibility()
+    test_reports_on_both_hosts()
     test_ordering()
     test_schema_errors()
     test_generator_constraints()

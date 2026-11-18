@@ -393,13 +393,20 @@ def _config_stmt(flavor: str, b: dict) -> str:
 
 
 def _items_stmt(flavor: str, b: dict) -> str:
+    # A container is stocked *in addition* to whatever it already holds (a sorter
+    # may legitimately keep leftovers).  A core is different: its inventory is the
+    # experiment's initial condition, and "add" would make every number depend on
+    # what the map happened to hold there -- on a live world the same scene gave
+    # 120 + 165 where the offline run gave exactly 120.
+    reset = ("if(b.block instanceof Packages.mindustry.world.blocks.storage.CoreBlock)"
+             "{b.items.clear();}")
     adds = "".join("b.items.add(Vars.content.item(%s),%d);"
                    % (_js_str(item), amount) for item, amount in b["items"].items())
     desc = ",".join("%s=%d" % (item, amount) for item, amount in b["items"].items())
-    body = ("var b=bAt(%d,%d);if(b==null){%s}else{%s%s}"
+    body = ("var b=bAt(%d,%d);if(b==null){%s}else{%s%s%s}"
             % (b["x"], b["y"],
                _js_rep(flavor, [_js_str("ERR\titems %s: no build" % b["name"])]),
-               adds,
+               reset, adds,
                _js_rep(flavor, [_js_str("I\t%s\t" % b["name"]), _js_str(desc)])))
     return _guard(flavor, "items %s" % b["name"], body)
 
@@ -432,12 +439,12 @@ def _looks_labeled(src: str) -> bool:
 
 def _links_stmt(flavor: str, sc: dict, b: dict) -> str:
     by_name = {x["name"]: x for x in sc["buildings"]}
+    links_js = "".join("b.links.add(new LL(%d,%d,%s,true));"
+                       % (by_name[ln]["x"], by_name[ln]["y"], _js_str(ln))
+                       for ln in b["links"])
     parts = ["var b=bAt(%d,%d);" % (b["x"], b["y"]),
              "if(b==null){%s}else{" % _js_rep(flavor, [_js_str("ERR\tlogic %s: no build" % b["name"])]),
-             "b.links.clear();"]
-    for ln in b["links"]:
-        t = by_name[ln]
-        parts.append("b.links.add(new LL(%d,%d,%s,true));" % (t["x"], t["y"], _js_str(ln)))
+             "b.links.clear();", links_js]
     parts.append("var s=Packages.java.nio.file.Files.readString("
                  "Packages.java.nio.file.Paths.get(%s),"
                  "Packages.java.nio.charset.StandardCharsets.UTF_8);" % _js_path(_code_path(sc, b)))
@@ -449,6 +456,12 @@ def _links_stmt(flavor: str, sc: dict, b: dict) -> str:
         # 同一路径, 两边都拿到同一份压缩代码.
         parts.append("try{var LB=Packages.mindustry.world.blocks.logic.LogicBlock;"
                      "b.configureAny(LB.compress(s,b.relativeConnections()));}catch(eS){}")
+        # readCompressed() rebuilds `links` from the payload with findLinkName(),
+        # so a link we named "hub" comes back as "shard2" (core-shard -> shard) and
+        # the code's `hub` stays null.  Re-attach the scene's names locally and let
+        # updateCode() register them as constants -- the broadcast copy is for the
+        # player's eyes, the executor here is what the experiment reads.
+        parts.append("b.links.clear();" + links_js + "b.code=s;b.updateCode(s);")
     if flavor == "sim":
         # LogicBlock.updateTile() feeds the accumulator with edelta(), which is
         # scaled by efficiency; a paused simulator world never runs update(), so

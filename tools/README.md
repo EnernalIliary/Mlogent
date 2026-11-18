@@ -612,6 +612,20 @@ python tools/scenario.py list                                       # 有哪些�
 模板在 `scenes/scenarios/`（`unit-control` 绑单位走位、`building-interaction` 用方块、
 `processor-competition` 多处理器竞争）。MCP 侧是 `scenario_run`。
 
+`--via world` 把同一个场景铺进活世界跑（先 `python tools/world_server.py`）。这条路和离线
+仿真有四处**行为不同**，第一次跑真世界时全踩了一遍，写在这里省下一轮：
+
+| 现象 | 原因 | 现在怎么处理 |
+|---|---|---|
+| 扰动报 "applied ... NOT APPLIED" | 活世界只收 `sb.append(...)` 的行，脚本里的 `print` 没人看 | 扰动脚本统一走 `MOD_say()`，运行期按 `typeof sb` 选通道 |
+| 程序里的链接变量是 `null` | 代码广播走 `configureAny` → `readCompressed()` 用 `findLinkName()` **重新起名**（`core-shard` → `shard1`） | 广播后在本地按场景的名字重挂链接，再 `updateCode()` |
+| 核心库存比场景写的多 | `items` 是**累加**语义，活世界里那块地本来就压着库存 | 核心先 `items.clear()` 再补（普通容器仍是累加） |
+| 改了 `tools/scene.py` 不生效 | 世界服是常驻进程，启动时 `import scene` 就固定了模块 | 改完**重启世界服**（`world_client` 没有 reload op） |
+
+```bash
+python tools/scenario.py run scenes/scenarios/generated-resource-drain.json --via world --level full
+```
+
 ## 差分验证（`observation.py` + `differential.py` + `fidelity.py`）
 
 离线执行器是**真执行器 + 真单位更新**，但不是游戏：没有波次 AI、没有电网、地形碰撞只到

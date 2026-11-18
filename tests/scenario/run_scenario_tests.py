@@ -313,6 +313,44 @@ def test_envelope() -> None:
     ok(no_jvm["next_steps"], "no JVM suggests a next step (install a JRE, not a fix to the scenario)")
 
 
+def test_live_rig_wiring() -> None:
+    """What the live world needed that a blank sim world never exposed.
+
+    The first `--via world` run of the generated scenes found three wiring bugs
+    that no offline test could see, because the offline host applies the scene
+    in-process and the live host goes through the game's own config payloads:
+
+    * a modifier printed with `print(...)`, which the daemon does not capture
+      (only `sb.append`), so the run said "applied ... NOT APPLIED";
+    * `configureAny()` broadcasts the code as `readCompressed()` bytes, which
+      rebuilds `links` with `findLinkName()` -- a link named "hub" came back as
+      "shard1" and the code's `hub` silently stayed null;
+    * a core's `items` were added to whatever the map already held there, so the
+      same scene started at 120 offline and 285 live.
+
+    None of that is visible without a world, so it is pinned on the generated JS.
+    """
+    import scene
+
+    sc = scenario.load(str(SCEN / "generated-resource-drain.json"))
+    js = scene.build_js("world", sc)
+
+    cfg = js.find("configureAny(")
+    ok(cfg != -1, "the world flavor broadcasts the code through configureAny()")
+    relink = js.find("b.links.clear();", cfg if cfg != -1 else 0)
+    ok(relink != -1 and cfg != -1 and relink > cfg,
+       "named links are re-attached after the broadcast (readCompressed renames them)")
+    rebind = js.find("b.updateCode(s);", relink if relink != -1 else 0)
+    ok(rebind != -1 and relink != -1 and rebind > relink,
+       "and updateCode re-binds them, or the code's `hub` stays null")
+    ok('"hub"' in js, "the scene's own link name reaches the script")
+
+    clear = js.find("b.items.clear();")
+    add = js.find("b.items.add(")
+    ok(clear != -1 and add != -1 and clear < add,
+       "a core's stock is reset before the scene's items are added")
+
+
 def test_simulation(env_ok: bool) -> None:
     if not env_ok:
         skip("simulation tests (no JVM/jar)")
@@ -394,6 +432,7 @@ def main(argv: list[str] | None = None) -> int:
     test_list_cli()
     test_compare_and_aggregate()
     test_envelope()
+    test_live_rig_wiring()
 
     env = scenario.environment()
     if not env["ok"]:

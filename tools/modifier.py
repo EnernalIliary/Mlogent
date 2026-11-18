@@ -128,6 +128,13 @@ _JS_HELPERS = (
     "if(tm!==''&&String(u.team.name)!==tm)continue;"
     "if(r>0){var dx=u.x/8-ax,dy=u.y/8-ay;if(dx*dx+dy*dy>r*r)continue;}"
     "o.push(u);}return o;}"
+    # one reporter for both hosts: the daemon captures only sb.append(...),
+    # the offline sandbox only print(...), so pick at runtime instead of at
+    # build time -- a modifier cannot know where it will be replayed.
+    "function MOD_say(s){"
+    "if(typeof sb!=='undefined'){sb.append(String(s)).append('\\n');}"
+    "else{print(String(s));}"
+    "}"
 )
 
 
@@ -235,8 +242,8 @@ def _plan_world(p: dict, ctx: dict) -> list:
 def _js_spawn(plan_list: list, p: dict, ctx: dict) -> str:
     body = (
         "var T=MOD_team(%s);var ut=MOD_unit(%s);"
-        "if(ut==null){print('MODERR\\tunit_spawn\\tno unit type %s');}"
-        "else if(T==null){print('MODERR\\tunit_spawn\\tno team %s');}else{var n=0;"
+        "if(ut==null){MOD_say('MODERR\\tunit_spawn\\tno unit type %s');}"
+        "else if(T==null){MOD_say('MODERR\\tunit_spawn\\tno team %s');}else{var n=0;"
         % (_js(p["team"]), _js(p["type"]), p["type"], p["team"]))
     for spot in plan_list:
         body += ("var u=ut.spawn(T,%.3f*8+4,%.3f*8+4);if(u!=null){n=n+1;}"
@@ -265,7 +272,7 @@ def _js_death(plan_list: list, p: dict, ctx: dict) -> str:
 def _js_flip(plan_list: list, p: dict, ctx: dict) -> str:
     body = (
         "var sel=MOD_sel(%s,%s,%s,%s,%s);var n=0;var MT=MOD_team(%s);"
-        "if(MT==null){print('MODERR\\tcontrol_competition\\tno team %s');}else{"
+        "if(MT==null){MOD_say('MODERR\\tcontrol_competition\\tno team %s');}else{"
         % (_js(p.get("type") or ""), _js(p.get("team") or ""),
            float(p.get("x") or 0), float(p.get("y") or 0),
            float(p.get("radius") or 0), _js(p["team"]), p["team"]))
@@ -309,8 +316,8 @@ def _js_building(plan_list: list, p: dict, ctx: dict) -> str:
               if ctx["flavor"] == "world" else "setBlock(B)")
     body = (
         "var B=%s;var tt=Vars.world.tile(%d,%d);"
-        "if(tt==null){print('MODERR\\tbuilding_change\\tno tile %d,%d');}"
-        "else if(B==null){print('MODERR\\tbuilding_change\\tno block %s');}"
+        "if(tt==null){MOD_say('MODERR\\tbuilding_change\\tno tile %d,%d');}"
+        "else if(B==null){MOD_say('MODERR\\tbuilding_change\\tno block %s');}"
         "else{tt.%s;%s}"
         % (lookup, spot["x"], spot["y"], spot["x"], spot["y"], block, setter,
            _rep(ctx["flavor"], [_js("MOD\tbuilding_change\t"),
@@ -325,16 +332,16 @@ def _js_resource(plan_list: list, p: dict, ctx: dict) -> str:
     op = "add" if spot["op"] == "add" else "remove"
     body = (
         "var it=Vars.content.item(%s);var found=0;"
-        "if(it==null){print('MODERR\\tresource_pressure\\tno item %s');}else{"
+        "if(it==null){MOD_say('MODERR\\tresource_pressure\\tno item %s');}else{"
         "var G=Packages.mindustry.gen.Groups.build;"
         "for(var i=0;i<G.size();i++){var b=G.index(i);"
         "if(b==null||b.block==null)continue;"
         "if(!(b.block instanceof Packages.mindustry.world.blocks.storage.CoreBlock))continue;"
         "if(String(b.team.name)!==%s)continue;found=1;"
-        "try{b.items.%s(it,%d);}catch(e){print('MODERR\\tresource_pressure\\t'+e);}"
-        "print('MOD\\tresource_pressure\\t'+(b.tile.x)+','+(b.tile.y)+'='+b.items.get(it));"
+        "try{b.items.%s(it,%d);}catch(e){MOD_say('MODERR\\tresource_pressure\\t'+e);}"
+        "MOD_say('MOD\\tresource_pressure\\t'+(b.tile.x)+','+(b.tile.y)+'='+b.items.get(it));"
         "Vars.state.teams.updateTeamStats();break;}"
-        "if(found===0){print('MODERR\\tresource_pressure\\tno core on team %s');}}"
+        "if(found===0){MOD_say('MODERR\\tresource_pressure\\tno core on team %s');}}"
         % (_js(spot["item"]), spot["item"], _js(spot["team"]), op,
            int(spot["amount"]), spot["team"])
     )
@@ -345,7 +352,7 @@ def _js_clock(plan_list: list, p: dict, ctx: dict) -> str:
     burn = int(plan_list[0]["burn"])
     body = (
         "var T0=Vars.state.tick;Vars.state.tick=T0+%d;"
-        "print('MOD\\ttime_pressure\\t'+T0+'->'+Vars.state.tick);" % burn
+        "MOD_say('MOD\\ttime_pressure\\t'+T0+'->'+Vars.state.tick);" % burn
     )
     return _emit(ctx["flavor"], body)
 
@@ -362,7 +369,7 @@ def _js_world(plan_list: list, p: dict, ctx: dict) -> str:
         )
         return _emit(ctx["flavor"], body)
     body = ("var O=Vars.content.block('ore-'+%s);var n=0;"
-            "if(O==null){print('MODERR\\tworld_change\\tno ore overlay for %s');}else{"
+            "if(O==null){MOD_say('MODERR\\tworld_change\\tno ore overlay for %s');}else{"
             % (_js(spot["ore"]), spot["ore"]))
     for tile in spot["tiles"]:
         body += ("var tt=Vars.world.tile(%d,%d);if(tt!=null){tt.setOverlay(O);n=n+1;}"
