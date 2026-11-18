@@ -80,9 +80,15 @@ def get(namespace: str, cache_key: str, *, touch: bool = True):
     return record.get("value")
 
 
-def put(namespace: str, cache_key: str, value) -> bool:
-    """Store a JSON-able value atomically.  Returns False when disabled/failed."""
-    if not enabled():
+def put(namespace: str, cache_key: str, value, *, force: bool = False) -> bool:
+    """Store a JSON-able value atomically.  Returns False when disabled/failed.
+
+    ``force`` is for *internal* memos -- a tool memoising its own pure helper
+    (sourcemap's prefix compiles) wants the entry regardless of whether the user
+    opted into the shared cache.  It only skips the opt-in gate; everything else
+    (atomic write, namespace, version in the key) still applies.
+    """
+    if not force and not enabled():
         return False
     directory = _ns_dir(namespace)
     try:

@@ -4,7 +4,9 @@ Half of these are pure structure (statement splitting, mlog normalisation) and
 run anywhere.  The attribution half needs a compiler, so it exits 3 (SKIP, the
 gate's convention) when no jar is resolvable.
 """
+import io
 import os
+import shutil
 import sys
 import tempfile
 import unittest
@@ -146,6 +148,84 @@ class Attribution(unittest.TestCase):
         res = S.build(p)
         self.assertFalse(res["ok"])
         self.assertTrue(res["diagnostics"])
+
+
+
+class Incremental(unittest.TestCase):
+    """The prefix memo (`math` does not cache; this does, because the answer is
+    a pure function of the text before it).
+
+    A build compiles one prefix per statement in each direction, so a 40-line
+    program starts ~80 compilers without it.  These cases count *real* compiler
+    invocations -- timing them would measure the machine, not the memo.
+    """
+
+    def setUp(self):
+        import mindcode as M
+        self.M = M
+        self.real = M.compile_source
+        self.calls = 0
+
+        def spy(*a, **kw):
+            self.calls += 1
+            return self.real(*a, **kw)
+
+        M.compile_source = spy
+        self.dir = tempfile.mkdtemp(prefix="sminc-")
+
+    def tearDown(self):
+        self.M.compile_source = self.real
+        shutil.rmtree(self.dir, ignore_errors=True)
+
+    def _write(self, text, name="inc.mnd"):
+        p = os.path.join(self.dir, name)
+        io.open(p, "w", encoding="utf-8", newline="\n").write(text)
+        return p
+
+    def test_second_build_of_an_unchanged_source_uses_no_compiler(self):
+        p = self._write("a = 3;\nb = a + 4;\nprint(b);\n")
+        first = S.build(p)
+        self.assertTrue(first["ok"], first)
+        self.calls = 0
+        again = S.build(p)
+        self.assertTrue(again["ok"], again)
+        self.assertEqual(again["map"], first["map"])
+        self.assertEqual(self.calls, 0, "an unchanged source re-ran the compiler")
+
+    def test_appending_a_statement_recompiles_only_the_tail(self):
+        body = ("a = 3;\nb = a + 4;\nc = b * 2;\nd = c - 1;\ne = d + 5;\n"
+                "f = e * 2;\nprint(f);\n")
+        p = self._write(body)
+        self.assertTrue(S.build(p)["ok"])
+        self._write(body + "g = f + 1;\nprint(g);\n")
+        self.calls = 0
+        res = S.build(p)
+        self.assertTrue(res["ok"], res)
+        # One prefix for the new statement, one for the whole source.  Anything
+        # near len(_lines(body)) means the memo is not being consulted.
+        self.assertLessEqual(self.calls, 3, "recompiled the prefix it already had")
+
+    def test_a_compile_failure_is_not_memoised(self):
+        p = self._write("a = ;\n")
+        self.assertFalse(S.build(p)["ok"])
+        self.calls = 0
+        self.assertFalse(S.build(p)["ok"])
+        self.assertGreaterEqual(self.calls, 1, "a failure was replayed from the memo")
+
+    def test_the_memo_can_be_turned_off(self):
+        p = self._write("a = 1;\nb = a + 1;\nprint(b);\n")
+        old = os.environ.get("MLOG_CACHE")
+        os.environ["MLOG_CACHE"] = "0"
+        try:
+            self.assertTrue(S.build(p)["ok"])
+            self.calls = 0
+            self.assertTrue(S.build(p)["ok"])
+            self.assertGreaterEqual(self.calls, 1, "MLOG_CACHE=0 did not disable the memo")
+        finally:
+            if old is None:
+                os.environ.pop("MLOG_CACHE", None)
+            else:
+                os.environ["MLOG_CACHE"] = old
 
 
 if __name__ == "__main__":

@@ -62,10 +62,61 @@ def _mlog_lines(text: str | None) -> list[str]:
     return [ln.strip() for ln in text.split("\n") if ln.strip()]
 
 
+_MEMO_NS = "sourcemap.prefix"
+
+
+def _memo_on() -> bool:
+    """Prefix memoisation is on by default -- it is an internal memo, not the
+    shared cache -- but ``MLOG_CACHE=0`` turns it off (timing tests)."""
+    return (os.environ.get("MLOG_CACHE") or "").strip().lower() not in (
+        "0", "false", "no", "off")
+
+
+def _tool_version() -> str:
+    """What the answer depends on besides the source: the jar and this file."""
+    try:
+        import mindcode as M
+        got = M.locate()
+        jar = got.get("jar") or ""
+        stamp = "%s|%s" % (got.get("version") or "?", os.path.getmtime(jar)
+                           if jar and os.path.exists(jar) else 0)
+    except Exception:  # noqa: BLE001
+        stamp = "no-jar"
+    try:
+        here = os.path.getmtime(os.path.abspath(__file__))
+    except OSError:
+        here = 0
+    return "%s|%s" % (stamp, here)
+
+
 def _compile(source, target, optimize, timeout, workdir):
+    """Compile one prefix, memoising the answer.
+
+    Trivial incrementality without a dependency graph: a prefix compile depends
+    only on the statements before it, so editing the last statement of a long
+    file leaves every earlier prefix's answer unchanged.  Without the memo,
+    `build()` starts one JVM per statement -- per direction.
+    """
     import mindcode as M
-    return M.compile_source(source, target=target, optimize=optimize,
-                            timeout=timeout, workdir=workdir)
+    if not _memo_on():
+        return M.compile_source(source, target=target, optimize=optimize,
+                                timeout=timeout, workdir=workdir)
+    try:
+        import cache as C
+    except Exception:  # noqa: BLE001
+        return M.compile_source(source, target=target, optimize=optimize,
+                                timeout=timeout, workdir=workdir)
+    k = C.key(source, target, bool(optimize), _tool_version())
+    hit = C.get(_MEMO_NS, k)
+    if isinstance(hit, dict) and "ok" in hit:
+        return hit
+    got = M.compile_source(source, target=target, optimize=optimize,
+                           timeout=timeout, workdir=workdir)
+    # Only successful compiles are worth keeping: a failure that depends on the
+    # environment (no java, timeout) must not be replayed as the answer later.
+    if isinstance(got, dict) and got.get("ok"):
+        C.put(_MEMO_NS, k, got, force=True)
+    return got
 
 
 def build(path: str, *, target: str = "7.0", optimize: bool = False,
