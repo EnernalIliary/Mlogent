@@ -124,7 +124,10 @@ def test_evaluate_records_each_stage() -> None:
     os.environ["MLOG_TASK_DIR"] = tmp
     src = "set x 7\n"
     task = T.begin(source=src)
-    env = E.evaluate(mlog=src, limits={"ticks": 5},
+    # An injected sim record, not a real run: this test is about *which stages
+    # get recorded*, and a checkout without the executor jar must be able to
+    # answer that (the same reason tests/eval injects ``sim`` everywhere).
+    env = E.evaluate(mlog=src, sim={"vars": {"x": "7"}},
                      expectations=[{"var": "x", "value": 7}], task=task)
     ok(env["ok"], "the pipeline passes")
     ok(env["task"]["task_id"] == task["task_id"], "envelope carries the task block")
