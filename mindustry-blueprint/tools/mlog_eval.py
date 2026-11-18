@@ -46,7 +46,7 @@ if str(HERE) not in sys.path:
 
 SCHEMA = "mlog-eval/v1"
 
-#: Closed failure vocabulary (规划 §4 P2).  Adding a value here is a public
+#: Closed failure vocabulary (实施记录 §4 P2).  Adding a value here is a public
 #: change: callers switch on these strings.
 FAILURE_TYPES = (
     "compilation_error",          # the source does not compile (mindcode/asm)
@@ -61,7 +61,7 @@ FAILURE_TYPES = (
 #: Token budgets.  "diagnostics" is a superset of "summary"; "full" of both.
 LEVELS = ("summary", "diagnostics", "full")
 
-#: The four success dimensions of 规划 §4 P1, in the order they become
+#: The four success dimensions of 实施记录 §4 P1, in the order they become
 #: knowable.  A true value is evidence, None is "not evaluated", False is a
 #: failure -- collapsing these into one boolean is exactly what makes a
 #: simulation pass look like a shipping program.
@@ -127,7 +127,7 @@ def result(*, ok: bool, stage: str, failure_type: str | None = None,
         "failure_type": failure_type,
         "message": message or "",
         "level": level,
-        # The four success dimensions from 规划 §4 P1: they are not
+        # The four success dimensions from 实施记录 §4 P1: they are not
         # interchangeable, and "the executor finished" is not "the program was
         # correct".  None means "that stage did not run", not "failed".
         "levels": {k: (levels or {}).get(k) for k in SUCCESS_LEVELS},

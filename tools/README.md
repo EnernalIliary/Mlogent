@@ -352,7 +352,7 @@ provider 是唯一接模型的缝（P4 第三刀，`tools/mlogprovider.py`）：
 `--llm-url URL [--llm-model NAME] [--llm-key-env VAR] [--llm-timeout N] [--llm-max-tokens N]` 走 OpenAI 兼容的 `/chat/completions`（只用标准库，
 key 从环境变量读、绝不出现在命令行），或 `--llm-replay FILE` 回放录制好的回复（离线测试/回归都走这条）。
 `--llm-record FILE` 会把每次的 `{prompt, reply}` 追加成 JSONL，真跑一次就得到可回放的脚本。
-prompt 是规划 §4.4 的三段：**世界事实**（处理器坐标 + 快照摘要 + 附近方块 + 链接名白名单，`links: null` 写「UNKNOWN」、`[]` 写「EMPTY」）、
+prompt 是实施记录 §4.4 的三段：**世界事实**（处理器坐标 + 快照摘要 + 附近方块 + 链接名白名单，`links: null` 写「UNKNOWN」、`[]` 写「EMPTY」）、
 **规则摘要**（mlog 语法与 v160 要点、必须有 end、任何 ERR 即拒）、**任务与 JSON 契约**（锚定档 `{template, params, explanation}` /
 自由档 `{code, explanation, assumptions, needs_links}`）；self-repair 时把上一轮的 findings 逐条附在任务段后面。
 回复用 `parse_reply()` 解析：容忍 markdown 围栏和前后散文（只取第一个配平的 `{...}`），字段类型不对就抛 `ProviderError`、作业按失败重试；
@@ -548,7 +548,7 @@ python tools/taskstate.py resume ts-1a2b3c4d5e --source prog.mlog
 python tools/taskstate.py clear  ts-1a2b3c4d5e
 ```
 
-规划 §5 要求的六个字段是记录的主干：`task_id`、`source_version`（源码的 12 位内容哈希）、
+实施记录 §5 要求的六个字段是记录的主干：`task_id`、`source_version`（源码的 12 位内容哈希）、
 `completed_stages`、`failed_stages`、`current_hypothesis`、`next_step`。三条语义值得记住：
 
 - **进度属于某个版本的源码**。源码一改，旧的 `completed_stages` 降级进 `stale_stages`
@@ -632,7 +632,7 @@ python tools/scenario.py run scenes/scenarios/generated-resource-drain.json --vi
 ## 差分验证（`observation.py` + `differential.py` + `fidelity.py`）
 
 离线执行器是**真执行器 + 真单位更新**，但不是游戏：没有波次 AI、没有电网、地形碰撞只到
-「B 级」。规划 §3 要求把同一个场景交给两边、**比较观察**，把差异变成有名字的边界。
+「B 级」。实施记录 §3 要求把同一个场景交给两边、**比较观察**，把差异变成有名字的边界。
 
 三个模块分工：
 

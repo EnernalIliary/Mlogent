@@ -1,4 +1,4 @@
-"""Mindcode -> mlog source map (规划 §1 P2 源码映射, V1/V2/V3).
+"""Mindcode -> mlog source map (实施记录 §1 P2 源码映射, V1/V2/V3).
 
 V1 saves the source, the product and the log.  V2 reports the compiler's own
 diagnostics with their `line:col`.  V3 is the hard one: Mindcode 3.19.3 has no
@@ -175,7 +175,7 @@ def build(path: str, *, target: str = "7.0", optimize: bool = False,
 
     if any(m["mlog"] is None for m in mapped):
         notes.append("有了 unmapped 行：控制流内部与依赖上下文的语句无法用前缀对齐，"
-                     "不猜（规划 §1 P2 明确要求考虑内联/死代码对映射的影响）")
+                     "不猜（实施记录 §1 P2 明确要求考虑内联/死代码对映射的影响）")
     notes.append("V1：source/mlg/log 三件一起保存；V2：诊断里的 line/col 来自编译器本身")
 
     return {"schema": SCHEMA, "ok": True, "source": path, "target": target,

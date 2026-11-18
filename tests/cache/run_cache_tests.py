@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Contract tests for `tools/cache.py` and the two opt-in call sites.
 
-What this pins down (规划 §5 P2「缓存 / 增量能力」):
+What this pins down (实施记录 §5 P2「缓存 / 增量能力」):
 
 * the cache is **off** unless ``MLOG_CACHE=1`` -- a normal run must never see a
   stale answer, and tests must not depend on leftover entries;

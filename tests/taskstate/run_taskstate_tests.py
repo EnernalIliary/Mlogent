@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Contract tests for taskstate -- the record that survives between turns.
 
-What this pins down (规划 §5 P1): a task file is written before it is reported,
+What this pins down (实施记录 §5 P1): a task file is written before it is reported,
 ``completed_stages`` belongs to the ``source_version`` it was measured on, a
 failure is never treated as a skip, and reopening a task in a *new process* sees
 exactly what the previous one wrote.

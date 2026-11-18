@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """The Agent Onboarding Benchmark: tasks, prompts, runs, and the score.
 
-Why this exists (规划 §七): the only way to know whether a stranger model can use
+Why this exists (实施记录 §七): the only way to know whether a stranger model can use
 this toolchain is to hand it a task and *measure*.  Everything here is built so
 that the measurement is honest:
 
@@ -40,7 +40,7 @@ ROOT = os.path.dirname(HERE)
 TASKS = os.path.join(ROOT, "bench", "tasks")
 SCHEMA = "mlog-bench/v1"
 
-#: 规划 §七 的指标，顺序即输出顺序。
+#: 实施记录 §七 的指标，顺序即输出顺序。
 METRICS = (
     "first_pass", "success", "tool_calls", "tool_accuracy", "repairs",
     "interventions", "tokens_in", "tokens_out", "seconds",
@@ -396,7 +396,7 @@ def load_runs(*, model: str | None = None, host: str | None = None) -> list[dict
 
 
 def score(runs: list[dict]) -> dict:
-    """规划 §七 的汇总指标；空集合返回零而不是除零。"""
+    """实施记录 §七 的汇总指标；空集合返回零而不是除零。"""
     if not runs:
         return {"runs": 0, "tasks": 0, "success_rate": 0.0, "first_pass_rate": 0.0,
                 "tokens_per_success": None, "token_efficiency": None,

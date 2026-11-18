@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """A small content-addressed cache for expensive, pure results.
 
-Why this exists (规划 §5 P2「缓存 / 增量能力」): an agent session re-asks the same
+Why this exists (实施记录 §5 P2「缓存 / 增量能力」): an agent session re-asks the same
 questions.  Compiling the same ``.mnd`` or re-running static analysis over the
 same mlog costs a JVM start or a 100 ms scan, every time, and the answer cannot
 have changed -- the input bytes and the tool version are the whole input.

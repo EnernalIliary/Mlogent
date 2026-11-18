@@ -8,7 +8,7 @@ is not a bug and cannot be closed by testing harder -- it has to be *written
 down*, or every difference between a simulated run and a live run looks like a
 regression.
 
-规划 §3 P2 calls this the Fidelity Envelope.  Each capability carries one of
+实施记录 §3 P2 calls this the Fidelity Envelope.  Each capability carries one of
 five verdicts:
 
     verified     the simulator has been checked against the live game and agrees

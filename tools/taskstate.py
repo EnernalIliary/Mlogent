@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""taskstate -- the progress a run keeps between turns (规划 §5 P1).
+"""taskstate -- the progress a run keeps between turns (实施记录 §5 P1).
 
 An agent that validates the same program three times pays for the compile, the
 static pass and the simulation every time, and when it comes back after a failed
@@ -122,7 +122,7 @@ def _blank(task_id: str, target: str) -> dict:
     return {
         "schema": SCHEMA,
         # jobqueue.Store addresses a record by "id"; it always equals task_id,
-        # which is the name 规划 §5 gives the field.
+        # which is the name 实施记录 §5 gives the field.
         "id": task_id,
         "task_id": task_id,
         "created": _now(),
