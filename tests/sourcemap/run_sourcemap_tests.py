@@ -161,6 +161,10 @@ class Incremental(unittest.TestCase):
     """
 
     def setUp(self):
+        # No jar (a clean checkout, CI): the prefix memo cannot be observed, and
+        # pretending it works would be worse than skipping.
+        if not _ready():
+            self.skipTest("no mindcode jar")
         import mindcode as M
         self.M = M
         self.real = M.compile_source
