@@ -1,12 +1,13 @@
-"""Build the release assets: three packages plus a checksum file.
+"""Build the release assets: four packages plus a checksum file.
 
 Why packages instead of one zip
 -------------------------------
-The three audiences do not overlap.  An agent harness wants the *skills*
-(a drop-in directory).  A person writing mlog wants the *toolchain* (pure Python,
-runs offline).  Someone quoting a fact wants the *knowledge* base (mother
-document + data tables + evidence).  Shipping one 6 MB zip makes all three
-people download the other two audiences' files.
+The audiences do not overlap.  An agent harness wants the *skills* (a drop-in
+directory).  A person writing mlog wants the *toolchain* (pure Python, runs
+offline).  Someone quoting a fact wants the *knowledge* base (mother document +
+data tables + evidence).  Someone deploying the MCP server wants neither tests
+nor docs, but does want the service files.  Shipping one 6 MB zip makes all four
+people download the other three audiences' files.
 
 What is deliberately not in any package
 ---------------------------------------
@@ -60,7 +61,7 @@ PACKAGES = {
                    "does not need the Java executor.",
         "pick": lambda rel: (
             rel.startswith(("tools/", "rules/", "data/", "tests/", "docs/",
-                            "scenes/", "bench/"))
+                            "scenes/", "bench/", "deploy/"))
             or rel in ("README.md", "LICENSE", "CHANGELOG.md", "gate.py",
                        "MANIFEST.repo.sha256", ".gitattributes")
         ) and keep_dev(rel),
@@ -80,6 +81,19 @@ PACKAGES = {
                    "inside each are self-contained.",
         "pick": lambda rel: rel.startswith(".dsh/skills/"),
         "strip": ".dsh/skills/",
+    },
+    "mcp": {
+        "title": "MCP server (deployable)",
+        "summary": "The HTTP form of the MCP server plus everything it reads: `tools/`, "
+                   "`rules/`, `data/`, and the systemd unit / Dockerfile / reverse-proxy "
+                   "notes under `deploy/`. No tests and no knowledge base: a server needs "
+                   "the interpreter and its data, and `mlog_doctor` says what is missing. "
+                   "Start with `python tools/mlog_mcp_http.py --port 8765 --token ...`.",
+        "pick": lambda rel: (
+            rel.startswith(("tools/", "rules/", "data/", "deploy/"))
+            or rel in ("README.md", "LICENSE", "CHANGELOG.md", "SECURITY.md",
+                       "docs/MCP部署.md")
+        ) and keep_dev(rel),
     },
 }
 

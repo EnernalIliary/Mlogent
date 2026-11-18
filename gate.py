@@ -267,6 +267,11 @@ def build_steps(full: bool, only: str | None) -> list[tuple[str, list[str] | Non
         # agent actually reads.  Neither needs a JVM or a port, so this runs
         # everywhere -- a listed-but-unhandled tool only shows up at call time.
         ("world", ["tests/world/run_world_tests.py"], ""),
+        # The HTTP transport is a different way into the same tool table, so its
+        # tests pin the things a proxy or a client library depends on: status
+        # codes, the 202-with-no-body notification rule, and the refusal to bind
+        # publicly without a token.  No JVM, no fixed port.
+        ("mcphttp", ["tests/mcphttp/run_mcp_http_tests.py"], ""),
     ]
     global_skill = (Path(os.environ.get("DSH_HOME") or (Path.home() / ".dsh"))
                     / "skills" / "mlog-agentskill")

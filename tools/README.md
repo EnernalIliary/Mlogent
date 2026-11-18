@@ -147,6 +147,25 @@ python tools/mlog_mcp.py          # stdio JSON-RPC，供 DSH / Claude Desktop �
         args: ['<repo>/tools/mlog_mcp.py']
 ```
 
+服务器上跑的版本是同一个工具表的另一层传输：
+
+```bash
+python tools/mlog_mcp_http.py --port 8765 --token "$TOKEN"    # POST /mcp, GET /health
+```
+
+它 import 同一份 `handle()`，所以 15 个工具、同一个信封、同一套错误码；区别只在
+「谁来连」。**默认只绑 `127.0.0.1`；绑非回环而没有 `--token` 又没显式 `--insecure`
+时进程拒绝启动**（退出码 2）—— `mlog_sim` 会执行调用方发来的程序、`world_js` 会在
+游戏服务端求值 JS，没有鉴权的执行器就是远程代码执行。
+
+- `POST /mcp`：JSON-RPC 单包或批次；通知（无 `id`）回 **202 空包**。
+- `GET /health`：廉价探针（工具数、repo、`uptime_s`），不启动 JVM。
+- `GET /mcp`：**405 + `Allow: POST`** —— 这一版不做服务端推送。
+- 分发串行（artifact 表是裸 dict），并发连接只省排队时间，不并行执行。
+
+部署物在 `deploy/`（systemd unit、Dockerfile、反代写法），完整说明见
+`docs/MCP部署.md`；契约测试在 `tests/mcphttp/`（11 项，不需要 JVM）。
+
 ## 联机调试世界（`world_server.py` + `world_mcp.py`）
 
 把「一个真人玩家正在玩的 Mindustry 世界」暴露给模型：常驻的 headless 服务端负责世界，

@@ -971,21 +971,36 @@ HANDLERS = {
 }
 
 
-def _reply(rid, result=None, error=None):
+def _write_stdout(msg):
+    sys.stdout.write(json.dumps(msg, ensure_ascii=False) + "\n")
+    sys.stdout.flush()
+
+
+def _reply(rid, result=None, error=None, *, sink=None):
     msg = {"jsonrpc": "2.0", "id": rid}
     if error is not None:
         msg["error"] = error
     else:
         msg["result"] = result
-    sys.stdout.write(json.dumps(msg, ensure_ascii=False) + "\n")
-    sys.stdout.flush()
+    (sink or _write_stdout)(msg)
+    return msg
 
 
-def handle(req):
+def handle(req, emit=None):
+    """Dispatch one JSON-RPC request.
+
+    `emit` defaults to writing the reply to stdout (the stdio transport).  The
+    HTTP transport passes a collector instead, so the same dispatch serves both
+    and there is no second copy of the method table.
+    """
     method = req.get("method")
     rid = req.get("id")
+    sink = emit
+
+    def reply(*args, **kwargs):                    # bind the transport once
+        return _reply(*args, sink=sink, **kwargs)
     if method == "initialize":
-        return _reply(rid, {
+        return reply(rid, {
             "protocolVersion": PROTO,
             "capabilities": {"tools": {}},
             "serverInfo": {"name": NAME, "version": VERSION},
@@ -993,27 +1008,27 @@ def handle(req):
     if method == "notifications/initialized":
         return
     if method == "ping":
-        return _reply(rid, {})
+        return reply(rid, {})
     if method == "tools/list":
-        return _reply(rid, {"tools": TOOLS})
+        return reply(rid, {"tools": TOOLS})
     if method == "tools/call":
         params = req.get("params") or {}
         name = params.get("name")
         fn = HANDLERS.get(name)
         if fn is None:
-            return _reply(rid, error={"code": -32602, "message": f"unknown tool {name}"})
+            return reply(rid, error={"code": -32602, "message": f"unknown tool {name}"})
         try:
             out = fn(params.get("arguments") or {})
             text = json.dumps(out, ensure_ascii=False)
-            return _reply(rid, {"content": [{"type": "text", "text": text}],
+            return reply(rid, {"content": [{"type": "text", "text": text}],
                                 "isError": False})
         except Exception as exc:  # report, do not crash the server
-            return _reply(rid, {"content": [{"type": "text",
+            return reply(rid, {"content": [{"type": "text",
                                              "text": "%s: %s" % (type(exc).__name__, exc)}],
                                 "isError": True})
     if rid is None:
         return
-    return _reply(rid, error={"code": -32601, "message": f"method not found: {method}"})
+    return reply(rid, error={"code": -32601, "message": f"method not found: {method}"})
 
 
 def main():

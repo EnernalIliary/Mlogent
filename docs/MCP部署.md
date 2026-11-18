@@ -1,0 +1,101 @@
+# 把 MCP 跑在服务器上
+
+`tools/mlog_mcp.py` 说的是 stdin/stdout 上的 JSON-RPC —— 适合客户端和工具在同一台机器。
+服务器上要的是另一种东西：一个常驻进程、很多客户端、一个别人能轮询的健康检查。
+所以 `tools/mlog_mcp_http.py` 只加了**传输层**，没有第二份工具表：它 import `mlog_mcp.handle`，
+同一个方法表回答两种传输。
+
+## 传输形状
+
+```
+POST /mcp     JSON-RPC 请求或批次 → 200 带回包；通知（无 id）→ 202 空包
+GET  /health  200 {"ok":true,"name","version","tools":15,"repo","uptime_s","pid"}
+GET  /mcp     405 Allow: POST（这一版不提供服务端推送）
+```
+
+会话：`initialize` 的响应带 `Mcp-Session-Id`，之后的请求可以带回来，也可以不带
+（这一版不做强制 —— 工具都是无状态的请求/响应）。
+
+## 安全：先读这一段
+
+**没有鉴权的 mlog 执行器就是一个远程代码执行入口。** `mlog_sim` 会执行调用方发来的程序，
+`world_js` 会在游戏服务端里求值 JavaScript。所以：
+
+- 默认只绑 `127.0.0.1`；
+- 绑定非回环地址而没有 `--token` 时，进程**拒绝启动**（`--insecure` 才能绕过，别绕）；
+- 容器里绑定 `0.0.0.0` 是必须的，所以 Dockerfile 自己加了 `--insecure`，但强制要求
+  `MLOG_MCP_TOKEN`，没有就退出码 2。
+
+```bash
+TOKEN=$(python3 -c 'import secrets;print(secrets.token_urlsafe(32))')
+python tools/mlog_mcp_http.py --port 8765 --token "$TOKEN"
+curl -s -H "Authorization: Bearer $TOKEN" http://127.0.0.1:8765/health
+```
+
+## 三种部署方式
+
+| 方式 | 文件 | 什么时候用 |
+|---|---|---|
+| systemd | `deploy/mlogent-mcp.service` | 一台常驻 Linux 机器，仓库在 `/opt/mlogent` |
+| Docker | `deploy/Dockerfile` | 想连 JVM 一起隔离，或者多台同构部署 |
+| 直接跑 | `python tools/mlog_mcp_http.py` | 局域网调试、ngrok 之类的临时隧道 |
+
+三种都配 `deploy/README.md` 里的 Caddy / nginx 反代（TLS 由反代做，
+长调用要把 `proxy_read_timeout` 放大、`proxy_buffering` 关掉）。
+
+## 运行环境
+
+镜像里**没有 JVM**，所以 `mlog_sim` / `mlog_validate` 的仿真段 / `mlog_diff` /
+`mindcode_compile` 会回 `unsupported_environment`。要这些工具，挂一个运行时进去：
+
+```bash
+-e MLOG_JAR=/opt/mlogent/runtime/server-release.jar \
+-e MLOG_JAVA=/opt/mlogent/runtime/jdk-21/bin/java \
+-e MINDCODE_JAR=/opt/mlogent/runtime/mindcode-3.19.3.jar \
+-e MINDCODE_JAVA=/opt/mlogent/runtime/jdk-25/bin/java
+```
+
+`mlogsim` 要 Java 21+，Mindcode 3.19.3 要 Java 22+（class 66）。
+找不到运行时时服务照常起、静态工具照常可用 —— 这是有意的降级，不是故障。
+
+## 客户端接法
+
+```json
+{
+  "mcpServers": {
+    "mlog": {
+      "type": "http",
+      "url": "https://mcp.example.com/mcp",
+      "headers": { "Authorization": "Bearer <token>" }
+    }
+  }
+}
+```
+
+只支持 stdio 的客户端如果就在本机，直接用 stdio 版（`python tools/mlog_mcp.py`）更省事：
+没端口、没令牌、没反代。
+
+## 运维
+
+- 健康检查：`GET /health` 是**廉价**的（不探 JVM、不跑 doctor），可以每 10 秒打一次；
+  要看执行器就调 MCP 工具 `mlog_doctor`。
+- 日志：一行一请求，写 stderr；`--quiet` 关掉。systemd 下 `journalctl -u mlogent-mcp -f`。
+- 并发：`ThreadingHTTPServer`，但分发串行（`mlog_fetch` 的 artifact 表是一个 dict，
+  串行才不会读到半写）。一个长调用会挡住后面的调用 —— 需要并行就一租户一进程。
+- 升级：`git -C /opt/mlogent pull && systemctl restart mlogent-mcp`；包里的 `PACKAGE.txt`
+  写了这一份是从哪个版本切出来的。
+- 限额：反代上做（nginx `limit_req`）。服务本身不做租户隔离：一个令牌一个进程一个
+  `out/` 抓目录，多租户请一个容器一份。
+
+## 与 stdio 版的差别
+
+| | stdio (`mlog_mcp.py`) | HTTP (`mlog_mcp_http.py`) |
+|---|---|---|
+| 客户端位置 | 同机 | 任意 |
+| 鉴权 | 由启动它的进程决定 | Bearer token |
+| 并发 | 单流 | 多连接、分发串行 |
+| 健康检查 | 无 | `GET /health` |
+| 代码 | 15 个工具 | 同一份 `handle()`，同一份工具表 |
+
+测试在 `tests/mcphttp/`（11 项，不需要 JVM）：状态码、通知 202 空包、鉴权 401、
+未知方法 -32601、坏 JSON 400、批次回列表、`GET /mcp` 405、非回环无令牌拒启。

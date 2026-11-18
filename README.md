@@ -63,7 +63,7 @@ python tools/mlogsim.py logic.mlog --save scene.msav --units mono:1 --core-items
 | `gate.py` | 一键门禁（mirror 一致性 / tests / lint / 语句形状 / 全局副本 / KB 新鲜度） |
 | `rules/` | 41 条规则（33 条在报，8 条 SUPPRESSED），一条一个 JSON，供 `review.py` 逐条审计 |
 | `tests/` | 43 个 golden 用例，`python tests/run_tests.py`（副本陈旧时直接拒绝运行）；`tests/probes/` 是真执行器的运行期断言，`tests/shapes/` 是检查器自身的语句形状不变量（7 形状 x 4 变体），`tests/ruleids/` 断言没有死规则 |
-| `docs/` | [索引](docs/README.md)（先看这个）、[项目结构与数据流](docs/项目结构与数据流.md)、`速查卡.md`（一页指路）、`断言表.md`、`验证记录.md`、`Mlog辅助-*`、`联机调试世界.md`、`观察与差分-契约.md`、`Mindcode集成.md`、`实施记录.md`；`游戏速查/` 已删（2026-11-17，数值母本在 `knowledge/00-data/`）|
+| `docs/` | [索引](docs/README.md)（先看这个）、[项目结构与数据流](docs/项目结构与数据流.md)、`速查卡.md`（一页指路）、`断言表.md`、`验证记录.md`、`Mlog辅助-*`、`联机调试世界.md`、`观察与差分-契约.md`、`Mindcode集成.md`、`MCP部署.md`、`实施记录.md`；`游戏速查/` 已删（2026-11-17，数值母本在 `knowledge/00-data/`）|
 | `data/game/` | 从 v160.7 真执行器导出的游戏事实（物品/液体/方块/单位），供 `game.py` 与知识库使用；`aliases.json` 的中文名以官方语言包为母本，由 `knowledge/tools/gen_game_aliases.py` 生成（别手改）。语言包本身在 `data/game/bundles/`（`bundle.properties` + `bundle_zh_CN.properties`，原样复制自游戏 160.7），所以两个生成器与它们的测试在干净 checkout 里就能跑 |
 | `Logic/` | `逻辑代码规范.md` 与示例逻辑（个人程序） |
 | `out/scenes/` | 5 张现实场景 `.msav`、3 个合成台（`benches/`：core / memory / processor）、快照 |

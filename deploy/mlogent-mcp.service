@@ -1,0 +1,30 @@
+[Unit]
+Description=Mlogent MCP server (mlog toolchain over HTTP)
+Documentation=https://github.com/EnernalIliary/Mlogent/blob/main/docs/MCP部署.md
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=mlog
+Group=mlog
+WorkingDirectory=/opt/mlogent
+# The token lives outside the unit file: `install -m 600 -o mlog` it once.
+EnvironmentFile=/etc/mlogent/mcp.env
+ExecStart=/usr/bin/python3 /opt/mlogent/tools/mlog_mcp_http.py \
+          --bind 127.0.0.1 --port 8765 --token ${MLOG_MCP_TOKEN}
+Restart=always
+RestartSec=2
+
+# The executor writes scratch files under out/; nothing else needs to be writable.
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=yes
+ReadWritePaths=/opt/mlogent/out
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+MemoryMax=2G
+TasksMax=256
+
+[Install]
+WantedBy=multi-user.target

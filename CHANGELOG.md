@@ -3,6 +3,15 @@
 只记对外可见的变化。工程日志（每一版的动机、踩过的坑、源码依据）见
 `MlogAuxiliary/HISTORY.md` 与 `docs/`。
 
+## 1.2.1 — 2026-11-18
+
+MCP 可以部署到服务器了：`tools/mlog_mcp_http.py` 用同一份工具表回答 HTTP 请求（`POST /mcp`、
+`GET /health`），第四份发布包 `mcp` 带上了 `deploy/` 里的 systemd unit、Dockerfile 与反代写法。
+安全边界是硬的：默认只绑回环，绑公网而没有令牌、又没显式 `--insecure` 就拒绝启动 ——
+`mlog_sim` 执行调用方代码、`world_js` 求值 JS，开端口等于开执行器。
+`gate.py` 加 `mcphttp` 步（29 步），`tests/mcphttp/` 11 项覆盖状态码、通知 202 空包、鉴权、
+未知方法与拒启规则；`mlog_mcp.handle()` 换成可注入的 sink，stdio 行为不变。
+
 ## 1.2.0 — 2026-11-18
 
 首个按包发布的工作区版本（工具链 / 知识库 / 技能三个 zip，见 `docs/RELEASE-1.2.0.md`）。从 1.1.3 起新增：Mindcode 编译前端与源码映射、四维判定信封（`ok/failure_type/levels/task`）、`mlog_validate` 组合工具与 `mlog_task` 续跑状态、场景 v2 扰动与参数化生成、`explore` 自动探索与 ddmin 失败缩减、与活世界差分（统一观测 + 15 条保真度边界）、Onboarding Benchmark（6 任务 / 3 类判据）、知识库 M09/M10 两篇与 85 条 claim 的 id 锚点迁移、语言包入库；MCP 6 → 15 个工具，`gate.py` 13 → 28 步。
