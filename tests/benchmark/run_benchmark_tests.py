@@ -196,18 +196,27 @@ class Judge(unittest.TestCase):
         names = [f["check"]["name"] for f in out["failures"]]
         self.assertIn("done", names)
 
-    def test_acceptance_is_a_contract_on_observable_state(self):
-        """Known, deliberate hole: the judge sees program variables, so a program
-        that writes the answer without computing it passes.  Trace-based judging
-        would close it, and the movement tasks that need a rig are not shipped
-        yet -- this test exists so the hole stays visible instead of silent."""
-        liar = os.path.join(self.tmp, "liar.mlog")
-        with open(liar, "w", encoding="utf-8") as fh:
-            fh.write("set r 35\n")
-        out = B.verify(B.find("arithmetic-constants"), file=liar)
-        # This one legitimately passes: the acceptance is a variable contract,
-        # not a code-shape contract.  Keep the test so the trade-off is visible.
-        self.assertTrue(out["ok"], out)
+    def test_a_typed_answer_fails_the_executed_check(self):
+        """`set r 35` reaches the right state without computing it.
+
+        The end-state check alone cannot tell it from `op add` + `op mul`; the
+        executor's per-instruction trace can, because it records the source line
+        behind every step.  A determined liar can still execute a real `op add`
+        and overwrite the result, so this is a floor, not a proof.
+        """
+        out = self._verify("arithmetic-constants", "arith-typed.mlog")
+        self.assertFalse(out["ok"], out)
+        kinds = [list(f["check"]) for f in out["failures"]]
+        self.assertIn(["executed"], kinds)
+        self.assertIn("no op add", out["failures"][0]["executed"])
+
+    def test_executed_check_reads_the_trace_not_the_source(self):
+        """The rule is "an arithmetic instruction ran", not "the file says op"."""
+        lines = ["set t 3", "op add t t 4", "op mul r t 5"]
+        self.assertIsNone(B._executed_failure(lines, {"any_of": ["op add"]}))
+        bad = B._executed_failure(["set r 35"], {"any_of": ["op add", "op mul"]})
+        self.assertIn("no op add/op mul executed", bad)
+        self.assertIsNone(B._executed_failure(["whatever"], {}))
 
     def test_missing_file(self):
         with self.assertRaises(SystemExit):

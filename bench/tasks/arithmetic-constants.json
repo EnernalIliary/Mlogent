@@ -16,6 +16,14 @@
     "name": "r",
     "op": "eq",
     "value": 35
+   },
+   {
+    "executed": {
+     "any_of": [
+      "op add",
+      "op mul"
+     ]
+    }
    }
   ]
  }

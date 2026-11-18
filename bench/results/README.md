@@ -53,8 +53,12 @@ The two non-first-pass runs are the interesting ones, and both failed on a
 
 - `tokens_in`/`tokens_out` are 0 for this batch: the subagent harness did not
   report usage, so `tokens_per_success` is not meaningful yet.
-- Judging is on observable state only, so a program that writes the expected
-  value without computing it would pass. `tests/benchmark` names that hole in
-  `test_acceptance_is_a_contract_on_observable_state`.
+- Judging is on observable state, plus (since 2026-11-18) an optional
+  `executed` check that reads the executor's per-instruction trace. That check
+  is what makes "compute it, do not type it" testable: `set r 35` and
+  `op add`+`op mul` both end at 35, only one of them executed arithmetic.
+  It is a floor, not a proof -- a liar can run a real `op add` and overwrite
+  the result -- so the numbers above still measure "reached the state", not
+  "wrote the program we would have written".
 - Six tasks is a smoke test of the harness, not a ranking. Add tasks before
   quoting these numbers as a model comparison.

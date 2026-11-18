@@ -1,2 +1,4 @@
-op add t 3 4
+set t 3
+op add t t 4
 op mul r t 5
+end

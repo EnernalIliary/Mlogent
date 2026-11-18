@@ -16,6 +16,14 @@
     "name": "avg",
     "op": "eq",
     "value": 20
+   },
+   {
+    "executed": {
+     "any_of": [
+      "op div",
+      "op mul"
+     ]
+    }
    }
   ]
  }

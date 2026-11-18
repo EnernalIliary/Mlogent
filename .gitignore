@@ -87,3 +87,6 @@ out/caime_scan*.txt
 # temporary probe scripts (archived, not tracked)
 /out/_archive/
 out/_publish/
+
+# benchmark 判官的工作目录（answer.mlog / itrace.tsv），产物不入库
+bench/results/work/

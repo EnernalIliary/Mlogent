@@ -667,7 +667,7 @@ python tools/benchmark.py score                    # 每个模型/主机的成�
 ```
 
 任务在 `bench/tasks/*.json`（`id/title/prompt/tools_hint/acceptance`），运行记录追加进
-`out/benchmark/runs.jsonl`（`$MLOG_BENCH_DIR` 可改，不入库）。
+`bench/results/runs.jsonl`（入库，和任务放一起；`$MLOG_BENCH_DIR` 可改）。
 
 **判分只认观测到的状态**，不认 Agent 的自述：
 
@@ -675,12 +675,20 @@ python tools/benchmark.py score                    # 每个模型/主机的成�
 - `static`：不跑，只让分析器说话（无 jar 的干净 checkout 也能判，CI 因此覆盖得到）；
 - 检查项复用 `mlog_eval._matches`（`eq/ne/gt/ge/lt/le/contains`）与 `text_contains`。
 
+另有两种**看过程**的检查项（都要 `--itrace`，也就是执行器的逐指令轨迹）：
+
+- `{"executed": {"any_of": ["op add", "op mul"]}}`：必须真跑过算术指令。
+  题面说「要算，不许直接写」，而终态判不出来——`set r 35` 与 `op add`+`op mul` 最后都是 35；
+  轨迹里每一步都带执行的那行源码，就能判「算没算」。这是下限不是证明：存心作弊的人可以真跑一次
+  `op add` 再把结果覆盖掉，所以它挡住的是**便宜的作弊**。
+- `{"history": {"var": "s", "distinct_min": 4, "contains": 15, "last": 15}}`：变量的取值轨迹。
+
 **为什么任务都很短**：执行器的「每 tick 跑几条指令」不稳定（实测同一个循环程序
 `--ticks 600` 到 n=32、`--ticks 1200` 反而停在 n=16），所以判据不能依赖循环跑完多少轮。
 现成的六个任务都在几条指令内到终态，`--ticks` 只是给足预算。
 
-已知短板（写在 `tests/benchmark` 的用例名里）：判官看的是程序变量，所以「直接把答案写进去」
-也能过；要堵住得用 trace 判分，而需要 rig 的移动类任务还没发布。
+已知短板：`executed` 只看「有没有算」，不看「算的是不是那个数」；`history` 需要变量真的变过，
+单条赋值的任务给不出轨迹。真要靠这个做排名，得先有能稳定跑完循环的执行预算。
 
 ## 场景扰动（`modifier.py`）
 

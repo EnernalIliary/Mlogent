@@ -17,6 +17,13 @@
     "name": "flag",
     "op": "eq",
     "value": 1
+   },
+   {
+    "executed": {
+     "any_of": [
+      "jump"
+     ]
+    }
    }
   ]
  }

@@ -121,19 +121,32 @@ def verify(task: dict, *, file: str | None = None) -> dict:
 
     limits = accept.get("limits") or {}
     ticks = int(limits.get("ticks") or 60)
-    rec, err = _run(mlog, kind=kind, rig=accept.get("rig"), ticks=ticks)
-    if err:
-        return {"ok": False, "task": task["id"], "kind": kind,
-                "failure_type": mlog_eval_classify(err), "error": str(err)}
     checks = list(accept.get("checks") or [])
     if accept.get("expect"):
         checks = list(accept["expect"]) + checks
+    wanted = [c["history"]["var"] for c in checks if c.get("history")]
+    need_trace = any("history" in c or "executed" in c for c in checks)
+    rec, err = _run(mlog, kind=kind, rig=accept.get("rig"), ticks=ticks,
+                    itrace_vars=wanted, itrace=need_trace)
+    if err:
+        return {"ok": False, "task": task["id"], "kind": kind,
+                "failure_type": mlog_eval_classify(err), "error": str(err)}
     failed, seen = [], _context(rec)
     for check in checks:
         if "text_contains" in check:
             ok = check["text_contains"] in (rec.get("text") or "")
             if not ok:
                 failed.append({"check": check, "actual": rec.get("text") or ""})
+            continue
+        if "executed" in check:
+            bad = _executed_failure(seen.get("executed") or [], check["executed"])
+            if bad:
+                failed.append({"check": check, "executed": bad})
+            continue
+        if "history" in check:
+            bad = _history_failure(seen.get("history") or {}, check["history"])
+            if bad:
+                failed.append({"check": check, "history": bad})
             continue
         name = check.get("name")
         if not _matches(seen.get(name), check.get("op", "eq"), check.get("value")):
@@ -142,6 +155,56 @@ def verify(task: dict, *, file: str | None = None) -> dict:
             "failures": failed,
             "observed": {k: seen.get(k) for k in
                          ("vars", "text", "ux_max", "ticks") if k in seen}}
+
+
+def _executed_failure(executed: list, spec: dict) -> str | None:
+    """A check on what the program *did*, not what it ended up holding.
+
+    "The value must be computed, not typed" cannot be judged from the final
+    state: `set r 35` and `op add t 3 4 / op mul r t 5` both end at 35.  The
+    executor's per-instruction trace carries the source line behind each step,
+    so the judge can require that arithmetic actually ran.  This is a floor, not
+    a proof -- a determined liar can execute a real `op add` and then overwrite
+    the result -- but it makes the cheap cheat fail.
+    """
+    patterns = list(spec.get("any_of") or [])
+    if not patterns:
+        return None
+    for line in executed:
+        for pat in patterns:
+            if pat in line:
+                return None
+    seen = ", ".join(repr(x) for x in executed[:6]) or "nothing"
+    return "no %s executed (first steps: %s)" % ("/".join(patterns), seen)
+
+
+def _history_failure(history: dict, spec: dict) -> str | None:
+    """A check on what the variable *did* while the program ran.
+
+    Exists because a final state cannot tell a computation from a constant: the
+    task "sum 1..5 into s" is satisfied by `set s 15` under a pure end-state
+    check.  Requiring the variable to pass through intermediate values does not
+    make cheating impossible (a liar can echo the intermediates too), it makes
+    the cheap cheat fail.
+    """
+    var = spec.get("var")
+    values = history.get(var) or []
+    if not values:
+        return "%s never appeared in the trace" % var
+    nums = []
+    for v in values:
+        try:
+            nums.append(float(v))
+        except (TypeError, ValueError):
+            nums.append(v)
+    if "distinct_min" in spec and len(set(nums)) < int(spec["distinct_min"]):
+        return "%s only ever held %d distinct value(s) %r" % (
+            var, len(set(nums)), sorted(set(nums), key=str)[:6])
+    if "contains" in spec and spec["contains"] not in nums:
+        return "%s never held %r (saw %r)" % (var, spec["contains"], nums[:8])
+    if "last" in spec and (not nums or nums[-1] != spec["last"]):
+        return "%s ended at %r, wanted %r" % (var, nums[-1] if nums else None, spec["last"])
+    return None
 
 
 def mlog_eval_classify(exc) -> str:
@@ -161,9 +224,10 @@ def mlog_eval_static(mlog: str) -> list:
 
 
 def _context(rec: dict) -> dict:
-    """What checks may read: program variables, text, and trace-derived facts."""
+    """What checks may read: program variables, text, trace, and history."""
     vars_ = dict(rec.get("vars") or {})
-    seen = {"vars": vars_, "text": rec.get("text") or "", "ticks": rec.get("ticks")}
+    seen = {"vars": vars_, "text": rec.get("text") or "", "ticks": rec.get("ticks"),
+            "history": rec.get("history") or {}, "executed": rec.get("executed") or []}
     trace = rec.get("trace") or []
     xs = [row.get("ux") for row in trace if row.get("ux") is not None]
     ys = [row.get("uy") for row in trace if row.get("uy") is not None]
@@ -175,7 +239,8 @@ def _context(rec: dict) -> dict:
     return seen
 
 
-def _run(mlog: str, *, kind: str, rig: dict | None, ticks: int):
+def _run(mlog: str, *, kind: str, rig: dict | None, ticks: int, itrace_vars=(),
+         itrace: bool = False):
     """(record, error) from a **fresh executor process**.
 
     One JVM per answer, driven through the CLI: the in-process path re-places a
@@ -197,6 +262,12 @@ def _run(mlog: str, *, kind: str, rig: dict | None, ticks: int):
         fh.write(mlog)
     cmd = [sys.executable, os.path.join(HERE, "mlogsim.py"), src,
            "--ticks", str(ticks), "--json"]
+    trace_path = None
+    if itrace or itrace_vars:
+        trace_path = os.path.join(work, "itrace.tsv")
+        cmd += ["--itrace", trace_path]
+        for name in itrace_vars:
+            cmd += ["--itrace-var", name]
     if kind == "scene":
         sc = {"name": "bench", "version": 1,
               "world": dict((rig or {}).get("world") or {"size": 64}),
@@ -225,7 +296,47 @@ def _run(mlog: str, *, kind: str, rig: dict | None, ticks: int):
         return None, RuntimeError("unexpected executor answer")
     if rec.get("error"):
         return None, RuntimeError(str(rec["error"]))
+    if trace_path:
+        rec["history"], rec["executed"] = _read_itrace(trace_path)
     return rec, None
+
+
+def _read_itrace(path: str):
+    """(`{var: [value, ...]}`, `[source line, ...]`) from the executor trace.
+
+    Rows are `tick / pc / r=1;s=3; / source`.  A variable the program has not
+    written yet reads `?` there; those rows are skipped rather than recorded, so
+    a history starts at the instruction that actually defined the name.  The
+    source column is what makes "computed, not typed" checkable: `set r 35`
+    executes one `set`, `(3+4)*5` executes `op add` and `op mul`.
+    """
+    history: dict[str, list] = {}
+    executed: list = []
+    try:
+        with open(path, encoding="utf-8", errors="replace") as fh:
+            next(fh, None)                    # header: tick pc vars source
+            for line in fh:
+                parts = line.rstrip("\n").split("\t")
+                if len(parts) < 4:
+                    continue
+                src = parts[3].strip()
+                if src and (not executed or executed[-1] != src):
+                    executed.append(src)
+                for chunk in parts[2].split(";"):
+                    if "=" not in chunk:
+                        continue
+                    name, value = chunk.split("=", 1)
+                    if value in ("?", "", "<obj>"):
+                        continue
+                    history.setdefault(name, []).append(value)
+    except OSError:
+        return {}, []
+    return history, executed
+
+
+def _parse_itrace(path: str) -> dict:
+    """Backwards-compatible wrapper: just the per-variable history."""
+    return _read_itrace(path)[0]
 
 
 # --------------------------------------------------------------------------
