@@ -40,7 +40,11 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 CASES = HERE / "cases"
 EXPECTED = HERE / "expected.json"
-TOOLS = HERE.parent / "mindustry-blueprint" / "tools"
+MIRROR = HERE.parent / "mindustry-blueprint" / "tools"
+# A release package ships `tools/` without the skill mirror.  Grading the source
+# tree is the same bytes (the mirror is a copy by construction), and the stale
+# mirror check below is skipped when there is no mirror to compare against.
+TOOLS = MIRROR if MIRROR.is_dir() else HERE.parent / "tools"
 
 ROOT = HERE.parent
 sys.path.insert(0, str(TOOLS))
@@ -56,7 +60,7 @@ def _mirror_stale_reason() -> str | None:
     So compare the two first, and refuse to report anything from a stale copy.
     """
     script = ROOT / "tools" / "sync_mlogagent.py"
-    if not script.is_file() or not TOOLS.is_dir():
+    if not script.is_file() or not MIRROR.is_dir():
         return None
     try:
         cp = subprocess.run(

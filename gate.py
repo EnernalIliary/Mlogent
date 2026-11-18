@@ -332,6 +332,13 @@ def build_steps(full: bool, only: str | None) -> list[tuple[str, list[str] | Non
     steps = [(n, None, deps[n] + "/ is a separate project (absent from this checkout)")
              if (a is not None and n in deps and not (ROOT / deps[n]).is_dir())
              else (n, a, s) for n, a, s in steps]
+    # `bundles` and `claims` grade the knowledge base, which ships as its own
+    # package (`mlog-agent-<ver>-knowledge.zip`).  A toolchain-only checkout must
+    # still gate cleanly, so name the missing tree instead of failing on it.
+    know = {"bundles": "knowledge/tools", "claims": "knowledge/08-evidence"}
+    steps = [(n, None, know[n] + " ships in the knowledge package")
+             if (a is not None and n in know and not (ROOT / know[n]).is_dir())
+             else (n, a, s) for n, a, s in steps]
     if only:
         steps = [s for s in steps if only.lower() in s[0].lower()]
     return steps

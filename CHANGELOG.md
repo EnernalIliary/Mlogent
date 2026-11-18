@@ -3,6 +3,10 @@
 只记对外可见的变化。工程日志（每一版的动机、踩过的坑、源码依据）见
 `MlogAuxiliary/HISTORY.md` 与 `docs/`。
 
+## 1.2.0 — 2026-11-18
+
+首个按包发布的工作区版本（工具链 / 知识库 / 技能三个 zip，见 `docs/RELEASE-1.2.0.md`）。从 1.1.3 起新增：Mindcode 编译前端与源码映射、四维判定信封（`ok/failure_type/levels/task`）、`mlog_validate` 组合工具与 `mlog_task` 续跑状态、场景 v2 扰动与参数化生成、`explore` 自动探索与 ddmin 失败缩减、与活世界差分（统一观测 + 15 条保真度边界）、Onboarding Benchmark（6 任务 / 3 类判据）、知识库 M09/M10 两篇与 85 条 claim 的 id 锚点迁移、语言包入库；MCP 6 → 15 个工具，`gate.py` 13 → 28 步。
+
 ## 0.24.1
 
 - **「第一行是 noop」有了门禁**（用户 m07998：「刚刚在游戏中为MAI下发了一次任务，但是第一行是noop」）。真 v160.7 引擎逐条解析那个作业的代码，首行 `radar e projector1 enemy distance 1` 得到 `InvalidStatement` —— 编辑器里显示 `noop`、执行时什么都不做；而它当时只命中 `under-arity` 与 `slot-not-in-enum` 两条 WARN，写入闸只拦 ERR，于是照写不误。正确写法：`radar enemy any any distance projector1 1 e`（前三个 target 槽只收 any|enemy|ally|player|attacker|flying|boss|ground，第四个是 sort，第五个是建筑，第六个 1/-1，第七个是输出变量；指令名与这些词都大小写敏感）。
