@@ -247,6 +247,9 @@ def build_steps(full: bool, only: str | None) -> list[tuple[str, list[str] | Non
         # The onboarding benchmark: task files, the judge, and the run ledger.
         # Its Judge half skips without a jar, its task/ledger half always runs.
         ("benchmark", ["tests/benchmark/run_benchmark_tests.py"], ""),
+        # Exploration multiplies runs, and its shrinker is a pure algorithm --
+        # the tests cover that half with a fake oracle, so this step is cheap.
+        ("explore", ["tests/explore/run_explore_tests.py"], ""),
         # Differential runs need a live world *and* the offline executor, so in a
         # clean checkout they exits 3 (SKIP) instead of pretending to pass.
         ("differential", ["tests/differential/run_differential_tests.py"], ""),

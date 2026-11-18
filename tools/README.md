@@ -682,6 +682,28 @@ python tools/sourcemap.py selftest
 - MCP 的 `mindcode_compile{map:true}` **固定 `optimize=False`** 建图：优化器正是把你想标位置的
   语句删掉的那一步，开着它对齐等于拿删干净的输出找原句。
 
+## 自动探索与失败缩减（`explore.py`）
+
+场景能跑还不够，得知道**哪一批**会坏、坏在哪。`explore.py` 干两件事：
+
+```bash
+python tools/explore.py list                                     # 模板与参数
+python tools/explore.py run --template unit-control --seeds 1-20 --save
+python tools/explore.py run --seeds 1-5 --modifier-file mods.json --limit 1
+python tools/explore.py shrink --seeds 7 --modifier-file mods.json --json
+```
+
+- `space()` 是**枚举**不是抽样：同一个 spec 得到同一个列表，所以「seed 7 会坏」这句话可以重放。
+- `explore()` 把「跑不了」和「跑坏了」分开记：宿主不支持（没 jar/JRE）是 `skipped`，不是 failed ——
+  机器的问题不是场景的问题。
+- `shrink()` 用 delta debugging（`ddmin`）把失败的扰动束缩到最小，**只缩扰动、不动种子**：
+  种子是这条复现的身份，边缩边换种子，报出来的案例就复现不了。每轮重验，因为两个单独无害的
+  扰动可以联手致命。
+- 账本落 `out/explore/<时间戳>.json`（`$MLOG_EXPLORE_DIR` 可改），`--save` 才写。
+
+只走 `via="sim"`：探索会把运行次数乘上几十倍，而活世界只有一个服、全排在它后面。真要跑真机，
+就用 `scenario.run(via="world")` 跑你挑中的那一个。
+
 ## 文件分层
 
 1. **入口**：`mlog.py`（统一下发子命令）、`mlogagent.py`（`report` / `info` 一条命令跑完五层）、
