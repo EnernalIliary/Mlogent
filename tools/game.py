@@ -4,7 +4,7 @@
     python tools/game.py block silicon-smelter
     python tools/game.py unit flare
     python tools/game.py recipe silicon
-    python tools/game.py search furnace
+    python tools/game.py search furnace     # 英文名与中文别名一起搜
     python tools/game.py stats
 """
 from __future__ import annotations
@@ -146,9 +146,18 @@ def cmd_recipe(game: dict, name: str) -> None:
 
 
 def cmd_search(game: dict, q: str) -> None:
+    """英文名与中文别名一起搜（别名母本是官方 bundle，见 gen_game_aliases.py）。"""
     ql = q.lower()
+    aliases = game.get("aliases", {})
     for kind in ("items", "liquids", "blocks", "units"):
-        hits = [r["name"] for r in game[kind] if ql in r["name"].lower()]
+        table = aliases.get(kind, {})
+        hits = []
+        for r in game[kind]:
+            name = r["name"]
+            zh_names = table.get(name, [])
+            matched = [a for a in zh_names if ql in a.lower()]
+            if ql in name.lower() or matched:
+                hits.append(name if not matched else "%s(%s)" % (name, matched[0]))
         if hits:
             print(f"{kind}: " + ", ".join(hits[:30]))
 
