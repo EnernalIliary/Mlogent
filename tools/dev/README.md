@@ -16,6 +16,17 @@
 重导 `data/game/{items,liquids,blocks,units,meta}.json`：`python tools/dev/dump_game.py`。
 它已按本文的约定改成 `ROOT = Path(__file__).resolve().parents[2]`，所以在任何目录下都能跑；
 字段全部直接取自 `Vars.content` 反射，取不到的记 `null`（不再填 `-1` 之类的假值）。
+
+blocks 共 15 个字段：`id, name, size, health, category, hasPower, requirements,
+consumers, outputs, craftTime, itemCapacity, liquidCapacity, range, reload,
+outputLiquids`。几个容易踩的点：
+
+- `craftTime` 不是 `Block` 的字段，只存在于 `GenericCrafter` 及其子类 —— 447 个方块里
+  33 个有真值、414 个是 `null`（`null` = 该类没有这个字段，不是"瞬间完成"）。
+- 分离器的产物在 `results` 而不是 `outputItems`；`outputLiquids` 只覆盖产出液体的方块
+  （2026-11 之前这两个都是空的）。
+- 数值 `round(..., 4)`：执行器给的是 float32，不四舍五入会写成 `0.20000000298023224`。
+
 `tools/game.py` 的提示语与 `knowledge/` 的文档都指向这个路径。
 
 ## 源码拓荒脚本（从 tools/ 顶层移入）

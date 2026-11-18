@@ -41,6 +41,7 @@ LIQUIDS_JS = "(function(){var lt=Vars.content.liquids();for(var i=0;i<lt.size;i+
 #
 # consumers: item:<name>:<amount> / liquid:<name>:<amount> / power:<usage>
 # outputs  : item:<name>:<amount> (outputItems, else `results` for separators)
+# outputLiquids: <liquid>:<amount> (outputLiquids -- mixers, pumps, cultivators)
 BLOCKS_JS = """(function(){
 var N=function(v){return (v==null)?'~':(''+v);};
 var bt=Vars.content.blocks();
@@ -68,7 +69,12 @@ for(var i=0;i<bt.size;i++){
    if(oi==null){try{oi=b.results;}catch(e4){}}
    if(oi!=null){for(var p=0;p<oi.length;p++){var s4=oi[p];outp+=(p?',':'')+s4.item.name+':'+s4.amount;}}
   }catch(e3){}
-  print('BL|'+b.id+'|'+b.name+'|'+b.size+'|'+b.health+'|'+b.category.name()+'|'+(b.hasPower?'1':'0')+'|'+req+'|'+csum+'|'+outp+'|'+N(b.craftTime)+'|'+N(b.itemCapacity)+'|'+N(b.liquidCapacity)+'|'+N(b.range)+'|'+N(b.reload));
+  var outl='';
+  try{
+   var ol=b.outputLiquids;
+   if(ol!=null){for(var q2=0;q2<ol.length;q2++){var s5=ol[q2];outl+=(q2?',':'')+s5.liquid.name+':'+s5.amount;}}
+  }catch(e5){}
+  print('BL|'+b.id+'|'+b.name+'|'+b.size+'|'+b.health+'|'+b.category.name()+'|'+(b.hasPower?'1':'0')+'|'+req+'|'+csum+'|'+outp+'|'+N(b.craftTime)+'|'+N(b.itemCapacity)+'|'+N(b.liquidCapacity)+'|'+N(b.range)+'|'+N(b.reload)+'|'+outl);
  }catch(e){print('BLERR|'+i+'|'+e);}
 }
 })();"""
@@ -136,13 +142,16 @@ def main() -> None:
 
     def stack(s: str) -> dict:
         name, val = s.split(":")
-        return {"name": name, "amount": float(val)}
+        # The executor reports these as float32, which JSON prints as
+        # 0.20000000298023224.  Four decimals is what knowledge/00-data keeps,
+        # and it is far below any rate that matters in game.
+        return {"name": name, "amount": round(float(val), 4)}
 
     items = [{"id": int(i[1]), "name": i[2], "color": i[3]} for i in rows("IT", 4)]
     liquids = [{"id": int(i[1]), "name": i[2], "color": i[3]} for i in rows("LQ", 4)]
 
     blocks = []
-    for b in rows("BL", 14):
+    for b in rows("BL", 15):
         where = f"block {b[2]}"
         cons = []
         for s in b[8].split(","):
@@ -166,6 +175,7 @@ def main() -> None:
             "liquidCapacity": num(b[12], where),
             "range": opt_num(b[13], where),
             "reload": opt_num(b[14], where),
+            "outputLiquids": [stack(s) for s in b[15].split(",") if s],
         })
 
     units = []

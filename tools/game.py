@@ -119,10 +119,13 @@ def cmd_block(game: dict, name: str) -> None:
     print(f"耗电：{fmt_cons([c for c in b['consumers'] if c['kind'] == 'power']) if b['hasPower'] else '—'}")
     if b["requirements"]:
         print("建材：" + "、".join(fmt_stack(r) for r in b["requirements"]))
-    if b["consumers"]:
-        print("输入：" + fmt_cons(b["consumers"]))
+    wired = [c for c in b["consumers"] if c["kind"] != "power"]
+    if wired:
+        print("输入：" + fmt_cons(wired))
     if b["outputs"]:
         print("产出：" + "、".join(fmt_stack(o) for o in b["outputs"]))
+    if b.get("outputLiquids"):
+        print("产液：" + "、".join(fmt_stack(o) for o in b["outputLiquids"]))
     if b["craftTime"] and b["craftTime"] > 0:
         print(f"craftTime：{_num(b['craftTime'] / 60)} 秒（{_num(b['craftTime'])} tick，60 tick = 1 秒）")
     cap = b.get("itemCapacity")

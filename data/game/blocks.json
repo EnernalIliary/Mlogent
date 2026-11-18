@@ -13,7 +13,8 @@
   "itemCapacity": 10,
   "liquidCapacity": -1.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 1,
@@ -29,7 +30,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 2,
@@ -45,7 +47,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 3,
@@ -61,7 +64,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 4,
@@ -77,7 +81,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 5,
@@ -93,7 +98,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 6,
@@ -109,7 +115,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 7,
@@ -125,7 +132,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 8,
@@ -141,7 +149,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 9,
@@ -157,7 +166,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 10,
@@ -173,7 +183,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 11,
@@ -189,7 +200,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 12,
@@ -205,7 +217,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 13,
@@ -221,7 +234,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 14,
@@ -237,7 +251,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 15,
@@ -253,7 +268,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 16,
@@ -269,7 +285,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 17,
@@ -285,7 +302,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 18,
@@ -301,7 +319,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 19,
@@ -317,7 +336,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 20,
@@ -333,7 +353,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 21,
@@ -349,7 +370,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 22,
@@ -365,7 +387,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 23,
@@ -381,7 +404,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 24,
@@ -397,7 +421,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 25,
@@ -413,7 +438,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 26,
@@ -429,7 +455,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 27,
@@ -445,7 +472,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 28,
@@ -461,7 +489,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 29,
@@ -477,7 +506,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 30,
@@ -493,7 +523,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 31,
@@ -509,7 +540,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 32,
@@ -525,7 +557,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 33,
@@ -541,7 +574,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 34,
@@ -557,7 +591,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 35,
@@ -573,7 +608,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 36,
@@ -589,7 +625,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 37,
@@ -605,7 +642,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 38,
@@ -621,7 +659,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 39,
@@ -637,7 +676,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 40,
@@ -653,7 +693,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 41,
@@ -669,7 +710,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 42,
@@ -685,7 +727,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 43,
@@ -701,7 +744,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 44,
@@ -717,7 +761,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 45,
@@ -733,7 +778,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 46,
@@ -749,7 +795,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 47,
@@ -765,7 +812,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 48,
@@ -781,7 +829,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 49,
@@ -797,7 +846,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 50,
@@ -813,7 +863,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 51,
@@ -829,7 +880,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 52,
@@ -845,7 +897,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 53,
@@ -861,7 +914,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 54,
@@ -877,7 +931,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 55,
@@ -893,7 +948,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 56,
@@ -909,7 +965,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 57,
@@ -925,7 +982,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 58,
@@ -941,7 +999,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 59,
@@ -957,7 +1016,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 60,
@@ -973,7 +1033,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 61,
@@ -989,7 +1050,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 62,
@@ -1005,7 +1067,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 63,
@@ -1021,7 +1084,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 64,
@@ -1037,7 +1101,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 65,
@@ -1053,7 +1118,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 66,
@@ -1069,7 +1135,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 67,
@@ -1085,7 +1152,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 68,
@@ -1101,7 +1169,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 69,
@@ -1117,7 +1186,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 70,
@@ -1133,7 +1203,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 71,
@@ -1149,7 +1220,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 72,
@@ -1165,7 +1237,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 73,
@@ -1181,7 +1254,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 74,
@@ -1197,7 +1271,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 75,
@@ -1213,7 +1288,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 76,
@@ -1229,7 +1305,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 77,
@@ -1245,7 +1322,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 78,
@@ -1261,7 +1339,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 79,
@@ -1277,7 +1356,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 80,
@@ -1293,7 +1373,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 81,
@@ -1309,7 +1390,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 82,
@@ -1325,7 +1407,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 83,
@@ -1341,7 +1424,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 84,
@@ -1357,7 +1441,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 85,
@@ -1373,7 +1458,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 86,
@@ -1389,7 +1475,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 87,
@@ -1405,7 +1492,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 88,
@@ -1421,7 +1509,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 89,
@@ -1437,7 +1526,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 90,
@@ -1453,7 +1543,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 91,
@@ -1469,7 +1560,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 92,
@@ -1485,7 +1577,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 93,
@@ -1501,7 +1594,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 94,
@@ -1517,7 +1611,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 95,
@@ -1533,7 +1628,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 96,
@@ -1549,7 +1645,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 97,
@@ -1565,7 +1662,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 98,
@@ -1581,7 +1679,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 99,
@@ -1597,7 +1696,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 100,
@@ -1613,7 +1713,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 101,
@@ -1629,7 +1730,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 102,
@@ -1645,7 +1747,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 103,
@@ -1661,7 +1764,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 104,
@@ -1677,7 +1781,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 105,
@@ -1693,7 +1798,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 106,
@@ -1709,7 +1815,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 107,
@@ -1725,7 +1832,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 108,
@@ -1741,7 +1849,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 109,
@@ -1757,7 +1866,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 110,
@@ -1773,7 +1883,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 111,
@@ -1789,7 +1900,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 112,
@@ -1805,7 +1917,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 113,
@@ -1821,7 +1934,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 114,
@@ -1837,7 +1951,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 115,
@@ -1853,7 +1968,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 116,
@@ -1869,7 +1985,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 117,
@@ -1885,7 +2002,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 118,
@@ -1901,7 +2019,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 119,
@@ -1917,7 +2036,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 120,
@@ -1933,7 +2053,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 121,
@@ -1949,7 +2070,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 122,
@@ -1965,7 +2087,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 123,
@@ -1981,7 +2104,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 124,
@@ -1997,7 +2121,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 125,
@@ -2013,7 +2138,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 126,
@@ -2029,7 +2155,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 127,
@@ -2045,7 +2172,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 128,
@@ -2061,7 +2189,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 129,
@@ -2077,7 +2206,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 130,
@@ -2093,7 +2223,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 131,
@@ -2109,7 +2240,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 132,
@@ -2125,7 +2257,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 133,
@@ -2141,7 +2274,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 134,
@@ -2157,7 +2291,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 135,
@@ -2173,7 +2308,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 136,
@@ -2189,7 +2325,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 137,
@@ -2205,7 +2342,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 138,
@@ -2221,7 +2359,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 139,
@@ -2237,7 +2376,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 140,
@@ -2253,7 +2393,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 141,
@@ -2269,7 +2410,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 142,
@@ -2285,7 +2427,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 143,
@@ -2301,7 +2444,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 144,
@@ -2317,7 +2461,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 145,
@@ -2333,7 +2478,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 146,
@@ -2349,7 +2495,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 147,
@@ -2365,7 +2512,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 148,
@@ -2381,7 +2529,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 149,
@@ -2397,7 +2546,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 150,
@@ -2413,7 +2563,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 151,
@@ -2429,7 +2580,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 152,
@@ -2445,7 +2597,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 153,
@@ -2461,7 +2614,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 154,
@@ -2477,7 +2631,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 155,
@@ -2493,7 +2648,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 156,
@@ -2509,7 +2665,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 157,
@@ -2525,7 +2682,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 158,
@@ -2541,7 +2699,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 159,
@@ -2557,7 +2716,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 160,
@@ -2573,7 +2733,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 161,
@@ -2589,7 +2750,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 162,
@@ -2605,7 +2767,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 163,
@@ -2621,7 +2784,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 164,
@@ -2637,7 +2801,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 165,
@@ -2653,7 +2818,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 166,
@@ -2669,7 +2835,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 167,
@@ -2685,7 +2852,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 168,
@@ -2701,7 +2869,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 169,
@@ -2717,7 +2886,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 170,
@@ -2733,7 +2903,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 171,
@@ -2749,7 +2920,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 172,
@@ -2765,7 +2937,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 173,
@@ -2781,7 +2954,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 174,
@@ -2797,7 +2971,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 175,
@@ -2813,7 +2988,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 176,
@@ -2829,7 +3005,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 177,
@@ -2845,7 +3022,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 178,
@@ -2861,7 +3039,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 179,
@@ -2877,7 +3056,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 180,
@@ -2893,7 +3073,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 181,
@@ -2929,7 +3110,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 182,
@@ -2978,7 +3160,8 @@
   "itemCapacity": 20,
   "liquidCapacity": 60.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 183,
@@ -3024,7 +3207,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 184,
@@ -3083,7 +3267,8 @@
   "itemCapacity": 30,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 185,
@@ -3133,7 +3318,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 186,
@@ -3182,7 +3368,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 60.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 187,
@@ -3232,7 +3419,8 @@
   "itemCapacity": 30,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 188,
@@ -3292,7 +3480,8 @@
   "itemCapacity": 20,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 189,
@@ -3332,7 +3521,13 @@
   "itemCapacity": 10,
   "liquidCapacity": 36.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": [
+   {
+    "name": "cryofluid",
+    "amount": 0.2
+   }
+  ]
  },
  {
   "id": 190,
@@ -3383,7 +3578,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 191,
@@ -3429,7 +3625,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 192,
@@ -3469,7 +3666,13 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": [
+   {
+    "name": "slag",
+    "amount": 0.2
+   }
+  ]
  },
  {
   "id": 193,
@@ -3517,7 +3720,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 40.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 194,
@@ -3578,7 +3782,8 @@
   "itemCapacity": 20,
   "liquidCapacity": 72.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 195,
@@ -3614,7 +3819,13 @@
   "itemCapacity": 10,
   "liquidCapacity": 60.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": [
+   {
+    "name": "oil",
+    "amount": 0.3
+   }
+  ]
  },
  {
   "id": 196,
@@ -3655,7 +3866,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 197,
@@ -3695,7 +3907,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 60.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 198,
@@ -3726,7 +3939,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 199,
@@ -3772,7 +3986,8 @@
   "itemCapacity": 30,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 200,
@@ -3811,7 +4026,17 @@
   "itemCapacity": 0,
   "liquidCapacity": 50.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": [
+   {
+    "name": "ozone",
+    "amount": 0.0667
+   },
+   {
+    "name": "hydrogen",
+    "amount": 0.1
+   }
+  ]
  },
  {
   "id": 201,
@@ -3846,7 +4071,13 @@
   "itemCapacity": 0,
   "liquidCapacity": 60.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": [
+   {
+    "name": "nitrogen",
+    "amount": 0.2667
+   }
+  ]
  },
  {
   "id": 202,
@@ -3895,7 +4126,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 30.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 203,
@@ -3930,7 +4162,8 @@
   "itemCapacity": 0,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 204,
@@ -3959,7 +4192,8 @@
   "itemCapacity": 0,
   "liquidCapacity": 120.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 205,
@@ -3994,7 +4228,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 206,
@@ -4019,7 +4254,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 207,
@@ -4044,7 +4280,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 208,
@@ -4069,7 +4306,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 209,
@@ -4090,7 +4328,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 210,
@@ -4140,7 +4379,8 @@
   "itemCapacity": 20,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 211,
@@ -4184,7 +4424,13 @@
   "itemCapacity": 10,
   "liquidCapacity": 80.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": [
+   {
+    "name": "gallium",
+    "amount": 0.0167
+   }
+  ]
  },
  {
   "id": 212,
@@ -4233,7 +4479,8 @@
   "itemCapacity": 20,
   "liquidCapacity": 400.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 213,
@@ -4277,7 +4524,13 @@
   "itemCapacity": 10,
   "liquidCapacity": 80.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": [
+   {
+    "name": "cyanogen",
+    "amount": 0.2
+   }
+  ]
  },
  {
   "id": 214,
@@ -4331,7 +4584,8 @@
   "itemCapacity": 40,
   "liquidCapacity": 40.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 215,
@@ -4375,7 +4629,8 @@
   "itemCapacity": 20,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 216,
@@ -4396,7 +4651,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 217,
@@ -4417,7 +4673,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 218,
@@ -4438,7 +4695,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 219,
@@ -4459,7 +4717,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 220,
@@ -4484,7 +4743,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 221,
@@ -4509,7 +4769,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 222,
@@ -4530,7 +4791,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 223,
@@ -4551,7 +4813,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 224,
@@ -4572,7 +4835,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 225,
@@ -4593,7 +4857,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 226,
@@ -4614,7 +4879,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 227,
@@ -4635,7 +4901,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 228,
@@ -4660,7 +4927,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 229,
@@ -4685,7 +4953,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 230,
@@ -4706,7 +4975,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 231,
@@ -4727,7 +4997,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 232,
@@ -4748,7 +5019,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 233,
@@ -4769,7 +5041,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 234,
@@ -4790,7 +5063,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 235,
@@ -4811,7 +5085,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 236,
@@ -4832,7 +5107,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 237,
@@ -4853,7 +5129,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 238,
@@ -4874,7 +5151,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 239,
@@ -4899,7 +5177,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 240,
@@ -4924,7 +5203,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 241,
@@ -4949,7 +5229,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 242,
@@ -4974,7 +5255,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 243,
@@ -4999,7 +5281,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 244,
@@ -5034,7 +5317,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 245,
@@ -5070,7 +5354,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": 40.0,
-  "reload": 200.0
+  "reload": 200.0,
+  "outputLiquids": []
  },
  {
   "id": 246,
@@ -5114,7 +5399,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": 85.0,
-  "reload": 250.0
+  "reload": 250.0,
+  "outputLiquids": []
  },
  {
   "id": 247,
@@ -5158,7 +5444,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": 80.0,
-  "reload": 60.0
+  "reload": 60.0,
+  "outputLiquids": []
  },
  {
   "id": 248,
@@ -5211,7 +5498,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": 200.0,
-  "reload": 60.0
+  "reload": 60.0,
+  "outputLiquids": []
  },
  {
   "id": 249,
@@ -5251,7 +5539,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 60.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 250,
@@ -5276,7 +5565,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 251,
@@ -5311,7 +5601,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 252,
@@ -5346,7 +5637,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 30.0,
   "range": 200.0,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 253,
@@ -5390,7 +5682,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": 28.0,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 254,
@@ -5434,7 +5727,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 15.0,
   "range": 170.0,
-  "reload": 80.0
+  "reload": 80.0,
+  "outputLiquids": []
  },
  {
   "id": 255,
@@ -5456,7 +5750,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 256,
@@ -5478,7 +5773,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 257,
@@ -5499,7 +5795,8 @@
   "itemCapacity": 3,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 258,
@@ -5528,7 +5825,8 @@
   "itemCapacity": 3,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 259,
@@ -5557,7 +5855,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 260,
@@ -5586,7 +5885,8 @@
   "itemCapacity": 3,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 261,
@@ -5607,7 +5907,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 262,
@@ -5632,7 +5933,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": 4.0,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 263,
@@ -5671,7 +5973,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": 12.0,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 264,
@@ -5696,7 +5999,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 265,
@@ -5721,7 +6025,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 266,
@@ -5742,7 +6047,8 @@
   "itemCapacity": 1,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 267,
@@ -5767,7 +6073,8 @@
   "itemCapacity": 1,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 268,
@@ -5792,7 +6099,8 @@
   "itemCapacity": 0,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 269,
@@ -5817,7 +6125,8 @@
   "itemCapacity": 0,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 270,
@@ -5842,7 +6151,8 @@
   "itemCapacity": 0,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 271,
@@ -5881,7 +6191,8 @@
   "itemCapacity": 120,
   "liquidCapacity": 10.0,
   "range": 440.0,
-  "reload": 200.0
+  "reload": 200.0,
+  "outputLiquids": []
  },
  {
   "id": 272,
@@ -5902,7 +6213,8 @@
   "itemCapacity": 1,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 273,
@@ -5927,7 +6239,8 @@
   "itemCapacity": 1,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 274,
@@ -5948,7 +6261,8 @@
   "itemCapacity": 1,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 275,
@@ -5973,7 +6287,8 @@
   "itemCapacity": 1,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 276,
@@ -5998,7 +6313,8 @@
   "itemCapacity": 1,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 277,
@@ -6019,7 +6335,8 @@
   "itemCapacity": 4,
   "liquidCapacity": 10.0,
   "range": 4.0,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 278,
@@ -6048,7 +6365,8 @@
   "itemCapacity": 0,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 279,
@@ -6079,7 +6397,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 280,
@@ -6110,7 +6429,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 281,
@@ -6145,7 +6465,8 @@
   "itemCapacity": 200,
   "liquidCapacity": 100.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 282,
@@ -6170,7 +6491,8 @@
   "itemCapacity": 100,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 283,
@@ -6195,7 +6517,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 20.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 284,
@@ -6234,7 +6557,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 80.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 285,
@@ -6277,7 +6601,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 200.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 286,
@@ -6298,7 +6623,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 20.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 287,
@@ -6323,7 +6649,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 40.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 288,
@@ -6352,7 +6679,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 50.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 289,
@@ -6377,7 +6705,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 120.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 290,
@@ -6402,7 +6731,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 700.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 291,
@@ -6427,7 +6757,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 1800.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 292,
@@ -6452,7 +6783,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 293,
@@ -6477,7 +6809,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 100.0,
   "range": 4.0,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 294,
@@ -6516,7 +6849,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 100.0,
   "range": 12.0,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 295,
@@ -6545,7 +6879,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 160.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 296,
@@ -6566,7 +6901,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 50.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 297,
@@ -6591,7 +6927,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 298,
@@ -6616,7 +6953,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 120.0,
   "range": 4.0,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 299,
@@ -6641,7 +6979,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 150.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 300,
@@ -6666,7 +7005,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 1000.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 301,
@@ -6691,7 +7031,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 2700.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 302,
@@ -6716,7 +7057,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 303,
@@ -6745,7 +7087,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 304,
@@ -6778,7 +7121,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 305,
@@ -6807,7 +7151,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 306,
@@ -6838,7 +7183,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 307,
@@ -6873,7 +7219,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 308,
@@ -6898,7 +7245,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 309,
@@ -6935,7 +7283,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 310,
@@ -6968,7 +7317,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 60.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 311,
@@ -7011,7 +7361,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 60.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 312,
@@ -7048,7 +7399,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 313,
@@ -7073,7 +7425,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 314,
@@ -7102,7 +7455,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 315,
@@ -7145,7 +7499,8 @@
   "itemCapacity": 30,
   "liquidCapacity": 30.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 316,
@@ -7197,7 +7552,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 80.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 317,
@@ -7224,7 +7580,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": 10.0,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 318,
@@ -7259,7 +7616,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": 23.0,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 319,
@@ -7300,7 +7658,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 320,
@@ -7321,7 +7680,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 20.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 321,
@@ -7365,7 +7725,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 100.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 322,
@@ -7409,7 +7770,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 150.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 323,
@@ -7446,7 +7808,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 30.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 324,
@@ -7493,7 +7856,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 80.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 325,
@@ -7514,7 +7878,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 30.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 326,
@@ -7539,7 +7904,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 35.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 327,
@@ -7578,7 +7944,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 48.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 328,
@@ -7617,7 +7984,8 @@
   "itemCapacity": 20,
   "liquidCapacity": 60.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 329,
@@ -7656,7 +8024,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 40.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 330,
@@ -7696,7 +8065,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 80.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 331,
@@ -7744,7 +8114,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 40.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 332,
@@ -7775,7 +8146,13 @@
   "itemCapacity": 0,
   "liquidCapacity": 60.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": [
+   {
+    "name": "water",
+    "amount": 0.5
+   }
+  ]
  },
  {
   "id": 333,
@@ -7806,7 +8183,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 334,
@@ -7850,7 +8228,8 @@
   "itemCapacity": 20,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 335,
@@ -7877,7 +8256,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": 5.0,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 336,
@@ -7916,7 +8296,8 @@
   "itemCapacity": 20,
   "liquidCapacity": 30.0,
   "range": 6.0,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 337,
@@ -7951,7 +8332,8 @@
   "itemCapacity": 40,
   "liquidCapacity": 100.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 338,
@@ -7990,7 +8372,8 @@
   "itemCapacity": 60,
   "liquidCapacity": 40.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 339,
@@ -8015,7 +8398,8 @@
   "itemCapacity": 4000,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 340,
@@ -8044,7 +8428,8 @@
   "itemCapacity": 9000,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 341,
@@ -8077,7 +8462,8 @@
   "itemCapacity": 13000,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 342,
@@ -8106,7 +8492,8 @@
   "itemCapacity": 2000,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 343,
@@ -8139,7 +8526,8 @@
   "itemCapacity": 3000,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 344,
@@ -8176,7 +8564,8 @@
   "itemCapacity": 4000,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 345,
@@ -8197,7 +8586,8 @@
   "itemCapacity": 300,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 346,
@@ -8222,7 +8612,8 @@
   "itemCapacity": 1000,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 347,
@@ -8247,7 +8638,8 @@
   "itemCapacity": 160,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 348,
@@ -8276,7 +8668,8 @@
   "itemCapacity": 900,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 349,
@@ -8297,7 +8690,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 20.0,
   "range": 160.0,
-  "reload": 20.0
+  "reload": 20.0,
+  "outputLiquids": []
  },
  {
   "id": 350,
@@ -8322,7 +8716,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 20.0,
   "range": 220.0,
-  "reload": 18.0
+  "reload": 18.0,
+  "outputLiquids": []
  },
  {
   "id": 351,
@@ -8347,7 +8742,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 20.0,
   "range": 60.0,
-  "reload": 6.0
+  "reload": 6.0,
+  "outputLiquids": []
  },
  {
   "id": 352,
@@ -8372,7 +8768,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 20.0,
   "range": 235.0,
-  "reload": 60.0
+  "reload": 60.0,
+  "outputLiquids": []
  },
  {
   "id": 353,
@@ -8401,7 +8798,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": 110.0,
-  "reload": 3.0
+  "reload": 3.0,
+  "outputLiquids": []
  },
  {
   "id": 354,
@@ -8440,7 +8838,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 20.0,
   "range": 165.0,
-  "reload": 80.0
+  "reload": 80.0,
+  "outputLiquids": []
  },
  {
   "id": 355,
@@ -8471,7 +8870,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 20.0,
   "range": 90.0,
-  "reload": 35.0
+  "reload": 35.0,
+  "outputLiquids": []
  },
  {
   "id": 356,
@@ -8506,7 +8906,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": 300.0,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 357,
@@ -8539,7 +8940,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 20.0,
   "range": 240.0,
-  "reload": 34.28571319580078
+  "reload": 34.28571319580078,
+  "outputLiquids": []
  },
  {
   "id": 358,
@@ -8568,7 +8970,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 20.0,
   "range": 190.0,
-  "reload": 29.0
+  "reload": 29.0,
+  "outputLiquids": []
  },
  {
   "id": 359,
@@ -8607,7 +9010,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": 180.0,
-  "reload": 8.0
+  "reload": 8.0,
+  "outputLiquids": []
  },
  {
   "id": 360,
@@ -8640,7 +9044,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 40.0,
   "range": 190.0,
-  "reload": 3.0
+  "reload": 3.0,
+  "outputLiquids": []
  },
  {
   "id": 361,
@@ -8669,7 +9074,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 20.0,
   "range": 90.0,
-  "reload": 35.0
+  "reload": 35.0,
+  "outputLiquids": []
  },
  {
   "id": 362,
@@ -8698,7 +9104,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 20.0,
   "range": 290.0,
-  "reload": 120.0
+  "reload": 120.0,
+  "outputLiquids": []
  },
  {
   "id": 363,
@@ -8727,7 +9134,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 20.0,
   "range": 200.0,
-  "reload": 10.0
+  "reload": 10.0,
+  "outputLiquids": []
  },
  {
   "id": 364,
@@ -8770,7 +9178,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 60.0,
   "range": 500.0,
-  "reload": 200.0
+  "reload": 200.0,
+  "outputLiquids": []
  },
  {
   "id": 365,
@@ -8807,7 +9216,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 120.0,
   "range": 260.0,
-  "reload": 7.0
+  "reload": 7.0,
+  "outputLiquids": []
  },
  {
   "id": 366,
@@ -8850,7 +9260,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 60.0,
   "range": 195.0,
-  "reload": 90.0
+  "reload": 90.0,
+  "outputLiquids": []
  },
  {
   "id": 367,
@@ -8879,7 +9290,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 20.0,
   "range": 190.0,
-  "reload": 40.0
+  "reload": 40.0,
+  "outputLiquids": []
  },
  {
   "id": 368,
@@ -8912,7 +9324,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 20.0,
   "range": 125.0,
-  "reload": 30.0
+  "reload": 30.0,
+  "outputLiquids": []
  },
  {
   "id": 369,
@@ -8945,7 +9358,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 50.0,
   "range": 130.0,
-  "reload": 10.0
+  "reload": 10.0,
+  "outputLiquids": []
  },
  {
   "id": 370,
@@ -8974,7 +9388,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 20.0,
   "range": 390.0,
-  "reload": 138.0
+  "reload": 138.0,
+  "outputLiquids": []
  },
  {
   "id": 371,
@@ -9007,7 +9422,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 20.0,
   "range": 310.0,
-  "reload": 9.0
+  "reload": 9.0,
+  "outputLiquids": []
  },
  {
   "id": 372,
@@ -9046,7 +9462,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 20.0,
   "range": 368.0,
-  "reload": 50.0
+  "reload": 50.0,
+  "outputLiquids": []
  },
  {
   "id": 373,
@@ -9085,7 +9502,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 20.0,
   "range": 250.0,
-  "reload": 10.0
+  "reload": 10.0,
+  "outputLiquids": []
  },
  {
   "id": 374,
@@ -9122,7 +9540,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 20.0,
   "range": 1350.0,
-  "reload": 600.0
+  "reload": 600.0,
+  "outputLiquids": []
  },
  {
   "id": 375,
@@ -9159,7 +9578,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 20.0,
   "range": 300.0,
-  "reload": 100.0
+  "reload": 100.0,
+  "outputLiquids": []
  },
  {
   "id": 376,
@@ -9202,7 +9622,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 20.0,
   "range": 410.0,
-  "reload": 3.5
+  "reload": 3.5,
+  "outputLiquids": []
  },
  {
   "id": 377,
@@ -9237,7 +9658,8 @@
   "itemCapacity": 60,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 378,
@@ -9272,7 +9694,8 @@
   "itemCapacity": 60,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 379,
@@ -9307,7 +9730,8 @@
   "itemCapacity": 70,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 380,
@@ -9352,7 +9776,8 @@
   "itemCapacity": 80,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 381,
@@ -9406,7 +9831,8 @@
   "itemCapacity": 260,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 382,
@@ -9468,7 +9894,8 @@
   "itemCapacity": 1700,
   "liquidCapacity": 600.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 383,
@@ -9535,7 +9962,8 @@
   "itemCapacity": 2000,
   "liquidCapacity": 1800.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 384,
@@ -9570,7 +9998,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 385,
@@ -9605,7 +10034,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 96.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 386,
@@ -9636,7 +10066,8 @@
   "itemCapacity": 100,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 387,
@@ -9667,7 +10098,8 @@
   "itemCapacity": 140,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 388,
@@ -9702,7 +10134,8 @@
   "itemCapacity": 140,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 389,
@@ -9747,7 +10180,8 @@
   "itemCapacity": 80,
   "liquidCapacity": 30.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 390,
@@ -9796,7 +10230,8 @@
   "itemCapacity": 120,
   "liquidCapacity": 30.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 391,
@@ -9841,7 +10276,8 @@
   "itemCapacity": 100,
   "liquidCapacity": 30.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 392,
@@ -9890,7 +10326,8 @@
   "itemCapacity": 200,
   "liquidCapacity": 100.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 393,
@@ -9929,7 +10366,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 90.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 394,
@@ -9972,7 +10410,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 120.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 395,
@@ -10015,7 +10454,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 120.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 396,
@@ -10054,7 +10494,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 397,
@@ -10089,7 +10530,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 30.0,
   "range": 100.0,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 398,
@@ -10114,7 +10556,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 399,
@@ -10139,7 +10582,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 400,
@@ -10160,7 +10604,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 401,
@@ -10181,7 +10626,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 402,
@@ -10216,7 +10662,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": 700.0,
-  "reload": 45.0
+  "reload": 45.0,
+  "outputLiquids": []
  },
  {
   "id": 403,
@@ -10259,7 +10706,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": 2100.0,
-  "reload": 130.0
+  "reload": 130.0,
+  "outputLiquids": []
  },
  {
   "id": 404,
@@ -10298,7 +10746,8 @@
   "itemCapacity": 100,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 405,
@@ -10337,7 +10786,8 @@
   "itemCapacity": 320,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 406,
@@ -10372,7 +10822,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 407,
@@ -10411,7 +10862,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 408,
@@ -10446,7 +10898,8 @@
   "itemCapacity": 100,
   "liquidCapacity": 100.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 409,
@@ -10481,7 +10934,8 @@
   "itemCapacity": 100,
   "liquidCapacity": 100.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 410,
@@ -10497,7 +10951,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 411,
@@ -10519,7 +10974,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 412,
@@ -10535,7 +10991,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 413,
@@ -10551,7 +11008,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 414,
@@ -10567,7 +11025,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10000.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 415,
@@ -10583,7 +11042,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10000.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 416,
@@ -10599,7 +11059,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 417,
@@ -10615,7 +11076,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 418,
@@ -10631,7 +11093,8 @@
   "itemCapacity": 0,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 419,
@@ -10647,7 +11110,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 420,
@@ -10682,7 +11146,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 421,
@@ -10698,7 +11163,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 422,
@@ -10714,7 +11180,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 423,
@@ -10730,7 +11197,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 424,
@@ -10746,7 +11214,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 425,
@@ -10762,7 +11231,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 426,
@@ -10801,7 +11271,8 @@
   "itemCapacity": 100,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 427,
@@ -10840,7 +11311,8 @@
   "itemCapacity": 100,
   "liquidCapacity": 40.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 428,
@@ -10869,7 +11341,8 @@
   "itemCapacity": 100,
   "liquidCapacity": 3000.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 429,
@@ -10936,7 +11409,8 @@
   "itemCapacity": 25000,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 430,
@@ -10961,7 +11435,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 431,
@@ -10986,7 +11461,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 432,
@@ -11015,7 +11491,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": 80.0,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 433,
@@ -11048,7 +11525,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": 176.0,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 434,
@@ -11081,7 +11559,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 48.0,
   "range": 336.0,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 435,
@@ -11110,7 +11589,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 436,
@@ -11143,7 +11623,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 437,
@@ -11172,7 +11653,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 438,
@@ -11205,7 +11687,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 439,
@@ -11238,7 +11721,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 440,
@@ -11263,7 +11747,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 441,
@@ -11292,7 +11777,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 442,
@@ -11317,7 +11803,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 443,
@@ -11333,7 +11820,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": 3.4028234663852886e+38,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 444,
@@ -11349,7 +11837,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 445,
@@ -11365,7 +11854,8 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  },
  {
   "id": 446,
@@ -11381,6 +11871,7 @@
   "itemCapacity": 10,
   "liquidCapacity": 10.0,
   "range": null,
-  "reload": null
+  "reload": null,
+  "outputLiquids": []
  }
 ]

@@ -35,7 +35,7 @@ tokens: 0
 |---|---|---|---|---|---|
 | 权威源码 v159.3 | `Mindustry-Source/core` | 807 .java / 5.9MB | **保留为语义真源** | 全库 `src:` 的 `core/...:行号` 均指它 | 只有 core 模块；数值一律以 v160.7 jar 覆盖 |
 | 运行时 dump v160.7 | `MBO/gamedata/v160.7/gamedata.json` | 3.0MB | **已提炼** | `00-data/*.json`（blocks/turrets/units/items/liquids/bullets/status/rules，447/26/70/22/11/137/23/118 条） | 原始 raw 参数（consumers[]）仍是查"某方块耗电/耗液细节"的最后一站 |
-| 薄投影 | `data/game/*.json` | 234KB（`aliases.json` 19KB） | **部分可用**（2026-11 由 `tools/dev/dump_game.py` 重导：blocks 14 字段，含 craftTime/容量/射程/装填；units 武器含真实射程；仍无 class/types/液体产出） | `00-data/` | 速查走 `tools/game.py`；精细语义（class/液体/75 列）仍查 `00-data/` |
+| 薄投影 | `data/game/*.json` | 234KB（`aliases.json` 19KB） | **部分可用**（2026-11 由 `tools/dev/dump_game.py` 重导：blocks 15 字段，含 craftTime/容量/射程/装填/产液；units 武器含真实射程；仍无 class/types） | `00-data/` | 速查走 `tools/game.py`；精细语义（class/液体消耗倍率/75 列）仍查 `00-data/` |
 | 指令语义表 | `tools/instr_semantics.json` | 56.5KB | **已被取代**（口径是 LStatement 类=53 条） | `06-mlog/instructions.json`（73 条）+ `enums.json`（13 组） | 旧表只保留 arity/defs/uses 的考古价值；且已发现三处尺寸分叉（56.5/62.8/50.6KB） |
 | 枚举表 | `tools/instr_enums.json` | — | **已取代** | `06-mlog/enums.json` | 新增 RadarTarget/LLocate/LAccess 全量 |
 | 语言手册 | `Logic-Docs-v1.1.0.md` | 546KB / 1.22 万行 | **部分吸收** | `06-mlog/M01-M08` | 手册机制段仅 15-20%，其余是逐指令抄录；本库 73 条指令表已覆盖，但"某指令的冷门参数组合"仍可能只在那里 |
