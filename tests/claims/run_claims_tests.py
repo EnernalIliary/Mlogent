@@ -91,6 +91,13 @@ class Drift(unittest.TestCase):
         self.assertIn("kept", changes[0][2])
 
 
+class Sync(unittest.TestCase):
+    def test_the_table_matches_the_ledger(self):
+        # docs/断言表.md is a projection of the ledger for the 85 rows it covers;
+        # three rows had already drifted before this was checked.
+        self.assertEqual(claims.render(), [])
+
+
 class RealLedger(unittest.TestCase):
     def test_the_ledger_loads(self):
         rows = claims.load()

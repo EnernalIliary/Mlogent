@@ -185,6 +185,61 @@ def fix(records=None, write=False):
     return records, changes
 
 
+TABLE = os.path.join(ROOT, "docs", "断言表.md")
+
+
+def _cells(line):
+    """Split a table row on unescaped pipes; the leading/trailing ones drop out."""
+    body = line.rstrip("\n").strip()
+    if not body.startswith("|"):
+        return None
+    parts = re.split(r"(?<!\\)\|", body)
+    return parts[1:-1]
+
+
+def _join(cells):
+    return "|" + "|".join(cells) + "|\n"
+
+
+def render(records=None, path=TABLE, write=False):
+    """Rewrite the 断言 cell of every ledger row from claims.jsonl.
+
+    The table is the human index; the ledger is the source. Three rows had
+    already drifted (L1-18 still said "越界读出 0" where the ledger says null),
+    which is exactly the failure mode a projection prevents.
+
+    Only the 断言 cell is projected: 预期/验法/判定 are presentation, and the
+    判定 cell carries prose ("⚠️ 结论成立（S），证据错误待重取…") that the
+    ledger keeps in its own `evidence` field.
+    """
+    records = load() if records is None else records
+    by_id = {r["id"]: r for r in records}
+    with io.open(path, encoding="utf-8") as fh:
+        lines = fh.readlines()
+    changes = []
+    for i, line in enumerate(lines):
+        m = ROW_RE.match(line)
+        if not m:
+            continue
+        ident = m.group("ident")
+        rec = by_id.get(ident)
+        if rec is None:
+            continue
+        cells = _cells(line)
+        if not cells or len(cells) < 2:
+            continue
+        want = str(rec.get("claim", "")).strip().replace("|", "\\|")
+        if cells[1].strip() == want:
+            continue
+        changes.append((ident, cells[1].strip()[:60], want[:60]))
+        cells[1] = " " + want + " "
+        lines[i] = _join(cells)
+    if write and changes:
+        with io.open(path, "w", encoding="utf-8", newline="\n") as fh:
+            fh.writelines(lines)
+    return changes
+
+
 def _selftest():
     ok = fail = 0
 
@@ -215,6 +270,14 @@ def _selftest():
     case("clean record passes", check(records) == [])
     records = [{"id": "L1-02", "src": ["docs/断言表.md#L1-01"]}]
     case("wrong row is caught", len(check(records)) == 1)
+    case("cells split on escaped pipe",
+         _cells("| L1-08 | a \\| b | c | d |")[1].strip() == "a \\| b")
+    case("render is a no-op on a synced table", render(records=[
+        {"id": "L1-01", "claim": "执行到 `end` 后 `@counter` 归 0，下一 tick 从头跑"},
+    ]) == [])
+    case("render reports a stale cell", len(render(records=[
+        {"id": "L1-01", "claim": "something else entirely"},
+    ])) == 1)
     print("claims selftest: %d ok, %d failed" % (ok, fail))
     return 0 if fail == 0 else 1
 
@@ -227,6 +290,9 @@ def main(argv=None):
     p.add_argument("--json", action="store_true")
 
     p = sub.add_parser("fix", help="rewrite line pointers as id anchors")
+    p.add_argument("--write", action="store_true")
+
+    p = sub.add_parser("render", help="project claim text into docs/断言表.md")
     p.add_argument("--write", action="store_true")
 
     p = sub.add_parser("list", help="show one claim and where it resolves")
@@ -253,6 +319,13 @@ def main(argv=None):
         print("%d pointer(s) %s" % (len(changes),
                                     "rewritten" if args.write else "would change"))
         return 0
+    if args.cmd == "render":
+        changes = render(write=args.write)
+        for ident, was, now in changes:
+            print("%-8s %s\n         -> %s" % (ident, was, now))
+        print("%d row(s) %s" % (len(changes),
+                                "rewritten" if args.write else "would change"))
+        return 0 if not changes or args.write else 1
     if args.cmd == "list":
         records = load()
         for rec in records:
