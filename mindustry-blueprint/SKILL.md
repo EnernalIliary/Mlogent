@@ -121,6 +121,10 @@ python tools/mindcode.py compile demo.mnd -o demo.mlog --target 7.0
 子进程互锁，`--no-update-check` 因为注册在错误的 parser 上而无效）。3.19.3 要 **Java 22+**，
 仓库自带的 JRE 21 装不了。诊断是 `文件:行:列 类别: 消息`，源文件**不能带 BOM**。
 
+需要细节时读 `knowledge/06-mlog/M09-Mindcode.md`（`MLOG.MIND.001`）：§3 是入口与返回字段、
+§5 是 3.21.0 死锁的完整线程栈、§8 是「该报 unsupported_environment 还是 compilation_error」。
+它**不**讲 Mindcode 语法本身（`if`/`for`/`func`/`allocate`），语法查上游文档。
+
 ## 场景：把「跑一遍」变成「一个判决」
 
 `scenes/scenarios/*.json`（schema v2）= 世界 + 程序 + 观测 + 断言：
