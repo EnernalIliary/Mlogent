@@ -18,6 +18,19 @@ import tempfile
 ROOT = Path(__file__).resolve().parent.parent
 
 
+def child_env() -> dict[str, str]:
+    """Give children the same console encoding gate.py gives them.
+
+    Tool diagnostics are partly Chinese, so a legacy Windows code page (cp1252 on
+    the CI runner) turns a warning print into UnicodeEncodeError and a green test
+    into an error.  The behaviour under test must not depend on the console.
+    """
+    env = dict(os.environ)
+    env["PYTHONIOENCODING"] = "utf-8"
+    env["PYTHONUTF8"] = "1"
+    return env
+
+
 def source_files() -> list[Path]:
     """Use tracked working-tree bytes, excluding local scratch and installations."""
     result = subprocess.run(['git', '-C', str(ROOT), 'ls-files', '-z'],
@@ -78,7 +91,7 @@ def verify(dest: Path) -> None:
     for name in ('mlog-agentskill', 'mindustry-blueprint'):
         skill = dest / name
         subprocess.run([sys.executable, '-I', '-B', str(skill / 'tools/mlogagent.py'),
-                        'info', '--verify'], cwd=skill, check=True,
+                        'info', '--verify'], cwd=skill, check=True, env=child_env(),
                        stdout=subprocess.DEVNULL)
         # Golden behavior must also survive relocation without the source tree.
         shutil.copytree(ROOT / 'tests', skill / 'tests', copy_function=shutil.copyfile,
@@ -86,7 +99,7 @@ def verify(dest: Path) -> None:
         try:
             for test in ('run_tests.py', 'service/run_service_tests.py', 'http/run_http_tests.py', 'runtime/run_runtime_tests.py', 'cli/run_cli_tests.py', 'world/run_transport_tests.py', 'world/run_process_tests.py', 'world/run_channel_tests.py', 'world/run_query_tests.py', 'world/run_edit_tests.py', 'world/run_schematic_tests.py', 'world/run_map_tests.py', 'world/run_scene_tests.py', 'world/run_projection_tests.py', 'world/run_projection_action_tests.py', 'world/run_display_tests.py', 'world/run_mirror_tests.py', 'world/run_door_tests.py', 'world/run_event_tests.py', 'world/run_runtime_tests.py', 'world/run_config_tests.py'):
                 subprocess.run([sys.executable, '-I', '-B', str(skill / 'tests' / test)],
-                               cwd=skill, check=True)
+                               cwd=skill, check=True, env=child_env())
         finally:
             remove_generated(skill / 'tests', skill)
             for cache in list(skill.rglob('__pycache__')):

@@ -101,7 +101,7 @@ def run_parallel(steps: list[tuple[str, list[str]]]) -> list[tuple[str, str, flo
         return [f.result() for f in futures]
 
 
-def tail(text: str, n: int = 12) -> str:
+def tail(text: str, n: int = 40) -> str:
     lines = [ln for ln in text.splitlines() if ln.strip()]
     return "\n".join("    " + ln for ln in lines[-n:])
 
