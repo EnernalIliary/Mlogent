@@ -980,3 +980,9 @@ python tools/scene.py emit --flavor sim scenes/v27-rig.json    # 看要执行什
 `logic_runtime.Application` 集中管理配置、队列、聊天存储/上下文和生命周期。`logicd.APP` 是 CLI 的默认应用；HTTP 和聊天后台线程显式绑定它。新建应用不会创建存储目录或启动工作线程。运行期隔离测试：`python tests/runtime/run_runtime_tests.py`。
 
 `logic_cli.py` 保存参数解析和启动装配；`logicd.py` 只保留直接执行入口和显式兼容导出。`--plan` / `--print-template` 不创建任务或聊天存储；导入 `logicd` 不初始化默认应用。CLI 测试：`python tests/cli/run_cli_tests.py`。
+
+`world_protocol.py` 提供 JSON 行 TCP 传输和 TSV 结果编解码；显式注入世界、分派器与停止回调，不加载 JVM。`world_server` 保留旧入口。真实 TCP 契约：`python tests/world/run_transport_tests.py`。后续拆分见 `docs/World后端重构计划.md`。
+
+`world_process.py` 管理显式目录下的 JVM、stdout 缓冲和资源回收；`World` 保留游戏启动与控制通道。启动失败会清理，重复关闭安全。生命周期契约：`python tests/world/run_process_tests.py`；真实 JVM 验证使用 `out/` 下的独立临时目录。
+
+`world_channel.py` 接收进程对象，提供串行控制台、JS 结果文件、文本文件通道和启动等待。`World` 保留原方法转发。通道契约：`python tests/world/run_channel_tests.py`；持续不可读的结果报超时，不返回空成功。

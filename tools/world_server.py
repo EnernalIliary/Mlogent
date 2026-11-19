@@ -34,16 +34,37 @@ import math
 import os
 import re
 import socket
-import socketserver
-import subprocess
 import sys
 import threading
 import time
 import uuid
-from collections import deque
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from mlogsim import _win_kill_with_parent, sweep_orphans  # noqa: E402
+from mlogsim import sweep_orphans  # noqa: E402
+from world_process import WorldProcess
+from types import SimpleNamespace
+from world_projection import projection_director as _run_projection_director
+import world_projection_actions as _projection_actions_module
+from world_projection_actions import _projs
+from world_channel import WorldChannel
+from world_queries import BUILDS_JS, BUILDING_AT_JS, LOGIC_LIST_JS, LOGIC_GET_JS, LOGIC_VARS_JS
+import world_doors as _door_registry
+from world_doors import OPERATIONS as WORLD_DOOR_OPS
+from world_doors import (DOORS_JS, DOOR_ACT_JS, DOOR_CLEAR_JS, DOOR_ENTER_JS, DOOR_HITS_JS, DOOR_SET_JS, TAPS_JS, TAP_FIRE_JS)
+from world_mirrors import (MS_INSTALL_JS, MS_APPLY_JS, MS_CLEAR_JS,
+                           _mirror_slot, mirror_push, mirror_watch, mirror_stop)
+from world_display import (FRAME_CLEAR_JS, FRAME_COLOR, FRAME_LIST_JS, FRAME_LIVE_MAX, FRAME_PAINT_JS, FRAME_SWEEP_JS, LIVE_COLOR, SB_BASE, SB_EVENTS, SB_FONT, SB_INSTALL_JS, SB_MAX_LINES, SB_SET_JS, SB_SPAN, SB_SWEEP_JS, _sb_store, _sb_write, frame_clear, frame_paint, sb_clear, sb_event, sb_lines, sb_render)
+from world_scenes import (feed_age, feed_world, feed_anchor, feed_scene, feed_bbox,
+                          feed_units, scenes_from_feeds, load_dir_scenes, world_size, layout_scenes)
+from world_maps import switch_map, change_map, OPERATIONS as WORLD_MAP_OPS
+from world_schematics import (SCHEMATIC_PLACE_JS, SCHEMATIC_SAVE_JS, SCHEMATIC_LIST_JS,
+                              OPERATIONS as WORLD_SCHEMATIC_OPS, schematic as schematic_world)
+from world_edits import (PLACE_JS, CLEAR_JS, SPAWN_JS, KILLUNITS_JS, CLEARBUILDS_JS,
+                         LOGIC_SET_JS, OPERATIONS as WORLD_EDIT_OPS, edit as edit_world)
+from world_queries import (STATUS_JS, PLAYERS_JS, UNITS_JS, UNIT_JS, MAPS_JS,
+                           OPERATIONS as WORLD_QUERY_OPS, query as query_world)
+from world_protocol import API, coerce, units_table, parse_tsv
+from world_protocol import make_handler as _make_protocol_handler
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 WORLD = os.path.join(ROOT, "out", "_world")
@@ -113,7 +134,7 @@ def audit(op: str, **kw):
         pass
 
 
-class World:
+class World(WorldProcess):
     """一个 java 服务端 + 它的控制通道."""
 
     def __init__(self, java: str, jar: str, *, map_name: str | None = None,
@@ -123,153 +144,37 @@ class World:
         self.map_name = map_name
         self.game_port = game_port
         self.js_timeout = js_timeout
-        self.started = time.time()
-        self.lines: deque[tuple[int, str]] = deque(maxlen=8000)
-        self.seq = 0
-        self._cv = threading.Condition()
-        self._lock = threading.RLock()      # 串行化 console/js
-        self.proc: subprocess.Popen | None = None
-        self.eof = False
         self.players_peak = 0
-        self._logf = None
         self.mirror_feed: str | None = None   # 状态镜推送文件 (mlogsim/脚本往里写 JSON)
         self._mirror_started = False
         os.makedirs(os.path.join(DATA, "config", "logs"), exist_ok=True)
         os.makedirs(os.path.join(DATA, "config", "saves"), exist_ok=True)
         os.makedirs(WORLD, exist_ok=True)
-        self._spawn()
-        self._boot(host=host, paused=paused, server_name=server_name)
-
-    # ---- 进程 -------------------------------------------------------
-    def _spawn(self):
-        self._logf = open(LOG, "a", encoding="utf-8", buffering=1)
-        self._logf.write("\n===== %s  %s =====\n" % (time.strftime("%Y-%m-%d %H:%M:%S"), self.jar))
-        self.proc = subprocess.Popen(
-            [self.java, "-Dstdout.encoding=UTF-8", "-Dstderr.encoding=UTF-8", "-jar", self.jar],
-            stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-            cwd=DATA, text=True, encoding="utf-8", errors="replace", bufsize=1,
-        )
-        self._job = _win_kill_with_parent(self.proc)
-        threading.Thread(target=self._pump, daemon=True).start()
-
-    def _pump(self):
-        assert self.proc and self.proc.stdout
-        for raw in self.proc.stdout:
-            line = raw.rstrip("\r\n")
-            with self._cv:
-                self.seq += 1
-                self.lines.append((self.seq, line))
-                self._cv.notify_all()
-            try:
-                self._logf.write(line + "\n")
-            except Exception:
-                pass
-        self.eof = True
-        with self._cv:
-            self._cv.notify_all()
-
-    def send(self, cmd: str):
-        assert self.proc and self.proc.stdin
-        self.proc.stdin.write(cmd + "\n")
-        self.proc.stdin.flush()
+        super().__init__(java, jar, data_dir=DATA, log_path=LOG)
+        self._channel = WorldChannel(self)
+        try:
+            self._boot(host=host, paused=paused, server_name=server_name)
+        except BaseException:
+            self.close(force=True)
+            raise
 
     def wait_for(self, needle: str, timeout: float) -> list[str]:
-        raise NotImplementedError
+        return self._channel.wait_for(needle, timeout)
 
-    # ---- 控制 -------------------------------------------------------
     def console(self, cmd: str, quiet: float = 0.30, timeout: float = 8.0) -> dict:
-        """发一条控制台命令, 收集它在 stdout 上的输出."""
-        with self._lock:
-            t0 = time.time()
-            seq0 = self.seq
-            self.send(cmd)
-            buf = self._collect(seq0, quiet, timeout)
-            return {"ok": True, "cmd": cmd, "lines": buf, "ms": round((time.time() - t0) * 1000)}
+        return self._channel.console(cmd, quiet, timeout)
 
     def _collect(self, seq0: int, quiet: float, timeout: float) -> list[str]:
-        out, last_change, last_seq = [], time.time(), seq0
-        deadline = time.time() + timeout
-        while time.time() < deadline:
-            with self._cv:
-                self._cv.wait(0.05)
-                new = [ln for (s, ln) in self.lines if s > last_seq]
-                if new:
-                    last_seq = self.lines[-1][0]
-            if new:
-                out.extend(new)
-                last_change = time.time()
-            elif out and (time.time() - last_change) >= quiet:
-                break
-            elif self.eof:
-                break
-        return out
+        return self._channel._collect(seq0, quiet, timeout)
 
-    # ---- js ---------------------------------------------------------
     def js(self, body: str, timeout: float | None = None) -> list[str]:
-        """执行一段 JS, 返回它追加进 sb 的行 (文件通道)."""
-        timeout = timeout or self.js_timeout
-        tok = uuid.uuid4().hex[:12]
-        res = "res-%s.txt" % tok
-        path = os.path.join(DATA, res)
-        script = (
-            "var sb = new java.lang.StringBuilder();"
-            " try { (function(){ " + " ".join(body.splitlines()) + " })(); }"
-            " catch (e) { sb.append('ERR\t' + e); }"
-            " var __w = new java.io.PrintWriter('%s', 'UTF-8');"
-            " __w.print(sb.toString()); __w.close();" % res
-        )
-        with self._lock:
-            seq0 = self.seq
-            self.send("js " + " ".join(script.splitlines()))
-            deadline = time.time() + timeout
-            while time.time() < deadline:
-                if os.path.exists(path):
-                    for _ in range(20):     # 写完 -> 可读, 极少需要重试
-                        try:
-                            with open(path, "r", encoding="utf-8") as f:
-                                text = f.read()
-                            break
-                        except Exception:
-                            time.sleep(0.02)
-                    else:
-                        text = ""
-                    try:
-                        os.remove(path)
-                    except Exception:
-                        pass
-                    if text.startswith("ERR\t") and "\n" not in text:
-                        raise RuntimeError(text[4:])
-                    return text.splitlines()
-                time.sleep(0.02)
-            with self._cv:
-                tail = [ln for (s, ln) in self.lines if s > seq0][-12:]
-        raise RuntimeError("js 超时 (%.0fs): %s" % (timeout, " | ".join(tail)))
+        return self._channel.js(body, timeout)
 
-    # ---- 文件通道 (避免把任意文本塞进 JS 字符串) ----------------------
-    def put_file(self, text: str, prefix: str = "in") -> str:
-        name = "%s-%s.txt" % (prefix, uuid.uuid4().hex[:12])
-        with open(os.path.join(DATA, name), "w", encoding="utf-8", newline="") as fh:
-            fh.write(text)
-        return name
+    def put_file(self, text: str, prefix: str = 'in') -> str:
+        return self._channel.put_file(text, prefix)
 
     def take_file(self, name: str, timeout: float = 10.0) -> str:
-        path = os.path.join(DATA, name)
-        deadline = time.time() + timeout
-        while time.time() < deadline:
-            if os.path.exists(path):
-                for _ in range(50):
-                    try:
-                        with open(path, "r", encoding="utf-8") as fh:
-                            text = fh.read()
-                        try:
-                            os.remove(path)
-                        except Exception:
-                            pass
-                        return text
-                    except Exception:
-                        time.sleep(0.02)
-            time.sleep(0.02)
-        raise RuntimeError("读不到 JS 输出文件 %s" % name)
+        return self._channel.take_file(name, timeout)
 
     # ---- 启动链 -----------------------------------------------------
     def _boot(self, host: bool, paused: bool, server_name: str | None):
@@ -363,162 +268,15 @@ class World:
             self.console("pause on", quiet=0.2, timeout=4)
 
     def _wait(self, needle: str, timeout: float) -> list[str]:
-        deadline = time.time() + timeout
-        while time.time() < deadline:
-            with self._cv:
-                self._cv.wait(0.05)
-                hit = [ln for (_, ln) in self.lines if needle in ln]
-            if hit:
-                return hit
-            if self.eof:
-                raise SystemExit("服务端提前退出, 见 " + LOG)
-        raise SystemExit("等 %.0fs 没等到 %r, 见 %s" % (timeout, needle, LOG))
-
-    # ---- 结束 -------------------------------------------------------
-    def close(self, force: bool = False):
-        try:
-            if self.proc and self.proc.poll() is None:
-                if not force:
-                    try:
-                        self.send("exit")
-                    except Exception:
-                        pass
-                    for _ in range(60):
-                        if self.proc.poll() is not None:
-                            break
-                        time.sleep(0.05)
-                if self.proc.poll() is None:
-                    self.proc.kill()
-        except Exception:
-            pass
-        try:
-            self._logf.close()
-        except Exception:
-            pass
-
+        return self.wait_for(needle, timeout)
 
 # ---- JS 转储 ---------------------------------------------------------
-def switch_map(w, target: str, audit) -> dict:
-    """换图但不踢人: nextmap 只登记下一张图, gameover 触发 loadMap;
-    NetServer 的连接表不动, 客户端自己重载新地图。"""
-    before = None
-    try:
-        before = float((w.js("sb.append(Vars.state.tick);") or ["0"])[0])
-    except Exception:
-        pass
-    audit("switch", map=target)
-    out1 = w.console("nextmap " + target, quiet=0.4, timeout=15)
-    out2 = w.console("gameover", quiet=0.6, timeout=30)
-    deadline = time.time() + 45
-    loaded = False
-    while time.time() < deadline:
-        time.sleep(0.5)
-        try:
-            tick = float((w.js("sb.append(Vars.state.tick);") or ["0"])[0])
-        except Exception:
-            continue
-        if before is None or tick < before:
-            loaded = True
-            break
-    if not loaded:
-        return {"ok": False, "error": "map did not reload",
-                "nextmap": out1.get("lines"), "gameover": out2.get("lines")}
-    try:
-        w.js("var r=Vars.state.rules; r.waves=false; r.infiniteResources=true; "
-             "r.canGameOver=false; r.logicUnitControl=true; sb.append(r.waves);")
-    except Exception:
-        pass
-    try:
-        w.map_name = w.js("sb.append(Vars.state.map.name());")[0]
-    except Exception:
-        w.map_name = target
-    st = w.js(STATUS_JS)
-    players = next((ln.split("=", 1)[1] for ln in st if ln.startswith("players=")), None)
-    return {"ok": True, "map": w.map_name, "players": coerce(players)}
 
 
-STATUS_JS = r"""
-var put=function(k,v){ sb.append(k).append('=').append(v).append('\n'); };
-put('map', Vars.state.map.name());
-put('mode', Vars.state.rules.mode().name());
-put('wave', Vars.state.wave);
-put('tick', Vars.state.tick);
-put('w', Vars.world.width());
-put('h', Vars.world.height());
-put('players', Packages.mindustry.gen.Groups.player.size());
-put('units', Packages.mindustry.gen.Groups.unit.size());
-put('builds', Packages.mindustry.gen.Groups.build.size());
-try{ put('paused', Vars.state.isPaused()?1:0); }catch(e){ put('paused', '?'); }
-try{ put('infinite', Vars.state.rules.infiniteResources?1:0); }catch(e){ put('infinite', '?'); }
-try{ put('waveIn', Math.round(Vars.state.wavetime/60)); }catch(e){ put('waveIn', '?'); }
-"""
-
-PLAYERS_JS = r"""
-var G=Packages.mindustry.gen.Groups.player;
-for(var i=0;i<G.size();i++){
-  var p=G.index(i); if(p==null) continue;
-  sb.append(p.name).append('\t').append(p.team.name).append('\t')
-    .append(Math.round(p.x/8)).append('\t').append(Math.round(p.y/8)).append('\t')
-    .append(p.admin?'1':'0').append('\n');
-}
-"""
-
-UNITS_JS = r"""
-var G=Packages.mindustry.gen.Groups.unit, n=0, lim=%(limit)d, R=%(R)f, CX=%(CX)f, CY=%(CY)f;
-var TF=%(team)s, YF=%(type)s;
-for(var i=0;i<G.size();i++){
-  var u=G.index(i); if(u==null||!u.isValid()) continue;
-  if(TF!=null && u.team.name!=TF) continue;
-  if(YF!=null && u.type.name!=YF) continue;
-  if(R>0){ var dx=u.x/8-CX, dy=u.y/8-CY; if(dx*dx+dy*dy>R*R) continue; }
-  var ctl='-'; try{ var c=u.controller(); if(c!=null) ctl=c.getClass().getSimpleName(); }catch(e){ ctl='?'; }
-  var dead='?'; try{ dead = u.dead?1:0; }catch(e){ try{ dead = u.dead()?1:0; }catch(e2){} }
-  var item='-', carry=-1, capu=-1, elev=-1, ctlTick=-1, flag=0, ctrl=-1, mine=0, boost=0;
-  try{ item = u.stack.item==null ? '-' : u.stack.item.name; carry = u.stack.amount; }catch(e){}
-  try{ capu = u.type.itemCapacity; }catch(e){}
-  try{ elev = Math.round(u.elevation*100)/100; }catch(e){}
-  try{ var cc = u.controller(); if(cc instanceof Packages.mindustry.ai.types.LogicAI) ctlTick = cc.controlTimer; }catch(e){}
-  try{ flag = u.flag; }catch(e){}
-  try{ ctrl = u.sense(Packages.mindustry.logic.LAccess.controlled); }catch(e){}
-  try{ mine = u.mineTile==null ? 0 : 1; }catch(e){}
-  try{ boost = (u.type.canBoost && u.elevation > 0.09) ? 1 : 0; }catch(e){}
-  sb.append(u.id).append('\t').append(u.type.name).append('\t').append(u.team.name).append('\t')
-    .append(Math.round(u.x/8)).append('\t').append(Math.round(u.y/8)).append('\t')
-    .append(Math.round(u.health)).append('\t').append(Math.round(u.type.health)).append('\t')
-    .append(dead).append('\t').append(ctl).append('\t')
-    .append(item).append('\t').append(carry).append('\t').append(capu).append('\t')
-    .append(elev).append('\t').append(ctlTick).append('\t')
-    .append(flag).append('\t').append(ctrl).append('\t').append(mine).append('\t').append(boost).append('\n');
-  if(++n>=lim) break;
-}
-if(n>=lim) sb.append('TRUNC\t').append(lim).append('\n');
-"""
 
 
-UNIT_JS = r"""
-var u = Packages.mindustry.gen.Groups.unit.getByID(%(id)d);
-if(u==null || !u.isValid()){ sb.append('ERR\tno unit id %(id)d'); }
-else {
-  var put=function(k,v){ sb.append(k).append('=').append(v).append('\n'); };
-  put('id', u.id); put('type', u.type.name); put('team', u.team.name);
-  put('tx', Math.round(u.x/8)); put('ty', Math.round(u.y/8));
-  put('wx', Math.round(u.x*10)/10); put('wy', Math.round(u.y*10)/10);
-  put('health', Math.round(u.health)); put('maxHealth', Math.round(u.type.health));
-  put('dead', u.dead?1:0);
-  try{ var c=u.controller(); put('controller', c==null?'-':c.getClass().getSimpleName()); }catch(e){ put('controller','?'); }
-  try{ put('flag', u.flag); }catch(e){ put('flag','?'); }
-  try{ put('controlled', u.sense(Packages.mindustry.logic.LAccess.controlled)); }catch(e){ put('controlled','?'); }
-  try{ put('item', u.stack.item==null?'-':u.stack.item.name); put('carry', u.stack.amount); }catch(e){}
-  try{ put('itemCapacity', u.type.itemCapacity); }catch(e){}
-  try{ put('elevation', Math.round(u.elevation*100)/100); }catch(e){}
-  try{ put('boosting', (u.type.canBoost && u.elevation>0.09)?1:0); }catch(e){}
-  try{ put('mining', u.mineTile==null?0:1); if(u.mineTile!=null){ put('mineTile', u.mineTile.x+','+u.mineTile.y); } }catch(e){}
-  try{ put('shooting', u.isShooting?1:0); }catch(e){}
-  try{ put('speed', Math.round(u.speed()*100)/100); }catch(e){}
-  try{ var cc=u.controller(); if(cc instanceof Packages.mindustry.ai.types.LogicAI){ put('controlTimer', cc.controlTimer); } }catch(e){}
-  try{ put('rangeTiles', Math.round(u.range()/8*10)/10); }catch(e){}
-}
-"""
+
+
 
 
 EV_INSTALL_JS = r"""
@@ -692,27 +450,6 @@ if(typeof _evlog === 'undefined'){
 """
 
 
-DOOR_ACT_JS = r"""
-/* 门的动作本体. 由 TapEvent 监听调用, 也供 door_enter 直接触发(没有玩家时也能测) */
-/* 注意: 这里必须用隐式全局赋值, 不能写 var —— Java 侧每次 eval 是独立作用域,
-   var 声明的名字出不了这次调用(实测 typeof _doorAct == 'undefined') */
-_doorAct = function(pl, dx, dy){
-  var d = _doors[dx + ',' + dy];
-  if(d == null) return 'nodoor';
-  /* 场景先铺: 即使没有玩家(合成点击/自测)也让世界变成"那个世界" */
-  if(d.scene != null){
-    try{ eval(_doorjs[dx + ',' + dy]); _doorerr = 'ok'; }catch(e7){ _doorerr = String(e7); }
-  }
-  /* 只有一种门: watch. 点一下 = 打开这扇门后面的仿真投影.
-     开局投影本身(读 feed 文件)是 Python 侧的后台线程, 这里只留一个"被点了"的凭据,
-     由 projection_director 取走 —— Java 侧不能回调 Python. */
-  if(d.kind == 'watch'){
-    _doorHits.push(dx + ',' + dy);
-    return 'watch';
-  }
-  return 'noop';
-};
-"""
 
 
 MK_INSTALL_JS = r"""
@@ -876,203 +613,13 @@ sb.append('CLEARED\t').append(nc);
 # ------------------------------------------------------
 # 和 MK_INSTALL_JS(跟随真单位) 的区别: 这里的坐标来自 mlogsim / 脚本 / push 文件,
 # 所以可以画"仿真的影子"——单位在真世界里不动也能看到它们在跑.
-MS_INSTALL_JS = r"""
-/* 每块沙盘一份 marker 空间: 第 sl 号槽占 [6000+sl*400, +400) 的 id 段,
-   互不覆盖. 之前所有投影共用 base=6000, 后开始的那块沙盘会把前面那块
-   的图标原地改写 —— 看起来就是"marker 冲突". */
-if(typeof _ms === 'undefined'){
-  _ms = {slots: {}, size: 16, labels: true, span: 400};
-  _msSlot = function(sl){
-    var k = String(sl | 0);
-    if(_ms.slots[k] == null){
-      _ms.slots[k] = {base: 6000 + (sl | 0) * _ms.span, n: 0, ids: {}, txt: {}};
-    }
-    return _ms.slots[k];
-  };
-  _msCol = function(c){
-    if(c == 1) return [0.35, 1, 1];    /* 逻辑控 = 青 */
-    if(c == 2) return [1, 0.9, 0.45];  /* 玩家   = 黄 */
-    return [1, 1, 1];                  /* 自由   = 白 */
-  };
-  _msIcon = function(mid, x, y, ty, w, tint, rot){
-    var C = Packages.mindustry.gen.Call;
-    var tm = new Packages.mindustry.game.MapObjectives$TextureMarker();
-    tm.pos = new Packages.arc.math.geom.Vec2(x, y);
-    tm.texture = new Packages.mindustry.game.MapObjectives$TextureHolder();
-    /* 单位 rotation 0 指向 +x, 而精灵本身"朝上", 所以贴图要减 90 */
-    tm.width = w; tm.height = w; tm.rotation = (rot == null ? 0 : rot - 90); tm.autoscale = false;
-    if(tint != null) tm.color = new Packages.arc.graphics.Color(tint[0], tint[1], tint[2], 1);
-    tm.world = 1; tm.minimap = -1; tm.light = -1;
-    try{ C.removeMarker(mid); }catch(e0){}
-    C.createMarker(mid, tm);
-    /* 贴图值必须是内容对象(UnitType): 与 vanilla 的 setmarker texture 存的是同一类型;
-       字符串也能显示, 但换兵种/换图标全靠这个对象 */
-    var c = null; try{ c = Vars.content.unit(ty); }catch(e1){}
-    C.updateMarkerTexture(mid, c == null ? ty : c);
-  };
-  _msText = function(tid, x, y, s, sz){
-    var C = Packages.mindustry.gen.Call;
-    var t = new Packages.mindustry.game.MapObjectives$TextMarker();
-    t.pos = new Packages.arc.math.geom.Vec2(x, y); t.text = s; t.fontSize = sz;
-    /* Align 是位掩码: center=1 top=2 bottom=4 left=8 right=16; 单位头顶那行居中 */
-    t.flags = 0; t.textAlign = 1; t.lineAlign = 2;
-    t.world = 1; t.minimap = -1; t.light = -1;
-    try{ C.removeMarker(tid); }catch(e2){}
-    C.createMarker(tid, t);
-  };
-  /* txt = JSON: [{"type":"poly","x":464,"y":544,"amount":30,"ctrl":1}, ...]
-     x/y 是**世界坐标**; 想按格给就写 tx/ty, 这里乘 8 */
-  _msApply = function(sl, txt){
-    var C = Packages.mindustry.gen.Call;
-    var LC = Packages.mindustry.logic.LMarkerControl;
-    var S = _msSlot(sl);
-    var arr = JSON.parse(String(txt));
-    var n = arr.length;
-    for(var i = 0; i < n; i++){
-      var e = arr[i], ctrl = e.ctrl | 0, col = _msCol(ctrl);
-      /* 坐标一律按格给(tiles). 注意两条通道量纲不同:
-         createMarker 直接写 pos 字段 -> 世界单位;
-         updateMarker(pos) 走 PosMarker.control -> 内部 *tilesize, 所以要给格 */
-      var gx = (e.x != null ? e.x : e.tx), gy = (e.y != null ? e.y : e.ty);
-      var x = gx * 8, y = gy * 8;
-      var ty = String(e.type), mid = S.base + i * 2, tid = mid + 1;
-      var prev = S.ids[i];
-      var rot = (e.rot == null ? null : e.rot);
-      if(prev == null || prev.ty != ty || prev.size != _ms.size || prev.ctrl != ctrl){
-        _msIcon(mid, x, y, ty, _ms.size, col, rot);
-        S.ids[i] = {ty: ty, size: _ms.size, ctrl: ctrl, rot: rot};
-      }else{
-        C.updateMarker(mid, LC.pos, gx, gy, 0);
-        /* 朝向要在已有 marker 上改: rotation 走 control(), 单位是度, 不乘 tilesize */
-        if(rot != null && prev.rot != rot){
-          C.updateMarker(mid, LC.rotation, rot - 90, 0, 0);
-          prev.rot = rot;
-        }
-      }
-      if(_ms.labels){
-        /* 头顶那行: 兵种 + 携带的物品名 + 数量, 例如 "poly copper x12" */
-        var s = ty + (e.item ? (' ' + e.item) : '') + ((e.amount | 0) > 0 ? (' x' + (e.amount | 0)) : '');
-        var pt = S.txt[i];
-        if(pt == null || pt.s != s){ _msText(tid, x, y + 14, s, 1.1); S.txt[i] = {s: s}; }
-        else{ C.updateMarker(tid, LC.pos, gx, gy + 1.75, 0); }
-      }
-    }
-    for(var j = n; j < S.n; j++){
-      try{ C.removeMarker(S.base + j * 2); }catch(e3){}
-      try{ C.removeMarker(S.base + j * 2 + 1); }catch(e4){}
-      delete S.ids[j]; delete S.txt[j];
-    }
-    S.n = n;
-    return n;
-  };
-  sb.append('MSINSTALLED');
-}else{
-  /* 已经在跑: 兼容旧结构(没有 slots 的), 补上就行 */
-  if(_ms.slots == null){ _ms.slots = {}; _ms.span = 400; }
-  sb.append('MSALREADY');
-}
-"""
 
-MS_APPLY_JS = r"""
-var txt = new java.lang.String(Packages.java.util.Base64.getDecoder().decode('%(b64)s'), 'UTF-8');
-sb.append(_msApply(%(slot)d, String(txt)));
-"""
 
-MS_CLEAR_JS = r"""
-/* 清掉某个槽(或全部)的状态镜 marker(图标 + 头顶文字).
-   按固定窗口扫, 不只按 n: 守护进程重启过 / 上一步崩在半路时,
-   n 可能是 0 而屏幕上还留着上一次的图标(实测踩过).
-   槽之间 id 段不重叠, 所以清一块沙盘不会碰别的沙盘. */
-var C = Packages.mindustry.gen.Call;
-var want = %(slot)s, gone = 0;
-var ks = [];
-if(want == null){ for(var k0 in _ms.slots){ if(_ms.slots.hasOwnProperty(k0)){ ks.push(k0); } } }
-else { ks.push(String(want)); }
-for(var ki = 0; ki < ks.length; ki++){
-  var S2 = _ms.slots[ks[ki]];
-  if(S2 == null){ continue; }
-  var lim = (S2.n > 64 ? S2.n : 64);
-  for(var i = 0; i < lim; i++){
-    try{ C.removeMarker(S2.base + i * 2); gone++; }catch(e0){}
-    try{ C.removeMarker(S2.base + i * 2 + 1); }catch(e1){}
-  }
-  S2.n = 0; S2.ids = {}; S2.txt = {};
-  delete _ms.slots[ks[ki]];
-}
-sb.append(gone);
-"""
 
-SB_INSTALL_JS = r"""
-/* 每块沙盘一块"文本日志板": 在格子左上角列几行 TextMarker.
-   内容由 Python 侧每轮轮询重写(标题 / feed 新鲜度 / 投影状态 / 建筑数 / 单位数 /
-   最近几条事件), 所以世界里能直接看到调用日志, 不用切回聊天栏.
-   id 段是 [5000, 6000), 与状态镜的 6000 段、边界框的 7000 段都不重叠. */
-if(typeof _sb === 'undefined'){
-  _sb = {next: 5000, span: 8, slots: {}};
-  /* 上一进程画的板子还留在客户端: 先擦掉, 免得对齐方式/行距改了还显示老样式 */
-  for(var _sk = 5000; _sk < 6000; _sk++){ try{ Packages.mindustry.gen.Call.removeMarker(_sk); }catch(_se){} }
-  _sbSlot = function(sl){
-    var k = String(sl | 0);
-    if(_sb.slots[k] == null){ _sb.slots[k] = {base: 5000 + (sl | 0) * _sb.span}; }
-    return _sb.slots[k];
-  };
-  _sbLine = function(sl, i, gx, gy, s, sz){
-    var C = Packages.mindustry.gen.Call;
-    var LC = Packages.mindustry.logic.LMarkerControl;
-    var S = _sbSlot(sl), id = S.base + i, m = null;
-    try{ m = Vars.state.markers.get(id); }catch(e0){}
-    if(m == null){
-      var t = new Packages.mindustry.game.MapObjectives$TextMarker();
-      t.pos = new Packages.arc.math.geom.Vec2(gx * 8, gy * 8);
-      /* Align 位掩码: left=8, top=2 —— 面板每行从锚点往右写、往下排 */
-      t.text = s; t.fontSize = sz; t.flags = 0; t.textAlign = 8; t.lineAlign = 2;
-      t.world = 1; t.minimap = -1; t.light = -1;
-      C.createMarker(id, t);
-    }else{
-      /* 已有 marker: pos 走 control() 是格; 文字只能走 updateMarkerText
-         (LMarkerControl 里没有 text, 改文字用 flushText) */
-      C.updateMarker(id, LC.pos, gx, gy, 0);
-      C.updateMarker(id, LC.fontSize, sz, 0, 0);
-      C.updateMarkerText(id, LC.flushText, true, s);
-    }
-  };
-  _sbSet = function(sl, gx, gy, txt, sz){
-    var arr = JSON.parse(String(txt)), i;
-    for(i = 0; i < arr.length && i < 8; i++){
-      _sbLine(sl, i, gx, gy - i * 0.95, String(arr[i]), sz);
-    }
-    var S = _sbSlot(sl);
-    for(i = arr.length; i < 8; i++){
-      try{ Packages.mindustry.gen.Call.removeMarker(S.base + i); }catch(e1){}
-    }
-    return arr.length;
-  };
-  /* 从文件读面板文本再刷: 控制台的 js 行会把参数里的字符串字面量弄坏,
-     所以文本一律走文件(DATA/sb<slot>.txt = java cwd), 只传数字. */
-  _sbSetF = function(sl, gx, gy, sz){
-    var p = Packages.java.nio.file.Path.of('sb' + (sl | 0) + '.txt');
-    var t = String(Packages.java.nio.file.Files.readString(p));
-    return _sbSet(sl, gx, gy, t, sz);
-  };
-  sb.append('SBINSTALLED');
-}else{
-  sb.append('SBALREADY');
-}
-"""
 
 # 文本先由 Python 写进 DATA/sb<slot>.txt, 这里只传数字:
 # 控制台 js 行会破坏参数里的字符串字面量(SyntaxError: Unexpected token).
-SB_SET_JS = r"""
-sb.append(_sbSetF(%(slot)d, %(gx)f, %(gy)f, %(sz)f));
-"""
 
-SB_SWEEP_JS = r"""
-/* 重启后 _sb 是空的, 客户端屏幕上还留着上次进程画的日志板 -> 先把整段清掉 */
-var C = Packages.mindustry.gen.Call, gone = 0;
-for(var i = 5000; i < 6000; i++){ try{ C.removeMarker(i); gone++; }catch(e0){} }
-_sb = {next: 5000, span: 8, slots: {}};
-sb.append(gone);
-"""
 
 
 # 手放一个标记: 点或文字. text 非空时用 TextMarker(点标记 + 一行字)
@@ -1158,40 +705,8 @@ else {
 }
 """
 
-DOOR_SET_JS = r"""
-var dk = %(kind)s, du = %(unit)s, dtx = %(tx)d, dty = %(ty)d, dl = %(label)s;
-var dblk = %(block)s;
-var t = Vars.world.tile(%(x)d, %(y)d);
-if(t == null){ sb.append('ERR\ttile out of bounds'); }
-else {
-  if(dblk != null && dblk != ''){
-    var blk = Vars.content.block(dblk);
-    if(blk == null){ sb.append('ERR\tno such block ').append(dblk); }
-    else { t.setNet(blk, Vars.state.rules.defaultTeam, 0); }
-  }
-  _doors[%(x)d + ',' + %(y)d] = {kind: dk, unit: du, tx: dtx, ty: dty, label: dl, scene: %(hasjs)s};
-  _doorjs[%(x)d + ',' + %(y)d] = %(scenejs)s;
-  if(sb.indexOf('ERR') < 0){ sb.append('OK\t').append(dk).append('\t').append(dtx + ',' + dty); }
-}
-"""
 
-DOORS_JS = r"""
-var nd = 0;
-for(var k in _doors){
-  if(!_doors.hasOwnProperty(k)) continue;
-  var d = _doors[k];
-  sb.append(k).append('\t').append(d.kind).append('\t').append(d.unit)
-    .append('\t').append(d.tx + ',' + d.ty).append('\t').append(d.label).append('\n');
-  nd++;
-}
-sb.append('COUNT\t').append(nd);
-"""
 
-DOOR_HITS_JS = r"""
-/* 取走"刚被点过的门"列表(JSON 数组), 由 Python 的 projection_director 轮询 */
-if(typeof _doorHits === 'undefined'){ sb.append('[]'); }
-else { var a = _doorHits.splice(0, _doorHits.length); sb.append(JSON.stringify(a)); }
-"""
 
 MINE_HITS_JS = r"""
 /* 取走"玩家刚放下的脉冲地雷"列表(JSON 数组), 由 projection_director 轮询 */
@@ -1214,79 +729,9 @@ if(stl == null || stl.block() == null){ sb.append('null'); }
 else { sb.append(String(stl.block().name)); }
 """
 
-FRAME_PAINT_JS = r"""
-/* 用一批小方块 ShapeMarker 沿矩形边画虚线框。不用真地板: 换地板会盖掉玩家
-   自己的染色地板, 而且看起来"没有仿真也有东西"。
-   注意量纲: ShapeMarker.radius 是**世界单位**(Lines.poly 直接吃), 而
-   PointMarker.radius 是**格**(内部 *tilesize, 而且还带 1.67 s 扩散动画)。 */
-if(typeof _fr === 'undefined'){ _fr = {next: 7000, keys: {}}; }
-var fx = %(x)d, fy = %(y)d, fw = %(w)d, fh = %(h)d, fk = %(key)s;
-var step = %(step)d; if(step < 1){ step = 1; }
-var rad = %(radius)s;
-var C = Packages.mindustry.gen.Call;
-var old = _fr.keys[fk];
-if(old != null){
-  for(var oi = 0; oi < old.length; oi++){ try{ C.removeMarker(old[oi]); }catch(e0){} }
-}
-var pts = [], seen = {};
-var addp = function(px, py){
-  var k2 = px + ',' + py;
-  if(seen[k2] != null) return;
-  seen[k2] = 1; pts.push([px, py]);
-};
-for(var ix = 0; ix < fw; ix += step){ addp(fx + ix, fy); addp(fx + ix, fy + fh - 1); }
-for(var iy = 0; iy < fh; iy += step){ addp(fx, fy + iy); addp(fx + fw - 1, fy + iy); }
-addp(fx + fw - 1, fy); addp(fx, fy + fh - 1); addp(fx + fw - 1, fy + fh - 1);
-var ids = [];
-for(var pi = 0; pi < pts.length; pi++){
-  var mid = _fr.next + pi;
-  var pm = new Packages.mindustry.game.MapObjectives$ShapeMarker();
-  pm.pos = new Packages.arc.math.geom.Vec2(pts[pi][0] * 8 + 4, pts[pi][1] * 8 + 4);
-  pm.radius = rad; pm.sides = 4; pm.rotation = 45; pm.fill = true; pm.outline = false;
-  pm.stroke = 1; pm.color = new Packages.arc.graphics.Color(%(r)s, %(g)s, %(b)s, 1);
-  pm.world = 1; pm.minimap = -1; pm.light = -1;
-  try{ C.removeMarker(mid); }catch(e1){}
-  C.createMarker(mid, pm);
-  ids.push(mid);
-}
-_fr.next += pts.length + 4;
-_fr.keys[fk] = ids;
-sb.append('FRAME	').append(fk).append('	').append(ids.length);
-"""
 
-FRAME_CLEAR_JS = r"""
-/* 擦掉边界 marker(只 removeMarker, 不碰地板). key 为空时清掉全部. */
-if(typeof _fr === 'undefined'){ _fr = {next: 7000, keys: {}}; }
-var C = Packages.mindustry.gen.Call;
-var want = %(key)s, n = 0;
-for(var k in _fr.keys){
-  if(!_fr.keys.hasOwnProperty(k)){ continue; }
-  if(want != null && want != '' && k != want){ continue; }
-  var ids2 = _fr.keys[k];
-  for(var i2 = 0; i2 < ids2.length; i2++){ try{ C.removeMarker(ids2[i2]); n++; }catch(e2){} }
-  delete _fr.keys[k];
-}
-sb.append('FRAMECLEAR	').append(n);
-"""
 
-FRAME_SWEEP_JS = r"""
-/* 守护进程重启后 _fr 是空的, 但客户端屏幕上还留着上次画的框:
-  按固定 id 段扫一遍(7000..7999), 保证起来时是干净的. */
-var C = Packages.mindustry.gen.Call;
-var n3 = 0;
-for(var sid = 7000; sid < 8000; sid++){ try{ C.removeMarker(sid); n3++; }catch(e3){} }
-_fr = {next: 7000, keys: {}};
-sb.append('SWEEP	').append(n3);
-"""
 
-FRAME_LIST_JS = r"""
-if(typeof _fr === 'undefined'){ _fr = {next: 7000, keys: {}}; }
-var out2 = [];
-for(var k3 in _fr.keys){
-  if(_fr.keys.hasOwnProperty(k3)){ out2.push(k3 + ':' + _fr.keys[k3].length); }
-}
-sb.append(out2.join(' | '));
-"""
 
 REPLACE_MINE_JS = r"""
 /* 场景的 clear 矩形会把玩家放的地雷抹掉, 这里原样钉回去.
@@ -1319,273 +764,22 @@ for(var di=0;di<pick.length;di++){
 sb.append('DEMOLISH	').append(dn);
 """
 
-DOOR_CLEAR_JS = r"""
-var nc = 0;
-for(var k in _doors){ if(_doors.hasOwnProperty(k)){ delete _doors[k]; nc++; } }
-sb.append('CLEARED\t').append(nc);
-"""
 
-TAPS_JS = r"""
-if(typeof _taplog === 'undefined'){ sb.append('NOSETUP\t0'); }
-else {
-  var tsince = %(since)d, tlim = %(limit)d, tn = 0;
-  for(var ti=0;ti<_taplog.length;ti++){
-    var tln = _taplog[ti];
-    var tq = tln.split('\t');
-    if(tq.length < 2) continue;
-    if(parseInt(tq[1], 10) <= tsince) continue;
-    sb.append(tln).append('\n');
-    if(++tn >= tlim) break;
-  }
-  sb.append('SEQ\t').append(_tapseq);
-}
-"""
 
-TAP_FIRE_JS = r"""
-var fpl = null;
-var fwant = %(who)s;
-for(var fi=0;fi<Groups.player.size();fi++){
-  var fc = Groups.player.index(fi);
-  if(fwant == null || fwant == '' || String(fc.name).indexOf(fwant) >= 0){ fpl = fc; break; }
-}
-var ft = Vars.world.tile(%(x)d, %(y)d);
-if(ft == null){ sb.append('ERR	tile out of bounds'); }
-else {
-  Packages.arc.Events.fire(new Packages.mindustry.game.EventType.TapEvent(fpl, ft));
-  sb.append('FIRED	').append(%(x)d + ',' + %(y)d).append('	').append(fpl == null ? '-' : String(fpl.name));
-}
-"""
 
 DOORS_FILE = os.path.join(DATA, "doors.json")
 MINE_BLOCK = "shock-mine"       # 玩家放下这颗地雷 = 请求投影
 
 
-def door_register(w, x, y, kind="watch", unit="poly", tx=None, ty=None,
-                  label=None, block="shock-mine", scene_path=None, persist=True,
-                  scene_at=None, feed=None):
-    """登记一扇门: 放按钮方块 + 写 _doors 表 + (可选)编译场景 JS 塞进 _doorjs.
-
-    scene_at 给了就按那一点为中心铺场景 (默认 = 门自己), 这样地雷就是圆心.
-    """
-    tx = x if tx is None else int(tx)
-    ty = y if ty is None else int(ty)
-    label = str(label or kind)
-    scene_js = None
-    shift = [0.0, 0.0]
-    if scene_path:
-        import scene as scene_mod
-        sc = scene_mod.load(str(scene_path))
-        want = scene_at or [int(x), int(y)]
-        scene_js, _dx, _dy = scene_mod.world_js(sc, at=want)
-        shift = [float(_dx), float(_dy)]
-    out = w.js(DOOR_SET_JS % {"x": int(x), "y": int(y), "kind": json.dumps(str(kind)),
-                              "unit": json.dumps(str(unit)), "tx": int(tx), "ty": int(ty),
-                              "label": json.dumps(label),
-                              "block": json.dumps(str(block)),
-                              "hasjs": "null" if scene_js is None else "true",
-                              "scenejs": "null" if scene_js is None else json.dumps(scene_js)})
-    if not out:
-        raise RuntimeError("no output")
-    if out[0].startswith("ERR"):
-        raise RuntimeError(out[0][4:])
-    if persist:
-        rows = []
-        try:
-            with open(DOORS_FILE, "r", encoding="utf-8") as fh:
-                rows = json.load(fh)
-        except Exception:
-            rows = []
-        key = "%d,%d" % (int(x), int(y))
-        rows = [r0 for r0 in rows if "%s,%s" % (r0.get("x"), r0.get("y")) != key]
-        rows.append({"x": int(x), "y": int(y), "kind": str(kind), "unit": str(unit),
-                     "tx": int(tx), "ty": int(ty), "label": label,
-                     "block": str(block), "scene": scene_path, "feed": feed,
-                     "scene_at": (list(scene_at) if scene_at else None),
-                     "shift": shift})
-        with open(DOORS_FILE, "w", encoding="utf-8") as fh:
-            json.dump(rows, fh, ensure_ascii=False, indent=2)
-    meta = {"kind": str(kind), "unit": str(unit), "block": str(block),
-            "scene": scene_path, "feed": feed, "shift": shift,
-            "scene_at": (list(scene_at) if scene_at else [int(x), int(y)])}
-    if not hasattr(w, "_doors_meta"):
-        w._doors_meta = {}
-    w._doors_meta["%d,%d" % (int(x), int(y))] = meta
-    return {"tile": "%d,%d" % (int(x), int(y)), "kind": str(kind),
-            "unit": str(unit), "target": [int(tx), int(ty)], "label": label}
 
 
-def _mirror_slot(w, slot):
-    """一块沙盘 = 一个槽: 自己的 feed / 偏移 / 代次 / marker id 段."""
-    if not hasattr(w, "_mirrors"):
-        w._mirrors = {}
-    k = int(slot)
-    st = w._mirrors.get(k)
-    if st is None:
-        st = {"feed": None, "off": (0.0, 0.0), "seq": 0, "thread": None}
-        w._mirrors[k] = st
-    return st
 
 
-def mirror_push(w, units, dx=0.0, dy=0.0, gen=None, slot=0):
-    """把一组 {type,x,y,amount,ctrl} 画成世界 marker（只画在 slot 自己的 id 段里）.
-
-    dx/dy 是按格算的整体偏移: 仿真世界和真世界坐标系不同, 用它把图标挪到
-    玩家当前看的地方 (1 格 = 8 wu).
-
-    gen 是调用方看到的代次: 投影结束时 mirror_stop 会把该槽的 seq 加一,
-    于是"清理前就已经在路上的那一帧"会被丢掉, 否则它会抢在清理之后把图标
-    又画回来 (实测过: 拆雷后 marker 还剩 16 个).
-    多块沙盘并行时各自用不同的 slot, marker id 段互不重叠 —— 不会互相覆盖.
-    """
-    st = _mirror_slot(w, slot)
-    if gen is not None and gen != st.get("seq", 0):
-        return {"ok": False, "error": "mirror stopped"}
-    # units 里的 x/y 是格(tiles); 仿真侧就在 push 时除过 8 了
-    if dx or dy:
-        units = [dict(u, x=float(u.get("x", 0)) + dx, y=float(u.get("y", 0)) + dy)
-                 if isinstance(u, dict) else u for u in units]
-    txt = json.dumps(units, ensure_ascii=False)
-    b64 = base64.b64encode(txt.encode("utf-8")).decode("ascii")
-    out = w.js(MS_INSTALL_JS)
-    if out and str(out[0]).startswith("ERR"):
-        return {"ok": False, "error": str(out[0][4:])}
-    if gen is not None and gen != st.get("seq", 0):
-        return {"ok": False, "error": "mirror stopped"}
-    res = w.js(MS_APPLY_JS % {"b64": b64, "slot": int(slot)})
-    if not res:
-        return {"ok": False, "error": "no output"}
-    if str(res[0]).startswith("ERR"):
-        return {"ok": False, "error": str(res[0][4:])}
-    return {"ok": True, "count": int(float(res[0])) if str(res[0]).strip() else len(units)}
 
 
-def mirror_watch(w, path, slot=0, dx=0.0, dy=0.0, cell=None):
-    """后台线程: 盯着 push 文件, 内容一变就把整张表应用到世界（该槽的 id 段）.
-
-    mlogsim --push 每 N tick 覆写这个文件; 服务端在这里读, 所以仿真进程
-    不需要知道 apiPort/协议, 两边只靠一个文件解耦 (OneDrive 目录下也行).
-    """
-    st = _mirror_slot(w, slot)
-    mirror_stop(w, slot)
-    st["feed"] = str(path)
-    st["off"] = (float(dx), float(dy))
-    # cell = 这块沙盘的场景锚点(格心). feed 自己带 anchor(仿真场景锚点)时,
-    # 偏移要用 "格心 - 仿真锚点" 现算: 仿真世界和真世界的原点并不一致.
-    st["cell"] = (float(cell[0]), float(cell[1])) if cell else None
-    my_gen = int(st.get("seq", 0))
-    if int(slot) == 0:
-        w.mirror_feed = str(path)
-        w.mirror_off = st["off"]
-    last = None
-
-    def loop():
-        nonlocal last
-        # 该槽的 feed 被清空/换路径/代次变了, 线程自己退出
-        while st.get("feed") == str(path) and st.get("seq", 0) == my_gen:
-            time.sleep(0.12)
-            try:
-                fst = os.stat(path)
-                stamp = (fst.st_mtime_ns, fst.st_size)
-                if stamp == last:
-                    continue
-                last = stamp
-                with open(path, "r", encoding="utf-8") as fh:
-                    txt = fh.read().strip()
-                if not txt:
-                    continue
-                # 写端是直接覆写, 抽到的可能是半截 JSON: 就地重试几次, 抽不到就等下一拍
-                units = None
-                for _try in range(4):
-                    try:
-                        units = json.loads(txt)
-                        break
-                    except ValueError:
-                        time.sleep(0.02)
-                        try:
-                            with open(path, "r", encoding="utf-8") as fh:
-                                txt = fh.read().strip()
-                        except OSError:
-                            break
-                if units is None:
-                    last = None
-                    continue
-                # 新格式是 {world:[w,h], units:[...]}: world 让沙盘画出仿真世界边界
-                if isinstance(units, dict):
-                    wsize = units.get("world")
-                    st["world"] = list(wsize) if wsize else None
-                    wanc = units.get("anchor")
-                    st["feed_anchor"] = list(wanc) if wanc else None
-                    units = units.get("units") or []
-                dxs, dys = st.get("off", (0.0, 0.0))
-                fa, cl = st.get("feed_anchor"), st.get("cell")
-                if fa and cl:
-                    # 仿真坐标以它自己场景的锚点为基准: 换到真世界要减掉它再加格心
-                    dxs, dys = float(cl[0]) - float(fa[0]), float(cl[1]) - float(fa[1])
-                r = mirror_push(w, units, dxs, dys, gen=my_gen, slot=slot)
-                if not r.get("ok"):
-                    print("[warn] 状态镜推送失败 (slot %d): %s" % (slot, r.get("error")),
-                          flush=True)
-                    last = None
-            except FileNotFoundError:
-                continue
-            except Exception as exc:  # noqa: BLE001
-                now = time.time()
-                if now - getattr(w, "_mirror_warn_at", 0) > 30:
-                    w._mirror_warn_at = now
-                    print("[warn] 状态镜读取失败: %s" % exc, flush=True)
-                last = None
-
-    th = threading.Thread(target=loop, name="mirror-%d" % int(slot), daemon=True)
-    st["thread"] = th
-    th.start()
 
 
-def mirror_stop(w, slot=None):
-    """停掉盯文件的线程并清空该槽的 marker(含"已上路的那一帧").
 
-    slot=None 表示全部(老接口 mirror_clear 用).
-    """
-    if slot is None:
-        keys = sorted(getattr(w, "_mirrors", {}).keys())
-    else:
-        keys = [int(slot)]
-    for k in keys:
-        st = _mirror_slot(w, k)
-        st["feed"] = None
-        st["seq"] = int(st.get("seq", 0)) + 1
-    if int(slot or 0) == 0 and slot is not None:
-        w.mirror_feed = None
-    n = 0
-    for attempt in (0, 1):
-        for k in keys:
-            try:
-                out = w.js(MS_CLEAR_JS % {"slot": int(k)})
-                n += int(float(out[0])) if out else 0
-            except Exception:  # noqa: BLE001 - 停线程比清屏重要
-                pass
-        if attempt == 0:
-            time.sleep(0.2)   # 给"已经在半路的"那一帧落地时间, 再清一遍
-    return n
-
-
-def door_reload(w):
-    """守护进程启动后把 doors.json 里的门重新登记一遍(场景 JSON 也会重新编译)."""
-    try:
-        with open(DOORS_FILE, "r", encoding="utf-8") as fh:
-            rows = json.load(fh)
-    except Exception:
-        return 0
-    n = 0
-    for r0 in rows:
-        try:
-            door_register(w, r0["x"], r0["y"], r0.get("kind") or "possess",
-                          r0.get("unit") or "poly", r0.get("tx"), r0.get("ty"),
-                          r0.get("label"), r0.get("block") or "shock-mine",
-                          r0.get("scene"), persist=False)
-            n += 1
-        except Exception as exc:
-            print("[warn] 门 %s,%s 重装失败: %s" % (r0.get("x"), r0.get("y"), exc), flush=True)
-    return n
 
 
 
@@ -1615,6 +809,17 @@ sb.append(fx).append(',').append(fy);
 """
 
 
+def door_register(w, x, y, kind="watch", unit="poly", tx=None, ty=None,
+                  label=None, block="shock-mine", scene_path=None, persist=True,
+                  scene_at=None, feed=None):
+    return _door_registry.door_register(w, x, y, kind, unit, tx, ty, label, block,
+                                       scene_path, persist, scene_at, feed, doors_file=DOORS_FILE)
+
+
+def door_reload(w):
+    return _door_registry.door_reload(w, doors_file=DOORS_FILE)
+
+
 def find_free_tile(w, near, lim=10):
     """Spiral out from *near* until a tile with no block on it shows up."""
     out = w.js(FREE_TILE_JS % {"cx": int(near[0]), "cy": int(near[1]), "lim": int(lim)})
@@ -1630,358 +835,49 @@ def find_free_tile(w, near, lim=10):
     return [x, y]
 
 
-def feed_age(path):
-    """Seconds since the feed file was last written; None if it is not there."""
-    try:
-        return max(0.0, time.time() - os.stat(path).st_mtime)
-    except OSError:
-        return None
 
 
-FRAME_COLOR = (1.0, 0.82, 0.35)
 # 第二个框（按 feed 里单位实际坐标算出来的外接框）用的颜色: 青色，和落雷框区分开
-LIVE_COLOR = (0.35, 0.95, 0.95)
 # 边界框只在「仿真 feed 还新鲜」的时候画出来: 没跑仿真时满屏框只会让人困惑
-FRAME_LIVE_MAX = 10.0
 
 
-def feed_world(path):
-    """读一条 feed 里带的"模拟器世界尺寸" [w, h]（老格式没有就返回 None）。"""
-    if not path:
-        return None
-    try:
-        with open(path, "r", encoding="utf-8") as fh:
-            data = json.load(fh)
-    except Exception:  # noqa: BLE001
-        return None
-    if isinstance(data, dict):
-        ws = data.get("world")
-        if ws:
-            try:
-                return [int(float(ws[0])), int(float(ws[1]))]
-            except Exception:  # noqa: BLE001
-                return None
-    return None
 
 
-def feed_anchor(path):
-    """读 feed 里带的仿真场景锚点(格); 老格式/没有返回 None."""
-    if not path:
-        return None
-    try:
-        with open(path, "r", encoding="utf-8") as fh:
-            rows = json.load(fh)
-    except Exception:  # noqa: BLE001
-        return None
-    if isinstance(rows, dict) and rows.get("anchor"):
-        try:
-            return [float(rows["anchor"][0]), float(rows["anchor"][1])]
-        except Exception:  # noqa: BLE001
-            return None
-    return None
 
 
-def feed_scene(path):
-    """读 feed 里带的场景出处 {"path", "label"}; 老格式/没有返回 None.
-
-    `mlogsim --scene X --push F` 会把 X 的绝对路径和场景名写进 F。这样世界侧
-    只拿一条 feed 也能把建筑一起复刻出来，不必用 --watch-scene 再指一遍同一张
-    场景 —— 少了这个，feed 只够画单位影子，框/雷/日志板全都起不来。
-    """
-    if not path:
-        return None
-    try:
-        with open(path, "r", encoding="utf-8") as fh:
-            data = json.load(fh)
-    except Exception:  # noqa: BLE001
-        return None
-    if not isinstance(data, dict):
-        return None
-    sc = data.get("scene")
-    if not sc:
-        return None
-    sc = str(sc)
-    if not os.path.isfile(sc):
-        return None
-    return {"path": sc, "label": str(data.get("label") or "") or None}
 
 
-def feed_bbox(path, pad=2):
-    """读一条 feed，返回里面所有单位的外接矩形 [x, y, w, h]（世界格，含 pad）。
-
-    场景 JSON 的 frame 只是「在哪放雷」的选区，单位实际会跑去矿区/核心/容器，
-    所以「这个仿真的边界」只能按真实坐标算。读不到返回 None。
-    """
-    if not path:
-        return None
-    try:
-        with open(path, "r", encoding="utf-8") as fh:
-            rows = json.load(fh)
-    except Exception:  # noqa: BLE001
-        return None
-    if isinstance(rows, dict):
-        rows = rows.get("units") or []
-    xs, ys = [], []
-    for e in (rows or []):
-        if not isinstance(e, dict):
-            continue
-        try:
-            mx = e.get("x") if e.get("x") is not None else e.get("tx")
-            my = e.get("y") if e.get("y") is not None else e.get("ty")
-            xs.append(float(mx))
-            ys.append(float(my))
-        except Exception:  # noqa: BLE001
-            continue
-    if not xs:
-        return None
-    x0, y0 = int(math.floor(min(xs))) - int(pad), int(math.floor(min(ys))) - int(pad)
-    x1, y1 = int(math.ceil(max(xs))) + int(pad), int(math.ceil(max(ys))) + int(pad)
-    return [x0, y0, max(1, x1 - x0), max(1, y1 - y0)]
 
 
 # ---------------------------------------------------------------- 沙盘日志板
 # 世界里每块沙盘左上角都用 TextMarker 列一块小面板: 标题 / feed 新鲜度 / 投影状态 /
 # 单位数 / 最近几条事件. 这样"沙盘在干什么"不用切回聊天栏看.
-SB_BASE = 5000
-SB_SPAN = 8            # 每块沙盘占 8 个 id
-SB_MAX_LINES = 8
-SB_FONT = 0.9
-SB_EVENTS = 3          # 面板上留几行事件
-
-
-def _sb_store(w):
-    st = getattr(w, "_sb_log", None)
-    if st is None:
-        st = {}
-        w._sb_log = st
-    return st
-
-
-def sb_event(w, slot, msg, keep=SB_EVENTS):
-    """往某块沙盘的日志板尾追加一行(ASCII, 中文在逻辑字体里画不出来)."""
-    slot = int(slot)
-    rows = _sb_store(w).setdefault(slot, [])
-    rows.append("%s %s" % (time.strftime("%H:%M:%S"), str(msg)))
-    del rows[:-keep]
-    return rows
-
-
-def feed_units(path):
-    """feed 里这一帧有多少只单位(读不到返回 0)."""
-    if not path:
-        return 0
-    try:
-        with open(path, "r", encoding="utf-8") as fh:
-            data = json.load(fh)
-    except Exception:  # noqa: BLE001
-        return 0
-    if isinstance(data, dict):
-        data = data.get("units") or []
-    try:
-        return len(data or [])
-    except TypeError:
-        return 0
-
-
-def _sb_write(w, slot, text):
-    """把面板文本写到 java 进程 cwd 里(控制台 js 行传不了字符串字面量)."""
-    path = os.path.join(DATA, "sb%d.txt" % int(slot))
-    with open(path, "w", encoding="utf-8", newline="") as fh:
-        fh.write(text)
-    return path
-
-
-def sb_lines(w, slot, d=None, age=None, live=False):
-    """一块沙盘面板的完整文本行(第一行在最上面)."""
-    slot = int(slot)
-    d = d or {}
-    p = _projs(w).get(slot)
-    stem = os.path.splitext(os.path.basename(d.get("path") or "scene"))[0]
-    out = ["#%d %s" % (slot + 1, stem)]
-    if age is None:
-        out.append("feed --   (mlogsim --push)")
-    else:
-        out.append("feed %.1fs %s" % (age, "live" if live else "idle"))
-    out.append(("proj ON  bld %d" % len(p.get("builds") or [])) if p else "proj --")
-    out.append("units %d" % feed_units(d.get("feed")))
-    fr = d.get("frame")
-    if fr:
-        out.append("frame %d,%d %dx%d" % (int(fr[0]), int(fr[1]), int(fr[2]), int(fr[3])))
-    rows = _sb_store(w).get(slot) or []
-    room = SB_MAX_LINES - len(out)
-    if room > 0 and rows:
-        out.extend(rows[-room:])
-    return out[:SB_MAX_LINES]
-
-
-def sb_render(w, slot, d=None, age=None, live=False, force=False):
-    """把面板刷到世界里; 文本没变就不发 js(每 0.5 s 一轮, 省往返)."""
-    slot = int(slot)
-    lines = sb_lines(w, slot, d=d, age=age, live=live)
-    key = "\n".join(lines)
-    cache = getattr(w, "_sb_cache", None)
-    if cache is None:
-        cache = {}
-        w._sb_cache = cache
-    if not force and cache.get(slot) == key:
-        return 0
-    cell = (d or {}).get("cell")
-    if cell:
-        gx = float(cell[0]) + 2.0
-        gy = float(cell[1]) + 3.0
-    else:
-        bw, bh = getattr(w, "base", (0, 0))
-        gx, gy = float(bw), float(bh)
-    # _sbSet 里 JSON.parse 的是一行一个元素的数组, 不能直接喂纯文本
-    _sb_write(w, slot, json.dumps(lines, ensure_ascii=False))
-    w.js(SB_SET_JS % {"slot": slot, "gx": gx, "gy": gy, "sz": SB_FONT})
-    cache[slot] = key
-    return len(lines)
-
-
-def sb_clear(w, slot=None):
-    """擦掉一块(或全部)日志板."""
-    ks = [int(slot)] if slot is not None else sorted(_sb_store(w).keys())
-    for k in ks:
-        try:
-            _sb_write(w, k, "[]")
-            w.js(SB_SET_JS % {"slot": k, "gx": 0.0, "gy": 0.0, "sz": SB_FONT})
-        except Exception:  # noqa: BLE001
-            pass
-        _sb_store(w).pop(k, None)
-        getattr(w, "_sb_cache", {}).pop(k, None)
-    return len(ks)
 
 
 
-def frame_paint(wd_, rect, key, step=1, radius=7.0, color=None):
-    """给一个场景的矩形边界画一圈 marker(点). rect 是世界格 [x, y, w, h].
-
-    只画 marker, 不动地形: 之前用 metal-floor 铺了一圈真地板, 会盖掉玩家自己
-    刷的染色地板, 而且看起来"没有仿真也有东西".
-
-    注意参数名不能叫 w —— 解包 rect 时会把 w 覆盖成整数, 于是 w.js 崩成
-    "'int' object has no attribute 'js'".
-    """
-    fx, fy, fw, fh = [int(v) for v in rect[:4]]
-    col = color or FRAME_COLOR
-    out = wd_.js(FRAME_PAINT_JS % {"x": fx, "y": fy, "w": fw, "h": fh,
-                                   "key": json.dumps(str(key)),
-                                   "step": max(1, int(step)),
-                                   "radius": float(radius),
-                                   "r": float(col[0]), "g": float(col[1]),
-                                   "b": float(col[2])})
-    for ln in (out or []):
-        s = str(ln)
-        if s.startswith("FRAME	"):
-            try:
-                return int(float(s.split("	")[2]))
-            except (IndexError, ValueError):
-                pass
-    return 0
 
 
-def frame_clear(wd_, key=None):
-    """擦掉边界 marker; key 省略 = 全部."""
-    out = wd_.js(FRAME_CLEAR_JS % {"key": json.dumps(key) if key else "null"})
-    for ln in (out or []):
-        s = str(ln)
-        if s.startswith("FRAMECLEAR	"):
-            try:
-                return int(float(s.split("	")[1]))
-            except (IndexError, ValueError):
-                pass
-    return 0
 
 
-def scenes_from_feeds(feeds):
-    """[feed] -> [场景路径], 顺序跟 feed 一一对应; 没有任何 feed 带场景时返回 [].
-
-    某条 feed 没带场景就借用第一条的 —— 让 layout/索引保持对齐（第 i 条 feed
-    仍然对应第 i 块沙盘），而不是塌成一条把后面的场景挤掉。
-    """
-    picked = []
-    for f in (feeds or []):
-        got = feed_scene(f)
-        picked.append(got["path"] if got else None)
-    first = next((p for p in picked if p), None)
-    if not first:
-        return []
-    return [p or first for p in picked]
 
 
-def load_dir_scenes(paths, skip_bad=False):
-    """[scene path] -> [{path, sc, frame, anchor, label}], 全是场景自己的坐标.
-
-    skip_bad=True 时跳过读不动的场景（feed 自带的场景路径是"别人写的提醒"，
-    坏一张不该把整个投影导演拖死；--watch-scene 显式给的仍然老实报错）。
-    """
-    import scene as scene_mod
-    out = []
-    for p in (paths or []):
-        try:
-            sc = scene_mod.load(str(p))
-        except Exception as exc:  # noqa: BLE001
-            if not skip_bad:
-                raise
-            print("[warn] 跳过场景 %s: %s" % (p, exc), flush=True)
-            continue
-        out.append({
-            "path": str(p),
-            "sc": sc,
-            "label": sc.get("name") or os.path.splitext(os.path.basename(str(p)))[0],
-            "frame": scene_mod.frame_of(sc),
-            "anchor": scene_mod.anchor_of(sc),
-        })
-    return out
 
 
-def world_size(w):
-    """世界格数 (宽, 高). 查一次就缓存在 w 上."""
-    sz = getattr(w, "_world_size", None)
-    if sz:
-        return sz
-    try:
-        out = w.js("sb.append(Vars.world.width()).append(',').append(Vars.world.height());")
-        a, b = str(out[0]).split(",")[:2]
-        sz = (int(float(a)), int(float(b)))
-    except Exception:  # noqa: BLE001
-        sz = (512, 512)
-    w._world_size = sz
-    return sz
 
 
-def layout_scenes(w, scenes, cell=64, origin=(0, 0)):
-    """把每个场景按 cell×cell 的格子从左上角开始排, 锚点落在格子中心.
 
-    每个场景原本带着自己的一整套绝对坐标(建筑/单位/clear/frame/anchor), 这里
-    只算一个整体位移: 锚点 -> 格子中心。frame 和 clear 跟着一起平移, 所以
-    "雷落在框里" 的判断不用改。
 
-    返回的每项多出 cell / origin_anchor / origin_frame, 方便排查。
-    """
-    ww, wh = world_size(w)
-    cols = max(1, ww // int(cell))
-    rows = max(1, wh // int(cell))
-    out = []
-    for i, d in enumerate(scenes or []):
-        col, row = i % cols, i // cols
-        if row >= rows:          # 场景比格子多: 叠回最后一格, 不越界
-            row = rows - 1
-        cx = int(origin[0]) + col * int(cell) + int(cell) // 2
-        cy = int(origin[1]) + row * int(cell) + int(cell) // 2
-        ax, ay = d["anchor"]
-        dx, dy = cx - int(ax), cy - int(ay)
-        fx, fy, fw, fh = d["frame"]
-        e = dict(d)
-        e["cell"] = [int(origin[0]) + col * int(cell), int(origin[1]) + row * int(cell), int(cell), int(cell)]
-        e["origin_anchor"] = [int(ax), int(ay)]
-        e["origin_frame"] = [fx, fy, fw, fh]
-        e["anchor"] = [cx, cy]
-        e["frame"] = [fx + dx, fy + dy, fw, fh]
-        e["shift"] = [dx, dy]
-        out.append(e)
-    return out
+
+
+
+
+
+
+
+
+
+
+
 
 
 RESYNC_JS = r"""
@@ -2017,829 +913,63 @@ def resync_builds(w, builds):
     return n
 
 
-def _projs(w):
-    """正在投影的沙盘: slot -> {center, builds, feed, scene}. 多块可以同时投影."""
-    if not hasattr(w, "_projs"):
-        w._projs = {}
-    return w._projs
+
+
+
+
+
+
+
+
+def _projection_actions():
+    return SimpleNamespace(**{name: globals()[name] for name in ('MINE_BLOCK', 'REPLACE_MINE_JS', 'DEMOLISH_JS', 'MS_CLEAR_JS', 'mirror_watch', 'mirror_stop', 'resync_builds', 'sb_event', 'chat')})
 
 
 def project_at(w, x, y, feed, scene_path=None, tell=True, anchor=None, slot=0, pin=True):
-    """以玩家放下的那颗地雷为圆心: 复刻场景 + 把单位影子挂到该槽的 feed 上.
-
-    场景自带 clear 矩形, 会把地雷一起抹掉, 所以铺完要原样钉回去 —— 那颗雷
-    既是圆心也是"这里已经在投影"的标记.
-    slot 决定 marker 的 id 段, 所以多块沙盘可以同时投影、互不覆盖.
-    """
-    slot = int(slot)
-    if slot in _projs(w):
-        end_projection(w, slot, "这个沙盘又放了一颗地雷")
-    if not scene_path:
-        # feed 自带场景出处时(mlogsim --scene X --push F)就不用手工再指一遍
-        got = feed_scene(feed)
-        if got:
-            scene_path = got["path"]
-    x, y = int(x), int(y)
-    shift = [0.0, 0.0]
-    placed = 0
-    builds = []
-    if scene_path:
-        import scene as scene_mod
-        sc = scene_mod.load(str(scene_path))
-        # anchor 给了就按场景自己的锚点摆(多场景 = 固定区域), 否则以雷为圆心
-        ax, ay = (int(anchor[0]), int(anchor[1])) if anchor else (x, y)
-        js, sdx, sdy = scene_mod.world_js(sc, at=[ax, ay])
-        shift = [float(sdx), float(sdy)]
-        out = w.js(js)
-        rows = [str(ln) for ln in (out or []) if str(ln).startswith("B\t")]
-        placed = len(rows)
-        for ln in rows:
-            f2 = ln.split("\t")
-            if len(f2) >= 5:
-                try:
-                    # Rhino 打出来的数字是 "246.0", 不能直接 int()
-                    builds.append([int(float(f2[3])), int(float(f2[4])), f2[2]])
-                except ValueError:
-                    pass
-    if pin:
-        # 自动投影不钉雷(没有"圆心那颗雷"这回事, 钉了反而会被拆雷逻辑误判)
-        w.js(REPLACE_MINE_JS % {"x": x, "y": y, "block": json.dumps(MINE_BLOCK)})
-    if builds:
-        try:
-            resync_builds(w, builds)
-        except Exception as exc:  # noqa: BLE001
-            print("[warn] 补发代码/配置失败: %s" % exc, flush=True)
-        # 客户端可能还没把这一格建出来(同帧 setNet + tileConfig), 隔一秒再补一次
-        def _late(wd_=w, bl=list(builds)):
-            time.sleep(1.2)
-            try:
-                resync_builds(wd_, bl)
-            except Exception:  # noqa: BLE001
-                pass
-        threading.Thread(target=_late, daemon=True).start()
-    mirror_watch(w, feed, slot=slot, dx=shift[0], dy=shift[1], cell=[ax, ay])
-    _projs(w)[slot] = {"center": (x, y), "builds": builds, "feed": feed,
-                       "scene": scene_path}
-    w._proj_seen = getattr(w, "_proj_seen", set())
-    w._proj_seen.add("%d,%d" % (x, y))
-    sb_event(w, slot, "proj start, bld %d" % len(builds))
-    if tell:
-        chat(w, "投影已开始：地雷 (%d,%d) 就是圆心，拆掉它就结束" % (x, y))
-    return {"ok": True, "x": x, "y": y, "feed": feed, "scene": scene_path,
-            "placed": placed, "shift": shift, "slot": slot}
+    return _projection_actions_module.project_at(w, x, y, feed, scene_path, tell, anchor, slot, pin,
+                                                 services=_projection_actions())
 
 
 def end_projection(w, slot, why="地雷被拆除"):
-    """拆掉圆心那颗脉冲地雷 = 结束这块沙盘的投影: 停影子、拆建筑、放回地雷位."""
-    slot = int(slot)
-    p = _projs(w).get(slot)
-    if p is None:
-        return {"ok": False, "error": "not projecting"}
-    cx = p.get("center")
-    mirror_stop(w, slot)
-    key = "%d,%d" % (int(cx[0]), int(cx[1]))
-    getattr(w, "_proj_seen", set()).discard(key)
-    # 铺下去的建筑要一起拆掉(含核心), 否则地面上留下一堆跑不动的空壳
-    builds = p.get("builds") or []
-    dn = 0
-    if builds:
-        try:
-            res = w.js(DEMOLISH_JS % {"list": json.dumps(builds)})
-            for ln in (res or []):
-                s = str(ln)
-                if s.startswith("DEMOLISH\t"):
-                    dn = int(float(s.split("\t")[1]))
-        except Exception as exc:
-            print("[warn] 拆除投影建筑失败: %s" % exc)
-    del _projs(w)[slot]
-    # 再清一次 marker: 走 setNet 拆楼会触发一批事件, 万一有帧漏进来也在这里扫掉
-    try:
-        w.js(MS_CLEAR_JS % {"slot": int(slot)})
-    except Exception:  # noqa: BLE001
-        pass
-    sb_event(w, slot, "proj end, razed %d" % dn)
-    print("[info] 投影结束 (slot %d, %d,%d)：%s，拆掉 %d 座建筑"
-          % (slot, int(cx[0]), int(cx[1]), why, dn), flush=True)
-    chat(w, "投影已结束：%s（拆掉 %d 座建筑）" % (why, dn))
-    return {"ok": True, "ended": [int(cx[0]), int(cx[1])], "why": why, "slot": slot}
+    return _projection_actions_module.end_projection(w, slot, why, services=_projection_actions())
 
 
 def start_projection(w, meta, slot=0):
-    """手动开投影(projection op): 没给坐标就用 meta 里的 scene_at / 世界中心."""
-    meta = meta or {}
-    feed = meta.get("feed")
-    if not feed:
-        return {"ok": False, "error": "need feed path (mlogsim --push)"}
-    if feed_age(feed) is None:
-        return {"ok": False, "error": "feed 不存在: %s" % feed}
-    spot = meta.get("scene_at") or meta.get("at") or list(getattr(w, "base", (0, 0)))
-    return project_at(w, spot[0], spot[1], feed, meta.get("scene"), slot=slot)
+    return _projection_actions_module.start_projection(w, meta, slot, services=_projection_actions())
 
 
 def projection_director(w, feed, scene_path=None, at=None, poll=0.5,
                         fresh=25.0, lim=10, scenes=None, frames=True,
                         frame_floor="marker", at_cell=64, feeds=None, auto=True,
                         hold=0.0):
-    """0.5 s 一圈: 玩家放下一颗脉冲地雷就开始投影.
-
-    多场景: scenes 是场景路径列表(命令行 --watch-scene 可重复)。场景按 at_cell
-    见方的格子从地图左上角开始固定排布(第 i 个场景 -> 第 i 格, 锚点落在格心),
-    边界用一圈小方块 marker 画出来, 只在仿真 feed 新鲜时出现, 一停就擦掉。
-    放雷落在哪个框里就用哪个场景; 落在框外直接拒绝(不再"以雷为圆心"乱铺)。
-
-    auto=True(默认): 不看地雷. 某块沙盘的 feed 新鲜就自动复刻并挂影子, feed 一停就收摊.
-    地雷只在 auto=False(--manual)时才是开关.
-
-    Java 回调不了 Python, 所以 TileChangeEvent 里只把新地雷的格子塞进
-    _mineHits; 真正铺场景/挂 marker 的是这个线程.
-    """
-    if getattr(w, "_dir_started", False):
-        return False
-    if not hasattr(w, "_doors_meta"):
-        w._doors_meta = {}
-    w._dir_started = True
-    # 多条仿真并行时, 每个场景配一条自己的 feed (第 i 个场景 -> 第 i 条 feed);
-    # 只给一条就所有场景共用, 兼容老的 --watch-feed 单值写法.
-    feeds0 = []
-    for f in (feeds if feeds else ([feed] if feed else [])):
-        if f:
-            feeds0.append(str(f))
-    w._dir_feeds = feeds0
-    w._dir_feed = feeds0[0] if feeds0 else None
-    paths = list(scenes) if scenes else ([scene_path] if scene_path else [])
-    from_feed = False
-    # feed 自足模式: 只给了 --watch-feed 时，按 feed 里记的场景出处补上场景。
-    # 顺序跟 feed 一一对应（第 i 条 feed -> 第 i 张场景）；某条 feed 没带场景就
-    # 借用第一条的，保证 layout/索引仍然对齐。
-    if not paths and feeds0:
-        from_feed = True
-        paths = scenes_from_feeds(feeds0)
-        if paths:
-            print("[info] 场景来自 feed: %s" % ", ".join(
-                os.path.basename(p) for p in paths), flush=True)
-    if os.environ.get("WORLD_DEBUG_SCENES"):
-        print("[info] 场景路径: %r" % (paths,), flush=True)
-    w._dir_scenes = load_dir_scenes(paths, skip_bad=from_feed)
-    w._dir_frames = bool(frames)
-    w._dir_frame_floor = frame_floor
-    # 场景不再"跟着雷到处跑": 按 64x64 的格子从左上角开始固定排布,
-    # 每个场景的锚点落在自己那格的正中心.
-    w._dir_cell = int(at_cell)
-    # 仿真停下后投影/框还留多久(sblog 也用这个判 live) 
-    w._dir_hold = float(hold or 0.0)
-
-    def arm_scenes(paths_, skip_bad=False):
-        """排布 + 配 feed; 启动时和"服务先起、仿真后到"的热接都走这里."""
-        ds = layout_scenes(w, load_dir_scenes(paths_, skip_bad=skip_bad),
-                           cell=w._dir_cell)
-        for i, d in enumerate(ds):
-            d["feed"] = (feeds0[i] if i < len(feeds0)
-                         else (feeds0[0] if feeds0 else None))
-            print("[info] 沙盘 #%d %s 格子 %s -> 框 %s 锚点 %s feed %s"
-                  % (i + 1, d["label"], d["cell"], d["frame"], d["anchor"],
-                     os.path.basename(d["feed"]) if d["feed"] else "-"), flush=True)
-        w._dir_scenes = ds
-        if ds:
-            w._dir_scene = ds[0]["path"]
-        return ds
-
-    arm_scenes(paths, skip_bad=from_feed)
-    w._dir_frames_on = {}
-    if w._dir_frames:
-        try:
-            # 先扫掉上次进程留下的框(重启后 _fr 是空的, 屏幕上还留着旧 marker)
-            w.js(FRAME_SWEEP_JS)
-        except Exception:  # noqa: BLE001
-            pass
-    try:
-        # 日志板同理: 上一轮进程画的面板要先擦, 否则叠一层旧文字
-        w.js(SB_SWEEP_JS)
-    except Exception:  # noqa: BLE001
-        pass
-    w._dir_scene = (w._dir_scenes[0]["path"] if w._dir_scenes else scene_path)
-    w._dir_at = list(at) if at else None
-    w._dir_stop = False
-    w._proj_seen = getattr(w, "_proj_seen", set())
-
-    def loop():
-        while not getattr(w, "_dir_stop", False):
-            time.sleep(poll)
-            try:
-                # 服务先起、仿真后到: 启动时 feed 里还没有场景出处, 等它写出来
-                # 再补一次（否则得重启服务才有建筑/框/日志板）
-                if not w._dir_scenes and w._dir_feeds:
-                    got = scenes_from_feeds(w._dir_feeds)
-                    if got:
-                        print("[info] 场景来自 feed（热接）: %s" % ", ".join(
-                            os.path.basename(p) for p in got), flush=True)
-                        arm_scenes(got, skip_bad=True)
-                # 边界框: 只在仿真真的在跑时出现; 仿真一停就擦掉
-                if w._dir_frames:
-                    onmap = getattr(w, "_dir_frames_on", None)
-                    if not isinstance(onmap, dict):
-                        onmap = {}
-                    livemap = getattr(w, "_dir_live", None)
-                    if not isinstance(livemap, dict):
-                        livemap = {}
-                    # hold: 仿真已经停了, 但故意把框/投影多留 N 秒 (tick 级调试时
-                    # 跑完一轮要停下来看变量, 默认 10 s 一到画面就被拆了)
-                    win = max(FRAME_LIVE_MAX, float(hold or 0))
-                    for si, d in enumerate(w._dir_scenes):
-                        key0 = d["path"]
-                        age0 = feed_age(d.get("feed"))
-                        live = age0 is not None and age0 <= win
-                        # 自动投影: 有仿真就自己铺, 不需要玩家放雷
-                        if auto and d.get("feed"):
-                            try:
-                                if live and si not in _projs(w):
-                                    rr = project_at(w, int(d["anchor"][0]), int(d["anchor"][1]),
-                                                    d["feed"], key0, tell=False,
-                                                    anchor=d["anchor"], slot=si, pin=False)
-                                    chat(w, "自动投影：%s" % d["label"])
-                                    print("[info] 自动投影 %s @%s slot %d, 建筑 %d 块"
-                                          % (d["label"], d["anchor"], si,
-                                             rr.get("placed", 0)), flush=True)
-                                elif (not live) and si in _projs(w):
-                                    end_projection(w, si, "仿真停了（%s）"
-                                                   % os.path.basename(d["feed"] or "-"))
-                            except Exception as exc:  # noqa: BLE001
-                                print("[warn] 自动投影失败 %s: %s" % (d["label"], exc),
-                                      flush=True)
-                        if live != bool(onmap.get(key0)):
-                            if live:
-                                try:
-                                    n0 = frame_paint(w, d["frame"], key0)
-                                    print("[info] 仿真在跑（%s）：%s 的落雷框已画出（%d 个点）"
-                                          % (os.path.basename(d["feed"] or "-"),
-                                             d["label"], n0), flush=True)
-                                except Exception as exc:  # noqa: BLE001
-                                    print("[warn] 画边界失败 %s: %s" % (d["label"], exc),
-                                          flush=True)
-                            else:
-                                try:
-                                    frame_clear(w, key0)
-                                    frame_clear(w, key0 + "@live")
-                                except Exception:  # noqa: BLE001
-                                    pass
-                                livemap.pop(key0, None)
-                                print("[info] 仿真停了（%s）：%s 的边界已擦掉"
-                                      % (os.path.basename(d.get("feed") or "-"),
-                                         d["label"]), flush=True)
-                            onmap[key0] = live
-                        # 第二个框画"仿真真实范围": feed 里单位的外接框(带 pad)。
-                        # 落雷框只是"在哪放雷"的选区, 单位会跑去矿区/核心,
-                        # 所以真正的边界要按实际坐标算.
-                        if live:
-                            # 第二个框 = 模拟器那张地图的整体边界: 场景锚点落在格心,
-                            # 仿真世界 [0,0,w,h] 平移到真世界就是格心 - 锚点 开始的那一块.
-                            # 单位在仿真里的活动范围永远出不了它, 所以这才是"真边界".
-                            sx0, sy0 = d.get("shift") or (0, 0)
-                            fa0 = feed_anchor(d.get("feed"))
-                            if fa0 and d.get("anchor"):
-                                # 仿真坐标以它自己场景的锚点为原点: 平移量 = 格心 - 那个锚点
-                                sx0 = float(d["anchor"][0]) - fa0[0]
-                                sy0 = float(d["anchor"][1]) - fa0[1]
-                            ws = feed_world(d.get("feed"))
-                            bb = None
-                            if ws:
-                                ww0, wh0 = world_size(w)
-                                bx = int(round(sx0))
-                                by = int(round(sy0))
-                                bb = [max(0, bx), max(0, by),
-                                      max(1, min(ws[0], ww0 - max(0, bx))),
-                                      max(1, min(ws[1], wh0 - max(0, by)))]
-                            else:
-                                bb = feed_bbox(d.get("feed"))
-                                if bb:
-                                    bb = [bb[0] + int(round(sx0)), bb[1] + int(round(sy0)),
-                                          bb[2], bb[3]]
-                            if bb and tuple(bb) != livemap.get(key0):
-                                try:
-                                    # 大框(仿真世界整张图)线条多, 按周长收缩点的密度
-                                    stp = max(1, int(round((bb[2] + bb[3]) / 48.0)))
-                                    frame_paint(w, bb, key0 + "@live", step=stp,
-                                                radius=5.0, color=LIVE_COLOR)
-                                    livemap[key0] = tuple(bb)
-                                except Exception as exc:  # noqa: BLE001
-                                    print("[warn] 画仿真范围失败 %s: %s"
-                                          % (d["label"], exc), flush=True)
-                        else:
-                            livemap.pop(key0, None)
-                    w._dir_frames_on = onmap
-                    w._dir_live = livemap
-                # 每块沙盘的文本日志板: 标题 / feed 龄 / 投影状态 / 建筑数 / 单位数 / 事件
-                win2 = max(FRAME_LIVE_MAX, float(hold or 0))
-                prev2 = getattr(w, "_sb_live", None)
-                if not isinstance(prev2, dict):
-                    prev2 = {}
-                    w._sb_live = prev2
-                for si2, d2 in enumerate(w._dir_scenes):
-                    try:
-                        age2b = feed_age(d2.get("feed"))
-                        live2 = age2b is not None and age2b <= win2
-                        if bool(prev2.get(si2)) != live2:
-                            sb_event(w, si2, "feed live" if live2 else "feed lost")
-                            prev2[si2] = live2
-                        if live2:
-                            sb_render(w, si2, d=d2, age=age2b, live=live2)
-                        elif _sb_store(w).get(int(si2)):
-                            # 没有仿真就别留板子(和"没仿真不画框"同一条规矩):
-                            # sb_clear 会把 store/cache 一起清掉, 下一轮就不会再发 js
-                            sb_clear(w, si2)
-                    except Exception as exc:  # noqa: BLE001
-                        print("[warn] 日志板 %s: %s" % (d2.get("label"), exc), flush=True)
-                # 每块沙盘各自看圆心那颗雷还在不在(直接读格子上的方块名, 事件顺序不可靠)
-                # 自动模式下根本不钉地雷, 也不该被地雷事件驱动 —— 整段跳过.
-                for sl in ([] if auto else sorted(_projs(w).keys())):
-                    p = _projs(w)[sl]
-                    cx = p.get("center")
-                    st = w.js(MINE_STATE_JS % {"x": int(cx[0]), "y": int(cx[1])})
-                    cur = str(st[0]).strip() if st else ""
-                    if cur != MINE_BLOCK:
-                        end_projection(w, sl, "圆心那颗脉冲地雷不在了")
-                        continue
-                    # 仿真进程死了 / 被 --js-timeout 掐了: 影子会冻结在最后一帧,
-                    # 留在场上只会误导, 超过 60 s 没新帧就自动收摊
-                    age2 = feed_age(p.get("feed"))
-                    if age2 is not None and age2 > 60.0:
-                        end_projection(w, sl, "仿真 feed 已经 %.0f s 没更新了" % age2)
-                hits = []
-                out = [] if auto else (w.js(MINE_HITS_JS) or [])
-                if out:
-                    try:
-                        hits = json.loads(str(out[0]))
-                    except Exception:
-                        hits = []
-                for key in hits:
-                    key = str(key)
-                    x, y = [int(float(v)) for v in key.split(",")[:2]]
-                    if x < 0 or y < 0:
-                        continue
-                    if key in w._proj_seen:
-                        continue
-                    # 落在哪个场景的边界里, 就用哪个场景(连带它自己的 feed 和 marker 槽)
-                    pick, anchor, label, feed_now, slot_i = None, None, "", None, None
-                    for si, d in enumerate(getattr(w, "_dir_scenes", [])):
-                        fx, fy, fw, fh = d["frame"]
-                        if fx <= x < fx + fw and fy <= y < fy + fh:
-                            pick, anchor, label = d["path"], d["anchor"], d["label"]
-                            feed_now, slot_i = d.get("feed"), si
-                            break
-                    if not getattr(w, "_dir_feeds", None):
-                        chat(w, "这里没有配仿真 feed，放地雷不会有影子")
-                        w._proj_seen.add(key)
-                        continue
-                    if pick is None:
-                        # 场景是固定排布的, 框外放雷没有"最近的场景"可言 —— 直接拒绝,
-                        # 免得复刻出来的东西和框对不上(以前会以雷为圆心乱铺)
-                        chat(w, "这颗地雷没落在任何沙盘边界里，先在框里放才会有投影")
-                        w._proj_seen.add(key)
-                        continue
-                    if not feed_now:
-                        chat(w, "这个沙盘没有配仿真 feed，先给 --watch-feed 补一条")
-                        w._proj_seen.add(key)
-                        continue
-                    age = feed_age(feed_now)
-                    if age is None:
-                        chat(w, "还没看到仿真在跑（%s 不存在），先起 mlogsim"
-                             % os.path.basename(feed_now))
-                        w._proj_seen.add(key)
-                        continue
-                    if age > 25.0:
-                        chat(w, "仿真 feed %s 已经 %.0f s 没更新了，先把 mlogsim 起起来再放雷"
-                             % (os.path.basename(feed_now), age))
-                        w._proj_seen.add(key)
-                        continue
-                    r = project_at(w, x, y, feed_now, pick, anchor=anchor, slot=slot_i)
-                    print("[info] 投影 %s @(%d,%d) slot %d, 建筑 %d 块, 仿真帧龄 %.1fs"
-                          % (label or "-", x, y, slot_i, r.get("placed", 0), age),
-                          flush=True)
-            except Exception as exc:
-                print("[warn] 投影导演: %s" % exc, flush=True)
-
-    th = threading.Thread(target=loop, name="projection-director", daemon=True)
-    th.start()
-    w._dir_thread = th
-    return True
-
-
-DOOR_ENTER_JS = r"""
-var dpl = null;
-var dwant = %(who)s;
-for(var di=0;di<Groups.player.size();di++){
-  var dcand = Groups.player.index(di);
-  if(dwant == null || dwant == '' || String(dcand.name).indexOf(dwant) >= 0){ dpl = dcand; break; }
-}
-if(dpl == null){ sb.append('NOPLAYER'); }
-/* 先算结果再追加: _doorAct 会铺场景并往 sb 里写 B/I/L/U 行,
-   链式 append 会让那些行插在 'R\t' 之后, 解析时拿到的是场景的第一行 */
-else { var rres = String(_doorAct(dpl, %(x)d, %(y)d)); sb.append('R\t').append(rres); }
-"""
-
-BUILDS_JS = r"""
-var n=0, lim=%(limit)d, R=%(R)f, CX=%(CX)f, CY=%(CY)f;
-var TF=%(team)s, BF=%(block)s;
-var w=Vars.world, W=w.width(), H=w.height();
-var x0=0, y0=0, x1=W-1, y1=H-1;
-if(R>0){
-  x0=Math.max(0, Math.floor(CX-R)); x1=Math.min(W-1, Math.ceil(CX+R));
-  y0=Math.max(0, Math.floor(CY-R)); y1=Math.min(H-1, Math.ceil(CY+R));
-}
-outer:
-for(var ty=y0; ty<=y1; ty++){
-  for(var tx=x0; tx<=x1; tx++){
-    var t=w.tile(tx,ty); var b = t==null ? null : t.build;
-    if(b==null || !b.isValid()) continue;
-    /* 多格建筑在每格都会命中, 只在它自己的原点格报一次 */
-    if(b.tile.x!=tx || b.tile.y!=ty) continue;
-    if(TF!=null && b.team.name!=TF) continue;
-    if(BF!=null && b.block.name!=BF) continue;
-    var tot=-1, cap=-1;
-    try{ if(b.items!=null){ tot=b.items.total(); } }catch(e){}
-    /* v160 的 itemCapacity 在 Block 上, ItemModule 已经没有 capacity 字段/方法 */
-    try{ cap = b.block.itemCapacity; }catch(e){}
-    sb.append(b.block.name).append('\t').append(b.team.name).append('\t')
-      .append(b.tile.x).append('\t').append(b.tile.y).append('\t')
-      .append(Math.round(b.health)).append('\t').append(tot).append('\t').append(cap).append('\n');
-    if(++n>=lim) break outer;
-  }
-}
-if(n>=lim) sb.append('TRUNC\t').append(lim).append('\n');
-"""
-
-
-BUILDING_AT_JS = r"""
-var t=Vars.world.tile(%(x)d, %(y)d);
-var b = t==null ? null : t.build;
-if(b!=null && b.isValid()){
-  var tot=-1, cap=-1;
-  try{ if(b.items!=null){ tot=b.items.total(); } }catch(e){}
-  try{ cap = b.block.itemCapacity; }catch(e){}
-  sb.append(b.block.name).append('\t').append(b.team.name).append('\t')
-    .append(b.tile.x).append('\t').append(b.tile.y).append('\t')
-    .append(Math.round(b.health)).append('\t').append(tot).append('\t').append(cap).append('\n');
-}
-"""
-
-
-_NUM = re.compile(r"^-?\d+(\.\d+)?$")
-
-
-def coerce(v: str):
-    """把 JS 拼出来的 "149.0" 还原成 149; 非数字原样返回."""
-    if isinstance(v, str) and _NUM.match(v):
-        f = float(v)
-        return int(f) if f.is_integer() else f
-    return v
-
-
-def units_table(rows: list[dict]) -> str:
-    """把 units 的 JSON 行渲染成对齐的纯文本表（给人/agent 直接读）。"""
-    if not rows:
-        return "(no units)"
-    ctrl_names = {0: "free", 1: "logic", 2: "player", 3: "command"}
-    body = []
-    for r in rows:
-        item = r.get("item")
-        carry = r.get("carry")
-        cap = r.get("itemCapacity")
-        kit = "-" if item in (None, "-", "") else "%s %s/%s" % (item, carry, cap)
-        ctrl = ctrl_names.get(r.get("controlled"), str(r.get("controlled")))
-        body.append([
-            str(r.get("id")), str(r.get("type")),
-            "%s,%s" % (r.get("x"), r.get("y")),
-            str(r.get("controller")), kit,
-            str(r.get("flag")), ctrl,
-            "1" if r.get("mining") == 1 else "0",
-            "1" if r.get("boosting") == 1 else "0",
-            "%s/%s" % (r.get("health"), r.get("maxHealth")),
-        ])
-    head = ["id", "type", "tile", "controller", "items", "flag", "ctrl", "mine", "boost", "hp"]
-    widths = [max(len(head[i]), *(len(row[i]) for row in body)) for i in range(len(head))]
-    fmt = "  ".join("%-" + str(width) + "s" for width in widths)
-    return "\n".join([fmt % tuple(head)] + [fmt % tuple(row) for row in body])
-
-
-def parse_tsv(lines: list[str], cols: list[str]) -> dict:
-    rows, trunc = [], False
-    for ln in lines:
-        parts = ln.split("\t")
-        if parts[0] == "TRUNC":
-            trunc = True
-            continue
-        if parts[0] == "ERR":
-            raise RuntimeError(ln[4:])
-        rows.append({k: coerce(v) for k, v in zip(cols, parts)})
-    return {"rows": rows, "count": len(rows), "truncated": trunc}
-
-
-PLACE_JS = r"""
-var blk = Vars.content.block('%(block)s');
-var t = Vars.world.tile(%(x)d, %(y)d);
-if(blk == null){ sb.append('ERR\tno such block: %(block)s'); }
-else if(t == null){ sb.append('ERR\ttile out of range'); }
-else {
-  try{
-    t.setNet(blk, Vars.state.rules.defaultTeam, 0);
-    var b = t.build;
-    if(b != null){ b.enabled = true; }
-    sb.append('OK\t'+blk.name+'\t'+%(x)d+'\t'+%(y)d);
-  }catch(e){ sb.append('ERR\t'+e); }
-}
-"""
-
-CLEAR_JS = r"""
-var t = Vars.world.tile(%(x)d, %(y)d);
-if(t == null){ sb.append('ERR\ttile out of range'); }
-else { try{ t.setNet(Vars.content.block('air')); sb.append('OK'); }catch(e){ sb.append('ERR\t'+e); } }
-"""
-
-SPAWN_JS = r"""
-var ty = Vars.content.unit('%(type)s');
-if(ty == null){ sb.append('ERR\tno such unit type'); }
-else {
-  var team = null, TA = Packages.mindustry.game.Team.all;
-  for(var i = 0; i < TA.length; i++){ if(TA[i].name == '%(team)s'){ team = TA[i]; break; } }
-  if(team == null){ sb.append('ERR\tno such team'); }
-  else {
-    var cap = Vars.state.rules.unitCap, have = Packages.mindustry.gen.Groups.unit.size();
-    var cx = %(cx)f * 8, cy = %(cy)f * 8, r = %(radius)f * 8, n = 0;
-    for(var k = 0; k < %(count)d; k++){
-      if(have + n >= cap){ sb.append('ERR\tunit cap reached'); break; }
-      /* golden-angle spiral: 防止单位叠在同一个点互相挤开 */
-      var ang = k * 2.39996323, rr = %(count)d <= 1 ? 0 : r * Math.sqrt(k / %(count)d);
-      var u = ty.spawn(team, cx + Math.cos(ang) * rr, cy + Math.sin(ang) * rr);
-      if(u == null){ sb.append('ERR\tspawn returned null'); break; }
-      n++;
-      sb.append('U\t').append(u.id).append('\t').append(u.type.name).append('\t').append(u.team.name)
-        .append('\t').append(Math.round(u.x / 8)).append('\t').append(Math.round(u.y / 8)).append('\n');
-    }
-    sb.append('SPAWNED\t').append(n).append('\t').append(ty.name);
-  }
-}
-"""
-
-KILLUNITS_JS = r"""
-var G = Packages.mindustry.gen.Groups.unit, n = 0, kept = 0, R = %(radius)f, CX = %(cx)f, CY = %(cy)f;
-var TF = %(team)s;
-for(var i = G.size() - 1; i >= 0; i--){
-  var u = G.index(i); if(u == null) continue;
-  if(%(keep_player)d == 1){
-    var ctl = null; try{ ctl = u.controller(); }catch(e){}
-    if(ctl instanceof Packages.mindustry.gen.Player){ kept++; continue; }
-  }
-  if(TF != null && u.team.name != TF){ kept++; continue; }
-  if(R > 0){ var dx = u.x / 8 - CX, dy = u.y / 8 - CY; if(dx * dx + dy * dy > R * R){ kept++; continue; } }
-  try{ u.kill(); n++; }catch(e){}
-}
-sb.append('KILLED\t').append(n).append('\t').append(kept);
-"""
-
-CLEARBUILDS_JS = r"""
-var G = Packages.mindustry.gen.Groups.build, n = 0, kept = 0, R = %(radius)f, CX = %(cx)f, CY = %(cy)f;
-var air = Vars.content.block('air');
-for(var i = G.size() - 1; i >= 0; i--){
-  var b = G.index(i); if(b == null) continue;
-  if(%(keepcore)d == 1 && b.block instanceof Packages.mindustry.world.blocks.storage.CoreBlock){ kept++; continue; }
-  if(R > 0){ var dx = b.x / 8 - CX, dy = b.y / 8 - CY; if(dx * dx + dy * dy > R * R){ kept++; continue; } }
-  try{ b.tile.setNet(air); n++; }catch(e){}
-}
-sb.append('CLEARED\t').append(n).append('\t').append(kept);
-"""
-
-LOGIC_LIST_JS = r"""
-var n=0, lim=%(limit)d, R=%(R)f, CX=%(CX)f, CY=%(CY)f;
-var w=Vars.world, W=w.width(), H=w.height();
-var x0=0, y0=0, x1=W-1, y1=H-1;
-if(R>0){
-  x0=Math.max(0, Math.floor(CX-R)); x1=Math.min(W-1, Math.ceil(CX+R));
-  y0=Math.max(0, Math.floor(CY-R)); y1=Math.min(H-1, Math.ceil(CY+R));
-}
-outer:
-for(var ty=y0; ty<=y1; ty++){
-  for(var tx=x0; tx<=x1; tx++){
-    var t=w.tile(tx,ty); var b = t==null ? null : t.build;
-    if(b==null || !b.isValid()) continue;
-    if(b.getClass().getName().indexOf('LogicBlock$')<0) continue;
-    var cl=0, vn=0;
-    try{ cl = b.code==null ? 0 : b.code.length; }catch(e){}
-    try{ vn = b.executor.vars.length; }catch(e){}
-    sb.append(b.tile.x).append('\t').append(b.tile.y).append('\t')
-      .append(b.block.name).append('\t').append(cl).append('\t').append(vn).append('\n');
-    if(++n>=lim) break outer;
-  }
-}
-if(n>=lim) sb.append('TRUNC\t').append(lim).append('\n');
-"""
-
-LOGIC_GET_JS = r"""
-var t=Vars.world.tile(%(x)d, %(y)d);
-var b = t==null ? null : t.build;
-if(b==null){ sb.append('ERR\tno building at %(x)d,%(y)d'); }
-else if(b.getClass().getName().indexOf('LogicBlock$')<0){ sb.append('ERR\tnot a logic block: '+b.block.name); }
-else {
-  var w=new java.io.PrintWriter('%(res)s','UTF-8');
-  w.print(b.code==null ? '' : b.code); w.close();
-  sb.append('OK');
-}
-"""
-
-LOGIC_SET_JS = r"""
-var t=Vars.world.tile(%(x)d, %(y)d);
-var b = t==null ? null : t.build;
-if(b==null){ sb.append('ERR\tno building at %(x)d,%(y)d'); }
-else if(b.getClass().getName().indexOf('LogicBlock$')<0){ sb.append('ERR\tnot a logic block: '+b.block.name); }
-else {
-  try{
-    var src=new java.lang.String(java.nio.file.Files.readAllBytes(java.nio.file.Paths.get('%(src)s')), 'UTF-8');
-    b.updateCode(src);
-    sb.append('OK\t'+b.code.length);
-  }catch(e){ sb.append('ERR\t'+e); }
-}
-"""
-
-LOGIC_VARS_JS = r"""
-var t=Vars.world.tile(%(x)d, %(y)d);
-var b = t==null ? null : t.build;
-if(b==null){ sb.append('ERR\tno building at %(x)d,%(y)d'); }
-else if(b.getClass().getName().indexOf('LogicBlock$')<0){ sb.append('ERR\tnot a logic block: '+b.block.name); }
-else {
-  var V=b.executor.vars;
-  for(var k=0;k<V.length;k++){
-    var v=V[k], s='';
-    try{ s = v.isobj ? String(v.objval) : String(v.numval); }catch(e){ s='?'; }
-    sb.append(v.name).append('\t').append(s).append('\n');
-  }
-}
-"""
-
-SCHEMATIC_PLACE_JS = r"""
-var S = Packages.mindustry.game.Schematics;
-var bytes = null, src = %(src)s;
-try{
-  if(src != null && src.indexOf('b64:') == 0){
-    bytes = java.util.Base64.getDecoder().decode(src.substring(4));
-  }else{
-    bytes = java.nio.file.Files.readAllBytes(java.nio.file.Paths.get(String(src)));
-  }
-}catch(e){ sb.append('ERR\tread: '+e+'\n'); }
-if(bytes != null){
-  var sch = null;
-  try{ sch = S.read(new java.io.ByteArrayInputStream(bytes)); }
-  catch(e){ sb.append('ERR\tparse: '+e+'\n'); }
-  if(sch != null){
-    var team = Vars.state.rules.defaultTeam, TN = %(team)s;
-    if(TN != null){
-      var TA = Packages.mindustry.game.Team.all;
-      for(var q=0;q<TA.length;q++){ if(TA[q].name == TN){ team = TA[q]; break; } }
-    }
-    var ox = %(ox)s, oy = %(oy)s;
-    if(ox < 0){ ox = Math.floor((Vars.world.width() - sch.width) / 2); }
-    if(oy < 0){ oy = Math.floor((Vars.world.height() - sch.height) / 2); }
-    var placed = 0, cfgs = 0, logic = 0, skipped = 0, failed = 0, cleared = 0, keptc = 0;
-    var LB = Packages.mindustry.world.blocks.logic.LogicBlock;
-    var AIR = Vars.content.block('air');
-    /* 先清出目标矩形，避免旧建筑与蓝图重叠导致 setBlock 互相拆 */
-    for(var cx = 0; cx < sch.width; cx++){
-      for(var cy = 0; cy < sch.height; cy++){
-        var ct = Vars.world.tile(ox + cx, oy + cy);
-        if(ct == null || ct.build == null) continue;
-        /* 核心永不拆（拆了单位就没地方回货，玩家也会立刻发现） */
-        var cb = ct.build;
-        if(cb.block instanceof Packages.mindustry.world.blocks.storage.CoreBlock){ keptc++; continue; }
-        try{ ct.setNet(AIR); cleared++; }catch(e){}
-      }
-    }
-    /* 两遍：先放普通方块，再放处理器 —— readCompressed 通过 world.build(x,y) 解析链接，
-       链接目标必须已经存在，否则链接变 null。 */
-    for(var pass = 0; pass < 2; pass++){
-      for(var i = 0; i < sch.tiles.size; i++){
-        var st = sch.tiles.get(i);
-        var isLogic = false;
-        try{ isLogic = (st.block instanceof LB); }catch(e){ isLogic = false; }
-        if((pass == 0) == isLogic) continue;
-        var tx = ox + st.x, ty = oy + st.y;
-        var t = Vars.world.tile(tx, ty);
-        if(t == null){ skipped++; continue; }
-        var bn = t.build;
-        if(bn != null && (bn.tile.x != tx || bn.tile.y != ty)){ skipped++; continue; }
-        try{
-          t.setNet(st.block, team, st.rotation);
-          var b = t.build;
-          if(b == null){ skipped++; continue; }
-          b.enabled = true;
-          placed++;
-          if(isLogic){ logic++; }
-          if(st.config != null){
-            if(isLogic){
-              b.readCompressed(st.config, true); cfgs++;
-            }else{
-              var cons = b.block.configurations.get(st.config.getClass());
-              if(cons != null){ cons.get(b, st.config); cfgs++; }
-              else { b.configureAny(st.config); cfgs++; }
-            }
-          }
-        }catch(e){ failed++; sb.append('ERR\tplace '+tx+','+ty+': '+e+'\n'); }
-      }
-    }
-    var nm = '-'; try{ nm = String(sch.tags.get('name')); }catch(e){}
-    sb.append('OK\tplaced='+placed+'\tlogic='+logic+'\tcfg='+cfgs+'\tskipped='+skipped+'\tfailed='+failed+'\tcleared='+cleared+'\tkeptcore='+keptc+'\tw='+sch.width+'\th='+sch.height+'\tx='+ox+'\ty='+oy+'\tname='+nm+'\n');
-    sb.append('TILES\t'+sch.tiles.size+'\n');
-  }
-}
-"""
-
-SCHEMATIC_SAVE_JS = r"""
-var seq = new Packages.arc.struct.Seq();
-var x0 = %(x)d, y0 = %(y)d, w = %(w)d, h = %(h)d, n = 0;
-for(var dx = 0; dx < w; dx++){
-  for(var dy = 0; dy < h; dy++){
-    var t = Vars.world.tile(x0 + dx, y0 + dy);
-    if(t == null || t.build == null) continue;
-    var b = t.build;
-    if(b.block == null || b.block.name == 'air') continue;
-    if(b.tile.x != x0 + dx || b.tile.y != y0 + dy) continue;   /* 多格建筑只在原点存一份 */
-    var cfg = null; try{ cfg = b.config(); }catch(e){ cfg = null; }
-    var rot = 0; try{ rot = b.rotation; }catch(e){ rot = 0; }
-    seq.add(new Packages.mindustry.game.Schematic$Stile(b.block, dx, dy, cfg, rot));
-    n++;
-  }
-}
-var tags = new Packages.arc.struct.StringMap();
-tags.put('name', %(name)s);
-tags.put('author', %(author)s);
-var sch = new Packages.mindustry.game.Schematic(seq, tags, %(w)d, %(h)d);
-var out = null;
-try{
-  out = new java.io.FileOutputStream(%(path)s);
-  Packages.mindustry.game.Schematics.write(sch, out);
-  sb.append('OK\t'+n+'\t'+%(path)s+'\n');
-}catch(e){ sb.append('ERR\twrite: '+e+'\n'); }
-finally{ try{ if(out != null) out.close(); }catch(e2){} }
-"""
-
-SCHEMATIC_LIST_JS = r"""
-var all = Vars.schematics == null ? null : Vars.schematics.all();
-if(all == null || all.size == 0){
-  var dir = new java.io.File(%(dir)s);
-  var fs = dir.listFiles();
-  if(fs != null){
-    for(var i=0;i<fs.length;i++){
-      var fn = String(fs[i].getName());
-      if(fn.length > 5 && fn.substring(fn.length-5) == '.msch'){
-        sb.append(fn.substring(0, fn.length-5)).append('\t').append(fs[i].length).append('\tfile\n');
-      }
-    }
-  }
-}else{
-  for(var i=0;i<all.size;i++){
-    var s = all.get(i);
-    var nm='-', au='-';
-    try{ nm = String(s.tags.get('name')); }catch(e){}
-    try{ au = String(s.tags.get('author')); }catch(e){}
-    sb.append(nm).append('\t').append(s.width).append('x').append(s.height).append('\t').append(au).append('\n');
-  }
-}
-"""
-
-MAPS_JS = r"""
-var ms = Vars.maps.all();
-for(var i=0;i<ms.size;i++){
-  var m=ms.get(i);
-  var f='-'; try{ f = m.file==null ? '-' : String(m.file.name()); }catch(e){}
-  sb.append(m.name()).append('\t').append(f).append('\n');
-}
-"""
+    services = SimpleNamespace(**{name: globals()[name] for name in ('FRAME_LIVE_MAX', 'FRAME_SWEEP_JS', 'LIVE_COLOR', 'MINE_BLOCK', 'MINE_HITS_JS', 'MINE_STATE_JS', 'SB_SWEEP_JS', '_projs', '_sb_store', 'chat', 'end_projection', 'frame_clear', 'frame_paint', 'project_at', 'sb_clear', 'sb_event', 'sb_render')})
+    return _run_projection_director(w, feed, scene_path, at, poll, fresh, lim, scenes,
+                                    frames, frame_floor, at_cell, feeds, auto, hold,
+                                    services=services)
 
 
 
-class API(socketserver.ThreadingTCPServer):
-    allow_reuse_address = True
-    daemon_threads = True
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 def make_handler(world: World, stop_cb):
-    class Handler(socketserver.StreamRequestHandler):
-        def handle(self):
-            for raw in self.rfile:
-                try:
-                    req = json.loads(raw.decode("utf-8"))
-                except Exception as e:
-                    self._send({"ok": False, "error": "bad json: %s" % e})
-                    continue
-                try:
-                    resp = dispatch(world, req, stop_cb)
-                except Exception as e:
-                    resp = {"ok": False, "error": "%s: %s" % (type(e).__name__, e)}
-                self._send(resp)
-
-        def _send(self, obj):
-            try:
-                self.wfile.write((json.dumps(obj, ensure_ascii=False) + "\n").encode("utf-8"))
-                self.wfile.flush()
-            except Exception:
-                pass
-    return Handler
+    """Compatibility factory: bind the daemon dispatcher explicitly."""
+    return _make_protocol_handler(world, stop_cb, dispatch)
 
 
 CHAT_LOG = True            # --chat-log 控制：把 agent 的写操作打进游戏聊天栏
@@ -2929,77 +1059,14 @@ def dispatch(w: World, req: dict, stop_cb) -> dict:
 
 def _dispatch(w: World, req: dict, stop_cb) -> dict:
     op = (req.get("op") or "").strip()
-    if op in ("ping", ""):
-        return {"ok": True, "pid": os.getpid(), "java": w.proc.pid if w.proc else None,
-                "hosted": getattr(w, "hosted", False), "map": w.map_name,
-                "gamePort": w.game_port, "uptime": round(time.time() - w.started, 1),
-                "dataDir": DATA}
-    if op == "status":
-        raw = {}
-        for ln in w.js(STATUS_JS):
-            k, _, v = ln.partition("=")
-            raw[k] = v
-        def num(k, cast=int, default=None):
-            try:
-                return cast(float(raw[k]))
-            except Exception:
-                return default
-
-        def flag(k):
-            try:
-                return float(raw[k]) != 0
-            except Exception:
-                return False
-        d = {
-            "map": raw.get("map"),
-            "mode": raw.get("mode"),
-            "wave": num("wave", int),
-            "waveIn": num("waveIn", int),
-            "tick": num("tick", int),
-            "width": num("w", int),
-            "height": num("h", int),
-            "players": num("players", int, 0),
-            "units": num("units", int, 0),
-            "buildings": num("builds", int, 0),
-            # Rhino 把 ?1:0 打印成 "1.0"，字符串比较永远不等 —— 按数值判
-            "paused": flag("paused"),
-            "infiniteResources": flag("infinite"),
-            "gamePort": w.game_port,
-            "uptime": round(time.time() - w.started, 1),
-            "dataDir": DATA,
-        }
-        return {"ok": True, **d}
-    if op == "maps":
-        rows = []
-        for ln in w.js(MAPS_JS):
-            name, _, f = ln.partition("\t")
-            rows.append({"name": name, "file": f})
-        return {"ok": True, "maps": rows, "count": len(rows)}
-    if op == "players":
-        return {"ok": True, **parse_tsv(w.js(PLAYERS_JS), ["name", "team", "x", "y", "admin"])}
-    if op == "units":
-        body = UNITS_JS % {"limit": int(req.get("limit") or 200),
-                           "R": float(req.get("radius") or 0),
-                           "CX": float(req.get("x") or 0), "CY": float(req.get("y") or 0),
-                           "team": json.dumps(req.get("team")),
-                           "type": json.dumps(req.get("type"))}
-        res = {"ok": True, **parse_tsv(w.js(body), ["id", "type", "team", "x", "y",
-                                                  "health", "maxHealth", "dead", "controller",
-                                                  "item", "carry", "itemCapacity",
-                                                  "elevation", "controlTimer",
-                                                  "flag", "controlled", "mining", "boosting"])}
-        if str(req.get("format") or "").lower() == "table":
-            res["table"] = units_table(res["rows"])
-        return res
-    if op == "unit":
-        uid = int(req.get("id"))
-        raw = {}
-        for ln in w.js(UNIT_JS % {"id": uid}):
-            if ln.startswith("ERR"):
-                return {"ok": False, "error": ln[4:]}
-            k, _, v = ln.partition("=")
-            raw[k] = v
-        return {"ok": True, **{k: coerce(v) for k, v in raw.items()}}
+    if op in WORLD_MAP_OPS:
+        return change_map(w, req, audit=audit)
+    if op in WORLD_QUERY_OPS:
+        return query_world(w, req, data_dir=DATA)
+    if op in WORLD_EDIT_OPS:
+        return edit_world(w, req, audit=audit, data_dir=DATA)
+    if op in WORLD_SCHEMATIC_OPS:
+        return schematic_world(w, req, audit=audit, schematic_dir=SCHEM_DIR)
     if op in ("chat", "chat_log", "messages"):
         since = int(req.get("since") or 0)
         limit = int(req.get("limit") or 80)
@@ -3070,217 +1137,6 @@ def _dispatch(w: World, req: dict, stop_cb) -> dict:
         rows = [r for r in rows
                 if not (r["kind"] == "B" and (r["tick"], r["x"], r["y"]) in covered)]
         return {"ok": True, "rows": rows, "count": len(rows), "since": since, "nextSeq": seq}
-    if op == "buildings":
-        body = BUILDS_JS % {"limit": int(req.get("limit") or 200),
-                            "R": float(req.get("radius") or 0),
-                            "CX": float(req.get("x") or 0), "CY": float(req.get("y") or 0),
-                            "team": json.dumps(req.get("team")),
-                            "block": json.dumps(req.get("block"))}
-        return {"ok": True, **parse_tsv(w.js(body), ["block", "team", "x", "y",
-                                                    "health", "items", "capacity"])}
-    if op == "building":
-        x, y = int(req.get("x")), int(req.get("y"))
-        out = w.js(BUILDING_AT_JS % {"x": x, "y": y})
-        rows = parse_tsv(out, ["block", "team", "x", "y", "health", "items", "capacity"])
-        if not rows["rows"]:
-            return {"ok": True, "block": None, "x": x, "y": y, "found": False}
-        return {"ok": True, "found": True, **rows["rows"][0],
-                "origin": {"x": rows["rows"][0]["x"], "y": rows["rows"][0]["y"]}}
-    if op == "place":
-        blk = str(req.get("block") or "")
-        if not blk:
-            return {"ok": False, "error": "empty block"}
-        audit("place", block=blk, x=req.get("x"), y=req.get("y"))
-        out = w.js(PLACE_JS % {"block": blk, "x": int(req.get("x")), "y": int(req.get("y"))})
-        if out and out[0].startswith("ERR"):
-            return {"ok": False, "error": out[0][4:]}
-        return {"ok": True, "block": blk, "x": int(req.get("x")), "y": int(req.get("y"))}
-    if op == "clear":
-        audit("clear", x=req.get("x"), y=req.get("y"))
-        out = w.js(CLEAR_JS % {"x": int(req.get("x")), "y": int(req.get("y"))})
-        if out and out[0].startswith("ERR"):
-            return {"ok": False, "error": out[0][4:]}
-        return {"ok": True, "x": int(req.get("x")), "y": int(req.get("y"))}
-    if op == "spawn":
-        ty = str(req.get("type") or "").strip()
-        if not ty:
-            return {"ok": False, "error": "empty type"}
-        cnt = max(1, int(req.get("count") or 1))
-        audit("spawn", type=ty, count=cnt, x=req.get("x"), y=req.get("y"))
-        body = SPAWN_JS % {"type": ty, "team": str(req.get("team") or "sharded"),
-                           "count": cnt, "cx": float(req.get("x") or 0),
-                           "cy": float(req.get("y") or 0),
-                           "radius": float(req.get("radius") or 3)}
-        spawned, units = 0, []
-        for ln in w.js(body):
-            if ln.startswith("ERR"):
-                return {"ok": False, "error": ln[4:].split("\t", 1)[-1], "spawned": spawned}
-            parts = ln.split("\t")
-            if parts[0] == "SPAWNED":
-                spawned = int(coerce(parts[1]) or 0)
-            elif parts[0] == "U":
-                units.append({"id": coerce(parts[1]), "type": parts[2], "team": parts[3],
-                              "x": coerce(parts[4]), "y": coerce(parts[5])})
-        return {"ok": True, "spawned": spawned, "units": units, "count": len(units)}
-    if op == "killunits":
-        audit("killunits", team=req.get("team"))
-        body = KILLUNITS_JS % {"keep_player": 0 if req.get("include_players") else 1,
-                               "team": ("'%s'" % req.get("team")) if req.get("team") else "null",
-                               "cx": float(req.get("x") or 0), "cy": float(req.get("y") or 0),
-                               "radius": float(req.get("radius") or 0)}
-        out = w.js(body)
-        if out and out[0].startswith("ERR"):
-            return {"ok": False, "error": out[0][4:]}
-        parts = (out[0] if out else "").split("\t")
-        return {"ok": True, "killed": coerce(parts[1]) if len(parts) > 1 else 0,
-                "kept": coerce(parts[2]) if len(parts) > 2 else 0}
-    if op == "clearbuilds":
-        keepcore = 1 if req.get("keepcore", True) else 0
-        audit("clearbuilds", keepcore=keepcore, radius=req.get("radius"))
-        body = CLEARBUILDS_JS % {"keepcore": keepcore,
-                                 "cx": float(req.get("x") or 0), "cy": float(req.get("y") or 0),
-                                 "radius": float(req.get("radius") or 0)}
-        out = w.js(body)
-        if out and out[0].startswith("ERR"):
-            return {"ok": False, "error": out[0][4:]}
-        parts = (out[0] if out else "").split("\t")
-        return {"ok": True, "cleared": coerce(parts[1]) if len(parts) > 1 else 0,
-                "kept": coerce(parts[2]) if len(parts) > 2 else 0}
-    if op == "switch":
-        target = str(req.get("map") or w.map_name or "").strip()
-        if not target:
-            return {"ok": False, "error": "no map name"}
-        return switch_map(w, target, audit)
-    if op == "reset":
-        # 默认走「不踢人」的换图路径；hard=true 才 stop+host（会断开所有玩家）
-        if not req.get("hard"):
-            target = str(req.get("map") or w.map_name or "").strip()
-            if not target:
-                return {"ok": False, "error": "no map name"}
-            return switch_map(w, target, audit)
-        audit("reset", map=w.map_name, hard=True)
-        w.console("stop", quiet=0.6, timeout=30)
-        res = w.console("host " + (w.map_name or ""), quiet=1.0, timeout=180)
-        text = "\n".join(res.get("lines") or [])
-        if "Opened a server" not in text:
-            return {"ok": False, "error": "rehost failed", "lines": res.get("lines")}
-        w.hosted = True
-        try:
-            w.js("var r=Vars.state.rules; r.waves=false; r.infiniteResources=true; "
-                 "r.canGameOver=false; r.logicUnitControl=true; sb.append(r.waves);")
-        except Exception:
-            pass
-        return {"ok": True, "map": w.map_name, "lines": res.get("lines")[-3:]}
-    if op == "logic":
-        body = LOGIC_LIST_JS % {"limit": int(req.get("limit") or 40),
-                                "R": float(req.get("radius") or 0),
-                                "CX": float(req.get("x") or 0), "CY": float(req.get("y") or 0)}
-        return {"ok": True, **parse_tsv(w.js(body), ["x", "y", "block", "codeLen", "vars"])}
-    if op == "logic_code":
-        x, y = int(req.get("x")), int(req.get("y"))
-        res = "code-%s.txt" % uuid.uuid4().hex[:12]
-        out = w.js(LOGIC_GET_JS % {"x": x, "y": y, "res": res})
-        if out and out[0].startswith("ERR"):
-            return {"ok": False, "error": out[0][4:]}
-        code = w.take_file(res)
-        return {"ok": True, "x": x, "y": y, "code": code,
-                "lines": code.count("\n") + (0 if code.endswith("\n") or not code else 1)}
-    if op == "logic_set":
-        x, y = int(req.get("x")), int(req.get("y"))
-        code = str(req.get("code") or "")
-        audit("logic_set", x=x, y=y, bytes=len(code))
-        src = w.put_file(code, "src")
-        out = w.js(LOGIC_SET_JS % {"x": x, "y": y, "src": src})
-        try:
-            os.remove(os.path.join(DATA, src))
-        except Exception:
-            pass
-        if out and out[0].startswith("ERR"):
-            return {"ok": False, "error": out[0][4:]}
-        return {"ok": True, "x": x, "y": y,
-                "codeLen": coerce(out[0].partition("\t")[2]) if out else None}
-    if op == "logic_vars":
-        x, y = int(req.get("x")), int(req.get("y"))
-        rows = []
-        for ln in w.js(LOGIC_VARS_JS % {"x": x, "y": y}):
-            if ln.startswith("ERR"):
-                return {"ok": False, "error": ln[4:]}
-            name, _, val = ln.partition("\t")
-            rows.append({"name": name, "value": coerce(val)})
-        return {"ok": True, "x": x, "y": y, "vars": rows, "count": len(rows)}
-    if op == "schematic":
-        src = req.get("src") or req.get("path") or ""
-        if not src and req.get("b64"):
-            src = "b64:" + str(req.get("b64")).strip()
-        if not src:
-            return {"ok": False, "error": "need src (path or b64)"}
-        if not src.startswith("b64:") and not os.path.exists(src):
-            # 裸名字: 先在 schematics 目录里找 <name>.msch / <name>
-            for cand in (os.path.join(SCHEM_DIR, src), os.path.join(SCHEM_DIR, src + ".msch")):
-                if os.path.exists(cand):
-                    src = cand
-                    break
-        if not src.startswith("b64:"):
-            src = os.path.abspath(src).replace("\\", "/")
-        x = int(req["x"]) if req.get("x") is not None else -1
-        y = int(req["y"]) if req.get("y") is not None else -1
-        team = req.get("team")
-        audit("schematic", src=str(src)[:120], x=x, y=y)
-        body = SCHEMATIC_PLACE_JS % {"src": json.dumps(str(src)), "ox": x, "oy": y,
-                                     "team": json.dumps(team)}
-        rows, ok_line, tiles = [], None, 0
-        for ln in w.js(body, timeout=120):
-            if ln.startswith("ERR"):
-                return {"ok": False, "error": ln[4:]}
-            if ln.startswith("OK\t"):
-                ok_line = ln
-            elif ln.startswith("TILES\t"):
-                tiles = int(coerce(ln.split("\t")[1]) or 0)
-        if not ok_line:
-            return {"ok": False, "error": "no result from schematic placement"}
-        kv = {}
-        for part in ok_line.split("\t")[1:]:
-            k, _, v = part.partition("=")
-            kv[k] = coerce(v) if v != "" else None
-        kv["tiles"] = tiles
-        return {"ok": True, **kv}
-    if op == "schematic_save":
-        x, y = int(req.get("x")), int(req.get("y"))
-        ww = int(req.get("w") or 0)
-        hh = int(req.get("h") or 0)
-        name = str(req.get("name") or "schem").strip()
-        if ww <= 0 or hh <= 0:
-            return {"ok": False, "error": "need w,h"}
-        if ww > 128 or hh > 128:
-            return {"ok": False, "error": "schematic max 128x128"}
-        safe = "".join(c for c in name if c not in '\\/:*?"<>|').strip() or "schem"
-        target = os.path.join(SCHEM_DIR, safe + ".msch")
-        audit("schematic_save", x=x, y=y, w=ww, h=hh, name=safe)
-        body = SCHEMATIC_SAVE_JS % {"x": x, "y": y, "w": ww, "h": hh,
-                                    "name": json.dumps(name),
-                                    "author": json.dumps("DeepSeek"),
-                                    "path": json.dumps(target.replace("\\", "/"))}
-        out = w.js(body, timeout=120)
-        if out and out[0].startswith("ERR"):
-            return {"ok": False, "error": out[0][4:]}
-        parts = (out[0] if out else "").split("\t")
-        # 让服务端内存里的蓝图表也能看到（客户端列表走磁盘，不依赖这个）
-        try:
-            w.js("try{ Vars.schematics.load(); sb.append('RELOADED'); }catch(e){ sb.append('ERR '+e); }")
-        except Exception:
-            pass
-        return {"ok": True, "path": target, "tiles": coerce(parts[1]) if len(parts) > 1 else 0,
-                "name": safe,
-                "bytes": os.path.getsize(target) if os.path.exists(target) else None}
-    if op == "schematics":
-        rows = []
-        for ln in w.js(SCHEMATIC_LIST_JS % {"dir": json.dumps(SCHEM_DIR.replace("\\", "/"))}):
-            if ln.startswith("ERR"):
-                return {"ok": False, "error": ln[4:]}
-            p = ln.split("\t")
-            if len(p) >= 3:
-                rows.append({"name": p[0], "size": p[1], "author": p[2]})
-        return {"ok": True, "items": rows, "count": len(rows)}
     if op == "tap":
         # 合成一次点击: 等价于玩家真的点了这一格(测试门用; 有玩家时连门一起触发)
         x = int(req.get("x") or 0)
@@ -3427,77 +1283,8 @@ def _dispatch(w: World, req: dict, stop_cb) -> dict:
             out[str(si)] = sb_lines(w, si, d=dd, age=ag,
                                     live=(ag is not None and ag <= win3))
         return {"ok": True, "panels": out}
-    if op in ("door", "doors", "door_clear", "door_enter", "taps"):
-        # 点击门：TapEvent 在任意方块上都会 fire（InputHandler.java:732-739），
-        # 这里只登记「哪一格是哪扇门」，点下去的动作由 DOOR_ACT_JS 里的 _doorAct 做。
-        if op == "taps":
-            since = int(req.get("since") or 0)
-            limit = int(req.get("limit") or 100)
-            rows, seq = [], 0
-            for ln in w.js(TAPS_JS % {"since": since, "limit": limit}):
-                if ln.startswith("NOSETUP"):
-                    return {"ok": False, "error": "event listeners not installed"}
-                if ln.startswith("SEQ\t"):
-                    seq = int(float(ln.split("\t")[1]))
-                    continue
-                q = ln.split("\t")
-                if len(q) >= 5:
-                    rows.append({"seq": int(float(q[0])), "tick": coerce(q[1]),
-                                 "x": coerce(q[2]), "y": coerce(q[3]), "player": q[4]})
-            return {"ok": True, "rows": rows, "count": len(rows), "nextSeq": seq}
-        if op == "doors":
-            rows = []
-            for ln in w.js(DOORS_JS):
-                if ln.startswith("COUNT\t"):
-                    continue
-                q = ln.split("\t")
-                if len(q) >= 5:
-                    rows.append({"tile": q[0], "kind": q[1], "unit": q[2],
-                                 "target": q[3], "label": q[4]})
-            return {"ok": True, "doors": rows, "count": len(rows)}
-        if op == "door_clear":
-            out = w.js(DOOR_CLEAR_JS)
-            # 端掉的不仅是内存表: doors.json 不清会在下次重启时把旧门全"复活"
-            try:
-                with open(DOORS_FILE, "w", encoding="utf-8") as fh:
-                    json.dump([], fh)
-            except Exception:
-                pass
-            w._doors_meta = {}
-            if out:
-                return {"ok": True, "cleared": coerce(out[0].split("\t")[1])}
-            return {"ok": False, "error": "no output"}
-        x = int(req.get("x") or 0)
-        y = int(req.get("y") or 0)
-        if op == "door_enter":
-            # 没有真人点击也能测: 直接替某个在线玩家执行一次门的动作
-            who = req.get("who")
-            out = w.js(DOOR_ENTER_JS % {"x": x, "y": y,
-                                        "who": json.dumps(str(who) if who else None)})
-            if not out:
-                return {"ok": False, "error": "no output"}
-            if out[0].startswith("NOPLAYER"):
-                return {"ok": False, "error": "no player online"}
-            line = next((ln for ln in out if ln.startswith("R\t")), out[-1])
-            res = line.split("\t")[1] if "\t" in line else line
-            audit("door_enter", x=x, y=y, result=res)
-            return {"ok": True, "result": res}
-        kind = str(req.get("kind") or "watch")
-        unit = str(req.get("unit") or "poly")
-        tx = int(req["tx"]) if req.get("tx") is not None else x
-        ty = int(req["ty"]) if req.get("ty") is not None else y
-        label = str(req.get("label") or kind)
-        block = str(req.get("block") or "shock-mine")
-        try:
-            info = door_register(w, x, y, kind, unit, tx, ty, label, block,
-                                 req.get("scene"))
-        except Exception as exc:
-            return {"ok": False, "error": str(exc)}
-        audit("door", x=x, y=y, kind=kind, unit=unit, tx=tx, ty=ty, label=label)
-        chat_line("door", req, {"ok": True})
-        res = {"ok": True}
-        res.update(info)
-        return res
+    if op in WORLD_DOOR_OPS:
+        return _door_registry.door_operation(w, req, audit=audit, doors_file=DOORS_FILE)
     if op in ("mirror_state", "mirror_feed", "mirror_clear"):
         # 状态镜: 坐标由调用方给(mlogsim 仿真 / 脚本), 不读 Groups.unit
         if op == "mirror_feed":

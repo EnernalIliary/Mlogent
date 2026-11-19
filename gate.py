@@ -283,6 +283,19 @@ def build_steps(full: bool, only: str | None) -> list[tuple[str, list[str] | Non
         # agent actually reads.  Neither needs a JVM or a port, so this runs
         # everywhere -- a listed-but-unhandled tool only shows up at call time.
         ("world", ["tests/world/run_world_tests.py"], ""),
+        ("worldtransport", ["tests/world/run_transport_tests.py"], ""),
+        ("worldprocess", ["tests/world/run_process_tests.py"], ""),
+        ("worldchannel", ["tests/world/run_channel_tests.py"], ""),
+        ("worldqueries", ["tests/world/run_query_tests.py"], ""),
+        ("worldedits", ["tests/world/run_edit_tests.py"], ""),
+        ("worldschematics", ["tests/world/run_schematic_tests.py"], ""),
+        ("worldmaps", ["tests/world/run_map_tests.py"], ""),
+        ("worldscenes", ["tests/world/run_scene_tests.py"], ""),
+        ("worldprojection", ["tests/world/run_projection_tests.py"], ""),
+        ("worldprojectionactions", ["tests/world/run_projection_action_tests.py"], ""),
+        ("worlddisplay", ["tests/world/run_display_tests.py"], ""),
+        ("worldmirrors", ["tests/world/run_mirror_tests.py"], ""),
+        ("worlddoors", ["tests/world/run_door_tests.py"], ""),
         # The HTTP transport is a different way into the same tool table, so its
         # tests pin the things a proxy or a client library depends on: status
         # codes, the 202-with-no-body notification rule, and the refusal to bind
