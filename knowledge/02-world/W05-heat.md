@@ -93,7 +93,7 @@ water 0.4、cryofluid 0.9 → **同一门炮用 cryofluid 的射速增益是水�
 
 **护盾**：`ForceProjector` 的 `liquidHeat = 1 + (heatCapacity - 0.4) × 0.9` [src: ForceProjector.java:134]。
 **修理塔**：`multiplier = 1 + heatCapacity × coolantMultiplier × efficiency` [src: RepairTurret.java:190]。
-**牵引塔**：消耗量被 `min(库存, maxUsed×delta, (1/coolantMultiplier)/heatCapacity)` 反比限制 [src: TractorBeamTurret.java:97]——热容越高，单 tick 能"吃"的冷却液越少，但每滴更值钱。
+**差扰（parallax）的牵引**：消耗量被 `min(库存, maxUsed×delta, (1/coolantMultiplier)/heatCapacity)` 反比限制 [src: TractorBeamTurret.java:97]——热容越高，单 tick 能"吃"的冷却液越少，但每滴更值钱。
 
 ### 5. 什么液体能当冷却液
 

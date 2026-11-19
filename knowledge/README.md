@@ -13,6 +13,8 @@
 | 要查某个数值 | [`00-data/`](00-data/) 的 JSON（带 id 与 src） |
 | 想知道旧知识库还算不算数 | [`INTEGRATION.md`](INTEGRATION.md)（逐项映射：谁被谁取代、什么情况才回查旧文件） |
 | 要改/扩这个库 | [`CONVENTIONS.md`](CONVENTIONS.md)（写作契约）+ [`tools/REBUILD.md`](tools/REBUILD.md)（重建发布流程） |
+| 英文读者 / 英文模型 | [`INDEX.en.md`](INDEX.en.md)（每篇的英文标题与一句话）→ [`GLOSSARY.md`](GLOSSARY.md)（中/英/旧译/口语对照，含 504 个实体名） |
+| 看到一个中文名，不知道对应哪个 id | [`GLOSSARY.md`](GLOSSARY.md) 的三层名字表，或 `python tools/kb_grep.py search "<词>"` |
 
 ## 结构
 

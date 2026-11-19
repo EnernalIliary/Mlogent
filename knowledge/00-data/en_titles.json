@@ -1,0 +1,346 @@
+{
+ "knowledge/01-execution/E01-执行模型与预算.md": {
+  "en_summary": "How the per-tick accumulator refills at edelta x ipt, clips its pool to 5 x ipt under lag, and executes one instruction per point.",
+  "en_title": "Execution model and instruction budget: the full chain from tick to accumulator"
+ },
+ "knowledge/01-execution/E02-指令语义陷阱.md": {
+  "en_summary": "Catalog of 30 mlog semantic traps across vectors, objects, numbers, timing, memory and interaction, each with the wrong form, the fix and the reason.",
+  "en_title": "30 instruction semantics traps (vectors / objects / numbers / timing / memory / interaction)"
+ },
+ "knowledge/01-execution/E03-变量与内存边界.md": {
+  "en_summary": "Why each LVar holds only number, object, null or const, and how memory cells and the text buffer carry every non-scalar value.",
+  "en_title": "Variable and memory boundaries: LVar's four states, memory cells and the text buffer"
+ },
+ "knowledge/01-execution/E04-时间与wait精度.md": {
+  "en_summary": "Why the game clock is 60 ticks/s, why wait takes seconds but resolves to whole ticks, and why wait 0.05 stalls three ticks.",
+  "en_title": "Time and wait precision: ticks, seconds and frame delta"
+ },
+ "knowledge/01-execution/E05-链接与@常量.md": {
+  "en_summary": "How compile-time @link constants differ from const @ values that set silently discards and from engine-refreshed globals.",
+  "en_title": "Links and @ constants: @links / getlink, built-in variable classes and units"
+ },
+ "knowledge/01-execution/E06-跨版本差异.md": {
+  "en_summary": "Why semantics follow the v159.3 source tree while numbers come from v160.7 jar reflection and live tests, plus known doc conflicts.",
+  "en_title": "Cross-version differences: v159.3 source vs v160.7 measurements, and the documentation conflict list"
+ },
+ "knowledge/02-world/W01-blocks-multiblock-anchor.md": {
+  "en_summary": "How block size maps to n x n tiles, why odd sizes center on the cursor while even sizes shift up-left, and how one Building is shared.",
+  "en_title": "Block model and multiblock anchors"
+ },
+ "knowledge/02-world/W02-crafting-recipes.md": {
+  "en_summary": "How ConsumeItems/Liquid/Power, craftTime and outputs combine, and why items are charged per craft while liquids and power drain per tick.",
+  "en_title": "Recipes and manufacturing"
+ },
+ "knowledge/02-world/W03-power.md": {
+  "en_summary": "Why power has no wires: each PowerGraph settles total demand against supply every tick and applies one coverage ratio, batteries taking the surplus.",
+  "en_title": "Power network"
+ },
+ "knowledge/02-world/W04-liquids.md": {
+  "en_summary": "Why liquid flow has no speed field, how each block moves liquid by fill-fraction difference times capacity, and why full or mixed pipes stall.",
+  "en_title": "Liquid system"
+ },
+ "knowledge/02-world/W05-heat.md": {
+  "en_summary": "Why heat is a scalar copied to neighbors by contact-count over size with no conservation or decay, and why heatCapacity only feeds coolant bonus.",
+  "en_title": "Heat system"
+ },
+ "knowledge/02-world/W06-logistics.md": {
+  "en_summary": "How conveyors, ducts, routers, junctions, bridges and mass drivers move items, and why their speed fields use three incompatible units.",
+  "en_title": "Logistics and item transport (conveyors / routers / junctions / bridges / mass drivers)"
+ },
+ "knowledge/02-world/W07-drills-resources.md": {
+  "en_summary": "How Drill, BeamDrill, BurstDrill and WallCrafter gate output by tier and hardness, making the UI's items/s an optimistic figure.",
+  "en_title": "Drilling and resources: drill tiers, hardness penalty and ore coverage"
+ },
+ "knowledge/02-world/W08-payloads.md": {
+  "en_summary": "How payloads travel a separate chain of payload conveyors, routers, constructors, deconstructors and mass drivers, all measured in tiles.",
+  "en_title": "Payloads: the whole-block transport chain for block and unit payloads (conveyors / routers / constructors / deconstructors / mass drivers)"
+ },
+ "knowledge/02-world/W09-terrain.md": {
+  "en_summary": "How floor, ore overlay and wall layers each carry their own stats and jointly decide movement speed, liquid presence and buildability.",
+  "en_title": "Terrain and environment: the floor / overlay / wall three-layer structure, movement multipliers and land/water checks"
+ },
+ "knowledge/02-world/W10-storage.md": {
+  "en_summary": "Why cores cap each item at storageCapacity, why adjacent containers merge into the core, and how unloaders choose source and destination.",
+  "en_title": "Storage: core capacity accounting, containers/vaults and unloader transfer priority"
+ },
+ "knowledge/02-world/W11-block-state.md": {
+  "en_summary": "How rotation, config and enabled are stored per building, how configured() dispatches config types, and how sense(LAccess) and sense(Content) read them.",
+  "en_title": "Block state and configuration (config / rotation / enabled / @sensor)"
+ },
+ "knowledge/02-world/W12-sandbox-editor.md": {
+  "en_summary": "How buildVisibility, inEditor, placeablePlayer, instantBuild and map rules decide what can be built, leaving sandbox blocks with nothing special.",
+  "en_title": "Sandbox and editor (buildVisibility / inEditor / instantBuild / rules)"
+ },
+ "knowledge/02-world/W13-name-blocks-terrain.md": {
+  "en_summary": "Lookup table mapping 136 terrain, ore and wall blocks between their in-game Chinese names, English names and ids.",
+  "en_title": "Block name reference 1: terrain / ores / walls (136 entries)"
+ },
+ "knowledge/02-world/W14-name-blocks-industry.md": {
+  "en_summary": "Lookup table of 168 logistics, power, liquid and production blocks grouped by category, mapping Chinese names to English names and ids.",
+  "en_title": "Block name reference 2: logistics / power / liquids / production (168 entries)"
+ },
+ "knowledge/02-world/W15-name-blocks-combat.md": {
+  "en_summary": "Lookup table of 143 crafting, turret, effect, unit-factory and logic blocks, where turret names are often imagery rather than description.",
+  "en_title": "Block name reference 3: crafting / turrets / effects / unit blocks / logic (143 entries)"
+ },
+ "knowledge/02-world/W16-name-items.md": {
+  "en_summary": "Lookup table of 56 items, liquids and status effects, the only way to turn a displayed name back into an id since these show no block id.",
+  "en_title": "Item / liquid / status effect name reference (56 entries)"
+ },
+ "knowledge/03-combat/C01-damage-pipeline.md": {
+  "en_summary": "The six fixed stages of a hit from BulletType to health, and why armor's max(damage - armor, 0.1 x damage) floor never reaches zero.",
+  "en_title": "Damage pipeline overview: the full order of a hit from BulletType to health"
+ },
+ "knowledge/03-combat/C02-turrets.md": {
+  "en_summary": "How reloadCounter, cooldownTime and coolant top-ups set turret rhythm, with water adding 40% and cryofluid 90% reload speed regardless of turret.",
+  "en_title": "Turret mechanics: range, reload, ammo, coolant, aiming and overheat"
+ },
+ "knowledge/03-combat/C03-bullets.md": {
+  "en_summary": "Why real bullet range is speed x lifetime rather than turret range, and why splashDamageRadius -1 means no splash while pierceCap -1 means unlimited.",
+  "en_title": "Bullets and ballistics: lifetime/speed/drag, piercing, splash, lightning and fragments"
+ },
+ "knowledge/03-combat/C04-status.md": {
+  "en_summary": "Why status effects refresh duration instead of stacking, taking max(remaining, new), while different statuses multiply into the four unit multipliers.",
+  "en_title": "Status effects: multiplier fields, duration, stacking and refresh, reaction damage"
+ },
+ "knowledge/03-combat/C05-armor.md": {
+  "en_summary": "Why armor subtracts rather than scales, so a 26-armor unit takes 0.9 from a 9-damage bullet but 324 from a 350-damage one.",
+  "en_title": "Armor and resistances: the subtraction formula, 10% floor, armor piercing and immunity"
+ },
+ "knowledge/03-combat/C06-unit-weapons.md": {
+  "en_summary": "Why mirror = true duplicates each weapon mount at +x and -x, and why unit DPS must sum every mount's independent reload.",
+  "en_title": "Unit weapons: weapons[], mount coordinates, mirroring and unit DPS"
+ },
+ "knowledge/03-combat/C07-support.md": {
+  "en_summary": "Why unit heal is flat HP, block healPercent is per-event max HP, repair turrets use HP per second, and shields break without overflowing.",
+  "en_title": "Healing, shields and repair: heal / shield / mend / repairSpeed"
+ },
+ "knowledge/03-combat/C08-waves.md": {
+  "en_summary": "How SpawnGroup drives wave counts via min(unitAmount + floor(((wave-begin)/spacing)/unitScaling), max), multiplying count, health and shields.",
+  "en_title": "Enemies and attack waves: spawn points, wave composition, difficulty scaling and AI targets"
+ },
+ "knowledge/03-combat/C09-defense.md": {
+  "en_summary": "How walls, shield walls, repair/overdrive and turrets layer defense, and why shields absorb damage only after armor is applied.",
+  "en_title": "Defenses: stats and resolution order of walls, doors, shields and repair turrets"
+ },
+ "knowledge/03-combat/C10-numbers.md": {
+  "en_summary": "How rate = 60/reload, d = max(D - A, 0.1D) and DPS = rate x shots x d reproduce combat numbers that differ up to 5x across layers.",
+  "en_title": "Combat number worked examples: the DPS definition, cross-layer accounting and TTK"
+ },
+ "knowledge/03-combat/C11-turret-verdict.md": {
+  "en_summary": "Why the 28 vanilla turrets should be chosen by era and role rather than raw DPS, since the top-DPS towers are the hungriest.",
+  "en_title": "Vanilla turret evaluation overview and selection decision table (per-turret index of 28)"
+ },
+ "knowledge/03-combat/turrets/T101-duo.md": {
+  "en_summary": "Why the 35-item duo carries the opening with 3 copper shots/s over 20 tiles, yet drops to 6.8 DPS against 22 armor once graphite replaces copper.",
+  "en_title": "duo - the burst-fire baseline for 35 items"
+ },
+ "knowledge/03-combat/turrets/T102-scatter.md": {
+  "en_summary": "Why the 222 listed-DPS scatter is an anti-air patch only: two pellets per trigger, air-only targeting, and 3 direct damage that cannot dent 22 armor.",
+  "en_title": "scatter - the 222 listed-DPS air sweeper"
+ },
+ "knowledge/03-combat/turrets/T103-scorch.md": {
+  "en_summary": "Why scorch trades its 7.5-tile reach for 10 pyratite rounds/s and 300 point-blank DPS, leaving it useless once enemies flank or outrange it.",
+  "en_title": "scorch - the point-blank brazier at 60 world units"
+ },
+ "knowledge/03-combat/turrets/T104-hail.md": {
+  "en_summary": "Why hail is the only early way to hit back lines at 29 tiles, and why its one shot/s and slow fixed-impact shell miss once enemies move.",
+  "en_title": "hail - single-shot shelling at 235 world units"
+ },
+ "knowledge/03-combat/turrets/T105-wave.md": {
+  "en_summary": "Why wave deals almost no damage but earns its slot: 20 liquid rounds/s with 0.7 knockback, and water or cryofluid extinguishing burning waves.",
+  "en_title": "wave - the 20-round-per-second fire extinguisher"
+ },
+ "knowledge/03-combat/turrets/T106-lancer.md": {
+  "en_summary": "Why lancer's 140 direct damage and 4x armorMultiplier keep 52 per shot against 22 armor, at the cost of 360 power/s and an 80-tick reload.",
+  "en_title": "lancer - the heavy-armor can opener with 140 direct damage"
+ },
+ "knowledge/03-combat/turrets/T107-arc.md": {
+  "en_summary": "Why arc is strong against crowds and useless alone: 34 single-target DPS, chained lightning that jumps and applies shocked, and no anti-air at all.",
+  "en_title": "arc - 34 DPS from chained lightning"
+ },
+ "knowledge/03-combat/turrets/T108-parallax.md": {
+  "en_summary": "Why parallax displaces instead of kills: a 16 traction beam drags air units toward the turret (harder the closer they are), plus 30 damage/s.",
+  "en_title": "parallax - the air puller with 16 traction"
+ },
+ "knowledge/03-combat/turrets/T109-swarmer.md": {
+  "en_summary": "Why swarmer's four missiles from eight rotating barrels reach 309.8 listed DPS on surge-alloy but collapse to 12.6 against 22 armor.",
+  "en_title": "swarmer - the four-missile salvo rain"
+ },
+ "knowledge/03-combat/turrets/T110-salvo.md": {
+  "en_summary": "Why salvo is the mid-game standard: four graphite rounds per 29-tick cycle give 320.7 DPS and still 93.1 through 22 armor, at 2.59 items/s.",
+  "en_title": "salvo - the four-round mainstay at 320 DPS"
+ },
+ "knowledge/03-combat/turrets/T111-segment.md": {
+  "en_summary": "Why segment never kills units: it intercepts enemy bullets at 30 damage and 7.5 shots/s, 225/s of throughput that costs 480 power/s.",
+  "en_title": "segment - the 225-per-second projectile sweeper"
+ },
+ "knowledge/03-combat/turrets/T112-tsunami.md": {
+  "en_summary": "Why tsunami is wave scaled up: twin barrels, two rounds per 3-tick trigger, about 20 triggers/s and 95 DPS on slag, for 850 items.",
+  "en_title": "tsunami - the twin-barrel liquid sprinkler"
+ },
+ "knowledge/03-combat/turrets/T113-fuse.md": {
+  "en_summary": "Why fuse is the strongest late close defense: three thorium pellets per 35 ticks give 540 DPS and 426.9 through 22 armor within 11 tiles.",
+  "en_title": "fuse - the 540 DPS point-blank shotgun"
+ },
+ "knowledge/03-combat/turrets/T114-ripple.md": {
+  "en_summary": "Why ripple is mid-game ground artillery: four shells per 120 ticks reach 36 tiles for 231 listed DPS, but cannot answer fast pushes or air.",
+  "en_title": "ripple - four-round shelling beyond 290 world units"
+ },
+ "knowledge/03-combat/turrets/T115-cyclone.md": {
+  "en_summary": "Why cyclone anchors late anti-air at 415.5 listed DPS over 25 tiles, yet manages only 7.8 DPS against 22 armor, needing fuse or spectre backup.",
+  "en_title": "cyclone - the 415 listed-DPS anti-air core"
+ },
+ "knowledge/03-combat/turrets/T116-foreshadow.md": {
+  "en_summary": "Why foreshadow's 62.5-tile reach and 1350 direct damage keep 398.4 of 405 DPS through 22 armor, for 600 power/s and 5 items per shot.",
+  "en_title": "foreshadow - the 405-point hammer beyond 500 world units"
+ },
+ "knowledge/03-combat/turrets/T117-spectre.md": {
+  "en_summary": "Why spectre is the endgame answer: 8.57 thorium rounds/s give 685.7 DPS and 497.1 through 22 armor over 32.5 tiles, at 4.29 items/s.",
+  "en_title": "spectre - the 685 DPS endgame main gun"
+ },
+ "knowledge/03-combat/turrets/T118-meltdown.md": {
+  "en_summary": "Why meltdown's continuous laser deals 78 every 5 ticks for 936 DPS, then averages 672.75 across its 90-tick cooldown and 1020 power/s.",
+  "en_title": "meltdown - the 936 DPS burn-through laser"
+ },
+ "knowledge/03-combat/turrets/T201-breach.md": {
+  "en_summary": "Why breach, with carbide cutting reload to 8 ticks, reaches 2437.5 single-target DPS at 325 damage but needs 7.5 carbide/s and a 23.75-tile reach.",
+  "en_title": "breach - 325 per shot, the densest opening gun in the game"
+ },
+ "knowledge/03-combat/turrets/T202-diffuse.md": {
+  "en_summary": "Why diffuse sprays 15 oxide pellets for 2025 single-target DPS at 30 shots/s, but only within 15.6 tiles and at 45 items/s of ammo.",
+  "en_title": "diffuse - 15-projectile spread, the highest ammo draw in the library"
+ },
+ "knowledge/03-combat/turrets/T203-sublimate.md": {
+  "en_summary": "Why sublimate's continuous flame deals 60 per tick on ozone and 130 on cyanogen, which also adds 70 range and pierceCap 3 for 18 liquid/s.",
+  "en_title": "sublimate - the liquid torch dealing 130 per damage tick"
+ },
+ "knowledge/03-combat/turrets/T204-titan.md": {
+  "en_summary": "Why titan's 48.75-tile carbide shells keep 96% of their damage through 22 armor, while hitting ground only at 0.54 shots/s.",
+  "en_title": "titan - a 390-world-unit siege gun that barely feels armor"
+ },
+ "knowledge/03-combat/turrets/T205-disperse.md": {
+  "en_summary": "Why disperse is pure anti-air: four alternating barrels at 31.37 shots/s give 2117.6 DPS over 38.75 tiles, and zero output against ground.",
+  "en_title": "disperse - anti-air only, 310 world units"
+ },
+ "knowledge/03-combat/turrets/T206-afflict.md": {
+  "en_summary": "Why afflict's 180 piercing damage every 50 ticks gives 216 DPS over 46 tiles and ignores armor penalties, at 300 power/s and slow projectiles.",
+  "en_title": "afflict - the 368-world-unit, 216 DPS armor-piercing electric gun"
+ },
+ "knowledge/03-combat/turrets/T207-lustre.md": {
+  "en_summary": "Why lustre's 360-degree cone and strongest-unit sort make it a fire-and-forget finisher, dealing 210 per tick for 200 power/s plus nitrogen.",
+  "en_title": "lustre - the 360-degree laser that picks the toughest target"
+ },
+ "knowledge/03-combat/turrets/T208-scathe.md": {
+  "en_summary": "Why scathe shows zero turret DPS: its bullet only spawns a missile unit whose 1000 splash does the damage, 168.75 tiles away every 10 s.",
+  "en_title": "scathe - the 1350-world-unit missile rack, one shot per ten seconds"
+ },
+ "knowledge/03-combat/turrets/T209-smite.md": {
+  "en_summary": "Why smite's five barrels at 3 shots/s give 562.5 DPS and retain 496.5 through 22 armor, the best of Erekir's general towers, for 2200 items.",
+  "en_title": "smite - five-barrel heavy hitter with the best 22-armor retention"
+ },
+ "knowledge/03-combat/turrets/T210-malign.md": {
+  "en_summary": "Why malign fires 17.14 rounds/s at 70 damage plus lightning and laser fragments, covering rather than aiming, for 2400 power/s.",
+  "en_title": "malign - 2400 power and seventeen rounds per second at random impact points"
+ },
+ "knowledge/04-units/U01-movement.md": {
+  "en_summary": "Why UnitType.speed is in world units per tick, so speed x 60 / 8 gives tiles/s, from alpha at 22.5 to corvus at 2.25 tiles/s.",
+  "en_title": "Unit types and movement: the real unit of speed, hitSize, terrain and boost"
+ },
+ "knowledge/04-units/U02-production.md": {
+  "en_summary": "How factories, reconstructors and assemblers form three production paths, and how core unitCapModifier values sum into the unit cap.",
+  "en_title": "Unit production chain: factories, reconstructors, assemblers and the unit cap"
+ },
+ "knowledge/04-units/U03-ai.md": {
+  "en_summary": "How each AIController runs targeting, movement and weapons every tick, and how targetPriority overrides distance while class sets path cost.",
+  "en_title": "Unit AI: controllers, target selection, commands and stances, pathfinding cost"
+ },
+ "knowledge/04-units/U04-abilities.md": {
+  "en_summary": "Why only 15 of 62 vanilla units carry the 16 Ability instances, and how each ability's timer and update(unit) callback drive it.",
+  "en_title": "Unit abilities: the abilities list, parameters and triggers of 16 Ability types"
+ },
+ "knowledge/04-units/U05-progression.md": {
+  "en_summary": "Why neither v159.3 nor v160.7 has unit experience or levels, and which four real mechanics produce the felt progression.",
+  "en_title": "Unit progression: no experience or levels, only tiers, wave tables and difficulty multipliers"
+ },
+ "knowledge/04-units/U06-name-units.md": {
+  "en_summary": "Lookup table of 70 unit English and Chinese names, 60 with official Simplified Chinese, bridging displayed names to blueprint and wave ids.",
+  "en_title": "Unit name reference: English and Chinese names of 70 units (60 with official Simplified Chinese)"
+ },
+ "knowledge/06-mlog/M01-执行模型总览.md": {
+  "en_summary": "How a processor accumulates ipt x dt budget per tick, executes one instruction per point, and lets @counter select the next line.",
+  "en_title": "Execution model overview: ticks, @counter and the per-tick instruction budget"
+ },
+ "knowledge/06-mlog/M02-变量与作用域.md": {
+  "en_summary": "Why every variable is a number or an object, why null is an empty object slot, and why num(null) yields 0 rather than NaN.",
+  "en_title": "Variables and scope: the number / object / null three-state model"
+ },
+ "knowledge/06-mlog/M03-控制流.md": {
+  "en_summary": "Why mlog has only jump and a writable @counter, how loops jump backward and branches forward, and what rewriting @counter breaks.",
+  "en_title": "Control flow: jump's 8 conditions, loop idioms and the consequences of rewriting @counter"
+ },
+ "knowledge/06-mlog/M04-读写与感知.md": {
+  "en_summary": "The five ways mlog reads the world - sensor, radar, ulocate, getlink and lookup - plus read for memory blocks.",
+  "en_title": "Reading, writing and sensing: read / write / sensor / radar / ulocate / getlink / lookup"
+ },
+ "knowledge/06-mlog/M05-绘制与文本.md": {
+  "en_summary": "How draw packs arguments into 10-bit signed slots of -511..511, how print fills a 400-character buffer, and why flushes are required.",
+  "en_title": "Drawing and text: draw's 16 commands, 10-bit packing and the text buffer"
+ },
+ "knowledge/06-mlog/M06-世界交互.md": {
+  "en_summary": "Why only world processors can write rules, spawn units, place bombs and toggle buildings, listing their 26 privileged instructions.",
+  "en_title": "World interaction: control, setrule and the 26 privileged world processor instructions"
+ },
+ "knowledge/06-mlog/M07-单位与逻辑控制.md": {
+  "en_summary": "How ubind binds a unit to @unit, why set @unit is silently dropped, and what the 21 ucontrol subcommands act on.",
+  "en_title": "Unit and logic control: ubind, ucontrol's 21 subcommands and the @unit lifecycle"
+ },
+ "knowledge/06-mlog/M08-性能与限制.md": {
+  "en_summary": "Why every slowdown, lag spike and logic delay reduces to the per-tick instruction budget, tick rate or wait granularity.",
+  "en_title": "Performance and limits: budget, latency, lag and hard caps"
+ },
+ "knowledge/06-mlog/M09-Mindcode.md": {
+  "en_summary": "How tools/mindcode.py finds the jar and JRE, runs cm and parses stderr into file:line:col for the CLI, Python API and MCP entries.",
+  "en_title": "Mindcode compile front end: .mnd -> mlog entry points, version arbitration and failure classification"
+ },
+ "knowledge/06-mlog/M10-Mindcode-Syntax.md": {
+  "en_summary": "Measured Mindcode 3.19.3 syntax rules for target 7.0 with optimization off, each paired with the mlog it compiles to.",
+  "en_title": "Mindcode syntax cheatsheet (measured): every rule with its compiled mlog"
+ },
+ "knowledge/07-patterns/P01-architecture.md": {
+  "en_summary": "Why architecture means fitting state size times loop frequency into the ipt x edelta budget before splitting processors, which adds communication cost.",
+  "en_title": "Blueprint architecture overview: budget, layering and topology"
+ },
+ "knowledge/07-patterns/P02-state-machine.md": {
+  "en_summary": "Why prefer enumerated states with jump equal chains over @counter offset dispatch, which is O(1) but breaks on any inserted instruction.",
+  "en_title": "State machines: enumerations, transition tables and @counter dispatch"
+ },
+ "knowledge/07-patterns/P03-comm-bus.md": {
+  "en_summary": "Why cross-processor links are only memory cells and the shared variable space, both lock-free, so protocols need one writer plus sequence numbers.",
+  "en_title": "Communication and buses: memory mailboxes, channel encoding and read/write races"
+ },
+ "knowledge/07-patterns/P04-data-structures.md": {
+  "en_summary": "Why mlog data structures are hand-addressed memory indexes chosen by instruction cost: array 1, queue 3, ring buffer 4, full canvas 4096.",
+  "en_title": "Data structures: memory layout of arrays, queues, ring buffers and the canvas"
+ },
+ "knowledge/07-patterns/P05-radar-targeting.md": {
+  "en_summary": "Why one radar instruction filters, sorts and picks a target, and why its 30-tick cache means range must be rechecked manually.",
+  "en_title": "Radar and targeting: combining filter/sort/order and range checks"
+ },
+ "knowledge/07-patterns/P06-performance.md": {
+  "en_summary": "Why performance work means throttling first, then rotating slices, then splitting processors, with liveness checks and bounded retries.",
+  "en_title": "Performance and robustness: budget allocation, throttling and self-recovery"
+ },
+ "knowledge/07-patterns/P07-unit-multicontrol.md": {
+  "en_summary": "How @counter dispatch, @controller tri-state liveness and keeping reinforcement out of the hot loop hold a loop to 3 + N x stride + 1 instructions.",
+  "en_title": "Unit multicontrol: @counter dispatch, @controller liveness checks and the hauling loop"
+ },
+ "knowledge/07-patterns/P08-counter-architectures.md": {
+  "en_summary": "How fixed-length per-object slots and computed @counter offsets shrink a loop, and how building variable tables keyed by runtime type names store objects.",
+  "en_title": "@counter advanced architectures and name tables: dispatch, shrinking and building variable tables"
+ },
+ "knowledge/07-patterns/P09-code-examples.md": {
+  "en_summary": "Six paste-ready programs (two hauling, mining, name row table, two landing-pad dispatchers) on fixed slots, relative dispatch and 2 s reinforcement bursts.",
+  "en_title": "Finished logic code library: multicontrol hauling, multicontrol mining, row tables and landing pad scheduling"
+ }
+}

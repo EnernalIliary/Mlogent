@@ -36,7 +36,7 @@ tags: [炮塔, 评价, 选型, 索引]
 | COMBAT.TURRET.105 wave | A | 状态控制 / 灭火与击退 | 液体/特殊 | 见正文 | 145 | - | 13.8 | 空地 | 00-data |
 | COMBAT.TURRET.106 lancer | A | 反重甲 / 单发穿透 | 液体/特殊 | 见正文 | 220 | - | 20.6 | 地 | 00-data |
 | COMBAT.TURRET.107 arc | B | 链式电击 / 打断控制 | 液体/特殊 | 见正文 | 100 | - | 11.2 | 地 | 00-data |
-| COMBAT.TURRET.108 parallax | A | 空中位移控制 / 推离 | 液体/特殊 | 见正文 | 320 | - | 37.5 | 空 | 00-data |
+| COMBAT.TURRET.108 parallax | A | 空中位移控制 / 拉近（把目标拽向自己） | 液体/特殊 | 见正文 | 320 | - | 37.5 | 空 | 00-data |
 | COMBAT.TURRET.109 swarmer | A | 导弹群伤 / 中程防空 | surge-alloy | 126.0 | 145 | 0.87 | 30.0 | 空地 | 00-data |
 | COMBAT.TURRET.110 salvo | A | 中期主力 / 连发点杀 | graphite | 320.7 | 230 | 1.39 | 23.8 | 空地 | 00-data |
 | COMBAT.TURRET.111 segment | A | 弹体拦截 / 防空清弹 | 液体/特殊 | 见正文 | 290 | - | 22.5 | - | 00-data |

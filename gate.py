@@ -179,6 +179,11 @@ def build_steps(full: bool, only: str | None) -> list[tuple[str, list[str] | Non
         # them.  What drifts silently is the generated side -- aliases.json and
         # the five W13..W16/U06 docs -- hence --check compares with the disk.
         ("bundles", ["tests/bundles/run_bundle_tests.py"], ""),
+        # Two generated doorways into the knowledge base: the three-layer name
+        # table (official / legacy / colloquial) and the English index.  Both
+        # drift the moment an article is added without its English title, which
+        # is exactly the failure an English reader cannot see by himself.
+        ("glossary", ["tests/glossary/run_glossary_tests.py"], ""),
         # The observation schema (tools/observation.py) is what makes two runs
         # comparable at all; the differential runner is layered on it.  Pure
         # data, so it runs everywhere -- only the live-world half can skip.
@@ -344,7 +349,8 @@ def build_steps(full: bool, only: str | None) -> list[tuple[str, list[str] | Non
     # `bundles` and `claims` grade the knowledge base, which ships as its own
     # package (`mlog-agent-<ver>-knowledge.zip`).  A toolchain-only checkout must
     # still gate cleanly, so name the missing tree instead of failing on it.
-    know = {"bundles": "knowledge/tools", "claims": "knowledge/08-evidence"}
+    know = {"bundles": "knowledge/tools", "glossary": "knowledge/tools",
+            "claims": "knowledge/08-evidence"}
     steps = [(n, None, know[n] + " ships in the knowledge package")
              if (a is not None and n in know and not (ROOT / know[n]).is_dir())
              else (n, a, s) for n, a, s in steps]
