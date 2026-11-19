@@ -12,7 +12,11 @@ class RuntimeTests(unittest.TestCase):
     def test_paths_are_derived_without_creating_directories(self):
         with tempfile.TemporaryDirectory() as root:
             paths=WorldPaths.from_root(root)
-            self.assertEqual(paths.handshake,str(Path(root)/'out/_world/daemon.json'))
+            # The root is resolved (Windows temp dirs come back as 8.3 names like
+            # RUNNER~1, and resolve() expands them), so the expectation is derived
+            # from the resolved root rather than the raw argument.
+            self.assertEqual(Path(paths.root),Path(root).resolve())
+            self.assertEqual(paths.handshake,str(Path(paths.root)/'out/_world/daemon.json'))
             self.assertFalse((Path(root)/'out').exists())
 
     def test_close_invalidates_watchers_and_removes_handshake_once(self):
