@@ -813,6 +813,25 @@ python tools/explore.py shrink --seeds 7 --modifier-file mods.json --json
 MCP 侧是 `mlog_explore`（`action=list` 看模板与旋钮，`action=run` 传 `template`+`seeds`，
 `shrink=true` 顺手把第一个失败缩成最小复现）。
 
+## 白靶 DPS（`dps.py`）
+
+面板 DPS（`60/reload×shots×D`）是**子弹层**的数字，对直射炮成立，对其他炮两边都错：
+溅射/破片对同一个靶反复结算（cyclone 实测 6.8 倍面板），曲射对单点小目标大量落空
+（titan/foreshadow 1800 tick 一发未中）。
+
+```bash
+python tools/dps.py box duo                       # 先说清射界：range / minRange / 打空还是打地
+python tools/dps.py measure duo copper            # 白靶实测，返回 dps 与 panel 的比值
+python tools/dps.py measure ripple graphite --ticks 3000 --distance 21.2
+```
+
+做法是放一个**打不死的靶子**：每 tick 记 `hp0 - hp`，再把靶子与自己都回满血——否则靶子几秒就死，
+样本剩下的全是飞行时间与最后一发的溢出伤害。`box` 必须先跑：`scatter` 只打空中
+（`targetGround=false`）、`ripple` 有 `minRange=50`，把地面靶放在三格外，两者都是 0 dps，
+看起来像"炮不开火"。
+
+台账在 `knowledge/03-combat/C10-numbers.md` 表 3（每门炮的面板、实测与差异来源）。
+
 ## 文件分层
 
 1. **入口**：`mlog.py`（统一下发子命令）、`mlogagent.py`（`report` / `info` 一条命令跑完五层）、

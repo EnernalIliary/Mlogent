@@ -62,6 +62,32 @@ TTK(秒)      = 目标生命 / DPS
 
 读法：溅射、贯穿、碎片是"面板放大项"，只有打单体、不贯穿时才归 1.00×。meltdown 的 4680 来自 `estimateDPS = damage*100/damageInterval*3`（`ContinuousBulletType.java:39-44`，按"持续 100 tick、贯穿 3 个目标"假设），3120 是 `Turret.estimateDps()` 把"已是每秒值"的 estimateDPS 又按 `shots/reload*60` 除一次的产物 —— **两者都不是开火期真实值**。
 
+### 表 3：白靶实测（真执行器，2026-11-19）
+
+不看公式，把炮塔放进场景、给一个**打不死的靶子**，数每 tick 掉的血。协议：v160.7 执行器、1800 tick、靶子放在 `(range+minRange)/2` 的合法带上（air-only 炮塔换 flare 靶）、靶子与炮塔每 tick 都回满血、200 库存弹药。
+
+| 炮塔（弹药） | 面板 DPS（`60/reload×shots×D`） | 白靶实测 DPS | 实测/面板 | 差异从哪来 |
+|---|---|---|---|---|
+| duo（copper） | 27.0 | 26.1 | 0.97× | 只差预热与飞行时间 |
+| salvo（copper） | 124.1 | 119.5 | 0.96× | 同上 |
+| spectre（graphite） | 428.6 | 483.3 | 1.13× | 面板把 reload 当纯射速，实战连发更密 |
+| fuse（titanium） | 339.4 | 143.0 | 0.42× | 3 发里只有 1 发落到同一个点目标 |
+| hail（graphite） | 20.0 | 30.2 | 1.51× | 溅射 33 也打在同一个靶上 |
+| scatter（scrap） | 20.0 | 53.6 | 2.68× | 溅射 33 全额叠加（且只打空中） |
+| cyclone（metaglass） | 36.0 | 244.6 | **6.79×** | 溅射 45 + 破片对单目标反复结算 |
+| ripple（graphite） | 80.0 | 50.0 | 0.63× | 曲射散布，4 发里有落空 |
+| foreshadow（surge-alloy） | 405.0 | **0** | 0.00× | 1800 tick 内一发未中：弹道太慢、落点散 |
+| titan（thorium） | 114.1 | **0** | 0.00× | 同上，单点小目标几乎必空 |
+
+四个结论：
+
+1. **面板式只对直射单体成立**：duo/salvo 在 5% 内吻合，spectre 偏 13%（连发节奏比 `reload` 更密）。
+2. **溅射与破片对单目标是放大器**，不是折扣：cyclone 实测是面板的 6.8 倍，因为一发炮弹的溅射 45 与破片都对同一个靶结算。
+3. **曲射（ripple/foreshadow/titan）反过来**：面板假设"每发都命中"，实测单点小目标命中率极低，炮越大越明显 —— titan 一个弹夹只有 3 炮（见上文），1800 tick 打空是常态。
+4. 所以"实战 DPS"必须写清**目标形态**（单体/群体、静止/移动、点目标/大目标），否则同一门炮能报出 0 到 6.8 倍面板的任意数字。
+
+复现：`python tools/dps.py box <block>` 先查合法射界，再 `python tools/dps.py measure <block> <ammo>`；`tests/dps/` 里有纯数学层与一条只跑 duo 的实机回归。
+
 ### 表 2：单位武器层 DPS（v160.7 units.json，按挂点数折算）
 
 | 单位 | 武器 | 挂点数 × reload(tick) | 有效射速/s | 单发 D | DPS |
