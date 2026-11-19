@@ -90,3 +90,7 @@ out/_publish/
 
 # benchmark 判官的工作目录（answer.mlog / itrace.tsv），产物不入库
 bench/results/work/
+
+# Skill tool payloads are generated from /tools at release time.
+/mindustry-blueprint/tools/
+/.dsh/skills/*/tools/

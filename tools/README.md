@@ -962,3 +962,21 @@ python tools/scene.py emit --flavor sim scenes/v27-rig.json    # 看要执行什
 顺序固定：place → config/items → links+code → units（链接要指向已存在的建筑）。
 报告带 `K` 行（执行器真实的 `getlink` 下标映射）与 `ERR` 行（声明 N 条链接只解析出 M 条），
 因为不合法链接会被 `updateCode()` 丢掉并把下标往前挤，光看坐标看不出错位。
+
+## 源码与技能发布
+
+本目录是唯一工具源码。测试直接导入这里；`python tools/build_skills.py --verify-only` 验证生成的独立技能。`python tools/build_skills.py --out dist/skills-<版本>` 生成发布目录，已有目标不会被覆盖。技能工具副本不再纳入版本管理，`sync_mlogagent.py` 只供旧安装显式使用。
+
+`logic_templates.py` 保存确定性模板与 `route_intent()` 离线匹配；`logicd.py` 负责将结果送入分析、编码与服务流程。原有 `logicd.TEMPLATES`、`logicd.Template` 与 `_route` 入口保持兼容。
+
+`logic_links.py` 负责链接解析、同类链接匹配、相对坐标和区域候选计算；不写快照或启动服务。`logicd.region` 及原有链接辅助入口保持兼容。快照落盘仍由 `logicd.snapshot_dump()` 负责。
+
+`logic_models.py` 提供地址规范化、模型列表、探测和 `public_state(state)`。运行期配置由 `logic_runtime.Application.LLM_STATE` 持有，`logicd.LLM_STATE` 保留同一对象的兼容引用；模型切换与队列 provider 更新由 `logicd.apply_llm()` 协调，聊天与任务不会读到另一份配置。
+
+`logic_service.py` 提供 `analyse(code, links, ipt=2)`、`compose(req)`、`plan(req)`，可以直接调用，无需启动 sidecar。任务队列与聊天代码检查直接依赖业务层。独立契约测试：`python tests/service/run_service_tests.py`。
+
+`logic_http.py` 负责 HTTP 传输，通过 `make_handler(application)` 显式绑定应用，不反向导入 `logicd`。`logicd.Handler` 是绑定当前应用的兼容入口。独立传输测试：`python tests/http/run_http_tests.py`。
+
+`logic_runtime.Application` 集中管理配置、队列、聊天存储/上下文和生命周期。`logicd.APP` 是 CLI 的默认应用；HTTP 和聊天后台线程显式绑定它。新建应用不会创建存储目录或启动工作线程。运行期隔离测试：`python tests/runtime/run_runtime_tests.py`。
+
+`logic_cli.py` 保存参数解析和启动装配；`logicd.py` 只保留直接执行入口和显式兼容导出。`--plan` / `--print-template` 不创建任务或聊天存储；导入 `logicd` 不初始化默认应用。CLI 测试：`python tests/cli/run_cli_tests.py`。

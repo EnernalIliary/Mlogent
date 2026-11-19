@@ -29,14 +29,13 @@ python tools/mlog_eval.py selftest             # 评估信封契约自检
 `run_quickcheck_tests.py`、`run_rhino_parity.py`、`run_ui_smoke.py`、`run_gtb_tests.py`、
 `run_server_probe.py`。
 
-`python gate.py` 依次跑：`mirror`（`tools/` 与三处副本是否一致 —— 测试实际上导入的是
-`mindustry-blueprint/tools` 副本，副本陈旧会让整套测试“绿着但测的是旧代码”）、`tests`、
+`python gate.py` 依次跑：`skillpack`（从根源码生成技能包，在临时目录校验清单并运行回归）、`tests`（直接导入根目录 `tools/`）、
 `eval`（评估信封契约：`mlog-eval/v1` 的键集、`level` 裁剪、7 个失败类型、四维成功级别）、
 `rule_capture.py lint`、`tests/shapes/run_shapes.py`（检查器自身的语句形状不变量：
 语句尾部追加惰性 token 后规则仍须开火，防整行锚定正则 fail-open）、`tests/docsig/run_docsig.py`（文档里的语句签名与 `tools/instr_semantics.json` 机检：槽位数、槽位序、示例参数数、参数表、枚举槽名字（`ucontrol`/`draw`/`ulocate` 子命令、`status` 布尔第一槽、`sensor` 属性必须是 LAccess/Content）；
 文档教错语法会在这里红）、`tests/ruleids/run_ruleids.py`（每条规则必须在某个 `tests/cases/*.mlog` 上真点火一次，
 且 rid → 用例的映射与 `tests/rule-coverage.json` 一致——只写反例的规则在这里红）、`quickcheck`（游戏内快检 `MlogAuxiliary/scripts/quickcheck.js` 的规则表由 `tools/rules_export.py` 从 `instr_semantics.json` 生成：先验表没漂移，再跑 14 个用例，并用全量检查器做**单向**交叉验证——快检说断链的行，全量检查必须也这么说；少报允许，瞎报不允许）、`rhinoparity`（同一批用例在真 v160.7 的 Rhino 里重跑；node 永远看不见 split(正则) 按字符切的那个 bug）、`ui`（把 MlogAuxiliary/scripts/main.js 整段按 Mods.loadScripts 的方式加载进真引擎的脚本作用域，再让模组把设置表格造到一张假表上——抓 Table/Cell 漂移和初始化抛错，这些 node 侧一条也发现不了）、`gtb`（Grief to Ban 模组：`node --check` 三个脚本 + 275 条纯逻辑断言；纯 JS，必须 <1 s）、`mindcode`（`.mnd → mlog` 前端：定位 jar/JRE、真编译、BOM 与超时；没有编译器时报 SKIP）、
-`scenario`（场景运行器：schema 校验 + 真执行 + 断言判决）、`global`（用户级技能副本）、`kb`（`out/_kb/kb.sqlite3` 是否比
+`scenario`（场景运行器：schema 校验 + 真执行 + 断言判决）、`kb`（`out/_kb/kb.sqlite3` 是否比
 `docs/断言表.md`、`tools/*.py` 旧）。默认档约 36 s（`mindcode`、`scenario` 要真起 JVM），够日常改完就看；`--full` 追加 `mlog.py selftest` / `probes` / `logicd` / `gtbprobe`（真服务端加载 Grief to Ban 并跑模组内自检 21 条）/ `corpus` / `coverage` 六步——它们互不依赖（各自起 JVM、各写各的 `out/_bench` 文件），所以**并发跑**；两条长杆内部再各自并行（`probes` 20 个 JVM、`selftest` 8 进程 + 验证重建用 deflate 1 级），合计 100 s → **约 25 s**，`--serial` 恢复串行。`--kb-build` 在 KB
 陈旧时自动重建，`--only test` 只跑名字含某子串的步骤，`--strict` 把 WARN **和 SKIP** 都当失败
 （`probes`/`corpus` 的跳过条件正好是干净 checkout 的默认状态，不 strict 的话它们可以永久静默）。
@@ -60,9 +59,9 @@ python tools/mlogsim.py logic.mlog --save scene.msav --units mono:1 --core-items
 |---|---|
 | `tools/` | 统一入口 `mlog.py`、模拟器 `mlogsim.py`、检查器/IR/值域、MCP 服务、签名、知识库、写入服务 sidecar `logicd.py` |
 | `mindustry-blueprint/` | 蓝图/逻辑技能文档（SKILL / REFERENCE / EMULATOR-CROSSCHECK）与参考数据 |
-| `gate.py` | 一键门禁（mirror 一致性 / tests / lint / 语句形状 / 全局副本 / KB 新鲜度） |
+| `gate.py` | 一键门禁（技能打包验证 / tests / lint / 语句形状 / KB 新鲜度） |
 | `rules/` | 41 条规则（33 条在报，8 条 SUPPRESSED），一条一个 JSON，供 `review.py` 逐条审计 |
-| `tests/` | 43 个 golden 用例，`python tests/run_tests.py`（副本陈旧时直接拒绝运行）；`tests/probes/` 是真执行器的运行期断言，`tests/shapes/` 是检查器自身的语句形状不变量（7 形状 x 4 变体），`tests/ruleids/` 断言没有死规则 |
+| `tests/` | 43 个 golden 用例，`python tests/run_tests.py`（直接测试根源码）；`tests/probes/` 是真执行器的运行期断言，`tests/shapes/` 是检查器自身的语句形状不变量（7 形状 x 4 变体），`tests/ruleids/` 断言没有死规则 |
 | `docs/` | [索引](docs/README.md)（先看这个）、[项目结构与数据流](docs/项目结构与数据流.md)、`速查卡.md`（一页指路）、`断言表.md`、`验证记录.md`、`Mlog辅助-*`、`联机调试世界.md`、`观察与差分-契约.md`、`Mindcode集成.md`、`MCP部署.md`、`实施记录.md`；`游戏速查/` 已删（2026-11-17，数值母本在 `knowledge/00-data/`）|
 | `data/game/` | 从 v160.7 真执行器导出的游戏事实（物品/液体/方块/单位），供 `game.py` 与知识库使用；`aliases.json` 的中文名以官方语言包为母本，由 `knowledge/tools/gen_game_aliases.py` 生成（别手改）。语言包本身在 `data/game/bundles/`（`bundle.properties` + `bundle_zh_CN.properties`，原样复制自游戏 160.7），所以两个生成器与它们的测试在干净 checkout 里就能跑 |
 | `Logic/` | `逻辑代码规范.md` 与示例逻辑（个人程序） |
@@ -88,3 +87,7 @@ python tools/mlogsim.py logic.mlog --save scene.msav --units mono:1 --core-items
 ## 许可
 
 MIT。技能文档中的校准数字来自作者本地语料，仅作量级参考。
+
+## 技能发布
+
+`python tools/build_skills.py --out dist/skills-<版本>` 从唯一源码 `tools/` 生成独立技能，目标目录必须不存在。`python tools/build_skills.py --verify-only` 临时构建并校验两个包。技能内的工具副本是生成物，不再手动同步或提交。

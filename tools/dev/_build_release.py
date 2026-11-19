@@ -134,6 +134,17 @@ def build(name: str, spec: dict, version: str, vdir: str, files: list[str]) -> s
         raise SystemExit("package %s is empty -- the filter is wrong" % name)
     stage = tempfile.mkdtemp(prefix="rel-%s-" % name)
     try:
+        if name == "skills":
+            from pathlib import Path
+            sys.path.insert(0, os.path.join(ROOT, "tools"))
+            import build_skills
+            generated = Path(stage) / "generated"
+            build_skills.build(generated)
+            build_skills.verify(generated)
+            for child in generated.iterdir():
+                shutil.move(str(child), os.path.join(stage, child.name))
+            generated.rmdir()
+            picked = []
         prefix = spec.get("strip", "")
         for rel in picked:
             src = os.path.join(ROOT, rel)
@@ -151,15 +162,25 @@ def build(name: str, spec: dict, version: str, vdir: str, files: list[str]) -> s
                         data = fixed.encode("utf-8")
             with open(dst, "wb") as fh:
                 fh.write(data)
+        # Path scrubbing changes exported bytes; its integrity manifest must
+        # describe the exported tree, rather than the original source checkout.
+        if os.path.isfile(os.path.join(stage, 'MANIFEST.repo.sha256')):
+            from pathlib import Path
+            sys.path.insert(0, os.path.join(ROOT, 'tools'))
+            import check_manifest
+            write(os.path.join(stage, 'MANIFEST.repo.sha256'),
+                  check_manifest.build(Path(stage)))
+        file_count = sum(len(names) for _, _, names in os.walk(stage))
         write(os.path.join(stage, "PACKAGE.txt"),
               "package : %s\nversion : %s\ntitle   : %s\nfiles   : %d\n\n%s\n\n"
               "verify  : sha256sum -c SHA256SUMS.txt   (from the download directory)\n"
               "note    : local paths in the evidence logs are rewritten to <repo>/<home>/<stage>\n"
               "repo    : https://github.com/EnernalIliary/Mlogent\n"
-              % (name, version, spec["title"], len(picked), spec["summary"]))
+              % (name, version, spec["title"], file_count, spec["summary"]))
         out = os.path.join(vdir, "mlog-agent-%s-%s.zip" % (version, name))
         with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as zf:
             for dirpath, _dirs, names in os.walk(stage):
+                _dirs.sort()
                 for fn in sorted(names):
                     full = os.path.join(dirpath, fn)
                     rel = os.path.relpath(full, stage).replace("\\", "/")

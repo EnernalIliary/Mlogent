@@ -11,6 +11,8 @@ thread continues the tool loop.  GET /chat is what the mod polls meanwhile.
 """
 from __future__ import annotations
 
+from contextvars import copy_context
+
 import difflib
 import json
 import os
@@ -22,6 +24,8 @@ import urllib.request
 import uuid
 
 import jobqueue
+from logic_templates import TEMPLATES
+from logic_models import completion_url
 
 #: a single user line longer than this is refused before it reaches the model
 MAX_TEXT = 8000
@@ -346,14 +350,16 @@ def _valid_id(cid):
 
 
 def default_dir():
-    return os.environ.get('MLOG_CHATS_DIR') or os.path.join(jobqueue.default_dir(),
-                                                            'chats')
+    app = _runtime()
+    jobs_dir = app.JOBS.store.path if app.JOBS is not None else (app.jobs_dir or jobqueue.default_dir())
+    return os.environ.get('MLOG_CHATS_DIR') or os.path.join(jobs_dir, 'chats')
 
 
 class Store:
     """One JSON file per chat; every write is tmp + os.replace (see jobqueue.Store)."""
 
     def __init__(self, path=None):
+        self.runtime = _runtime()
         self.path = path or default_dir()
         os.makedirs(self.path, exist_ok=True)
         self.lock = threading.RLock()
@@ -396,7 +402,7 @@ class Store:
         if not isinstance(chat, dict):
             return None
         # a sidecar that died mid-run left 'running' on disk; nobody owns it now
-        if chat.get('state') == 'running' and chat.get('id') not in _RUNNING:
+        if chat.get('state') == 'running' and chat.get('id') not in self.runtime.chat_running:
             chat['state'] = 'idle'
         return chat
 
@@ -426,43 +432,26 @@ def _contended(exc):
     return isinstance(exc, PermissionError) or getattr(exc, 'winerror', None) in _WIN_CONTENDED
 
 
-_STORE = None
-_STORE_LOCK = threading.RLock()
-_RUNNING = set()
-_RUN_LOCK = threading.RLock()
-_GONE = set()
-
 # v0.22.0：工作区快照跟着「这一轮的对话」走 —— 每段对话在自己的线程里跑，用 thread-local 传进去，
 # 不动 _run_tool 的签名（那边是一堆按名字分派的纯函数，加参数会把所有工具都牵连一遍）。
-_CTX = threading.local()
 
 
 def store(path=None):
-    """The process-wide store; main() may point it at --chats-dir once."""
-    global _STORE
-    with _STORE_LOCK:
-        if _STORE is None or path is not None:
-            _STORE = Store(path)
-        return _STORE
+    """The bound application store; CLI may select --chats-dir once."""
+    with _runtime().chat_store_lock:
+        if _runtime().chat_store is None or path is not None:
+            _runtime().chat_store = Store(path)
+        return _runtime().chat_store
 
 
 def running():
-    with _RUN_LOCK:
-        return len(_RUNNING)
+    with _runtime().chat_run_lock:
+        return len(_runtime().chat_running)
 
 
-def _logicd():
-    """The sidecar runs logicd.py as __main__, so a plain `import logicd` would load
-    a second copy with its own LLM_STATE and TEMPLATES. Prefer the loaded module."""
-    import sys
-    mod = sys.modules.get('logicd')
-    if mod is not None and hasattr(mod, 'LLM_STATE'):
-        return mod
-    main = sys.modules.get('__main__')
-    if main is not None and hasattr(main, 'LLM_STATE') and hasattr(main, 'TEMPLATES'):
-        return main
-    import logicd
-    return logicd
+def _runtime():
+    from logic_runtime import current_application
+    return current_application()
 
 
 # ---------------------------------------------------------------- HTTP views
@@ -574,20 +563,18 @@ def delete_chat(cid):
     chat = s.load(cid)
     if chat is None:
         raise NotFound('没有这个对话：%s' % cid)
-    _GONE.add(cid)
+    _runtime().chat_gone.add(cid)
     try:
         s.delete(cid)
     finally:
-        with _RUN_LOCK:
-            _RUNNING.discard(cid)
+        with _runtime().chat_run_lock:
+            _runtime().chat_running.discard(cid)
     return {'ok': True, 'id': cid, 'deleted': True}
 
 
 def start(req):
     """Append one user line, mark the chat running, and return before the model."""
-    LD = _logicd()
-
-    state = LD.LLM_STATE
+    state = _runtime().LLM_STATE
     if state.get('kind') != 'llm' or not str(state.get('url') or '').strip():
         raise ValueError('模型还没配置：先在设置里填地址与模型')
 
@@ -606,8 +593,8 @@ def start(req):
     cid = (raw_id or '').strip() or None
 
     s = store()
-    with _RUN_LOCK:
-        if cid and cid in _RUNNING:
+    with _runtime().chat_run_lock:
+        if cid and cid in _runtime().chat_running:
             raise ValueError('busy')
         now = _now()
         if cid:
@@ -648,13 +635,13 @@ def start(req):
             chat['console'] = _norm_console(req.get('console'))
         chat['intents'] = []
         chat['updated'] = now
-        _RUNNING.add(cid)
+        _runtime().chat_running.add(cid)
         try:
             s.save(chat)
         except Exception:
-            _RUNNING.discard(cid)
+            _runtime().chat_running.discard(cid)
             raise
-    th = threading.Thread(target=_run, args=(cid,), name='chat-%s' % cid)
+    th = threading.Thread(target=copy_context().run, args=(_run, cid), name='chat-%s' % cid)
     th.daemon = True
     th.start()
     return {'ok': True, 'id': cid, 'title': chat['title'], 'state': 'running',
@@ -682,18 +669,18 @@ def _run(cid):
         if chat is not None:
             chat['state'] = 'idle'
             chat['updated'] = _now()
-            if cid not in _GONE:
+            if cid not in _runtime().chat_gone:
                 try:
                     s.save(chat)
                 except Exception:
                     pass
-        with _RUN_LOCK:
-            _RUNNING.discard(cid)
-        _GONE.discard(cid)
+        with _runtime().chat_run_lock:
+            _runtime().chat_running.discard(cid)
+        _runtime().chat_gone.discard(cid)
 
 
 def _save(chat):
-    if chat.get('id') not in _GONE:
+    if chat.get('id') not in _runtime().chat_gone:
         store().save(chat)
 
 
@@ -810,16 +797,16 @@ def _snap_value(value, depth):
 
 def _run_loop(chat):
     # v0.22.0：把这一轮的工作区快照挂到本线程，工具实现自己来取。
-    _CTX.ws = [w for w in (chat.get('workspaces') or []) if isinstance(w, dict)]
-    _CTX.map = str(chat.get('ws_map') or '')
+    _runtime().chat_context.ws = [w for w in (chat.get('workspaces') or []) if isinstance(w, dict)]
+    _runtime().chat_context.map = str(chat.get('ws_map') or '')
     # v0.23.0：快照只读、意图队列可写；工具直接往 chat['intents'] 这个列表里追加，
     # 轮末 _save 落盘，模组轮询 GET /chat 时就能看到要玩家确认的东西。
-    _CTX.player = chat['player'] if isinstance(chat.get('player'), dict) else {}
-    _CTX.server = chat['server'] if isinstance(chat.get('server'), dict) else {}
-    _CTX.console = chat['console'] if isinstance(chat.get('console'), dict) else {}
+    _runtime().chat_context.player = chat['player'] if isinstance(chat.get('player'), dict) else {}
+    _runtime().chat_context.server = chat['server'] if isinstance(chat.get('server'), dict) else {}
+    _runtime().chat_context.console = chat['console'] if isinstance(chat.get('console'), dict) else {}
     if not isinstance(chat.get('intents'), list):
         chat['intents'] = []
-    _CTX.intents = chat['intents']
+    _runtime().chat_context.intents = chat['intents']
     msgs = [{'role': 'system', 'content': SYSTEM_PROMPT}]
     for m in chat.get('messages') or []:
         msgs.append(dict(m))
@@ -908,10 +895,8 @@ def _call_model(chat, msgs, allow_degrade, deadline):
 
 
 def _post_chat(msgs, tools_on, deadline):
-    LD = _logicd()
-
-    state = LD.LLM_STATE
-    url = LD.completion_url(str(state.get('url') or ''))
+    state = _runtime().LLM_STATE
+    url = completion_url(str(state.get('url') or ''))
     body = {'messages': msgs,
             'temperature': 0.3,
             'max_tokens': int(state.get('max_tokens') or 4096)}
@@ -1021,8 +1006,8 @@ def _run_tool(name, args):
         code = _str_arg(args, 'code')
         if not code:
             return False, 'code 不能为空'
-        LD = _logicd()
-        res = LD.analyse(code, None, ipt=2)
+        from logic_service import analyse
+        res = analyse(code, None, ipt=2)
         lines = ['语句数：%d' % res.get('statements', 0),
                  'ERR：%d  WARN：%d' % (res.get('errors', 0), res.get('warns', 0))]
         for f in res.get('findings') or []:
@@ -1081,10 +1066,9 @@ def _mlog_template(args):
         params = {}
     if not isinstance(params, dict):
         return False, 'params 必须是对象'
-    LD = _logicd()
-    tmpl = LD.TEMPLATES.get(tid)
+    tmpl = TEMPLATES.get(tid)
     if tmpl is None:
-        return False, '没有 %s 这个模板；可用：%s' % (tid, ', '.join(sorted(LD.TEMPLATES)))
+        return False, '没有 %s 这个模板；可用：%s' % (tid, ', '.join(sorted(TEMPLATES)))
     try:
         lines, refs = tmpl.build(params)
     except ValueError as exc:
@@ -1100,7 +1084,7 @@ def _mlog_template(args):
 
 def _ws_ctx():
     """The snapshot the mod attached to this turn (empty when it sent none)."""
-    ws = getattr(_CTX, 'ws', None)
+    ws = getattr(_runtime().chat_context, 'ws', None)
     if not isinstance(ws, list):
         return []
     return [w for w in ws if isinstance(w, dict)]
@@ -1239,7 +1223,7 @@ def _ws_search(args):
 
 def _snap_get(which):
     """The read-only snapshot the mod attached to this turn ({} when it sent none)."""
-    snap = getattr(_CTX, which, None)
+    snap = getattr(_runtime().chat_context, which, None)
     return snap if isinstance(snap, dict) else {}
 
 
@@ -1295,10 +1279,10 @@ def _server_info(args):
 
 def _intent_rows():
     """This turn's intent queue; start() gave the chat a fresh list."""
-    rows = getattr(_CTX, 'intents', None)
+    rows = getattr(_runtime().chat_context, 'intents', None)
     if not isinstance(rows, list):
         rows = []
-        _CTX.intents = rows
+        _runtime().chat_context.intents = rows
     return rows
 
 
@@ -1434,8 +1418,7 @@ def _lookup_names(kind):
     if kind == 'op':
         return sorted(_json('instr_semantics.json').get('ops') or {})
     if kind == 'template':
-        LD = _logicd()
-        return sorted(LD.TEMPLATES)
+        return sorted(TEMPLATES)
     if kind == 'cmd':
         return [e.get('title') or '' for e in _json('cmd_index.json')]
     return None
@@ -1494,8 +1477,7 @@ def _details(kind, name):
     if kind == 'op':
         return (_json('instr_semantics.json').get('ops') or {}).get(name) or {'name': name}
     if kind == 'template':
-        LD = _logicd()
-        return LD.TEMPLATES[name].spec()
+        return TEMPLATES[name].spec()
     if kind == 'cmd':
         return {'matches': _cmd_entries(name)}
     return {'name': name}

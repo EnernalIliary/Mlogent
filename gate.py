@@ -10,10 +10,7 @@ nested quotes inside python -c are a coin flip.  A gate that is not one command
 does not reliably get run, and two of the checks below are the ones that quietly
 stop being run first:
 
-* mirror -- tests/run_tests.py imports the analyzers from the
-  mindustry-blueprint/tools COPY, so an unsynced source tree means a green suite
-  over stale code.  tests/run_tests.py refuses to start in that state now; this
-  step checks it first so the failure is one line, not a traceback.
+* skillpack -- build skills from tools/ and verify them in isolation.
 * kb -- the local knowledge base is a snapshot.  If kb.sqlite3 is older than
   docs/断言表.md or any tools/*.py, "kb.py search" answers from the previous
   round and nobody notices.  This step compares mtimes; it does not rebuild
@@ -158,8 +155,13 @@ def kb_status() -> tuple[str, str, Path | None]:
 def build_steps(full: bool, only: str | None) -> list[tuple[str, list[str] | None, str]]:
     """(name, argv or None for special steps, skip note)."""
     steps: list[tuple[str, list[str] | None, str]] = [
-        ("mirror", ["tools/sync_mlogagent.py", "--mirror", "all", "--check"], ""),
+        ("skillpack", ["tools/build_skills.py", "--verify-only"], ""),
+        ("skillbuild", ["tests/skillpack/run_build_tests.py"], ""),
         ("tests", ["tests/run_tests.py"], ""),
+        ("service", ["tests/service/run_service_tests.py"], ""),
+        ("http", ["tests/http/run_http_tests.py"], ""),
+        ("runtime", ["tests/runtime/run_runtime_tests.py"], ""),
+        ("cli", ["tests/cli/run_cli_tests.py"], ""),
         # The evaluation contract (tools/mlog_eval.py) is the interface the
         # scenario runner, the MCP layer and the Mindcode front end all build
         # on: one envelope, one closed failure vocabulary.  Three modules would
@@ -296,12 +298,6 @@ def build_steps(full: bool, only: str | None) -> list[tuple[str, list[str] | Non
         # break the bridge.
         ("cjken", ["tests/cjken/run_cjken_tests.py"], ""),
     ]
-    global_skill = (Path(os.environ.get("DSH_HOME") or (Path.home() / ".dsh"))
-                    / "skills" / "mlog-agentskill")
-    if global_skill.is_dir():
-        steps.append(("global", ["tools/sync_mlogagent.py", "--global", "--check"], ""))
-    else:
-        steps.append(("global", None, "not installed at " + str(global_skill)))
     if full:
         steps.append(("selftest", ["tools/mlog.py", "selftest"], ""))
         # runtime truth: probes need a JRE and the versioned jars under out/,
@@ -370,6 +366,13 @@ def build_steps(full: bool, only: str | None) -> list[tuple[str, list[str] | Non
     steps = [(n, None, know[n] + " ships in the knowledge package")
              if (a is not None and n in know and not (ROOT / know[n]).is_dir())
              else (n, a, s) for n, a, s in steps]
+    # Toolchain artifacts omit skill authoring sources. A source checkout must
+    # always validate them; only a standalone toolchain archive may skip this.
+    if (not (ROOT / '.git').exists()
+            and not (ROOT / 'mindustry-blueprint/SKILL.md').is_file()
+            and not (ROOT / '.dsh/skills/mlog-agentskill/SKILL.md').is_file()):
+        steps = [(n, None, 'skill sources ship in the separate skills package')
+                 if n == 'skillpack' else (n, a, s) for n, a, s in steps]
     if only:
         steps = [s for s in steps if only.lower() in s[0].lower()]
     return steps

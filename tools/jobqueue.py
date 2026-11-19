@@ -5,7 +5,7 @@ The mod posts a *job* (one sentence + the region snapshot it was drawn over); a
 worker turns that into mlog, runs the same analyzer the gate runs, and only a
 clean program ever reaches the 'done' state.  No model is wired in yet: the
 generator is a pluggable provider and the built-in one is the template router
-that already exists in logicd, so the whole state machine is exercised offline
+from the independent logic_service layer, so the whole state machine is exercised offline
 (docs/Mlog辅助-规划.md section 4.5 asks for exactly that).
 
 Contract (docs/Mlog辅助-规划.md section 4.1)
@@ -76,6 +76,9 @@ import time
 import traceback
 
 import aigenerated               # noqa: E402  (tools/ is on sys.path next to this file)
+import logic_service
+import msch
+from logic_links import _link_names, _relative_links
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
@@ -137,12 +140,6 @@ FATAL_RIDS = ('link-name-not-bound',)
 SIGN_AUTHOR = aigenerated.SIGN_AUTHOR
 
 DEFAULT_DIR = os.path.join(ROOT, 'out', 'jobs')
-
-
-def _logicd():
-    """Late import: logicd imports this module at load time, so the edge is one-way."""
-    import logicd
-    return logicd
 
 
 def default_dir():
@@ -306,13 +303,13 @@ def gate(code, links, ipt=2):
     """Analyze generated code and promote FATAL_RIDS to refusals.
 
     links=[] is authoritative (the processor has no links), links=None is unknown
-    and skips the link check entirely -- logicd.analyse() keeps that distinction.
+    and skips the link check entirely -- logic_service.analyse() keeps that distinction.
 
-    Returns the same shape logicd.analyse() returns, plus 'fatal' -- the promoted
+    Returns the same shape logic_service.analyse() returns, plus 'fatal' -- the promoted
     findings, so the mod can tell "the model wrote a link it does not own" apart
     from "the model wrote an unrelated ERR".
     """
-    res = _logicd().analyse(code, links, ipt=ipt)
+    res = logic_service.analyse(code, links, ipt=ipt)
     fatal = []
     for f in res['findings']:
         if f.get('rid') in FATAL_RIDS:
@@ -764,7 +761,6 @@ class Queue:
         """Provider output -> {ok, code, findings, ...}; the anchored tier goes through compose."""
         # 签名里的 meta 要带作业 id，_run 里那个 jid 才是权威值
         job = dict(job, id=job_id or job.get('id') or '')
-        L = _logicd()
         # keep None ("the mod could not read the table") apart from [] ("no links"):
         # the gate treats the empty list as authoritative and skips None entirely.
         links = job.get('links')
@@ -792,7 +788,7 @@ class Queue:
             # the reply may also DECLARE which links it wants (section 4.3 needs_links);
             # a name that is not in an authoritative table is a refusal, not a warning.
             if links is not None:
-                have = L._link_names(links)
+                have = _link_names(links)
                 missing = [str(n) for n in (out.get('needs_links') or []) if str(n) not in have]
                 if missing:
                     # v0.24.0: asking for a block this processor is not wired to is a
@@ -809,7 +805,7 @@ class Queue:
                     res['findings'].append(note)
                     res['needs_links'] = missing
             res['findings'].extend(coverage_findings(job.get('desc'), code))
-            payload = L.msch.build_logic_data(code, L._relative_links(links or [], job.get('origin')))
+            payload = msch.build_logic_data(code, _relative_links(links or [], job.get('origin')))
             res.update({'code': code,
                         'sig': sig,
                         'bytes_b64': base64.b64encode(payload).decode('ascii'),
@@ -825,7 +821,7 @@ class Queue:
             res['ok'] = False
             res['code'] = ''
             return res
-        cres = L.compose({'template': tid, 'params': out.get('params') or {},
+        cres = logic_service.compose({'template': tid, 'params': out.get('params') or {},
                           'links': links, 'ipt': ipt, 'origin': job.get('origin')})
         # compose() reports analyzer severities; the job gate is stricter
         fatal = []
@@ -868,9 +864,8 @@ def unconfigured_provider(job, hint=None):
 
 
 def template_provider(job, hint=None):
-    """The offline tier: the intent router already in logicd picks a template."""
-    L = _logicd()
-    res = L.plan({'intent': job['desc'], 'links': job.get('links') or [],
+    """The offline tier: the intent router in logic_service picks a template."""
+    res = logic_service.plan({'intent': job['desc'], 'links': job.get('links') or [],
                   'ipt': job.get('ipt') or 2, 'origin': job.get('origin')})
     if not res.get('template'):
         why = res.get('reason') or 'no template matched this description'

@@ -35,3 +35,7 @@ outputLiquids`。几个容易踩的点：
 `items_from_source.py`、`units_from_source.py`、`sensor_from_source.py`、
 `sensor_attrs_from_jar.py`、`classdump.py`、`fix_skill_links.py` —— 说明见
 `tools/README.md` 的「tools/dev/」一节。产品链路不 import 它们。
+
+## 发布入口
+
+正式 release 使用 `_build_release.py <版本>`，其中技能 ZIP 由 `tools/build_skills.py` 从根源码生成并验证。`_build_public_export.py`、`_build_lab_export.py` 是本机保留的旧导出脚本，默认不入库，不作为技能发布入口。

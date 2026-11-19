@@ -115,7 +115,7 @@ def mod_version() -> str:
 
 
 def sidecar_version() -> str:
-    text = (TOOLS / 'logicd.py').read_text(encoding='utf-8')
+    text = (TOOLS / 'logic_runtime.py').read_text(encoding='utf-8')
     m = re.search(r"^SIDECAR_VERSION\s*=\s*['\"]([^'\"]+)['\"]", text, re.M)
     if not m:
         raise SystemExit('cannot read SIDECAR_VERSION from tools/logicd.py')
@@ -292,7 +292,7 @@ def build(out_dir: Path | None = None, make_zip: bool = True,
     # The gate cannot see this from the zip alone -- fail the build instead.
     if sidecar_version() != ver:
         raise SystemExit('mod version %s != sidecar version %s: main.js compares them '
-                         ' at runtime, so bump tools/logicd.py SIDECAR_VERSION'
+                         ' at runtime, so bump tools/logic_runtime.py SIDECAR_VERSION'
                          % (ver, sidecar_version()))
     name = 'MAI-' + ver
     out_dir = Path(out_dir) if out_dir else DIST
@@ -492,7 +492,7 @@ def verify(tree: Path | None = None, keep: bool = False) -> dict:
             if st != 200 or not health.get('ok'):
                 problems.append('/health answered %s %r' % (st, health))
             elif health.get('version') != sidecar_version():
-                problems.append('/health version %r != tools/logicd.py SIDECAR_VERSION %r'
+                problems.append('/health version %r != tools/logic_runtime.py SIDECAR_VERSION %r'
                                 % (health.get('version'), sidecar_version()))
             else:
                 notes.append('sidecar %s on port %d, /health ok' % (health['version'], port))
