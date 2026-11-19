@@ -197,7 +197,7 @@ python tools/world_mcp.py                      # stdio JSON-RPC，供 DSH 连接
 
 工具（42 个）：`world_status`、`world_players`、`world_units`（`format:"table"` 出对齐表）、`world_unit`（按 id）、`world_changes`（建筑变更日志，`since` 增量）、`world_buildings`、`world_building`（查单格）、`world_maps`、
 `world_logic{,_code,_vars,_set}`、`world_place`、`world_clear`、`world_console`、`world_js`、
-`world_chat`（读玩家聊天，`since` 增量）、`world_push`（取走管理员在游戏里打的 `/push` 消息）、`world_say`、`world_pause`、`world_save`、`world_load`、`world_start`、`world_stop`，
+`world_chat`（读玩家聊天，`since` 增量）、`world_push`（取走管理员在游戏里打的 `/push` 消息；`/push` 是注册进服务器 `clientCommands` 的真命令，见下文「玩家到 agent 的一条线」）、`world_say`、`world_pause`、`world_save`、`world_load`、`world_start`、`world_stop`，
 以及调试用的 `world_spawn`（造兵）、`world_kill_units`、`world_clear_buildings`、`world_reset`（重开图，
 默认走 `nextmap`+`gameover` **不踢人**）、`world_switch_map`（换图且保住玩家连接），
 还有 `world_scene` / `world_scene_probe`（铺场景文件 + 按 checks 判定变量）、`world_door`（点击门：注册/列出/清除/代按，`action=set|list|clear|enter`，默认 `kind=watch`；这个机制已废弃，只是还留着接口）、`world_taps`（谁点了哪一格），
@@ -205,6 +205,22 @@ python tools/world_mcp.py                      # stdio JSON-RPC，供 DSH 连接
 `world_frames`（多场景矩形边界：`action=list|clear|paint`，边界是一圈 `ShapeMarker`，**不动地形**），
 以及状态镜 `world_mirror_state`（给一组单位状态直接画 marker）、`world_mirror_feed`（盯住 mlogsim `--push` 写的 JSON 文件实时重画），
 还有文本日志板 `world_sblog`（`action=log|list|clear`：每块沙盘一块 `TextMarker` 面板，写 feed 龄 / 投影状态 / 建筑数 / 单位数 / 最近事件）。
+
+### 玩家到 agent 的一条线：`/push`
+
+`/push <文本>` 注册在服务器的 `clientCommands` 上（`NetServer.java:56` 的
+`CommandHandler("/")`），所以它出现在 `/help` 里、带 `<text...>` 参数提示、也不会被当聊天广播。
+只有管理员能用，非管理员会收到一句回绝。
+
+```text
+/push 差扰的方向写反了，冲量是 this - target
+```
+
+主机侧用 `world_client.py push --drain` 或 MCP 的 `world_push` 取走，拿到
+`[{tick, player, message}]`。`!push <文本>` 是旧写法的回退口，管理员校验相同。
+
+为什么不只是聊天前缀：`PlayerChatEvent` 在命令分发**之前**触发，所以两条路都能收到；注册成命令额外拿到
+参数校验、`/help` 可见、以及不被广播。也正因为前者，聊天分支只认 `!push`，否则同一句会被排队两次。
 
 投影出来的处理器是 **`enabled=false`** 的模型（真跑逻辑的是仿真进程）；它的代码与 sorter 配置由
 `scene.py` 的 `configureAny(LogicBlock.compress(...))` 广播给客户端，投影铺完还会 RESYNC 补发一遍。

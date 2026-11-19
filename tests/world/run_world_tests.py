@@ -233,10 +233,33 @@ def test_protocol() -> None:
        "the daemon's reason survives into the tool result")
 
 
+def test_push_command() -> None:
+    """`/push` is a registered server command, not a chat-prefix hack.
+
+    PlayerChatEvent fires *before* the command dispatcher, so the chat branch
+    and the command both see `/push ...`.  If the chat branch kept matching it,
+    one sentence would be queued twice -- that is the failure this pins.
+    """
+    print("push command")
+    js = W.EV_INSTALL_JS
+    ok("clientCommands.register('push'" in js, "the daemon registers /push on clientCommands")
+    ok("<text...>" in js, "the command declares its parameters (shows up in /help)")
+    ok("_pushAccept(" in js, "the command body goes through the shared _pushAccept()")
+    ok(js.count("_pushAccept(") >= 3, "helper defined once, used by the command and the fallback")
+    ok("indexOf('!push ') == 0" in js, "the chat fallback still answers '!push '")
+    ok("indexOf('/push ') == 0" not in js,
+       "the chat branch no longer matches '/push ' (PlayerChatEvent fires first)")
+    ok(js.index("function _pushAccept") < js.index("clientCommands.register('push'"),
+       "helper is defined before the command is registered")
+    ok("packages.arc.util.commandhandler$commandrunner" in js.lower(),
+       "the runner is an arc CommandRunner adapter")
+
+
 def main() -> int:
     test_feed_readers()
     test_feed_scene()
     test_tsv_channel()
+    test_push_command()
     test_tool_surface()
     test_protocol()
     print("-" * 56)

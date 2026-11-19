@@ -467,8 +467,9 @@ TOOLS = [
     },
     {
         "name": "world_push",
-        "description": "读/取走管理员在游戏里打的 /push 消息队列(玩家在聊天栏输入 /push <文本>)"
-                       "。drain=true(默认)取走后清空, false 只读。返回 rows[{tick,player,message}]。",
+        "description": "读/取走管理员在游戏里打的 /push 消息队列。 /push 是注册进服务器的真命令"
+                       "(在 /help 里, 带 <text...> 参数提示, 不会当聊天广播; '!push <文本>' 作为回退同样可用)。"
+                       "drain=true(默认)取走后清空, false 只读。返回 rows[{tick,player,message}]。",
         "inputSchema": {
             "type": "object",
             "properties": {

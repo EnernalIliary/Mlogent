@@ -575,6 +575,53 @@ if(typeof _evlog === 'undefined'){
   /* 玩家聊天: 服务端 PlayerChatEvent(player, message), 记到 _chatlog + chat.log */
   try{
     if(typeof _chatlog === 'undefined'){
+      /* /push 的核心: 写内存队列 + 追加 push.jsonl + 回执. 命令与 '!push' 共用. */
+      function _pushAccept(body, adm, plain, send){
+        send = send || function(){};
+        if(!adm){
+          try{ send('[scarlet]只有管理员能用 /push[]. 让主机在控制台打: admin ' + plain); }catch(ea1){}
+          return false;
+        }
+        body = ('' + (body == null ? '' : body)).replace(/^\s+/, '');
+        if(body.length == 0){
+          try{ send('[lightgray]用法: [accent]/push <要转交给 agent 的文字>'); }catch(ea2){}
+          return false;
+        }
+        var rec = JSON.stringify({tick: Math.floor(Vars.state.tick), player: '' + plain, message: body});
+        _pushlog.push(rec);
+        if(_pushlog.length > 50) _pushlog.shift();
+        try{
+          var pw2 = new java.io.PrintWriter(new java.io.FileWriter(%(pushfile)s, true));
+          pw2.println(rec);
+          pw2.close();
+        }catch(pe){}
+        try{ send('[accent][agent][] 收到 /push(' + body.length + ' 字), 已转交给会话'); }catch(pa){}
+        return true;
+      }
+      function _joinArgs(a){
+        if(a == null) return '';
+        var s = '';
+        for(var i = 0; i < a.length; i++){ if(i > 0) s += ' '; s += '' + a[i]; }
+        return s;
+      }
+      /* 注册成真正的服务器命令: 会出现在 /help, 有参数提示, 不再当聊天广播. */
+      try{
+        var _pushRunner = new JavaAdapter(Packages.arc.util.CommandHandler$CommandRunner, {
+          accept: function(args, player){
+            var adm = false, plain = '?';
+            try{ adm = player != null && player.admin; }catch(eb1){}
+            try{ plain = player.plainName(); }catch(eb2){
+              try{ plain = player.name; }catch(eb3){ plain = '?'; }
+            }
+            _pushAccept(_joinArgs(args), adm, plain, function(s){
+              try{ player.sendMessage(s); }catch(eb4){}
+            });
+          }
+        });
+        Vars.netServer.clientCommands.register('push', '<text...>',
+          '把一句话插给 agent 会话（仅管理员）', _pushRunner);
+        sb.append(' pushcmd=1');
+      }catch(ec){ sb.append(' pushcmd=ERR:' + ec); }
       _chatlog = []; _chatseq = 0;
       var EV_CHAT = Packages.mindustry.game.EventType$PlayerChatEvent;
       var CHATLOG_PATH = %(chatlog)s;
@@ -589,25 +636,18 @@ if(typeof _evlog === 'undefined'){
             var fw = new java.io.PrintWriter(new java.io.FileWriter(CHATLOG_PATH, true));
             fw.println('[' + Math.floor(Vars.state.tick) + '] ' + nm + ': ' + msg); fw.close();
           }catch(e4){}
-          /* /push <文本> = 管理员往 agent 会话插一句话. 不是管理员就回绝并说明. */
+          /* '!push <文本>' = 老写法, 保留给 /push 命令不可用的场合.
+             注意 PlayerChatEvent 在命令分发之前就触发, 所以 '/push' 会走下面的
+             注册命令, 这条分支只认 '!push', 否则同一句话会被排队两次. */
           try{
             var low = msg.toLowerCase();
-            if(low.indexOf('/push ') == 0 || low.indexOf('!push ') == 0){
+            if(low.indexOf('!push ') == 0){
               var body = msg.substring(6).replace(/^\s+/, '');
               var adm = false; try{ adm = e.player != null && e.player.admin; }catch(e7){}
               var plain = nm; try{ plain = e.player.plainName(); }catch(e8){}
-              if(!adm){
-                try{ e.player.sendMessage('[scarlet]只有管理员能用 /push[]. 让主机在控制台打: admin ' + plain); }catch(e9){}
-              }else if(body.length > 0){
-                _pushlog.push(JSON.stringify({tick: Math.floor(Vars.state.tick), player: String(plain), message: body}));
-                if(_pushlog.length > 50) _pushlog.shift();
-                try{
-                  var pw2 = new java.io.PrintWriter(new java.io.FileWriter(%(pushfile)s, true));
-                  pw2.println(JSON.stringify({tick: Math.floor(Vars.state.tick), player: String(plain), message: body}));
-                  pw2.close();
-                }catch(pe){}
-                try{ e.player.sendMessage('[accent][agent][] 收到 /push(' + body.length + ' 字), 已转交给会话'); }catch(pa){}
-              }
+              _pushAccept(body, adm, plain, function(s){
+                try{ e.player.sendMessage(s); }catch(e9){}
+              });
             }
           }catch(ea){}
         }catch(err){}
