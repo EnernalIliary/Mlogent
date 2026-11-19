@@ -127,9 +127,31 @@ def _parse(lines, keys):
     return None
 
 
+def ready():
+    """Can this machine actually run the executor right now?
+
+    `scenario.environment()` hands back java/jar strings even when `ok` is False
+    (its java fallback is a Steam path that need not exist), so testing the
+    strings is not enough.  Checking only `bool(env["java"])` is exactly the
+    mistake that made the dps step fail on CI with FileNotFoundError instead of
+    skipping.
+    """
+    import scenario
+    env = scenario.environment()
+    if not env.get("ok"):
+        return False
+    java, jar = env.get("java"), env.get("jar")
+    if not (java and jar and os.path.exists(jar)):
+        return False
+    return os.path.exists(java) or not os.path.dirname(java)
+
+
 def _server(size=96):
     import mlogsim
     import scenario
+    if not ready():
+        raise RuntimeError("executor unavailable: "
+                           + "; ".join(scenario.environment().get("notes") or []))
     env = scenario.environment()
     return mlogsim.Server(env["java"], env["jar"], world_size=size)
 

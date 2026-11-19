@@ -52,8 +52,7 @@ class Target(unittest.TestCase):
 
 
 def _executor_ready():
-    import scenario
-    return bool(scenario.environment().get("java"))
+    return dps.ready()
 
 
 class Live(unittest.TestCase):
