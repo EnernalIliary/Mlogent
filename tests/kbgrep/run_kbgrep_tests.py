@@ -21,6 +21,12 @@ if TOOLS not in sys.path:
 import kb_grep  # noqa: E402
 
 
+_KNOWLEDGE = os.path.join(ROOT, "knowledge")
+if not os.path.isdir(_KNOWLEDGE):
+    raise unittest.SkipTest("knowledge/ is not in this checkout"
+                            " (it ships in the knowledge package)")
+
+
 class Ranking(unittest.TestCase):
     def test_a_name_question_lands_on_the_name_tables(self):
         # Since the articles are English, the glossary (which owns every official

@@ -19,6 +19,12 @@ sys.path.insert(0, TOOLS)
 
 import cjken  # noqa: E402
 
+
+_KNOWLEDGE = os.path.join(REPO, "knowledge")
+if not os.path.isdir(_KNOWLEDGE):
+    raise unittest.SkipTest("knowledge/ is not in this checkout"
+                            " (it ships in the knowledge package)")
+
 class Table(unittest.TestCase):
     def test_it_reads_the_name_tables_the_repo_keeps(self):
         t = cjken.table(force=True)

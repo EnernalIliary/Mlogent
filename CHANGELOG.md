@@ -3,6 +3,32 @@
 只记对外可见的变化。工程日志（每一版的动机、踩过的坑、源码依据）见
 `MlogAuxiliary/HISTORY.md` 与 `docs/`。
 
+## 1.2.3 — 2026-11-19
+
+知识库从「中文母本 + 中文读者」变成「英文母本 + 中文读者」，并为后者补上了桥。
+
+- **正文全英语化**：101 篇知识库文章的正文改成英文（约 97K 汉字），中文只留在三处
+  「对照」：官方中文名的括号 gloss（`flare (星辉)`）、名称表的中文列、`GLOSSARY.md`
+  的生成区。id、断言号、`file.ext:NN` 锚点、wiki 链接、代码围栏逐字节保留。
+  契约写在 `knowledge/STYLE-en.md`，守卫是 `knowledge/tools/check_en.py`
+  （`gate.py` 的 `english` 步，102/102 clean）。
+- **入口也英文化**：`GLOSSARY.md` 手写段、`INDEX.en.md`（86 篇英文标题与摘要）、
+  `knowledge/index.json` 的八个域标题与五条 notes、`check_kb.py` 的七个章节名
+  （中英双认，旧结构仍能过）。
+- **中文提问到英文语料的桥**（`tools/cjken.py`）：读 `GLOSSARY.md` 与
+  `data/game/aliases.json` 的名字表，把问句里的中文名追加成英文名，只追加不改写，
+  最长匹配优先且不重叠。`kbgrep`（MCP 的 `mlog_kb`）与 `kb.py` 默认调用，
+  `MLOG_NO_EXPAND=1` 关闭。`gate.py` 加 `cjken` 步。
+- **检索重新测量**（`knowledge/08-evidence/bench/README.md` §12）：英文语料 + 300 道
+  中文题，hybrid hit@1 50.3% / hit@6 81.7%；多语言 embedding 只在 dense-only 上领先
+  （44.0% vs 38.7%），上 hybrid 即打平，故默认仍是 `bge-small-zh`（`KB_EMB_MODEL`
+  可换）。cross-encoder 重排仍默认关（~7 s/query 且先验为负）。
+- **顺手修**：`knowledge/tools/gen_name_docs.py`、`gen_glossary.py`、`gen_index_en.py`
+  的模板英译；`index.json` 不再有中文域标签。
+
+验证：`tests/run_tests.py` 50/50；`gate.py` 28 PASS / 6 SKIP / 0 FAIL；
+`check_en.py` 102/102；kb 14 474 chunks / 213 files。
+
 ## 1.2.2 — 2026-11-18
 
 部署出去的 MCP 现在能查知识库了：新的 `mlog_kb` 工具（第 16 个）用纯词面 BM25 读
