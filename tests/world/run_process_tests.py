@@ -9,6 +9,7 @@ from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / 'tools'))
 from world_process import WorldProcess
+from world_runtime import WorldPaths
 import world_server
 
 
@@ -100,6 +101,18 @@ class ProcessTests(unittest.TestCase):
                 with self.assertRaisesRegex(SystemExit, 'boot failed'):
                     world_server.World('java', 'game.jar', host=False)
             self.assertTrue(fake.killed and fake.waited)
+            self.assertTrue(fake.stdin.closed and fake.stdout.closed)
+
+    def test_paths_and_admin_policy_are_set_before_boot(self):
+        with tempfile.TemporaryDirectory() as root:
+            paths=WorldPaths.from_root(root)
+            fake=Process()
+            def boot(world, **kwargs):
+                self.assertTrue(world.no_push_admin)
+                self.assertEqual(world.data_dir,paths.data)
+                self.assertEqual(world.log_path,paths.log)
+            with patch('world_process.subprocess.Popen',return_value=fake), patch('world_process._win_kill_with_parent',return_value=None), patch.object(world_server.World,'_boot',autospec=True,side_effect=boot):
+                with world_server.World('java','game.jar',host=False,paths=paths,no_push_admin=True): pass
             self.assertTrue(fake.stdin.closed and fake.stdout.closed)
 
 

@@ -211,3 +211,59 @@ def layout_scenes(w, scenes, cell=64, origin=(0, 0)):
         e["shift"] = [dx, dy]
         out.append(e)
     return out
+
+
+OPERATIONS = frozenset(("scene", "scene_probe"))
+
+def execute(w, req, *, audit, door_register, mirror_stop, mirror_watch):
+    op = (req.get("op") or "").strip()
+    if op in ("scene", "scene_probe"):
+        # 同一份 tools/scene.py 描述文件，mlogsim 和这里都认：模拟器里验证过的
+        # 布局/链接/代码可以在真世界里原样复现，不用手抄坐标。
+        path = req.get("path") or req.get("scene") or ""
+        if not path:
+            return {"ok": False, "error": "need path"}
+        import scene as scene_mod
+        try:
+            sc = scene_mod.load(path)
+        except scene_mod.SceneError as exc:
+            return {"ok": False, "error": str(exc)}
+        at = req.get("at")
+        if at is None and req.get("at_x") is not None:
+            at = [req.get("at_x"), req.get("at_y")]
+        rep = scene_mod.apply_world(w, sc, at=at)
+        w._scene_report = rep
+        res = {"ok": not rep["errors"], "scene": rep}
+        if req.get("door"):
+            # 场景先铺, 门最后放: clear 矩形会把先放的地雷抹掉
+            d = door_register(w, rep["anchor"][0], rep["anchor"][1],
+                              kind=req.get("door_kind") or "watch",
+                              unit=req.get("door_unit") or "poly",
+                              label=req.get("door_label"),
+                              block=req.get("door_block") or "shock-mine",
+                              scene_path=None,
+                              feed=req.get("mirror_feed"))
+            res["door"] = d
+        if req.get("mirror_feed"):
+            # 场景铺完就把仿真投影接到同一批坐标上; 偏移量按格算
+            try:
+                mirror_stop(w)
+                # 没显式给偏移就用场景自己的位移: 仿真坐标 + 位移 = 世界坐标
+                _sh = rep.get("shift") or [0, 0]
+                _dx = float(req.get("mirror_dx") if req.get("mirror_dx") is not None else _sh[0])
+                _dy = float(req.get("mirror_dy") if req.get("mirror_dy") is not None else _sh[1])
+                _slot = int(req.get("mirror_slot") or 0)
+                w.mirror_off = (_dx, _dy)
+                mirror_watch(w, str(req["mirror_feed"]), slot=_slot, dx=_dx, dy=_dy)
+                res["mirror"] = {"on": True, "slot": _slot, "off": [_dx, _dy]}
+            except Exception as exc:
+                res["mirror"] = {"on": False, "error": str(exc)}
+        audit("scene", path=path, name=sc["name"], shift=rep.get("shift"),
+              placed=rep["placed"], units=rep["units"], errors=len(rep["errors"]))
+        if op == "scene_probe":
+            # a freshly loaded processor has not ticked yet: its executor has no
+            # variables until updateTile() runs once, so reads would all be null.
+            time.sleep(1.5)
+            res["probe"] = scene_mod.probe_world(w, sc)
+        return res
+    return NotImplemented

@@ -91,3 +91,21 @@ def make_handler(world, stop_cb, dispatch):
             except Exception:
                 pass
     return Handler
+
+
+class OperationRouter:
+    """One explicit handler per operation; duplicate registration is an error."""
+    def __init__(self, groups):
+        self.handlers = {}
+        for operations, handler in groups:
+            for operation in operations:
+                if operation in self.handlers:
+                    raise ValueError('duplicate world operation: ' + operation)
+                self.handlers[operation] = handler
+
+    def dispatch(self, world, request, stop_cb):
+        operation = (request.get('op') or '').strip()
+        handler = self.handlers.get(operation)
+        if handler is None:
+            return {'ok': False, 'error': 'unknown op: %r' % operation}
+        return handler(world, request, stop_cb)

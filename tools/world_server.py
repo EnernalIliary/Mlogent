@@ -27,7 +27,6 @@ res-<tok>.txt, 本进程轮询该文件 —— 文件通道与 stdout 噪声完�
 """
 from __future__ import annotations
 
-import argparse
 import base64
 import json
 import math
@@ -42,12 +41,16 @@ import uuid
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from mlogsim import sweep_orphans  # noqa: E402
 from world_process import WorldProcess
-from types import SimpleNamespace
 from world_projection import projection_director as _run_projection_director
 from world_projection import CONTROL_OPERATIONS as PROJECTION_CONTROL_OPS, control as projection_control
 import world_projection_actions as _projection_actions_module
 from world_projection_actions import _projs
-from world_channel import WorldChannel
+from world_channel import WorldChannel, COMMAND_OPERATIONS, command as world_command
+from world_scenes import OPERATIONS as SCENE_OPERATIONS, execute as execute_scene
+from world_protocol import OperationRouter
+from world_cli import build_parser as build_world_parser, run as run_world_cli
+from world_runtime import WorldStartupServices, write_audit
+from world_runtime import WorldPaths, WorldRuntime, ProjectionActionsServices, ProjectionDirectorServices, ProjectionControlServices
 from world_mirrors import (MK_INSTALL_JS, MK_STATE_JS, MK_ON_JS, MK_CLEAR_JS, MK_ADD_JS,
                            MK_LIST_JS, CONTROL_OPERATIONS as MIRROR_CONTROL_OPS, control as mirror_control)
 from world_events import (EV_INSTALL_JS, CHANGES_JS, CHAT_JS, PUSH_JS,
@@ -84,6 +87,14 @@ JAVA_CANDIDATES = [
     os.path.join(ROOT, "out", "jre21", "jdk-21.0.5+11-jre", "bin", "java.exe"),
     r"E:\Program Files (x86)\Steam\steamapps\common\Mindustry\jre\bin\java.exe",
 ]
+
+
+def default_paths():
+    return WorldPaths(ROOT, WORLD, DATA, HANDSHAKE, LOG, AUDIT, SCHEM_DIR, DOORS_FILE, DEFAULT_FEED)
+
+
+def paths_for(w):
+    return getattr(w, "paths", None) or default_paths()
 
 
 def find_java(explicit: str | None = None) -> str:
@@ -130,13 +141,11 @@ def pick_port(preferred: int, span: int = 40) -> tuple[int, str | None]:
 
 
 def audit(op: str, **kw):
-    try:
-        os.makedirs(WORLD, exist_ok=True)
-        with open(AUDIT, "a", encoding="utf-8") as f:
-            f.write(json.dumps({"t": time.strftime("%Y-%m-%d %H:%M:%S"), "op": op, **kw},
-                               ensure_ascii=False) + "\n")
-    except Exception:
-        pass
+    return write_audit(default_paths(), op, **kw)
+
+
+def bound_audit(w):
+    return lambda op, **kw: write_audit(paths_for(w), op, **kw)
 
 
 class World(WorldProcess):
@@ -144,7 +153,10 @@ class World(WorldProcess):
 
     def __init__(self, java: str, jar: str, *, map_name: str | None = None,
                  host: bool = True, paused: bool = False, game_port: int = 6567,
-                 js_timeout: float = 60.0, server_name: str | None = None):
+                 js_timeout: float = 60.0, server_name: str | None = None,
+                 paths=None, no_push_admin=False):
+        self.paths = paths if paths is not None else default_paths()
+        self.no_push_admin = bool(no_push_admin)
         self.java, self.jar = java, jar
         self.map_name = map_name
         self.game_port = game_port
@@ -152,10 +164,10 @@ class World(WorldProcess):
         self.players_peak = 0
         self.mirror_feed: str | None = None   # 状态镜推送文件 (mlogsim/脚本往里写 JSON)
         self._mirror_started = False
-        os.makedirs(os.path.join(DATA, "config", "logs"), exist_ok=True)
-        os.makedirs(os.path.join(DATA, "config", "saves"), exist_ok=True)
-        os.makedirs(WORLD, exist_ok=True)
-        super().__init__(java, jar, data_dir=DATA, log_path=LOG)
+        os.makedirs(os.path.join(self.paths.data, "config", "logs"), exist_ok=True)
+        os.makedirs(os.path.join(self.paths.data, "config", "saves"), exist_ok=True)
+        os.makedirs(self.paths.world, exist_ok=True)
+        super().__init__(java, jar, data_dir=self.paths.data, log_path=self.paths.log)
         self._channel = WorldChannel(self)
         try:
             self._boot(host=host, paused=paused, server_name=server_name)
@@ -234,8 +246,8 @@ class World(WorldProcess):
             pass
         # 建筑变更日志: TileChangeEvent(放置/拆除) + ConfigEvent(改配置) 都记进环形缓冲
         try:
-            r = self.js(EV_INSTALL_JS % {"chatlog": json.dumps(os.path.join(DATA, "chat.log").replace("\\", "/")),
-                                   "pushfile": json.dumps(os.path.join(DATA, "push.jsonl").replace("\\", "/")),
+            r = self.js(EV_INSTALL_JS % {"chatlog": json.dumps(os.path.join(self.paths.data, "chat.log").replace("\\", "/")),
+                                   "pushfile": json.dumps(os.path.join(self.paths.data, "push.jsonl").replace("\\", "/")),
                                    "autoadmin": 0 if getattr(self, "no_push_admin", False) else 1,
                                    "mineblock": json.dumps(MINE_BLOCK)})
             if not r or not str(r[0]).startswith("installed"):
@@ -420,11 +432,11 @@ def door_register(w, x, y, kind="watch", unit="poly", tx=None, ty=None,
                   label=None, block="shock-mine", scene_path=None, persist=True,
                   scene_at=None, feed=None):
     return _door_registry.door_register(w, x, y, kind, unit, tx, ty, label, block,
-                                       scene_path, persist, scene_at, feed, doors_file=DOORS_FILE)
+                                       scene_path, persist, scene_at, feed, doors_file=paths_for(w).doors)
 
 
 def door_reload(w):
-    return _door_registry.door_reload(w, doors_file=DOORS_FILE)
+    return _door_registry.door_reload(w, doors_file=paths_for(w).doors)
 
 
 def find_free_tile(w, near, lim=10):
@@ -529,7 +541,17 @@ def resync_builds(w, builds):
 
 
 def _projection_actions():
-    return SimpleNamespace(**{name: globals()[name] for name in ('MINE_BLOCK', 'REPLACE_MINE_JS', 'DEMOLISH_JS', 'MS_CLEAR_JS', 'mirror_watch', 'mirror_stop', 'resync_builds', 'sb_event', 'chat')})
+    return ProjectionActionsServices(
+        MINE_BLOCK=MINE_BLOCK,
+        REPLACE_MINE_JS=REPLACE_MINE_JS,
+        DEMOLISH_JS=DEMOLISH_JS,
+        MS_CLEAR_JS=MS_CLEAR_JS,
+        mirror_watch=mirror_watch,
+        mirror_stop=mirror_stop,
+        resync_builds=resync_builds,
+        sb_event=sb_event,
+        chat=chat
+    )
 
 
 def project_at(w, x, y, feed, scene_path=None, tell=True, anchor=None, slot=0, pin=True):
@@ -549,7 +571,25 @@ def projection_director(w, feed, scene_path=None, at=None, poll=0.5,
                         fresh=25.0, lim=10, scenes=None, frames=True,
                         frame_floor="marker", at_cell=64, feeds=None, auto=True,
                         hold=0.0):
-    services = SimpleNamespace(**{name: globals()[name] for name in ('FRAME_LIVE_MAX', 'FRAME_SWEEP_JS', 'LIVE_COLOR', 'MINE_BLOCK', 'MINE_HITS_JS', 'MINE_STATE_JS', 'SB_SWEEP_JS', '_projs', '_sb_store', 'chat', 'end_projection', 'frame_clear', 'frame_paint', 'project_at', 'sb_clear', 'sb_event', 'sb_render')})
+    services = ProjectionDirectorServices(
+        FRAME_LIVE_MAX=FRAME_LIVE_MAX,
+        FRAME_SWEEP_JS=FRAME_SWEEP_JS,
+        LIVE_COLOR=LIVE_COLOR,
+        MINE_BLOCK=MINE_BLOCK,
+        MINE_HITS_JS=MINE_HITS_JS,
+        MINE_STATE_JS=MINE_STATE_JS,
+        SB_SWEEP_JS=SB_SWEEP_JS,
+        _projs=_projs,
+        _sb_store=_sb_store,
+        chat=chat,
+        end_projection=end_projection,
+        frame_clear=frame_clear,
+        frame_paint=frame_paint,
+        project_at=project_at,
+        sb_clear=sb_clear,
+        sb_event=sb_event,
+        sb_render=sb_render
+    )
     return _run_projection_director(w, feed, scene_path, at, poll, fresh, lim, scenes,
                                     frames, frame_floor, at_cell, feeds, auto, hold,
                                     services=services)
@@ -665,244 +705,53 @@ def dispatch(w: World, req: dict, stop_cb) -> dict:
 
 
 def _dispatch(w: World, req: dict, stop_cb) -> dict:
-    op = (req.get("op") or "").strip()
-    if op in WORLD_MAP_OPS:
-        return change_map(w, req, audit=audit)
-    if op in WORLD_QUERY_OPS:
-        return query_world(w, req, data_dir=DATA)
-    if op in WORLD_EDIT_OPS:
-        return edit_world(w, req, audit=audit, data_dir=DATA)
-    if op in WORLD_SCHEMATIC_OPS:
-        return schematic_world(w, req, audit=audit, schematic_dir=SCHEM_DIR)
-    if op in WORLD_EVENT_OPS:
-        return read_events(w, req)
-    if op == "tap":
-        # 合成一次点击: 等价于玩家真的点了这一格(测试门用; 有玩家时连门一起触发)
-        x = int(req.get("x") or 0)
-        y = int(req.get("y") or 0)
-        who = req.get("who")
-        out = w.js(TAP_FIRE_JS % {"x": x, "y": y,
-                                  "who": json.dumps(str(who) if who else None)})
-        if not out:
-            return {"ok": False, "error": "no output"}
-        audit("tap", x=x, y=y, result=out[0])
-        return {"ok": True, "result": out[0]}
-    if op in PROJECTION_CONTROL_OPS:
-        services = SimpleNamespace(**{name: globals()[name] for name in ('projection_director', 'frame_clear', 'frame_paint', 'FRAME_LIST_JS', 'mirror_stop', '_mirror_slot', 'start_projection', 'sb_event', 'sb_render', 'sb_clear', 'SB_SWEEP_JS', 'FRAME_LIVE_MAX', 'sb_lines')})
-        return projection_control(w, req, services=services, audit=audit)
-    if op in WORLD_DOOR_OPS:
-        return _door_registry.door_operation(w, req, audit=audit, doors_file=DOORS_FILE)
-    if op in MIRROR_CONTROL_OPS:
-        return mirror_control(w, req, root=ROOT, audit=audit)
-    if op in ("scene", "scene_probe"):
-        # 同一份 tools/scene.py 描述文件，mlogsim 和这里都认：模拟器里验证过的
-        # 布局/链接/代码可以在真世界里原样复现，不用手抄坐标。
-        path = req.get("path") or req.get("scene") or ""
-        if not path:
-            return {"ok": False, "error": "need path"}
-        import scene as scene_mod
-        try:
-            sc = scene_mod.load(path)
-        except scene_mod.SceneError as exc:
-            return {"ok": False, "error": str(exc)}
-        at = req.get("at")
-        if at is None and req.get("at_x") is not None:
-            at = [req.get("at_x"), req.get("at_y")]
-        rep = scene_mod.apply_world(w, sc, at=at)
-        w._scene_report = rep
-        res = {"ok": not rep["errors"], "scene": rep}
-        if req.get("door"):
-            # 场景先铺, 门最后放: clear 矩形会把先放的地雷抹掉
-            d = door_register(w, rep["anchor"][0], rep["anchor"][1],
-                              kind=req.get("door_kind") or "watch",
-                              unit=req.get("door_unit") or "poly",
-                              label=req.get("door_label"),
-                              block=req.get("door_block") or "shock-mine",
-                              scene_path=None,
-                              feed=req.get("mirror_feed"))
-            res["door"] = d
-        if req.get("mirror_feed"):
-            # 场景铺完就把仿真投影接到同一批坐标上; 偏移量按格算
-            try:
-                mirror_stop(w)
-                # 没显式给偏移就用场景自己的位移: 仿真坐标 + 位移 = 世界坐标
-                _sh = rep.get("shift") or [0, 0]
-                _dx = float(req.get("mirror_dx") if req.get("mirror_dx") is not None else _sh[0])
-                _dy = float(req.get("mirror_dy") if req.get("mirror_dy") is not None else _sh[1])
-                _slot = int(req.get("mirror_slot") or 0)
-                w.mirror_off = (_dx, _dy)
-                mirror_watch(w, str(req["mirror_feed"]), slot=_slot, dx=_dx, dy=_dy)
-                res["mirror"] = {"on": True, "slot": _slot, "off": [_dx, _dy]}
-            except Exception as exc:
-                res["mirror"] = {"on": False, "error": str(exc)}
-        audit("scene", path=path, name=sc["name"], shift=rep.get("shift"),
-              placed=rep["placed"], units=rep["units"], errors=len(rep["errors"]))
-        if op == "scene_probe":
-            # a freshly loaded processor has not ticked yet: its executor has no
-            # variables until updateTile() runs once, so reads would all be null.
-            time.sleep(1.5)
-            res["probe"] = scene_mod.probe_world(w, sc)
-        return res
-    if op == "console":
-        cmd = str(req.get("cmd") or "").strip()
-        if not cmd:
-            return {"ok": False, "error": "empty cmd"}
-        audit("console", cmd=cmd)
-        return w.console(cmd, quiet=float(req.get("quiet") or 0.3),
-                         timeout=float(req.get("timeout") or 8))
-    if op == "js":
-        src = str(req.get("code") or "")
-        if not src.strip():
-            return {"ok": False, "error": "empty code"}
-        audit("js", code=src[:500])
-        return {"ok": True, "lines": w.js(src, timeout=float(req.get("timeout") or 0) or None)}
-    if op == "say":
-        txt = str(req.get("text") or "").rstrip()
-        audit("say", text=txt)
-        return w.console("say " + txt, quiet=0.2, timeout=5)
-    if op == "pause":
-        on = bool(req.get("on", True))
-        audit("pause", on=on)
-        return w.console("pause " + ("on" if on else "off"), quiet=0.25, timeout=6)
-    if op == "save":
-        name = str(req.get("name") or "world").strip().replace(" ", "_")
-        audit("save", name=name)
-        return w.console("save " + name, quiet=0.5, timeout=30)
-    if op == "load":
-        name = str(req.get("name") or "").strip()
-        if not name:
-            return {"ok": False, "error": "empty name"}
-        audit("load", name=name)
-        return w.console("load " + name, quiet=0.8, timeout=120)
-    if op == "shutdown":
-        audit("shutdown")
-        threading.Thread(target=stop_cb, daemon=True).start()
-        return {"ok": True, "bye": True}
-    return {"ok": False, "error": "unknown op: %r" % op}
+    return WORLD_ROUTES.dispatch(w, req, stop_cb)
+
+
+def _dispatch_projection(w, req, stop_cb):
+    services = ProjectionControlServices(
+        projection_director=projection_director,
+        frame_clear=frame_clear,
+        frame_paint=frame_paint,
+        FRAME_LIST_JS=FRAME_LIST_JS,
+        mirror_stop=mirror_stop,
+        _mirror_slot=_mirror_slot,
+        start_projection=start_projection,
+        sb_event=sb_event,
+        sb_render=sb_render,
+        sb_clear=sb_clear,
+        SB_SWEEP_JS=SB_SWEEP_JS,
+        FRAME_LIVE_MAX=FRAME_LIVE_MAX,
+        sb_lines=sb_lines
+    )
+    return projection_control(w, req, services=services, audit=bound_audit(w))
+
+WORLD_ROUTES = OperationRouter([
+    (WORLD_MAP_OPS, lambda w, r, stop: change_map(w, r, audit=bound_audit(w))),
+    (WORLD_QUERY_OPS, lambda w, r, stop: query_world(w, r, data_dir=paths_for(w).data)),
+    (WORLD_EDIT_OPS, lambda w, r, stop: edit_world(w, r, audit=bound_audit(w), data_dir=paths_for(w).data)),
+    (WORLD_SCHEMATIC_OPS, lambda w, r, stop: schematic_world(w, r, audit=bound_audit(w), schematic_dir=paths_for(w).schematics)),
+    (WORLD_EVENT_OPS, lambda w, r, stop: read_events(w, r)),
+    (PROJECTION_CONTROL_OPS, _dispatch_projection),
+    (WORLD_DOOR_OPS, lambda w, r, stop: _door_registry.door_operation(w, r, audit=bound_audit(w), doors_file=paths_for(w).doors)),
+    (MIRROR_CONTROL_OPS, lambda w, r, stop: mirror_control(w, r, root=paths_for(w).root, audit=bound_audit(w))),
+    (SCENE_OPERATIONS, lambda w, r, stop: execute_scene(w, r, audit=bound_audit(w), door_register=door_register,
+                                                      mirror_stop=mirror_stop, mirror_watch=mirror_watch)),
+    (COMMAND_OPERATIONS, lambda w, r, stop: world_command(w, r, audit=bound_audit(w), stop_cb=stop)),
+])
+
+
+def _configure_chat(enabled, prefix):
+    global CHAT_LOG, CHAT_PREFIX
+    CHAT_LOG, CHAT_PREFIX = enabled, prefix
 
 
 def main(argv=None):
-    ap = argparse.ArgumentParser(description="常驻 Mindustry 世界 + JSON 控制口")
-    ap.add_argument("--map", default="大肥鱼的调试世界",
-                    help="地图名（内置图如 Fork，或 config/maps 里的自定义图）；找不到时回退随机图")
-    ap.add_argument("--no-host", action="store_true", help="只起 JVM, 不开服")
-    ap.add_argument("--paused", action="store_true", help="开服后立即暂停")
-    ap.add_argument("--game-port", type=int, default=6567, help="游戏端口 (默认 6567)")
-    ap.add_argument("--api-port", type=int, default=0, help="JSON 控制口端口 (0=自动)")
-    ap.add_argument("--js-timeout", type=float, default=60.0)
-    ap.add_argument("--chat-log", default=True, action=argparse.BooleanOptionalAction,
-                    help="把 agent 的写操作打进游戏聊天栏 (默认开)")
-    ap.add_argument("--chat-prefix", default="[agent] ")
-    ap.add_argument("--name", default="world.execute(Mindustry)", help="服务器名")
-    ap.add_argument("--mirror-feed", default=None, metavar="FILE",
-                    help="盯住这个 JSON 文件（mlogsim --push 写它），一变就把里面的单位画成 marker（立即开始）")
-    ap.add_argument("--watch-feed", default=None, metavar="FILE", action="append",
-                    help="仿真 feed（mlogsim --push 写它），可重复给多条：按顺序与 "
-                         "--watch-scene 一一配对（第 i 个场景盯第 i 条 feed），"
-                         "只给一条则所有场景共用；默认 auto 模式：feed 新鲜就自己铺，"
-                         "不放雷也能看")
-    ap.add_argument("--watch-scene", default=None, metavar="JSON", action="append",
-                    help="要复刻的场景文件，可重复给多个：每个场景有自己的矩形边界，"
-                         "地雷落在哪个框里就复刻哪个场景。缺省=用 feed 里记的场景"
-                         "（mlogsim --scene X --push F 会把 X 写进 F），也就是说只给 "
-                         "--watch-feed 就够；这里的显式值只用于覆盖/对照")
-    ap.add_argument("--frame-floor", default="marker", metavar="X",
-                    help="场景边界：marker（默认，用点状标记画框）/ none（不画）；"
-                         "旧值 metal-floor 等仍接受但已改成 marker —— 不再动地形")
-    ap.add_argument("--frame-cell", type=int, default=64, metavar="N",
-                    help="沙盘格子边长（默认 64）：场景按 N×N 的格子从地图左上角开始排，"
-                         "锚点落在格子正中")
-    ap.add_argument("--watch-at", default=None, metavar="X,Y",
-                    help="已废弃：现在由玩家放下的地雷决定圆心")
-    ap.add_argument("--hold", type=float, default=0.0, metavar="SEC",
-                    help="仿真停下后, 框和投影再多留 SEC 秒（默认 0 = 10 s 内收摊）; "
-                         "tick 级调试跑完想停下来看的时候给 60 之类")
-    ap.add_argument("--no-projection", action="store_true",
-                    help="完全不开投影导演（连默认 feed 也不盯）")
-    ap.add_argument("--manual", action="store_true",
-                    help="关掉自动投影：只有放下脉冲地雷才开始（默认是有仿真就自己铺）")
-    ap.add_argument("--no-push-admin", action="store_true",
-                    help="不要自动给进来的玩家 admin（默认给，这样他们能在聊天栏用 /push 跟 agent 说话）")
-    ap.add_argument("--java", default=None)
-    ap.add_argument("--jar", default=DEFAULT_JAR)
-    a = ap.parse_args(argv)
-    if not a.watch_feed and not a.mirror_feed:
-        # 不给 --watch-feed 就盯默认 feed：任何 --project 的仿真一跑就自动
-        # 出现在地图上，跑完自动收摊。要看纯图就给 --no-projection。
-        a.watch_feed = [DEFAULT_FEED]
-
-    java = find_java(a.java)
-    jar = os.path.abspath(a.jar)
-    if not os.path.isfile(jar):
-        raise SystemExit("找不到 jar: " + jar)
-
-    global CHAT_LOG, CHAT_PREFIX
-    CHAT_LOG = bool(a.chat_log)
-    CHAT_PREFIX = a.chat_prefix
-
-    game_port, port_note = pick_port(a.game_port)
-    if port_note:
-        print("[warn] " + port_note, file=sys.stderr)
-    w = World(java, jar, map_name=a.map, host=not a.no_host, paused=a.paused,
-              game_port=game_port, js_timeout=a.js_timeout, server_name=a.name)
-    w.no_push_admin = bool(getattr(a, "no_push_admin", False))
-    if a.mirror_feed:
-        mirror_watch(w, a.mirror_feed)
-    if getattr(a, "watch_feed", None) or getattr(a, "watch_scene", None):
-        # 玩家放下一颗脉冲地雷, 就以它为圆心开始投影 (不自己放雷、不用点击)
-        projection_director(w, a.watch_feed, None, scenes=getattr(a, "watch_scene", None),
-                            frames=str(getattr(a, "frame_floor", "") or "").lower() != "none",
-                            frame_floor=getattr(a, "frame_floor", "marker"),
-                            at_cell=int(getattr(a, "frame_cell", 64) or 64),
-                            feeds=getattr(a, "watch_feed", None),
-                             auto=not getattr(a, "manual", False),
-                             hold=float(getattr(a, "hold", 0.0) or 0.0))
-
-    srv = API(("127.0.0.1", a.api_port), make_handler(w, lambda: None))
-    port = srv.server_address[1]
-    state = {"stopping": False}
-
-    def stop():
-        if state["stopping"]:
-            return
-        state["stopping"] = True
-        try:
-            w.close()
-        finally:
-            try:
-                os.remove(HANDSHAKE)
-            except Exception:
-                pass
-            os._exit(0)
-
-    srv.RequestHandlerClass = make_handler(w, stop)
-    threading.Thread(target=srv.serve_forever, daemon=True).start()
-
-    info = {"pid": os.getpid(), "apiPort": port, "gamePort": w.game_port,
-            "map": getattr(w, "map_actual", None) or w.map_name,
-            "hosted": getattr(w, "hosted", False),
-            "portNote": port_note,
-            "startedAt": time.strftime("%Y-%m-%d %H:%M:%S"),
-            "dataDir": DATA, "log": LOG,
-            "java": java, "jar": jar}
-    with open(HANDSHAKE, "w", encoding="utf-8") as f:
-        json.dump(info, f, ensure_ascii=False, indent=2)
-    print(json.dumps(info, ensure_ascii=False))
-    sys.stdout.flush()
-    try:
-        while not state["stopping"]:
-            time.sleep(0.5)
-            if w.proc and w.proc.poll() is not None:
-                state["stopping"] = True
-                try:
-                    os.remove(HANDSHAKE)
-                except Exception:
-                    pass
-                print("java 退出, 关掉控制口", file=sys.stderr)
-                break
-    except KeyboardInterrupt:
-        pass
-    stop()
+    services = WorldStartupServices(
+        find_java=find_java, pick_port=pick_port, create_world=World,
+        configure_chat=_configure_chat, mirror_watch=mirror_watch,
+        projection_director=projection_director, make_handler=make_handler)
+    return run_world_cli(argv, default_jar=DEFAULT_JAR, paths=default_paths(), services=services)
 
 
 if __name__ == "__main__":

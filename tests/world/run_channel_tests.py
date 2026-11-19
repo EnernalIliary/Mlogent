@@ -9,11 +9,11 @@ import tempfile
 import threading
 import time
 import unittest
-from unittest.mock import patch
+from unittest.mock import patch, Mock
 
 TOOLS = Path(__file__).resolve().parents[2] / 'tools'
 sys.path.insert(0, str(TOOLS))
-from world_channel import WorldChannel
+from world_channel import WorldChannel, command
 
 
 class Process:
@@ -124,6 +124,18 @@ class ChannelTests(unittest.TestCase):
         code = ('import sys; sys.path.insert(0,sys.argv[1]); import world_channel; '
                 'assert "world_server" not in sys.modules; assert "world_process" not in sys.modules')
         subprocess.run([sys.executable, '-I', '-c', code, str(TOOLS)], check=True)
+
+    def test_generic_commands_validate_input_and_audit_save(self):
+        world = Mock()
+        audit = Mock()
+        result = command(world, {'op':'console','cmd':' '}, audit=audit, stop_cb=lambda:None)
+        self.assertFalse(result['ok'])
+        world.console.assert_not_called()
+        audit.assert_not_called()
+        world.console.return_value = {'ok':True,'lines':[]}
+        result = command(world, {'op':'save','name':'my world'}, audit=audit, stop_cb=lambda:None)
+        world.console.assert_called_once_with('save my_world',quiet=0.5,timeout=30)
+        audit.assert_called_once_with('save',name='my_world')
 
 
 if __name__ == '__main__':

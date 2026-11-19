@@ -297,6 +297,8 @@ def build_steps(full: bool, only: str | None) -> list[tuple[str, list[str] | Non
         ("worldmirrors", ["tests/world/run_mirror_tests.py"], ""),
         ("worlddoors", ["tests/world/run_door_tests.py"], ""),
         ("worldevents", ["tests/world/run_event_tests.py"], ""),
+        ("worldruntime", ["tests/world/run_runtime_tests.py"], ""),
+        ("worldconfig", ["tests/world/run_config_tests.py"], ""),
         # The HTTP transport is a different way into the same tool table, so its
         # tests pin the things a proxy or a client library depends on: status
         # codes, the 202-with-no-body notification rule, and the refusal to bind

@@ -10,7 +10,7 @@ import unittest
 
 TOOLS = Path(__file__).resolve().parents[2] / 'tools'
 sys.path.insert(0, str(TOOLS))
-from world_protocol import API, make_handler
+from world_protocol import API, make_handler, OperationRouter
 
 
 @contextmanager
@@ -70,6 +70,19 @@ class TransportTests(unittest.TestCase):
         code = ('import sys; sys.path.insert(0,sys.argv[1]); import world_protocol; '
                 'assert "world_server" not in sys.modules; assert "mlogsim" not in sys.modules')
         subprocess.run([sys.executable, '-I', '-c', code, str(TOOLS)], check=True)
+
+    def test_router_rejects_duplicate_operations(self):
+        with self.assertRaisesRegex(ValueError, 'duplicate'):
+            OperationRouter([({'same'}, lambda *args: None), ({'same'}, lambda *args: None)])
+
+    def test_router_passes_world_request_and_stop_callback(self):
+        seen = []
+        world, stop = object(), lambda: None
+        request = {'op':'known'}
+        router = OperationRouter([({'known'}, lambda w, r, s: seen.append((w,r,s)) or {'ok':True})])
+        self.assertEqual(router.dispatch(world, request, stop), {'ok':True})
+        self.assertEqual(seen, [(world, request, stop)])
+        self.assertEqual(router.dispatch(world, {'op':'unknown'}, stop), {'ok':False,'error':"unknown op: 'unknown'"})
 
 
 if __name__ == '__main__':

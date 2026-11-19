@@ -191,10 +191,21 @@ else { var rres = String(_doorAct(dpl, %(x)d, %(y)d)); sb.append('R\t').append(r
 """
 
 
-OPERATIONS = frozenset(("door", "doors", "door_clear", "door_enter", "taps"))
+OPERATIONS = frozenset(("door", "doors", "door_clear", "door_enter", "taps", "tap"))
 
 def door_operation(w, req, *, audit, doors_file):
     op = (req.get("op") or "").strip()
+    if op == "tap":
+        # 合成一次点击: 等价于玩家真的点了这一格(测试门用; 有玩家时连门一起触发)
+        x = int(req.get("x") or 0)
+        y = int(req.get("y") or 0)
+        who = req.get("who")
+        out = w.js(TAP_FIRE_JS % {"x": x, "y": y,
+                                  "who": json.dumps(str(who) if who else None)})
+        if not out:
+            return {"ok": False, "error": "no output"}
+        audit("tap", x=x, y=y, result=out[0])
+        return {"ok": True, "result": out[0]}
     if op in ("door", "doors", "door_clear", "door_enter", "taps"):
         # 点击门：TapEvent 在任意方块上都会 fire（InputHandler.java:732-739），
         # 这里只登记「哪一格是哪扇门」，点下去的动作由 DOOR_ACT_JS 里的 _doorAct 做。

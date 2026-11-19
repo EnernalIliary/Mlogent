@@ -1,6 +1,7 @@
 """Serialized console and JS/file-result channels over an owned process."""
 from __future__ import annotations
 
+import threading
 import os
 import time
 import uuid
@@ -103,3 +104,45 @@ class WorldChannel:
                     raise SystemExit('服务端提前退出, 见 ' + process.log_path)
                 process._cv.wait(min(0.05, max(0, deadline - time.monotonic())))
         raise SystemExit('等 %.0fs 没等到 %r, 见 %s' % (timeout, needle, process.log_path))
+
+
+COMMAND_OPERATIONS = frozenset(("console", "js", "say", "pause", "save", "load", "shutdown"))
+
+def command(w, req, *, audit, stop_cb):
+    op = (req.get("op") or "").strip()
+    if op == "console":
+        cmd = str(req.get("cmd") or "").strip()
+        if not cmd:
+            return {"ok": False, "error": "empty cmd"}
+        audit("console", cmd=cmd)
+        return w.console(cmd, quiet=float(req.get("quiet") or 0.3),
+                         timeout=float(req.get("timeout") or 8))
+    if op == "js":
+        src = str(req.get("code") or "")
+        if not src.strip():
+            return {"ok": False, "error": "empty code"}
+        audit("js", code=src[:500])
+        return {"ok": True, "lines": w.js(src, timeout=float(req.get("timeout") or 0) or None)}
+    if op == "say":
+        txt = str(req.get("text") or "").rstrip()
+        audit("say", text=txt)
+        return w.console("say " + txt, quiet=0.2, timeout=5)
+    if op == "pause":
+        on = bool(req.get("on", True))
+        audit("pause", on=on)
+        return w.console("pause " + ("on" if on else "off"), quiet=0.25, timeout=6)
+    if op == "save":
+        name = str(req.get("name") or "world").strip().replace(" ", "_")
+        audit("save", name=name)
+        return w.console("save " + name, quiet=0.5, timeout=30)
+    if op == "load":
+        name = str(req.get("name") or "").strip()
+        if not name:
+            return {"ok": False, "error": "empty name"}
+        audit("load", name=name)
+        return w.console("load " + name, quiet=0.8, timeout=120)
+    if op == "shutdown":
+        audit("shutdown")
+        threading.Thread(target=stop_cb, daemon=True).start()
+        return {"ok": True, "bye": True}
+    return NotImplemented
