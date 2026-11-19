@@ -34,7 +34,8 @@ for _s in (sys.stdin, sys.stdout, sys.stderr):
 
 INDEX_VERSION = "1"
 CONTRACT_DOCS = ["KB.md", "CONVENTIONS.md", "VERSION.md", "README.md"]
-EVIDENCE_KINDS = {"claims": "可复测断言", "probes": "探针脚本", "bench": "评测题/基准"}
+EVIDENCE_KINDS = {"claims": "re-runnable claims", "probes": "probe scripts",
+                  "bench": "benchmark questions"}
 DATA_KEYS = ("records", "items", "entries", "rows", "data")
 
 
@@ -181,7 +182,7 @@ def build(root: Path) -> dict:
         "generated": _dt.datetime.now().astimezone().isoformat(timespec="seconds"),
         "root": "knowledge",
         "read_order": ["index.json", "KB.md", "CONVENTIONS.md", "VERSION.md",
-                       "00-data/*.json", "域目录文章", "08-evidence/claims.jsonl"],
+                       "00-data/*.json", "domain articles", "08-evidence/claims.jsonl"],
         "domains": domains,
         "data": data,
         "evidence": ev,
@@ -200,11 +201,11 @@ def build(root: Path) -> dict:
             "empty": len(arts) == 0,
         },
         "notes": [
-            "tokens 为估算（汉字 0.62 + 英文词 0.75），非真实 tokenizer 计数。",
-            "data[].records 为条目数；kind=canonical 进 counts，rt_*/raw 仅列出不计入。",
-            "evidence_dirs[] 按 08-evidence 子目录汇总（claims/probes/bench），空目录也会出现。",
-            "文章缺 frontmatter 时 id/conf/status 为空串，仍会列出以便门禁报错。",
-            "生成器: knowledge/tools/build_index.py；校验器: knowledge/tools/check_kb.py。",
+            "tokens are estimated (0.62 per CJK char, 0.75 per English word), not a real tokenizer count.",
+            "data[].records counts entries; kind=canonical feeds counts, rt_*/raw are listed but not summed.",
+            "evidence_dirs[] aggregates the 08-evidence subdirectories (claims/probes/bench); empty ones appear too.",
+            "an article without front matter gets empty id/conf/status; it is still listed so the gate can complain.",
+            "generator: knowledge/tools/build_index.py; checker: knowledge/tools/check_kb.py.",
         ],
     }
 

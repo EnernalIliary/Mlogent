@@ -1,6 +1,6 @@
 {
  "version": "1",
- "generated": "2026-11-15T20:02:27+08:00",
+ "generated": "2026-11-19T15:44:17+08:00",
  "root": "knowledge",
  "read_order": [
   "index.json",
@@ -8,20 +8,20 @@
   "CONVENTIONS.md",
   "VERSION.md",
   "00-data/*.json",
-  "域目录文章",
+  "domain articles",
   "08-evidence/claims.jsonl"
  ],
  "domains": [
   {
    "id": "01-execution",
    "code": "EXEC",
-   "title": "执行模型",
-   "desc": "处理器 / 指令预算 / 帧差 / 同步",
+   "title": "Execution",
+   "desc": "processor / instruction budget / frame delta / sync",
    "articles": [
     {
      "id": "EXEC.LINK.001",
      "path": "knowledge/01-execution/E05-链接与@常量.md",
-     "title": "链接与 @ 常量：@links / getlink、内置变量分类与单位",
+     "title": "Links and @ constants: @links / getlink, the built-in variable classes, and units",
      "tokens": 651,
      "tokens_est": false,
      "conf": "S",
@@ -31,12 +31,12 @@
      ],
      "status": "active",
      "domain": "exec",
-     "lines": 141
+     "lines": 161
     },
     {
      "id": "EXEC.MEM.001",
      "path": "knowledge/01-execution/E03-变量与内存边界.md",
-     "title": "变量与内存边界：LVar 的四种状态、memory cell 与文本缓冲",
+     "title": "Variables and memory boundaries: the four LVar states, memory cells, and the text buffer",
      "tokens": 598,
      "tokens_est": false,
      "conf": "S",
@@ -51,7 +51,7 @@
     {
      "id": "EXEC.MODEL.001",
      "path": "knowledge/01-execution/E01-执行模型与预算.md",
-     "title": "执行模型与指令预算：从 tick 到 accumulator 的完整链路",
+     "title": "Execution model and instruction budget: the full path from tick to accumulator",
      "tokens": 565,
      "tokens_est": false,
      "conf": "S",
@@ -66,7 +66,7 @@
     {
      "id": "EXEC.TIME.001",
      "path": "knowledge/01-execution/E04-时间与wait精度.md",
-     "title": "时间与 wait 精度：tick、秒与帧差",
+     "title": "Time and wait precision: tick, seconds, and the frame delta",
      "tokens": 610,
      "tokens_est": false,
      "conf": "S",
@@ -81,7 +81,7 @@
     {
      "id": "EXEC.TRAP.001",
      "path": "knowledge/01-execution/E02-指令语义陷阱.md",
-     "title": "指令语义陷阱 30 条（向量 / 对象 / 数值 / 时序 / 内存 / 交互）",
+     "title": "30 instruction-semantics traps (vectors / objects / numbers / timing / memory / interaction)",
      "tokens": 960,
      "tokens_est": false,
      "conf": "S",
@@ -96,7 +96,7 @@
     {
      "id": "EXEC.VER.001",
      "path": "knowledge/01-execution/E06-跨版本差异.md",
-     "title": "跨版本差异：v159.3 源码 vs v160.7 实测，以及文档冲突清单",
+     "title": "Cross-version differences: v159.3 source vs v160.7 measurements, and the documentation-conflict list",
      "tokens": 602,
      "tokens_est": false,
      "conf": "S",
@@ -113,13 +113,13 @@
   {
    "id": "02-world",
    "code": "WORLD",
-   "title": "世界与物流",
-   "desc": "方块 / 传送带 / 电力 / 液体 / 热 / 钻探",
+   "title": "World and logistics",
+   "desc": "blocks / conveyors / power / liquids / heat / drilling",
    "articles": [
     {
      "id": "WORLD.BLOCKS.001",
      "path": "knowledge/02-world/W01-blocks-multiblock-anchor.md",
-     "title": "方块模型与多格锚点",
+     "title": "The block model and the multiblock anchor",
      "tokens": 1175,
      "tokens_est": false,
      "conf": "S",
@@ -129,12 +129,12 @@
      ],
      "status": "active",
      "domain": "world",
-     "lines": 176
+     "lines": 177
     },
     {
      "id": "WORLD.BLOCKSTATE.001",
      "path": "knowledge/02-world/W11-block-state.md",
-     "title": "方块状态与配置（config / 旋转 / enabled / @sensor）",
+     "title": "Block state and configuration (config / rotation / enabled / @sensor)",
      "tokens": 1430,
      "tokens_est": false,
      "conf": "S",
@@ -144,12 +144,12 @@
      ],
      "status": "active",
      "domain": "world",
-     "lines": 166
+     "lines": 173
     },
     {
      "id": "WORLD.CRAFTING.001",
      "path": "knowledge/02-world/W02-crafting-recipes.md",
-     "title": "配方与制造",
+     "title": "Recipes and crafting",
      "tokens": 1454,
      "tokens_est": false,
      "conf": "S",
@@ -159,12 +159,12 @@
      ],
      "status": "active",
      "domain": "world",
-     "lines": 168
+     "lines": 169
     },
     {
      "id": "WORLD.DRILLING.001",
      "path": "knowledge/02-world/W07-drills-resources.md",
-     "title": "钻探与资源：钻头等级、硬度惩罚与矿层覆盖",
+     "title": "Drills and resources - drill tiers, the hardness penalty, ore coverage",
      "tokens": 2010,
      "tokens_est": false,
      "conf": "E",
@@ -179,7 +179,7 @@
     {
      "id": "WORLD.HEAT.001",
      "path": "knowledge/02-world/W05-heat.md",
-     "title": "热量系统",
+     "title": "The heat system",
      "tokens": 1519,
      "tokens_est": false,
      "conf": "S",
@@ -194,7 +194,7 @@
     {
      "id": "WORLD.LIQUIDS.001",
      "path": "knowledge/02-world/W04-liquids.md",
-     "title": "液体系统",
+     "title": "The liquid system",
      "tokens": 1929,
      "tokens_est": false,
      "conf": "S",
@@ -209,7 +209,7 @@
     {
      "id": "WORLD.LOGISTICS.001",
      "path": "knowledge/02-world/W06-logistics.md",
-     "title": "物流与物品传输（传送带 / 路由 / 交叉 / 桥 / 质量驱动器）",
+     "title": "Item logistics and transport (conveyors / routers / junctions / bridges / mass drivers)",
      "tokens": 1837,
      "tokens_est": false,
      "conf": "S",
@@ -224,9 +224,9 @@
     {
      "id": "WORLD.NAMES.001",
      "path": "knowledge/02-world/W13-name-blocks-terrain.md",
-     "title": "方块名对照①：地形 / 矿石 / 墙壁（136 条）",
-     "tokens": 1505,
-     "tokens_est": false,
+     "title": "Block name mapping I - terrain / ore / walls (136 entries)",
+     "tokens": 1486,
+     "tokens_est": true,
      "conf": "S",
      "ver": [
       "v160.7_rt",
@@ -234,14 +234,14 @@
      ],
      "status": "active",
      "domain": "world",
-     "lines": 202
+     "lines": 201
     },
     {
      "id": "WORLD.NAMES.002",
      "path": "knowledge/02-world/W14-name-blocks-industry.md",
-     "title": "方块名对照②：物流 / 电力 / 液体 / 生产（168 条）",
-     "tokens": 1675,
-     "tokens_est": false,
+     "title": "Block name mapping II - logistics / power / liquids / production (168 entries)",
+     "tokens": 1656,
+     "tokens_est": true,
      "conf": "S",
      "ver": [
       "v160.7_rt",
@@ -249,14 +249,14 @@
      ],
      "status": "active",
      "domain": "world",
-     "lines": 233
+     "lines": 232
     },
     {
      "id": "WORLD.NAMES.003",
      "path": "knowledge/02-world/W15-name-blocks-combat.md",
-     "title": "方块名对照③：合成 / 炮塔 / 效果 / 单位方块 / 逻辑（143 条）",
-     "tokens": 1602,
-     "tokens_est": false,
+     "title": "Block name mapping III - crafting / turrets / effects / unit blocks / logic (143 entries)",
+     "tokens": 1620,
+     "tokens_est": true,
      "conf": "S",
      "ver": [
       "v160.7_rt",
@@ -264,14 +264,14 @@
      ],
      "status": "active",
      "domain": "world",
-     "lines": 209
+     "lines": 208
     },
     {
      "id": "WORLD.NAMES.004",
      "path": "knowledge/02-world/W16-name-items.md",
-     "title": "物品 / 液体 / 状态效果名对照（56 条）",
-     "tokens": 722,
-     "tokens_est": false,
+     "title": "Item / liquid / status effect name mapping (56 entries)",
+     "tokens": 706,
+     "tokens_est": true,
      "conf": "S",
      "ver": [
       "v160.7_rt",
@@ -279,12 +279,12 @@
      ],
      "status": "active",
      "domain": "world",
-     "lines": 133
+     "lines": 132
     },
     {
      "id": "WORLD.PAYLOAD.001",
      "path": "knowledge/02-world/W08-payloads.md",
-     "title": "载荷：方块载荷与单位载荷的整块搬运链（传送带 / 路由 / 建造机 / 解构机 / 质量驱动器）",
+     "title": "Payloads - the whole-block haul chain for block and unit payloads (conveyor / router / constructor / deconstructor / mass driver)",
      "tokens": 2105,
      "tokens_est": false,
      "conf": "E",
@@ -299,7 +299,7 @@
     {
      "id": "WORLD.POWER.001",
      "path": "knowledge/02-world/W03-power.md",
-     "title": "电力网络",
+     "title": "The power grid",
      "tokens": 1450,
      "tokens_est": false,
      "conf": "S",
@@ -314,7 +314,7 @@
     {
      "id": "WORLD.SANDBOX.001",
      "path": "knowledge/02-world/W12-sandbox-editor.md",
-     "title": "沙盒与编辑器（buildVisibility / inEditor / instantBuild / rules）",
+     "title": "Sandbox and editor (buildVisibility / inEditor / instantBuild / rules)",
      "tokens": 1177,
      "tokens_est": false,
      "conf": "S",
@@ -329,7 +329,7 @@
     {
      "id": "WORLD.STORAGE.001",
      "path": "knowledge/02-world/W10-storage.md",
-     "title": "存储：核心容量口径、容器/保险库与卸载器的搬运优先级",
+     "title": "Storage - the core capacity measure, containers / vaults, and unloader transfer priority",
      "tokens": 1711,
      "tokens_est": false,
      "conf": "E",
@@ -344,7 +344,7 @@
     {
      "id": "WORLD.TERRAIN.001",
      "path": "knowledge/02-world/W09-terrain.md",
-     "title": "地形与环境：地板 / 矿层 / 墙三层结构、移动倍率与水陆判定",
+     "title": "Terrain and environment - the three-layer floor / ore / wall structure, movement multipliers, and the land-versus-water test",
      "tokens": 1394,
      "tokens_est": false,
      "conf": "E",
@@ -361,13 +361,13 @@
   {
    "id": "03-combat",
    "code": "COMBAT",
-   "title": "战斗",
-   "desc": "弹道 / 伤害 / 护甲 / 状态 / 炮塔",
+   "title": "Combat",
+   "desc": "ballistics / damage / armor / status / turrets",
    "articles": [
     {
      "id": "COMBAT.ARMOR.001",
      "path": "knowledge/03-combat/C05-armor.md",
-     "title": "护甲与抗性——减法公式、10% 保底、穿甲与免疫",
+     "title": "Armor and resistances: the subtraction formula, 10% floor, armor piercing and immunity",
      "tokens": 839,
      "tokens_est": false,
      "conf": "S",
@@ -382,7 +382,7 @@
     {
      "id": "COMBAT.BULLET.001",
      "path": "knowledge/03-combat/C03-bullets.md",
-     "title": "子弹与弹道——lifetime/speed/drag、贯穿、溅射、闪电与碎片",
+     "title": "Bullets and ballistics: lifetime/speed/drag, piercing, splash, lightning and fragments",
      "tokens": 746,
      "tokens_est": false,
      "conf": "S",
@@ -397,7 +397,7 @@
     {
      "id": "COMBAT.DAMAGE.001",
      "path": "knowledge/03-combat/C01-damage-pipeline.md",
-     "title": "伤害管线总览——一次命中从 BulletType 到 health 的完整顺序",
+     "title": "Damage pipeline overview: the full order of a hit from BulletType to health",
      "tokens": 783,
      "tokens_est": false,
      "conf": "S",
@@ -412,7 +412,7 @@
     {
      "id": "COMBAT.DEFENSE.001",
      "path": "knowledge/03-combat/C09-defense.md",
-     "title": "防御工事——墙体、门、护盾与修理器的数值与判定顺序",
+     "title": "Defenses: stats and resolution order of walls, doors, shields and repair turrets",
      "tokens": 892,
      "tokens_est": false,
      "conf": "S",
@@ -427,7 +427,7 @@
     {
      "id": "COMBAT.NUMBERS.001",
      "path": "knowledge/03-combat/C10-numbers.md",
-     "title": "战斗数值实例——DPS 定义式、跨层口径与 TTK",
+     "title": "Combat number worked examples: the DPS definition, cross-layer accounting and TTK",
      "tokens": 1211,
      "tokens_est": false,
      "conf": "S",
@@ -437,12 +437,12 @@
      ],
      "status": "active",
      "domain": "combat",
-     "lines": 171
+     "lines": 197
     },
     {
      "id": "COMBAT.STATUS.001",
      "path": "knowledge/03-combat/C04-status.md",
-     "title": "状态效果——倍率字段、时长、叠加与刷新、反应伤害",
+     "title": "Status effects: multiplier fields, duration, stacking and refresh, reaction damage",
      "tokens": 747,
      "tokens_est": false,
      "conf": "S",
@@ -457,7 +457,7 @@
     {
      "id": "COMBAT.SUPPORT.001",
      "path": "knowledge/03-combat/C07-support.md",
-     "title": "治疗、护盾与修理——heal / shield / mend / repairSpeed",
+     "title": "Healing, shields and repair: heal / shield / mend / repairSpeed",
      "tokens": 705,
      "tokens_est": false,
      "conf": "S",
@@ -472,7 +472,7 @@
     {
      "id": "COMBAT.TURRET.001",
      "path": "knowledge/03-combat/C02-turrets.md",
-     "title": "炮塔机制——射程、装填、弹药、冷却液、朝向与过热",
+     "title": "Turret mechanics: range, reload, ammo, coolant, aiming and overheat",
      "tokens": 1074,
      "tokens_est": false,
      "conf": "S",
@@ -487,7 +487,7 @@
     {
      "id": "COMBAT.TURRET.002",
      "path": "knowledge/03-combat/C11-turret-verdict.md",
-     "title": "原版炮塔评价总览与选型决策表（28 台逐台索引）",
+     "title": "Vanilla turret evaluation overview and selection decision table (per-turret index of 28)",
      "tokens": 821,
      "tokens_est": false,
      "conf": "I",
@@ -502,7 +502,7 @@
     {
      "id": "COMBAT.TURRET.101",
      "path": "knowledge/03-combat/turrets/T101-duo.md",
-     "title": "duo —— 35 件买到的连发基线",
+     "title": "duo — the 35-item sustained-fire baseline",
      "tokens": 661,
      "tokens_est": false,
      "conf": "I",
@@ -517,7 +517,7 @@
     {
      "id": "COMBAT.TURRET.102",
      "path": "knowledge/03-combat/turrets/T102-scatter.md",
-     "title": "scatter —— 222 面板 DPS 的空中清道夫",
+     "title": "scatter — the 222 displayed-DPS air sweeper",
      "tokens": 635,
      "tokens_est": false,
      "conf": "I",
@@ -532,7 +532,7 @@
     {
      "id": "COMBAT.TURRET.103",
      "path": "knowledge/03-combat/turrets/T103-scorch.md",
-     "title": "scorch —— 60 世界单位的贴脸火盆",
+     "title": "scorch — the 60-world-unit point-blank brazier",
      "tokens": 558,
      "tokens_est": false,
      "conf": "I",
@@ -547,7 +547,7 @@
     {
      "id": "COMBAT.TURRET.104",
      "path": "knowledge/03-combat/turrets/T104-hail.md",
-     "title": "hail —— 235 世界单位的单发炮击",
+     "title": "hail — single-shot artillery at 235 world units",
      "tokens": 520,
      "tokens_est": false,
      "conf": "I",
@@ -562,7 +562,7 @@
     {
      "id": "COMBAT.TURRET.105",
      "path": "knowledge/03-combat/turrets/T105-wave.md",
-     "title": "wave —— 20 发弹幕的灭火器",
+     "title": "wave — the 20-shot-barrage fire extinguisher",
      "tokens": 623,
      "tokens_est": false,
      "conf": "I",
@@ -577,7 +577,7 @@
     {
      "id": "COMBAT.TURRET.106",
      "path": "knowledge/03-combat/turrets/T106-lancer.md",
-     "title": "lancer —— 140 直伤的重甲开罐器",
+     "title": "lancer — the 140-direct-damage heavy-armor can opener",
      "tokens": 580,
      "tokens_est": false,
      "conf": "I",
@@ -592,7 +592,7 @@
     {
      "id": "COMBAT.TURRET.107",
      "path": "knowledge/03-combat/turrets/T107-arc.md",
-     "title": "arc —— 链式电弧的 34 点秒伤",
+     "title": "arc — 34 DPS from a chain lightning",
      "tokens": 539,
      "tokens_est": false,
      "conf": "I",
@@ -607,7 +607,7 @@
     {
      "id": "COMBAT.TURRET.108",
      "path": "knowledge/03-combat/turrets/T108-parallax.md",
-     "title": "parallax —— 16 牵引力的空中推手",
+     "title": "parallax — the air puller with 16 traction",
      "tokens": 573,
      "tokens_est": false,
      "conf": "I",
@@ -617,12 +617,12 @@
      ],
      "status": "active",
      "domain": "combat",
-     "lines": 93
+     "lines": 95
     },
     {
      "id": "COMBAT.TURRET.109",
      "path": "knowledge/03-combat/turrets/T109-swarmer.md",
-     "title": "swarmer —— 4 发齐射的导弹雨",
+     "title": "swarmer — a missile rain in 4-shot volleys",
      "tokens": 563,
      "tokens_est": false,
      "conf": "I",
@@ -637,7 +637,7 @@
     {
      "id": "COMBAT.TURRET.110",
      "path": "knowledge/03-combat/turrets/T110-salvo.md",
-     "title": "salvo —— 4 连发 320 点秒伤的主力",
+     "title": "salvo — the 320-DPS mainstay in 4-shot bursts",
      "tokens": 554,
      "tokens_est": false,
      "conf": "I",
@@ -652,7 +652,7 @@
     {
      "id": "COMBAT.TURRET.111",
      "path": "knowledge/03-combat/turrets/T111-segment.md",
-     "title": "segment —— 225 点每秒的弹体清道夫",
+     "title": "segment — the 225-per-second projectile sweeper",
      "tokens": 622,
      "tokens_est": false,
      "conf": "I",
@@ -667,7 +667,7 @@
     {
      "id": "COMBAT.TURRET.112",
      "path": "knowledge/03-combat/turrets/T112-tsunami.md",
-     "title": "tsunami —— 双管液体泼洒器",
+     "title": "tsunami — the twin-barrel liquid sprinkler",
      "tokens": 621,
      "tokens_est": false,
      "conf": "I",
@@ -682,7 +682,7 @@
     {
      "id": "COMBAT.TURRET.113",
      "path": "knowledge/03-combat/turrets/T113-fuse.md",
-     "title": "fuse —— 540 点秒伤的贴脸霰弹",
+     "title": "fuse — 540 DPS of point-blank buckshot",
      "tokens": 528,
      "tokens_est": false,
      "conf": "I",
@@ -697,7 +697,7 @@
     {
      "id": "COMBAT.TURRET.114",
      "path": "knowledge/03-combat/turrets/T114-ripple.md",
-     "title": "ripple —— 290 世界单位外的四连炮击",
+     "title": "ripple — four-shell artillery beyond 290 world units",
      "tokens": 532,
      "tokens_est": false,
      "conf": "I",
@@ -712,7 +712,7 @@
     {
      "id": "COMBAT.TURRET.115",
      "path": "knowledge/03-combat/turrets/T115-cyclone.md",
-     "title": "cyclone —— 415 面板 DPS 的防空核心",
+     "title": "cyclone — the 415 displayed-DPS anti-air core",
      "tokens": 535,
      "tokens_est": false,
      "conf": "I",
@@ -727,7 +727,7 @@
     {
      "id": "COMBAT.TURRET.116",
      "path": "knowledge/03-combat/turrets/T116-foreshadow.md",
-     "title": "foreshadow —— 500 世界单位外的 405 点重锤",
+     "title": "foreshadow — a 405-damage hammer at 500 world units",
      "tokens": 527,
      "tokens_est": false,
      "conf": "I",
@@ -742,7 +742,7 @@
     {
      "id": "COMBAT.TURRET.117",
      "path": "knowledge/03-combat/turrets/T117-spectre.md",
-     "title": "spectre —— 685 点秒伤的终局主炮",
+     "title": "spectre — the 685-DPS endgame main gun",
      "tokens": 540,
      "tokens_est": false,
      "conf": "I",
@@ -757,7 +757,7 @@
     {
      "id": "COMBAT.TURRET.118",
      "path": "knowledge/03-combat/turrets/T118-meltdown.md",
-     "title": "meltdown —— 936 点秒伤的熔断激光",
+     "title": "meltdown — the 936-DPS cutting laser",
      "tokens": 598,
      "tokens_est": false,
      "conf": "I",
@@ -772,7 +772,7 @@
     {
      "id": "COMBAT.TURRET.201",
      "path": "knowledge/03-combat/turrets/T201-breach.md",
-     "title": "breach —— 325 单发、全场最密的开局炮",
+     "title": "breach — 325 per shot, the densest opening gun in the game",
      "tokens": 610,
      "tokens_est": false,
      "conf": "I",
@@ -787,7 +787,7 @@
     {
      "id": "COMBAT.TURRET.202",
      "path": "knowledge/03-combat/turrets/T202-diffuse.md",
-     "title": "diffuse —— 15 发散射、料耗全库第一的贴脸武器",
+     "title": "diffuse — a 15-shot spread weapon with the highest ammo burn in the library",
      "tokens": 587,
      "tokens_est": false,
      "conf": "I",
@@ -802,7 +802,7 @@
     {
      "id": "COMBAT.TURRET.203",
      "path": "knowledge/03-combat/turrets/T203-sublimate.md",
-     "title": "sublimate —— 每结算 130 的液体喷灯",
+     "title": "sublimate — a liquid torch dealing 130 per settlement",
      "tokens": 670,
      "tokens_est": false,
      "conf": "I",
@@ -817,7 +817,7 @@
     {
      "id": "COMBAT.TURRET.204",
      "path": "knowledge/03-combat/turrets/T204-titan.md",
-     "title": "titan —— 390 世界单位、几乎不吃护甲的攻城炮",
+     "title": "titan — a siege cannon at 390 world units that barely notices armor",
      "tokens": 566,
      "tokens_est": false,
      "conf": "I",
@@ -832,7 +832,7 @@
     {
      "id": "COMBAT.TURRET.205",
      "path": "knowledge/03-combat/turrets/T205-disperse.md",
-     "title": "disperse —— 只打空、310 世界单位的高射炮",
+     "title": "disperse — an anti-air gun at 310 world units, air only",
      "tokens": 549,
      "tokens_est": false,
      "conf": "I",
@@ -847,7 +847,7 @@
     {
      "id": "COMBAT.TURRET.206",
      "path": "knowledge/03-combat/turrets/T206-afflict.md",
-     "title": "afflict —— 368 世界单位、216 DPS 的穿甲电炮",
+     "title": "afflict — a 368-world-unit, 216-DPS armor-piercing electric gun",
      "tokens": 580,
      "tokens_est": false,
      "conf": "I",
@@ -862,7 +862,7 @@
     {
      "id": "COMBAT.TURRET.207",
      "path": "knowledge/03-combat/turrets/T207-lustre.md",
-     "title": "lustre —— 360° 射界、专挑最硬目标的激光",
+     "title": "lustre — a 360° laser that picks the toughest target",
      "tokens": 663,
      "tokens_est": false,
      "conf": "I",
@@ -877,7 +877,7 @@
     {
      "id": "COMBAT.TURRET.208",
      "path": "knowledge/03-combat/turrets/T208-scathe.md",
-     "title": "scathe —— 1350 世界单位、十秒一发的导弹架",
+     "title": "scathe — a 1350-world-unit missile rack, one shot every ten seconds",
      "tokens": 572,
      "tokens_est": false,
      "conf": "I",
@@ -892,7 +892,7 @@
     {
      "id": "COMBAT.TURRET.209",
      "path": "knowledge/03-combat/turrets/T209-smite.md",
-     "title": "smite —— 五管重击、对 22 甲保留最高的后期主炮",
+     "title": "smite — five barrels of heavy hits, the late-game main gun with the best 22-armor retention",
      "tokens": 502,
      "tokens_est": false,
      "conf": "I",
@@ -907,7 +907,7 @@
     {
      "id": "COMBAT.TURRET.210",
      "path": "knowledge/03-combat/turrets/T210-malign.md",
-     "title": "malign —— 2400 电、每秒十七发的随机落点弹幕",
+     "title": "malign — 2400 power, seventeen rounds per second at random impact points",
      "tokens": 600,
      "tokens_est": false,
      "conf": "I",
@@ -922,7 +922,7 @@
     {
      "id": "COMBAT.UNITWEAPON.001",
      "path": "knowledge/03-combat/C06-unit-weapons.md",
-     "title": "单位武器——weapons[]、挂点坐标、镜像与单位 DPS",
+     "title": "Unit weapons: weapons[], mount coordinates, mirroring and unit DPS",
      "tokens": 1342,
      "tokens_est": false,
      "conf": "S",
@@ -937,7 +937,7 @@
     {
      "id": "COMBAT.WAVE.001",
      "path": "knowledge/03-combat/C08-waves.md",
-     "title": "敌方与攻击波——生成点、波次组成、难度缩放与 AI 目标",
+     "title": "Enemies and attack waves: spawn points, wave composition, difficulty scaling and AI targets",
      "tokens": 752,
      "tokens_est": false,
      "conf": "S",
@@ -954,13 +954,13 @@
   {
    "id": "04-units",
    "code": "UNIT",
-   "title": "单位",
-   "desc": "单位 / AI / 能力 / 生产",
+   "title": "Units",
+   "desc": "units / AI / abilities / production",
    "articles": [
     {
      "id": "UNIT.ABILITY.001",
      "path": "knowledge/04-units/U04-abilities.md",
-     "title": "单位能力——abilities 列表、16 类 Ability 的参数与触发",
+     "title": "Unit abilities — the abilities list, and the parameters and triggers of the 16 Ability classes",
      "tokens": 843,
      "tokens_est": false,
      "conf": "S",
@@ -975,7 +975,7 @@
     {
      "id": "UNIT.AI.001",
      "path": "knowledge/04-units/U03-ai.md",
-     "title": "单位 AI——控制器、目标选择、命令与姿态、寻路代价",
+     "title": "Unit AI — controllers, target selection, commands and stances, pathing cost",
      "tokens": 813,
      "tokens_est": false,
      "conf": "S",
@@ -990,7 +990,7 @@
     {
      "id": "UNIT.MOVE.001",
      "path": "knowledge/04-units/U01-movement.md",
-     "title": "单位类型与移动——speed 的真实单位、hitSize、地形与 boost",
+     "title": "Unit types and movement — the real unit of speed, hitSize, terrain and boost",
      "tokens": 809,
      "tokens_est": false,
      "conf": "S",
@@ -1000,14 +1000,14 @@
      ],
      "status": "active",
      "domain": "unit",
-     "lines": 158
+     "lines": 161
     },
     {
      "id": "UNIT.NAMES.001",
      "path": "knowledge/04-units/U06-name-units.md",
-     "title": "单位名对照：70 个单位的英文名与中文名（其中 60 个有官方简中）",
-     "tokens": 744,
-     "tokens_est": false,
+     "title": "Unit name table — English and Chinese names for all 70 units (60 have an official Simplified Chinese name)",
+     "tokens": 718,
+     "tokens_est": true,
      "conf": "S",
      "ver": [
       "v160.7_rt",
@@ -1015,12 +1015,12 @@
      ],
      "status": "active",
      "domain": "unit",
-     "lines": 134
+     "lines": 133
     },
     {
      "id": "UNIT.PRODUCE.001",
      "path": "knowledge/04-units/U02-production.md",
-     "title": "单位生产链——工厂、重构厂、组装厂与单位上限",
+     "title": "The unit production chain — factories, reconstructors, assemblers and the unit cap",
      "tokens": 1193,
      "tokens_est": false,
      "conf": "S",
@@ -1035,7 +1035,7 @@
     {
      "id": "UNIT.PROGRESSION.001",
      "path": "knowledge/04-units/U05-progression.md",
-     "title": "单位成长——没有经验与等级，只有档次、波次表与难度乘数",
+     "title": "Unit progression — no experience and no levels, only tiers, wave tables and difficulty multipliers",
      "tokens": 896,
      "tokens_est": false,
      "conf": "S",
@@ -1052,13 +1052,13 @@
   {
    "id": "05-campaign",
    "code": "CAMP",
-   "title": "战役",
-   "desc": "波次 / 规则 / 胜负",
+   "title": "Campaign",
+   "desc": "waves / rules / win and lose",
    "articles": [
     {
      "id": "CAMP.DIFFICULTY.001",
      "path": "knowledge/05-campaign/CAMP.DIFFICULTY.001.md",
-     "title": "难度系数换算卡——三元组如何变成血量、数量、造价与波次间隔",
+     "title": "Difficulty conversion card — how the triple becomes health, numbers, cost and wave interval",
      "tokens": 616,
      "tokens_est": false,
      "conf": "S",
@@ -1073,7 +1073,7 @@
     {
      "id": "CAMP.RULES.001",
      "path": "knowledge/05-campaign/CAMP-RULES.md",
-     "title": "Rules 规则对象全字段（118 项）",
+     "title": "Every field of the Rules object (118 items)",
      "tokens": 1216,
      "tokens_est": false,
      "conf": "E",
@@ -1088,7 +1088,7 @@
     {
      "id": "CAMP.SECTOR.001",
      "path": "knowledge/05-campaign/CAMP-SECTOR.md",
-     "title": "星区、星图与科技解锁——战役的一个格子到底是什么",
+     "title": "Sectors, the planet map and tech unlocks — what one campaign tile actually is",
      "tokens": 1611,
      "tokens_est": false,
      "conf": "S",
@@ -1103,7 +1103,7 @@
     {
      "id": "CAMP.SPAWN.001",
      "path": "knowledge/05-campaign/CAMP.SPAWN.001.md",
-     "title": "刷怪组数据模型——SpawnGroup 的 8 个字段怎么变成每波的数量与护盾",
+     "title": "The spawn-group data model — how SpawnGroup's 8 fields become each wave's count and shields",
      "tokens": 733,
      "tokens_est": false,
      "conf": "S",
@@ -1118,7 +1118,7 @@
     {
      "id": "CAMP.WAVES.001",
      "path": "knowledge/05-campaign/CAMP.WAVES.001.md",
-     "title": "波次节奏的数值模型——waveSpacing、首波宽限与倒计时推进",
+     "title": "The numeric model of wave rhythm — waveSpacing, the first-wave grace and the countdown",
      "tokens": 570,
      "tokens_est": false,
      "conf": "S",
@@ -1133,7 +1133,7 @@
     {
      "id": "CAMP.WINLOSE.001",
      "path": "knowledge/05-campaign/CAMP-WINLOSE.md",
-     "title": "胜负与游戏结束——三种模式下到底什么才算赢",
+     "title": "Win, loss and game over — what actually counts as winning in each of the three modes",
      "tokens": 863,
      "tokens_est": false,
      "conf": "S",
@@ -1143,20 +1143,20 @@
      ],
      "status": "active",
      "domain": "camp",
-     "lines": 114
+     "lines": 115
     }
    ]
   },
   {
    "id": "06-mlog",
    "code": "MLOG",
-   "title": "逻辑语言",
-   "desc": "语法 / 指令 / 陷阱",
+   "title": "Logic language",
+   "desc": "syntax / instructions / traps",
    "articles": [
     {
      "id": "MLOG.DRAW.001",
      "path": "knowledge/06-mlog/M05-绘制与文本.md",
-     "title": "绘制与文本：draw 的 16 种命令、10 bit 打包与文本缓冲",
+     "title": "Drawing and text: the 16 draw commands, 10-bit packing and the text buffer",
      "tokens": 839,
      "tokens_est": false,
      "conf": "S",
@@ -1171,7 +1171,7 @@
     {
      "id": "MLOG.EXEC.001",
      "path": "knowledge/06-mlog/M01-执行模型总览.md",
-     "title": "执行模型总览：tick、@counter 与每 tick 指令预算",
+     "title": "Execution model overview: tick, @counter and the per-tick instruction budget",
      "tokens": 598,
      "tokens_est": false,
      "conf": "S",
@@ -1186,7 +1186,7 @@
     {
      "id": "MLOG.FLOW.001",
      "path": "knowledge/06-mlog/M03-控制流.md",
-     "title": "控制流：jump 的 8 个条件、循环写法与 @counter 改写后果",
+     "title": "Control flow: the 8 jump conditions, how to write loops, and what rewriting @counter costs",
      "tokens": 921,
      "tokens_est": false,
      "conf": "S",
@@ -1201,7 +1201,7 @@
     {
      "id": "MLOG.IO.001",
      "path": "knowledge/06-mlog/M04-读写与感知.md",
-     "title": "读写与感知：read / write / sensor / radar / ulocate / getlink / lookup",
+     "title": "I/O and sensing: read / write / sensor / radar / ulocate / getlink / lookup",
      "tokens": 636,
      "tokens_est": false,
      "conf": "S",
@@ -1214,9 +1214,37 @@
      "lines": 132
     },
     {
+     "id": "MLOG.MIND.001",
+     "path": "knowledge/06-mlog/M09-Mindcode.md",
+     "title": "The Mindcode compile front end: the .mnd → mlog entry points, version arbitration and failure classes",
+     "tokens": 1964,
+     "tokens_est": false,
+     "conf": "S",
+     "ver": [
+      "v160.7_rt"
+     ],
+     "status": "active",
+     "domain": "mlog",
+     "lines": 203
+    },
+    {
+     "id": "MLOG.MIND.002",
+     "path": "knowledge/06-mlog/M10-Mindcode-Syntax.md",
+     "title": "Mindcode syntax cheat sheet (measured): every rule comes with the mlog it compiles to",
+     "tokens": 1820,
+     "tokens_est": false,
+     "conf": "E",
+     "ver": [
+      "v160.7_rt"
+     ],
+     "status": "active",
+     "domain": "mlog",
+     "lines": 132
+    },
+    {
      "id": "MLOG.PERF.001",
      "path": "knowledge/06-mlog/M08-性能与限制.md",
-     "title": "性能与限制：预算、延迟、卡顿与各项硬上限",
+     "title": "Performance and limits: budget, latency, stutter and the hard caps",
      "tokens": 538,
      "tokens_est": false,
      "conf": "S",
@@ -1231,7 +1259,7 @@
     {
      "id": "MLOG.UNIT.001",
      "path": "knowledge/06-mlog/M07-单位与逻辑控制.md",
-     "title": "单位与逻辑控制：ubind、ucontrol 的 21 个子命令与 @unit 生命周期",
+     "title": "Units and logic control: ubind, the 21 ucontrol subcommands and the @unit lifecycle",
      "tokens": 1147,
      "tokens_est": false,
      "conf": "S",
@@ -1241,12 +1269,12 @@
      ],
      "status": "active",
      "domain": "mlog",
-     "lines": 182
+     "lines": 183
     },
     {
      "id": "MLOG.VAR.001",
      "path": "knowledge/06-mlog/M02-变量与作用域.md",
-     "title": "变量与作用域：number / object / null 三态",
+     "title": "Variables and scope: number / object / null, the three states",
      "tokens": 713,
      "tokens_est": false,
      "conf": "S",
@@ -1261,7 +1289,7 @@
     {
      "id": "MLOG.WORLD.001",
      "path": "knowledge/06-mlog/M06-世界交互.md",
-     "title": "世界交互：control、setrule 与 world processor 的 26 条特权指令",
+     "title": "World interaction: control, setrule and the 26 privileged world processor instructions",
      "tokens": 964,
      "tokens_est": false,
      "conf": "S",
@@ -1271,20 +1299,20 @@
      ],
      "status": "active",
      "domain": "mlog",
-     "lines": 184
+     "lines": 189
     }
    ]
   },
   {
    "id": "07-patterns",
    "code": "PATTERN",
-   "title": "蓝图模式",
-   "desc": "架构 / idiom / 反模式",
+   "title": "Blueprint patterns",
+   "desc": "architecture / idioms / anti-patterns",
    "articles": [
     {
      "id": "PATTERN.ARCH.001",
      "path": "knowledge/07-patterns/P01-architecture.md",
-     "title": "蓝图架构总览：预算、分层与拓扑",
+     "title": "Blueprint architecture overview: budget, layering, topology",
      "tokens": 587,
      "tokens_est": false,
      "conf": "S",
@@ -1299,7 +1327,7 @@
     {
      "id": "PATTERN.CODE.001",
      "path": "knowledge/07-patterns/P09-code-examples.md",
-     "title": "成品逻辑代码库：多控搬运、多控挖矿、行表与着陆台调度",
+     "title": "Production logic code library: multi-control hauling, multi-control mining, row table, landing-pad scheduling",
      "tokens": 793,
      "tokens_est": false,
      "conf": "E",
@@ -1314,7 +1342,7 @@
     {
      "id": "PATTERN.COMM.001",
      "path": "knowledge/07-patterns/P03-comm-bus.md",
-     "title": "通信与总线：内存信箱、通道编码与读写竞态",
+     "title": "Communication and buses: memory mailboxes, channel encoding, read/write races",
      "tokens": 569,
      "tokens_est": false,
      "conf": "S",
@@ -1324,12 +1352,12 @@
      ],
      "status": "active",
      "domain": "pattern",
-     "lines": 80
+     "lines": 92
     },
     {
      "id": "PATTERN.COUNTER.001",
      "path": "knowledge/07-patterns/P08-counter-architectures.md",
-     "title": "@counter 高级架构与 name 打表：派发、收缩、建筑变量表",
+     "title": "@counter advanced architectures and name tables: dispatch, shrink, building variable table",
      "tokens": 1609,
      "tokens_est": false,
      "conf": "S",
@@ -1344,8 +1372,8 @@
     {
      "id": "PATTERN.DATA.001",
      "path": "knowledge/07-patterns/P04-data-structures.md",
-     "title": "数据结构：数组、队列、环形缓冲与画布的内存布局",
-     "tokens": 538,
+     "title": "Data structures: arrays, queues, ring buffers, and canvas memory layout",
+     "tokens": 545,
      "tokens_est": false,
      "conf": "S",
      "ver": [
@@ -1359,7 +1387,7 @@
     {
      "id": "PATTERN.MULTI.001",
      "path": "knowledge/07-patterns/P07-unit-multicontrol.md",
-     "title": "单位多控：@counter 派发、@controller 判活与搬运闭环",
+     "title": "Unit multi-control: @counter dispatch, @controller liveness checks, hauling loop",
      "tokens": 1400,
      "tokens_est": false,
      "conf": "S",
@@ -1369,12 +1397,12 @@
      ],
      "status": "active",
      "domain": "pattern",
-     "lines": 165
+     "lines": 167
     },
     {
      "id": "PATTERN.PERF.001",
      "path": "knowledge/07-patterns/P06-performance.md",
-     "title": "性能与鲁棒性：预算分配、降频与自恢复",
+     "title": "Performance and robustness: budget allocation, downclocking, self-recovery",
      "tokens": 636,
      "tokens_est": false,
      "conf": "S",
@@ -1389,7 +1417,7 @@
     {
      "id": "PATTERN.STATE.001",
      "path": "knowledge/07-patterns/P02-state-machine.md",
-     "title": "状态机：枚举、转移表与 @counter 分派",
+     "title": "State machines: enums, transition tables, @counter dispatch",
      "tokens": 591,
      "tokens_est": false,
      "conf": "S",
@@ -1404,7 +1432,7 @@
     {
      "id": "PATTERN.TARGET.001",
      "path": "knowledge/07-patterns/P05-radar-targeting.md",
-     "title": "雷达与索敌：filter/sort/order 的组合与射程判定",
+     "title": "Radar and targeting: filter/sort/order combinations and range checks",
      "tokens": 532,
      "tokens_est": false,
      "conf": "S",
@@ -1421,7 +1449,7 @@
   {
    "id": "08-evidence",
    "code": "EV",
-   "title": "证据",
+   "title": "Evidence",
    "desc": "claims / probes / bench",
    "articles": [
     {
@@ -1490,7 +1518,7 @@
    "path": "knowledge/00-data/blocks.json",
    "kind": "canonical",
    "records": 447,
-   "bytes": 353946,
+   "bytes": 353970,
    "keys": [
     "alwaysReplace",
     "ammo",
@@ -1598,6 +1626,16 @@
     "value",
     "ver",
     "verified"
+   ]
+  },
+  {
+   "path": "knowledge/00-data/en_titles.json",
+   "kind": "canonical",
+   "records": 86,
+   "bytes": 24978,
+   "keys": [
+    "en_summary",
+    "en_title"
    ]
   },
   {
@@ -1884,7 +1922,7 @@
    "path": "knowledge/00-data/src_anchors.json",
    "kind": "canonical",
    "records": 75,
-   "bytes": 32961,
+   "bytes": 32925,
    "keys": [
     "code",
     "id",
@@ -2065,20 +2103,20 @@
   {
    "path": "knowledge/08-evidence/_report/_rtverify/rerun.json",
    "kind": "_report",
-   "bytes": 26160,
+   "bytes": 24662,
    "desc": "_report",
    "entries": 81
   },
   {
    "path": "knowledge/08-evidence/_report/_rtverify/RERUN.md",
    "kind": "_report",
-   "bytes": 13098,
+   "bytes": 12864,
    "desc": "_report"
   },
   {
    "path": "knowledge/08-evidence/_report/rt_verify.md",
    "kind": "_report",
-   "bytes": 28490,
+   "bytes": 28172,
    "desc": "_report"
   },
   {
@@ -2088,302 +2126,470 @@
    "desc": "top"
   },
   {
+   "path": "knowledge/08-evidence/bench/_scripts/__pycache__/_check_jsonl.cpython-311.pyc",
+   "kind": "bench",
+   "bytes": 3355,
+   "desc": "benchmark questions"
+  },
+  {
+   "path": "knowledge/08-evidence/bench/_scripts/__pycache__/_gen_core.cpython-311.pyc",
+   "kind": "bench",
+   "bytes": 9972,
+   "desc": "benchmark questions"
+  },
+  {
+   "path": "knowledge/08-evidence/bench/_scripts/__pycache__/_gen_d1.cpython-311.pyc",
+   "kind": "bench",
+   "bytes": 28311,
+   "desc": "benchmark questions"
+  },
+  {
+   "path": "knowledge/08-evidence/bench/_scripts/__pycache__/_gen_d2a.cpython-311.pyc",
+   "kind": "bench",
+   "bytes": 28868,
+   "desc": "benchmark questions"
+  },
+  {
+   "path": "knowledge/08-evidence/bench/_scripts/__pycache__/_gen_d2b.cpython-311.pyc",
+   "kind": "bench",
+   "bytes": 27285,
+   "desc": "benchmark questions"
+  },
+  {
+   "path": "knowledge/08-evidence/bench/_scripts/__pycache__/_gen_d2c.cpython-311.pyc",
+   "kind": "bench",
+   "bytes": 25116,
+   "desc": "benchmark questions"
+  },
+  {
+   "path": "knowledge/08-evidence/bench/_scripts/__pycache__/_gen_derive.cpython-311.pyc",
+   "kind": "bench",
+   "bytes": 26994,
+   "desc": "benchmark questions"
+  },
+  {
+   "path": "knowledge/08-evidence/bench/_scripts/__pycache__/_peek3.cpython-311.pyc",
+   "kind": "bench",
+   "bytes": 1909,
+   "desc": "benchmark questions"
+  },
+  {
+   "path": "knowledge/08-evidence/bench/_scripts/__pycache__/_peek_all.cpython-311.pyc",
+   "kind": "bench",
+   "bytes": 2447,
+   "desc": "benchmark questions"
+  },
+  {
+   "path": "knowledge/08-evidence/bench/_scripts/__pycache__/_peek_flow.cpython-311.pyc",
+   "kind": "bench",
+   "bytes": 1485,
+   "desc": "benchmark questions"
+  },
+  {
+   "path": "knowledge/08-evidence/bench/_scripts/__pycache__/_peek_one.cpython-311.pyc",
+   "kind": "bench",
+   "bytes": 1946,
+   "desc": "benchmark questions"
+  },
+  {
+   "path": "knowledge/08-evidence/bench/_scripts/__pycache__/_sample.cpython-311.pyc",
+   "kind": "bench",
+   "bytes": 1910,
+   "desc": "benchmark questions"
+  },
+  {
+   "path": "knowledge/08-evidence/bench/_scripts/__pycache__/_tmp_build_base.cpython-311.pyc",
+   "kind": "bench",
+   "bytes": 1318,
+   "desc": "benchmark questions"
+  },
+  {
+   "path": "knowledge/08-evidence/bench/_scripts/__pycache__/_tmp_build_final.cpython-311.pyc",
+   "kind": "bench",
+   "bytes": 1187,
+   "desc": "benchmark questions"
+  },
+  {
+   "path": "knowledge/08-evidence/bench/_scripts/__pycache__/_tmp_build_scope.cpython-311.pyc",
+   "kind": "bench",
+   "bytes": 1413,
+   "desc": "benchmark questions"
+  },
+  {
+   "path": "knowledge/08-evidence/bench/_scripts/__pycache__/_tmp_count.cpython-311.pyc",
+   "kind": "bench",
+   "bytes": 2436,
+   "desc": "benchmark questions"
+  },
+  {
+   "path": "knowledge/08-evidence/bench/_scripts/__pycache__/_tmp_dom.cpython-311.pyc",
+   "kind": "bench",
+   "bytes": 2754,
+   "desc": "benchmark questions"
+  },
+  {
+   "path": "knowledge/08-evidence/bench/_scripts/__pycache__/_tmp_dom2.cpython-311.pyc",
+   "kind": "bench",
+   "bytes": 3649,
+   "desc": "benchmark questions"
+  },
+  {
+   "path": "knowledge/08-evidence/bench/_scripts/__pycache__/_tmp_snap.cpython-311.pyc",
+   "kind": "bench",
+   "bytes": 2176,
+   "desc": "benchmark questions"
+  },
+  {
+   "path": "knowledge/08-evidence/bench/_scripts/__pycache__/_tmp_snap2.cpython-311.pyc",
+   "kind": "bench",
+   "bytes": 1892,
+   "desc": "benchmark questions"
+  },
+  {
+   "path": "knowledge/08-evidence/bench/_scripts/__pycache__/_tmp_summary.cpython-311.pyc",
+   "kind": "bench",
+   "bytes": 3265,
+   "desc": "benchmark questions"
+  },
+  {
+   "path": "knowledge/08-evidence/bench/_scripts/__pycache__/classify_sources.cpython-311.pyc",
+   "kind": "bench",
+   "bytes": 9856,
+   "desc": "benchmark questions"
+  },
+  {
+   "path": "knowledge/08-evidence/bench/_scripts/__pycache__/gen_questions.cpython-311.pyc",
+   "kind": "bench",
+   "bytes": 10697,
+   "desc": "benchmark questions"
+  },
+  {
+   "path": "knowledge/08-evidence/bench/_scripts/__pycache__/hybrid_diag.cpython-311.pyc",
+   "kind": "bench",
+   "bytes": 16996,
+   "desc": "benchmark questions"
+  },
+  {
+   "path": "knowledge/08-evidence/bench/_scripts/__pycache__/kb_refrac.cpython-311.pyc",
+   "kind": "bench",
+   "bytes": 14617,
+   "desc": "benchmark questions"
+  },
+  {
+   "path": "knowledge/08-evidence/bench/_scripts/__pycache__/kb_scope_eval.cpython-311.pyc",
+   "kind": "bench",
+   "bytes": 26186,
+   "desc": "benchmark questions"
+  },
+  {
+   "path": "knowledge/08-evidence/bench/_scripts/__pycache__/merge_report.cpython-311.pyc",
+   "kind": "bench",
+   "bytes": 16830,
+   "desc": "benchmark questions"
+  },
+  {
+   "path": "knowledge/08-evidence/bench/_scripts/__pycache__/subset_report.cpython-311.pyc",
+   "kind": "bench",
+   "bytes": 9886,
+   "desc": "benchmark questions"
+  },
+  {
    "path": "knowledge/08-evidence/bench/_scripts/_check_jsonl.py",
    "kind": "bench",
-   "bytes": 934,
-   "desc": "评测题/基准"
+   "bytes": 1116,
+   "desc": "benchmark questions"
   },
   {
    "path": "knowledge/08-evidence/bench/_scripts/_gen_core.py",
    "kind": "bench",
-   "bytes": 4915,
-   "desc": "评测题/基准"
+   "bytes": 5247,
+   "desc": "benchmark questions"
   },
   {
    "path": "knowledge/08-evidence/bench/_scripts/_gen_d1.py",
    "kind": "bench",
    "bytes": 21881,
-   "desc": "评测题/基准"
+   "desc": "benchmark questions"
   },
   {
    "path": "knowledge/08-evidence/bench/_scripts/_gen_d2a.py",
    "kind": "bench",
    "bytes": 21745,
-   "desc": "评测题/基准"
+   "desc": "benchmark questions"
   },
   {
    "path": "knowledge/08-evidence/bench/_scripts/_gen_d2b.py",
    "kind": "bench",
    "bytes": 20448,
-   "desc": "评测题/基准"
+   "desc": "benchmark questions"
   },
   {
    "path": "knowledge/08-evidence/bench/_scripts/_gen_d2c.py",
    "kind": "bench",
    "bytes": 18429,
-   "desc": "评测题/基准"
+   "desc": "benchmark questions"
   },
   {
    "path": "knowledge/08-evidence/bench/_scripts/_gen_derive.py",
    "kind": "bench",
-   "bytes": 23694,
-   "desc": "评测题/基准"
+   "bytes": 23652,
+   "desc": "benchmark questions"
   },
   {
    "path": "knowledge/08-evidence/bench/_scripts/_peek3.py",
    "kind": "bench",
-   "bytes": 731,
-   "desc": "评测题/基准"
+   "bytes": 891,
+   "desc": "benchmark questions"
   },
   {
    "path": "knowledge/08-evidence/bench/_scripts/_peek_all.py",
    "kind": "bench",
-   "bytes": 1001,
-   "desc": "评测题/基准"
+   "bytes": 1155,
+   "desc": "benchmark questions"
   },
   {
    "path": "knowledge/08-evidence/bench/_scripts/_peek_flow.py",
    "kind": "bench",
-   "bytes": 420,
-   "desc": "评测题/基准"
+   "bytes": 574,
+   "desc": "benchmark questions"
   },
   {
    "path": "knowledge/08-evidence/bench/_scripts/_peek_one.py",
    "kind": "bench",
-   "bytes": 540,
-   "desc": "评测题/基准"
+   "bytes": 694,
+   "desc": "benchmark questions"
   },
   {
    "path": "knowledge/08-evidence/bench/_scripts/_sample.py",
    "kind": "bench",
-   "bytes": 511,
-   "desc": "评测题/基准"
+   "bytes": 693,
+   "desc": "benchmark questions"
   },
   {
    "path": "knowledge/08-evidence/bench/_scripts/_tmp_build_base.py",
    "kind": "bench",
-   "bytes": 465,
-   "desc": "评测题/基准"
+   "bytes": 642,
+   "desc": "benchmark questions"
   },
   {
    "path": "knowledge/08-evidence/bench/_scripts/_tmp_build_final.py",
    "kind": "bench",
-   "bytes": 396,
-   "desc": "评测题/基准"
+   "bytes": 564,
+   "desc": "benchmark questions"
   },
   {
    "path": "knowledge/08-evidence/bench/_scripts/_tmp_build_scope.py",
    "kind": "bench",
-   "bytes": 536,
-   "desc": "评测题/基准"
+   "bytes": 717,
+   "desc": "benchmark questions"
   },
   {
    "path": "knowledge/08-evidence/bench/_scripts/_tmp_count.py",
    "kind": "bench",
-   "bytes": 546,
-   "desc": "评测题/基准"
+   "bytes": 743,
+   "desc": "benchmark questions"
   },
   {
    "path": "knowledge/08-evidence/bench/_scripts/_tmp_dom.py",
    "kind": "bench",
-   "bytes": 835,
-   "desc": "评测题/基准"
+   "bytes": 1006,
+   "desc": "benchmark questions"
   },
   {
    "path": "knowledge/08-evidence/bench/_scripts/_tmp_dom2.py",
    "kind": "bench",
-   "bytes": 975,
-   "desc": "评测题/基准"
+   "bytes": 1148,
+   "desc": "benchmark questions"
   },
   {
    "path": "knowledge/08-evidence/bench/_scripts/_tmp_snap.py",
    "kind": "bench",
-   "bytes": 783,
-   "desc": "评测题/基准"
+   "bytes": 920,
+   "desc": "benchmark questions"
   },
   {
    "path": "knowledge/08-evidence/bench/_scripts/_tmp_snap2.py",
    "kind": "bench",
-   "bytes": 611,
-   "desc": "评测题/基准"
+   "bytes": 748,
+   "desc": "benchmark questions"
   },
   {
    "path": "knowledge/08-evidence/bench/_scripts/_tmp_summary.py",
    "kind": "bench",
-   "bytes": 895,
-   "desc": "评测题/基准"
+   "bytes": 1077,
+   "desc": "benchmark questions"
   },
   {
    "path": "knowledge/08-evidence/bench/_scripts/classify_sources.py",
    "kind": "bench",
    "bytes": 4139,
-   "desc": "评测题/基准"
+   "desc": "benchmark questions"
   },
   {
    "path": "knowledge/08-evidence/bench/_scripts/eval_report.json",
    "kind": "bench",
-   "bytes": 55292,
-   "desc": "评测题/基准",
+   "bytes": 55256,
+   "desc": "benchmark questions",
    "entries": 4
   },
   {
    "path": "knowledge/08-evidence/bench/_scripts/final_ab2_pq.json",
    "kind": "bench",
    "bytes": 128980,
-   "desc": "评测题/基准",
+   "desc": "benchmark questions",
    "entries": 0
   },
   {
    "path": "knowledge/08-evidence/bench/_scripts/final_ab_pq.json",
    "kind": "bench",
    "bytes": 129361,
-   "desc": "评测题/基准",
+   "desc": "benchmark questions",
    "entries": 0
   },
   {
    "path": "knowledge/08-evidence/bench/_scripts/gen_questions.py",
    "kind": "bench",
    "bytes": 4882,
-   "desc": "评测题/基准"
+   "desc": "benchmark questions"
   },
   {
    "path": "knowledge/08-evidence/bench/_scripts/hybrid_diag.json",
    "kind": "bench",
    "bytes": 40953,
-   "desc": "评测题/基准",
+   "desc": "benchmark questions",
    "entries": 4
   },
   {
    "path": "knowledge/08-evidence/bench/_scripts/hybrid_diag.py",
    "kind": "bench",
    "bytes": 6667,
-   "desc": "评测题/基准"
+   "desc": "benchmark questions"
   },
   {
    "path": "knowledge/08-evidence/bench/_scripts/hybrid_diag_k20.json",
    "kind": "bench",
    "bytes": 43929,
-   "desc": "评测题/基准",
+   "desc": "benchmark questions",
    "entries": 4
   },
   {
    "path": "knowledge/08-evidence/bench/_scripts/kb_refrac.py",
    "kind": "bench",
    "bytes": 5263,
-   "desc": "评测题/基准"
+   "desc": "benchmark questions"
   },
   {
    "path": "knowledge/08-evidence/bench/_scripts/kb_scope_eval.py",
    "kind": "bench",
-   "bytes": 10981,
-   "desc": "评测题/基准"
+   "bytes": 11247,
+   "desc": "benchmark questions"
   },
   {
    "path": "knowledge/08-evidence/bench/_scripts/merge_report.py",
    "kind": "bench",
    "bytes": 8415,
-   "desc": "评测题/基准"
+   "desc": "benchmark questions"
   },
   {
    "path": "knowledge/08-evidence/bench/_scripts/questions-derive.jsonl",
    "kind": "bench",
    "bytes": 23731,
-   "desc": "评测题/基准",
+   "desc": "benchmark questions",
    "lines": 24
   },
   {
    "path": "knowledge/08-evidence/bench/_scripts/refrac.json",
    "kind": "bench",
-   "bytes": 58005,
-   "desc": "评测题/基准",
+   "bytes": 57969,
+   "desc": "benchmark questions",
    "entries": 3
   },
   {
    "path": "knowledge/08-evidence/bench/_scripts/scope_ab.json",
    "kind": "bench",
-   "bytes": 11975,
-   "desc": "评测题/基准",
+   "bytes": 11906,
+   "desc": "benchmark questions",
    "entries": 1
   },
   {
    "path": "knowledge/08-evidence/bench/_scripts/scope_ab_pq.json",
    "kind": "bench",
    "bytes": 630982,
-   "desc": "评测题/基准",
+   "desc": "benchmark questions",
    "entries": 0
   },
   {
    "path": "knowledge/08-evidence/bench/_scripts/snap_ab.json",
    "kind": "bench",
-   "bytes": 14351,
-   "desc": "评测题/基准",
+   "bytes": 14282,
+   "desc": "benchmark questions",
    "entries": 1
   },
   {
    "path": "knowledge/08-evidence/bench/_scripts/snap_ab_pq.json",
    "kind": "bench",
    "bytes": 757094,
-   "desc": "评测题/基准",
+   "desc": "benchmark questions",
    "entries": 0
   },
   {
    "path": "knowledge/08-evidence/bench/_scripts/subset_report.json",
    "kind": "bench",
    "bytes": 9503,
-   "desc": "评测题/基准",
+   "desc": "benchmark questions",
    "entries": 5
   },
   {
    "path": "knowledge/08-evidence/bench/_scripts/subset_report.py",
    "kind": "bench",
    "bytes": 4238,
-   "desc": "评测题/基准"
+   "desc": "benchmark questions"
   },
   {
    "path": "knowledge/08-evidence/bench/final_ab.json",
    "kind": "bench",
-   "bytes": 2537,
-   "desc": "评测题/基准",
+   "bytes": 2468,
+   "desc": "benchmark questions",
    "entries": 1
   },
   {
    "path": "knowledge/08-evidence/bench/final_ab2.json",
    "kind": "bench",
-   "bytes": 2537,
-   "desc": "评测题/基准",
+   "bytes": 2468,
+   "desc": "benchmark questions",
    "entries": 1
   },
   {
    "path": "knowledge/08-evidence/bench/final_ab3.json",
    "kind": "bench",
    "bytes": 2448,
-   "desc": "评测题/基准",
+   "desc": "benchmark questions",
    "entries": 1
   },
   {
    "path": "knowledge/08-evidence/bench/questions.jsonl",
    "kind": "bench",
    "bytes": 133513,
-   "desc": "评测题/基准",
+   "desc": "benchmark questions",
    "lines": 300
   },
   {
    "path": "knowledge/08-evidence/bench/README.md",
    "kind": "bench",
-   "bytes": 47532,
-   "desc": "评测题/基准"
+   "bytes": 47901,
+   "desc": "benchmark questions"
   },
   {
    "path": "knowledge/08-evidence/bench/source_kind.json",
    "kind": "bench",
    "bytes": 38191,
-   "desc": "评测题/基准",
+   "desc": "benchmark questions",
    "entries": 4
   },
   {
    "path": "knowledge/08-evidence/CHEAT.md",
    "kind": "top",
-   "bytes": 16919,
+   "bytes": 17078,
    "desc": "top"
   },
   {
@@ -2396,7 +2602,7 @@
   {
    "path": "knowledge/08-evidence/claims.jsonl",
    "kind": "top",
-   "bytes": 50411,
+   "bytes": 50817,
    "desc": "top",
    "lines": 85
   },
@@ -2408,508 +2614,514 @@
    "entries": 30
   },
   {
+   "path": "knowledge/08-evidence/probes/__pycache__/_harness.cpython-311.pyc",
+   "kind": "probes",
+   "bytes": 5554,
+   "desc": "probe scripts"
+  },
+  {
    "path": "knowledge/08-evidence/probes/_harness.py",
    "kind": "probes",
-   "bytes": 3338,
-   "desc": "探针脚本"
+   "bytes": 3371,
+   "desc": "probe scripts"
   },
   {
    "path": "knowledge/08-evidence/probes/_run_all.py",
    "kind": "probes",
    "bytes": 514,
-   "desc": "探针脚本"
+   "desc": "probe scripts"
   },
   {
    "path": "knowledge/08-evidence/probes/out/_simwork/run-0tp9k70b/config/logs/log-0.txt",
    "kind": "probes",
    "bytes": 4538,
-   "desc": "探针脚本"
+   "desc": "probe scripts"
   },
   {
    "path": "knowledge/08-evidence/probes/out/_simwork/run-0tp9k70b/config/rules.hjson",
    "kind": "probes",
    "bytes": 74,
-   "desc": "探针脚本"
+   "desc": "probe scripts"
   },
   {
    "path": "knowledge/08-evidence/probes/out/_simwork/run-0tp9k70b/config/settings.bin",
    "kind": "probes",
    "bytes": 13,
-   "desc": "探针脚本"
+   "desc": "probe scripts"
   },
   {
    "path": "knowledge/08-evidence/probes/out/_simwork/run-0tp9k70b/config/settings_backups/1794083659658.bin",
    "kind": "probes",
    "bytes": 13,
-   "desc": "探针脚本"
+   "desc": "probe scripts"
   },
   {
    "path": "knowledge/08-evidence/probes/out/_simwork/run-57ejagi5/config/logs/log-0.txt",
    "kind": "probes",
    "bytes": 11718,
-   "desc": "探针脚本"
+   "desc": "probe scripts"
   },
   {
    "path": "knowledge/08-evidence/probes/out/_simwork/run-57ejagi5/config/rules.hjson",
    "kind": "probes",
    "bytes": 74,
-   "desc": "探针脚本"
+   "desc": "probe scripts"
   },
   {
    "path": "knowledge/08-evidence/probes/out/_simwork/run-57ejagi5/config/settings.bin",
    "kind": "probes",
    "bytes": 13,
-   "desc": "探针脚本"
+   "desc": "probe scripts"
   },
   {
    "path": "knowledge/08-evidence/probes/out/_simwork/run-57ejagi5/config/settings_backups/1794084510690.bin",
    "kind": "probes",
    "bytes": 13,
-   "desc": "探针脚本"
+   "desc": "probe scripts"
   },
   {
    "path": "knowledge/08-evidence/probes/out/_simwork/run-5xg_199e/config/logs/log-0.txt",
    "kind": "probes",
    "bytes": 1137,
-   "desc": "探针脚本"
+   "desc": "probe scripts"
   },
   {
    "path": "knowledge/08-evidence/probes/out/_simwork/run-5xg_199e/config/rules.hjson",
    "kind": "probes",
    "bytes": 74,
-   "desc": "探针脚本"
+   "desc": "probe scripts"
   },
   {
    "path": "knowledge/08-evidence/probes/out/_simwork/run-5xg_199e/config/settings.bin",
    "kind": "probes",
    "bytes": 13,
-   "desc": "探针脚本"
+   "desc": "probe scripts"
   },
   {
    "path": "knowledge/08-evidence/probes/out/_simwork/run-5xg_199e/config/settings_backups/1794084142610.bin",
    "kind": "probes",
    "bytes": 13,
-   "desc": "探针脚本"
+   "desc": "probe scripts"
   },
   {
    "path": "knowledge/08-evidence/probes/out/_simwork/run-alv6073i/config/logs/log-0.txt",
    "kind": "probes",
    "bytes": 11711,
-   "desc": "探针脚本"
+   "desc": "probe scripts"
   },
   {
    "path": "knowledge/08-evidence/probes/out/_simwork/run-alv6073i/config/rules.hjson",
    "kind": "probes",
    "bytes": 74,
-   "desc": "探针脚本"
+   "desc": "probe scripts"
   },
   {
    "path": "knowledge/08-evidence/probes/out/_simwork/run-alv6073i/config/settings.bin",
    "kind": "probes",
    "bytes": 13,
-   "desc": "探针脚本"
+   "desc": "probe scripts"
   },
   {
    "path": "knowledge/08-evidence/probes/out/_simwork/run-alv6073i/config/settings_backups/1794084413979.bin",
    "kind": "probes",
    "bytes": 13,
-   "desc": "探针脚本"
+   "desc": "probe scripts"
   },
   {
    "path": "knowledge/08-evidence/probes/out/_simwork/run-cplivw_a/config/logs/log-0.txt",
    "kind": "probes",
    "bytes": 11629,
-   "desc": "探针脚本"
+   "desc": "probe scripts"
   },
   {
    "path": "knowledge/08-evidence/probes/out/_simwork/run-cplivw_a/config/rules.hjson",
    "kind": "probes",
    "bytes": 74,
-   "desc": "探针脚本"
+   "desc": "probe scripts"
   },
   {
    "path": "knowledge/08-evidence/probes/out/_simwork/run-cplivw_a/config/settings.bin",
    "kind": "probes",
    "bytes": 13,
-   "desc": "探针脚本"
+   "desc": "probe scripts"
   },
   {
    "path": "knowledge/08-evidence/probes/out/_simwork/run-cplivw_a/config/settings_backups/1794083813706.bin",
    "kind": "probes",
    "bytes": 13,
-   "desc": "探针脚本"
+   "desc": "probe scripts"
   },
   {
    "path": "knowledge/08-evidence/probes/out/_simwork/run-hhc8y8mm/config/logs/log-0.txt",
    "kind": "probes",
    "bytes": 834,
-   "desc": "探针脚本"
+   "desc": "probe scripts"
   },
   {
    "path": "knowledge/08-evidence/probes/out/_simwork/run-hhc8y8mm/config/rules.hjson",
    "kind": "probes",
    "bytes": 74,
-   "desc": "探针脚本"
+   "desc": "probe scripts"
   },
   {
    "path": "knowledge/08-evidence/probes/out/_simwork/run-hhc8y8mm/config/settings.bin",
    "kind": "probes",
    "bytes": 13,
-   "desc": "探针脚本"
+   "desc": "probe scripts"
   },
   {
    "path": "knowledge/08-evidence/probes/out/_simwork/run-hhc8y8mm/config/settings_backups/1794084301184.bin",
    "kind": "probes",
    "bytes": 13,
-   "desc": "探针脚本"
+   "desc": "probe scripts"
   },
   {
    "path": "knowledge/08-evidence/probes/out/_simwork/run-kvw_pc8r/config/logs/log-0.txt",
    "kind": "probes",
    "bytes": 4538,
-   "desc": "探针脚本"
+   "desc": "probe scripts"
   },
   {
    "path": "knowledge/08-evidence/probes/out/_simwork/run-kvw_pc8r/config/rules.hjson",
    "kind": "probes",
    "bytes": 74,
-   "desc": "探针脚本"
+   "desc": "probe scripts"
   },
   {
    "path": "knowledge/08-evidence/probes/out/_simwork/run-kvw_pc8r/config/settings.bin",
    "kind": "probes",
    "bytes": 13,
-   "desc": "探针脚本"
+   "desc": "probe scripts"
   },
   {
    "path": "knowledge/08-evidence/probes/out/_simwork/run-kvw_pc8r/config/settings_backups/1794083482152.bin",
    "kind": "probes",
    "bytes": 13,
-   "desc": "探针脚本"
+   "desc": "probe scripts"
   },
   {
    "path": "knowledge/08-evidence/probes/out/_simwork/run-ox4_yqfv/config/logs/log-0.txt",
    "kind": "probes",
    "bytes": 4586,
-   "desc": "探针脚本"
+   "desc": "probe scripts"
   },
   {
    "path": "knowledge/08-evidence/probes/out/_simwork/run-ox4_yqfv/config/rules.hjson",
    "kind": "probes",
    "bytes": 74,
-   "desc": "探针脚本"
+   "desc": "probe scripts"
   },
   {
    "path": "knowledge/08-evidence/probes/out/_simwork/run-ox4_yqfv/config/settings.bin",
    "kind": "probes",
    "bytes": 13,
-   "desc": "探针脚本"
+   "desc": "probe scripts"
   },
   {
    "path": "knowledge/08-evidence/probes/out/_simwork/run-ox4_yqfv/config/settings_backups/1794083969224.bin",
    "kind": "probes",
    "bytes": 13,
-   "desc": "探针脚本"
+   "desc": "probe scripts"
   },
   {
    "path": "knowledge/08-evidence/probes/out/_simwork/run-v23k368w/config/logs/log-0.txt",
    "kind": "probes",
    "bytes": 11660,
-   "desc": "探针脚本"
+   "desc": "probe scripts"
   },
   {
    "path": "knowledge/08-evidence/probes/out/_simwork/run-v23k368w/config/rules.hjson",
    "kind": "probes",
    "bytes": 74,
-   "desc": "探针脚本"
+   "desc": "probe scripts"
   },
   {
    "path": "knowledge/08-evidence/probes/out/_simwork/run-v23k368w/config/settings.bin",
    "kind": "probes",
    "bytes": 13,
-   "desc": "探针脚本"
+   "desc": "probe scripts"
   },
   {
    "path": "knowledge/08-evidence/probes/out/_simwork/run-v23k368w/config/settings_backups/1794084068791.bin",
    "kind": "probes",
    "bytes": 13,
-   "desc": "探针脚本"
+   "desc": "probe scripts"
   },
   {
    "path": "knowledge/08-evidence/probes/out/_simwork/run-z5fig7st/config/logs/log-0.txt",
    "kind": "probes",
    "bytes": 1088,
-   "desc": "探针脚本"
+   "desc": "probe scripts"
   },
   {
    "path": "knowledge/08-evidence/probes/out/_simwork/run-z5fig7st/config/rules.hjson",
    "kind": "probes",
    "bytes": 74,
-   "desc": "探针脚本"
+   "desc": "probe scripts"
   },
   {
    "path": "knowledge/08-evidence/probes/out/_simwork/run-z5fig7st/config/settings.bin",
    "kind": "probes",
    "bytes": 13,
-   "desc": "探针脚本"
+   "desc": "probe scripts"
   },
   {
    "path": "knowledge/08-evidence/probes/out/_simwork/run-z5fig7st/config/settings_backups/1794084363702.bin",
    "kind": "probes",
    "bytes": 13,
-   "desc": "探针脚本"
+   "desc": "probe scripts"
   },
   {
    "path": "knowledge/08-evidence/probes/out/L1-01.txt",
    "kind": "probes",
    "bytes": 540,
-   "desc": "探针脚本"
+   "desc": "probe scripts"
   },
   {
    "path": "knowledge/08-evidence/probes/out/L1-02.txt",
    "kind": "probes",
    "bytes": 514,
-   "desc": "探针脚本"
+   "desc": "probe scripts"
   },
   {
    "path": "knowledge/08-evidence/probes/out/L1-03.txt",
    "kind": "probes",
    "bytes": 533,
-   "desc": "探针脚本"
+   "desc": "probe scripts"
   },
   {
    "path": "knowledge/08-evidence/probes/out/L1-04.txt",
    "kind": "probes",
    "bytes": 571,
-   "desc": "探针脚本"
+   "desc": "probe scripts"
   },
   {
    "path": "knowledge/08-evidence/probes/out/L1-05.txt",
    "kind": "probes",
    "bytes": 536,
-   "desc": "探针脚本"
+   "desc": "probe scripts"
   },
   {
    "path": "knowledge/08-evidence/probes/out/L1-06.txt",
    "kind": "probes",
    "bytes": 517,
-   "desc": "探针脚本"
+   "desc": "probe scripts"
   },
   {
    "path": "knowledge/08-evidence/probes/out/L1-07.txt",
    "kind": "probes",
    "bytes": 570,
-   "desc": "探针脚本"
+   "desc": "probe scripts"
   },
   {
    "path": "knowledge/08-evidence/probes/out/L1-08.txt",
    "kind": "probes",
    "bytes": 594,
-   "desc": "探针脚本"
+   "desc": "probe scripts"
   },
   {
    "path": "knowledge/08-evidence/probes/out/L1-09.txt",
    "kind": "probes",
    "bytes": 592,
-   "desc": "探针脚本"
+   "desc": "probe scripts"
   },
   {
    "path": "knowledge/08-evidence/probes/out/L1-10.txt",
    "kind": "probes",
    "bytes": 530,
-   "desc": "探针脚本"
+   "desc": "probe scripts"
   },
   {
    "path": "knowledge/08-evidence/probes/out/L1-11.txt",
    "kind": "probes",
    "bytes": 531,
-   "desc": "探针脚本"
+   "desc": "probe scripts"
   },
   {
    "path": "knowledge/08-evidence/probes/out/L1-12.txt",
    "kind": "probes",
    "bytes": 501,
-   "desc": "探针脚本"
+   "desc": "probe scripts"
   },
   {
    "path": "knowledge/08-evidence/probes/out/L1-13.txt",
    "kind": "probes",
    "bytes": 495,
-   "desc": "探针脚本"
+   "desc": "probe scripts"
   },
   {
    "path": "knowledge/08-evidence/probes/out/L1-14.txt",
    "kind": "probes",
    "bytes": 1370,
-   "desc": "探针脚本"
+   "desc": "probe scripts"
   },
   {
    "path": "knowledge/08-evidence/probes/out/L1-15.txt",
    "kind": "probes",
    "bytes": 572,
-   "desc": "探针脚本"
+   "desc": "probe scripts"
   },
   {
    "path": "knowledge/08-evidence/probes/out/L1-16.txt",
    "kind": "probes",
    "bytes": 589,
-   "desc": "探针脚本"
+   "desc": "probe scripts"
   },
   {
    "path": "knowledge/08-evidence/probes/out/L1-18.txt",
    "kind": "probes",
    "bytes": 846,
-   "desc": "探针脚本"
+   "desc": "probe scripts"
   },
   {
    "path": "knowledge/08-evidence/probes/out/L1-19.txt",
    "kind": "probes",
    "bytes": 741,
-   "desc": "探针脚本"
+   "desc": "probe scripts"
   },
   {
    "path": "knowledge/08-evidence/probes/out/L1-20.txt",
    "kind": "probes",
    "bytes": 588,
-   "desc": "探针脚本"
+   "desc": "probe scripts"
   },
   {
    "path": "knowledge/08-evidence/probes/out/L1-21.txt",
    "kind": "probes",
    "bytes": 593,
-   "desc": "探针脚本"
+   "desc": "probe scripts"
   },
   {
    "path": "knowledge/08-evidence/probes/probe_L1-01.py",
    "kind": "probes",
    "bytes": 488,
-   "desc": "探针脚本"
+   "desc": "probe scripts"
   },
   {
    "path": "knowledge/08-evidence/probes/probe_L1-02.py",
    "kind": "probes",
    "bytes": 441,
-   "desc": "探针脚本"
+   "desc": "probe scripts"
   },
   {
    "path": "knowledge/08-evidence/probes/probe_L1-03.py",
    "kind": "probes",
    "bytes": 463,
-   "desc": "探针脚本"
+   "desc": "probe scripts"
   },
   {
    "path": "knowledge/08-evidence/probes/probe_L1-04.py",
    "kind": "probes",
    "bytes": 416,
-   "desc": "探针脚本"
+   "desc": "probe scripts"
   },
   {
    "path": "knowledge/08-evidence/probes/probe_L1-05.py",
    "kind": "probes",
    "bytes": 383,
-   "desc": "探针脚本"
+   "desc": "probe scripts"
   },
   {
    "path": "knowledge/08-evidence/probes/probe_L1-06.py",
    "kind": "probes",
    "bytes": 418,
-   "desc": "探针脚本"
+   "desc": "probe scripts"
   },
   {
    "path": "knowledge/08-evidence/probes/probe_L1-07.py",
    "kind": "probes",
    "bytes": 522,
-   "desc": "探针脚本"
+   "desc": "probe scripts"
   },
   {
    "path": "knowledge/08-evidence/probes/probe_L1-08.py",
    "kind": "probes",
    "bytes": 579,
-   "desc": "探针脚本"
+   "desc": "probe scripts"
   },
   {
    "path": "knowledge/08-evidence/probes/probe_L1-09.py",
    "kind": "probes",
    "bytes": 457,
-   "desc": "探针脚本"
+   "desc": "probe scripts"
   },
   {
    "path": "knowledge/08-evidence/probes/probe_L1-10.py",
    "kind": "probes",
    "bytes": 528,
-   "desc": "探针脚本"
+   "desc": "probe scripts"
   },
   {
    "path": "knowledge/08-evidence/probes/probe_L1-11.py",
    "kind": "probes",
    "bytes": 462,
-   "desc": "探针脚本"
+   "desc": "probe scripts"
   },
   {
    "path": "knowledge/08-evidence/probes/probe_L1-12.py",
    "kind": "probes",
    "bytes": 440,
-   "desc": "探针脚本"
+   "desc": "probe scripts"
   },
   {
    "path": "knowledge/08-evidence/probes/probe_L1-13.py",
    "kind": "probes",
    "bytes": 445,
-   "desc": "探针脚本"
+   "desc": "probe scripts"
   },
   {
    "path": "knowledge/08-evidence/probes/probe_L1-14.py",
    "kind": "probes",
    "bytes": 504,
-   "desc": "探针脚本"
+   "desc": "probe scripts"
   },
   {
    "path": "knowledge/08-evidence/probes/probe_L1-15.py",
    "kind": "probes",
    "bytes": 582,
-   "desc": "探针脚本"
+   "desc": "probe scripts"
   },
   {
    "path": "knowledge/08-evidence/probes/probe_L1-16.py",
    "kind": "probes",
    "bytes": 646,
-   "desc": "探针脚本"
+   "desc": "probe scripts"
   },
   {
    "path": "knowledge/08-evidence/probes/probe_L1-18.py",
    "kind": "probes",
    "bytes": 1207,
-   "desc": "探针脚本"
+   "desc": "probe scripts"
   },
   {
    "path": "knowledge/08-evidence/probes/probe_L1-19.py",
    "kind": "probes",
    "bytes": 795,
-   "desc": "探针脚本"
+   "desc": "probe scripts"
   },
   {
    "path": "knowledge/08-evidence/probes/probe_L1-20.py",
    "kind": "probes",
    "bytes": 615,
-   "desc": "探针脚本"
+   "desc": "probe scripts"
   },
   {
    "path": "knowledge/08-evidence/probes/probe_L1-21.py",
    "kind": "probes",
    "bytes": 519,
-   "desc": "探针脚本"
+   "desc": "probe scripts"
   },
   {
    "path": "knowledge/08-evidence/probes/README.md",
    "kind": "probes",
    "bytes": 6233,
-   "desc": "探针脚本"
+   "desc": "probe scripts"
   },
   {
    "path": "knowledge/08-evidence/probes/run-latest.log",
    "kind": "probes",
    "bytes": 3304,
-   "desc": "探针脚本"
+   "desc": "probe scripts"
   },
   {
    "path": "knowledge/08-evidence/README.md",
@@ -2922,14 +3134,14 @@
   {
    "path": "knowledge/08-evidence/bench/",
    "kind": "bench",
-   "desc": "评测题/基准",
-   "files": 25,
-   "bytes": 2175499
+   "desc": "benchmark questions",
+   "files": 32,
+   "bytes": 2280854
   },
   {
    "path": "knowledge/08-evidence/probes/",
    "kind": "probes",
-   "desc": "探针脚本",
+   "desc": "probe scripts",
    "files": 82,
    "bytes": 97209
   }
@@ -2937,56 +3149,56 @@
  "docs": [
   {
    "path": "knowledge/KB.md",
-   "bytes": 10512,
-   "tokens": 1401
+   "bytes": 14528,
+   "tokens": 1566
   },
   {
    "path": "knowledge/CONVENTIONS.md",
-   "bytes": 6046,
-   "tokens": 801
+   "bytes": 7502,
+   "tokens": 783
   },
   {
    "path": "knowledge/VERSION.md",
-   "bytes": 13762,
-   "tokens": 1704
+   "bytes": 16857,
+   "tokens": 1804
   },
   {
    "path": "knowledge/README.md",
-   "bytes": 5254,
-   "tokens": 636
+   "bytes": 6180,
+   "tokens": 669
   }
  ],
  "counts": {
-  "articles": 94,
+  "articles": 96,
   "by_domain": {
    "01-execution": 6,
    "02-world": 16,
    "03-combat": 39,
    "04-units": 6,
    "05-campaign": 6,
-   "06-mlog": 8,
+   "06-mlog": 10,
    "07-patterns": 9,
    "08-evidence": 4
   },
-  "data_tables": 12,
-  "data_records": 1039,
+  "data_tables": 13,
+  "data_records": 1125,
   "data_raw_tables": 7,
-  "evidence_files": 142,
+  "evidence_files": 171,
   "evidence_by_kind": {
    "top": 7,
    "_report": 5,
-   "bench": 46,
-   "probes": 84
+   "bench": 74,
+   "probes": 85
   },
   "evidence_dirs": 2,
-  "tokens_total": 91622,
+  "tokens_total": 95631,
   "empty": false
  },
  "notes": [
-  "tokens 为估算（汉字 0.62 + 英文词 0.75），非真实 tokenizer 计数。",
-  "data[].records 为条目数；kind=canonical 进 counts，rt_*/raw 仅列出不计入。",
-  "evidence_dirs[] 按 08-evidence 子目录汇总（claims/probes/bench），空目录也会出现。",
-  "文章缺 frontmatter 时 id/conf/status 为空串，仍会列出以便门禁报错。",
-  "生成器: knowledge/tools/build_index.py；校验器: knowledge/tools/check_kb.py。"
+  "tokens are estimated (0.62 per CJK char, 0.75 per English word), not a real tokenizer count.",
+  "data[].records counts entries; kind=canonical feeds counts, rt_*/raw are listed but not summed.",
+  "evidence_dirs[] aggregates the 08-evidence subdirectories (claims/probes/bench); empty ones appear too.",
+  "an article without front matter gets empty id/conf/status; it is still listed so the gate can complain.",
+  "generator: knowledge/tools/build_index.py; checker: knowledge/tools/check_kb.py."
  ]
 }

@@ -37,14 +37,18 @@ DEFAULT_ROOT = HERE.parent
 FENCE = chr(96) * 3
 
 DOMAINS = {
-    "01-execution": ("EXEC", "执行模型", "处理器 / 指令预算 / 帧差 / 同步"),
-    "02-world": ("WORLD", "世界与物流", "方块 / 传送带 / 电力 / 液体 / 热 / 钻探"),
-    "03-combat": ("COMBAT", "战斗", "弹道 / 伤害 / 护甲 / 状态 / 炮塔"),
-    "04-units": ("UNIT", "单位", "单位 / AI / 能力 / 生产"),
-    "05-campaign": ("CAMP", "战役", "波次 / 规则 / 胜负"),
-    "06-mlog": ("MLOG", "逻辑语言", "语法 / 指令 / 陷阱"),
-    "07-patterns": ("PATTERN", "蓝图模式", "架构 / idiom / 反模式"),
-    "08-evidence": ("EV", "证据", "claims / probes / bench"),
+    "01-execution": ("EXEC", "Execution",
+                     "processor / instruction budget / frame delta / sync"),
+    "02-world": ("WORLD", "World and logistics",
+                 "blocks / conveyors / power / liquids / heat / drilling"),
+    "03-combat": ("COMBAT", "Combat",
+                  "ballistics / damage / armor / status / turrets"),
+    "04-units": ("UNIT", "Units", "units / AI / abilities / production"),
+    "05-campaign": ("CAMP", "Campaign", "waves / rules / win and lose"),
+    "06-mlog": ("MLOG", "Logic language", "syntax / instructions / traps"),
+    "07-patterns": ("PATTERN", "Blueprint patterns",
+                    "architecture / idioms / anti-patterns"),
+    "08-evidence": ("EV", "Evidence", "claims / probes / bench"),
 }
 
 # CONVENTIONS 的 domain 用短名（与 ID 前缀一致）；目录名只用于路径校验
