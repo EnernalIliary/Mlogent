@@ -1,4 +1,5 @@
 """Per-world unit marker feeds, generation guards and mirror cleanup."""
+from world_protocol import coerce
 import base64
 import json
 import os
@@ -286,3 +287,290 @@ def mirror_stop(w, slot=None):
         if attempt == 0:
             time.sleep(0.2)   # 给"已经在半路的"那一帧落地时间, 再清一遍
     return n
+
+
+MK_INSTALL_JS = r"""
+/* 标记镜: 世界标记 (ObjectiveMarker) 由服务端直接下发, 客户端渲染.
+   实测结论(2026-11-16, v160.7 真机):
+   - Call.createMarker(int id, ObjectiveMarker) / removeMarker(int) /
+     updateMarker(int id, LMarkerControl, double a, double b, double c) / updateMarkerTexture(int, Object)
+   - 贴图版必须是 TextureMarker + Call.updateMarkerTexture(id, "<兵种>-full") —— 就是 mlog 的
+     "makemarker texture 1 x y true" + "setmarker texture 1 0 @poly 0" 这两步; 先建空 marker 再填贴图.
+     把 texture 直接塞进创建包会渲染成白模, 字符串 "poly" 也不行, 必须 "poly-full" 这个全尺寸精灵名.
+   - width/height=0 表示用精灵原尺寸; world/minimap/light 是引擎自动分配的层号(不是布尔),
+     传 1 会被改写成下一个空层号, 传 -1 表示该层不画.
+   - 逐帧钩子只能 Events.run(Trigger.update, new java.lang.Runnable({...})).
+   所有状态挂隐式全局 (var 出不了单次 js 调用). */
+if(typeof _mk === 'undefined'){
+  _mk = {on: false, div: 2, frame: 0, next: 2000, slots: {}, spr: {}, col: {}, tag: {}, txt: {},
+         labels: true, size: 16, tint: true};
+  _mkT = Packages.mindustry.game.MapObjectives$TextureMarker;
+  _mkTH = Packages.mindustry.game.MapObjectives$TextureHolder;
+  _mkV = Packages.arc.math.geom.Vec2;
+  _mkC = Packages.arc.graphics.Color;
+  _mkCall = Packages.mindustry.gen.Call;
+  _mkLC = Packages.mindustry.logic.LMarkerControl;
+  /* 单位贴图名: 就用纯兵种名. updateMarkerTexture 会把它解析成内容对象,
+     客户端画的是该 UnitType 的 full icon; 写成 "<type>-full" 会变成缺图(ohno). */
+  _mkSprite = function(u){ return String(u.type.name); };
+  /* 新建一只单位的图标 marker: 先建空贴图 marker, 再 updateMarkerTexture 填精灵 */
+  _mkIcon = function(mid, x, y, sprite, w, tint){
+    var tm = new _mkT();
+    tm.pos = new _mkV(x, y);
+    tm.texture = new _mkTH();
+    tm.width = (w == null ? 0 : w); tm.height = (w == null ? 0 : w);
+    tm.rotation = 0; tm.autoscale = false;
+    if(tint != null && _mk.tint){ tm.color = new _mkC(tint[0], tint[1], tint[2], 1); }
+    tm.world = 1; tm.minimap = -1; tm.light = -1;
+    _mkCall.createMarker(mid, tm);
+    /* 贴图字段存"内容对象"(UnitType), 和 vanilla 的 setmarker @poly 存的是同一个类型;
+       传字符串也能显示, 但内容对象是引擎原生路径, 换兵种/换图标都靠它 */
+    var c = null; try{ c = Vars.content.unit(sprite); }catch(e0){}
+    _mkCall.updateMarkerTexture(mid, c == null ? sprite : c);
+  };
+  _mkText = function(mid, x, y, text, size){
+    var t = new Packages.mindustry.game.MapObjectives$TextMarker();
+    t.pos = new _mkV(x, y);
+    t.text = text; t.fontSize = (size == null ? 1.2 : size);
+    t.flags = 0; t.textAlign = 0; t.lineAlign = 0;
+    t.world = 1; t.minimap = -1; t.light = -1;
+    _mkCall.createMarker(mid, t);
+  };
+  _mkUnitColor = function(ctrl){
+    if(ctrl == 1) return [0.35, 1, 1];
+    if(ctrl == 2) return [1, 0.9, 0.45];
+    return [1, 1, 1];
+  };
+  _mkTick = function(){
+    if(!_mk.on) return;
+    if((_mk.frame++ % _mk.div) != 0) return;
+    var seen = {}, arr = Packages.mindustry.gen.Groups.unit;
+    for(var i=0;i<arr.size();i++){
+      var u = arr.index(i);
+      if(u == null || u.dead) continue;
+      var uid = u.id; seen[uid] = 1;
+      var ctrl = 0, c = u.controller();
+      if(c != null){
+        var cn = String(c.getClass().getName());
+        if(cn.indexOf('Player') >= 0) ctrl = 2;
+        else if(cn.indexOf('LogicAI') >= 0) ctrl = 1;
+      }
+      var amt = 0; try{ if(u.stack != null) amt = u.stack.amount; }catch(e1){}
+      var spr = _mkSprite(u);
+      var mid = _mk.slots[uid];
+      if(mid == null){
+        mid = _mk.next++; _mk.slots[uid] = mid; _mk.col[uid] = ctrl; _mk.spr[uid] = spr;
+        _mkIcon(mid, u.x, u.y, spr, _mk.size, _mkUnitColor(ctrl));
+      } else {
+        _mkCall.updateMarker(mid, _mkLC.pos, u.x, u.y, 0);
+        if(_mk.spr[uid] != spr){
+          _mk.spr[uid] = spr;
+          try{ _mkCall.updateMarkerTexture(mid, spr); }catch(e2){}
+        }
+        if(_mk.col[uid] != ctrl){
+          _mk.col[uid] = ctrl;
+          var cc = _mkUnitColor(ctrl);
+          _mkCall.updateMarker(mid, _mkLC.color, cc[0], cc[1], cc[2]);
+        }
+      }
+      if(_mk.labels){
+        var tag = String(u.type.name) + (amt > 0 ? (' x' + amt) : '');
+        var tid = _mk.tag[uid];
+        if(tid == null || _mk.txt[uid] != tag){
+          if(tid != null){ try{ _mkCall.removeMarker(tid); }catch(e3){} }
+          tid = mid + 5000; _mk.tag[uid] = tid; _mk.txt[uid] = tag;
+          _mkText(tid, u.x, u.y + 9, tag, 1.1);
+        } else {
+          _mkCall.updateMarker(tid, _mkLC.pos, u.x, u.y + 9, 0);
+        }
+      }
+    }
+    for(var k in _mk.slots){
+      if(!_mk.slots.hasOwnProperty(k)) continue;
+      if(seen[k] != 1){
+        try{ _mkCall.removeMarker(_mk.slots[k]); }catch(e4){}
+        if(_mk.tag[k] != null){ try{ _mkCall.removeMarker(_mk.tag[k]); }catch(e5){} }
+        delete _mk.slots[k]; delete _mk.col[k]; delete _mk.spr[k];
+        delete _mk.tag[k]; delete _mk.txt[k];
+      }
+    }
+  };
+  /* 钩子经一层间接, 以后热替换 _mkTick 不用重装监听 */
+  Packages.arc.Events.run(Packages.mindustry.game.EventType$Trigger.update,
+                          new java.lang.Runnable({run: function(){ _mkTick(); }}));
+  sb.append('INSTALLED');
+} else { sb.append('ALREADY'); }
+"""
+
+
+MK_STATE_JS = r"""
+var lit = 0;
+for(var k in _mk.slots){ if(_mk.slots.hasOwnProperty(k)) lit++; }
+sb.append('on\t').append(_mk.on ? 1 : 0).append('\n');
+sb.append('div\t').append(_mk.div).append('\n');
+sb.append('units\t').append(Packages.mindustry.gen.Groups.unit.size()).append('\n');
+sb.append('markers\t').append(lit).append('\n');
+sb.append('worldMarkers\t').append(Vars.state.markers.worldMarkers.size);
+"""
+
+
+MK_ON_JS = r"""
+_mk.on = %(on)s;
+if(%(div)d > 0) _mk.div = %(div)d;
+if(%(size)s > 0 && _mk.size != %(size)s){
+  /* 尺寸变了: 已建 marker 没法改贴图大小, 直接清掉重建 */
+  for(var k0 in _mk.slots){
+    if(!_mk.slots.hasOwnProperty(k0)) continue;
+    try{ Packages.mindustry.gen.Call.removeMarker(_mk.slots[k0]); }catch(e6){}
+    if(_mk.tag[k0] != null){ try{ Packages.mindustry.gen.Call.removeMarker(_mk.tag[k0]); }catch(e7){} }
+    delete _mk.slots[k0]; delete _mk.col[k0]; delete _mk.spr[k0];
+    delete _mk.tag[k0]; delete _mk.txt[k0];
+  }
+  _mk.size = %(size)s;
+}
+if('%(labels)s' != 'null') _mk.labels = %(labels)s;
+if('%(tint)s' != 'null') _mk.tint = %(tint)s;
+var lit = 0;
+for(var k in _mk.slots){ if(_mk.slots.hasOwnProperty(k)) lit++; }
+sb.append('on\t').append(_mk.on ? 1 : 0).append('\n').append('markers\t').append(lit);
+sb.append('\n').append('size\t').append(_mk.size).append('\n').append('labels\t').append(_mk.labels ? 1 : 0)
+  .append('\n').append('tint\t').append(_mk.tint ? 1 : 0);
+"""
+
+
+MK_CLEAR_JS = r"""
+var nc = 0;
+for(var k in _mk.slots){
+  if(!_mk.slots.hasOwnProperty(k)) continue;
+  try{ Packages.mindustry.gen.Call.removeMarker(_mk.slots[k]); }catch(e2){}
+  delete _mk.slots[k]; delete _mk.col[k]; nc++;
+}
+_mk.on = false;
+sb.append('CLEARED\t').append(nc);
+"""
+
+
+MK_ADD_JS = r"""
+var kind = %(kind)s, mx = %(x)f, my = %(y)f, mid = %(id)d;
+var mm = Vars.state.markers;
+var had = mm.has(mid);
+if(had){ try{ Packages.mindustry.gen.Call.removeMarker(mid); }catch(e0){} }
+if(kind == 'text'){
+  var tm = new Packages.mindustry.game.MapObjectives$TextMarker();
+  tm.pos = new Packages.arc.math.geom.Vec2(mx, my);
+  tm.text = %(text)s;
+  tm.fontSize = %(size)f;
+  tm.flags = 0; tm.textAlign = 0; tm.lineAlign = 0;
+  tm.world = 1; tm.minimap = 1; tm.light = -1;
+  Packages.mindustry.gen.Call.createMarker(mid, tm);
+} else if(kind == 'shape'){
+  var sm = new Packages.mindustry.game.MapObjectives$ShapeMarker();
+  sm.pos = new Packages.arc.math.geom.Vec2(mx, my);
+  sm.color = new Packages.arc.graphics.Color(%(r)f, %(g)f, %(b)f, 1);
+  sm.radius = %(radius)f; sm.stroke = %(stroke)f;
+  sm.rotation = 0; sm.startAngle = 0; sm.endAngle = 360;
+  sm.fill = false; sm.outline = true; sm.sides = 4;
+  sm.world = 1; sm.minimap = 1; sm.light = -1;
+  Packages.mindustry.gen.Call.createMarker(mid, sm);
+} else {
+  _mkPoint(mid, mx, my, %(r)f, %(g)f, %(b)f, %(radius)f, 1);
+}
+sb.append('OK\t').append(mid).append('\t').append(mm.worldMarkers.size);
+"""
+
+
+MK_LIST_JS = r"""
+var mm = Vars.state.markers;
+sb.append('WORLD\t').append(mm.worldMarkers.size).append('\n');
+sb.append('MINIMAP\t').append(mm.mapMarkers.size).append('\n');
+sb.append('LIGHT\t').append(mm.lightMarkers.size).append('\n');
+var lit = 0;
+for(var k in _mk.slots){ if(_mk.slots.hasOwnProperty(k)) lit++; }
+sb.append('MIRROR\t').append(lit);
+"""
+
+
+CONTROL_OPERATIONS = frozenset(("mirror_state", "mirror_feed", "mirror_clear", "mirror", "marker", "markers", "marker_clear"))
+
+def control(w, req, *, root, audit):
+    op = (req.get("op") or "").strip()
+    if op in ("mirror_state", "mirror_feed", "mirror_clear"):
+        # 状态镜: 坐标由调用方给(mlogsim 仿真 / 脚本), 不读 Groups.unit
+        if op == "mirror_feed":
+            path = str(req.get("path") or "")
+            if not path:
+                return {"ok": False, "error": "need path"}
+            if not os.path.isabs(path):
+                path = os.path.join(root, path)
+            slot = int(req.get("slot") or 0)
+            dx = float(req.get("dx") or 0)
+            dy = float(req.get("dy") or 0)
+            mirror_watch(w, path.replace("\\", "/"), slot=slot, dx=dx, dy=dy)
+            audit("mirror_feed", path=path)
+            return {"ok": True, "path": path, "slot": slot, "dx": dx, "dy": dy}
+        if op == "mirror_clear":
+            cleared = mirror_stop(w)
+            audit("mirror_clear")
+            return {"ok": True, "cleared": cleared}
+        units = req.get("units")
+        if units is None:
+            fpath = str(req.get("file") or "")
+            if not fpath:
+                return {"ok": False, "error": "need units or file"}
+            if not os.path.isabs(fpath):
+                fpath = os.path.join(root, fpath)
+            with open(fpath, "r", encoding="utf-8") as fh:
+                units = json.load(fh)
+        r = mirror_push(w, units, float(req.get("dx") or 0), float(req.get("dy") or 0))
+        audit("mirror_state", count=len(units))
+        return r
+    if op in ("mirror", "marker", "markers", "marker_clear"):
+        # 标记镜: 世界标记(ObjectiveMarker)是服务端可下发的, 客户端直接画在世界上
+        # —— 不占方块、不用显示屏、不依赖逐帧位置包(Call 里根本没有那种包).
+        inst = w.js(MK_INSTALL_JS)
+        if inst and inst[0].startswith("ERR"):
+            return {"ok": False, "error": inst[0][4:]}
+        if op == "markers":
+            res = {}
+            for ln in w.js(MK_LIST_JS):
+                k, _, v = ln.partition("\t")
+                res[k.lower()] = coerce(v)
+            return {"ok": True, **res}
+        if op == "marker_clear":
+            for ln in w.js(MK_CLEAR_JS):
+                return {"ok": True, "cleared": coerce(ln.split("\t")[1])}
+            return {"ok": False, "error": "no output"}
+        if op == "marker":
+            kind = str(req.get("kind") or "point")
+            x = float(req.get("x") or 0) * 8.0
+            y = float(req.get("y") or 0) * 8.0
+            mid = int(req.get("id") or 9001)
+            body = MK_ADD_JS % {"kind": json.dumps(kind), "x": x, "y": y, "id": mid,
+                                "text": json.dumps(str(req.get("text") or "")),
+                                "size": float(req.get("size") or 2.0),
+                                "r": float(req.get("r") or 1.0), "g": float(req.get("g") or 0.9),
+                                "b": float(req.get("b") or 0.3),
+                                "radius": float(req.get("radius") or 6.0),
+                                "stroke": float(req.get("stroke") or 2.0)}
+            out = w.js(body)
+            if not out:
+                return {"ok": False, "error": "no output"}
+            if out[0].startswith("ERR"):
+                return {"ok": False, "error": out[0][4:]}
+            audit("marker", kind=kind, x=x / 8.0, y=y / 8.0, id=mid)
+            return {"ok": True, "id": mid, "kind": kind}
+        on = str(req.get("on") or req.get("state") or "on").lower() in ("1", "on", "true", "start", "yes")
+        div = int(req.get("div") or 2)
+        size = float(req.get("size") or 0)
+        def _tri(v):
+            if v is None or str(v) == "":
+                return "null"
+            return "true" if str(v).lower() in ("1", "true", "on", "yes") else "false"
+        res = {}
+        for ln in w.js(MK_ON_JS % {"on": "true" if on else "false", "div": div, "size": size,
+                                   "labels": _tri(req.get("labels")), "tint": _tri(req.get("tint"))}):
+            k, _, v = ln.partition("\t")
+            res[k] = coerce(v)
+        audit("mirror", on=on, div=div, size=size)
+        return {"ok": True, "on": on, **res}
+    return NotImplemented

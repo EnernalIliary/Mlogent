@@ -8,7 +8,7 @@ import sys
 import unittest
 from unittest.mock import Mock, patch
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / 'tools'))
-from world_mirrors import _mirror_slot, mirror_push, mirror_stop, mirror_watch
+from world_mirrors import _mirror_slot, mirror_push, mirror_stop, mirror_watch, control
 
 
 class MirrorTests(unittest.TestCase):
@@ -46,6 +46,29 @@ class MirrorTests(unittest.TestCase):
             self.assertIsNone(_mirror_slot(world, 0)['feed'])
             self.assertEqual(_mirror_slot(world, 1)['feed'], 'second')
             self.assertEqual(thread.call_count, 2)
+
+    def test_feed_control_uses_explicit_root_and_slot(self):
+        import os
+        world = SimpleNamespace()
+        audit = Mock()
+        with patch('world_mirrors.mirror_watch') as watch:
+            result = control(world, {'op':'mirror_feed','path':'feed.json','slot':2,'dx':3}, root='isolated', audit=audit)
+        expected = os.path.join('isolated','feed.json')
+        self.assertEqual(result['path'], expected)
+        watch.assert_called_once_with(world, expected.replace('\\','/'), slot=2, dx=3.0, dy=0.0)
+
+    def test_marker_coordinates_and_audit_stay_in_tiles(self):
+        world = SimpleNamespace(js=Mock(side_effect=[[],['OK']]))
+        audit = Mock()
+        result = control(world, {'op':'marker','x':2,'y':3}, root='unused', audit=audit)
+        self.assertEqual(result, {'ok':True,'id':9001,'kind':'point'})
+        audit.assert_called_once_with('marker',kind='point',x=2.0,y=3.0,id=9001)
+
+    def test_failed_install_does_not_apply_marker_action(self):
+        world = SimpleNamespace(js=Mock(return_value=['ERR\tinstall failed']))
+        result = control(world, {'op':'marker'}, root='unused', audit=Mock())
+        self.assertEqual(result, {'ok':False,'error':'install failed'})
+        world.js.assert_called_once()
 
 
 if __name__ == '__main__':

@@ -291,3 +291,145 @@ def projection_director(w, feed, scene_path=None, at=None, poll=0.5,
     th.start()
     w._dir_thread = th
     return True
+
+
+CONTROL_OPERATIONS = frozenset(("arm", "frames", "projection", "projstat", "sblog"))
+
+def control(w, req, *, services, audit):
+    op = (req.get("op") or "").strip()
+    if op == "arm":
+        # 开启"玩家放地雷即投影"的监听: 不自己放雷, 只等玩家放
+        feed = str(req.get("feed") or getattr(w, "mirror_feed", None) or "")
+        raw_feeds0 = req.get("feeds")
+        if isinstance(raw_feeds0, str):
+            raw_feeds0 = [raw_feeds0]
+        if not feed and not (raw_feeds0 or []):
+            return {"ok": False, "error": "need feed path (mlogsim --push)"}
+        # 重复 arm = 换场景/换边界: 先停旧导演、擦掉旧边界, 再起新的(不重启世界)
+        if getattr(w, "_dir_started", False):
+            w._dir_stop = True
+            w._dir_started = False
+            time.sleep(1.5)
+            if getattr(w, "_dir_frames", False):
+                try:
+                    services.frame_clear(w)
+                except Exception:  # noqa: BLE001
+                    pass
+        # scene 可以是单个路径, 也可以是路径数组(多场景: 各自有矩形边界)
+        raw_scenes = req.get("scenes")
+        if raw_scenes is None:
+            raw_scenes = req.get("scene")
+        if isinstance(raw_scenes, str):
+            raw_scenes = [raw_scenes] if raw_scenes else []
+        scene_paths = [str(s) for s in (raw_scenes or [])]
+        raw_feeds = req.get("feeds")
+        if raw_feeds is None:
+            raw_feeds = req.get("feeds_arr")
+        if isinstance(raw_feeds, str):
+            raw_feeds = [raw_feeds]
+        feed_list = [str(f) for f in (raw_feeds or []) if f] or ([feed] if feed else [])
+        started = services.projection_director(w, feed_list[0] if feed_list else feed, None,
+                                     scenes=scene_paths,
+                                     frames=bool(req.get("frames", True)),
+                                     frame_floor=str(req.get("frame_floor")
+                                                     or "marker"),
+                                     at_cell=int(req.get("frame_cell") or 64),
+                                     feeds=feed_list,
+                                     auto=bool(req.get("auto", True)))
+        audit("arm", feed=feed, scene=scene_paths)
+        age = feed_age(feed)
+        return {"ok": True, "director": started, "feed": feed,
+                "scenes": [{"path": d["path"], "frame": d["frame"],
+                            "anchor": d["anchor"]} for d in getattr(w, "_dir_scenes", [])],
+                "age": age,
+                "note": "把脉冲地雷放到想投影的位置（落在哪个框里就复刻哪个场景），放下即开始"}
+    if op == "frames":
+        # 场景边界: action=list 看 / clear 擦掉(可指定 scene 路径) / paint 重画
+        act = str(req.get("action") or "list")
+        if act == "list":
+            out = w.js(services.FRAME_LIST_JS)
+            return {"ok": True, "frames": (str(out[0]) if out else ""),
+                    "scenes": [{"path": d["path"], "label": d["label"],
+                                "frame": d["frame"], "anchor": d["anchor"]}
+                               for d in getattr(w, "_dir_scenes", [])]}
+        if act == "clear":
+            n = services.frame_clear(w, req.get("scene"))
+            return {"ok": True, "restored": n}
+        if act == "paint":
+            n = 0
+            for d in getattr(w, "_dir_scenes", []):
+                n += services.frame_paint(w, d["frame"], d["path"],
+                                 step=int(req.get("step") or 1),
+                                 radius=float(req.get("radius") or 7.0))
+            return {"ok": True, "painted": n,
+                    "scenes": [d["path"] for d in getattr(w, "_dir_scenes", [])]}
+        return {"ok": False, "error": "action must be list|clear|paint"}
+    if op == "projection":
+        on = bool(req.get("on", True))
+        if not on:
+            # 关全部槽: 每块沙盘的影子一起收掉
+            services.mirror_stop(w)
+            return {"ok": True, "on": False}
+        slot = int(req.get("slot") or 0)
+        mir = services._mirror_slot(w, slot)
+        meta = {"feed": req.get("feed") or mir.get("feed")
+                or getattr(w, "mirror_feed", None),
+                "scene": req.get("scene"), "scene_at": req.get("at")}
+        r = services.start_projection(w, meta, slot=slot)
+        return r
+    if op == "projstat":
+        # 多槽: 每块沙盘一份 {slot, center, builds, feed, off}
+        rows = []
+        props = getattr(w, "_projs", None) or {}
+        for sl in sorted(props.keys()):
+            p = props[sl]
+            mir = services._mirror_slot(w, sl)
+            rows.append({"slot": int(sl), "center": list(p.get("center") or []),
+                         "builds": p.get("builds") or [],
+                         "feed": p.get("feed"), "off": list(mir.get("off") or (0, 0)),
+                         "scene": p.get("scene")})
+        first = rows[0] if rows else {}
+        return {"ok": True, "count": len(rows), "projections": rows,
+                "slot": first.get("slot"),
+                "center": first.get("center") or None,
+                "builds": first.get("builds") or [],
+                "feed": first.get("feed"),
+                "off": first.get("off") or [0, 0],
+                "director": bool(getattr(w, "_dir_started", False)),
+                "seen": sorted(getattr(w, "_proj_seen", set()))}
+    if op == "sblog":
+        # 沙盘日志板: action=log 追加一行 / list 读当前面板文本 / clear 擦掉
+        act = str(req.get("action") or ("log" if req.get("text") else "list")).lower()
+        slot = int(req.get("slot") or 0)
+        if act == "log":
+            txt = str(req.get("text") or "").strip()
+            if not txt:
+                return {"ok": False, "error": "need text"}
+            # 逻辑字体只有 ASCII: 非 ASCII 一律换掉, 免得面板上出现一串 ohno
+            txt = "".join(ch if 32 <= ord(ch) < 127 else "?" for ch in txt)[:48]
+            d = None
+            for si, dd in enumerate(getattr(w, "_dir_scenes", []) or []):
+                if si == slot:
+                    d = dd
+            rows = services.sb_event(w, slot, txt)
+            try:
+                services.sb_render(w, slot, d=d, age=feed_age((d or {}).get("feed")),
+                          live=False, force=True)
+            except Exception as exc:  # noqa: BLE001
+                return {"ok": False, "error": "render failed: %s" % exc}
+            return {"ok": True, "slot": slot, "lines": list(rows)}
+        if act == "clear":
+            n = services.sb_clear(w, slot if req.get("slot") is not None else None)
+            try:
+                w.js(services.SB_SWEEP_JS)
+            except Exception:  # noqa: BLE001
+                pass
+            return {"ok": True, "cleared": n}
+        out = {}
+        win3 = max(services.FRAME_LIVE_MAX, float(getattr(w, "_dir_hold", 0.0) or 0.0))
+        for si, dd in enumerate(getattr(w, "_dir_scenes", []) or []):
+            ag = feed_age(dd.get("feed"))
+            out[str(si)] = services.sb_lines(w, si, d=dd, age=ag,
+                                    live=(ag is not None and ag <= win3))
+        return {"ok": True, "panels": out}
+    return NotImplemented
