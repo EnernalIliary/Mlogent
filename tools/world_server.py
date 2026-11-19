@@ -710,6 +710,7 @@ def _dispatch(w: World, req: dict, stop_cb) -> dict:
 
 def _dispatch_projection(w, req, stop_cb):
     services = ProjectionControlServices(
+        end_projection=end_projection,
         projection_director=projection_director,
         frame_clear=frame_clear,
         frame_paint=frame_paint,

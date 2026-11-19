@@ -23,6 +23,16 @@ class ProjectionTests(unittest.TestCase):
             self.assertFalse(projection_director(world, None, services=services))
             thread.assert_called_once()
 
+    def test_stop_during_poll_does_not_process_another_frame(self):
+        world = SimpleNamespace(js=Mock())
+        services = SimpleNamespace(SB_SWEEP_JS='panels', FRAME_SWEEP_JS='frames')
+        with patch('world_projection.threading.Thread') as thread:
+            projection_director(world, None, services=services)
+        world.js.reset_mock()
+        with patch('world_projection.time.sleep', side_effect=lambda _: setattr(world, '_dir_stop', True)):
+            thread.call_args.kwargs['target']()
+        world.js.assert_not_called()
+
     def test_startup_sweeps_are_injected(self):
         world = SimpleNamespace(js=Mock())
         services = SimpleNamespace(SB_SWEEP_JS='panels', FRAME_SWEEP_JS='frames')
@@ -34,6 +44,44 @@ class ProjectionTests(unittest.TestCase):
         services = SimpleNamespace(projection_director=Mock())
         result = control(SimpleNamespace(), {'op':'arm'}, services=services, audit=Mock())
         self.assertFalse(result['ok'])
+        services.projection_director.assert_not_called()
+
+    def test_rearm_releases_old_slots_before_starting_new_director(self):
+        thread = Mock()
+        thread.is_alive.return_value = False
+        world = SimpleNamespace(_dir_started=True, _dir_thread=thread,
+                                _dir_frames=True, _projs={0:{'feed':'old'}, 2:{'feed':'removed'}},
+                                mirror_feed='old')
+        events = []
+        def end(w, slot, why):
+            self.assertTrue(w._dir_stop)
+            thread.join.assert_called_once_with(timeout=3.0)
+            events.append(slot)
+            del w._projs[slot]
+        def start(w, feed, at, **kwargs):
+            self.assertEqual(w._projs, {})
+            self.assertEqual(events, [0, 2])
+            self.assertEqual(feed, 'new')
+            self.assertEqual(kwargs['feeds'], ['new', 'second'])
+            return True
+        services = SimpleNamespace(end_projection=Mock(side_effect=end),
+                                   projection_director=Mock(side_effect=start), frame_clear=Mock())
+        result = control(world, {'op':'arm','feeds':['new','second']}, services=services, audit=Mock())
+        self.assertTrue(result['ok'])
+        self.assertEqual(result['feed'], 'new')
+        services.frame_clear.assert_called_once_with(world)
+
+    def test_rearm_wait_timeout_preserves_slots_and_does_not_restart(self):
+        thread = Mock()
+        thread.is_alive.return_value = True
+        world = SimpleNamespace(_dir_started=True, _dir_thread=thread, _projs={0:{'feed':'old'}})
+        services = SimpleNamespace(end_projection=Mock(), projection_director=Mock())
+        result = control(world, {'op':'arm','feed':'new'}, services=services, audit=Mock())
+        self.assertFalse(result['ok'])
+        self.assertTrue(world._dir_stop)
+        self.assertTrue(world._dir_started)
+        self.assertIn(0, world._projs)
+        services.end_projection.assert_not_called()
         services.projection_director.assert_not_called()
 
     def test_projection_off_stops_all_mirrors(self):

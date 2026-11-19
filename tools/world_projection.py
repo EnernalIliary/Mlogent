@@ -94,6 +94,8 @@ def projection_director(w, feed, scene_path=None, at=None, poll=0.5,
     def loop():
         while not getattr(w, "_dir_stop", False):
             time.sleep(poll)
+            if getattr(w, "_dir_stop", False):
+                break
             try:
                 # 服务先起、仿真后到: 启动时 feed 里还没有场景出处, 等它写出来
                 # 再补一次（否则得重启服务才有建筑/框/日志板）
@@ -299,22 +301,30 @@ def control(w, req, *, services, audit):
     op = (req.get("op") or "").strip()
     if op == "arm":
         # 开启"玩家放地雷即投影"的监听: 不自己放雷, 只等玩家放
-        feed = str(req.get("feed") or getattr(w, "mirror_feed", None) or "")
-        raw_feeds0 = req.get("feeds")
+        raw_feeds0 = req.get("feeds") or req.get("feeds_arr")
         if isinstance(raw_feeds0, str):
             raw_feeds0 = [raw_feeds0]
+        feed = str(req.get("feed") or (raw_feeds0[0] if raw_feeds0 else None)
+                   or getattr(w, "mirror_feed", None) or "")
         if not feed and not (raw_feeds0 or []):
             return {"ok": False, "error": "need feed path (mlogsim --push)"}
         # 重复 arm = 换场景/换边界: 先停旧导演、擦掉旧边界, 再起新的(不重启世界)
         if getattr(w, "_dir_started", False):
             w._dir_stop = True
+            old_thread = getattr(w, "_dir_thread", None)
+            if old_thread is not None:
+                old_thread.join(timeout=3.0)
+                if old_thread.is_alive():
+                    return {"ok": False, "error": "previous projection director is still stopping; retry arm"}
             w._dir_started = False
-            time.sleep(1.5)
             if getattr(w, "_dir_frames", False):
                 try:
                     services.frame_clear(w)
                 except Exception:  # noqa: BLE001
                     pass
+        # 旧槽位会阻止 auto 分支重新创建，必须先回收其建筑和 feed 监听。
+        for slot in list(getattr(w, "_projs", {})):
+            services.end_projection(w, slot, "投影配置已更新")
         # scene 可以是单个路径, 也可以是路径数组(多场景: 各自有矩形边界)
         raw_scenes = req.get("scenes")
         if raw_scenes is None:

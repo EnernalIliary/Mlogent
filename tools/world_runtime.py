@@ -103,6 +103,7 @@ class ProjectionDirectorServices:
 
 @dataclass(frozen=True)
 class ProjectionControlServices:
+    end_projection: Callable
     projection_director: Callable
     frame_clear: Callable
     frame_paint: Callable
