@@ -832,6 +832,28 @@ python tools/dps.py measure ripple graphite --ticks 3000 --distance 21.2
 
 台账在 `knowledge/03-combat/C10-numbers.md` 表 3（每门炮的面板、实测与差异来源）。
 
+## 中文提问 → 英文语料（`cjken.py`）
+
+知识库正文是英文，提问的人是中文。直接拿「差扰是什么」去检索，词面检索返回 0 条、
+向量检索把中文整段当一个没有对应物的序列——**答案不缺，问题里没有一个英文词**。
+
+`cjken.py` 是那座桥：它读仓库里本来就有的名字表（`knowledge/GLOSSARY.md` 的手写黑话段
+与生成段、`data/game/aliases.json`），把问题里出现的中文名换成英文名，**追加**到问题末尾，
+从不改写原句——换错了只是多一个候选词，不会丢掉问题。
+
+```bash
+python tools/cjken.py 差扰是什么              # 差扰 -> parallax
+python tools/cjken.py 逻辑处理器的指令预算      # 逻辑处理器 -> logic-processor, 指令预算 -> per-tick budget
+MLOG_NO_EXPAND=1 python tools/kb_grep.py search 差扰    # 关掉桥，看未加词的原始行为
+```
+
+`tools/kb_grep.py`（MCP 的 `mlog_kb` 走它）和 `tools/kb.py`（`search`）都默认调用它；
+`MLOG_NO_EXPAND=1` 关掉，用于对比评测。最长匹配优先且不重叠：`逻辑处理器` 中靶后，
+它内部的 `处理器` 不会再触发一次。
+
+实测（英文语料、300 道中文题、hybrid 检索）：hit@1 49.7% → **50.3%**、hit@6 81.7% 持平。
+数字不大是因为 300 题里只有 12–28 题含实体名；对**含名字**的那些题，桥是 0 与 1 的差别。
+
 ## 文件分层
 
 1. **入口**：`mlog.py`（统一下发子命令）、`mlogagent.py`（`report` / `info` 一条命令跑完五层）、

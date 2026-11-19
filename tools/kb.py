@@ -40,6 +40,11 @@ for _s in (sys.stdin, sys.stdout, sys.stderr):
 
 HERE = Path(__file__).resolve().parent
 ROOT = Path(os.environ.get("KB_ROOT", HERE.parent))
+
+try:                          # Chinese question -> its English names
+    import cjken
+except Exception:             # used as a single file
+    cjken = None
 KB_DIR = Path(os.environ.get("KB_DIR", ROOT / "out" / "_kb"))
 DB_PATH = KB_DIR / "kb.sqlite3"
 _LIBS_DEFAULT = ROOT / "out" / ("_kblibs311" if sys.version_info < (3, 12) else "_kblibs")
@@ -560,6 +565,8 @@ def search(query: str, k: int = 6, kind: str | None = None,
     返回项里的 score 是 RRF 融合分（名次派生，区分度天生只有百分之几），sim 是与问题的
     余弦相似度（可读的相关性），二者用途不同：排序看 score，判断「像不像」看 sim。
     """
+    if cjken is not None:
+        query = cjken.expand(query)[0]
     import numpy as np
     if candidates is None:
         candidates = CANDIDATES

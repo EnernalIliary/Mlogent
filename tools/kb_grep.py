@@ -32,6 +32,11 @@ import sys
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DEFAULT_KNOWLEDGE = os.path.join(ROOT, "knowledge")
 
+try:                          # Chinese question -> its English names
+    import cjken
+except Exception:             # used as a single file, outside the repo
+    cjken = None
+
 _MEMO: dict[tuple, list[dict]] = {}
 _INDEX: dict[tuple, tuple] = {}
 
@@ -170,6 +175,8 @@ def _index(root: str, include_docs: bool) -> tuple:
 
 def search(query: str, k: int = 6, *, root: str = DEFAULT_KNOWLEDGE,
            include_docs: bool = False) -> list[dict]:
+    if cjken is not None:
+        query = cjken.expand(query)[0]
     q = terms(query)
     if not q:
         return []

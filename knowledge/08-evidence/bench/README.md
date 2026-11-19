@@ -643,3 +643,58 @@ v2 想解决的是 §9 暴露的结构性问题 —— 260/300（86.7%）的题�
 2. 每题 `srcs` 至少跨两类真源（源码 / 数据表 / 实测 / 文档口径），并写明「缺哪个源就答错」；
 3. 与冻结 300 题共用同一套 `eval_kb.py` 与 gold 口径，但在报告里**永远单列**，不合并总分；
 4. 新增「答案必须给数值 + 单位」的判分项：推导题的失败大多不是检索失败，而是单位换算错（/tick 与 /s 差 60 倍）。
+
+---
+
+## 12. 英文化之后的重新测量（2026-11-19）
+
+2026-11-19 知识库正文全部改成英文（见 `knowledge/STYLE-en.md`），题库仍是中文。
+于是这 300 题从「同语言检索」变成了**跨语言检索**：问句是中文，答案是英文文章。
+这一节记录重新测量的结果，以及两种候选改法各自的真实收益。
+
+### 12.1 四种配置（同一语料、同一 chunker、300 题）
+
+| 配置 | hit@1 | hit@6 | mrr@6 | ndcg@6 | ms/query |
+| --- | --- | --- | --- | --- | --- |
+| dense，`BAAI/bge-small-zh-v1.5`（默认） | 38.7% | 75.7% | 0.514 | 0.574 | 118 |
+| dense，`paraphrase-multilingual-MiniLM-L12-v2` | 44.0% | 76.0% | 0.552 | 0.603 | 78 |
+| hybrid，`bge-small-zh`（默认） | **50.3%** | **81.7%** | **0.616** | **0.666** | 117 |
+| hybrid，`multilingual-MiniLM` | 50.0% | 80.7% | 0.613 | 0.661 | 78 |
+| hybrid，`bge-small-zh`，关掉中文名桥 | 49.7% | 81.7% | 0.613 | 0.663 | 117 |
+
+复现：
+
+```bash
+python tools/kb.py build
+python knowledge/tools/eval_kb.py --root . --engine kb --mode hybrid --limit 300
+
+# 多语言 embedding（模型走 HF 镜像下载，落在 out/_kbmodels/）
+HF_ENDPOINT=https://hf-mirror.com KB_DIR=out/_kb_ml \
+  KB_EMB_MODEL=sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2 \
+  python tools/kb.py build
+KB_DIR=out/_kb_ml KB_EMB_MODEL=sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2 \
+  python knowledge/tools/eval_kb.py --root . --engine kb --mode hybrid --limit 300
+
+# 关掉中文名桥做对照
+MLOG_NO_EXPAND=1 python knowledge/tools/eval_kb.py --root . --engine kb --mode hybrid --limit 300
+```
+
+### 12.2 三条结论
+
+1. **多语言 embedding 值得换，但只值得换一半。** 只开 dense 时它把 hit@1 从 38.7% 抬到
+   44.0%（+5.3 点）且快 34%；一旦上了 hybrid（trigram BM25 + RRF），两条配置打平
+   （50.3% vs 50.0%）。原因是混合检索的稀疏腿本来就在补语言错配，换 embedding 是在
+   补同一块短板。**默认仍是 `bge-small-zh`**，多语言模型作为 `KB_EMB_MODEL` 的可选项留下。
+2. **中文名桥（`tools/cjken.py`）整体 +0.6 点，但对含实体名的题是 0 与 1 的差别。**
+   300 题里只有 12–28 题含名字表里的词，所以总分动得少；对「差扰是什么」这类问题，
+   没有桥就是全库 0 命中。
+3. **cross-encoder 重排没重测，默认继续关。** 它要 ~7 s/query（300 题 ≈ 35 分钟），
+   而 11-17 在中文语料上测过：dense-rr hit@1 37.0% / hit@6 59.0%，比不重排还差。
+   重排要重新变成候选，得先换更强的 reranker，而不是调参数。
+
+### 12.3 仍然存在的边界
+
+题库是中文、语料是英文，这**不是**评测缺陷而是真实用法：提问的人写中文，母本是英文。
+剩下 266/300 题不含实体名（问的是机制，如「把 @counter set 成行号会怎样」），
+名字桥帮不上，多语言 embedding 也只补到 44%。再往上要么给题库配英文版对照
+（会掩盖真实场景），要么上一版跨语言翻译层（成本另计）——两条都不在本次范围内。

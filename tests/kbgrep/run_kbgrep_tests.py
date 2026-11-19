@@ -94,8 +94,10 @@ class NoDependencies(unittest.TestCase):
         banned = {"fastembed", "onnxruntime", "numpy", "requests", "sqlite3",
                   "yaml", "httpx"}
         self.assertEqual(used & banned, set(), "kb_grep must stay dependency-free")
+        # stdlib only: `cjken` is a sibling module in tools/ (the Chinese ->
+        # English bridge), so importing it costs no dependency.
         self.assertLessEqual(used, {"os", "re", "sys", "json", "__future__",
-                                    "collections", "math", "typing"},
+                                    "collections", "math", "typing", "cjken"},
                              "unexpected import: %s" % sorted(used))
 
     def test_the_cli_answers_without_a_built_index(self):

@@ -126,6 +126,16 @@ class BM25:
 
 
 # ---------------------------------------------------------------- 引擎
+def expand(q: str) -> str:
+    """Chinese question -> the same question plus its English names."""
+    try:
+        sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "tools"))
+        import cjken  # noqa: WPS433
+        return cjken.expand(q)[0]
+    except Exception:
+        return q
+
+
 def engine_lexical(kb: Path, topk: int):
     docs, metas = [], []
     for rel, text in iter_docs(kb):
@@ -136,7 +146,7 @@ def engine_lexical(kb: Path, topk: int):
 
     def search(q: str, k: int):
         return [{"path": metas[i], "text": docs[i], "score": round(s, 4)}
-                for i, s in index.score(q, k)]
+                for i, s in index.score(expand(q), k)]
 
     return search, f"lexical BM25 over {len(docs)} chunks / {len(set(metas))} files"
 

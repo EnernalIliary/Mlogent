@@ -290,6 +290,11 @@ def build_steps(full: bool, only: str | None) -> list[tuple[str, list[str] | Non
         # stay dependency-free: if it ever grows an embedder, a deployed server
         # stops answering facts.  The tests pin ranking *and* the import set.
         ("kbgrep", ["tests/kbgrep/run_kbgrep_tests.py"], ""),
+        # The knowledge base is English and its readers are not.  `cjken.py` is
+        # the only thing that turns "差扰是什么" into a query the corpus can
+        # answer; it reads the name tables, so a table edit must not silently
+        # break the bridge.
+        ("cjken", ["tests/cjken/run_cjken_tests.py"], ""),
     ]
     global_skill = (Path(os.environ.get("DSH_HOME") or (Path.home() / ".dsh"))
                     / "skills" / "mlog-agentskill")
