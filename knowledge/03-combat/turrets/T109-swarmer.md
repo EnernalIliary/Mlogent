@@ -1,7 +1,7 @@
 ---
 tokens: 563
 id: COMBAT.TURRET.109
-title: swarmer —— 4 发齐射的导弹雨
+title: swarmer — a missile rain in 4-shot volleys
 domain: combat
 status: active
 ver: [v160.7_rt, v159.3_src]
@@ -15,75 +15,75 @@ src:
   - "jar:v160.7#blocks/swarmer"
 data: [00-data/turrets.json, 00-data/blocks.json, 00-data/bullets.json, 00-data/turret_shots.json]
 depends: [COMBAT.TURRET.001, COMBAT.TURRET.002, COMBAT.NUMBERS.001]
-tags: [炮塔, swarmer, 导弹群伤 / 中程防空]
+tags: [turret, swarmer, missile group damage / mid-range anti-air]
 ---
 
-## 一句话
+## One line
 
-swarmer 是中期最舒服的「一发多弹」塔：每次触发 4 发导弹、8 根发射管轮转，surge-alloy 下单体 126、面板 309.8。它的问题是弹药质量决定一切——换成 pyratite 单体掉到 84，而 22 甲面前 surge 也只有 12.6，它清群很强、啃硬目标很弱。 [src: 00-data/turrets.json]
+swarmer is the most comfortable "one trigger, many missiles" turret of the mid game: 4 missiles per trigger rotating through 8 launch barrels, 126 per-target and 309.8 displayed on surge-alloy. The problem is that ammo quality decides everything -- on pyratite per-target falls to 84, and against 22 armor even surge has only 12.6: strong at clearing groups, weak at chewing hard targets. [src: 00-data/turrets.json]
 
-## 规则 / 公式
+## Rules / formulas
 
-- **层位**：A ｜ **岗位**：导弹群伤 / 中程防空
-- **射击模式**：ShootBarrel(barrels=8)（每触发 4 发；reload 34.29 tick） [src: 00-data/turret_shots.json]
-- **目标层**：空中、地面、建筑
-- 每触发 4 发（shots 4，ShootBarrel 8 管轮转），reload 34.29 tick，空陆都打 [src: 00-data/turrets.json]
-- surge-alloy 18 直伤 + 35 溅射 → 单体 126 / 面板 309.8；pyratite 12 + 45 → 84 / 320.3；blast-compound 10 + 45 → 70 / 306.3 [src: 00-data/turrets.json]
-- 导弹是追踪类弹体，对移动目标命中率比曲射高，但飞行时间仍会让远距离目标少吃几发 [src: 00-data/turrets.json]
-- 对 22 甲 surge 只剩 12.6，说明它是清群塔：护甲一高，导弹的 18 直伤就被吃光 [src: 00-data/turrets.json]
-- **优点**：
-  - 145 件造价拿到 309.8 面板 DPS，中期性价比很高 [src: 00-data/turrets.json]
-  - 4 发齐射 + 溅射，对聚团的飞行/地面单位都是成片掉血
-  - 30 格的射界在中期的空投波次里覆盖足够 [src: 00-data/turrets.json]
-- **缺点**：
-  - 对 22 甲 12.6 DPS，遇到重甲推进单位几乎无解 [src: 00-data/turrets.json]
-  - 弹药消耗 1.75 件/s（surge），中期产能跟不上就降频 [src: 00-data/turrets.json]
-  - 导弹飞行时间 + inaccuracy 10，对高速目标的有效命中率低于表值 [src: 00-data/turrets.json]
-- **口径**：单体 DPS = 60/(reload × reloadMultiplier) × shots × 直伤；面板 DPS 再按 BulletType.estimateDPS 把溅射按 0.75 折进去（见 [[COMBAT.NUMBERS.001]]）。 [src: Mindustry-Source/core/src/mindustry/entities/bullet/BulletType.java:414]
+- **Tier**: A | **Role**: missile group damage / mid-range anti-air
+- **Firing mode**: ShootBarrel(barrels=8) (4 shots per trigger; reload 34.29 ticks) [src: 00-data/turret_shots.json]
+- **Target layers**: air, ground, buildings
+- 4 shots per trigger (shots 4, ShootBarrel rotates 8 barrels), reload 34.29 ticks, hits air and ground [src: 00-data/turrets.json]
+- surge-alloy 18 direct + 35 splash → 126 per-target / 309.8 displayed; pyratite 12 + 45 → 84 / 320.3; blast-compound 10 + 45 → 70 / 306.3 [src: 00-data/turrets.json]
+- missiles are homing projectiles, so accuracy against moving targets beats arcing fire, but flight time still costs distant targets a few hits [src: 00-data/turrets.json]
+- against 22 armor surge keeps only 12.6, which says it is a group clearer: once armor is high the missile's 18 direct damage is eaten [src: 00-data/turrets.json]
+- **Strengths**:
+  - 309.8 displayed DPS for 145 items, excellent mid-game value [src: 00-data/turrets.json]
+  - 4-shot volleys plus splash strip health in sheets off clustered air or ground units
+  - the 30-tile reach covers a mid-game airdrop wave well enough [src: 00-data/turrets.json]
+- **Weaknesses**:
+  - 12.6 DPS against 22 armor, close to no answer for a heavy push [src: 00-data/turrets.json]
+  - 1.75 items/s (surge) forces a lower fire rate when mid-game production lags [src: 00-data/turrets.json]
+  - missile flight time plus inaccuracy 10 push real accuracy against fast targets below the table value [src: 00-data/turrets.json]
+- **Metric**: single-target DPS = 60/(reload × reloadMultiplier) × shots × direct damage; displayed DPS then folds splash in at 0.75 per BulletType.estimateDPS (see [[COMBAT.NUMBERS.001]]). [src: Mindustry-Source/core/src/mindustry/entities/bullet/BulletType.java:414]
 
-## 数值
+## Numbers
 
-| 项 | 值 | 来源 |
+| Item | Value | Source |
 |---|---|---|
-| 尺寸 | 2 | 00-data/blocks.json |
-| 血量 | 1200 | 00-data/blocks.json |
-| 护甲 | 0 | 00-data/blocks.json |
-| 造价 | 145 件（graphite × 35、titanium × 35、silicon × 30、plastanium × 45） | 00-data/blocks.json |
-| 射程 | 240 世界单位（30.00 格） | 00-data/turrets.json |
-| reload | 34.29 tick | 00-data/turrets.json |
+| Size | 2 | 00-data/blocks.json |
+| Health | 1200 | 00-data/blocks.json |
+| Armor | 0 | 00-data/blocks.json |
+| Build cost | 145 items (graphite × 35, titanium × 35, silicon × 30, plastanium × 45) | 00-data/blocks.json |
+| Range | 240 world units (30.00 tiles) | 00-data/turrets.json |
+| reload | 34.29 ticks | 00-data/turrets.json |
 | shots | 4 | 00-data/turret_shots.json |
-| 冷却液倍率 / shootCone | 5 / 8 | 00-data/turrets.json |
-| 耗电 | 0/s | 00-data/turrets.json |
+| Coolant multiplier / shootCone | 5 / 8 | 00-data/turrets.json |
+| Power draw | 0/s | 00-data/turrets.json |
 
-| 弹药 | 直伤 | 溅射 | reloadMult | 发/s | 单体DPS(0甲) | 面板DPS | 物品/秒 | 对22甲DPS | 来源 |
+| Ammo | Direct dmg | Splash | reloadMult | Shots/s | Per-target DPS (0 armor) | Displayed DPS | Items/s | DPS vs 22 armor | Source |
 |---|---|---|---|---|---|---|---|---|---|
 | surge-alloy | 18 | 35 | 1.00 | 7.00 | 126.0 | 309.8 | 1.75 | 12.6 | 00-data |
 | pyratite | 12 | 45 | 1.00 | 7.00 | 84.0 | 320.3 | 1.40 | 8.4 | 00-data |
 | blast-compound | 10 | 45 | 1.00 | 7.00 | 70.0 | 306.3 | 1.40 | 7.0 | 00-data |
 
-- 面板 309.8 与单体 126 的差来自溅射 0.75 折算，评估清群能力用面板、点杀用单体 [src: 00-data/turrets.json]
-- DPS/物品 72（surge）意味着它比 spectre 省弹，但单发质量差得多
+- the gap between 309.8 displayed and 126 per-target comes from the 0.75 splash fold: judge group clearing by displayed, single-target kills by per-target [src: 00-data/turrets.json]
+- 72 DPS/item (surge) means it is more ammo-frugal than spectre, but per-shot quality is far worse
 
-## 源码锚点
+## Source anchors
 
-- Mindustry-Source/core/src/mindustry/content/Blocks.java:3656 —— 定义行 new ItemTurret("swarmer")
-- Mindustry-Source/core/src/mindustry/content/Blocks.java:3706 —— 含 ShootBarrel
-- Mindustry-Source/core/src/mindustry/content/Blocks.java:3712 —— 含 shots / 4
-- Mindustry-Source/core/src/mindustry/content/Blocks.java:3713 —— 含 shotDelay
+- Mindustry-Source/core/src/mindustry/content/Blocks.java:3656 — definition line new ItemTurret("swarmer")
+- Mindustry-Source/core/src/mindustry/content/Blocks.java:3706 — contains ShootBarrel
+- Mindustry-Source/core/src/mindustry/content/Blocks.java:3712 — contains shots / 4
+- Mindustry-Source/core/src/mindustry/content/Blocks.java:3713 — contains shotDelay
 - Mindustry-Source/core/src/mindustry/entities/pattern/ShootBarrel.java:1
-- 00-data/turret_shots.json#id=swarmer —— 源码派生记录（含证据行）
+- 00-data/turret_shots.json#id=swarmer — source-derived record (with evidence lines)
 
-## 实测与反例
+## Measurements and counterexamples
 
-- 反例：拿 swarmer 打 22 甲 boss，12.6 DPS 不如一门 lancer 的 39，还要 1.75 件/s 的 surge；复现：00-data/turrets.json 里 swarmer 与 lancer 的「对22甲」列 [src: 00-data/turrets.json]
-- 反例：以为齐射=4 倍伤害，实际 4 发都会各自被护甲削减，对高甲目标 4 发不如 1 发重弹；复现：对比 swarmer 与 fuse 的对22甲 12.6 vs 426.9 [src: 00-data/turrets.json]
+- Counterexample: swarmer against a 22-armor boss, 12.6 DPS is worse than one lancer's 39 and still needs 1.75 items/s of surge. Reproduce: the "vs 22 armor" column for swarmer and lancer in 00-data/turrets.json [src: 00-data/turrets.json]
+- Counterexample: assuming a volley = 4× damage; all 4 shots each take the armor subtraction, so against high armor 4 light shots lose to 1 heavy one. Reproduce: swarmer vs fuse on vs-22-armor, 12.6 vs 426.9 [src: 00-data/turrets.json]
 
-## 常见误解
+## Common misconceptions
 
-- 「导弹塔专打空中」不完全对：本库数据里 swarmer 空陆都选目标，它是通用群伤塔
-- 「4 发就是 4 倍」错：4 发是 4 次独立的护甲减法，对高甲目标收益急剧下降
+- "missile turrets are anti-air only" not quite: in this library's data swarmer selects air and ground, it is a general group-damage turret
+- "4 shots = 4×" wrong: 4 shots mean 4 independent armor subtractions, and the return falls off steeply against high armor
 
-## 相关
+## Related
 
 - [[COMBAT.TURRET.115]]
 - [[COMBAT.TURRET.117]]

@@ -1,22 +1,22 @@
-# Mindustry 机制知识库（knowledge/）
+# Mindustry mechanics knowledge base (knowledge/)
 
-一份可被 AI 直接使用、也可被人阅读的 Mindustry 原版机制知识库：**92 篇文章 + 12 张 canonical 数据表（另 6 张 rt_list 抽查件）+ 85 条可复测断言 + 20 条可执行探针 + 300 题评测**，覆盖 v160.7（数值）与 v159.3（源码语义）双版本，已建成可检索的正式库（9,397 chunk）。
+A Mindustry vanilla-mechanics knowledge base that an AI can use directly and a human can read: **92 articles + 12 canonical data tables (plus 6 rt_list spot-check files) + 85 re-testable assertions + 20 executable probes + 300 evaluation questions**, covering both v160.7 (numbers) and v159.3 (source semantics), and already built into a searchable production database (9,397 chunk).
 
-**实测指标**（A+B+C 检索全开，k=6，300 题冻结集）：hit@1 **59.0%**、hit@6 **85.0%**、mrr 0.685、库外槽 **0%**；20 题冒烟 A@1 **16/20**（旧版 4/20）。
+**Measured metrics** (retrieval A+B+C all on, k=6, frozen 300-question set): hit@1 **59.0%**, hit@6 **85.0%**, mrr 0.685, out-of-library slots **0%**; the 20-question smoke run gives A@1 **16/20** (previous version 4/20).
 
-## 从哪开始
+## Where to start
 
-| 你是 | 先看 |
+| If you are | Start with |
 |---|---|
-| 人，想快速了解 | [`KB.md`](KB.md) → [`08-evidence/CHEAT.md`](08-evidence/CHEAT.md)（40 陷阱 + 30 数字 + 20 条检索路由） |
-| AI/Agent，要接入 | [`AI-SETUP.md`](AI-SETUP.md)（三种接入方式 + 可直接粘贴的系统提示词） |
-| 要查某个数值 | [`00-data/`](00-data/) 的 JSON（带 id 与 src） |
-| 想知道旧知识库还算不算数 | [`INTEGRATION.md`](INTEGRATION.md)（逐项映射：谁被谁取代、什么情况才回查旧文件） |
-| 要改/扩这个库 | [`CONVENTIONS.md`](CONVENTIONS.md)（写作契约）+ [`tools/REBUILD.md`](tools/REBUILD.md)（重建发布流程） |
-| 英文读者 / 英文模型 | [`INDEX.en.md`](INDEX.en.md)（每篇的英文标题与一句话）→ [`GLOSSARY.md`](GLOSSARY.md)（中/英/旧译/口语对照，含 504 个实体名） |
-| 看到一个中文名，不知道对应哪个 id | [`GLOSSARY.md`](GLOSSARY.md) 的三层名字表，或 `python tools/kb_grep.py search "<词>"` |
+| A human who wants a quick overview | [`KB.md`](KB.md) → [`08-evidence/CHEAT.md`](08-evidence/CHEAT.md) (40 pitfalls + 30 numbers + 20 retrieval routes) |
+| An AI/agent that needs to plug in | [`AI-SETUP.md`](AI-SETUP.md) (three integration modes + system prompts you can paste as-is) |
+| Looking up one number | the JSON in [`00-data/`](00-data/) (with id and src) |
+| Wondering whether the old knowledge bases still count | [`INTEGRATION.md`](INTEGRATION.md) (item-by-item mapping: what supersedes what, and when you do have to go back to the old files) |
+| Changing or extending this base | [`CONVENTIONS.md`](CONVENTIONS.md) (writing contract) + [`tools/REBUILD.md`](tools/REBUILD.md) (rebuild and publish flow) |
+| An English reader / an English-only model | [`INDEX.en.md`](INDEX.en.md) (English title and one line per article) → [`GLOSSARY.md`](GLOSSARY.md) (Chinese / English / legacy / colloquial mapping, 504 entity names) |
+| Seeing a Chinese name and not knowing its id | the three-layer name tables in [`GLOSSARY.md`](GLOSSARY.md), or `python tools/kb_grep.py search "<词>"` |
 
-## 结构
+## Layout
 
 ```text
 knowledge/
@@ -39,7 +39,7 @@ knowledge/
 └── tools/         抽取（jar 反射/源码）、门禁、索引、检索、评测、发布
 ```
 
-## 质量门禁
+## Quality gates
 
 ```powershell
 python knowledge\tools\check_kb.py --root knowledge --all     # 92 篇 0 error（warning 为提示级）
@@ -47,10 +47,10 @@ python knowledge\tools\build_index.py --root knowledge         # 生成 index.js
 python knowledge\tools\build_index.py --root knowledge --check # 校验索引与内容一致
 ```
 
-- 门禁规则：id 唯一且符合 `^(EXEC|WORLD|COMBAT|UNIT|CAMP|MLOG|PATTERN|DATA|EV)\.[A-Z][A-Z0-9_]*\.\d{3}$`、七节齐全、`data` 只能引 `00-data/` 存在的文件、数字与数据表冲突即 error、≤250 行。
-- 下划线目录/文件（`_report/`、`_probe*`）不进索引、不进门禁、不同步仓库 —— 工作产物请放 `_report/`。
+- Gate rules: ids are unique and match `^(EXEC|WORLD|COMBAT|UNIT|CAMP|MLOG|PATTERN|DATA|EV)\.[A-Z][A-Z0-9_]*\.\d{3}$`, all seven sections are present, `data` may only reference files that exist under `00-data/`, a number that conflicts with a data table is an error, and ≤250 lines.
+- Directories and files with a leading underscore (`_report/`, `_probe*`) are not indexed, not gated and not synced to the repo — put work products in `_report/`.
 
-## 重建与发布（MCP 正式库）
+## Rebuild and publish (production MCP database)
 
 ```powershell
 $R="<仓库根>"; $W="<临时暂存目录>"   # $R 为本机仓库绝对路径；$W 为任意本地目录，脚本按参数/环境变量取
@@ -60,14 +60,14 @@ python "$R\knowledge\tools\publish_db.py" "$W\out\kb_build\kb.sqlite3" "$R\out\_
 python "$R\knowledge\tools\postpublish.py" --db "$R\out\_kb\kb.sqlite3" --staging "$W\out\kb_build\kb.sqlite3"
 ```
 
-细节（含 4 个必踩的坑、检索三开关、发布后固定校验顺序）见 [`tools/REBUILD.md`](tools/REBUILD.md)。
+Details (the 4 traps you are bound to hit, the three retrieval switches, and the fixed post-publish check order) are in [`tools/REBUILD.md`](tools/REBUILD.md).
 
-## 数据出处
+## Where the data comes from
 
-数值全部来自 **v160.7 真服务器 jar 反射**（`tools/extract_rt.py`，起服 2–4 s），语义来自 **v159.3 源码树**（`Mindustry-Source/core/src`），两者冲突一律并列写进文章并以后者解释机制、前者给数值，例如 toxopid 护甲 22（jar）/ 13（源码）。
+Every number comes from **jar reflection against the real v160.7 server** (`tools/extract_rt.py`, server startup 2–4 s); semantics come from the **v159.3 source tree** (`Mindustry-Source/core/src`). Where the two disagree, both are written into the article side by side: the source explains the mechanism, the jar supplies the number — for example toxopid armor 22 (jar) / 13 (source).
 
-## 不包含什么
+## What this does not cover
 
-- 不含模组、插件、工具产品的开发文档（`MlogAuxiliary/`、`tools/` 下的工具源码本身不是知识条目）。
-- 不含蓝图内容本身（只讲蓝图逻辑与 mlog 的写法与机制）；要成品蓝图看 `BLUEPRINT-ANALYSIS.md`（见 `INTEGRATION.md`）。
-- 未验证结论一律 `conf: U` 并标注缺哪一步验证，不当事实用。
+- No development docs for mods, plugins or tool products (the tool sources under `MlogAuxiliary/` and `tools/` are not knowledge entries themselves).
+- No blueprint content itself (only blueprint logic and how mlog is written and how the mechanics behave); for finished blueprints see `BLUEPRINT-ANALYSIS.md` (see `INTEGRATION.md`).
+- An unverified conclusion is always `conf: U` and says which verification step is missing; it is never used as fact.

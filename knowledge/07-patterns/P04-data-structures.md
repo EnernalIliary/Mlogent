@@ -1,6 +1,6 @@
 ---
 id: PATTERN.DATA.001
-title: 数据结构：数组、队列、环形缓冲与画布的内存布局
+title: Data structures: arrays, queues, ring buffers, and canvas memory layout
 domain: pattern
 status: active
 ver: [v159.3_src, v160.7_rt]
@@ -12,67 +12,67 @@ src:
   - "mindustry-blueprint/PATTERNS.md:1673-1800"
 data: []
 depends: [PATTERN.COMM.001]
-tags: [数据结构, 数组, 队列, 环形缓冲, 内存布局, 画布]
+tags: [data-structure, array, queue, ring-buffer, memory-layout, canvas]
 tokens: 545
 ---
 
-## 一句话
+## One line
 
-mlog 没有指针也没有长度，所有数据结构都是「内存建筑的索引 + 手算地址」；因此结构选择的第一标准不是渐近复杂度，而是每次操作要花几条指令（每条指令占 1 ipt 预算），数组 1 条、队列 3 条、环形缓冲 4 条、全画布 4096 条。
+mlog has no pointers and no lengths, so every data structure is "a memory building's index plus hand-computed addresses"; the first criterion for choosing a structure is therefore not asymptotic complexity but how many instructions each operation costs (every instruction consumes 1 ipt of budget): array 1, queue 3, ring buffer 4, full canvas 4096.
 
-## 规则 / 公式
+## Rules / formulas
 
-通用代价公式：一次数据结构操作 = 寻址指令 + 传输指令。寻址用 op，传输用 read/write，各 1 条。
+General cost formula: one data-structure operation = addressing instruction + transfer instruction. Addressing uses op, transfer uses read/write, 1 statement each.
 
-| 结构 | 表示 | 单次操作指令数 | 容量上限 | 典型用途 |
+| Structure | Representation | Instructions per operation | Capacity limit | Typical use |
 |---|---|---:|---|---|
-| 数组 | base + i | read/write 1 条（i 已知时） | cell 64 / bank 512 | 查表、坐标缓存 |
-| 队列 | head、tail 两个索引 | 3 条（读 head、加、写回） | 受容量限制 | 任务分配、缓冲输入 |
-| 栈 | top 一个索引 | 3 条 | 同上 | 递归/回溯模拟 |
-| 环形缓冲 | i = (i+1) mod N | 4 条（op mod + 读写） | N 由 mod 常量决定 | 轮转、去重、滑窗 |
-| 位图 | 一个数当 32 位组 | 3 条（op and/or + 位移） | 32 位/格 | 布尔集合、开关表 |
+| Array | base + i | 1 read/write (when i is known) | cell 64 / bank 512 | lookup tables, coordinate cache |
+| Queue | head and tail, two indices | 3 (read head, add, write back) | limited by capacity | task assignment, input buffering |
+| Stack | top, one index | 3 | same | recursion/backtracking simulation |
+| Ring buffer | i = (i+1) mod N | 4 (op mod + read/write) | N set by the mod constant | rotation, dedup, sliding window |
+| Bitmap | one number as a 32-bit group | 3 (op and/or + shift) | 32 bits/slot | boolean sets, switch tables |
 
-内存布局规则：
+Memory layout rules:
 
-1. 分段：按语义分块并从高位往低位放（91/96/99），中间留空档。
-2. 段基址与段长写成两条 set，所有访问走 base+i，禁止散写魔法索引。
-3. 一个内存建筑只服务一件事；跨用途共享先切分再分配。
+1. Segment: block by meaning and place from high index down (91/96/99), leaving gaps between.
+2. Write segment base and segment length as two set statements, route every access through base+i, and never scatter magic indices.
+3. One memory building serves exactly one purpose; to share across purposes, split first, then allocate.
 
-## 数值
+## Numbers
 
-| 量 | 值 | 来源 |
+| Quantity | Value | Source |
 |---|---|---|
-| memory-cell / memory-bank 容量 | 64 / 512 格 | Blocks.java:6875 / 6881 |
-| 显示屏画布尺寸 | 64 x 64（tileable 为 32 x 32） | LogicDisplay.java:53 / TileableLogicDisplay.java:35 |
-| 2025 语料中 read 用量 | 8052 条 | tools/corpus/mine_idioms.py 的 `unigrams` 统计 |
-| 像素画蓝图数 / 语句量 | 18 个 / 约 140 万条 | ../../mindustry-blueprint/PATTERNS.md:1774 |
-| 单蓝图 draw 峰值 | 126,759 条（intel corei3.msch） | ../../mindustry-blueprint/PATTERNS.md:1786 |
+| memory-cell / memory-bank capacity | 64 / 512 slots | Blocks.java:6875 / 6881 |
+| Display canvas size | 64 x 64 (32 x 32 for tileable) | LogicDisplay.java:53 / TileableLogicDisplay.java:35 |
+| read usage in the 2025 corpus | 8052 | `unigrams` count in tools/corpus/mine_idioms.py |
+| Pixel-art blueprint count / statement volume | 18 / about 1.4 million | ../../mindustry-blueprint/PATTERNS.md:1774 |
+| Peak draw count in one blueprint | 126,759 (intel corei3.msch) | ../../mindustry-blueprint/PATTERNS.md:1786 |
 
-画布成本可算：64x64 = 4096 像素，每像素一条 draw 指令 → 画满一帧 4096 条；hyper-processor 25 ipt 需要 4096/25 = 163.8 tick，即 163.8/60 = 2.73 s 画一帧。
+Canvas cost is computable: 64x64 = 4096 pixels, one draw instruction per pixel → 4096 statements to fill one frame; a hyper-processor at 25 ipt needs 4096/25 = 163.8 tick, i.e. 163.8/60 = 2.73 s per frame.
 
-## 源码锚点
+## Source anchors
 
-- Blocks.java:6875/6881 —— 两种内存建筑容量。
-- LogicDisplay.java:53 `displaySize = 64`；:137 `new FrameBuffer(displaySize, displaySize)`；:118 displayWidth/displayHeight 只是别名。
-- TileableLogicDisplay.java:35 `displaySize = 32`。
+- Blocks.java:6875/6881 — capacity of the two memory buildings.
+- LogicDisplay.java:53 `displaySize = 64`; :137 `new FrameBuffer(displaySize, displaySize)`; :118 displayWidth/displayHeight are only aliases.
+- TileableLogicDisplay.java:35 `displaySize = 32`.
 
-## 实测与反例
+## Measurements and counter-examples
 
-**反例（数组越界不报错）**：cell 只有 64 格，索引 64 以上读写静默无效（读到 0、写入丢弃）。表现是「表尾几项永远是 0」，排查时先打印索引范围而不是怀疑逻辑。
+**Counter-example (out-of-range array access reports nothing)**: a cell has only 64 slots, so reads and writes at index 64 and above silently do nothing (reads return 0, writes are dropped). The symptom is "the last few table entries are always 0"; when debugging, print the index range before doubting the logic.
 
-**反例（环形缓冲用 if 归零）**：用 jump lessThan i N 分支归零需要 3 条指令且分支长度不等，而 op mod i i N 只要 1 条 —— 语料里 913 条的多单位搬运就是用 mod 做槽位轮转（BLUEPRINT-ANALYSIS.md 多单位搬运拆解）。
+**Counter-example (zeroing a ring buffer with if)**: zeroing via a jump lessThan i N branch needs 3 instructions and unequal branch lengths, while op mod i i N needs only 1 — the 913-statement multi-unit hauling blueprint in the corpus rotates slots with mod (the multi-unit hauling breakdown in BLUEPRINT-ANALYSIS.md).
 
-**画布特例**：像素画蓝图占全部语料的绝大部分语句（18 个蓝图约 140 万条，PATTERNS.md:1774），它们是数据不是逻辑 —— 统计「逻辑技巧」时必须按 is_art 剔除，否则 draw 会以 1,305,167 次碾压所有真实指令（同上，`mine_idioms.py` 的 unigrams 统计）。
+**Canvas special case**: pixel-art blueprints account for the vast majority of statements in the whole corpus (18 blueprints, about 1.4 million, PATTERNS.md:1774); they are data, not logic — when counting "logic idioms" they must be excluded by is_art, otherwise draw crushes every real instruction with 1,305,167 occurrences (same source, `mine_idioms.py` unigrams count).
 
-## 常见误解
+## Common misconceptions
 
-1. 「内存格可以当动态数组用」—— 错，没有长度字段，长度必须自己存一格。
-2. 「read 一次就能读到最新值」—— 错，跨处理器存在 tick 交错，必须配序号列。
-3. 「显示屏坐标是 0..64」—— 错，draw 的坐标范围是 0..displaySize（64），越界裁剪；tileable 版是 32。
-4. 「队列比环形缓冲灵活」—— 在 mlog 里队列要多维护一个 head 索引，环形缓冲的 mod 更便宜。
+1. "a memory slot can serve as a dynamic array" — wrong, there is no length field; you must store the length in a slot yourself.
+2. "one read gets the latest value" — wrong, cross-processor tick interleaving exists and a sequence column is mandatory.
+3. "display coordinates are 0..64" — wrong, draw coordinates range over 0..displaySize (64) and are clipped outside; the tileable version is 32.
+4. "a queue is more flexible than a ring buffer" — in mlog a queue maintains an extra head index, while the ring buffer's mod is cheaper.
 
-## 相关
+## Related
 
-- PATTERN.COMM.001 通信与总线（索引分段与竞态）
-- PATTERN.PERF.001 性能与鲁棒性（预算分配）
-- MLOG.DRAW.001 绘制指令
+- PATTERN.COMM.001 communication and buses (index segmentation and races)
+- PATTERN.PERF.001 performance and robustness (budget allocation)
+- MLOG.DRAW.001 drawing instructions

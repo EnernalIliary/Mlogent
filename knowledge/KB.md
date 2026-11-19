@@ -1,144 +1,144 @@
-# Mindustry 机制知识库 · 入口（KB.md）
+# Mindustry mechanics knowledge base · entry point (KB.md)
 
-> 版本：v1.2 · 覆盖 Mindustry v160.7（数值）/ v159.3（源码语义）· 只收原版机制，不含模组与工具产品开发
-> 面向读者：**AI 与人类**。目标不是"能查到答案"，而是**能推导答案**。
-> 规模：**92 篇文章 / 12 张 canonical 数据表 / 85 条断言 / 20 条可执行探针 / 300 题评测**；检索库 ≈9,460 chunk，实测 hit@1 **59.0%**、hit@6 **85.0%**（k=6，300 题冻结集）。
+> Version: v1.2 · covers Mindustry v160.7 (numbers) / v159.3 (source semantics) · vanilla mechanics only, no mods and no tool-product development
+> Audience: **AI and humans**. The goal is not "you can look up an answer" but **"you can derive an answer"**.
+> Scale: **92 articles / 12 canonical data tables / 85 assertions / 20 executable probes / 300 evaluation questions**; the retrieval database holds ≈9,460 chunk, measured hit@1 **59.0%**, hit@6 **85.0%** (k=6, frozen 300-question set).
 
-## 0. 30 秒上手
+## 0. 30-second start
 
-1. 先读本文件（你在读）→ 再读 `08-evidence/CHEAT.md`（速查卡：40 陷阱 + 30 数字 + 20 路由）→ 接 AI 看 `AI-SETUP.md`。契约与版本见 `CONVENTIONS.md`、`VERSION.md`；**旧知识库是否还算数见 `INTEGRATION.md`**。
-2. 想知道"某个机制怎么算"→ 去 `00-data/` 查表、`05-campaign/` 查公式。
-3. 想知道"某个东西什么数值"→ `00-data/blocks.json`、`turrets.json`、`bullets.json`、`units.json`。
-4. 想写/读 mlog → `01-execution/`（执行模型与陷阱）+ `06-mlog/`（指令语义）。
-5. 想复用成熟写法 → `07-patterns/`（架构与 idiom）。
-6. 怀疑某结论 → `08-evidence/claims.jsonl`（85 条可复测断言）+ `probes/`（可执行探针）+ `bench/`（300 题评测）。
+1. Read this file first (you are reading it) → then `08-evidence/CHEAT.md` (the cheat card: 40 pitfalls + 30 numbers + 20 routes) → to wire in an AI, see `AI-SETUP.md`. The contract and versions are in `CONVENTIONS.md` and `VERSION.md`; **for whether the old knowledge bases still count, see `INTEGRATION.md`**.
+2. Want to know "how a mechanic computes" → look up tables in `00-data/`, formulas in `05-campaign/`.
+3. Want to know "what number a thing has" → `00-data/blocks.json`, `turrets.json`, `bullets.json`, `units.json`.
+4. Want to write or read mlog → `01-execution/` (execution model and pitfalls) + `06-mlog/` (instruction semantics).
+5. Want to reuse a proven pattern → `07-patterns/` (architectures and idioms).
+6. Doubt a conclusion → `08-evidence/claims.jsonl` (85 re-testable assertions) + `probes/` (executable probes) + `bench/` (300 evaluation questions).
 
-## 1. 目录地图
+## 1. Directory map
 
-| 目录 | 内容 | 何时用 |
+| Directory | Contents | When to use |
 |---|---|---|
-| `00-data/` | 机器可读事实表：blocks/turrets/bullets/turret_shots/units/liquids/items/status/rules + formulas.json | 查任何数值、做计算、校验结论 |
-| `01-execution/` | mlog 执行模型、指令预算、语义陷阱 30 条、变量边界、时间精度、跨版本差异 | 写逻辑前必读；调试诡异行为 |
-| `02-world/` | 方块与锚点、配方、电力、液体、热、物流、钻探、载荷、地形、存储、配置、沙盒、中英名对照（W01-W16） | 机制"怎么运作" |
-| `03-combat/` | 伤害管线、炮塔、弹道、状态、护甲、单位武器、治疗护盾、敌军、防御、DPS 实例、炮塔评价（C01-C11）、逐台炮塔页（turrets/ T101-T118 / T201-T210） | 战斗数值与判伤、选型 |
-| `04-units/` | 单位类型/移动、生产、AI、能力、经验等级、单位名对照（U01-U06） | 单位行为与产能 |
-| `05-campaign/` | 波次、难度、胜负、敌基、版本差异、Rules 全字段（CAMP.*） | 战役与规则定制 |
-| `06-mlog/` | 指令表（73 条 instructions.json）+ 语言语义 8 篇（M01-M08） | 查指令参数、语义边界 |
-| `07-patterns/` | 架构、状态机、总线、数据结构、索敌、性能、单位多控、@counter 架构、成品代码库（P01-P09）+ `code/` 六份可粘贴 .mlog + idioms.json | 设计蓝图 / 抄成品 |
-| `08-evidence/` | claims.jsonl（85 条可复测断言）、probes/（可执行探针）、idioms.json、anti-patterns.md、bench/（300 题 + 跨源推导题） | 验证与评测 |
-| `tools/` | extract_rt.py（jar 反射）、extract_src.py（源码）、check_kb.py、build_index.py、eval_kb.py、kb.py | 复现与维护 |
+| `00-data/` | machine-readable fact tables: blocks/turrets/bullets/turret_shots/units/liquids/items/status/rules + formulas.json | looking up any number, doing arithmetic, checking a conclusion |
+| `01-execution/` | the mlog execution model, instruction budget, 30 semantic pitfalls, variable boundaries, time precision, cross-version differences | required reading before writing logic; debugging weird behaviour |
+| `02-world/` | blocks and anchors, recipes, power, liquids, heat, logistics, drilling, payloads, terrain, storage, configuration, sandbox, English-Chinese name tables (W01-W16) | how a mechanic "works" |
+| `03-combat/` | damage pipeline, turrets, ballistics, status, armor, unit weapons, healing and shields, enemies, defense, DPS worked examples, turret verdicts (C01-C11), per-turret pages (turrets/ T101-T118 / T201-T210) | combat numbers and damage resolution, turret selection |
+| `04-units/` | unit types/movement, production, AI, abilities, experience and levels, unit name tables (U01-U06) | unit behaviour and throughput |
+| `05-campaign/` | waves, difficulty, victory and defeat, enemy bases, version differences, the full Rules field list (CAMP.*) | campaign and rule customisation |
+| `06-mlog/` | instruction table (73 entries in instructions.json) + 8 articles on language semantics (M01-M08) | looking up instruction arguments and semantic edges |
+| `07-patterns/` | architecture, state machines, buses, data structures, targeting, performance, unit multicontrol, @counter architectures, finished code library (P01-P09) + six paste-ready .mlog files in `code/` + idioms.json | designing a blueprint / copying a finished one |
+| `08-evidence/` | claims.jsonl (85 re-testable assertions), probes/ (executable probes), idioms.json, anti-patterns.md, bench/ (300 questions + cross-source derivation questions) | verification and evaluation |
+| `tools/` | extract_rt.py (jar reflection), extract_src.py (source tree), check_kb.py, build_index.py, eval_kb.py, kb.py | reproducing and maintaining |
 
-## 2. AI 使用协议（重要）
+## 2. AI usage protocol (important)
 
-### 2.1 检索顺序（不要跳步）
-1. **精确查表**：`00-data/*.json` — 结构化、带 id，先命中就先赢。
-2. **机制公式**：`00-data/formulas.json` — 拿到 formula 再代数。
-3. **文章正文**：按域读对应 `.md`，注意"常见误解"小节——它专门用来纠正直觉。
-4. **证据层**：`08-evidence/claims.jsonl` 找可复测断言；结论冲突时按 id 回溯。
-5. **源码/真源**：仅在上述不够时读 `Mindustry-Source/`（v159.3 语义）或重跑 `tools/extract_rt.py`（v160.7 数值）。
+### 2.1 Retrieval order (do not skip steps)
+1. **Look up the table exactly**: `00-data/*.json` — structured, with ids; whatever hits first wins.
+2. **Mechanics formulas**: `00-data/formulas.json` — take the formula, then substitute.
+3. **Article body**: read the `.md` for the domain, and pay attention to the "Common misconceptions" section — it exists to correct intuition.
+4. **Evidence layer**: find the re-testable assertion in `08-evidence/claims.jsonl`; when conclusions conflict, trace back by id.
+5. **Source / source of truth**: only when the above is not enough, read `Mindustry-Source/` (v159.3 semantics) or rerun `tools/extract_rt.py` (v160.7 numbers).
 
-### 2.2 置信度（每条知识的 conf 字段）
-- `S` 源码可查（给文件:行）
-- `E` 实测可复现（给脚本与输出）
-- `I` 由 S/E 推导（必须写出推导链）
-- `U` 未验证（**回答时必须声明不确定**，禁止当成事实）
+### 2.2 Confidence (the conf field on every piece of knowledge)
+- `S` checkable in the source (file:line given)
+- `E` reproducible measurement (script and output given)
+- `I` derived from S/E (the derivation chain must be written out)
+- `U` unverified (**an answer must declare the uncertainty**; never use it as fact)
 
-### 2.3 五条硬规则
-1. **没有来源的数字不许说**。要么来自 `00-data/`，要么 `文件:行`，要么实测记录。
-2. **单位显式**。速率一律写清 `/tick` 还是 `/s`（1/tick = 60/s）；长度写 tile 还是 px（1 tile = 8 px）。
-3. **双版本**。数值默认 v160.7；语义/源码引用标 v159.3；已知差异见 `VERSION.md` 与 `05-campaign/CAMP.VERSION.001`。
-4. **反例优先**。学一个机制时先看它的"常见误解"与 anti-patterns，直觉错误比无知更危险。
-5. **不写工具**。本库只描述游戏与 mlog 本身；工具/模组/产品相关内容不属于这里。
+### 2.3 Five hard rules
+1. **Never state a number without a source**. It comes from `00-data/`, or from `file:line`, or from a measurement record.
+2. **Units are explicit**. Always say whether a rate is `/tick` or `/s` (1/tick = 60/s), and whether a length is tile or px (1 tile = 8 px).
+3. **Two versions**. Numbers default to v160.7; semantics and source citations are marked v159.3; known differences are in `VERSION.md` and `05-campaign/CAMP.VERSION.001`.
+4. **Counter-examples first**. When learning a mechanic, read its "Common misconceptions" and the anti-patterns first; a wrong intuition is more dangerous than ignorance.
+5. **No tooling**. This library describes the game and mlog only; tool, mod and product material does not belong here.
 
-### 2.5 回答前自检（4 问）
-1. 这个数字来自 `00-data/` 还是我背的？
-2. 单位说清了吗（/tick 还是 /s、tile 还是 px）？
-3. 相关文章的「常见误解」小节有没有在反驳这个结论？先读再答。
-4. 冲突时我比对了两个版本吗（v160.7 数值 / v159.3 语义）？
+### 2.5 Self-check before answering (4 questions)
+1. Does this number come from `00-data/`, or am I reciting it?
+2. Are the units stated (/tick or /s, tile or px)?
+3. Does the "Common misconceptions" section of the relevant article contradict this conclusion? Read it before answering.
+4. On a conflict, did I compare the two versions (v160.7 numbers / v159.3 semantics)?
 
-### 2.4 回答风格（给 AI）
-- 先给**结论 + 算式**，再给来源（`00-data/blocks.json#id=duo` 这类锚点）。
-- 涉及取舍时给**两条以上路径**与各自代价（电/空间/预算/复杂度）。
-- 不确定就标 `conf: U` 并说明缺哪一步验证，**不要用"一般来说"糊过去**。
+### 2.4 Answer style (for an AI)
+- Give the **conclusion + the arithmetic** first, then the source (an anchor such as `00-data/blocks.json#id=duo`).
+- On a trade-off, give **two or more options** with their costs (power / space / budget / complexity).
+- If unsure, mark `conf: U` and say which verification step is missing; **do not paper over it with "generally speaking"**.
 
-## 3. 12 个能力域 → 文章索引
+## 3. 12 capability domains → article index
 
-| # | 能力域 | 主入口 |
+| # | Capability domain | Main entry points |
 |---|---|---|
-| 1 | 执行模型与 tick | `01-execution/E01`、`06-mlog/M01` |
-| 2 | 变量与作用域 | `01-execution/E03`、`06-mlog/M02` |
-| 3 | 控制流与时间 | `01-execution/E04`、`06-mlog/M03` |
-| 4 | 读写与感知 | `06-mlog/M04` |
-| 5 | 绘制与文本 | `06-mlog/M05` |
-| 6 | 世界交互 | `06-mlog/M06`、`02-world/W11` |
-| 7 | 单位控制 | `06-mlog/M07`、`04-units/U03`、`07-patterns/P07`、`07-patterns/P08` |
-| 8 | 性能与预算 | `01-execution/E01`、`06-mlog/M08`、`07-patterns/P06`、`07-patterns/P08` |
-| 9 | 方块/电力/热/物流 | `02-world/W01-W06` |
-| 10 | 战斗与伤害 | `03-combat/C01-C05` |
-| 11 | 单位与产能 | `04-units/U01-U05`、`03-combat/C06` |
-| 12 | 战役与规则 | `05-campaign/CAMP.*` |
+| 1 | Execution model and tick | `01-execution/E01`, `06-mlog/M01` |
+| 2 | Variables and scope | `01-execution/E03`, `06-mlog/M02` |
+| 3 | Control flow and time | `01-execution/E04`, `06-mlog/M03` |
+| 4 | Reading, writing and sensing | `06-mlog/M04` |
+| 5 | Drawing and text | `06-mlog/M05` |
+| 6 | World interaction | `06-mlog/M06`, `02-world/W11` |
+| 7 | Unit control | `06-mlog/M07`, `04-units/U03`, `07-patterns/P07`, `07-patterns/P08` |
+| 8 | Performance and budget | `01-execution/E01`, `06-mlog/M08`, `07-patterns/P06`, `07-patterns/P08` |
+| 9 | Blocks / power / heat / logistics | `02-world/W01-W06` |
+| 10 | Combat and damage | `03-combat/C01-C05` |
+| 11 | Units and throughput | `04-units/U01-U05`, `03-combat/C06` |
+| 12 | Campaign and rules | `05-campaign/CAMP.*` |
 
-（完整文章清单由 `tools/build_index.py` 生成到 `index.json`。）
+(The full article list is generated into `index.json` by `tools/build_index.py`.)
 
-### 3.2 问答路由：Mindcode 语法怎么写
+### 3.2 Q&A route: how do I write Mindcode syntax
 
-「`if` 后面该写 `then` 还是 `do`」「函数会不会真的被调用」「数组怎么声明」这类问题，看
-`06-mlog/M10-Mindcode-Syntax.md`（`MLOG.MIND.002`）：每条语法都附了它编出来的 mlog，
-五个坑（`then` 不是 `do`、`end` 要分号、未用变量在优化下是错误、`stack` 不提供数组、
-末尾 banner 行）都有实测报错原文。编译选项与版本裁决仍看 M09。
+For questions like "should `if` be followed by `then` or `do`", "does the function really get called", "how do I declare an array", see
+`06-mlog/M10-Mindcode-Syntax.md` (`MLOG.MIND.002`): every rule comes with the mlog it compiles to, and all five traps
+(`then` is not `do`, `end` needs a semicolon, an unused variable is an error under optimisation, `stack` does not give you arrays,
+the trailing banner line) quote the actual error text. For compile options and version arbitration, stick with M09.
 
-### 3.3 名字对不上：中文叫法 / 旧译 / 英文 id
+### 3.3 Names do not line up: Chinese name / legacy translation / English id
 
-同一个东西在中文里常有三个名字（官方名、旧译、口语），而且英文 id 与中文名之间没有规律。
-遇到「差扰是哪座塔」「钢化玻璃的 id 是什么」这类问题，不要猜，查 `GLOSSARY.md`：
-上半部分是概念与工具链的黑话（微处 / 累积池 / 载荷 / 差分…），下半部分是从
-`data/game/bundles/*.properties` + `data/game/aliases.json` 生成的 **504 条实体三列对照**
-（英文 id ｜ 官方英文名 ｜ 官方中文名 ｜ 旧译与口语）。搜不到时按这个顺序换词：
-官方名 → 英文 id → 旧译 → 口语；`tools/kb_grep.py` 与 MCP 的 `mlog_kb` 都是词面匹配，
-换词比换问法有效。
+The same thing often has three names in Chinese (official, legacy translation, colloquial), and there is no rule linking the English id to the Chinese name.
+For questions like "which turret is parallax (差扰)" or "what is the id of tempered glass (钢化玻璃)", do not guess — look in `GLOSSARY.md`:
+the upper half is the jargon of concepts and the toolchain (micro processor (微处) / accumulator pool (累积池) / payload (载荷) / diff (差分)…), the lower half is the **504 entities, three name columns** generated from
+`data/game/bundles/*.properties` + `data/game/aliases.json`
+(English id / official English name / official Chinese name / legacy and colloquial). When a search misses, change the word in this order:
+official name → English id → legacy translation → colloquial; `tools/kb_grep.py` and the MCP `mlog_kb` both match on the word surface,
+so changing the word works better than changing the question.
 
-英文读者（或只吃英文的模型）从 `INDEX.en.md` 进：86 篇每篇一行英文标题 + 一句话摘要。
+English readers (or English-only models) come in through `INDEX.en.md`: one line of English title + a one-sentence summary per article, 86 articles.
 
-### 3.1 问答路由：Mindcode 编译前端（`06-mlog/M09`，`MLOG.MIND.001`）
+### 3.1 Q&A route: the Mindcode compile front end (`06-mlog/M09`, `MLOG.MIND.001`)
 
-| 问题 | 落点 |
+| Question | Where it lands |
 |---|---|
-| 「`.mnd` 怎么变成 mlog / 编译报错怎么读」 | `06-mlog/M09` §1–§3、§6 |
-| 「为什么默认 3.19.3 而不是 3.21.0」 | `06-mlog/M09` §5；长文依据 `docs/Mindcode集成.md:54-84` |
-| 「`mindcode_compile` / `mlog_validate(mind=…)` 怎么调」 | `06-mlog/M09` §3、§7 |
-| 「该报 `unsupported_environment` 还是 `compilation_error`」 | `06-mlog/M09` §8（先看 `diagnostics[0].kind`） |
+| "how does a `.mnd` become mlog / how do I read a compile error" | `06-mlog/M09` §1–§3, §6 |
+| "why default to 3.19.3 rather than 3.21.0" | `06-mlog/M09` §5; the long-form rationale in `docs/Mindcode集成.md:54-84` |
+| "how do I call `mindcode_compile` / `mlog_validate(mind=…)`" | `06-mlog/M09` §3, §7 |
+| "should this report `unsupported_environment` or `compilation_error`" | `06-mlog/M09` §8 (look at `diagnostics[0].kind` first) |
 
-## 4. 数值真源优先级
+## 4. Numeric source-of-truth priority
 
-1. `00-data/*.json`（由 v160.7 真服务器反射生成，`tools/extract_rt.py`）
-2. `Mindustry-Source/core/src/**`（v159.3，语义权威）
-3. `08-evidence/claims.jsonl` 中 pass 的实测
-4. 本库文章正文
-5. 仓库其它笔记（`../MBO/`、`docs/`、`Logic-Docs`）——**只作线索，不作证据**（`MBO/` 已拆为同级独立项目）
+1. `00-data/*.json` (generated by reflection on the real v160.7 server, `tools/extract_rt.py`)
+2. `Mindustry-Source/core/src/**` (v159.3, the semantic authority)
+3. the measurements that pass in `08-evidence/claims.jsonl`
+4. the article bodies in this library
+5. other notes in the repo (`../MBO/`, `docs/`, `Logic-Docs`) — **leads only, never evidence** (`MBO/` has been split out into a sibling project)
 
-已知错误清单（务必先看）：`VERSION.md` §已知错误。典型：`data/game` 的 craftTime 曾全为 -1（2026-11 已由 `tools/dev/dump_game.py` 重导为真值：33 个方块有值、414 个为 null）；已删的 `docs/游戏速查/方块配方.md` 耗电列实际是 /tick 却标成 /s（差 60 倍）。
+Known-error list (read it first): `VERSION.md` §known errors. Typical cases: craftTime in `data/game` was once -1 everywhere (re-imported as real values in 2026-11 by `tools/dev/dump_game.py`: 33 blocks carry a value, 414 are null); the deleted block-recipe cheat sheet (`docs/游戏速查/方块配方.md`) had a power-draw column that is actually per /tick but was labelled /s (a factor of 60 off).
 
-## 5. 常见陷阱 Top 10（先记这些，能避开 80% 的错）
+## 5. Common traps Top 10 (learn these first; they avoid 80% of the mistakes)
 
-1. `wait` 的单位是 **秒**（`LExecutor.java:1218-1232`：`curTime += Time.delta/60f`），`wait 1` ≈ 60 tick；写成「等 N tick」是常见错。`@time` 单位是**毫秒**（`GlobalVars.java:195`），`@second`/`@minute` 才是秒。
-2. `reload` 是"两次开火间隔 tick"，DPS 要用 `damage × 弹数 / reload × 60`，别忘了 `ammoMultiplier`。
-3. `range` 是 **tile**（1 tile = 8 px）；子弹射程 = `lifetime × speed`（单位 px），换算 tile 要 /8。
-4. `usage` 是"每 tick 电量"，`usagePerSecond = usage × 60`（v160.7 才有该字段）。
-5. 护甲减免是**乘性还是减性**要按 `Damage.java` 的当前实现，不同版本改过——别背旧结论。
-6. 传送带吞吐 `items/s = speed × 60 / 单件占位`，不是"速度"本身。
-7. 状态效果同类**不叠加**（刷新时长），不同类乘算；顺序影响结果。
-8. `getlink` 索引**从 0 开始**且随方块变动而变，蓝图重贴后编号会错位。
-9. `@counter` 可写，跳转是**绝对索引**；在循环里改它会造成不可预测跳转。
-10. 每 tick 指令预算有限（`instructionsPerTick` 类规则），大循环必须分帧。
-11. `set @ipt ...` / `set @unit ...` 会被静默丢弃（`LAssembler.java:26-27` 的 `putConst`）：常量改不了，只有 `setrate`/`ubind` 能改运行值；`@counter` 反而可写。
-12. `uradar` 的**第 5 个参数（order）是死槽**，写了不报错也不生效；radar 缓存是 **30 tick**（`LExecutor.java:761-763`），不是 40。
-13. `ucontrol` 的坐标参数一律是 **tile**（内部 `World.unconv` = ×8 转 px）；喂像素坐标会偏 8 倍。
-14. `strictEqual` 不是恒 false：`ConditionOp` 里那个 `(a,b)->false` 只是 `function` 字段，`LExecutor.test()` 会特判类型位相同 + 精确相等，所以 `jump strictEqual` 可以成立。
-15. 记忆格容量不是 32：**memory-cell 64 / memory-bank 512 / world-cell 512**（32 是类默认值）；**越界读返回 null（NaN）不是 0**，越界写静默丢弃（`MemoryBlock.java:64-81`）。
-16. `format` 一次只替换**一个**占位符，且只填**已在文本缓冲里、编号最小**的那个；占位符只认单数字 `{0}`-`{9}`，所以顺序是「先 `print` 再 `format`」。
-17. `@ipt` 的单位是**点/tick**（hyper 25 ⇒ 1500 点/s），单 tick 实际预算 `min(5×ipt, maxInstructionsPerTick)`，hyper 会被截到 **40** —— 别按 125 算循环开销。
+1. `wait` takes **seconds** (`LExecutor.java:1218-1232`: `curTime += Time.delta/60f`), so `wait 1` ≈ 60 tick; writing "wait N tick" is the classic mistake. `@time` is in **milliseconds** (`GlobalVars.java:195`); only `@second`/`@minute` are seconds.
+2. `reload` is "ticks between two shots"; DPS is `damage × shots / reload × 60`, and do not forget `ammoMultiplier`.
+3. `range` is in **tile** (1 tile = 8 px); bullet range = `lifetime × speed` in px, so divide by 8 for tiles.
+4. `usage` is power per tick, `usagePerSecond = usage × 60` (the field only exists in v160.7).
+5. Whether armor reduction is **multiplicative or subtractive** follows the current `Damage.java` implementation and has changed between versions — do not recite an old conclusion.
+6. Conveyor throughput is `items/s = speed × 60 / per-item slot`, not the "speed" itself.
+7. Status effects of the same kind **do not stack** (the duration refreshes); different kinds multiply; order affects the result.
+8. `getlink` indices **start at 0** and shift as buildings change, so the numbering is wrong after a blueprint is pasted again.
+9. `@counter` is writable and a jump is an **absolute index**; changing it inside a loop produces unpredictable jumps.
+10. The per-tick instruction budget is finite (`instructionsPerTick` and friends), so a big loop must be split across ticks.
+11. `set @ipt ...` / `set @unit ...` are silently dropped (`putConst` at `LAssembler.java:26-27`): constants cannot be changed, only `setrate`/`ubind` change runtime values; `@counter`, by contrast, is writable.
+12. The **5th argument of `uradar` (order) is a dead slot**: writing it neither errors nor has any effect; the radar cache is **30 tick** (`LExecutor.java:761-763`), not 40.
+13. `ucontrol` coordinate arguments are always in **tile** (internally `World.unconv` multiplies by 8 to get px); feeding pixel coordinates lands you 8× off.
+14. `strictEqual` is not always false: the `(a,b)->false` in `ConditionOp` is only the `function` field, and `LExecutor.test()` special-cases identical type bits plus exact equality, so `jump strictEqual` can hold.
+15. Memory capacity is not 32: **memory-cell 64 / memory-bank 512 / world-cell 512** (32 is the class default); **an out-of-range read returns null (NaN), not 0**, and an out-of-range write is silently dropped (`MemoryBlock.java:64-81`).
+16. `format` replaces **one** placeholder per call, and only the **lowest-numbered one already in the text buffer**; placeholders accept single digits `{0}`-`{9}` only, so the order is "`print` first, then `format`".
+17. `@ipt` is in **points/tick** (hyper 25 ⇒ 1500 points/s); the real single-tick budget is `min(5×ipt, maxInstructionsPerTick)`, so hyper is clipped to **40** — do not compute loop cost from 125.
 
-## 6. 维护
+## 6. Maintenance
 
 ```powershell
 # 重新生成 v160.7 数据表（需 out/_server160.jar + out/jre21）
@@ -159,6 +159,6 @@ python knowledge/tools/eval_kb.py --kb knowledge --engine kb -k 6
 python knowledge/tools/bench20.py --db out/_kb/kb.sqlite3
 ```
 
-`check_kb.py` 的 warning 是**提示级、不阻塞**（exit 0 即合规）；`W_NUM_NO_SOURCE` 多为源码行号与举例数值，不必逐行补来源。
+A `check_kb.py` warning is **advisory and non-blocking** (exit 0 means compliant); most `W_NUM_NO_SOURCE` hits are source line numbers and example values, so you do not have to add a source line by line.
 
-新增一篇文章：复制模板 → 填 frontmatter（id 唯一）→ 七段齐全 → `check_kb.py` 零 error → 重跑 index 与 kb 重建 → 在 `claims.jsonl` 里补可复测断言。
+To add an article: copy the template → fill in the frontmatter (unique id) → all seven sections present → zero errors from `check_kb.py` → rerun the index and the kb rebuild → add a re-testable assertion to `claims.jsonl`.

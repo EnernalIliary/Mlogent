@@ -1,6 +1,6 @@
 ---
 id: WORLD.LOGISTICS.001
-title: 物流与物品传输（传送带 / 路由 / 交叉 / 桥 / 质量驱动器）
+title: Item logistics and transport (conveyors / routers / junctions / bridges / mass drivers)
 domain: world
 status: active
 ver: [v160.7_rt, v159.3_src]
@@ -21,32 +21,32 @@ data:
   - "00-data/blocks.json#id=junction"
   - "00-data/blocks.json#id=mass-driver"
 depends: [WORLD.BLOCKS.001, WORLD.CRAFTING.001]
-tags: [物流, 传送带, conveyor, duct, router, junction, bridge, mass-driver, 吞吐, items/s]
+tags: [logistics, conveyors, conveyor, duct, router, junction, bridge, mass-driver, throughput, items/s]
 tokens: 1837
 ---
 
-## 一句话
+## In one sentence
 
-物品在方块之间的移动全靠传送带、管道、路由器、交叉器、桥、质量驱动器这几类方块；源码里所有速率都是 **per tick**（×60 才是 /秒），而三种方块的 `speed` 字段**单位互不相同**（格/tick、tick/件、系数），混用会直接差一个数量级。
+Items move between blocks only through conveyors, ducts, routers, junctions, bridges and mass drivers; every rate in the source is **per tick** (×60 for per second), and the `speed` field of the three families **uses three different units** (tiles/tick, tick/item, a coefficient) — mixing them up costs you an order of magnitude.
 
-## 规则 / 公式
+## Rules / formulas
 
-### 1. 三种速率的单位口径（先记这个，否则后面全错）
+### 1. The unit conventions of the three rates (memorise this first, or everything after is wrong)
 
-| 类 | 字段 | 单位 | 换算 | 源码 |
+| Class | Field | Unit | Conversion | Source |
 |---|---|---|---|---|
-| `Conveyor` | `speed` | **格/tick** | 吞吐 ≈ `speed × 60 / itemSpace`，`itemSpace = 0.4` | Conveyor.java:32、Conveyor.java:27 |
-| `Duct` | `speed` | **tick/件** | 显示值 = `60 / speed` | Duct.java:27、Duct.java:61 |
-| `Junction` | `speed` | **tick/件** | 过路口等 26 tick | Junction.java:13 |
-| `Router` | `speed` | 件/tick 系数 | `time += 1/speed × delta`，8 tick 放一件 | Router.java:13、Router.java:61 |
-| `StackConveyor` | `speed` | 格/tick | 吞吐 = `itemCapacity × speed × 60` | StackConveyor.java:38、StackConveyor.java:67 |
-| `MassDriver` | `reload` | tick/发 | 发速 = `60/reload`，件速 = `itemCapacity × 60/reload` | MassDriver.java:33、MassDriver.java:66-69 |
+| `Conveyor` | `speed` | **tiles/tick** | throughput ≈ `speed × 60 / itemSpace`, `itemSpace = 0.4` | Conveyor.java:32, Conveyor.java:27 |
+| `Duct` | `speed` | **tick/item** | displayed value = `60 / speed` | Duct.java:27, Duct.java:61 |
+| `Junction` | `speed` | **tick/item** | 26 tick to cross the junction | Junction.java:13 |
+| `Router` | `speed` | items/tick coefficient | `time += 1/speed × delta`, one item every 8 tick | Router.java:13, Router.java:61 |
+| `StackConveyor` | `speed` | tiles/tick | throughput = `itemCapacity × speed × 60` | StackConveyor.java:38, StackConveyor.java:67 |
+| `MassDriver` | `reload` | tick/shot | shot rate = `60/reload`, item rate = `itemCapacity × 60/reload` | MassDriver.java:33, MassDriver.java:66-69 |
 
-`Conveyor` 的吞吐推导：一格最多 3 件（`capacity = 3`，Conveyor.java:28），物品间距 `itemSpace = 0.4`（Conveyor.java:27）以「格」为单位，所以 1 格长度只排得下 2.5 件；每 tick 前进 `speed` 格 ⇒ 每秒通过 `speed × 60 / 0.4` 件。[v160.7] `conveyor` 的 `speed = 0.035` ⇒ 5.25 件/s；[v159.3] 源码 `speed = 0.046`（Blocks.java:2071）⇒ 6.9 件/s。UI 上那个 `displayedSpeed`（v160.7 = 5，v159.3 = 6.5）是**手填近似值**，源码注释原文写着实际移动速度「apparently not linear」（Conveyor.java:59-60），别拿它反推公式。
+Deriving `Conveyor` throughput: one tile holds at most 3 items (`capacity = 3`, Conveyor.java:28) and the item spacing `itemSpace = 0.4` (Conveyor.java:27) is measured in tiles, so a 1-tile length fits only 2.5 items; each item advances `speed` tiles per tick ⇒ `speed × 60 / 0.4` items pass per second. [v160.7] `conveyor` has `speed = 0.035` ⇒ 5.25 items/s; [v159.3] the source has `speed = 0.046` (Blocks.java:2071) ⇒ 6.9 items/s. The `displayedSpeed` on the UI (v160.7 = 5, v159.3 = 6.5) is a **hand-filled approximation** — the source comment says outright that the actual movement speed is "apparently not linear" (Conveyor.java:59-60) — so do not reverse-engineer the formula from it.
 
-### 2. 传送带单格模型：3 件、间距 0.4、被前一件卡住
+### 2. The single-tile conveyor model: 3 items, spacing 0.4, blocked by the item ahead
 
-每格是一条长度 1 的「绳子」，物品位置 `ys ∈ [0,1]`，`ys = 1` 表示可以交给下游。每 tick 前移 `moved = speed × edelta`（Conveyor.java:266），但每一件的上限是「前一件位置 − itemSpace」：
+Each tile is a "rope" of length 1 with item positions `ys ∈ [0,1]`, where `ys = 1` means it can be handed downstream. Each tick every item advances `moved = speed × edelta` (Conveyor.java:266), but each item's ceiling is "the position of the item ahead − itemSpace":
 
 ```
 nextpos = (i == len-1 ? 100 : ys[i+1]) - itemSpace
@@ -54,141 +54,141 @@ maxmove = clamp(nextpos - ys[i], 0, moved)   // 不能穿过前一件
 ys[i] += maxmove
 ```
 
-（Conveyor.java:268-272）当 `ys >= 1` 且下游 `acceptItem` 返回真，才真正交付（`pass()`，Conveyor.java:278、Conveyor.java:300-306）；下游不收就停在 1.0，后面的件依次压住——这就是回压（backpressure）。堵塞时 `minitem < itemSpace` 会让 `clogHeat` 每 tick 逼近 1（Conveyor.java:291-295），`clogHeat > 0.5` 时传送带不再推动踩在上面的单位、贴图停帧（Conveyor.java:145、Conveyor.java:229）。
+(Conveyor.java:268-272) Delivery happens only when `ys >= 1` and the downstream `acceptItem` returns true (`pass()`, Conveyor.java:278, Conveyor.java:300-306); if the downstream refuses, the item waits at 1.0 and the items behind pile up against it — that is backpressure. While jammed, `minitem < itemSpace` drives `clogHeat` towards 1 each tick (Conveyor.java:291-295), and once `clogHeat > 0.5` the conveyor stops pushing units standing on it and its sprite freezes (Conveyor.java:145, Conveyor.java:229).
 
-一条 5 格直线传送带最多堆 5×3 = 15 件；堵满**不会丢物品**，只是不再前进。
+A straight 5-tile conveyor holds at most 5×3 = 15 items; when completely jammed it **does not lose items**, it simply stops advancing.
 
-### 3. 管道 Duct：1 件/格，却比传送带快
+### 3. Ducts: 1 item per tile, yet faster than a conveyor
 
-Duct 每格只放 1 件（`itemCapacity = 1`，Duct.java:44），`acceptItem` 要求 `current == null && items.total() == 0`（Duct.java:212-220），而且**不接受从背面进来的物品**（Duct.java:219 判 `!= 2`）；ArmoredDuct 反过来只接受正面来货（Duct.java:216-217）。
+A Duct holds only 1 item per tile (`itemCapacity = 1`, Duct.java:44); `acceptItem` requires `current == null && items.total() == 0` (Duct.java:212-220) and **does not accept items entering from the back** (Duct.java:219 checks `!= 2`); ArmoredDuct is the reverse and accepts only from the front (Duct.java:216-217).
 
-它的推进不是「每 tick 走一格」，而是积攒进度：
+Its advance is not "one tile per tick" but accumulated progress:
 
 ```
 progress += edelta() / speed * 2                                   // Duct.java:194
 if(progress >= 1 - 1f/speed && moveForward(current)){ ... progress %= 1 - 1f/speed; }
 ```
 
-（Duct.java:194-201）`speed = 4`（Blocks.java:2180，v160.7 jar 同为 4）⇒ 阈值 0.75、每 tick +0.5，大约 2 件/3 tick ≈ 20 件/s；而 `setStats` 写的是 `60 / speed = 15` 件/s（Duct.java:61）。**两个口径都是源码写死的、互相不等**，所以本篇给区间 15–20 件/s 而不给单值。duct 靠「1 格 1 件 + 便宜」堆密度，不靠单格速度。
+(Duct.java:194-201) With `speed = 4` (Blocks.java:2180, and also 4 in the v160.7 jar) ⇒ threshold 0.75, +0.5 per tick, roughly 2 items per 3 tick ≈ 20 items/s; yet `setStats` writes `60 / speed = 15` items/s (Duct.java:61). **Both figures are hard-coded in the source and they do not agree**, which is why this article gives the range 15–20 items/s rather than a single value. A duct gains density from "1 item per tile and cheap", not from per-tile speed.
 
-### 4. 路由器 / 交叉器 / 分选器：三个「不缓存」的小方块
+### 4. Routers / junctions / sorters: three small blocks that "do not buffer"
 
-- **Router**：`itemCapacity = 1`（Router.java:21），只有空槽才收（`acceptItem`，Router.java:79-81）；`time += 1f/speed × delta` 攒满 1 才放行（Router.java:61），`speed = 8` ⇒ 最快 7.5 件/s，且**目标也是 Router 时同样要等满**（Router.java:64）。选目标靠 `rotation` 在 `proximity` 里轮转（Router.java:119-127），是近似轮询而不是精确均分。
-- **Junction**（交叉器）：不是「缓存 6 件」，而是**每个方向各 6 件**——`DirectionalItemBuffer(capacity)`，`capacity = 6`（Junction.java:46、Junction.java:14）。物品带时间戳进来，等满 `speed = 26` tick 才朝同方向邻居交付（Junction.java:62-74）。所以一个路口最多压 4×6 = 24 件，任意方向过路口要 26 tick ≈ 0.43 s。
-- **Sorter / InvertedSorter**：`sortItem` 是配置项（Sorter.java:37-38），命中的物品走正前方、不命中的走两侧（Sorter.java:96-133）；`instantTransfer = true`（Sorter.java:28）表示「这一格本身不花 tick」，但前后格该等还得等。
-- **OverflowGate / UnderflowGate**：`itemCapacity = 0`（不缓存）、`instantTransfer = true`，正面能收就直送，不能收才往两侧分（OverflowGate.java:22-25、OverflowGate.java:51-81）；underflow 只是 `invert = true`（Blocks.java:2209-2216）。两者 `canOverdrive = false`（v160.7 jar 反射），不吃超频加成。
+- **Router**: `itemCapacity = 1` (Router.java:21) and it accepts only into an empty slot (`acceptItem`, Router.java:79-81); `time += 1f/speed × delta` must reach 1 before it releases (Router.java:61), and `speed = 8` ⇒ at most 7.5 items/s, and **if the target is also a Router it still has to wait its full delay** (Router.java:64). Target selection rotates through `proximity` by `rotation` (Router.java:119-127), which is approximate round-robin, not exact even splitting.
+- **Junction**: not "6 items buffered", but **6 items per direction** — `DirectionalItemBuffer(capacity)` with `capacity = 6` (Junction.java:46, Junction.java:14). An item enters with a timestamp and is delivered to the same-direction neighbour only after a full `speed = 26` tick (Junction.java:62-74). So one junction holds at most 4×6 = 24 items, and crossing it in any direction takes 26 tick ≈ 0.43 s.
+- **Sorter / InvertedSorter**: `sortItem` is a config option (Sorter.java:37-38); a matching item goes straight ahead and a non-matching one goes to the sides (Sorter.java:96-133); `instantTransfer = true` (Sorter.java:28) means "this tile itself costs no tick", but the tiles before and after still wait as usual.
+- **OverflowGate / UnderflowGate**: `itemCapacity = 0` (no buffering), `instantTransfer = true`; whatever the front can accept is passed straight through, and only what it cannot accept is split to the sides (OverflowGate.java:22-25, OverflowGate.java:51-81); underflow is simply `invert = true` (Blocks.java:2209-2216). Both have `canOverdrive = false` (v160.7 jar reflection), so they take no overdrive bonus.
 
-### 5. 桥与相位桥：链式投递
+### 5. Bridges and phase bridges: chained delivery
 
-`bridge-conveyor`（BufferedItemBridge）：`range = 4`、`bufferCapacity = 14`、`itemCapacity = 10`、`speed = 74`、`displayedSpeed = 11`（Blocks.java:2105-2113，v160.7 jar 完全一致）；内部一个 `ItemBuffer`，`poll(speed/timeScale)` 取件（BufferedItemBridge.java:41），源码注释承认「移动速度靠实测」（BufferedItemBridge.java:27）。它的 11 件/s 就是这一格的吞吐上限，比传送带的 5 件/s 高一倍多。
+`bridge-conveyor` (BufferedItemBridge): `range = 4`, `bufferCapacity = 14`, `itemCapacity = 10`, `speed = 74`, `displayedSpeed = 11` (Blocks.java:2105-2113, identical in the v160.7 jar); internally an `ItemBuffer`, with `poll(speed/timeScale)` taking items (BufferedItemBridge.java:41), and the source comment admits that "movement speed is empirical" (BufferedItemBridge.java:27). Its 11 items/s is this block's throughput ceiling, more than double a conveyor's 5 items/s.
 
-`phase-conveyor`（ItemBridge）：`range = 12`、`transportTime = 2`、耗电 `0.30/tick = 18/s`（Blocks.java:2115-2125）。它不缓冲，每 `transportTime` tick 直接 `items.take()` 投一件（ItemBridge.java:355-368）⇒ 上限 60/2 = 30 件/s。链接约束在 `positionsValid`：两端必须**同一行或同一列**且距离 ≤ range，否则直接 `false`（ItemBridge.java:157-165），斜放无效。
+`phase-conveyor` (ItemBridge): `range = 12`, `transportTime = 2`, power draw `0.30/tick = 18/s` (Blocks.java:2115-2125). It does not buffer; every `transportTime` tick it simply does `items.take()` and launches one item (ItemBridge.java:355-368) ⇒ ceiling 60/2 = 30 items/s. The link constraint is in `positionsValid`: the two ends must be **in the same row or the same column** and within `range`, otherwise it returns `false` outright (ItemBridge.java:157-165) — diagonal placement does nothing.
 
-### 6. 质量驱动器：两端各留 10 件才开火
+### 6. Mass drivers: 10 items on each side before they fire
 
-`mass-driver`：`range = 440`（px，= 55 格，stats 显示 `range/tilesize`，MassDriver.java:66）、`reload = 200` tick/发、`itemCapacity = 120`、`minDistribute = 10`、`size = 3`（Blocks.java:2166-2173；MassDriver.java:31）。开火是一串「与」条件：
+`mass-driver`: `range = 440` (px, = 55 tiles; stats show `range/tilesize`, MassDriver.java:66), `reload = 200` tick/shot, `itemCapacity = 120`, `minDistribute = 10`, `size = 3` (Blocks.java:2166-2173; MassDriver.java:31). Firing is a chain of AND conditions:
 
-- 自己库存 `>= minDistribute`，且**对面剩余容量** `>= minDistribute`（MassDriver.java:192-193）；
-- 对面正处在接收态、且没有别的驱动器在排队（MassDriver.java:204-206）；
-- 两端旋转角都对齐到 ±2° 内（MassDriver.java:204-206），否则一直转（`rotateSpeed = 5`，MassDriver.java:29）；
-- 有电（`efficiency > 0`，MassDriver.java:169）。
+- its own stock `>= minDistribute`, and **the other end's remaining capacity** `>= minDistribute` (MassDriver.java:192-193);
+- the other end is in a receiving state and no other driver is queued (MassDriver.java:204-206);
+- both ends' rotations are aligned within ±2° (MassDriver.java:204-206), otherwise it keeps rotating (`rotateSpeed = 5`, MassDriver.java:29);
+- it has power (`efficiency > 0`, MassDriver.java:169).
 
-开火时把库存**按物品类型全部打包**发走，单类型上限取 `min(自己库存, 对面剩余容量)`（MassDriver.java:298-303）；接收端最多加到 `itemCapacity × 2 = 240`（MassDriver.java:324）。所以它一发就是 100+ 件级别，`60/reload = 0.3` 发/s × 120 = 36 件/s 的名义件速（MassDriver.java:66-69）。
+Firing **packs the whole stock by item type** and sends it, with a per-type ceiling of `min(own stock, the other end's remaining capacity)` (MassDriver.java:298-303); the receiver can hold up to `itemCapacity × 2 = 240` (MassDriver.java:324). So one shot is in the 100+ items range, and `60/reload = 0.3` shots/s × 120 = a nominal 36 items/s (MassDriver.java:66-69).
 
-### 7. 卸载器（取货端）
+### 7. Unloaders (the pickup side)
 
-- `unloader`：从紧邻的存储方块（核心/容器）里取一件推到正面，`speed = 60/11 ≈ 5.4545` tick/件 ⇒ **11 件/s**（Blocks.java:2162；stats 显示 `60/speed`，Unloader.java:61-63），默认 `allowCoreUnload = true`。
-- `duct-unloader`（DirectionalUnloader）：`speed = 4` ⇒ **15 件/s**（Blocks.java:2227-2234），`unloadTimer += edelta()` 攒满 `speed` 才搬一件（DirectionalUnloader.java:93-118），且默认 `allowCoreUnload = false`（DirectionalUnloader.java:26）——不能从核心直抽，只能从容器抽。
+- `unloader`: takes one item from the adjacent storage block (core/container) and pushes it to its front face, `speed = 60/11 ≈ 5.4545` tick/item ⇒ **11 items/s** (Blocks.java:2162; stats show `60/speed`, Unloader.java:61-63), with `allowCoreUnload = true` by default.
+- `duct-unloader` (DirectionalUnloader): `speed = 4` ⇒ **15 items/s** (Blocks.java:2227-2234); `unloadTimer += edelta()` must reach `speed` before one item moves (DirectionalUnloader.java:93-118), and `allowCoreUnload = false` by default (DirectionalUnloader.java:26) — it cannot pull directly from a core, only from containers.
 
-取货端的存储容量与优先级见 W10。
+Storage capacity and priority on the pickup side are covered in W10.
 
-## 数值
+## Numbers
 
-**运输方块全表（v160.7 jar 反射；同名记录在 `00-data/blocks.json#id=<name>`）**
+**Full transport-block table (v160.7 jar reflection; same-name records live in `00-data/blocks.json#id=<name>`)**
 
-| 方块 | size | itemCapacity | speed 原值 | 吞吐（件/s） | 出处 |
+| Block | size | itemCapacity | raw speed | Throughput (items/s) | Source |
 |---|---|---|---|---|---|
-| `conveyor` | 1 | 3 | 0.035 格/tick | **5.25**（UI 显示 5）；[v159.3] 0.046 ⇒ 6.9 | Blocks.java:2068-2074 |
-| `titanium-conveyor` | 1 | 3 | 0.0801 格/tick | 10 | Blocks.java:2076-2081 |
-| `armored-conveyor` | 1 | 3 | 0.08 格/tick | 10（[v159.3] displayedSpeed 11） | Blocks.java:2090-2095 |
-| `plastanium-conveyor` | 1 | 10 | 0.0667 格/tick | 40（10×0.0667×60） | Blocks.java:2083-2088 |
-| `surge-conveyor` | 1 | 10 | 0.0833 格/tick | 50（10×0.0833×60），耗电 1/tick | Blocks.java:2236-2252 |
-| `duct` / `armored-duct` | 1 | 1 | 4 tick/件 | 15（stats）～20（手算） | Blocks.java:2177-2190 |
-| `duct-router` | 1 | 1 | 4 tick/件 | 15 | Blocks.java:2192-2199 |
-| `duct-bridge` | 1 | 4 | 4 tick/件，range 4 | 15 | Blocks.java:2218-2225 |
-| `junction` | 1 | 10（每向缓冲 6） | 26 tick/件 | 13（displayedSpeed） | Junction.java:13-15 |
-| `router` / `distributor` | 1 / 2 | 1 | 8 | 7.5（手算） | Router.java:13、Blocks.java:2138-2143 |
-| `bridge-conveyor` | 1 | 10（缓冲 14） | 74，range 4 | 11 | Blocks.java:2105-2113 |
-| `phase-conveyor` | 1 | 10 | transportTime 2，range 12 | 30（上限），耗电 18/s | Blocks.java:2115-2125 |
-| `mass-driver` | 3 | 120 | reload 200 | 0.3 发/s、36 件/s（名义），耗电 105/s | Blocks.java:2166-2173 |
-| `unloader` | 1 | 0 | 5.4545 tick/件 | 11 | Blocks.java:2160-2164 |
-| `duct-unloader` | 1 | 0 | 4 tick/件 | 15 | Blocks.java:2227-2234 |
+| `conveyor` | 1 | 3 | 0.035 tiles/tick | **5.25** (UI shows 5); [v159.3] 0.046 ⇒ 6.9 | Blocks.java:2068-2074 |
+| `titanium-conveyor` | 1 | 3 | 0.0801 tiles/tick | 10 | Blocks.java:2076-2081 |
+| `armored-conveyor` | 1 | 3 | 0.08 tiles/tick | 10 ([v159.3] displayedSpeed 11) | Blocks.java:2090-2095 |
+| `plastanium-conveyor` | 1 | 10 | 0.0667 tiles/tick | 40 (10×0.0667×60) | Blocks.java:2083-2088 |
+| `surge-conveyor` | 1 | 10 | 0.0833 tiles/tick | 50 (10×0.0833×60), power 1/tick | Blocks.java:2236-2252 |
+| `duct` / `armored-duct` | 1 | 1 | 4 tick/item | 15 (stats) – 20 (hand-calculated) | Blocks.java:2177-2190 |
+| `duct-router` | 1 | 1 | 4 tick/item | 15 | Blocks.java:2192-2199 |
+| `duct-bridge` | 1 | 4 | 4 tick/item, range 4 | 15 | Blocks.java:2218-2225 |
+| `junction` | 1 | 10 (6 buffered per direction) | 26 tick/item | 13 (displayedSpeed) | Junction.java:13-15 |
+| `router` / `distributor` | 1 / 2 | 1 | 8 | 7.5 (hand-calculated) | Router.java:13, Blocks.java:2138-2143 |
+| `bridge-conveyor` | 1 | 10 (buffer 14) | 74, range 4 | 11 | Blocks.java:2105-2113 |
+| `phase-conveyor` | 1 | 10 | transportTime 2, range 12 | 30 (ceiling), power 18/s | Blocks.java:2115-2125 |
+| `mass-driver` | 3 | 120 | reload 200 | 0.3 shots/s, 36 items/s (nominal), power 105/s | Blocks.java:2166-2173 |
+| `unloader` | 1 | 0 | 5.4545 tick/item | 11 | Blocks.java:2160-2164 |
+| `duct-unloader` | 1 | 0 | 4 tick/item | 15 | Blocks.java:2227-2234 |
 
-**单格缓冲容量（堵住时最多压多少件）**
+**Per-tile buffer capacity (how much piles up when jammed)**
 
-| 方块 | 每格/每向容量 | 说明 | 出处 |
+| Block | Capacity per tile/direction | Note | Source |
 |---|---|---|---|
-| `conveyor` / `titanium-conveyor` / `armored-conveyor` | 3 件/格 | `capacity = 3`、间距 0.4 | Conveyor.java:27-28 |
-| `plastanium-conveyor` / `surge-conveyor` | 10 件/整条带 | 存储式传送带 | StackConveyor 默认；Blocks.java:2087 |
-| `duct` / `armored-duct` | 1 件/格 | `itemCapacity = 1` | Duct.java:44 |
-| `junction` | 6 件 × 4 向 = 24 件 | `DirectionalItemBuffer(capacity)` | Junction.java:14、Junction.java:46 |
-| `router` / `distributor` | 1 件 | 只有单槽 | Router.java:21 |
-| `bridge-conveyor` | 14 件 | `bufferCapacity` | Blocks.java:2111 |
-| `duct-bridge` | 4 件 | jar 反射 `itemCapacity = 4` | 00-data/blocks.json#id=duct-bridge |
-| `mass-driver` | 120 件（接收端吃 240） | `itemCapacity × 2` 上限 | MassDriver.java:324 |
+| `conveyor` / `titanium-conveyor` / `armored-conveyor` | 3 items/tile | `capacity = 3`, spacing 0.4 | Conveyor.java:27-28 |
+| `plastanium-conveyor` / `surge-conveyor` | 10 items / whole belt | stacking conveyor | StackConveyor default; Blocks.java:2087 |
+| `duct` / `armored-duct` | 1 item/tile | `itemCapacity = 1` | Duct.java:44 |
+| `junction` | 6 items × 4 directions = 24 items | `DirectionalItemBuffer(capacity)` | Junction.java:14, Junction.java:46 |
+| `router` / `distributor` | 1 item | single slot only | Router.java:21 |
+| `bridge-conveyor` | 14 items | `bufferCapacity` | Blocks.java:2111 |
+| `duct-bridge` | 4 items | jar reflection `itemCapacity = 4` | 00-data/blocks.json#id=duct-bridge |
+| `mass-driver` | 120 items (receiver takes 240) | `itemCapacity × 2` ceiling | MassDriver.java:324 |
 
-**双版本差异（v159.3 源码 vs v160.7 jar）**
+**Cross-version differences (v159.3 source vs v160.7 jar)**
 
-| 方块 | 字段 | v159.3 源码 | v160.7 线上 |
+| Block | Field | v159.3 source | v160.7 live |
 |---|---|---|---|
-| `conveyor` | `speed` | 0.046（Blocks.java:2071） | 0.035 |
-| `conveyor` | `displayedSpeed` | 6.5（Blocks.java:2072） | 5 |
-| `armored-conveyor` | `displayedSpeed` | 11（Blocks.java:2094） | 10 |
-| `junction` | `speed` / `capacity` | 26 / 6（Blocks.java:2099-2100） | 26 / 6（一致） |
-| `bridge-conveyor` | `speed` / `bufferCapacity` | 74 / 14（Blocks.java:2109-2111） | 74 / 14（一致） |
+| `conveyor` | `speed` | 0.046 (Blocks.java:2071) | 0.035 |
+| `conveyor` | `displayedSpeed` | 6.5 (Blocks.java:2072) | 5 |
+| `armored-conveyor` | `displayedSpeed` | 11 (Blocks.java:2094) | 10 |
+| `junction` | `speed` / `capacity` | 26 / 6 (Blocks.java:2099-2100) | 26 / 6 (same) |
+| `bridge-conveyor` | `speed` / `bufferCapacity` | 74 / 14 (Blocks.java:2109-2111) | 74 / 14 (same) |
 
-## 源码锚点
+## Source anchors
 
-- `Conveyor.java:27-28` `itemSpace = 0.4f`、`capacity = 3`；`Conveyor.java:32-33` `speed` / `displayedSpeed`；`Conveyor.java:59-60` 注释「实际速度非线性」。
-- `Conveyor.java:265-298` `updateTile`：`nextMax` 对齐、`moved = speed * edelta()`、逐件 clamp、`ys >= 1 && pass()` 交付；`Conveyor.java:291-295` `clogHeat`。
-- `Conveyor.java:300-306` `pass()`：`next.acceptItem(this, item)` 才转交。
-- `Duct.java:61` stats `60f / speed`；`Duct.java:193-209` `progress` 推进；`Duct.java:212-220` `acceptItem` 与背面禁令。
-- `Junction.java:13-15` `speed = 26` / `capacity = 6` / `displayedSpeed = 13`；`Junction.java:54-78` 每向独立队列、`Time.time >= time + speed` 才交付。
-- `Router.java:13` `speed = 8`；`Router.java:61` `time += 1f / speed * delta()`；`Router.java:100-129` `getTileTarget` 轮转。
-- `StackConveyor.java:64-68` `stats.add(Stat.itemsMoved, round(itemCapacity * speed * 60))`。
-- `BufferedItemBridge.java:12-14` `speed = 40`（默认）/ `bufferCapacity = 50` / `displayedSpeed = 11`；`BufferedItemBridge.java:36-47` `buffer.poll` 与 `timer(timerAccept, 4 / timeScale)`。
-- `ItemBridge.java:157-165` `positionsValid` 同行/同列约束；`ItemBridge.java:355-368` `updateTransport` 按 `transportTime` 投递。
-- `MassDriver.java:29-36` `rotateSpeed/translation/minDistribute/reload`；`MassDriver.java:192-206` 开火条件；`MassDriver.java:290-303` `fire()` 打包全部库存；`MassDriver.java:66-69` 发速 stats。
-- `DirectionalUnloader.java:25-26` `speed` / `allowCoreUnload`；`DirectionalUnloader.java:93-118` `unloadTimer` 循环。
-- `content/Blocks.java:2068-2267` 所有运输方块的具体赋值（本表数值的源头）。
+- `Conveyor.java:27-28` `itemSpace = 0.4f`, `capacity = 3`; `Conveyor.java:32-33` `speed` / `displayedSpeed`; `Conveyor.java:59-60` the comment that actual speed is non-linear.
+- `Conveyor.java:265-298` `updateTile`: `nextMax` alignment, `moved = speed * edelta()`, per-item clamp, delivery on `ys >= 1 && pass()`; `Conveyor.java:291-295` `clogHeat`.
+- `Conveyor.java:300-306` `pass()`: handover only if `next.acceptItem(this, item)`.
+- `Duct.java:61` stats `60f / speed`; `Duct.java:193-209` `progress` advance; `Duct.java:212-220` `acceptItem` and the back-face ban.
+- `Junction.java:13-15` `speed = 26` / `capacity = 6` / `displayedSpeed = 13`; `Junction.java:54-78` an independent queue per direction, delivering only once `Time.time >= time + speed`.
+- `Router.java:13` `speed = 8`; `Router.java:61` `time += 1f / speed * delta()`; `Router.java:100-129` `getTileTarget` rotation.
+- `StackConveyor.java:64-68` `stats.add(Stat.itemsMoved, round(itemCapacity * speed * 60))`.
+- `BufferedItemBridge.java:12-14` `speed = 40` (default) / `bufferCapacity = 50` / `displayedSpeed = 11`; `BufferedItemBridge.java:36-47` `buffer.poll` and `timer(timerAccept, 4 / timeScale)`.
+- `ItemBridge.java:157-165` `positionsValid` same-row/same-column constraint; `ItemBridge.java:355-368` `updateTransport` delivering per `transportTime`.
+- `MassDriver.java:29-36` `rotateSpeed/translation/minDistribute/reload`; `MassDriver.java:192-206` firing conditions; `MassDriver.java:290-303` `fire()` packing the whole stock; `MassDriver.java:66-69` the shot-rate stats.
+- `DirectionalUnloader.java:25-26` `speed` / `allowCoreUnload`; `DirectionalUnloader.java:93-118` the `unloadTimer` cycle.
+- `content/Blocks.java:2068-2267` the concrete assignments of every transport block (the origin of this table's numbers).
 
-## 实测与反例
+## Measurements and counter-examples
 
-**反例 1（`displayedSpeed` 反推不出真实吞吐）**：`titanium-conveyor` 的 `speed = 0.0801` 格/tick，按 `0.0801 × 60 / 0.4` 应为 **12.0 件/s**，但游戏 UI 写 **10 件/s**（Blocks.java:2080）；`armored-conveyor` 同样 0.08 格/tick 算得 12.0，UI 写 10（v160.7）/ 11（v159.3 源码 Blocks.java:2094）。偏差 17–20%，所以官方自己用 `displayedSpeed` 而不是现算。任何「传送带 = X 件/s」的结论都必须说明是哪个口径。
+**Counter-example 1 (`displayedSpeed` cannot be reverse-engineered into real throughput)**: `titanium-conveyor` has `speed = 0.0801` tiles/tick, which by `0.0801 × 60 / 0.4` should be **12.0 items/s**, yet the game UI says **10 items/s** (Blocks.java:2080); `armored-conveyor` likewise computes 12.0 from 0.08 tiles/tick while the UI says 10 (v160.7) / 11 (v159.3 source, Blocks.java:2094). The deviation is 17–20%, which is why the game itself uses `displayedSpeed` instead of computing on the fly. Any "conveyor = X items/s" claim must state which convention it uses.
 
-**反例 2（junction 不是 6 件，是 24 件）**：`capacity = 6` 常被读成「整个路口缓存 6 件」。实际构造是 `DirectionalItemBuffer(capacity)`（Junction.java:46），**每方向一条 6 件队列**，四向共 24 件；而且过路口要等 `speed = 26` tick（Junction.java:62），所以它吞吐只有 `displayedSpeed = 13` 件/s，不是「无限直通」。
+**Counter-example 2 (a junction is not 6 items, it is 24)**: `capacity = 6` is often read as "the whole junction buffers 6 items". The actual construction is `DirectionalItemBuffer(capacity)` (Junction.java:46), i.e. **one 6-item queue per direction**, 24 items across the four; and crossing takes `speed = 26` tick (Junction.java:62), so its throughput is only `displayedSpeed = 13` items/s, not "infinitely straight through".
 
-**反例 3（`duct` 的 `speed = 4` 不是速度）**：若把 duct 的 4 当成「4 格/tick」，会算出 240 件/s；实际 `Duct.java:194` 是 `progress += edelta()/speed*2`，**speed 越大越慢**，4 对应 15–20 件/s。传送带与管道这两个 `speed` 的单位是反的。
+**Counter-example 3 (`duct`'s `speed = 4` is not a speed)**: treating a duct's 4 as "4 tiles/tick" yields 240 items/s; `Duct.java:194` actually reads `progress += edelta()/speed*2`, so **the larger the speed, the slower it moves** — 4 corresponds to 15–20 items/s. The two `speed` fields of conveyors and ducts point in opposite directions.
 
-**反例 4（质量驱动器 9 件永远不发）**：`minDistribute = 10`（Blocks.java:2166-2173、MassDriver.java:31），自己库存 9 件、或对面剩余空间 9 格时，条件 `items.total() >= minDistribute && link.block.itemCapacity - link.items.total() >= minDistribute`（MassDriver.java:192-193）不成立，驱动器一直转但不开火。看起来像「坏了」，其实是阈值。
+**Counter-example 4 (a mass driver with 9 items never fires)**: `minDistribute = 10` (Blocks.java:2166-2173, MassDriver.java:31), so with 9 items in its own stock, or 9 tiles of free space at the other end, the condition `items.total() >= minDistribute && link.block.itemCapacity - link.items.total() >= minDistribute` (MassDriver.java:192-193) fails and the driver rotates forever without firing. It looks "broken", but it is just the threshold.
 
-**反例 5（相位桥斜放无语义）**：`positionsValid` 只在 `x1 == x2` 或 `y1 == y2` 时比较距离，其他情况直接 `return false`（ItemBridge.java:157-165）。把两个相位桥对角摆 3 格，距离 4.2 px 看似在 `range = 12` 内，但链接永远不成立。
+**Counter-example 5 (a diagonal phase bridge has no meaning)**: `positionsValid` compares distances only when `x1 == x2` or `y1 == y2`, and otherwise returns `false` outright (ItemBridge.java:157-165). Place two phase bridges 3 tiles apart diagonally: the distance 4.2 px looks well inside `range = 12`, yet the link never forms.
 
-**反例 6（回压会停单位但不会丢货）**：传送带堵住时 `clogHeat` 升到 1（Conveyor.java:291-295），此时 `unitOn` 直接 return、不再给单位加速度（Conveyor.java:229），但带上的 3 件物品原地不动、不消失。用这招可以「用传送带粘住敌人」，但不会销毁物品。
+**Counter-example 6 (backpressure stops units but loses no cargo)**: when a conveyor jams, `clogHeat` rises to 1 (Conveyor.java:291-295); `unitOn` then returns immediately and no longer accelerates units (Conveyor.java:229), but the 3 items on the belt stay put and do not vanish. This lets you "glue enemies in place with conveyors", and it never destroys items.
 
-## 常见误解
+## Common misconceptions
 
-1. **「传送带堵住会丢物品」**——不会。`acceptItem` 为假时物品停在 `ys = 1`，内部的 `items` 计数不变（Conveyor.java:278-289），直到下游接收。
-2. **「路由器把物品均分到三条支线」**——是近似轮询 `(i + counter) % proximity.size`（Router.java:119-127），单槽 1 件（Router.java:21）、8 tick 放一次（Router.java:61），瞬时脉冲会全走第一条能收的线。
-3. **「交叉器 = 十字路口缓存」**——它只缓存自己方向的 6 件（Junction.java:14、46），逆向堵住时整条线停摆，不会把货转到别的方向。
-4. **「分选器是零延迟」**——`instantTransfer = true`（Sorter.java:28）只表示「不额外加 tick」，仍受前后格 `acceptItem` 与 8 tick 节拍约束。
-5. **「质量驱动器能跨地图」**——`range = 440` px = **55 格**（MassDriver.java:66），超出后 `linkValid` 为假、直接 dump（MassDriver.java:164-166）。
-6. **「duct 比传送带慢」**——`duct` 15–20 件/s 明显快于 `conveyor` 的 5.25 件/s（v160.7），代价是 1 件/格、且要吃铍/电。
+1. **"a jammed conveyor loses items"** — it does not. When `acceptItem` is false the item waits at `ys = 1` and the internal `items` count is unchanged (Conveyor.java:278-289) until the downstream accepts.
+2. **"a router splits items evenly across three branches"** — it is approximate round-robin `(i + counter) % proximity.size` (Router.java:119-127), with a single slot of 1 item (Router.java:21) released once every 8 tick (Router.java:61), so a burst all goes down the first line that can accept.
+3. **"a junction = a crossroads buffer"** — it only buffers 6 items in its own direction (Junction.java:14, 46), so a blockage on the return path stalls the whole line rather than rerouting cargo to another direction.
+4. **"a sorter is zero-latency"** — `instantTransfer = true` (Sorter.java:28) only means "adds no extra tick"; it is still bound by the neighbouring `acceptItem` and by the 8-tick cadence.
+5. **"a mass driver spans the map"** — `range = 440` px = **55 tiles** (MassDriver.java:66); beyond that `linkValid` is false and items are simply dumped (MassDriver.java:164-166).
+6. **"ducts are slower than conveyors"** — a `duct`'s 15–20 items/s is clearly faster than a `conveyor`'s 5.25 items/s (v160.7); the price is 1 item per tile and running on beryllium/power.
 
-## 相关
+## Related
 
-- W01 方块与多格锚点（传送带 `rotate = true`、`underBullets`、size 与格数）
-- W02 配方与制造（产线入口输出到本层的传送带）
-- W10 存储（核心/容器/`unloader` 的取货优先级与容量）
-- W08 载荷（payload 传送带/路由器与物品传送带的区别）
-- W04 液体（管道与传送带是两套完全独立的传输系统）
+- W01 blocks and the multiblock anchor (conveyors' `rotate = true`, `underBullets`, size versus tile count)
+- W02 recipes and crafting (a production line's output feeding this layer's conveyors)
+- W10 storage (pickup priority and capacity of cores/containers/`unloader`)
+- W08 payloads (how payload conveyors/routers differ from item conveyors)
+- W04 liquids (conduits and conveyors are two entirely independent transport systems)

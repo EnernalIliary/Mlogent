@@ -1,6 +1,6 @@
 ---
 id: WORLD.PAYLOAD.001
-title: 载荷：方块载荷与单位载荷的整块搬运链（传送带 / 路由 / 建造机 / 解构机 / 质量驱动器）
+title: Payloads - the whole-block haul chain for block and unit payloads (conveyor / router / constructor / deconstructor / mass driver)
 domain: world
 status: active
 ver: [v160.7_rt, v159.3_src]
@@ -28,173 +28,173 @@ data:
   - 00-data/blocks.json#id=payload-loader
   - 00-data/blocks.json#id=payload-unloader
 depends: [WORLD.BLOCKS.001, WORLD.LOGISTICS.001, WORLD.STORAGE.001]
-tags: [载荷, payload, 载荷传送带, 载荷路由, 建造机, 解构机, 载荷质量驱动器, 单位载荷]
+tags: [payload, payload-conveyor, payload-router, constructor, deconstructor, payload-mass-driver, unit-payload, block-payload]
 tokens: 2105
 ---
 
-## 一句话
+## One line
 
-载荷（payload）是「整块被搬运的方块或单位」，走一条与物品物流完全独立的通道：载荷传送带按 tick 节拍逐格推送、载荷路由按被搬内容排序、建造机现场造建筑、解构机把建筑拆回物品、载荷质量驱动器把载荷跨图打击，所有容量统一以格数（tilesize = 8 px）而不是物品种数计量。
+A payload is "a block or unit hauled whole", and it travels on a channel completely separate from item logistics: payload conveyors push it one tile per tick beat, payload routers sort by what is being carried, constructors build blocks on the spot, deconstructors tear blocks back into items, payload mass drivers fling payloads across the map - and every capacity is measured in edge tiles (tilesize = 8 px) rather than in item kinds.
 
-## 规则 / 公式
+## Rules / formulas
 
-### 1. 载荷只有两种对象，尺寸都以像素给出
+### 1. Payloads are two object kinds, and sizes are given in pixels
 
-- `Payload.java:16` 定义 `payloadUnit = 0`、`Payload.java:17` 定义 `payloadBlock = 1`；存档与网络流里首字节就是这两个值（BuildPayload.java:97 写 `write.b(payloadBlock)`、UnitPayload.java:72 写 `write.b(payloadUnit)`）。 [src: Payload.java:16]
-- 方块载荷的尺寸来自方块：`BuildPayload.size()` 返回 `build.block.size * tilesize`（BuildPayload.java:86-88），即 3 格方块 = 24 px。 [src: BuildPayload.java:86-88]
-- 单位载荷的尺寸来自碰撞体积：`UnitPayload.size()` 返回 `unit.hitSize`（UnitPayload.java:98-101），与方块格数无关。 [src: UnitPayload.java:98-101]
-- 全系统只有一个尺寸判定函数：`Payload.java:50-52` `public boolean fits(float s){ return size() / tilesize <= s; }`，源码注释直接写「3 is the max for a standard 3x3 conveyor」。 [src: Payload.java:50-52]
+- `Payload.java:16` defines `payloadUnit = 0`, `Payload.java:17` defines `payloadBlock = 1`; the first byte in saves and network streams is one of these two values (BuildPayload.java:97 writes `write.b(payloadBlock)`, UnitPayload.java:72 writes `write.b(payloadUnit)`). [src: Payload.java:16]
+- A block payload's size comes from the block: `BuildPayload.size()` returns `build.block.size * tilesize` (BuildPayload.java:86-88), so a 3-tile block is 24 px. [src: BuildPayload.java:86-88]
+- A unit payload's size comes from its hitbox: `UnitPayload.size()` returns `unit.hitSize` (UnitPayload.java:98-101), unrelated to block tiles. [src: UnitPayload.java:98-101]
+- The whole system has exactly one size test: `Payload.java:50-52` `public boolean fits(float s){ return size() / tilesize <= s; }`, and the source comment says it outright: "3 is the max for a standard 3x3 conveyor". [src: Payload.java:50-52]
 
-### 2. 载荷容量是「边长格数」，不是格数平方
+### 2. Payload capacity is an edge length in tiles, not tiles squared
 
-payloadLimit = 3（PayloadConveyor.java:21）表示「能通过的载荷最大边长 3 格」，换算成像素是 3 × 8 = 24 px。所以： [src: PayloadConveyor.java:21]
+payloadLimit = 3 (PayloadConveyor.java:21) means "the largest payload that can pass has an edge of 3 tiles", which is 3 × 8 = 24 px in pixels. So: [src: PayloadConveyor.java:21]
 
-- constructor 是 3 格（24 px）方块，可以进；large-constructor 是 5 格（40 px），进不去。
-- 单位看 hitSize：一个 hitSize ≤ 24 px 的单位才算合格，和它是几级单位无关（PayloadConveyor.java:87 在推送单位前用 `unit.hitSize / tilesize <= payloadLimit` 再判一次）。 [src: PayloadConveyor.java:87]
+- constructor is a 3-tile (24 px) block and gets through; large-constructor is 5 tiles (40 px) and does not.
+- Units are judged by hitSize: only a unit with hitSize ≤ 24 px qualifies, regardless of its unit tier (PayloadConveyor.java:87 tests `unit.hitSize / tilesize <= payloadLimit` once more before pushing a unit). [src: PayloadConveyor.java:87]
 
-载荷方块参数（00-data/blocks.json 可核）：payload-conveyor 与 payload-router 都是 3 格、health 360、buildVisibility shown、solid false、underBullets true；reinforced 两版 3 格、health 800。
+Payload block parameters (verifiable in 00-data/blocks.json): payload-conveyor and payload-router are both 3 tiles, health 360, buildVisibility shown, solid false, underBullets true; the two reinforced versions are 3 tiles, health 800.
 
-### 3. 传送节拍：moveTime 45 tick 推一格
+### 3. Conveyor beat: moveTime 45 ticks pushes one tile
 
 - PayloadConveyor.java:21 `public float moveTime = 45f, moveForce = 201f, payloadLimit = 3f;` [src: PayloadConveyor.java:21]
-- `updateTile`（PayloadConveyor.java:137-188）里 `float progress = time() % moveTime;` `int curStep = (int)(time() / moveTime);`，curStep 增长那一 tick 才尝试把载荷交给下游；下游为空且不被堵塞时 `item.dump()` 掉到地上。 [src: PayloadConveyor.java:137-188]
-- 速率：60 / 45 = 1.333 载荷/s（每 45 tick 一格）。reinforced-payload-conveyor 的 moveTime 是 35 ⇒ 60 / 35 = 1.714 载荷/s。
-- 收料窗口极窄：acceptPayload（PayloadConveyor.java:279-283）要求 `item == null && payload.fits(payloadLimit) && (source == this || (enabled && progress <= 5f))` [src: PayloadConveyor.java:279-283]，即上游只能在周期前 5 tick 交付，占 45 tick 的 5 / 45 ≈ 11%，错过就得排下一轮。这是「载荷传送带串长链会掉速」的直接原因。
-- 对接判定（:107-121）：同尺寸邻居可直接对接，更大尺寸邻居取中心格对齐；`blocked`（:128）定义为 `next.solid && !next.outputsPayload && !next.acceptsPayload || next.payloadCheck(rotation)`。
+- `updateTile` (PayloadConveyor.java:137-188) computes `float progress = time() % moveTime;` and `int curStep = (int)(time() / moveTime);`; only on the tick curStep increments does it try to hand the payload downstream; when downstream is empty and unblocked, `item.dump()` drops it on the ground. [src: PayloadConveyor.java:137-188]
+- Rate: 60 / 45 = 1.333 payloads/s (one tile per 45 ticks). reinforced-payload-conveyor has moveTime 35 ⇒ 60 / 35 = 1.714 payloads/s.
+- The accept window is very narrow: acceptPayload (PayloadConveyor.java:279-283) requires `item == null && payload.fits(payloadLimit) && (source == this || (enabled && progress <= 5f))` [src: PayloadConveyor.java:279-283], so upstream may deliver only in the first 5 ticks of a cycle, 5 / 45 ≈ 11% of the 45 ticks; miss it and the payload waits for the next round. That is the direct cause of "payload conveyors lose throughput on long chains".
+- Docking ( :107-121 ): a neighbour of the same size docks directly, a larger neighbour is aligned by centre tile; `blocked` (:128) is defined as `next.solid && !next.outputsPayload && !next.acceptsPayload || next.payloadCheck(rotation)`.
 
-### 4. 载荷路由：按「内容」而不是按方向排序
+### 4. Payload router: sorts by content, not by direction
 
-- `PayloadRouter extends PayloadConveyor`（PayloadRouter.java:23），构造里设 `outputFacing = false`（:32）、`configurable = true`、`clearOnDoubleTap = true`，config 的类型是 Block 或 UnitType（:36-38）。 [src: PayloadRouter.java:23]
-- 可排序范围 `canSort(Block b)`（PayloadRouter.java:54-56）：`b.isVisible() && b.size <= size && !(b instanceof CoreBlock) && !state.rules.isBanned(b) && b.environmentBuildable()` ⇒ 3 格路由只能排 1–3 格方块；核心方块永远可穿过但不可作为排序目标。 [src: PayloadRouter.java:54-56]
-- `pickNext()`（:76-103）：命中 sorted 就照 recDir 直走；未命中则在 4 个方向里轮转并跳过 recDir（:87-89），直到找到一个能 `acceptPayload` 的邻居，最多试 4 次（:98）。
-- 逻辑控制转向后 `controlTime = 60f * 6f = 360` tick 内不再自动转向（:112），即 6 秒不抢方向盘。
+- `PayloadRouter extends PayloadConveyor` (PayloadRouter.java:23); the constructor sets `outputFacing = false` (:32), `configurable = true`, `clearOnDoubleTap = true`, and the config type is Block or UnitType (:36-38). [src: PayloadRouter.java:23]
+- Sortable set `canSort(Block b)` (PayloadRouter.java:54-56): `b.isVisible() && b.size <= size && !(b instanceof CoreBlock) && !state.rules.isBanned(b) && b.environmentBuildable()` ⇒ a 3-tile router can only sort 1-3 tile blocks; core blocks always pass through but can never be a sort target. [src: PayloadRouter.java:54-56]
+- `pickNext()` (:76-103): on a sorted hit it walks straight along recDir; on a miss it rotates through the 4 directions, skipping recDir (:87-89), until it finds a neighbour that can `acceptPayload`, trying at most 4 times (:98).
+- Once logic has steered it, `controlTime = 60f * 6f = 360` ticks pass before it auto-steers again (:112), i.e. 6 seconds without fighting for the wheel.
 
-### 5. 建造机：两代实现，速度写在 buildSpeed 上
+### 5. Constructors: two generations, speed written on buildSpeed
 
-- `Constructor`（Constructor.java:21-22）默认 `minBlockSize = 1`、`maxBlockSize = 2`；`canProduce`（:54-56）要求方块 isVisible、块边长在 [minBlockSize, maxBlockSize] 内、非 CoreBlock、未被 rules.isBanned(b)、environmentBuildable()，且 filter 为空或命中。 [src: Constructor.java:21-22]
-- v160.7 实参：constructor buildSpeed 0.6、minBlockSize 1、maxBlockSize 2；large-constructor buildSpeed 5、minBlockSize 3、maxBlockSize 4（[v159.3] 源码里 large-constructor 的 buildSpeed 是 0.75，v160.7 提到 5，差 6.7 倍）。
-- `BlockProducer`（BlockProducer.java:22 `buildSpeed = 0.4f` 默认）：蓝图式工厂，用 `ConsumeItemDynamic` 按 recipe.requirements × rules.buildCostMultiplier 向上取整收料（:39-55），`getMaximumAccepted = 需求 × 2`（:88-93），每 tick `progress += buildSpeed * edelta()`，攒满 recipe.buildTime 产出一个 BuildPayload（:107-120）。 [src: BlockProducer.java:22]
-- 被造方块自己的 `buildTime` 是造价函数：`Block.java:1432-1449` `buildTime = Σ(amount × item.cost) × buildCostMultiplier`；无需求时取 20f（Block.java:360 默认 -1f 表示尚未计算）。 [src: Block.java:1432-1449]
-- 算例一：container 需求 titanium 100、item.cost 1（Items.java:51）⇒ buildTime = 100 tick；constructor 的 buildSpeed 0.6 ⇒ 100 / 0.6 = 166.7 tick ≈ 2.78 s。 [src: Items.java:51]
-- 算例二：vault 需求 titanium 250 + thorium 125，thorium cost 1.1（Items.java:58）⇒ 250 × 1 + 125 × 1.1 = 387.5 tick；但 vault 是 3 格方块而小建造机 maxBlockSize 2，造不了，必须换 large-constructor。 [src: Items.java:58]
-- 算例三：core-shard 的 buildCostMultiplier 是 2 ⇒ buildTime = (1000 × 0.5 + 800 × 0.7) × 2 = 2120 tick，这也是「核心只能由 5 格大建造机造」的原因（3 格 buildCostMultiplier 之外还卡 maxBlockSize）。
+- `Constructor` (Constructor.java:21-22) defaults `minBlockSize = 1`, `maxBlockSize = 2`; `canProduce` (:54-56) requires the block to be isVisible, its edge within [minBlockSize, maxBlockSize], not a CoreBlock, not banned by rules.isBanned(b), environmentBuildable(), and the filter empty or matching. [src: Constructor.java:21-22]
+- v160.7 actuals: constructor buildSpeed 0.6, minBlockSize 1, maxBlockSize 2; large-constructor buildSpeed 5, minBlockSize 3, maxBlockSize 4 ([v159.3] source gives large-constructor buildSpeed 0.75, v160.7 raises it to 5, a 6.7x gap).
+- `BlockProducer` (BlockProducer.java:22 `buildSpeed = 0.4f` default): the blueprint-style factory, collecting recipe.requirements × rules.buildCostMultiplier rounded up through `ConsumeItemDynamic` (:39-55), with `getMaximumAccepted = demand × 2` (:88-93), `progress += buildSpeed * edelta()` per tick, producing one BuildPayload per full recipe.buildTime (:107-120). [src: BlockProducer.java:22]
+- The built block's own `buildTime` is a cost function: `Block.java:1432-1449` `buildTime = Σ(amount × item.cost) × buildCostMultiplier`; with no requirements it is 20f (Block.java:360 default -1f means not yet computed). [src: Block.java:1432-1449]
+- Worked example 1: container needs titanium 100, item.cost 1 (Items.java:51) ⇒ buildTime = 100 ticks; constructor buildSpeed 0.6 ⇒ 100 / 0.6 = 166.7 ticks ≈ 2.78 s. [src: Items.java:51]
+- Worked example 2: vault needs titanium 250 + thorium 125, thorium cost 1.1 (Items.java:58) ⇒ 250 × 1 + 125 × 1.1 = 387.5 ticks; but vault is a 3-tile block and the small constructor has maxBlockSize 2, so it cannot build one - you must switch to large-constructor. [src: Items.java:58]
+- Worked example 3: core-shard has buildCostMultiplier 2 ⇒ buildTime = (1000 × 0.5 + 800 × 0.7) × 2 = 2120 ticks, which is also why "cores can only be built by the 5-tile large constructor" (besides buildCostMultiplier, maxBlockSize also blocks the 3-tile one).
 
-### 6. 载荷质量驱动器：装填 + 冷却都在周期里
+### 6. Payload mass driver: charge and cooldown both sit in the cycle
 
-- PayloadMassDriver.java:24-30 默认值 `range = 100f`、`rotateSpeed = 5f`、`length = 89/8f`、`reload = 30f`、`chargeTime = 100f`、`maxPayloadSize = 3`。 [src: PayloadMassDriver.java:24-30]
-- 发射率根本不用另算，stats 里就写着：`stats.add(Stat.reload, 60f / (chargeTime + reload), StatUnit.perSecond)`（PayloadMassDriver.java:85），装填时间与冷却时间都进周期。 [src: PayloadMassDriver.java:85]
-- v160.7 实参：payload-mass-driver 的 range 700 px（[src: gamedata.json#payload-mass-driver]）（87.5 格）、reload 45 tick、chargeTime 70 tick、maxPayloadSize 2.5 ⇒ 60 / (70 + 45) = 0.522 发/s；large-payload-mass-driver 的 range 2100 px（262.5 格）、reload 130、chargeTime 100、maxPayloadSize 4 ⇒ 60 / 230 = 0.261 发/s。
-- 目标点存的是相对坐标 `Point2`（:70 注释 "point2 is relative"），放置时由 Drawf.dashCircle 画出 range 圈（:106），格子换算同样除 tilesize（:86 `stats.add(Stat.shootRange, range / tilesize, StatUnit.blocks)`）。
+- PayloadMassDriver.java:24-30 defaults `range = 100f`, `rotateSpeed = 5f`, `length = 89/8f`, `reload = 30f`, `chargeTime = 100f`, `maxPayloadSize = 3`. [src: PayloadMassDriver.java:24-30]
+- The fire rate needs no extra derivation, it is written into stats: `stats.add(Stat.reload, 60f / (chargeTime + reload), StatUnit.perSecond)` (PayloadMassDriver.java:85) - charge time and cooldown both enter the cycle. [src: PayloadMassDriver.java:85]
+- v160.7 actuals: payload-mass-driver range 700 px ([src: gamedata.json#payload-mass-driver]) (87.5 tiles), reload 45 ticks, chargeTime 70 ticks, maxPayloadSize 2.5 ⇒ 60 / (70 + 45) = 0.522 shots/s; large-payload-mass-driver range 2100 px (262.5 tiles), reload 130, chargeTime 100, maxPayloadSize 4 ⇒ 60 / 230 = 0.261 shots/s.
+- The target point is stored as relative coordinates in a `Point2` (:70 comment "point2 is relative"); when placed, Drawf.dashCircle draws the range circle (:106), and the tile conversion again divides by tilesize (:86 `stats.add(Stat.shootRange, range / tilesize, StatUnit.blocks)`).
 
-### 7. 装载与卸载：8 件 / 2 s、40 液体 / s
+### 7. Loading and unloading: 8 items / 2 s, 40 liquid / s
 
-- PayloadLoader.java:22-27：`loadTime = 2f`、`itemsLoaded = 8`、`liquidsLoaded = 40f`、`maxBlockSize = 3`、`maxPowerConsumption = 40f`、`loadPowerDynamic = true`。 [src: PayloadLoader.java:22-27]
-- 装载节奏：每 `loadTime / efficiency` tick 搬 `itemsLoaded` 件（PayloadUnloader.java:68-81 同一套参数），2 s = 120 tick 搬 8 件 ⇒ 4 件/s；液体按 `liquidsLoaded * edelta()` 即 40 / s，且要求同种液体或自身存量 < 0.2（:86-90）。 [src: PayloadUnloader.java:68-81]
-- 装载器的 `outputsItems()` 返回 false（PayloadLoader.java:55-57，卸载器反过来返回 true，PayloadUnloader.java:23-25），所以它不会把 100 容量的物品栏当成输出口，那 100 只是被装载荷的中转缓存。 [src: PayloadLoader.java:55-57]
-- 载荷进入后 `payloadSpeed = 0.7f` 控制其在方块内的滑动动画速度（PayloadBlock.java:18；v160.7 全部载荷方块 payloadRotateSpeed 都是 3，v159.3 源码默认 5）。 [src: PayloadBlock.java:18]
+- PayloadLoader.java:22-27: `loadTime = 2f`, `itemsLoaded = 8`, `liquidsLoaded = 40f`, `maxBlockSize = 3`, `maxPowerConsumption = 40f`, `loadPowerDynamic = true`. [src: PayloadLoader.java:22-27]
+- Load beat: every `loadTime / efficiency` ticks it moves `itemsLoaded` items (PayloadUnloader.java:68-81 uses the same parameter set), 2 s = 120 ticks for 8 items ⇒ 4 items/s; liquid goes at `liquidsLoaded * edelta()`, i.e. 40 / s, and it requires the same liquid type or its own stock < 0.2 (:86-90). [src: PayloadUnloader.java:68-81]
+- The loader's `outputsItems()` returns false (PayloadLoader.java:55-57; the unloader returns true, PayloadUnloader.java:23-25), so it never treats its 100 item slot as an output port; that 100 is only the transit buffer of the payload being loaded. [src: PayloadLoader.java:55-57]
+- Once a payload is inside, `payloadSpeed = 0.7f` controls its slide animation speed within the block (PayloadBlock.java:18; in v160.7 every payload block has payloadRotateSpeed 3, the v159.3 source default is 5). [src: PayloadBlock.java:18]
 
-### 8. 解构机：进度按被拆方块 buildTime 归一
+### 8. Deconstructor: progress normalised by the deconstructed block's buildTime
 
-- PayloadDeconstructor.java:20 `dumpRate = 4`；v160.7 实参：small-deconstructor maxPayloadSize 3、deconstructSpeed 3、itemCapacity 100；deconstructor maxPayloadSize 4、deconstructSpeed 6、itemCapacity 320（[v159.3] 源码基类 PayloadDeconstructor.java:36 写死 itemCapacity = 100；320 是 v160.7 的版本值，见 gamedata raw）。
-- 进度公式（PayloadDeconstructor.java:142-155）：`float shift = edelta() * deconstructSpeed / deconstructing.buildTime();` 所以总时长 = buildTime / deconstructSpeed tick，与被拆方块造价成正比，**不是固定秒数**。 [src: PayloadDeconstructor.java:142-155]
-- 返还量（:158-160）：`accum[i] += reqs[i].amount * (BuildPayload ? rules.buildCostMultiplier : rules.unitCost(team)) * realShift`，即按全额造价按比例返还；攒够整数才进库存（:166-172），库存满 `itemCapacity` 就整机暂停（:130-138 canProgress 判 items.total() <= itemCapacity 且所有 accum < 1）。
-- 拆之前先把方块里的液体泼到地面：`perCell = 存量 / (block.size * block.size) * 2` 逐格 Puddles.deposit（:148-152）。
+- PayloadDeconstructor.java:20 `dumpRate = 4`; v160.7 actuals: small-deconstructor maxPayloadSize 3, deconstructSpeed 3, itemCapacity 100; deconstructor maxPayloadSize 4, deconstructSpeed 6, itemCapacity 320 ([v159.3] source base class PayloadDeconstructor.java:36 hard-codes itemCapacity = 100; 320 is the v160.7 version value, see gamedata raw).
+- Progress formula (PayloadDeconstructor.java:142-155): `float shift = edelta() * deconstructSpeed / deconstructing.buildTime();` so total time = buildTime / deconstructSpeed ticks, proportional to the cost of the deconstructed block, **not a fixed number of seconds**. [src: PayloadDeconstructor.java:142-155]
+- Refund (:158-160): `accum[i] += reqs[i].amount * (BuildPayload ? rules.buildCostMultiplier : rules.unitCost(team)) * realShift`, i.e. a proportional refund of the full cost; only whole units enter the inventory (:166-172), and when inventory reaches `itemCapacity` the whole machine pauses (:130-138 canProgress checks items.total() <= itemCapacity and all accum < 1).
+- Before deconstructing, the block's liquid is splashed onto the ground: `perCell = stock / (block.size * block.size) * 2` per tile via Puddles.deposit (:148-152).
 
-## 数值
+## Numbers
 
-### 表 A｜14 个载荷方块实参（v160.7 反射，00-data/blocks.json 可核 id 与 health）
+### Table A | 14 payload block actuals (v160.7 reflection, ids and health verifiable in 00-data/blocks.json)
 
-| 方块 | 块边长 | health | 关键参数 | 出处 |
+| Block | edge tiles | health | Key parameters | Source |
 |---|---|---|---|---|
-| payload-conveyor | 3 | 360 | moveTime 45、payloadLimit 3、pushUnits true | PayloadConveyor.java:21 |
-| reinforced-payload-conveyor | 3 | 800 | moveTime 35、payloadLimit 3 | gamedata raw |
-| payload-router | 3 | 360 | moveTime 45、invert false、configurable | PayloadRouter.java:31-38 |
+| payload-conveyor | 3 | 360 | moveTime 45, payloadLimit 3, pushUnits true | PayloadConveyor.java:21 |
+| reinforced-payload-conveyor | 3 | 800 | moveTime 35, payloadLimit 3 | gamedata raw |
+| payload-router | 3 | 360 | moveTime 45, invert false, configurable | PayloadRouter.java:31-38 |
 | reinforced-payload-router | 3 | 800 | moveTime 35 | gamedata raw |
-| payload-mass-driver | 3 | 645 | range 700、reload 45、chargeTime 70、maxPayloadSize 2.5 | gamedata raw |
-| large-payload-mass-driver | 5 | 2550 | range 2100、reload 130、chargeTime 100、maxPayloadSize 4 | gamedata raw |
-| constructor | 3 | 860 | buildSpeed 0.6、minBlockSize 1、maxBlockSize 2 | Constructor.java:21-22 |
-| large-constructor | 5 | 2500 | buildSpeed 5、minBlockSize 3、maxBlockSize 4 | gamedata raw |
-| payload-loader | 3 | 645 | loadTime 2、itemsLoaded 8、liquidsLoaded 40、maxBlockSize 3 | PayloadLoader.java:22-27 |
-| payload-unloader | 3 | 645 | loadTime 2、itemsLoaded 8、outputsItems true | PayloadUnloader.java:23-25 |
-| small-deconstructor | 3 | 755 | maxPayloadSize 3、deconstructSpeed 3、itemCapacity 100 | gamedata raw |
-| deconstructor | 5 | 3195 | maxPayloadSize 4、deconstructSpeed 6、itemCapacity 320 | gamedata raw |
-| payload-source | 5 | 1000 | 沙盒源，无限供载荷 | 00-data/blocks.json#id=payload-source |
-| payload-void | 5 | 1000 | payloadSpeed 1.2、沙盒消载荷 | 00-data/blocks.json#id=payload-void |
+| payload-mass-driver | 3 | 645 | range 700, reload 45, chargeTime 70, maxPayloadSize 2.5 | gamedata raw |
+| large-payload-mass-driver | 5 | 2550 | range 2100, reload 130, chargeTime 100, maxPayloadSize 4 | gamedata raw |
+| constructor | 3 | 860 | buildSpeed 0.6, minBlockSize 1, maxBlockSize 2 | Constructor.java:21-22 |
+| large-constructor | 5 | 2500 | buildSpeed 5, minBlockSize 3, maxBlockSize 4 | gamedata raw |
+| payload-loader | 3 | 645 | loadTime 2, itemsLoaded 8, liquidsLoaded 40, maxBlockSize 3 | PayloadLoader.java:22-27 |
+| payload-unloader | 3 | 645 | loadTime 2, itemsLoaded 8, outputsItems true | PayloadUnloader.java:23-25 |
+| small-deconstructor | 3 | 755 | maxPayloadSize 3, deconstructSpeed 3, itemCapacity 100 | gamedata raw |
+| deconstructor | 5 | 3195 | maxPayloadSize 4, deconstructSpeed 6, itemCapacity 320 | gamedata raw |
+| payload-source | 5 | 1000 | sandbox source, infinite payload supply | 00-data/blocks.json#id=payload-source |
+| payload-void | 5 | 1000 | payloadSpeed 1.2, sandbox payload sink | 00-data/blocks.json#id=payload-void |
 
-### 表 B｜速率换算总表（1 tick = 1/60 s，单位统一按秒） [src: Vars.java:135]
+### Table B | rate conversion summary (1 tick = 1/60 s, all units per second) [src: Vars.java:135]
 
-| 指标 | 公式（源码锚点） | 数值 |
+| Metric | Formula (source anchor) | Value |
 |---|---|---|
-| 载荷传送带吞吐 | 60 / moveTime（PayloadConveyor.java:137-188） | 默认 1.333 载荷/s；reinforced 1.714 载荷/s |
-| 收料窗口占比 | 5 / moveTime（:279-283） | 默认 5 / 45 ≈ 11.1% |
-| 质量驱动器发射率 | 60 / (chargeTime + reload)（PayloadMassDriver.java:85） | 小 0.522 发/s；大 0.261 发/s |
-| 装载器搬物品 | itemsLoaded / loadTime（PayloadLoader.java:22-27） | 8 / 2 = 4 件/s |
-| 装载器搬液体 | liquidsLoaded（同一行） | 40 液体/s |
-| 建造时长 | 被造方块 buildTime / 建造机 buildSpeed（Constructor.java:54-56、BlockProducer.java:107-120） | container 100 / 0.6 = 166.7 tick |
-| 解构时长 | 被拆方块 buildTime / deconstructSpeed（PayloadDeconstructor.java:142-155） | 与造价成正比，非定值 |
-| 核心造价 | Σ(amount × item.cost) × buildCostMultiplier（Block.java:1432-1449） | core-shard 2120 tick |
+| Payload conveyor throughput | 60 / moveTime (PayloadConveyor.java:137-188) | default 1.333 payloads/s; reinforced 1.714 payloads/s |
+| Accept window share | 5 / moveTime (:279-283) | default 5 / 45 ≈ 11.1% |
+| Mass driver fire rate | 60 / (chargeTime + reload) (PayloadMassDriver.java:85) | small 0.522 shots/s; large 0.261 shots/s |
+| Loader item transfer | itemsLoaded / loadTime (PayloadLoader.java:22-27) | 8 / 2 = 4 items/s |
+| Loader liquid transfer | liquidsLoaded (same line) | 40 liquid/s |
+| Build duration | built block buildTime / constructor buildSpeed (Constructor.java:54-56, BlockProducer.java:107-120) | container 100 / 0.6 = 166.7 ticks |
+| Deconstruct duration | deconstructed block buildTime / deconstructSpeed (PayloadDeconstructor.java:142-155) | proportional to cost, not a constant |
+| Core cost | Σ(amount × item.cost) × buildCostMultiplier (Block.java:1432-1449) | core-shard 2120 ticks |
 
-### 表 C｜单位载荷容量（UnitType.java:119 默认 8，tilePayload 64、tilesize 8）
+### Table C | unit payload capacity (UnitType.java:119 default 8, tilePayload 64, tilesize 8)
 
-| 写法 | 出处 | payloadCapacity |
+| Form | Source | payloadCapacity |
 |---|---|---|
-| 默认值 | UnitType.java:119 | 8 |
+| default | UnitType.java:119 | 8 |
 | (2 * 2) * tilePayload | UnitTypes.java:1424 | 256 |
 | (3 * 3) * tilePayload | UnitTypes.java:1474 | 576 |
 | (5.5 * 5.5) * tilePayload | UnitTypes.java:1547 | 1936 |
 | sqr(4) * tilePayload | UnitTypes.java:4043 | 1024 |
 | sqr(6) * tilePayload | UnitTypes.java:4148 | 2304 |
-| payloadCapacity = 0 | UnitTypes.java:4575、:4605 | 0（不可被携带） |
+| payloadCapacity = 0 | UnitTypes.java:4575, :4605 | 0 (cannot be carried) |
 
-## 源码锚点
+## Source anchors
 
-1. `Payload.java:16-17` —— `payloadUnit = 0` 与 `payloadBlock = 1`，载荷类型在存档流里的首字节。 [src: Payload.java:16-17]
-2. `Payload.java:50-52` —— `fits(float s)` 是唯一尺寸闸门，返回值 `size() / tilesize <= s`。 [src: Payload.java:50-52]
-3. `BuildPayload.java:86-88` —— 方块载荷尺寸 = `build.block.size * tilesize`；对照 `UnitPayload.java:98-101` 单位载荷尺寸 = `unit.hitSize`。 [src: BuildPayload.java:86-88]
-4. `Block.java:60-65` —— `outputsPayload` / `acceptsUnitPayloads` / `acceptsPayload` 三个开关决定一个方块是不是载荷链节点。 [src: Block.java:60-65]
-5. `Block.java:1432-1449` —— `buildTime = Σ(amount × item.cost) × buildCostMultiplier`，无需求则 20f。 [src: Block.java:1432-1449]
-6. `Block.java:360` —— `buildTime = -1f` 默认值表示「未计算」，所以不要在数据表里把 -1 当成真实工期。 [src: Block.java:360]
-7. `PayloadConveyor.java:21` —— `moveTime = 45f`、`moveForce = 201f`、`payloadLimit = 3f`。 [src: PayloadConveyor.java:21]
-8. `PayloadConveyor.java:137-188` —— `curStep = (int)(time() / moveTime)` 的节拍推进，以及掉地上 `item.dump()`。 [src: PayloadConveyor.java:137-188]
-9. `PayloadConveyor.java:279-283` —— `acceptPayload` 的 `progress <= 5f` 收料窗口。 [src: PayloadConveyor.java:279-283]
-10. `PayloadConveyor.java:128` —— `blocked` 的三项或：solid 邻居、outputsPayload、acceptsPayload、payloadCheck。 [src: PayloadConveyor.java:128]
-11. `PayloadRouter.java:54-56` —— `canSort(Block)` 的五个条件；`:76-103` 四方向轮转 pickNext。 [src: PayloadRouter.java:54-56]
-12. `PayloadMassDriver.java:85-86` —— 发射率 `60f / (chargeTime + reload)` 与射程 `range / tilesize`。 [src: PayloadMassDriver.java:85-86]
-13. `Constructor.java:21-22` 与 `:54-56` —— minBlockSize / maxBlockSize 与 canProduce 五条件。 [src: Constructor.java:21-22]
-14. `BlockProducer.java:22` —— `buildSpeed = 0.4f`；`:107-120` 产出 BuildPayload。 [src: BlockProducer.java:22]
-15. `PayloadLoader.java:22-27` —— loadTime 2 / itemsLoaded 8 / liquidsLoaded 40 / maxBlockSize 3。 [src: PayloadLoader.java:22-27]
-16. `PayloadDeconstructor.java:142-160` —— `shift = edelta() * deconstructSpeed / buildTime` 与 `accum` 按 buildCostMultiplier 返还。 [src: PayloadDeconstructor.java:142-160]
-17. `UnitType.java:119` —— `payloadCapacity = 8` 默认值；`Vars.java:137` tilePayload = 64。 [src: UnitType.java:119]
+1. `Payload.java:16-17` - `payloadUnit = 0` and `payloadBlock = 1`, the payload type as the first byte of the save stream. [src: Payload.java:16-17]
+2. `Payload.java:50-52` - `fits(float s)` is the only size gate; it returns `size() / tilesize <= s`. [src: Payload.java:50-52]
+3. `BuildPayload.java:86-88` - block payload size = `build.block.size * tilesize`; compare `UnitPayload.java:98-101`, unit payload size = `unit.hitSize`. [src: BuildPayload.java:86-88]
+4. `Block.java:60-65` - the three switches `outputsPayload` / `acceptsUnitPayloads` / `acceptsPayload` decide whether a block is a payload chain node. [src: Block.java:60-65]
+5. `Block.java:1432-1449` - `buildTime = Σ(amount × item.cost) × buildCostMultiplier`, or 20f when there are no requirements. [src: Block.java:1432-1449]
+6. `Block.java:360` - the `buildTime = -1f` default means "not computed", so never read -1 in a data table as a real build time. [src: Block.java:360]
+7. `PayloadConveyor.java:21` - `moveTime = 45f`, `moveForce = 201f`, `payloadLimit = 3f`. [src: PayloadConveyor.java:21]
+8. `PayloadConveyor.java:137-188` - the beat advance `curStep = (int)(time() / moveTime)` and the ground drop `item.dump()`. [src: PayloadConveyor.java:137-188]
+9. `PayloadConveyor.java:279-283` - the `progress <= 5f` accept window of `acceptPayload`. [src: PayloadConveyor.java:279-283]
+10. `PayloadConveyor.java:128` - `blocked` as the or of three items: solid neighbour, outputsPayload, acceptsPayload, payloadCheck. [src: PayloadConveyor.java:128]
+11. `PayloadRouter.java:54-56` - the five conditions of `canSort(Block)`; `:76-103` the four-direction rotation of pickNext. [src: PayloadRouter.java:54-56]
+12. `PayloadMassDriver.java:85-86` - fire rate `60f / (chargeTime + reload)` and range `range / tilesize`. [src: PayloadMassDriver.java:85-86]
+13. `Constructor.java:21-22` and `:54-56` - minBlockSize / maxBlockSize and the five conditions of canProduce. [src: Constructor.java:21-22]
+14. `BlockProducer.java:22` - `buildSpeed = 0.4f`; `:107-120` emits the BuildPayload. [src: BlockProducer.java:22]
+15. `PayloadLoader.java:22-27` - loadTime 2 / itemsLoaded 8 / liquidsLoaded 40 / maxBlockSize 3. [src: PayloadLoader.java:22-27]
+16. `PayloadDeconstructor.java:142-160` - `shift = edelta() * deconstructSpeed / buildTime` and the `accum` refund scaled by buildCostMultiplier. [src: PayloadDeconstructor.java:142-160]
+17. `UnitType.java:119` - the `payloadCapacity = 8` default; `Vars.java:137` tilePayload = 64. [src: UnitType.java:119]
 
-## 实测与反例
+## Measurements and counter-examples
 
-**反例 1｜载荷传送带不是物品传送带。** 00-data/blocks.json#id=payload-conveyor 里 `hasItems=false`、`itemCapacity=10`，那 10 是 Block.java:75 的字段默认值，不是可用物品栏；它只认 payload，塞物品没有任何入口。 [src: Block.java:75]
+**Counter-example 1 | A payload conveyor is not an item conveyor.** In 00-data/blocks.json#id=payload-conveyor, `hasItems=false` and `itemCapacity=10`; that 10 is the field default from Block.java:75, not a usable item slot. The block only accepts payloads, and there is no entry point for stuffing items in. [src: Block.java:75]
 
-**反例 2｜容量不是「格数平方」。** payloadLimit 3 表示最大边长 3 格 = 24 px，不是能叠 3 × 3 = 9 个载荷；一个 3 格方块就占满整条带子（Payload.java:50-52 用除法而非面积）。实测一条默认载荷传送带在满负荷下吞吐恒为 1.333 载荷/s，与载荷本身是 1 格还是 3 格无关。 [src: Payload.java:50-52]
+**Counter-example 2 | Capacity is not "tiles squared".** payloadLimit 3 means a maximum edge of 3 tiles = 24 px, not room for 3 × 3 = 9 payloads; one 3-tile block fills the whole belt (Payload.java:50-52 divides rather than taking an area). Measured, a default payload conveyor at full load holds a constant 1.333 payloads/s regardless of whether the payload is 1 tile or 3 tiles. [src: Payload.java:50-52]
 
-**反例 3｜串联不是无损接力。** 收料窗口只有周期前 5 tick（PayloadConveyor.java:279-283），上游如果在 `progress > 5` 时把载荷推来会被拒，必须等自己下一个 45 tick 周期；实测两段串联时有效吞吐明显低于单段 1.333 载荷/s，属于「设计上允许堵塞」。 [src: PayloadConveyor.java:279-283]
+**Counter-example 3 | Chaining is not a lossless relay.** The accept window is only the first 5 ticks of the cycle (PayloadConveyor.java:279-283); upstream pushing a payload in while `progress > 5` is rejected and must wait for its own next 45-tick cycle; measured, two chained segments run clearly below the single-segment 1.333 payloads/s - it is "blocking by design". [src: PayloadConveyor.java:279-283]
 
-**反例 4｜版本差异会被算成 6.7 倍误差。** large-constructor 的 buildSpeed 在 [v159.3] 源码里是 0.75，v160.7 是 5（gamedata raw 读回 5.0）；用旧版数值估建造时间会把 5 格建筑高估 6.7 倍。
+**Counter-example 4 | Version drift becomes a 6.7x error.** large-constructor's buildSpeed is 0.75 in the [v159.3] source and 5 in v160.7 (gamedata raw reads back 5.0); estimating build time from the old value overestimates 5-tile construction by 6.7x.
 
-**反例 5｜deconstructor 的 320 不是基类默认。** [v159.3] 源码 PayloadDeconstructor 构造里写 `itemCapacity = 100`（PayloadDeconstructor.java:36），v160.7 的 deconstructor 是 320（gamedata raw）；按 100 推算「拆 5 格大建筑会先卡 3 次」是错的。
+**Counter-example 5 | deconstructor's 320 is not the base-class default.** The [v159.3] source writes `itemCapacity = 100` in the PayloadDeconstructor constructor (PayloadDeconstructor.java:36), while v160.7's deconstructor is 320 (gamedata raw); deriving "deconstructing a 5-tile block jams 3 times first" from 100 is wrong.
 
-**反例 6｜质量驱动器射程单位是像素。** PayloadMassDriver.java:86 `range / tilesize` 再显示成格，700 px = 87.5 格；直接读成 700 格会放大 8 倍。 [src: PayloadMassDriver.java:86]
+**Counter-example 6 | Mass driver range is in pixels.** PayloadMassDriver.java:86 does `range / tilesize` before showing tiles, so 700 px = 87.5 tiles; reading it directly as 700 tiles inflates it 8x. [src: PayloadMassDriver.java:86]
 
-**正面实测｜装载器对空载荷的速率。** payload-loader 用默认 100% efficiency 时，120 tick（2 s）搬 8 件 ⇒ 4 件/s，液体 40 / s；这比同尺寸物品传送带（conveyor 4.5 件/s，WORLD.LOGISTICS.001）略低，但一次能灌满一个 3 格方块的库存。
+**Positive measurement | Loader rate on an empty payload.** A payload-loader at the default 100% efficiency moves 8 items in 120 ticks (2 s) ⇒ 4 items/s, and 40 / s for liquid; that is slightly below an item conveyor of the same size (conveyor 4.5 items/s, WORLD.LOGISTICS.001), but one load fills the whole inventory of a 3-tile block.
 
-## 常见误解
+## Common misconceptions
 
-1. **「载荷传送带耗电」**——不耗电：payload-conveyor 的 `hasPower=false`（00-data/blocks.json#id=payload-conveyor），耗电的是装卸器、建造机、解构机与质量驱动器。
-2. **「载荷路由可以当分流器手动调方向」**——路由的 config 选的是**内容**（某个方块或单位类型，PayloadRouter.java:36-38），方向是 pickNext 在 4 个方向里自动轮转的结果，不是玩家设的。 [src: PayloadRouter.java:36-38]
-3. **「建造机能造任意方块」**——受 canProduce 五条件限制（Constructor.java:54-56），核心方块因 `!(b instanceof CoreBlock)` 永远造不了；3 格小建造机也造不了 vault 这类 3 格以上建筑（maxBlockSize 2）。 [src: Constructor.java:54-56]
-4. **「解构时间是固定几秒」**——进度是 `edelta() * deconstructSpeed / buildTime`（PayloadDeconstructor.java:142-155），container 与 vault 的 buildTime 差 3.875 倍，解构耗时同比例变化。 [src: PayloadDeconstructor.java:142-155]
-5. **「单位载荷看等级」**——只看 `hitSize / tilesize <= payloadLimit`（PayloadConveyor.java:87）以及 `unit.type.allowedInPayloads && !unit.spawnedByCore`（PayloadDeconstructor.java:92-95），与单位 Tier 无关。 [src: PayloadConveyor.java:87]
-6. **「载荷传送带能被子弹打坏」**——payload-conveyor 是 `solid=false`、`underBullets=true`（00-data/blocks.json），子弹直接穿过；只有 payload-mass-driver 这类 `solid=true` 的载荷方块才挡子弹。
+1. **"Payload conveyors consume power"** - they do not: payload-conveyor has `hasPower=false` (00-data/blocks.json#id=payload-conveyor); the power consumers are the loaders, constructors, deconstructors and mass drivers.
+2. **"A payload router is a splitter whose direction you set by hand"** - the router's config picks the **content** (a block or unit type, PayloadRouter.java:36-38); the direction is whatever pickNext rotates to among the 4 directions, not a player setting. [src: PayloadRouter.java:36-38]
+3. **"A constructor can build any block"** - it is bounded by the five canProduce conditions (Constructor.java:54-56); core blocks are never buildable because of `!(b instanceof CoreBlock)`, and the 3-tile small constructor cannot build 3-tile-plus structures such as vault either (maxBlockSize 2). [src: Constructor.java:54-56]
+4. **"Deconstructing takes a fixed number of seconds"** - progress is `edelta() * deconstructSpeed / buildTime` (PayloadDeconstructor.java:142-155); container and vault differ 3.875x in buildTime, and deconstruct time scales the same way. [src: PayloadDeconstructor.java:142-155]
+5. **"Unit payloads depend on unit tier"** - only `hitSize / tilesize <= payloadLimit` (PayloadConveyor.java:87) and `unit.type.allowedInPayloads && !unit.spawnedByCore` (PayloadDeconstructor.java:92-95) matter, never the unit's tier. [src: PayloadConveyor.java:87]
+6. **"Payload conveyors can be shot apart"** - payload-conveyor is `solid=false`, `underBullets=true` (00-data/blocks.json), so bullets pass straight through; only payload blocks with `solid=true`, such as payload-mass-driver, stop bullets.
 
-## 相关
+## Related
 
-- WORLD.BLOCKS.001 —— 多格方块锚点、size 与放置合法性，载荷尺寸的格数基础。
-- WORLD.LOGISTICS.001 —— 物品传送带吞吐与堵塞，可与载荷传送带横向对比。
-- WORLD.STORAGE.001 —— 卸载器与核心容量，载荷解构后的物品去向。
-- WORLD.CRAFTING.001 —— 配方 craftTime 与单位口径，buildTime 造价公式的邻居。
-- 00-data/blocks.json —— 14 个载荷方块的全部静态字段（health / size / requirements / consumes）。
+- WORLD.BLOCKS.001 - multiblock anchors, size and placement legality, the tile basis of payload size.
+- WORLD.LOGISTICS.001 - item conveyor throughput and blocking, for a side-by-side comparison with payload conveyors.
+- WORLD.STORAGE.001 - unloaders and core capacity, where deconstructed payload items go.
+- WORLD.CRAFTING.001 - recipe craftTime and unit conventions, neighbours of the buildTime cost formula.
+- 00-data/blocks.json - every static field of the 14 payload blocks (health / size / requirements / consumes).

@@ -1,7 +1,7 @@
 ---
 tokens: 622
 id: COMBAT.TURRET.111
-title: segment —— 225 点每秒的弹体清道夫
+title: segment — the 225-per-second projectile sweeper
 domain: combat
 status: active
 ver: [v160.7_rt, v159.3_src]
@@ -14,75 +14,75 @@ src:
   - "jar:v160.7#blocks/segment"
 data: [00-data/turrets.json, 00-data/blocks.json, 00-data/bullets.json, 00-data/turret_shots.json]
 depends: [COMBAT.TURRET.001, COMBAT.TURRET.002, COMBAT.NUMBERS.001]
-tags: [炮塔, segment, 弹体拦截 / 防空清弹]
+tags: [turret, segment, projectile interception / anti-air bullet clearing]
 ---
 
-## 一句话
+## One line
 
-segment 是唯一「不杀人只清弹」的塔：它瞄准的是敌方子弹而不是单位，单发 30 点对弹体伤害、7.5 发/s，合计 225/s 的拦截吞吐。它把空投波从威胁变成可算的数学题，代价是 480/s 的电和完全为零的杀伤——敌人不来弹幕，它就白拿一个塔位。 [src: 00-data/turrets.json]
+segment is the only turret that "kills nothing, clears projectiles": it aims at enemy bullets rather than units, 30 bullet damage per shot at 7.5 shots/s for 225/s of interception throughput. It turns an airdrop wave from a threat into arithmetic, at the price of 480/s of power and exactly zero lethality -- if the enemy brings no barrage, it simply holds a turret slot for nothing. [src: 00-data/turrets.json]
 
-## 规则 / 公式
+## Rules / formulas
 
-- **层位**：A ｜ **岗位**：弹体拦截 / 防空清弹
-- **射击模式**：点防（每触发拦截 1 枚弹体）（每触发 1 发；reload 8 tick） [src: 00-data/turret_shots.json]
-- **目标层**：（表未标注）
-- PointDefenseTurret 类：目标过滤只保留敌方弹体（单位不入选），所以它永远不会替别的塔补输出 [src: 00-data/turrets.json]
-- reload 8 tick ⇒ 7.5 发/s，单发 bulletDamage 30 只对弹体结算，合计 225/s 的拦截吞吐 [src: 00-data/turrets.json]
-- 拦截是概率性的：弹速越快、同时来弹越多，漏网率越高；225/s 是上限而不是保证 [src: 00-data/turrets.json]
-- 射界 180 世界单位（22.5 格），需要覆盖在受威胁方向的前方，而不是贴核心 [src: 00-data/turrets.json]
-- **优点**：
-  - 拦下 225/s 的弹体伤害，等于把敌人的远程投射直接抹掉，对炮击/导弹波极为有效 [src: 00-data/turrets.json]
-  - 不消耗物品弹药，只吃 480/s 电，后期电网宽裕时供给压力为零 [src: 00-data/turrets.json]
-  - 覆盖 22.5 格，一座就能罩住一整段防线 [src: 00-data/turrets.json]
-- **缺点**：
-  - 对单位零伤害：敌人走到弹幕之外、或用近战单位推进时，它整场没有贡献 [src: 00-data/turrets.json]
-  - 480/s 的耗电在中期是实打实的电价，需要单独电网或电池缓冲 [src: 00-data/turrets.json]
-  - 225/s 只是上限，面对高弹速的 surge 类弹体仍会漏 [src: 00-data/turrets.json]
-- **口径**：单体 DPS = 60/(reload × reloadMultiplier) × shots × 直伤；面板 DPS 再按 BulletType.estimateDPS 把溅射按 0.75 折进去（见 [[COMBAT.NUMBERS.001]]）。 [src: Mindustry-Source/core/src/mindustry/entities/bullet/BulletType.java:414]
+- **Tier**: A | **Role**: projectile interception / anti-air bullet clearing
+- **Firing mode**: point defence (intercepts 1 projectile per trigger) (1 shot per trigger; reload 8 ticks) [src: 00-data/turret_shots.json]
+- **Target layers**: (not marked in the table)
+- PointDefenseTurret class: the target filter keeps enemy projectiles only (units are never selected), so it never adds output on behalf of other turrets [src: 00-data/turrets.json]
+- reload 8 ticks ⇒ 7.5 shots/s, the 30 bulletDamage per shot settles against projectiles only, 225/s of interception throughput [src: 00-data/turrets.json]
+- interception is probabilistic: the faster the bullets and the more arrive at once, the higher the leak rate; 225/s is a ceiling, not a guarantee [src: 00-data/turrets.json]
+- a 180-world-unit (22.5 tiles) reach means it must cover in front of the threatened direction, not hug the core [src: 00-data/turrets.json]
+- **Strengths**:
+  - intercepting 225/s of projectile damage effectively erases enemy ranged output, extremely effective against artillery and missile waves [src: 00-data/turrets.json]
+  - it consumes no item ammo, only 480/s of power, so once the late-game grid is comfortable supply pressure is zero [src: 00-data/turrets.json]
+  - 22.5 tiles of coverage puts one turret over a whole section of line [src: 00-data/turrets.json]
+- **Weaknesses**:
+  - zero damage against units: when the enemy stays outside its barrage or pushes with melee units it contributes nothing all game [src: 00-data/turrets.json]
+  - 480/s is a real power price in the mid game, needing a dedicated grid or battery buffer [src: 00-data/turrets.json]
+  - 225/s is only a ceiling, and against fast surge-type projectiles it still leaks [src: 00-data/turrets.json]
+- **Metric**: single-target DPS = 60/(reload × reloadMultiplier) × shots × direct damage; displayed DPS then folds splash in at 0.75 per BulletType.estimateDPS (see [[COMBAT.NUMBERS.001]]). [src: Mindustry-Source/core/src/mindustry/entities/bullet/BulletType.java:414]
 
-## 数值
+## Numbers
 
-| 项 | 值 | 来源 |
+| Item | Value | Source |
 |---|---|---|
-| 尺寸 | 2 | 00-data/blocks.json |
-| 血量 | 1000 | 00-data/blocks.json |
-| 护甲 | 0 | 00-data/blocks.json |
-| 造价 | 290 件（titanium × 40、thorium × 80、silicon × 130、phase-fabric × 40） | 00-data/blocks.json |
-| 射程 | 180 世界单位（22.50 格） | 00-data/turrets.json |
-| reload | 8 tick | 00-data/turrets.json |
+| Size | 2 | 00-data/blocks.json |
+| Health | 1000 | 00-data/blocks.json |
+| Armor | 0 | 00-data/blocks.json |
+| Build cost | 290 items (titanium × 40, thorium × 80, silicon × 130, phase-fabric × 40) | 00-data/blocks.json |
+| Range | 180 world units (22.50 tiles) | 00-data/turrets.json |
+| reload | 8 ticks | 00-data/turrets.json |
 | shots | 1 | 00-data/turret_shots.json |
-| 冷却液倍率 / shootCone | 2 / 5 | 00-data/turrets.json |
-| 耗电 | 480/s | 00-data/turrets.json |
+| Coolant multiplier / shootCone | 2 / 5 | 00-data/turrets.json |
+| Power draw | 480/s | 00-data/turrets.json |
 
-| 项 | 值 | 说明 | 来源 |
+| Item | Value | Notes | Source |
 |---|---|---|---|
-| bulletDamage | 30 | 对弹体的伤害 | Mindustry-Source/core/src/mindustry/content/Blocks.java:3837 |
-| 发/s | 7.5 | reload 8 tick | Mindustry-Source/core/src/mindustry/content/Blocks.java:3843 |
-| 拦截吞吐 | 225/s | 只对弹体成立，不对单位 | 本文口径 |
-| 耗电 | 480/s | | Mindustry-Source/core/src/mindustry/content/Blocks.java:3849 |
+| bulletDamage | 30 | damage against projectiles | Mindustry-Source/core/src/mindustry/content/Blocks.java:3837 |
+| Shots/s | 7.5 | reload 8 ticks | Mindustry-Source/core/src/mindustry/content/Blocks.java:3843 |
+| Interception throughput | 225/s | holds against projectiles only, never units | this article's metric |
+| Power draw | 480/s | | Mindustry-Source/core/src/mindustry/content/Blocks.java:3849 |
 
-- 点防塔：击落飞来的子弹/炮弹，不伤害单位与建筑；它的「DPS」是拦截吞吐而不是杀伤。 [src: Mindustry-Source/core/src/mindustry/content/Blocks.java:3836]
-- 对弹幕型敌人价值远超数字，对纯激光/近战敌人几乎为零。 [src: Mindustry-Source/core/src/mindustry/content/Blocks.java:3836]
+- a point-defence turret: it shoots down incoming bullets and shells and deals no damage to units or buildings; its "DPS" is interception throughput, not lethality. [src: Mindustry-Source/core/src/mindustry/content/Blocks.java:3836]
+- its value against barrage enemies far exceeds the number; against pure laser or melee enemies it is near zero. [src: Mindustry-Source/core/src/mindustry/content/Blocks.java:3836]
 
-- 本库不给 segment 算「DPS」排名：30 是对弹体伤害，不进入单位伤害统计，225/s 是拦截吞吐而不是杀伤 [src: 00-data/turrets.json]
+- this library gives segment no "DPS" ranking: 30 is projectile damage, it does not enter unit damage statistics, and 225/s is interception throughput rather than lethality [src: 00-data/turrets.json]
 
-## 源码锚点
+## Source anchors
 
-- Mindustry-Source/core/src/mindustry/content/Blocks.java:3836 —— 定义行 new PointDefenseTurret("segment")
-- Mindustry-Source/core/src/mindustry/entities/pattern/ShootPattern.java:9 —— shots 默认 1（本塔未覆写）
-- 00-data/turret_shots.json#id=segment —— 源码派生记录（含证据行）
+- Mindustry-Source/core/src/mindustry/content/Blocks.java:3836 — definition line new PointDefenseTurret("segment")
+- Mindustry-Source/core/src/mindustry/entities/pattern/ShootPattern.java:9 — shots defaults to 1 (this turret does not override it)
+- 00-data/turret_shots.json#id=segment — source-derived record (with evidence lines)
 
-## 实测与反例
+## Measurements and counterexamples
 
-- 反例：用 segment 应付纯近战波（crawler/risser），它不选单位，整波零输出；复现：00-data/turrets.json 里 segment 的 target 字段与 MANUAL 表 notes「只打弹体不打单位」 [src: 00-data/turrets.json]
-- 反例：拿 30 单发去算「30 × 7.5 = 225 DPS 所以能打单位」，225/s 的量级在真实 DPS 里只是中游，而且它根本不落在单位上 [src: 00-data/turrets.json]
+- Counterexample: segment against a pure melee wave (crawler/risser); it does not select units, zero output for the whole wave. Reproduce: segment's target fields in 00-data/turrets.json and the MANUAL table notes "hits projectiles only, not units" [src: 00-data/turrets.json]
+- Counterexample: computing "30 × 7.5 = 225 DPS so it can hit units" from the 30 per shot; a 225/s figure is only mid-pack as real DPS, and it never lands on a unit at all [src: 00-data/turrets.json]
 
-## 常见误解
+## Common misconceptions
 
-- 「点防塔等于防空塔」错：它拦的是子弹，飞行单位本体不在它的目标集里
-- 「拦截率 100%」错：225/s 是吞吐上限，来弹更密或更快就会漏 [src: 00-data/turrets.json]
+- "a point-defence turret equals an anti-air turret" wrong: it intercepts bullets, the flying unit itself is not in its target set
+- "interception rate is 100%" wrong: 225/s is a throughput ceiling, denser or faster incoming fire leaks [src: 00-data/turrets.json]
 
-## 相关
+## Related
 
 - [[COMBAT.TURRET.115]]
 - [[COMBAT.TURRET.108]]

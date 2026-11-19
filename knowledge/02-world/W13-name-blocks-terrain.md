@@ -1,6 +1,6 @@
 ---
 id: WORLD.NAMES.001
-title: 方块名对照①：地形 / 矿石 / 墙壁（136 条）
+title: Block name mapping I - terrain / ore / walls (136 entries)
 domain: world
 status: active
 ver: [v160.7_rt, v159.3_src]
@@ -11,25 +11,25 @@ src:
 data:
   - "00-data/blocks.json"
 depends: [WORLD.BLOCKS.001, WORLD.TERRAIN.001]
-tags: [名词, 中文名, 英文名, 翻译, 对照表, 地形, 矿石, 墙壁]
+tags: [names, chinese-name, english-name, translation, mapping-table, terrain, ore, walls]
 ---
 
-## 一句话
+## One line
 
-界面上的中文名既不是 id、也不是英文名的直译；要在地图、沙盒与攻略之间对号，先用这张表把「看到的名字」换成 id，再去正文查机制与数值。
+A Chinese name on screen is neither the id nor a literal translation of the English name; to cross-reference a map, the sandbox and a guide, use this table first to turn "the name you saw" into an id, then look up mechanics and numbers in the main articles.
 
-## 规则 / 公式
+## Rules / formulas
 
-- 显示名的唯一来源是语言包：`block.<id>.name` 给方块名，`<kind>.<id>.name` 给其余实体；本文只收 `kind=block` 的地形层。
-- 分组依据是 00-data 的 `types` 字段：含 `floor` / `wall` / `ore` 的 136 条即本文范围，涵盖地板、矿层、矿墙与编辑器专用地形。
-- 表内「—」表示语言包里没有该 id 的 `.name` 项，不等于名字未知：这类方块在界面上通常不显示名字（编辑器、旧版遗留、矿层贴图）。
-- 显示串可能混入颜色标记（如 `[lightgray]`），表中已剥掉标记、保留括号内的文字。
+- The only source of a display name is the language bundle: `block.<id>.name` gives a block name and `<kind>.<id>.name` gives the remaining entities; this article only covers the terrain layer, `kind=block`.
+- Grouping follows the `types` field in 00-data: the 136 entries containing `floor` / `wall` / `ore` are this article's scope, covering floors, ore layers, ore walls and editor-only terrain.
+- A "—" in the table means the bundle has no `.name` entry for that id; it does not mean the name is unknown, because such blocks normally show no name in the UI (editor placeholders, legacy leftovers, ore overlays).
+- A display string may carry colour markers (such as `[lightgray]`); the table strips the markers and keeps the text inside the parentheses.
 
-## 数值
+## Numbers
 
-本节只列名词，不含任何数值；血量、尺寸、装甲等数值见 `00-data/blocks.json` 与 WORLD.BLOCKS.001。
+This section lists names only and contains no numbers; health, size, armor and similar figures are in `00-data/blocks.json` and WORLD.BLOCKS.001.
 
-| id | 英文名 | 中文名 | 中文名出处 | 英文名出处 |
+| id | English name | Chinese name | Chinese name source | English name source |
 |---|---|---|---|---|
 | `air` | — | — | — | — |
 | `arkycite-floor` | Arkycite | 芳油 | zh:2098 | en:2103 |
@@ -168,33 +168,33 @@ tags: [名词, 中文名, 英文名, 翻译, 对照表, 地形, 矿石, 墙壁]
 | `tungsten-wall` | Tungsten Wall | 钨墙 | zh:2158 | en:2163 |
 | `tungsten-wall-large` | Large Tungsten Wall | 大型钨墙 | zh:2159 | en:2164 |
 
-## 源码锚点
+## Source anchors
 
-- `data/game/bundles/bundle_zh_CN.properties` —— 中文显示名；表内「中文名出处 zh:N」即该文件第 N 行。
-- `data/game/bundles/bundle.properties` —— 英文显示名；「英文名出处 en:N」即该文件第 N 行。
-- `00-data/blocks.json` —— `id` / `types` / `category` 字段；本文按 `types` 过滤出 136 条（其中 122 条有中文名）。
-- 生成脚本 `knowledge/tools/gen_name_docs.py`（游戏版本更新后重跑即可，不改 00-data）。
+- `data/game/bundles/bundle_zh_CN.properties` - the Chinese display names; "Chinese name source zh:N" in the table is line N of that file.
+- `data/game/bundles/bundle.properties` - the English display names; "English name source en:N" is line N of that file.
+- `00-data/blocks.json` - the `id` / `types` / `category` fields; this article filters out 136 entries by `types` (122 of which have a Chinese name).
+- The generator script `knowledge/tools/gen_name_docs.py` (re-run it after a game version update; it does not modify 00-data).
 
-## 实测与反例
+## Measurements and counter-examples
 
-- 反例一：`dacite` 英文 Dacite（地质学上是英安岩），官方中文却是「安山岩」；而安山岩的英文是 andesite。中英名不对应，按地质名对号会错。
-- 反例二：`char` 英文 “Charred Stone”（烧焦的石头），中文「焦土」——既不是逐词直译，也不是石头类（它是地板）。
-- 反例三：`ore-copper` / `ore-lead` / `ore-thorium` 等矿层 id 在语言包里没有任何 `.name` 项；它们在沙盒菜单里以贴图出现、不显示名字。拿「铜矿」去搜 id 一定落空，必须反查 WORLD.DRILLING.001 的资源表。
-- 反例四：`block.launch-pad.name` 的原始值是「发射台[lightgray]（旧版）」，颜色标记不是名字的一部分；直接抄进文档会带上 `[lightgray]`。
-- 反例五：`build1`～`build16`、`air`、`target-dummy`、`legacy-*` 同样无 `.name`；它们是编辑器占位或旧版遗留，玩家界面不可见。
+- **Counter-example A** - `dacite` has the English name "Dacite" (geologically dacite), yet the official Chinese name is andesite (安山岩); and andesite's English name is "Andesite" as well. The Chinese and English names do not line up, so matching by geological name goes wrong.
+- **Counter-example B** - `char` has the English name "Charred Stone" and the Chinese name scorched earth (焦土) - neither a word-for-word translation nor a stone class (it is a floor).
+- **Counter-example C** - ore layer ids such as `ore-copper` / `ore-lead` / `ore-thorium` have no `.name` entry at all in the bundle; they appear in the sandbox menu as textures with no name shown. Searching ids for copper ore (铜矿) always comes up empty - you have to cross-reference the resource table in WORLD.DRILLING.001.
+- **Counter-example D** - the raw value of `block.launch-pad.name` is "launch pad (发射台)[lightgray] (legacy version)"; the colour marker is not part of the name, and copying it straight into a document drags `[lightgray]` along.
+- **Counter-example E** - `build1`–`build16`, `air`, `target-dummy` and `legacy-*` likewise have no `.name`; they are editor placeholders or legacy leftovers and are invisible in the player UI.
 
-## 常见误解
+## Common misconceptions
 
-- 把中文名当 id 用：`传送带` 不是 id，`conveyor` 才是；文档、蓝图、逻辑里只认 id。
-- 以为英文名等于 id：`Titanium Conveyor` 有空格和大小写，id 是 `titanium-conveyor`。
-- 以为中文名是英文名的直译：`Duo`=双管、`Dagger`=尖刀、`Mender`=修理器，都不是逐词对译。
-- 以为每个方块都有显示名：本文 136 条里有 14 条没有，查到「—」不代表名字缺失，而是该方块在界面不显示名字。
+- Using the Chinese name as an id: conveyor (传送带) is not an id, `conveyor` is; documents, blueprints and logic only accept ids.
+- Assuming the English name equals the id: `Titanium Conveyor` has spaces and capitals, while the id is `titanium-conveyor`.
+- Assuming the Chinese name is a literal translation of the English one: Duo (双管), Dagger (尖刀), Mender (修理器) are none of them word-for-word.
+- Assuming every block has a display name: 14 of the 136 entries here do not; a "—" means that block shows no name in the UI, not that the name is missing.
 
-## 相关
+## Related
 
-- WORLD.BLOCKS.001（方块模型与多格锚点，数值口径）
-- WORLD.TERRAIN.001（地形、矿层、墙三层结构，移动倍率）
-- WORLD.DRILLING.001（矿层与钻头覆盖，ore-* 的实际用途）
-- WORLD.SANDBOX.001（编辑器可见性与 build 系列占位）
-- WORLD.NAMES.002 / WORLD.NAMES.003（其余方块名）
-- EV.CHEAT.001（速查卡）
+- WORLD.BLOCKS.001 (block model and multiblock anchors, the numeric conventions)
+- WORLD.TERRAIN.001 (terrain, the ore-layer and wall three-layer structure, movement multipliers)
+- WORLD.DRILLING.001 (ore layers and drill coverage, what ore-* is actually for)
+- WORLD.SANDBOX.001 (editor visibility and the build series placeholders)
+- WORLD.NAMES.002 / WORLD.NAMES.003 (the remaining block names)
+- EV.CHEAT.001 (cheat sheet)

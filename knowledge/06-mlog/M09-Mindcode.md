@@ -1,6 +1,6 @@
 ---
 id: MLOG.MIND.001
-title: Mindcode 编译前端：.mnd → mlog 的入口、版本裁决与失败分类
+title: "The Mindcode compile front end: the .mnd → mlog entry points, version arbitration and failure classes"
 domain: mlog
 status: active
 ver: [v160.7_rt]
@@ -17,186 +17,186 @@ src:
 data:
   - 06-mlog/instructions.json#meta
 depends: [MLOG.EXEC.001]
-tags: [mindcode, 编译前端, 版本裁决, 诊断, MCP]
+tags: [mindcode, compile front end, version arbitration, diagnostics, MCP]
 tokens: 1964
 ---
 
-# M09 Mindcode 编译前端
+# M09 The Mindcode compile front end
 
-## 一句话
+## In one sentence
 
-Mindcode 是「把高级语言 `.mnd` 编译成 mlog」的**外部 Java 编译器**；本仓库不内嵌它，只用薄前端 `tools/mindcode.py` 把「找 jar/JRE → 跑 `cm` → 把 stderr 解析成 `file:line:col`」这一层固定下来，CLI / Python API / MCP 三种入口共用同一个结果字典。
+Mindcode is an **external Java compiler** that turns a high-level `.mnd` source into mlog; this repo does not embed it. A thin front end, `tools/mindcode.py`, pins down the layer "locate a jar/JRE → run `cm` → parse stderr into `file:line:col`", and the CLI / Python API / MCP entry points all share one result dict.
 
-## 规则 / 公式
+## Rules / formulas
 
-### 1. 它是什么
+### 1. What it is
 
-- **外部进程，不是库**。唯一接口是一次子进程调用：`java -jar mindcode.jar cm <src.mnd> -o <out.mlog> -l <out.log>` [src: tools/mindcode.py:515-516]。
-- **只做一件转换**：`.mnd` → mlog 文本。静态检查、仿真、断言都不在它这里，所以 Mindcode 程序的验证链是 `.mnd → compile → mlog → check → sim → assertions` [src: docs/Mindcode集成.md:129-135]。
-- **产物是普通 mlog**，因此照样受引擎硬限制约束（1000 条指令、400 字符文本缓冲，见 M01 / M08）。
+- **An external process, not a library**. The only interface is one subprocess call: `java -jar mindcode.jar cm <src.mnd> -o <out.mlog> -l <out.log>` [src: tools/mindcode.py:515-516].
+- **It performs one conversion only**: `.mnd` → mlog text. Static checks, simulation and assertions are not its job, so the verification chain for a Mindcode program is `.mnd → compile → mlog → check → sim → assertions` [src: the integration doc (docs/Mindcode集成.md:129-135)].
+- **The output is ordinary mlog**, so it is subject to the same engine hard caps (1000 instructions, 400-character text buffer; see M01 / M08).
 
-### 2. `cm` 与 `pm` 的区别
+### 2. How `cm` and `pm` differ
 
-| 子命令 | 别名 | 输入 | 输出 | 本仓库是否调用 |
+| Subcommand | Alias | Input | Output | Does this repo call it |
 |---|---|---|---|---|
-| `cm` | compile-mindcode | `.mnd` 源码 | `.mlog` 文本 | **是，唯一用到的** [src: tools/mindcode.py:515] |
-| `pm` | process-mlog / dm / decompile-mlog | `.mlog`（文件或游戏内处理器） | 处理后/反编译结果 | 否 |
-| `cs` | compile-schematic | schematic 定义 | `.msch` | 否 |
-| `ps` | process-schematic | `.msch` | — | 否 |
+| `cm` | compile-mindcode | `.mnd` source | `.mlog` text | **yes, the only one used** [src: tools/mindcode.py:515] |
+| `pm` | process-mlog / dm / decompile-mlog | `.mlog` (a file or an in-game processor) | the processed / decompiled result | no |
+| `cs` | compile-schematic | a schematic definition | `.msch` | no |
+| `ps` | process-schematic | `.msch` | — | no |
 
-来源：`java -jar mindcode-3.19.3.jar --help` 的 Actions 表 [实测: 本机 3.19.3 jar]。一句话记：**`cm` 是正向（写代码变 mlog），`pm` 是反向（拿 mlog 做处理/反编译）**，本仓库只走正向。
+Source: the Actions table of `java -jar mindcode-3.19.3.jar --help` [measured: this machine's 3.19.3 jar]. In one line: **`cm` goes forward (source becomes mlog), `pm` goes backward (take mlog and process/decompile it)**, and this repo only goes forward.
 
-### 3. 三种入口
+### 3. Three entry points
 
-| 入口 | 怎么调 | 返回 | 什么时候用 |
+| Entry point | How to call | Returns | When to use |
 |---|---|---|---|
-| CLI | `python tools/mindcode.py compile FILE.mnd -o FILE.mlog --target 7.0 [--no-optimize] [--json]`；`doctor`；`version` | 退出码 0/1/2 + 可选 JSON 行 | 人手动跑、写 CI 步骤 [src: tools/mindcode.py:809-831] |
-| Python API | `locate()`、`compile_source(text, *, target="7.0", optimize=True, timeout=120.0, workdir=None)`、`compile_file(path, **kw)`、`doctor(smoke=True)` | 8 键结果字典（见 §7） | 仓库内其它脚本 [src: tools/mindcode.py:582-621] |
-| MCP | `mindcode_compile(source\|path, target, optimize, out, level)`；`mlog_validate(mind\|mnd_path, ticks, expect, level)` | `mlog-eval/v1` 信封 | 模型侧：一个调用拿到「编过了没 + 编译产物是否真对」[src: tools/mlog_mcp.py:155-193] |
+| CLI | `python tools/mindcode.py compile FILE.mnd -o FILE.mlog --target 7.0 [--no-optimize] [--json]`; `doctor`; `version` | exit code 0/1/2 + an optional JSON line | a human running it by hand, CI steps [src: tools/mindcode.py:809-831] |
+| Python API | `locate()`, `compile_source(text, *, target="7.0", optimize=True, timeout=120.0, workdir=None)`, `compile_file(path, **kw)`, `doctor(smoke=True)` | an 8-key result dict (see §7) | other scripts in the repo [src: tools/mindcode.py:582-621] |
+| MCP | `mindcode_compile(source\|path, target, optimize, out, level)`; `mlog_validate(mind\|mnd_path, ticks, expect, level)` | the `mlog-eval/v1` envelope | the model side: one call answers "did it compile + is the compiled output actually right" [src: tools/mlog_mcp.py:155-193] |
 
-`mlog_validate` 的 `mind`/`mnd_path` 是**先编译再验证**：编译失败时 stage 直接停在 `compilation`，不会再假装去跑静态或仿真 [src: tools/mlog_mcp.py:595-604]。
+`mlog_validate`'s `mind`/`mnd_path` **compile first, then validate**: when compilation fails the stage stops at `compilation` rather than pretending to run static checks or simulation [src: tools/mlog_mcp.py:595-604].
 
-MCP 侧**目前共 11 个工具**，Mindcode 只从上面这两个进出：`mlog_sim` 吃的是 mlog（`path`/`logic`）而不是 `.mnd`，它后来新增的 `scene`/`project`/`project_every`/`rt` 是沙盘投影参数，与编译链路无关 [src: tools/mlog_mcp.py:121-154]。
+The MCP side **currently exposes 11 tools**, and Mindcode enters and leaves only through the two above: `mlog_sim` consumes mlog (`path`/`logic`), not `.mnd`, and the `scene`/`project`/`project_every`/`rt` it later gained are sandbox projection parameters unrelated to the compile chain [src: tools/mlog_mcp.py:121-154].
 
-### 4. 版本与 JVM 定位顺序
+### 4. Version and JVM resolution order
 
-jar（首个探测通过的胜出）：
+jar (the first candidate that passes probing wins):
 
-1. `$MINDCODE_JAR`（设了就是**唯一**候选）
-2. `out/_mindcode/mindcode-3.19.3.jar`（本仓库约定的落点，默认生效）
-3. `out/_mindcode/mindcode.jar`（可能是 3.21.0，即会死锁的那个）
+1. `$MINDCODE_JAR` (once set it is the **only** candidate)
+2. `out/_mindcode/mindcode-3.19.3.jar` (this repo's agreed location, what takes effect by default)
+3. `out/_mindcode/mindcode.jar` (possibly 3.21.0, the one that deadlocks)
 4. `~/src/mindcode-dist/mindcode.jar`
 
-java（同样，`$MINDCODE_JAVA` 设了就是唯一候选）：
+java (likewise; once `$MINDCODE_JAVA` is set it is the only candidate):
 
 1. `$MINDCODE_JAVA`
-2. `out/jre21/jdk-21.0.5+11-jre/bin/java.exe`（**装不了 3.19.3**，探测后跳过）
-3. `out/_mindcode/jdk-25.0.5+8-jre/bin/java.exe`（实际生效的那个）
+2. `out/jre21/jdk-21.0.5+11-jre/bin/java.exe` (**cannot run 3.19.3**, skipped after probing)
+3. `out/_mindcode/jdk-25.0.5+8-jre/bin/java.exe` (the one actually used)
 
-顺序来自候选表本身 [src: tools/mindcode.py:113-120] 与两个 `_candidates()` [src: tools/mindcode.py:157-177]。
+The order comes from the candidate table itself [src: tools/mindcode.py:113-120] and the two `_candidates()` functions [src: tools/mindcode.py:157-177].
 
-两个「为什么」：
+Two "why"s:
 
-- **为什么忽略 PATH 上的 java**：本机 PATH 的 java 是 **Java 8**，Mindcode 要 **Java 22+**；用它只会得到 `UnsupportedClassVersionError` 甚至更晦涩的 `LinkageError`，所以候选表**故意不含 PATH**，找不到可用组合时直接 `ok=False` [src: tools/mindcode.py:53-56]。
-- **为什么 JRE 21 也不够**：3.19.3 编成 class file **66.0**（= Java 22），JRE 21 只认到 **65.0**。所以 java 候选不是 `stat()` 一下就算可用，而是**真跑一次 `--version` 探测**，把这类失败归类为 `incompatible` 写进 `notes` 再跳到下一个 [src: tools/mindcode.py:267-290, 58-66]。
+- **Why the java on PATH is ignored**: this machine's PATH java is **Java 8** and Mindcode needs **Java 22+**; using it only yields `UnsupportedClassVersionError` or the even more obscure `LinkageError`, so the candidate table **deliberately leaves PATH out** and reports `ok=False` outright when no usable combination is found [src: tools/mindcode.py:53-56].
+- **Why JRE 21 is not enough either**: 3.19.3 is compiled to class file **66.0** (= Java 22) and JRE 21 accepts only up to **65.0**. So a java candidate is not accepted on a `stat()`; it **really runs one `--version` probe**, classifies such failures as `incompatible`, writes them into `notes` and moves to the next candidate [src: tools/mindcode.py:267-290, 58-66].
 
-### 5. 为什么基线是 3.19.3：3.21.0 会死锁
+### 5. Why the baseline is 3.19.3: 3.21.0 deadlocks
 
-| 事实 | 依据 |
+| Fact | Basis |
 |---|---|
-| 3.21.0 的 `--version`、`cm --help` **秒回**，但 `cm` 永久挂住 | `--version` 只做版本号，不触发更新检查 [src: docs/Mindcode集成.md:56-57] |
-| 根因：`Main.java:40` 只把 `--no-update-check` 注册在**顶层 parser**，而 `ToolAppAction.java:41` 从**子命令 namespace** 读 → 永远 `null` → 无条件执行更新检查 | [src: docs/Mindcode集成.md:73-77] |
-| 更新检查用 `dev.dirs` 在 Windows 上跑 `powershell -EncodedCommand` 内联 C#；Java 侧只读 stdout、**不排空 stderr**，管道写满即互锁 | [src: docs/Mindcode集成.md:74-77] |
-| 因此版本探测**测不出**死锁，只有真编译能测出 | `doctor` 的 `smoke-compile` 就是为此存在 [src: tools/mindcode.py:664-681] |
+| 3.21.0's `--version` and `cm --help` **return instantly**, yet `cm` hangs forever | `--version` only handles the version number and never triggers the update check [src: docs/Mindcode集成.md:56-57] |
+| root cause: `Main.java:40` registers `--no-update-check` only on the **top-level parser**, while `ToolAppAction.java:41` reads it from the **subcommand namespace** → always `null` → the update check runs unconditionally | [src: docs/Mindcode集成.md:73-77] |
+| the update check uses `dev.dirs` and on Windows runs `powershell -EncodedCommand` with inline C#; the Java side only reads stdout and **never drains stderr**, so a full pipe locks both sides | [src: docs/Mindcode集成.md:74-77] |
+| so a version probe **cannot detect** the deadlock; only a real compile can | `doctor`'s `smoke-compile` exists for exactly this [src: tools/mindcode.py:664-681] |
 
-包装侧的处置：3.21 仍保留在候选表里（搜索顺序使然），但一旦被选中就写进 `warnings`/`notes` [src: tools/mindcode.py:362-367]；编译超时时再补一句「换 3.19.3」的提示 [src: tools/mindcode.py:532-534]。
+What the wrapper does about it: 3.21 stays in the candidate table (because of the search order), but once it is picked it is written into `warnings`/`notes` [src: tools/mindcode.py:362-367]; on a compile timeout it adds a "use 3.19.3 instead" hint [src: tools/mindcode.py:532-534].
 
-### 6. 错误格式与诊断三列
+### 6. The error format and the three diagnostic columns
 
-编译器把诊断写在 **stderr**，一行一条：
+The compiler writes diagnostics to **stderr**, one per line:
 
 ```text
 <绝对路径>:<行>:<列> <类别>: <消息>
 ```
 
-`_DIAG_RE` 抓前三个字段 `file/line/col` [src: tools/mindcode.py:131]，剩下部分再交给 `_CATEGORY_RE` 拆 `kind/message` [src: tools/mindcode.py:132-135]。关键：**只有 parse/syntax/compile/internal/runtime error 与 warning/note/info 才有显式类别前缀**；语义错误没有前缀，此时 `kind` 兜底为 `error`、`message` 取整行剩余 [src: tools/mindcode.py:430]。
+`_DIAG_RE` captures the first three fields `file/line/col` [src: tools/mindcode.py:131] and hands the rest to `_CATEGORY_RE` to split into `kind/message` [src: tools/mindcode.py:132-135]. Key point: **only parse/syntax/compile/internal/runtime error and warning/note/info carry an explicit category prefix**; semantic errors have no prefix, in which case `kind` falls back to `error` and `message` takes the rest of the line [src: tools/mindcode.py:430].
 
-| stderr 长什么样 | 解析结果 | 依据 |
+| What stderr looks like | Parsed result | Basis |
 |---|---|---|
-| `bad.mnd:1:6 Parse error: missing semicolon after '1'` | kind=`Parse error`, line=1, col=6 | 实测 |
-| `bad.mnd:1:1 error` 形态：`Function 'sensor': wrong number of arguments (expected 2, found 3).` | kind=`error`（无类别前缀） | 实测 |
-| `Automatically added missing 'printflush(message1);' call …` | **不进 diagnostics**，进 `notes`（不匹配 `_DIAG_RE` 的行都算编译器闲聊） | [src: tools/mindcode.py:424-427] |
-| `java.lang.UnsupportedClassVersionError …` | 归 `incompatible`，进 `notes` 并跳过该 java 候选 | [src: tools/mindcode.py:279-284] |
+| `bad.mnd:1:6 Parse error: missing semicolon after '1'` | kind=`Parse error`, line=1, col=6 | measured |
+| the `bad.mnd:1:1 error` shape: `Function 'sensor': wrong number of arguments (expected 2, found 3).` | kind=`error` (no category prefix) | measured |
+| `Automatically added missing 'printflush(message1);' call …` | **does not enter diagnostics**, it goes into `notes` (any line not matching `_DIAG_RE` counts as compiler chatter) | [src: tools/mindcode.py:424-427] |
+| `java.lang.UnsupportedClassVersionError …` | classified as `incompatible`, goes into `notes` and that java candidate is skipped | [src: tools/mindcode.py:279-284] |
 
-另外两件容易漏的：诊断文本按 **ANSI 代码页**输出（本机 cp936），所以每个流走「UTF-8 → locale 代码页 → replace」三级解码 [src: tools/mindcode.py:188-202]；CLI 下诊断打到 stderr、体会是 `path:line:col: kind: message` [src: tools/mindcode.py:713-720]。
+Two more easily missed: diagnostic text is emitted in the **ANSI code page** (cp936 on this machine), so each stream goes through a three-stage decode of "UTF-8 → locale code page → replace" [src: tools/mindcode.py:188-202]; on the CLI diagnostics go to stderr and read `path:line:col: kind: message` [src: tools/mindcode.py:713-720].
 
-### 7. JSON 返回形状
+### 7. The JSON return shape
 
-`compile_source` / `compile_file` 恒定 8 个键 [src: tools/mindcode.py:471-475]：
+`compile_source` / `compile_file` always return 8 keys [src: tools/mindcode.py:471-475]:
 
-| 键 | 含义 |
+| Key | Meaning |
 |---|---|
-| `ok` | 由「**拿到了代码** 且 **没有 error 级诊断**」决定，**不看退出码** [src: tools/mindcode.py:561-562] |
-| `mlog` | 归一化后的 mlog（LF、恰好一个结尾换行）；失败时为 `null` |
-| `diagnostics[]` | `{file, line, col, kind, message}` 五字段 [src: tools/mindcode.py:435-436] |
+| `ok` | decided by "**code was produced** and **there is no error-level diagnostic**", **not** by the exit code [src: tools/mindcode.py:561-562] |
+| `mlog` | the normalised mlog (LF, exactly one trailing newline); `null` on failure |
+| `diagnostics[]` | the five fields `{file, line, col, kind, message}` [src: tools/mindcode.py:435-436] |
 | `stats` | `ast_nodes` / `instructions` / `optimized_instructions` / `timings_ms{parsed,compiled,optimized}` / `raw` / `exit_code` / `timed_out` [src: tools/mindcode.py:394-396] |
 | `tool` | `{name, version, jar, java}` [src: tools/mindcode.py:493-494] |
-| `elapsed_ms` | 墙钟 |
-| `source_sha256` | 对**去掉 BOM 后**的文本取哈希 |
-| `notes` | 包装自己的话：跳过的 java 候选、编译器的闲聊、`-o -` 兜底重跑 |
+| `elapsed_ms` | wall clock |
+| `source_sha256` | the hash of the text **after the BOM is stripped** |
+| `notes` | the wrapper's own remarks: skipped java candidates, compiler chatter, the `-o -` fallback rerun |
 
-MCP 层再包一层 `mlog-eval/v1` 信封：`schema / ok / stage / failure_type / message / level / levels / diagnostics / artifacts / next_steps / trace / elapsed_ms` [src: tools/mlog_eval.py:122-139]（`mlog_validate` 还会补一个 `program` 字段标明是哪段程序 [src: tools/mlog_mcp.py:617]），`level` 三档 `summary|diagnostics|full` 控制体积 [src: tools/mlog_eval.py:62, 85-103]；`summary` 档里编译产物以 `mlog_ref` 指针形式给出而不是整段正文 [src: tools/mlog_mcp.py:516-528]。
+The MCP layer wraps that in a `mlog-eval/v1` envelope: `schema / ok / stage / failure_type / message / level / levels / diagnostics / artifacts / next_steps / trace / elapsed_ms` [src: tools/mlog_eval.py:122-139] (`mlog_validate` also adds a `program` field naming which program it is [src: tools/mlog_mcp.py:617]), and the three `level` settings `summary|diagnostics|full` control the size [src: tools/mlog_eval.py:62, 85-103]; at `summary` level the compiled output is given as an `mlog_ref` pointer instead of the whole body [src: tools/mlog_mcp.py:516-528].
 
-### 8. `unsupported_environment` 与 `compilation_error` 的分界
+### 8. The boundary between `unsupported_environment` and `compilation_error`
 
-**契约上**：源码编不过 → `compilation_error`（下一步是改源码）；这台机器上没有能跑的编译器 → `unsupported_environment`（下一步是修环境，**别再重试**）[src: tools/mlog_mcp.py:549-555]。
+**By contract**: the source does not compile → `compilation_error` (next step: fix the source); this machine has no runnable compiler → `unsupported_environment` (next step: fix the environment, **do not retry**) [src: tools/mlog_mcp.py:549-555].
 
-**实现上判定的是「`tool.jar` 和 `tool.java` 都非空」** [src: tools/mlog_mcp.py:554-555, 587-588]，而 `mindcode.py` **无论成功失败都会把候选路径字符串填进 `tool`** [src: tools/mindcode.py:493-494, 338-341]。后果（实测两条）：
+**In the implementation the test is "`tool.jar` and `tool.java` are both non-empty"** [src: tools/mlog_mcp.py:554-555, 587-588], while `mindcode.py` **fills the candidate path strings into `tool` whether it succeeds or fails** [src: tools/mindcode.py:493-494, 338-341]. Consequences (two measured):
 
-| 场景 | 实际 failure_type | message |
+| Scenario | Actual failure_type | message |
 |---|---|---|
-| `MINDCODE_JAR` 指向不存在的 jar | `compilation_error` | `mindcode unavailable: no mindcode jar found: …` |
-| `path` 指向不存在的 `.mnd` | `unsupported_environment` | `FileNotFoundError: …` |
+| `MINDCODE_JAR` points at a jar that does not exist | `compilation_error` | `mindcode unavailable: no mindcode jar found: …` |
+| `path` points at an `.mnd` that does not exist | `unsupported_environment` | `FileNotFoundError: …` |
 
-也就是说：**环境类失败只有早退分支（读不到文件 / 非 UTF-8，`tool` 的 jar、java 为 `null`）才会落到 `unsupported_environment`** [src: tools/mindcode.py:601-616]；编译器「在但跑不动」的那条路会被标成 `compilation_error`。
+In other words: **an environment failure only lands in `unsupported_environment` through the early-exit branches (file unreadable / not UTF-8, so `tool`'s jar and java are `null`)** [src: tools/mindcode.py:601-616]; the path where the compiler "is there but will not run" is labelled `compilation_error`.
 
-第一条实测里信封是**自相矛盾**的：`failure_type=compilation_error`（含义「你的源码错了」），而同一份 `diagnostics[0]` 是 `{"kind":"environment","line":0,"col":0,"message":"mindcode unavailable: …"}`（含义「这台机器没有编译器」）——kind 与 `line:0,col:0` 由 `mindcode.py` 在 `res["ok"]` 为假时直接构造 [src: tools/mindcode.py:497-502]。所以**信封的 `failure_type` 不可单独采信**。同一件事在 CLI 侧则被判成「环境」——退出码 2 [src: tools/mindcode.py:704-710]；两个入口对同一失败的归因不一致，这也是本文要求「先看 kind」的直接原因。
+In the first measurement the envelope **contradicts itself**: `failure_type=compilation_error` (meaning "your source is wrong"), while that same envelope's `diagnostics[0]` is `{"kind":"environment","line":0,"col":0,"message":"mindcode unavailable: …"}` (meaning "this machine has no compiler") — kind and `line:0,col:0` are constructed directly by `mindcode.py` when `res["ok"]` is false [src: tools/mindcode.py:497-502]. So **the envelope's `failure_type` must not be taken on its own**. The very same failure is judged "environment" on the CLI side — exit code 2 [src: tools/mindcode.py:704-710]; the two entry points attribute the same failure differently, which is the direct reason this article asks you to "look at kind first".
 
-正确的读法：**先看 `diagnostics[0].kind`，再看 `failure_type`**。`environment` / `timeout` / `io` / `encoding` 这四种是环境与输入问题，不是源码错 [src: tools/mindcode.py:144]——CLI 的 `_exit_code()` 正是按这个集合返回 **2**（源码错返回 1）[src: tools/mindcode.py:704-710]。
+The right way to read it: **look at `diagnostics[0].kind` first, then at `failure_type`**. The four kinds `environment` / `timeout` / `io` / `encoding` are environment and input problems, not a source error [src: tools/mindcode.py:144] — the CLI's `_exit_code()` returns **2** for exactly this set (1 for a source error) [src: tools/mindcode.py:704-710].
 
-## 数值
+## Numbers
 
-| 量 | 值 | 来源 |
+| Quantity | Value | Source |
 |---|---|---|
-| 集成基线版本 | 3.19.3 | `mindcode.py version` 实测 |
-| 最低 Java | 22（class file 66.0） | [src: tools/mindcode.py:58-64] |
-| 仓库自带 JRE 21 | 21.0.5+11（class file 65.0，不兼容，被跳过） | [src: tools/mindcode.py:119, 279-284] |
-| 实际使用的 JRE | 25.0.5+8 | [src: tools/mindcode.py:120] |
-| `--version` 探测上限 | 30 s | [src: tools/mindcode.py:122] |
-| 默认编译超时 | 120 s | [src: tools/mindcode.py:582-583] |
-| CLI 退出码 | 0 成功 / 1 源码没编过 / 2 跑不起来（环境、超时、IO） | [src: tools/mindcode.py:15-18, 704-710] |
-| 失败词表 | 7 个值（compilation_error … simulation_real_difference） | [src: tools/mlog_eval.py:51-59] |
-| 简单程序实测 | 6 AST → 3 指令（优化后 2），compiled 195 ms | 实测 `print(1);` |
-| 求和循环实测 | 23 AST → 10 指令 → **2** 条（常量折叠） | 实测 `for i in 1..5` |
-| 同一源 `-O 0` | 11 条指令、11 行 mlog | 实测 |
+| integration baseline version | 3.19.3 | measured with `mindcode.py version` |
+| minimum Java | 22 (class file 66.0) | [src: tools/mindcode.py:58-64] |
+| the repo's bundled JRE 21 | 21.0.5+11 (class file 65.0, incompatible, skipped) | [src: tools/mindcode.py:119, 279-284] |
+| the JRE actually used | 25.0.5+8 | [src: tools/mindcode.py:120] |
+| `--version` probe timeout | 30 s | [src: tools/mindcode.py:122] |
+| default compile timeout | 120 s | [src: tools/mindcode.py:582-583] |
+| CLI exit code | 0 success / 1 the source did not compile / 2 it would not run (environment, timeout, I/O) | [src: tools/mindcode.py:15-18, 704-710] |
+| failure vocabulary | 7 values (compilation_error … simulation_real_difference) | [src: tools/mlog_eval.py:51-59] |
+| simple program measured | 6 AST → 3 instructions (2 after optimisation), compiled 195 ms | measured with `print(1);` |
+| summing loop measured | 23 AST → 10 instructions → **2** (constant folding) | measured with `for i in 1..5` |
+| the same source with `-O 0` | 11 instructions, 11 lines of mlog | measured |
 
-## 源码锚点
+## Source anchors
 
-| 位置 | 内容 |
+| Location | Content |
 |---|---|
-| `tools/mindcode.py:113-120` | 候选表常量：`PREFERRED_JAR` / `FALLBACK_JAR` / `USER_JAR` / `JAVA_21` / `JAVA_25` |
-| `tools/mindcode.py:157-177` | `_jar_candidates()` / `_java_candidates()`：环境变量一旦设置即唯一候选 |
-| `tools/mindcode.py:267-290` | `_probe_version()`：真跑 `--version`，先认 `UnsupportedClassVersionError` 再认版本号 |
-| `tools/mindcode.py:308-381` | `_resolve()`：候选 × 探测的笛卡尔积，首个可用的胜出，其余进 `notes` |
-| `tools/mindcode.py:487-569` | `_compile()`：临时目录、BOM-free 写盘、`cm` 命令行、超时/`-o -` 兜底 |
+| `tools/mindcode.py:113-120` | candidate table constants: `PREFERRED_JAR` / `FALLBACK_JAR` / `USER_JAR` / `JAVA_21` / `JAVA_25` |
+| `tools/mindcode.py:157-177` | `_jar_candidates()` / `_java_candidates()`: an environment variable, once set, is the only candidate |
+| `tools/mindcode.py:267-290` | `_probe_version()`: really runs `--version`, recognises `UnsupportedClassVersionError` before the version number |
+| `tools/mindcode.py:308-381` | `_resolve()`: the cartesian product of candidates × probing; the first usable one wins, the rest go into `notes` |
+| `tools/mindcode.py:487-569` | `_compile()`: temp directory, BOM-free write, the `cm` command line, timeout / the `-o -` fallback |
 | `tools/mindcode.py:416-441` | `_parse_diagnostics()` / `_error_diags()` |
-| `tools/mindcode.py:596-621` | `compile_file()`：`utf-8-sig` 解码（顺带剥 BOM）+ io/encoding 早退 |
-| `tools/mindcode.py:646-698` | `doctor()`：候选表 + 兼容性 + **真编译冒烟** |
-| `tools/mlog_mcp.py:531-564` | `mindcode_compile`：结果 → `mlog-eval/v1` 信封 |
-| `tools/mlog_mcp.py:567-592` | `_compile_mind()`：`mlog_validate(mind=…)` 的编译前置 |
-| `tools/mlog_eval.py:51-80` | 失败词表与 `NEXT_STEPS` 映射 |
+| `tools/mindcode.py:596-621` | `compile_file()`: `utf-8-sig` decoding (which also strips the BOM) + early exit on io/encoding |
+| `tools/mindcode.py:646-698` | `doctor()`: candidate table + compatibility + **a real compile smoke test** |
+| `tools/mlog_mcp.py:531-564` | `mindcode_compile`: result → `mlog-eval/v1` envelope |
+| `tools/mlog_mcp.py:567-592` | `_compile_mind()`: the compile pre-step of `mlog_validate(mind=…)` |
+| `tools/mlog_eval.py:51-80` | the failure vocabulary and the `NEXT_STEPS` mapping |
 
-## 实测与反例
+## Measured facts and counter-examples
 
-- ✅【E】`sum = 0; for i in 1..5 do sum += i; end; print("total=", sum); printflush(message1);` → `23 AST nodes, 10 unoptimized, 2 optimized`，产物只有两行：`print "total=15"` + `printflush message1`。
-- ✅【E】同一源加 `-O 0`（`optimize=False`）→ 11 条指令、11 行 mlog，循环原样保留，末尾带 `print "Compiled by Mindcode 3.19.3 …"` 签名行。
-- ✅【E】3.21.0：`locate()` 返回 `ok=True, version=3.21.0`，`compile_source(timeout=8)` 在 8 s 被杀，诊断 `kind=timeout`、`message` 里带「use the 3.19.3 jar instead」。
-- ✅【E】BOM：把带 UTF-8 BOM 的 `.mnd` **直接喂 jar** → rc=1，stderr 首行 `<path>:1:1 Parse error: extraneous input '?' …`；同一个文件走 `compile_file()` → `ok=True`（BOM 在解码处就被 `utf-8-sig` 剥掉 [src: tools/mindcode.py:609]）。
-- 反例（不成立边界）：**「BOM 会让编译失败」对包装而言不成立**——`_strip_bom()` 与 BOM-free 写盘都做了 [src: tools/mindcode.py:461, 512]；这个坑只教训绕过包装直接调 jar 的人。
-- 反例：**「Mindcode 源码里的变量编译后还在」不成立**。默认 `-O` 会把整段循环常量折叠掉，`sum` 运行时根本不存在；于是 `mlog_validate(mind=…, expect=[{var:"sum", op:"==", value:15}])` 得到 `failure_type=assertion_failed`，`levels` 是 `execution=true / static=true / simulation=false`（本次实测）。要在 Mindcode 上做断言就断言**可观察副作用**（文本缓冲、内存格、方块状态），不要断言源变量名。
-- 反例：**「退出码 1 就是语法错」不成立**——`ok` 不看退出码 [src: tools/mindcode.py:561-562]；`cm --help` 本身就返回 1。
-- 【未做项】运行时源码映射（mlog 行号 → `.mnd` 行号）没有建表，只有编译期 `line/col`；`pm` 反向路径未接入；本文只覆盖**前端**，不覆盖 Mindcode 语言语法本身 [src: docs/Mindcode集成.md:137-142]。
+- ✅【E】`sum = 0; for i in 1..5 do sum += i; end; print("total=", sum); printflush(message1);` → `23 AST nodes, 10 unoptimized, 2 optimized`; the output is only two lines: `print "total=15"` + `printflush message1`.
+- ✅【E】the same source with `-O 0` (`optimize=False`) → 11 instructions, 11 lines of mlog, the loop kept as written, ending with a `print "Compiled by Mindcode 3.19.3 …"` signature line.
+- ✅【E】3.21.0: `locate()` returns `ok=True, version=3.21.0`, `compile_source(timeout=8)` is killed at 8 s, the diagnostic has `kind=timeout` and its `message` carries "use the 3.19.3 jar instead".
+- ✅【E】BOM: feeding a `.mnd` **with a UTF-8 BOM straight to the jar** → rc=1 and stderr line one reads `<path>:1:1 Parse error: extraneous input '?' …`; the same file through `compile_file()` → `ok=True` (the BOM is stripped by `utf-8-sig` at decode time [src: tools/mindcode.py:609]).
+- Counter-example (a boundary that does not hold): **"a BOM makes compilation fail" does not hold for the wrapper** — both `_strip_bom()` and a BOM-free write are done [src: tools/mindcode.py:461, 512]; that pitfall only bites people who bypass the wrapper and call the jar directly.
+- Counter-example: **"variables from the Mindcode source still exist after compilation" does not hold**. The default `-O` folds the whole loop away, so `sum` does not exist at runtime at all; hence `mlog_validate(mind=…, expect=[{var:"sum", op:"==", value:15}])` yields `failure_type=assertion_failed` with `levels` = `execution=true / static=true / simulation=false` (measured this time). To assert on Mindcode, assert **observable side effects** (text buffer, memory cells, block state), never source variable names.
+- Counter-example: **"exit code 1 means a syntax error" does not hold** — `ok` does not look at the exit code [src: tools/mindcode.py:561-562]; `cm --help` itself returns 1.
+- 【Not done】No runtime source map (mlog line → `.mnd` line) has been built; only the compile-time `line/col` exists. The `pm` reverse path is not wired in. This article covers **the front end only**, not the Mindcode language syntax itself [src: the integration doc (docs/Mindcode集成.md:137-142)].
 
-## 常见误解
+## Common misconceptions
 
-1. **「`--version` 能跑就说明 jar 能用」** —— 错。3.21.0 的 `--version` 与 `cm --help` 都秒回，`cm` 却永久挂住。判据是 `doctor` 的 `smoke-compile`，它真编译一个小程序 [src: tools/mindcode.py:664-681]。
-2. **「PATH 上有 java 就能编译」** —— 错。PATH 上是 Java 8，Mindcode 要 22+，候选表**故意不含 PATH**；`doctor` 只会把 PATH 的 java 写进 `notes` 提醒你它被忽略了 [src: tools/mindcode.py:117-120, 691-693]。
-3. **「有 JRE 就能编译」** —— 错。仓库自带 JRE 21 存在但装不了 class file 66.0 的 jar，必须**探测**而不是 `stat()`，否则会把「有 JRE」错当成「能编译」 [src: tools/mindcode.py:58-66]。
-4. **「`compilation_error` 一定是我的源码写错了」** —— 不对，环境类失败在当前实现里也会被标成它（见 §8），要配合 `diagnostics[0].kind` 一起读 [src: tools/mlog_mcp.py:554-555]。
+1. **"If `--version` runs, the jar is usable."** — wrong. 3.21.0's `--version` and `cm --help` both return instantly, yet `cm` hangs forever. The test is `doctor`'s `smoke-compile`, which really compiles a small program [src: tools/mindcode.py:664-681].
+2. **"A java on PATH means it compiles."** — wrong. PATH holds Java 8, Mindcode needs 22+, and the candidate table **deliberately leaves PATH out**; `doctor` merely writes the PATH java into `notes` to remind you it was ignored [src: tools/mindcode.py:117-120, 691-693].
+3. **"Having a JRE means it compiles."** — wrong. The bundled JRE 21 exists but cannot run a class-file-66.0 jar, so you must **probe** rather than `stat()`, or you will mistake "a JRE exists" for "it can compile" [src: tools/mindcode.py:58-66].
+4. **"`compilation_error` always means my source is wrong."** — no; environment failures are labelled that way in the current implementation too (see §8), so read it together with `diagnostics[0].kind` [src: tools/mlog_mcp.py:554-555].
 
-## 相关
+## Related
 
-- MLOG.EXEC.001 执行模型（编译产物要吃的 tick 预算与 1000 条上限）
-- MLOG.PERF.001 性能与限制（400 字符文本缓冲等硬上限，编译器生成的报错检查也按这个来）
-- `docs/Mindcode集成.md`（同主题长文：接口、四个实测陷阱、版本裁决）
-- 数据表：`06-mlog/instructions.json#meta`（编译产物落到哪 73 条指令）
+- MLOG.EXEC.001 Execution model (the tick budget the compiled output consumes and the 1000-instruction cap)
+- MLOG.PERF.001 Performance and limits (hard caps such as the 400-character text buffer; the compiler's generated error checks follow the same)
+- the integration doc (`docs/Mindcode集成.md`) — the long article on the same theme: interfaces, four measured traps, version arbitration
+- Data table: `06-mlog/instructions.json#meta` (which 73 instructions the compiled output lands on)

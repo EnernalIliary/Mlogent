@@ -1,7 +1,7 @@
 ---
 tokens: 540
 id: COMBAT.TURRET.117
-title: spectre —— 685 点秒伤的终局主炮
+title: spectre — the 685-DPS endgame main gun
 domain: combat
 status: active
 ver: [v160.7_rt, v159.3_src]
@@ -15,73 +15,73 @@ src:
   - "jar:v160.7#blocks/spectre"
 data: [00-data/turrets.json, 00-data/blocks.json, 00-data/bullets.json, 00-data/turret_shots.json]
 depends: [COMBAT.TURRET.001, COMBAT.TURRET.002, COMBAT.NUMBERS.001]
-tags: [炮塔, spectre, 后期主力 / 全能点杀]
+tags: [turret, spectre, late-game mainstay / all-target point kill]
 ---
 
-## 一句话
+## One line
 
-spectre 是后期防线的答案：reload 7 tick、8.57 发/s，thorium 下单体 685.7 DPS，对 22 甲 497.1，空陆通吃，射界 260 世界单位（32.5 格）。它唯一的问题是弹耗——4.29 件/s 的 thorium 意味着一条专用产线只够喂两门，且 1875 件的造价让成型很晚。 [src: 00-data/turrets.json]
+spectre is the late-game answer for a defense line: reload 7 ticks, 8.57 shots/s, 685.7 single-target DPS on thorium, 497.1 against 22 armor, air and ground alike, with a 260-world-unit (32.5-tile) firing arc. Its only problem is ammo burn — 4.29 items/s of thorium means one dedicated line feeds only two of them, and the 1875-item cost makes it come online very late. [src: 00-data/turrets.json]
 
-## 规则 / 公式
+## Rules / formulas
 
-- **层位**：S ｜ **岗位**：后期主力 / 全能点杀
-- **射击模式**：ShootAlternate(8f)（每触发 1 发；reload 7 tick） [src: 00-data/turret_shots.json]
-- **目标层**：空中、地面、建筑
-- 每触发 1 发，reload 7 tick ⇒ 8.57 发/s；ShootAlternate 双管交替，空陆都打 [src: 00-data/turrets.json]
-- thorium 80 直伤 → 685.7 单体/面板，对 22 甲 497.1；pyratite 70 + 20 溅射 → 600 / 728.6 面板 [src: 00-data/turrets.json]
-- coolantMult 0.5：吃冷却液能把 reload 压到 3.5 tick，这是它真正的上限所在 [src: 00-data/turrets.json]
-- 石墨模式 rm 1.70 把射速压到 5.04 发/s、DPS 252.1，说明它对弹药质量极度敏感 [src: 00-data/turrets.json]
-- **优点**：
-  - 685.7 单体 / 497.1 对 22 甲，是空陆通用的最强持续输出 [src: 00-data/turrets.json]
-  - 8.57 发/s 的高射速让漏发损失极小，输出极其稳定 [src: 00-data/turrets.json]
-  - 32.5 格射界 + 2560 血量，能架在二线并扛住零星反击 [src: 00-data/turrets.json]
-- **缺点**：
-  - 4.29 件/s 的 thorium 消耗，供给线一断 DPS 立刻归零 [src: 00-data/turrets.json]
-  - 1875 件造价 + 4×4 占地，成型窗口很晚
-  - 对 0 甲不如 fuse 的 540 来得便宜，它的优势在护甲与射界 [src: 00-data/turrets.json]
-- **口径**：单体 DPS = 60/(reload × reloadMultiplier) × shots × 直伤；面板 DPS 再按 BulletType.estimateDPS 把溅射按 0.75 折进去（见 [[COMBAT.NUMBERS.001]]）。 [src: Mindustry-Source/core/src/mindustry/entities/bullet/BulletType.java:414]
+- **Tier**: S | **Role**: late-game mainstay / all-target point kill
+- **Shoot pattern**: ShootAlternate(8f) (1 shot per trigger; reload 7 ticks) [src: 00-data/turret_shots.json]
+- **Target layers**: air, ground, buildings
+- 1 shot per trigger, reload 7 ticks ⇒ 8.57 shots/s; ShootAlternate alternates the two barrels and hits both air and ground [src: 00-data/turrets.json]
+- thorium 80 direct damage → 685.7 single-target/panel, 497.1 against 22 armor; pyratite 70 + 20 splash → 600 / 728.6 panel [src: 00-data/turrets.json]
+- coolantMult 0.5: with coolant the reload drops to 3.5 ticks, and that is where its real ceiling lies [src: 00-data/turrets.json]
+- graphite mode rm 1.70 pushes the fire rate down to 5.04 shots/s and DPS to 252.1, showing how sensitive it is to ammo quality [src: 00-data/turrets.json]
+- **Pros**:
+  - 685.7 single-target / 497.1 against 22 armor is the strongest sustained air-and-ground output [src: 00-data/turrets.json]
+  - 8.57 shots/s makes a missed shot nearly free, so the output is extremely stable [src: 00-data/turrets.json]
+  - 32.5-tile arc + 2560 health lets it sit on the second line and absorb stray return fire [src: 00-data/turrets.json]
+- **Cons**:
+  - 4.29 items/s of thorium: the supply line breaks and DPS drops to zero immediately [src: 00-data/turrets.json]
+  - 1875-item cost + 4×4 footprint makes the window in which it comes online very late
+  - Against 0 armor it is not as cheap as fuse's 540; its advantage is armor and firing arc [src: 00-data/turrets.json]
+- **Convention**: single-target DPS = 60/(reload × reloadMultiplier) × shots × direct damage; panel DPS further folds splash in at 0.75 through BulletType.estimateDPS (see [[COMBAT.NUMBERS.001]]). [src: Mindustry-Source/core/src/mindustry/entities/bullet/BulletType.java:414]
 
-## 数值
+## Numbers
 
-| 项 | 值 | 来源 |
+| Item | Value | Source |
 |---|---|---|
-| 尺寸 | 4 | 00-data/blocks.json |
-| 血量 | 2560 | 00-data/blocks.json |
-| 护甲 | 0 | 00-data/blocks.json |
-| 造价 | 1875 件（copper × 900、graphite × 300、thorium × 250、plastanium × 175、surge-alloy × 250） | 00-data/blocks.json |
-| 射程 | 260 世界单位（32.50 格） | 00-data/turrets.json |
-| reload | 7 tick | 00-data/turrets.json |
+| Size | 4 | 00-data/blocks.json |
+| Health | 2560 | 00-data/blocks.json |
+| Armor | 0 | 00-data/blocks.json |
+| Cost | 1875 items (copper × 900, graphite × 300, thorium × 250, plastanium × 175, surge-alloy × 250) | 00-data/blocks.json |
+| Range | 260 world units (32.50 tiles) | 00-data/turrets.json |
+| reload | 7 ticks | 00-data/turrets.json |
 | shots | 1 | 00-data/turret_shots.json |
-| 冷却液倍率 / shootCone | 0.5 / 24 | 00-data/turrets.json |
-| 耗电 | 0/s | 00-data/turrets.json |
+| Coolant multiplier / shootCone | 0.5 / 24 | 00-data/turrets.json |
+| Power | 0/s | 00-data/turrets.json |
 
-| 弹药 | 直伤 | 溅射 | reloadMult | 发/s | 单体DPS(0甲) | 面板DPS | 物品/秒 | 对22甲DPS | 来源 |
+| Ammo | Direct damage | Splash | reloadMult | shots/s | Single-target DPS (0 armor) | Panel DPS | Items/s | DPS vs 22 armor | Source |
 |---|---|---|---|---|---|---|---|---|---|
 | thorium | 80 | 0 | 1.00 | 8.57 | 685.7 | 685.7 | 4.29 | 497.1 | 00-data |
 | pyratite | 70 | 20 | 1.00 | 8.57 | 600.0 | 728.6 | 2.86 | 411.4 | 00-data |
 | graphite | 50 | 0 | 1.70 | 5.04 | 252.1 | 252.1 | 1.26 | 141.2 | 00-data |
 
-- 497.1 = 8.57 × (80 − 22)，thorium 模式下与 685.7 差 27.5%，护甲仍是要算的 [src: 00-data/turrets.json]
-- coolantMult 0.5 的收益不进本表 DPS：表值是不冷却口径，实际接冷却液会更高，别直接对比 [src: 00-data/turrets.json]
+- 497.1 = 8.57 × (80 − 22); under thorium it is 27.5% below 685.7, so armor still has to be counted [src: 00-data/turrets.json]
+- The gain from coolantMult 0.5 is not in this table's DPS: the values are uncooled, and the real figure with coolant is higher, so do not compare them directly [src: 00-data/turrets.json]
 
-## 源码锚点
+## Source anchors
 
-- Mindustry-Source/core/src/mindustry/content/Blocks.java:4248 —— 定义行 new ItemTurret("spectre")
-- Mindustry-Source/core/src/mindustry/content/Blocks.java:4302 —— 含 ShootAlternate
+- Mindustry-Source/core/src/mindustry/content/Blocks.java:4248 — definition line new ItemTurret("spectre")
+- Mindustry-Source/core/src/mindustry/content/Blocks.java:4302 — holds ShootAlternate
 - Mindustry-Source/core/src/mindustry/entities/pattern/ShootAlternate.java:29
-- 00-data/turret_shots.json#id=spectre —— 源码派生记录（含证据行）
+- 00-data/turret_shots.json#id=spectre — source-derived record (with evidence line)
 
-## 实测与反例
+## Measurements and counter-examples
 
-- 反例：以为 spectre 面板最高所以通杀，它的 728.6 是 pyratite 溅射口径，单体只有 600，比 thorium 的 685.7 低；复现：00-data/turrets.json 里 spectre 各弹药行的单体/面板列 [src: 00-data/turrets.json]
-- 反例：拿 spectre 打早期波次，4.29 件/s 的 thorium 在前期根本供不起，实际 DPS 远低于标称；复现：同表 ips 列与 550 件的 fuse 对比 [src: 00-data/turrets.json]
+- Counter-example: assuming spectre has the highest panel and therefore beats everything — its 728.6 is the pyratite splash convention, and single-target is only 600, below thorium's 685.7; reproduce: the single-target/panel columns of the spectre ammo rows in 00-data/turrets.json [src: 00-data/turrets.json]
+- Counter-example: taking spectre into early waves — 4.29 items/s of thorium cannot be supplied early, so real DPS is far below the nominal figure; reproduce: the ips column of the same table against the 550-item fuse [src: 00-data/turrets.json]
 
-## 常见误解
+## Common misconceptions
 
-- 「面板 DPS 就是实战 DPS」错：不冷却、零甲、满供弹三个前提缺一不可
-- 「双管=双倍射速」错：8.57 发/s 已是 reload 7 的口径，炮管数只影响外观与弹道 [src: 00-data/turrets.json]
+- "Panel DPS is combat DPS" — wrong: three premises are required at once — no coolant, zero armor, full ammo supply
+- "Two barrels = double fire rate" — wrong: 8.57 shots/s is already the reload-7 convention; the barrel count only affects the model and the projectile path [src: 00-data/turrets.json]
 
-## 相关
+## Related
 
 - [[COMBAT.TURRET.113]]
 - [[COMBAT.TURRET.115]]

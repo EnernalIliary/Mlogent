@@ -1,7 +1,7 @@
 ---
 tokens: 598
 id: COMBAT.TURRET.118
-title: meltdown —— 936 点秒伤的熔断激光
+title: meltdown — the 936-DPS cutting laser
 domain: combat
 status: active
 ver: [v160.7_rt, v159.3_src]
@@ -14,77 +14,77 @@ src:
   - "jar:v160.7#blocks/meltdown"
 data: [00-data/turrets.json, 00-data/blocks.json, 00-data/bullets.json, 00-data/turret_shots.json]
 depends: [COMBAT.TURRET.001, COMBAT.TURRET.002, COMBAT.NUMBERS.001]
-tags: [炮塔, meltdown, 近程持续激光 / 高耗电清场]
+tags: [turret, meltdown, short-range sustained laser / high-power area clear]
 ---
 
-## 一句话
+## One line
 
-meltdown 是后期近防的另一种答案：连续激光每 5 tick 结算 78 点，瞬时 936 DPS，持续 230 tick 后进入 90 tick 的冷却，平均下来 672.75。它把 1020/s 的电换成一整条被烧穿的地面/空中走廊，代价是它几乎必须贴着敌人放，且断电即失效。 [src: 00-data/turrets.json]
+meltdown is the other late-game answer for close defense: a continuous laser deals 78 every 5 ticks — 936 DPS instantaneous — runs for 230 ticks, then enters a 90-tick cooldown, averaging 672.75. It turns 1020/s of power into a whole corridor of ground and air being burned through, at the price of having to sit almost against the enemy, and of dying the moment the grid does. [src: 00-data/turrets.json]
 
-## 规则 / 公式
+## Rules / formulas
 
-- **层位**：S ｜ **岗位**：近程持续激光 / 高耗电清场
-- **射击模式**：连续激光（shootDuration 230）（每触发 1 发；reload 90 tick） [src: 00-data/turret_shots.json]
-- **目标层**：空中、地面、建筑
-- ContinuousTurret + ContinuousLaserBulletType：每 damageInterval 5 tick 结算 78 点 ⇒ 瞬时 936 DPS [src: 00-data/turrets.json]
-- shootDuration 230 tick 后停火，reload 90 tick：按 936 × 230/(230+90) 算平均 672.75 DPS [src: 00-data/turrets.json]
-- 1020/s 的耗电是全作最高，必须有独立电网 + 电池组 [src: 00-data/turrets.json]
-- 射界 195 世界单位（24.375 格），空陆都打，是少数能同时清地空的近程塔 [src: 00-data/turrets.json]
-- **优点**：
-  - 瞬时 936 DPS，是全作纸面最高的持续输出，且空陆通吃 [src: 00-data/turrets.json]
-  - 平均 672.75 DPS 仍高于 spectre 的 685.7 之下一点点，却只需要 2500 件 [src: 00-data/turrets.json]
-  - 光束无弹道飞行时间，命中即结算，对高机动目标没有提前量问题
-- **缺点**：
-  - 1020/s 的耗电：电网一崩它立刻变砖，是全作对电最敏感的塔 [src: 00-data/turrets.json]
-  - 必须贴到 24.375 格内，敌人远程压制时它无法还手 [src: 00-data/turrets.json]
-  - 936 是瞬时值，30% 时间是冷却期，规划火力时要用 672.75 [src: 00-data/turrets.json]
-- **口径**：单体 DPS = 60/(reload × reloadMultiplier) × shots × 直伤；面板 DPS 再按 BulletType.estimateDPS 把溅射按 0.75 折进去（见 [[COMBAT.NUMBERS.001]]）。 [src: Mindustry-Source/core/src/mindustry/entities/bullet/BulletType.java:414]
+- **Tier**: S | **Role**: short-range sustained laser / high-power area clear
+- **Shoot pattern**: continuous laser (shootDuration 230) (1 shot per trigger; reload 90 ticks) [src: 00-data/turret_shots.json]
+- **Target layers**: air, ground, buildings
+- ContinuousTurret + ContinuousLaserBulletType: 78 damage per damageInterval of 5 ticks ⇒ 936 DPS instantaneous [src: 00-data/turrets.json]
+- Ceases fire after shootDuration 230 ticks, reload 90 ticks: 936 × 230/(230+90) averages 672.75 DPS [src: 00-data/turrets.json]
+- 1020/s of power is the highest in the game; a dedicated grid + battery bank is mandatory [src: 00-data/turrets.json]
+- 195-world-unit (24.375-tile) arc, hits air and ground, one of the few short-range towers that clears both layers at once [src: 00-data/turrets.json]
+- **Pros**:
+  - 936 DPS instantaneous is the highest paper sustained output in the game, and it covers air and ground [src: 00-data/turrets.json]
+  - The 672.75 average stays just below spectre's 685.7, yet costs only 2500 items [src: 00-data/turrets.json]
+  - The beam has no projectile travel time, damage lands on hit, so there is no lead problem against fast targets
+- **Cons**:
+  - 1020/s of power: the grid collapses and it turns into a brick, the most power-sensitive tower in the game [src: 00-data/turrets.json]
+  - It has to close to 24.375 tiles; when the enemy suppresses from range it cannot shoot back [src: 00-data/turrets.json]
+  - 936 is instantaneous, 30% of the time is cooldown, so plan firepower with 672.75 [src: 00-data/turrets.json]
+- **Convention**: single-target DPS = 60/(reload × reloadMultiplier) × shots × direct damage; panel DPS further folds splash in at 0.75 through BulletType.estimateDPS (see [[COMBAT.NUMBERS.001]]). [src: Mindustry-Source/core/src/mindustry/entities/bullet/BulletType.java:414]
 
-## 数值
+## Numbers
 
-| 项 | 值 | 来源 |
+| Item | Value | Source |
 |---|---|---|
-| 尺寸 | 4 | 00-data/blocks.json |
-| 血量 | 3200 | 00-data/blocks.json |
-| 护甲 | 0 | 00-data/blocks.json |
-| 造价 | 2500 件（copper × 1200、lead × 350、graphite × 300、silicon × 325、surge-alloy × 325） | 00-data/blocks.json |
-| 射程 | 195 世界单位（24.38 格） | 00-data/turrets.json |
-| reload | 90 tick | 00-data/turrets.json |
+| Size | 4 | 00-data/blocks.json |
+| Health | 3200 | 00-data/blocks.json |
+| Armor | 0 | 00-data/blocks.json |
+| Cost | 2500 items (copper × 1200, lead × 350, graphite × 300, silicon × 325, surge-alloy × 325) | 00-data/blocks.json |
+| Range | 195 world units (24.38 tiles) | 00-data/turrets.json |
+| reload | 90 ticks | 00-data/turrets.json |
 | shots | 1 | 00-data/turret_shots.json |
-| 冷却液倍率 / shootCone | 1 / 40 | 00-data/turrets.json |
-| 耗电 | 1020/s | 00-data/turrets.json |
+| Coolant multiplier / shootCone | 1 / 40 | 00-data/turrets.json |
+| Power | 1020/s | 00-data/turrets.json |
 
-| 项 | 值 | 说明 | 来源 |
+| Item | Value | Note | Source |
 |---|---|---|---|
-| 每结算伤害 | 78 | ContinuousLaserBulletType(78) | Mindustry-Source/core/src/mindustry/content/Blocks.java:4316 |
-| damageInterval | 5 tick | 每 5 tick 结算一次 ⇒ ×12 | Mindustry-Source/core/src/mindustry/content/Blocks.java:4317 |
-| 0甲 DPS | 936 | 78 × 12 | 本文口径 |
-| shootDuration | 230 tick | 单次开火持续 | Mindustry-Source/core/src/mindustry/content/Blocks.java:4325 |
-| 耗电 | 1020/s | | Mindustry-Source/core/src/mindustry/content/Blocks.java:4321 |
+| Damage per tick | 78 | ContinuousLaserBulletType(78) | Mindustry-Source/core/src/mindustry/content/Blocks.java:4316 |
+| damageInterval | 5 ticks | settles once every 5 ticks ⇒ ×12 | Mindustry-Source/core/src/mindustry/content/Blocks.java:4317 |
+| 0-armor DPS | 936 | 78 × 12 | this article's convention |
+| shootDuration | 230 ticks | duration of one firing | Mindustry-Source/core/src/mindustry/content/Blocks.java:4325 |
+| Power | 1020/s | | Mindustry-Source/core/src/mindustry/content/Blocks.java:4321 |
 
-- 连续型：目标在射界内就一直结算，不需要命中判定，所以数字极稳。 [src: Mindustry-Source/core/src/mindustry/content/Blocks.java:4315]
-- 附 melting 状态与 incendChance 0.4；冷却液消耗 0.5/s 属同级偏高。 [src: Mindustry-Source/core/src/mindustry/content/Blocks.java:4315]
+- Continuous type: as long as the target stays in the arc it keeps settling, with no hit check, so the number is extremely stable. [src: Mindustry-Source/core/src/mindustry/content/Blocks.java:4315]
+- Applies the melting status with incendChance 0.4; coolant use of 0.5/s is on the high side for its class. [src: Mindustry-Source/core/src/mindustry/content/Blocks.java:4315]
 
-- 本库同时给两个数字：瞬时 936（936 = 78 × 12，12 = 60/5）与平均 672.75（含 90 tick 冷却），比较时必须说清用哪个 [src: 00-data/turrets.json]
-- 672.75 的推导可在源码核对：Blocks.java:4323 reload=90f、:4325 shootDuration=230f、:4331 ContinuousLaserBulletType(78) [src: 00-data/turrets.json]
+- This library gives both numbers: instantaneous 936 (936 = 78 × 12, 12 = 60/5) and average 672.75 (including the 90-tick cooldown); when comparing, always state which one you mean [src: 00-data/turrets.json]
+- The derivation of 672.75 can be checked in source: Blocks.java:4323 reload=90f, :4325 shootDuration=230f, :4331 ContinuousLaserBulletType(78) [src: 00-data/turrets.json]
 
-## 源码锚点
+## Source anchors
 
-- Mindustry-Source/core/src/mindustry/content/Blocks.java:4315 —— 定义行 new LaserTurret("meltdown")
-- Mindustry-Source/core/src/mindustry/entities/pattern/ShootPattern.java:9 —— shots 默认 1（本塔未覆写）
-- 00-data/turret_shots.json#id=meltdown —— 源码派生记录（含证据行）
+- Mindustry-Source/core/src/mindustry/content/Blocks.java:4315 — definition line new LaserTurret("meltdown")
+- Mindustry-Source/core/src/mindustry/entities/pattern/ShootPattern.java:9 — shots defaults to 1 (this tower does not override it)
+- 00-data/turret_shots.json#id=meltdown — source-derived record (with evidence line)
 
-## 实测与反例
+## Measurements and counter-examples
 
-- 反例：用 936 去和 spectre 的 685.7 比较，忽略 90 tick 冷却会高估 39%；复现：按 936 × 230/320 = 672.75 复算 [src: 00-data/turrets.json]
-- 反例：以为 meltdown 是远程塔，195 世界单位（24.375 格）比 spectre 的 260 还短；复现：00-data/turrets.json 里两者 range 字段 [src: 00-data/turrets.json]
+- Counter-example: comparing 936 with spectre's 685.7 and ignoring the 90-tick cooldown overstates it by 39%; reproduce: recompute 936 × 230/320 = 672.75 [src: 00-data/turrets.json]
+- Counter-example: assuming meltdown is a ranged tower — 195 world units (24.375 tiles) is shorter than spectre's 260; reproduce: the range field of both in 00-data/turrets.json [src: 00-data/turrets.json]
 
-## 常见误解
+## Common misconceptions
 
-- 「936 就是它每秒钟的伤害」只对前 230 tick 成立，长期平均要按 672.75 算 [src: 00-data/turrets.json]
-- 「激光塔不耗电」错：1020/s 是全作最高档，它是最依赖电网的塔 [src: 00-data/turrets.json]
+- "936 is what it deals per second" — true only for the first 230 ticks; the long-run average must use 672.75 [src: 00-data/turrets.json]
+- "Laser towers use no power" — wrong: 1020/s is the highest tier in the game, it is the most grid-dependent tower there is [src: 00-data/turrets.json]
 
-## 相关
+## Related
 
 - [[COMBAT.TURRET.117]]
 - [[COMBAT.TURRET.105]]

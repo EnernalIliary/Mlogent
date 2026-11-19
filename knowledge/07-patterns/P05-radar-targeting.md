@@ -1,6 +1,6 @@
 ---
 id: PATTERN.TARGET.001
-title: 雷达与索敌：filter/sort/order 的组合与射程判定
+title: Radar and targeting: filter/sort/order combinations and range checks
 domain: pattern
 status: active
 ver: [v159.3_src, v160.7_rt]
@@ -11,47 +11,47 @@ src:
   - "mindustry-blueprint/PATTERNS.md:1250-1323,936-960,2027-2043"
 data: []
 depends: [PATTERN.COMM.001]
-tags: [雷达, 索敌, 集火, 射程, uradar, 目标]
+tags: [radar, targeting, focus-fire, range, uradar, target]
 tokens: 532
 ---
 
-## 一句话
+## One line
 
-radar 一条指令就完成「筛选 + 排序 + 取第一个」，因此索敌的正确写法是「用 filter 把不可能的目标排除掉、用 sort 决定优先级、用 order 定方向」，而不是把所有单位拉进数组自己排序；代价是雷达结果有 30 tick 的缓存窗口，射程必须自己再判一次。
+A single radar instruction already does "filter + sort + take the first", so correct targeting is "use filter to exclude impossible targets, use sort to set priority, use order to set direction" rather than pulling every unit into an array and sorting it yourself; the price is that radar results sit in a 30 tick cache window, so range must be checked again by hand.
 
-## 规则 / 公式
+## Rules / formulas
 
-指令签名（7 个参数）：
+Instruction signature (7 arguments):
 
 ```text
 radar <target1> <target2> <target3> <sort> <order> <source> <output>
 ```
 
-- target1/2/3：三个过滤条件，逻辑与（AND），可填 any 表示不过滤；常用 enemy、ally、player、attacker、flying、ground、boss、spawn。
-- sort：distance、health、shield、armor、maxHealth。
-- order：1 = 由近到远（取最近），0 = 由远到近。这是最容易记反的一个参数。
-- source：雷达来源建筑（炮塔/单位/处理器链接的雷达），必须自身可被雷达扫描；输出 output 是单个目标引用，不是数组。
+- target1/2/3: three filters, logically ANDed, may be any to mean no filtering; common values are enemy, ally, player, attacker, flying, ground, boss, spawn.
+- sort: distance, health, shield, armor, maxHealth.
+- order: 1 = near to far (take the nearest), 0 = far to near. This is the argument people most often get backwards.
+- source: the radar source building (a turret/unit/radar linked to the processor), which must itself be radar-scannable; output is a single target reference, not an array.
 
-多条过滤组合的语义要按「排除法」用：先想清楚不想要什么（flying 不打、player 不打），再写 filter，比逐个枚举想要的目标可靠。
+Combined filters are best used by exclusion: first work out what you do not want (no flying, no player), then write the filter — more reliable than enumerating what you do want.
 
-## 数值
+## Numbers
 
-| 量 | 值 | 来源 |
+| Quantity | Value | Source |
 |---|---|---|
-| 雷达结果刷新窗口 | 30 tick = 0.5 s | LExecutor.java:761-763（注释：fixed 30 tick interval） |
-| 逻辑控单位超时 | 600 帧 = 10 s | LogicAI.java:18 logicControlTimeout = 60f*10f |
-| radar 参数个数 | 7 | mindustry-blueprint/PATTERNS.md:1250-1284 |
+| Radar result refresh window | 30 tick = 0.5 s | LExecutor.java:761-763 (comment: fixed 30 tick interval) |
+| Logic-controlled unit timeout | 600 frames = 10 s | LogicAI.java:18 logicControlTimeout = 60f*10f |
+| radar argument count | 7 | mindustry-blueprint/PATTERNS.md:1250-1284 |
 
-注意：mindustry-blueprint/PATTERNS.md:1300 附近写的是「radar/uradar 结果缓存 40 tick」，与源码 LExecutor.java:761 的 30 tick 不一致 —— 以源码 30 tick 为准（见「常见误解」）。
+Note: around mindustry-blueprint/PATTERNS.md:1300 the text says the radar/uradar result cache is 40 tick, which disagrees with the 30 tick in source at LExecutor.java:761 — take the 30 tick from source (see "Common misconceptions").
 
-## 源码锚点
+## Source anchors
 
-- LExecutor.java:761 注释 `//timers update on a fixed 30 tick interval`；:763 `timer.get(30f)` —— sensor/radar 类结果的刷新判据。
-- LogicAI.java:18 `logicControlTimeout = 60f * 10f`；:22 `controlTimer = logicControlTimeout` —— 只要不断刷控制，单位就归逻辑控。
+- LExecutor.java:761 comment `//timers update on a fixed 30 tick interval`; :763 `timer.get(30f)` — the refresh criterion for sensor/radar style results.
+- LogicAI.java:18 `logicControlTimeout = 60f * 10f`; :22 `controlTimer = logicControlTimeout` — as long as control keeps being refreshed, the unit stays logic-controlled.
 
-## 实测与反例
+## Measurements and counter-examples
 
-标准索敌骨架（可直接粘贴，射程自判）：
+Standard targeting skeleton (paste directly, range checked by hand):
 
 ```mlog
 # 需要：处理器已链接炮塔 tower1（或直接用链接的雷达建筑）
@@ -72,22 +72,22 @@ control shoot tower1 0 0
 end
 ```
 
-**反例（把缓存当实时）**：雷达结果 30 tick 才重算一次，目标在 0.5 s 内移动/死亡，读到的是旧引用。必须先判 null 再用，且对「目标已死」做兜底（ucontrol 对已死目标无效果，见 PATTERN.PERF.001）。
+**Counter-example (treating the cache as live)**: radar results are recomputed only every 30 tick, so a target that moves or dies within 0.5 s leaves you holding a stale reference. Always test for null before use, and add a fallback for "target is dead" (ucontrol has no effect on a dead target; see PATTERN.PERF.001).
 
-**反例（uradar 掉控）**：uradar 不刷新 controlTimer，连续使用超过 10 s（600 帧）单位会脱离逻辑控回到 AI。修法：每轮插入一条会刷新控制时长的指令（如 ucontrol 的任意动作），或周期性重绑。
+**Counter-example (uradar drops control)**: uradar does not refresh controlTimer, so after more than 10 s (600 frames) of continuous use the unit falls out of logic control back to AI. Fix: insert one instruction per round that refreshes the control timer (any ucontrol action, for instance), or rebind periodically.
 
-**反例（假距离）**：用 dx + dy 当距离（PATTERNS.md:2027-2043 列为高频 bug）会把方形等距线当圆，导致斜角方向提前开火或漏打；必须 op len。
+**Counter-example (fake distance)**: using dx + dy as the distance (listed as a high-frequency bug in PATTERNS.md:2027-2043) treats a square equidistant line as a circle, so diagonal directions fire early or miss; you must use op len.
 
-## 常见误解
+## Common misconceptions
 
-1. 「order 1 是取最远」—— 错，1 = 最近。
-2. 「target3 是可选参数」—— 形态上可填 any，但 7 个参数一个都不能少。
-3. 「ground 表示地面单位」—— 是「已着陆」，飞行单位着陆时也会被选中。
-4. 「radar 能返回多个目标」—— 只返回 1 个；要多目标必须多次调用并换 sort 或换 source。
+1. "order 1 takes the farthest" — wrong, 1 = nearest.
+2. "target3 is an optional argument" — you may fill it with any, but all 7 arguments are still required.
+3. "ground means ground units" — it means "has landed", so flying units are also selected while they are landed.
+4. "radar can return several targets" — it returns exactly 1; for multiple targets you must call it several times with a different sort or a different source.
 
-## 相关
+## Related
 
-- PATTERN.COMM.001 通信与总线（多核分工索敌）
-- PATTERN.PERF.001 失效检测与自恢复
-- COMBAT.TURRET.001 炮塔控制
-- 08-evidence/idioms.json: 本文 idiom 条目的原始出处（30 条，含 src/ver）
+- PATTERN.COMM.001 communication and buses (splitting targeting across cores)
+- PATTERN.PERF.001 failure detection and self-recovery
+- COMBAT.TURRET.001 turret control
+- 08-evidence/idioms.json: original provenance of this article's idiom entries (30 entries, with src/ver)

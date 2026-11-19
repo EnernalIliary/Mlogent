@@ -1,6 +1,6 @@
 ---
 id: WORLD.STORAGE.001
-title: 存储：核心容量口径、容器/保险库与卸载器的搬运优先级
+title: Storage - the core capacity measure, containers / vaults, and unloader transfer priority
 domain: world
 status: active
 ver: [v160.7_rt, v159.3_src]
@@ -12,81 +12,81 @@ tags: [storage, core, container, vault, unloader, itemCapacity, storageCapacity,
 tokens: 1711
 ---
 
-# W10 存储：核心容量、容器与卸载器
+# W10 Storage: core capacity, containers and unloaders
 
-## 一句话
+## One line
 
-核心（CoreBlock）与容器（StorageBlock）用的是两套不同的容量口径：核心把"每种物品各自最多 storageCapacity 件"当作上限，紧贴核心的 coreMerge 容器（container/vault）会把自己的库存数组直接交给核心共享、只把 itemCapacity 数字加进核心总容量；容器单独放置时才是"每种物品各自 itemCapacity、彼此不通"。卸载器（Unloader）是原版唯一会主动在方块之间搬库存的方块，每 speed 个 tick 搬 1 件，用五级比较器同时挑源和目的，目的是配平装载率而不是清空。
+Cores (CoreBlock) and containers (StorageBlock) use two different capacity measures: a core treats "each item type up to storageCapacity" as its ceiling, and a coreMerge container (container/vault) pressed against a core hands its own inventory array straight over for the core to share, contributing only its itemCapacity figure to the core's total capacity; only a container placed on its own is "each item type up to itemCapacity, mutually isolated". The unloader (Unloader) is the only vanilla block that actively moves inventory between blocks, moving 1 item every speed ticks and using a five-level comparator to pick both source and destination at once - its job is to level the load ratio, not to empty anything.
 
-## 规则 / 公式
+## Rules / formulas
 
-### 1. 三个字段决定了"能存多少"
+### 1. Three fields decide "how much can it hold"
 
-| 字段 | 声明位置 | 默认值 | 作用 |
+| Field | Declared at | Default | Effect |
 |---|---|---|---|
-| itemCapacity | Block.java:75 | 10 | 单个方块的容量基数，多格方块不乘 size² |
-| separateItemCapacity | Block.java:73 | false | 为 true 时每种物品各占一份容量，否则共享 |
-| unloadable | Block.java:106 | true | 能否被卸载器/逻辑当"可取出"的容器 |
+| itemCapacity | Block.java:75 | 10 | per-block capacity base; multiblocks do not multiply by size² |
+| separateItemCapacity | Block.java:73 | false | when true each item type gets its own slice, otherwise the capacity is shared |
+| unloadable | Block.java:106 | true | whether unloaders / logic may treat it as an "extractable" container |
 
-StorageBlock 在构造里把另外三个开关定死：separateItemCapacity=true（StorageBlock.java:26）、allowResupply=true（:29）、group=BlockGroup.transportation、flags=storage、envEnabled=Env.any（:19-38），并且 outputsItems()=false（:36-38）——容器不主动输出，只能被拿走。
+StorageBlock hard-codes three more switches in its constructor: separateItemCapacity=true (StorageBlock.java:26), allowResupply=true (:29), group=BlockGroup.transportation, flags=storage, envEnabled=Env.any (:19-38) - and outputsItems()=false (:36-38), so a container never pushes anything out, it can only be taken from.
 
-### 2. 核心容量是算出来的，不是 itemCapacity
+### 2. Core capacity is computed, not itemCapacity
 
-CoreBlock.CoreBuild.onProximityUpdate（CoreBlock.java:704-735）每次邻接变化都重算：
+CoreBlock.CoreBuild.onProximityUpdate (CoreBlock.java:704-735) recomputes on every adjacency change:
 
-1. 同队其它核心先合并库存数组：`this.items = other.items`（:708-712）。
-2. 核心自己的 itemCapacity 加上邻接 coreMerge 容器的 itemCapacity：`storageCapacity = itemCapacity + proximity.sum(e -> owns(e) ? e.block.itemCapacity : 0)`（:715）。
-3. 这些容器不另存库存，直接把 items 指向核心并登记 linkedCore：`t.items = items; ((StorageBuild)t).linkedCore = this;`（:716-719）。
-4. 同队所有核心的容量一起累加（:721-724），所以多核共用同一个池和同一个上限。
-5. 每种物品按上限截断：`items.set(item, Math.min(items.get(item), storageCapacity))`（:728）。
+1. Other same-team cores merge their inventory arrays first: `this.items = other.items` (:708-712).
+2. The core's own itemCapacity plus the itemCapacity of adjacent coreMerge containers: `storageCapacity = itemCapacity + proximity.sum(e -> owns(e) ? e.block.itemCapacity : 0)` (:715).
+3. Those containers keep no inventory of their own; they point items at the core and register linkedCore: `t.items = items; ((StorageBuild)t).linkedCore = this;` (:716-719).
+4. The capacity of all same-team cores is summed together (:721-724), so multiple cores share one pool and one ceiling.
+5. Each item type is truncated to the ceiling: `items.set(item, Math.min(items.get(item), storageCapacity))` (:728).
 
-关键推论写在 :696-702：`acceptItem` 判断的是 `items.get(item) < getMaximumAccepted(item)`，而 `getMaximumAccepted` 返回 `storageCapacity`——也就是说 4000 是**每种物品**各自的 4000，不是 4000 总量。UI 之所以看起来像总量条，是因为 :150 的分母是 `storageCapacity * content.items().count(unlockedNow)`。
+The key corollary is written at :696-702: `acceptItem` tests `items.get(item) < getMaximumAccepted(item)`, and `getMaximumAccepted` returns `storageCapacity` - meaning 4000 is **per item type**, 4000 each, not 4000 in total. The UI bar only looks like a total because the denominator at :150 is `storageCapacity * content.items().count(unlockedNow)`.
 
-### 3. 容器：独立时按种计容，贴近核心就变成"核心的分隔间"
+### 3. Containers: per-type capacity when alone, a "core compartment" when adjacent
 
-容器单独放（不邻接核心）时，separateItemCapacity=true 生效：一个 container 的 300 是**每种物品各 300**，vault 的 1000 每种各 1000。一旦被核心 proximity 覆盖（owns 判定见 CoreBlock.java:789-791：必须是 StorageBlock 且 coreMerge 为真且 linkedCore 为空或就是该核心），它的 items 指针被换成核心的数组（:717），容量数字并入核心 storageCapacity（:715）：此时容器不再有自己的库存，只是核心库存的一块可视窗口。
+With a container placed on its own (not adjacent to a core), separateItemCapacity=true applies: one container's 300 is **300 of each item type**, and vault's 1000 is 1000 of each. Once it is covered by a core's proximity (the owns test is in CoreBlock.java:789-791: must be a StorageBlock with coreMerge true and linkedCore null or that very core), its items pointer is swapped for the core's array (:717) and its capacity figure is folded into the core's storageCapacity (:715) - at that point the container holds no inventory of its own, it is a viewing window onto a slice of the core's stock.
 
-反方向的两个方法是"链接后失能"的证据：`canPickup()` 只有 `linkedCore == null` 才为真（StorageBlock.java:132-134），`allowDeposit()` 在链接后恒为真（:137-139）；getMaximumAccepted 直接转发核心数值（:96），sensor 读 itemCapacity 也返回核心的（:114）。销毁时只有未链接的容器才把旧库存还回去并 clamp（:118-130）。
+Two methods in the other direction are the evidence of "disabled after linking": `canPickup()` is true only when `linkedCore == null` (StorageBlock.java:132-134), `allowDeposit()` is constantly true once linked (:137-139); getMaximumAccepted forwards the core's figure directly (:96), and a sensor read of itemCapacity also returns the core's (:114). On destruction, only an unlinked container returns its old inventory and clamps it (:118-130).
 
-Erekir 的两个加固容器把 coreMerge 关掉了：`coreMerge = false`（Blocks.java:3244、3252），所以 reinforced-container/reinforced-vault 永远独立计容，哪怕贴着核心。
+Erekir's two reinforced containers turn coreMerge off: `coreMerge = false` (Blocks.java:3244, 3252), so reinforced-container/reinforced-vault always count capacity independently, even pressed against a core.
 
-### 4. 卸载器：一件一周期，五级比较器
+### 4. Unloader: one item per cycle, five-level comparator
 
-周期：`if(((unloadTimer += delta()) < speed) || (possibleBlocks.size < 2)) return;`（Unloader.java:163）——每 speed 个 tick 一个周期，每个周期最多搬 **1 件**。显示速率因此是 60/speed 件/秒（:63 `stats.add(Stat.speed, 60f / speed, StatUnit.itemsSecond)`）。
+Cycle: `if(((unloadTimer += delta()) < speed) || (possibleBlocks.size < 2)) return;` (Unloader.java:163) - one cycle every speed ticks, at most **1 item** moved per cycle. The displayed rate is therefore 60/speed items/s (:63 `stats.add(Stat.speed, 60f / speed, StatUnit.itemsSecond)`).
 
-邻接扫描只收"能参与交易"的方块（:143-158）：
-- `canLoad = !(other instanceof CoreBuild || other instanceof StorageBuild)`（:148）——核心与容器"不能主动接收"，只能当来源；
-- `canUnload = other.canUnload() && (allowCoreUnload || canLoad || (StorageBuild b && b.linkedCore == null)) && other.items != null`（:149）。
+The adjacency scan only picks up blocks that can trade (:143-158):
+- `canLoad = !(other instanceof CoreBuild || other instanceof StorageBuild)` (:148) - cores and containers "cannot actively receive", they are sources only;
+- `canUnload = other.canUnload() && (allowCoreUnload || canLoad || (StorageBuild b && b.linkedCore == null)) && other.items != null` (:149).
 
-搬运顺序由比较器决定（:99-111），从高到低排序后取**第一个能收的当目的、最后一个能给的当源**（:202-215）：
-1. 核心类优先（`!notStorage`）；
-2. "能出不能进"的当源优先；
-3. "能进不能出"的当目的优先；
-4. loadFactor 升序（:108，装载率低者优先当目的）；
-5. lastUsed 降序（:110，越久没被用过越优先）。
+The transfer order is decided by the comparator (:99-111); after sorting high to low it takes **the first that can receive as destination and the last that can give as source** (:202-215):
+1. core-like blocks first (`!notStorage`);
+2. "can output but not accept" blocks prefer to be sources;
+3. "can accept but not output" blocks prefer to be destinations;
+4. loadFactor ascending (:108, the lower loaded block prefers to be the destination);
+5. lastUsed descending (:110, the longest unused gets priority).
 
-真正搬运还多一个条件：`dumpingFrom.loadFactor != dumpingTo.loadFactor || !dumpingFrom.canLoad`（:218）——两边装载率一样就不搬，所以卸载器是"配平器"不是"清空器"。成功则 `unloadTimer %= speed`（:228），失败只 clamp 不累积（:230）。
+The actual transfer has one more condition: `dumpingFrom.loadFactor != dumpingTo.loadFactor || !dumpingFrom.canLoad` (:218) - equal load ratios mean no transfer, which is why the unloader is a balancer, not an emptier. On success `unloadTimer %= speed` (:228); on failure it only clamps without accumulating (:230).
 
-物品选择：设了 sortItem 就只搬该物品（:167-168），否则按 `rotations` 轮转全物品表（:172-180），每个周期换一样，避免单物品堵死。
+Item choice: with sortItem set it moves only that item (:167-168), otherwise it rotates through the full item table by `rotations` (:172-180), switching type every cycle so a single item cannot jam it.
 
-### 5. 液体存储与"数字是继承默认值"
+### 5. Liquid storage, and "the number is an inherited default"
 
-液体罐是另一条线：liquid-container 700、liquid-tank 1800、reinforced-liquid-container 1000、reinforced-liquid-tank 2700（00-data/blocks.json#id=liquid-tank 等），它们的 hasItems=false、hasLiquids=true，itemCapacity 显示为 10 只是 Block.java:75 的默认值。
+Liquid tanks are a separate line: liquid-container 700, liquid-tank 1800, reinforced-liquid-container 1000, reinforced-liquid-tank 2700 (00-data/blocks.json#id=liquid-tank and so on); their hasItems=false and hasLiquids=true, and the itemCapacity reading of 10 is just the Block.java:75 default.
 
-同理，核心与普通容器的 liquidCapacity=10（00-data/blocks.json#id=core-shard、#id=container）也是继承值：这两类的 hasLiquids=false，10 永远不会生效。看 00-data 时必须先看 hasLiquids/hasItems 两个布尔，再看容量数字——单看数字会被默认值骗。
+Likewise, cores and ordinary containers having liquidCapacity=10 (00-data/blocks.json#id=core-shard, #id=container) is also an inherited value: both classes have hasLiquids=false, so that 10 never takes effect. When reading 00-data you must check the two booleans hasLiquids/hasItems before the capacity figures - reading the number alone gets you fooled by defaults.
 
-### 6. 核心的建造与阵营规则
+### 6. Core building and team rules
 
-- core-shard 是唯一 alwaysUnlocked 的核心，且 BuildVisibility.coreZoneOnly（Blocks.java:3128-3129），只能放在核心区里；buildCostMultiplier=2（:3136）表示蓝图复制时成本翻倍。
-- Erekir 三核 requiresCoreZone=true、incinerateNonBuildable=true（不能建造的物品投进去直接烧掉）、buildCostMultiplier=0.7 [src: Blocks.java:3167-3223]。
-- 核心能否被卸载器取走由 CoreBuild.canUnload 决定：`block.unloadable && state.rules.allowCoreUnloaders`（CoreBlock.java:282-284）——rules 里关掉这个开关，所有卸载器都取不动核心。
-- 核心爆炸/摧毁走 onDestroyed（:629-657），coreCapture=true 时只做动态爆炸、不给火，避免刚毁就被立刻反抢。
+- core-shard is the only alwaysUnlocked core, and it is BuildVisibility.coreZoneOnly (Blocks.java:3128-3129), placeable only inside the core zone; buildCostMultiplier=2 (:3136) means blueprint copies cost double.
+- Erekir's three cores have requiresCoreZone=true, incinerateNonBuildable=true (items that cannot be built are burned outright when thrown in), buildCostMultiplier=0.7 [src: Blocks.java:3167-3223].
+- Whether an unloader may take from a core is decided by CoreBuild.canUnload: `block.unloadable && state.rules.allowCoreUnloaders` (CoreBlock.java:282-284) - switch that rule off and no unloader can pull from any core.
+- Core explosion / destruction goes through onDestroyed (:629-657); with coreCapture=true it only does a dynamic explosion and does not start fires, so a just-destroyed core is not immediately re-captured.
 
-## 数值
+## Numbers
 
-### 表 1 核心（v160.7 jar，00-data/blocks.json 可逐条核对）
+### Table 1 | cores (v160.7 jar, each row verifiable in 00-data/blocks.json)
 
-| 方块 | size | health | itemCapacity（每种物品） | unitCapModifier | 出生单位 | armor |
+| Block | size | health | itemCapacity (per item type) | unitCapModifier | spawned unit | armor |
 |---|---|---|---|---|---|---|
 | core-shard | 3 | 1100 | 4000 | 8 | alpha | 0 |
 | core-foundation | 4 | 3500 | 9000 | 16 | beta | 0 |
@@ -95,72 +95,72 @@ Erekir 的两个加固容器把 coreMerge 关掉了：`coreMerge = false`（Bloc
 | core-citadel | 5 | 16000 | 3000 | 15 | incite | 10 |
 | core-acropolis | 6 | 30000 | 4000 | 15 | emanate | 15 |
 
-unitCapModifier 由 Blocks.java:3138/3150/3163/3185/3202/3220 逐条赋值；armor 见 :3177/3197/3215。health 由 scaledHealth 按格数平方生成（Blocks.java:3229）：container 声明 scaledHealth 55 ⇒ 220；vault 55 ⇒ 495；reinforced-container 声明 120 ⇒ 480（:3243）、reinforced-vault 120 ⇒ 1080（:3251）。
+unitCapModifier is assigned line by line at Blocks.java:3138/3150/3163/3185/3202/3220; armor at :3177/3197/3215. health comes from scaledHealth squared by tile count (Blocks.java:3229): container declares scaledHealth 55 ⇒ 220; vault 55 ⇒ 495; reinforced-container declares 120 ⇒ 480 (:3243), reinforced-vault 120 ⇒ 1080 (:3251).
 
-### 表 2 存储方块
+### Table 2 | storage blocks
 
-| 方块 | size | health | itemCapacity | separate | coreMerge | 备注 |
+| Block | size | health | itemCapacity | separate | coreMerge | Notes |
 |---|---|---|---|---|---|---|
-| container | 2 | 220 | 300 | true | true | titanium 100（Blocks.java:3226） |
-| vault | 3 | 495 | 1000 | true | true | titanium 250 + thorium 125（:3233） |
-| reinforced-container | 2 | 480 | 160 | true | false | 永不并核（:3244） |
-| reinforced-vault | 3 | 1080 | 900 | true | false | 永不并核（:3252） |
-| core-shard | 3 | 1100 | 4000 | false | — | 可卸载（unloadable=1） |
-| liquid-container | 2 | 160 | 10（无效） | — | — | liquidCapacity 700 |
-| liquid-tank | 3 | 500 | 10（无效） | — | — | liquidCapacity 1800 |
-| liquid-router | 1 | 40 | 10（无效） | — | — | liquidCapacity 120，只做中转 |
+| container | 2 | 220 | 300 | true | true | titanium 100 (Blocks.java:3226) |
+| vault | 3 | 495 | 1000 | true | true | titanium 250 + thorium 125 (:3233) |
+| reinforced-container | 2 | 480 | 160 | true | false | never merges (:3244) |
+| reinforced-vault | 3 | 1080 | 900 | true | false | never merges (:3252) |
+| core-shard | 3 | 1100 | 4000 | false | — | unloadable (unloadable=1) |
+| liquid-container | 2 | 160 | 10 (unused) | — | — | liquidCapacity 700 |
+| liquid-tank | 3 | 500 | 10 (unused) | — | — | liquidCapacity 1800 |
+| liquid-router | 1 | 40 | 10 (unused) | — | — | liquidCapacity 120, relay only |
 
-### 表 3 卸载器与吞吐算例
+### Table 3 | unloaders and throughput worked examples
 
-| 方块 | size | health | speed（tick/件） | 速率 | 特点 |
+| Block | size | health | speed (ticks/item) | Rate | Notes |
 |---|---|---|---|---|---|
-| unloader | 1 | 70 | 60/11≈5.4545 | 11 件/s | allowCoreUnload=true，可取核心 [src: Blocks.java:2160-2164] |
-| duct-unloader | 1 | 120 | 4 | 15 件/s | allowCoreUnload=false、solid=false、underBullets=true [src: Blocks.java:2227-2233] |
+| unloader | 1 | 70 | 60/11≈5.4545 | 11 items/s | allowCoreUnload=true, may take from cores [src: Blocks.java:2160-2164] |
+| duct-unloader | 1 | 120 | 4 | 15 items/s | allowCoreUnload=false, solid=false, underBullets=true [src: Blocks.java:2227-2233] |
 
-算例（都用表 1/表 2 的数字）：
-- 一个 unloader 从容器搬向另一容器，11 件/s，搬空 1000 件 vault 需 1000/11 ≈ 91 s。
-- 单个 duct-unloader 15 件/s [src: Blocks.java:2227-2233]，搬空 1000 件需 66.7 s；两个并联 30 件/s，但前提是源方至少 2 个邻居方块，否则 Unloader.java:163 直接 return。
-- 核心 + 4 个 container 全部邻接：storageCapacity = 4000 + 4×300 = 5200（CoreBlock.java:715），此时 4 个容器的 items 已是同一个数组，读数会同步变化。
-- 核心单物品满仓需要 4000/11 ≈ 364 s（一个 unloader），而 UI 条显示 4000/(5200×已解锁物品种数)。
+Worked examples (all using the figures from Table 1 / Table 2):
+- One unloader moving from a container to another container at 11 items/s empties a 1000-item vault in 1000/11 ≈ 91 s.
+- A single duct-unloader at 15 items/s [src: Blocks.java:2227-2233] empties 1000 items in 66.7 s; two in parallel give 30 items/s, but only if the source side has at least 2 neighbouring blocks, otherwise Unloader.java:163 returns immediately.
+- A core plus 4 adjacent containers: storageCapacity = 4000 + 4×300 = 5200 (CoreBlock.java:715); at that point the 4 containers' items are already the same array, so readings change in lockstep.
+- A core filling one item type to full takes 4000/11 ≈ 364 s (single unloader), while the UI bar shows 4000/(5200 × number of unlocked item types).
 
-## 源码锚点
+## Source anchors
 
-- world/Block.java:75 `public int itemCapacity = 10;`（默认容量）
+- world/Block.java:75 `public int itemCapacity = 10;` (default capacity)
 - world/Block.java:73 `public boolean separateItemCapacity = false;`
 - world/Block.java:106 `public boolean unloadable = true;`
-- world/blocks/storage/StorageBlock.java:26 separateItemCapacity=true；:17 coreMerge=true；:29 allowResupply=true
-- world/blocks/storage/StorageBlock.java:51 linkedCore 字段；:55 acceptItem 转发；:59-61 canUnload 转发；:96 getMaximumAccepted 转发
+- world/blocks/storage/StorageBlock.java:26 separateItemCapacity=true; :17 coreMerge=true; :29 allowResupply=true
+- world/blocks/storage/StorageBlock.java:51 linkedCore field; :55 acceptItem forwarding; :59-61 canUnload forwarding; :96 getMaximumAccepted forwarding
 - world/blocks/storage/StorageBlock.java:100-103 explosionItemCap = linkedCore!=null ? min(itemCapacity/60, 6) : itemCapacity
 - world/blocks/storage/StorageBlock.java:132-139 canPickup / allowDeposit
-- world/blocks/storage/CoreBlock.java:150 用量条分母 storageCapacity×物品种数
+- world/blocks/storage/CoreBlock.java:150 the usage bar denominator storageCapacity×item type count
 - world/blocks/storage/CoreBlock.java:282-284 canUnload = unloadable && rules.allowCoreUnloaders
-- world/blocks/storage/CoreBlock.java:715-724 storageCapacity 三段累加 + items 指针共享
-- world/blocks/storage/CoreBlock.java:789-791 owns() 判定 coreMerge + linkedCore
-- world/blocks/storage/Unloader.java:99-111 五级比较器；:163 周期门；:218 配平条件；:228 计时器取余
+- world/blocks/storage/CoreBlock.java:715-724 the three-part storageCapacity sum + shared items pointer
+- world/blocks/storage/CoreBlock.java:789-791 owns() tests coreMerge + linkedCore
+- world/blocks/storage/Unloader.java:99-111 the five-level comparator; :163 the cycle gate; :218 the balancing condition; :228 the timer modulo
 
-## 实测与反例
+## Measurements and counter-examples
 
-1. **核心 4000 不是总量而是每种物品的上限。** 反证：CoreBlock.java:696-701 的 acceptItem/getMaximumAccepted 只比较 `items.get(item)` 与 storageCapacity，没有减去其它物品占用；:150 的界面条才把 total 除以 (storageCapacity×物品种数)。所以一个 core-shard 能同时装 4000 铜 + 4000 铅 + 4000 硅……而条依然只显示约 1/22 满。
-2. **把 container 贴到核心旁边，"300"就消失了。** 反证：CoreBlock.java:715-719 把它的 items 指针替换成核心数组并设 linkedCore；此后 StorageBlock.java:96 的 getMaximumAccepted 返回核心的 storageCapacity，而不是 300。此时再加第 5 个 container，容量涨 300，但库存不会分开记。
-3. **加固容器反而是"独立存储"。** 反证：Blocks.java:3244/3252 显式 coreMerge=false，所以 reinforced-container 紧贴核心时 owns() 返回 false（CoreBlock.java:790），容量与库存都不并。
-4. **卸载器不会把容器清空。** 反证：Unloader.java:218 要求两端 loadFactor 不同才搬；两个空容器之间永远不搬，一个满一个空时只搬 1 件/周期直到比例相同。
-5. **unloader 比 duct-unloader 慢。** 反证：unloader speed=60/11≈5.45 tick/件 = 11 件/s [src: Blocks.java:2162]，duct-unloader speed=4 = 15 件/s [src: Blocks.java:2230]，后者还不需要 titanium。
-6. **00-data 里 container 的 liquidCapacity=10 是假数字。** 反证：00-data/blocks.json#id=container 的 hasLiquids 为 false，Block.java:75 的 itemCapacity 默认值 10 与 liquidCapacity 默认值同源，容量字段永远不参与计算。
+1. **A core's 4000 is a per-item-type ceiling, not a total.** Proof: acceptItem/getMaximumAccepted at CoreBlock.java:696-701 compare `items.get(item)` with storageCapacity only, never subtracting what other items occupy; only the UI bar at :150 divides total by (storageCapacity × item type count). So one core-shard can hold 4000 copper + 4000 lead + 4000 silicon at once... while the bar still reads about 1/22 full.
+2. **Put a container next to a core and its "300" disappears.** Proof: CoreBlock.java:715-719 replaces its items pointer with the core array and sets linkedCore; afterwards getMaximumAccepted at StorageBlock.java:96 returns the core's storageCapacity, not 300. Add a 5th container now and capacity grows by 300, but the inventory is not recorded separately.
+3. **Reinforced containers turn out to be "independent storage".** Proof: Blocks.java:3244/3252 explicitly set coreMerge=false, so when reinforced-container is pressed against a core owns() returns false (CoreBlock.java:790), and neither capacity nor inventory merges.
+4. **An unloader does not empty a container.** Proof: Unloader.java:218 requires the two ends to differ in loadFactor before moving; two empty containers never trade, and one full plus one empty moves 1 item/cycle until the ratios match.
+5. **unloader is slower than duct-unloader.** Proof: unloader speed=60/11≈5.45 ticks/item = 11 items/s [src: Blocks.java:2162], duct-unloader speed=4 = 15 items/s [src: Blocks.java:2230], and the latter does not even need titanium.
+6. **container's liquidCapacity=10 in 00-data is a fake number.** Proof: 00-data/blocks.json#id=container has hasLiquids false, and Block.java:75's itemCapacity default of 10 and the liquidCapacity default come from the same source - the capacity field never enters a calculation.
 
-## 常见误解
+## Common misconceptions
 
-- **"核心容量是所有物资共享的一个池子，满了就投不进去。"** 实际上只有 UI 条按总量归一化；投递判定按单物品（CoreBlock.java:696-701），铜满了不影响铅。
-- **"容器 300 就是总共 300。"** 容器 separateItemCapacity=true（StorageBlock.java:26），300 是每种物品各自 300，一个 container 理论上能存 300×22 种。
-- **"container 放在核心旁边会增加仓库位。"** 它增加的是核心 storageCapacity 的数字（+300），同时失去独立库存；想让两种库存分开，要用 coreMerge=false 的加固容器或不邻接。
-- **"卸载器会持续把物品从 A 搬到 B。"** 它是比例配平器（Unloader.java:218），两端比例相同就停手；想强制单向搬运要用传送带/桥或逻辑 setprop。
-- **"duct-unloader 是 unloader 的升级版，可以取核心。"** 相反：duct-unloader 的 allowCoreUnload=false，取不出核心；unloader 才允许。
-- **"核心 unloadable=1 所以一定能被卸载器取货。"** 还要 rules.allowCoreUnloaders 为真（CoreBlock.java:283），沙盒/Rules 关掉后所有核心都变成只进不出。
+- **"Core capacity is one pool shared by all resources, full means you cannot deliver."** Only the UI bar normalises by total; the delivery test is per item (CoreBlock.java:696-701), and full copper does not block lead.
+- **"A container's 300 means 300 in total."** Containers have separateItemCapacity=true (StorageBlock.java:26): 300 is 300 of each item type, so one container can in principle hold 300×22 types.
+- **"Putting a container next to a core adds storage slots."** What it adds is the number in the core's storageCapacity (+300), while losing its independent inventory; to keep the two stocks separate use a coreMerge=false reinforced container, or do not place it adjacent.
+- **"An unloader keeps moving items from A to B."** It is a ratio balancer (Unloader.java:218) and stops once both ends match; forcing one-way movement needs conveyors/bridges or a logic setprop.
+- **"duct-unloader is the upgraded unloader and can take from cores."** The reverse: duct-unloader has allowCoreUnload=false and cannot pull from a core; only unloader may.
+- **"A core's unloadable=1 means unloaders can always take from it."** It also needs rules.allowCoreUnloaders true (CoreBlock.java:283); with that off in sandbox / Rules, every core becomes input-only.
 
-## 相关
+## Related
 
-- WORLD.BLOCKS.001 —— size、itemCapacity 与多格锚点的通用规则
-- WORLD.LOGISTICS.001 —— 传送带/路由器/质量驱动器的吞吐，与卸载器的 11/15 件/s 对照
-- WORLD.POWER.001 —— 电池（battery）也是存储方块，但存的是电量不是物品
-- WORLD.LIQUIDS.001 —— 液体罐 700/1800/1000/2700 与管道容量的量级关系
-- WORLD.CRAFTING.001 —— 工厂从核心/容器取料的路径
-- WORLD.PAYLOAD.001 —— 载荷方块不与物品库存互通
+- WORLD.BLOCKS.001 - size, itemCapacity and the general rules of multiblock anchors
+- WORLD.LOGISTICS.001 - throughput of conveyors / routers / mass drivers, to set against the unloader's 11/15 items/s
+- WORLD.POWER.001 - batteries are storage blocks too, but they store charge rather than items
+- WORLD.LIQUIDS.001 - liquid tanks at 700/1800/1000/2700 and how they relate to pipe capacity
+- WORLD.CRAFTING.001 - how factories pull materials from cores / containers
+- WORLD.PAYLOAD.001 - payload blocks do not interchange with item inventories

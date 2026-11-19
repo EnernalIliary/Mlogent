@@ -1,7 +1,7 @@
 ---
 tokens: 572
 id: COMBAT.TURRET.208
-title: scathe —— 1350 世界单位、十秒一发的导弹架
+title: scathe — a 1350-world-unit missile rack, one shot every ten seconds
 domain: combat
 status: active
 ver: [v160.7_rt, v159.3_src]
@@ -14,75 +14,75 @@ src:
   - "jar:v160.7#blocks/scathe"
 data: [00-data/turrets.json, 00-data/blocks.json, 00-data/bullets.json, 00-data/turret_shots.json]
 depends: [COMBAT.TURRET.001, COMBAT.TURRET.002, COMBAT.NUMBERS.001]
-tags: [炮塔, scathe, 跨屏导弹 / 战略打击]
+tags: [turret, scathe, cross-screen missile / strategic strike]
 ---
 
-## 一句话
+## One line
 
-scathe 不是炮，是发射架：塔的弹体 BulletType(0,0) 只负责 spawnUnit，真伤害在导弹武器的 1000 溅射上，所以按塔面板算 DPS 会得到 0。它解决「打到屏幕外」——1350 世界单位（168.75 格）覆盖，10 秒一发、一匣 3 发；代价是 1650 件、只打地面，以及 30 秒的空窗风险。 [src: Mindustry-Source/core/src/mindustry/content/Blocks.java:5218]
+scathe is not a gun, it is a launcher: the tower's projectile BulletType(0,0) only spawns a unit, and the real damage is the missile weapon's 1000 splash, so computing DPS from the tower panel gives 0. It solves "hit beyond the screen" — 1350 world units (168.75 tiles) of coverage, one shot every 10 seconds, 3 shots per magazine; the price is 1650 items, ground only, and a 30-second window of risk. [src: Mindustry-Source/core/src/mindustry/content/Blocks.java:5218]
 
-## 规则 / 公式
+## Rules / formulas
 
-- **层位**：A ｜ **岗位**：跨屏导弹 / 战略打击
-- **射击模式**：发射 MissileUnitType 导弹单位（每触发 1 发；reload 600 tick） [src: 00-data/turret_shots.json]
-- **目标层**：地面、建筑
-- 塔的 shootType 是 BulletType(0,0) + spawnUnit 导弹单位：塔 0 伤害，真伤害在导弹武器溅射 1000 [src: Mindustry-Source/core/src/mindustry/content/Blocks.java:5218]
-- reload 600 tick ⇒ 10 秒一发；maxAmmo 45 / ammoPerShot 15 ⇒ 一匣 3 发 [src: 00-data/turrets.json]
-- 1350 世界单位（168.75 格）是全作最远，属于跨屏战略武器 [src: 00-data/turrets.json]
-- 只打地面（air False）；三种弹药 phase-fabric / surge-alloy / carbide 的 rm 0.80 / 0.90 / 1.00 只改装填节奏，不改伤害 [src: 00-data/turrets.json]
-- 溅射 1000 对 22 甲剩 978（98%），几乎不吃护甲 [src: 00-data/turrets.json]
-- **优点**：
-  - 168.75 格覆盖让它在敌人进射界前就打掉对方阵地，是 Erekir 唯一的先手战略 [src: 00-data/turrets.json]
-  - 溅射 1000 对 22 甲保留 98%，重甲单位在它面前一样脆 [src: 00-data/turrets.json]
-- **缺点**：
-  - 1650 件 + 10 秒一发：单塔持续输出低到可忽略，它买的是「一发清一片」 [src: 00-data/turrets.json]
-  - 只打地面，空中波次完全沉默 [src: 00-data/turrets.json]
-  - 一匣 3 发、ammoPerShot 15，补给断了就是 30 秒空窗 [src: 00-data/turrets.json]
-- **口径**：单体 DPS = 60/(reload × reloadMultiplier) × shots × 直伤；面板 DPS 再按 BulletType.estimateDPS 把溅射按 0.75 折进去（见 [[COMBAT.NUMBERS.001]]）。 [src: Mindustry-Source/core/src/mindustry/entities/bullet/BulletType.java:414]
+- **Tier**: A | **Role**: cross-screen missile / strategic strike
+- **Shoot pattern**: launches a MissileUnitType missile unit (1 shot per trigger; reload 600 ticks) [src: 00-data/turret_shots.json]
+- **Target layers**: ground, buildings
+- The tower's shootType is BulletType(0,0) + a spawnUnit missile: the tower deals 0 damage, the real damage is the missile weapon's 1000 splash [src: Mindustry-Source/core/src/mindustry/content/Blocks.java:5218]
+- reload 600 ticks ⇒ one shot every 10 seconds; maxAmmo 45 / ammoPerShot 15 ⇒ 3 shots per magazine [src: 00-data/turrets.json]
+- 1350 world units (168.75 tiles) is the longest in the game, which makes it a cross-screen strategic weapon [src: 00-data/turrets.json]
+- Ground only (air False); the rm 0.80 / 0.90 / 1.00 of the three ammo types phase-fabric / surge-alloy / carbide only changes the reload rhythm, not the damage [src: 00-data/turrets.json]
+- Splash 1000 leaves 978 against 22 armor (98%), so it barely feels armor [src: 00-data/turrets.json]
+- **Pros**:
+  - 168.75 tiles of coverage lets it destroy the enemy position before that enemy enters any arc, the only opening strike Erekir has [src: 00-data/turrets.json]
+  - Splash 1000 keeps 98% against 22 armor, so heavy-armor units are just as fragile in front of it [src: 00-data/turrets.json]
+- **Cons**:
+  - 1650 items + one shot per 10 seconds: a single tower's sustained output is negligible, what it buys is "one shot, one patch cleared" [src: 00-data/turrets.json]
+  - Ground only, so it is completely silent during an air wave [src: 00-data/turrets.json]
+  - 3 shots per magazine at ammoPerShot 15: break the supply and it is a 30-second window of silence [src: 00-data/turrets.json]
+- **Convention**: single-target DPS = 60/(reload × reloadMultiplier) × shots × direct damage; panel DPS further folds splash in at 0.75 through BulletType.estimateDPS (see [[COMBAT.NUMBERS.001]]). [src: Mindustry-Source/core/src/mindustry/entities/bullet/BulletType.java:414]
 
-## 数值
+## Numbers
 
-| 项 | 值 | 来源 |
+| Item | Value | Source |
 |---|---|---|
-| 尺寸 | 4 | 00-data/blocks.json |
-| 血量 | 3520 | 00-data/blocks.json |
-| 护甲 | 0 | 00-data/blocks.json |
-| 造价 | 1650 件（graphite × 400、silicon × 450、tungsten × 500、oxide × 100、carbide × 200） | 00-data/blocks.json |
-| 射程 | 1350 世界单位（168.75 格） | 00-data/turrets.json |
-| reload | 600 tick | 00-data/turrets.json |
+| Size | 4 | 00-data/blocks.json |
+| Health | 3520 | 00-data/blocks.json |
+| Armor | 0 | 00-data/blocks.json |
+| Cost | 1650 items (graphite × 400, silicon × 450, tungsten × 500, oxide × 100, carbide × 200) | 00-data/blocks.json |
+| Range | 1350 world units (168.75 tiles) | 00-data/turrets.json |
+| reload | 600 ticks | 00-data/turrets.json |
 | shots | 1 | 00-data/turret_shots.json |
-| 冷却液倍率 / shootCone | 15 / 1 | 00-data/turrets.json |
-| 耗电 | 0/s | 00-data/turrets.json |
+| Coolant multiplier / shootCone | 15 / 1 | 00-data/turrets.json |
+| Power | 0/s | 00-data/turrets.json |
 
-| 弹药 | 直伤 | 溅射 | reloadMult | 发/s | 单体DPS(0甲) | 面板DPS | 物品/秒 | 对22甲DPS | 来源 |
+| Ammo | Direct damage | Splash | reloadMult | shots/s | Single-target DPS (0 armor) | Panel DPS | Items/s | DPS vs 22 armor | Source |
 |---|---|---|---|---|---|---|---|---|---|
 | phase-fabric | 0 | 0 | 0.80 | 0.12 | 0.0 | 0.0 | 0.38 | 0.0 | 00-data |
 | surge-alloy | 0 | 0 | 0.90 | 0.11 | 0.0 | 0.0 | 1.67 | 0.0 | 00-data |
 | carbide | 0 | 0 | 1.00 | 0.10 | 0.0 | 0.0 | 1.50 | 0.0 | 00-data |
 
-- 这是导弹发射架而不是炮：伤害由导弹落地结算，所以 DPS 不能按塔的 shootType 算。 [src: Mindustry-Source/core/src/mindustry/content/Blocks.java:5212]
-- 射程 1350 世界单位（约 169 格）是全作最远，属于跨屏战略武器。 [src: Mindustry-Source/core/src/mindustry/content/Blocks.java:5212]
+- This is a missile launcher rather than a gun: damage is settled when the missile lands, so DPS cannot be computed from the tower's shootType. [src: Mindustry-Source/core/src/mindustry/content/Blocks.java:5212]
+- Range 1350 world units (about 169 tiles) is the longest in the game, which makes it a cross-screen strategic weapon. [src: Mindustry-Source/core/src/mindustry/content/Blocks.java:5212]
 
-- 千万别用塔的直伤 0 去算 DPS：那是 spawnUnit 的占位弹，真伤害在 scathe-missile-weapon1 的溅射 1000 [src: 00-data/bullets.json]
+- Never compute DPS from the tower's 0 direct damage: that is the spawnUnit placeholder projectile, and the real damage is scathe-missile-weapon1's 1000 splash [src: 00-data/bullets.json]
 
-## 源码锚点
+## Source anchors
 
-- Mindustry-Source/core/src/mindustry/content/Blocks.java:5212 —— 定义行 new ItemTurret("scathe")
-- Mindustry-Source/core/src/mindustry/content/Blocks.java:5224 —— 含 MissileUnitType
-- 00-data/turret_shots.json#id=scathe —— 源码派生记录（含证据行）
+- Mindustry-Source/core/src/mindustry/content/Blocks.java:5212 — definition line new ItemTurret("scathe")
+- Mindustry-Source/core/src/mindustry/content/Blocks.java:5224 — holds MissileUnitType
+- 00-data/turret_shots.json#id=scathe — source-derived record (with evidence line)
 
-## 实测与反例
+## Measurements and counter-examples
 
-- 反例：按塔面板算 scathe 的 DPS 会得到 0，从而把它评为最差塔；实际是 1000 溅射 × 3 发/匣 [src: 00-data/bullets.json]
-- 反例：拿 scathe 打空中波次，air False 直接 0 输出 [src: 00-data/turrets.json]
+- Counter-example: computing scathe's DPS from the tower panel gives 0, which would rate it the worst tower; the real figure is 1000 splash × 3 shots per magazine [src: 00-data/bullets.json]
+- Counter-example: taking scathe into an air wave — air False means 0 output outright [src: 00-data/turrets.json]
 
-## 常见误解
+## Common misconceptions
 
-- 「0 伤害 = 废塔」错：塔只是发射架，伤害在弹体上 [src: Mindustry-Source/core/src/mindustry/content/Blocks.java:5218]
-- 「10 秒一发太慢」半错：它的价值是 168.75 格先手与 1000 溅射，不是 DPS [src: 00-data/turrets.json]
-- 「换 carbide 伤害更高」错：三种弹药塔伤害都是 0，rm 只改装填速度 [src: 00-data/turrets.json]
+- "0 damage = useless tower" — wrong: the tower is only the launcher, the damage is in the projectile [src: Mindustry-Source/core/src/mindustry/content/Blocks.java:5218]
+- "One shot per 10 seconds is too slow" — half wrong: its value is the 168.75-tile opening strike and 1000 splash, not DPS [src: 00-data/turrets.json]
+- "carbide hits harder" — wrong: the tower's damage is 0 on all three ammo types; rm only changes the reload speed [src: 00-data/turrets.json]
 
-## 相关
+## Related
 
 - [[COMBAT.TURRET.116]]
 - [[COMBAT.TURRET.001]]

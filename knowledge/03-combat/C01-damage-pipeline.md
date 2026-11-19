@@ -1,6 +1,6 @@
 ---
 id: COMBAT.DAMAGE.001
-title: 伤害管线总览——一次命中从 BulletType 到 health 的完整顺序
+title: "Damage pipeline overview: the full order of a hit from BulletType to health"
 domain: combat
 status: active
 ver: [v160.7_rt, v159.3_src]
@@ -16,17 +16,17 @@ src:
   - "KB/00-data/rt_values_raw.json (mindustry.Vars.minArmorDamage)"
 data: [00-data/rt_values_raw.json]
 depends: [COMBAT.ARMOR.001]
-tags: [伤害, 护甲, 护盾, 溅射, 管线, 最小伤害]
+tags: [damage, armor, shield, splash, pipeline, minimum-damage]
 tokens: 783
 ---
 
-## 一句话
+## In one line
 
-一次命中固定走 6 个阶段：**命中判定 → 伤害数值修饰（穿甲/护甲倍率/护盾上限）→ 护甲减免 → 单位系数（healthMultiplier、rules.unitHealth）→ 护盾吸收 → 扣 health**；护甲减免永远用 `max(damage - armor, 0.1 * damage)`，所以**再高的护甲也只能把单发伤害压到 10%，永远压不到 0**。
+A hit always walks the same 6 stages: **hit test → damage value modifiers (armor piercing / armor multiplier / shield cap) → armor reduction → unit multipliers (healthMultiplier, rules.unitHealth) → shield absorption → health subtraction**; armor reduction always uses `max(damage - armor, 0.1 * damage)`, so **no armor however high can push a single shot below 10%, and never to 0**.
 
-## 规则 / 公式
+## Rules and formulas
 
-### 1. 完整顺序（单位目标）
+### 1. The full order (unit target)
 
 ```
 BulletType.hit(b, x, y)                      // 1. 触发效果与范围伤害
@@ -41,101 +41,101 @@ BulletType.hit(b, x, y)                      // 1. 触发效果与范围伤害
                       → health <= 0 → kill()         // 5. 死亡
 ```
 
-**关键：护盾在护甲之后、血量之前。** 顺序写反（先算护盾再减护甲，或护甲只作用于血量）是最常见的手算错误。
+**The key point: the shield is consumed after armor and before health.** Reversing that order (shielding before armor, or armor applied to health only) is the most common hand-calculation error.
 
-### 2. 三种伤害模式（BulletType 的字段决定走哪条）
+### 2. The three damage modes (a BulletType field picks the branch)
 
-| 字段 | 取值 | 走的方法 | 护甲处理 |
+| Field | Value | Method taken | Armor handling |
 |---|---|---|---|
-| `pierceArmor = true` | 默认 false | `damagePierce(amount)` | **完全忽略护甲**，原值扣 |
-| `armorMultiplier != 1` | 默认 1 | `damageArmorMult(amount, mult)` | `applyArmor(amount, armor * mult)` |
-| 都不满足（绝大多数子弹） | — | `damage(amount)` | `applyArmor(amount, armor)` |
+| `pierceArmor = true` | false by default | `damagePierce(amount)` | **armor ignored entirely**, raw value subtracted |
+| `armorMultiplier != 1` | 1 by default | `damageArmorMult(amount, mult)` | `applyArmor(amount, armor * mult)` |
+| neither (the vast majority of bullets) | — | `damage(amount)` | `applyArmor(amount, armor)` |
 
-三者互斥，源码里是 `if(pierceArmor) … else if(armorMultiplier != 1) … else …` 的链式分支。
+The three are mutually exclusive; the source is an `if(pierceArmor) … else if(armorMultiplier != 1) … else …` chain.
 
-### 3. 护甲减免公式（全库唯一）
+### 3. The armor formula (the only one in the KB)
 
 ```
 applyArmor(damage, armor) = max(damage - armor, minArmorDamage * damage)
 minArmorDamage = 0.1                       // Vars.java:133，v160.7 反射确认 const=0.1
 ```
 
-等价写法：**实际伤害 = max(D - A, 0.1·D)**。当 `A ≥ 0.9·D` 时进入"保底区"，伤害恒为 `0.1·D`。
+Equivalent form: **actual damage = max(D - A, 0.1·D)**. Once `A ≥ 0.9·D` the hit is in the floor zone and damage stays at `0.1·D`.
 
-### 4. 单位系数（在护甲之后乘）
+### 4. Unit multipliers (applied after armor)
 
 ```
 最终扣血 = applyArmor(amount, armor) / healthMultiplier / rules.unitHealth(team)
 ```
 
-- `healthMultiplier`：单位当前 status 乘出来的血量倍率（healthMultiplier 越**大**越硬，因为是除数）。冻结 freezing = 0.8 → 受到伤害 ×1.25。
-- `rules.unitHealth(team)`：难度/波次缩放。默认 1。
-- 溅射另有 `buildingDamageMultiplier`，**只作用于建筑**，不影响单位。
+- `healthMultiplier`: the health multiplier accumulated from the unit's current statuses (a **bigger** healthMultiplier means tougher, because it is a divisor). freezing = 0.8 → incoming damage ×1.25.
+- `rules.unitHealth(team)`: difficulty / wave scaling. 1 by default.
+- Splash carries its own `buildingDamageMultiplier`, **applied to buildings only**; it does not affect units.
 
-### 5. 溅射的衰减
+### 5. Splash falloff
 
 ```
 calculateDamage(radius, dist) = lerp(1 - dist/radius, 1, 0.4)     // falloff = 0.4
 → 中心 100%，边缘 40%，与距离线性
 ```
 
-半径 ≤ 1e-5 时视为单点，不衰减。当 `scaledSplashDamage = true` 时，溅射伤害还要再乘 `damage / 100` 之类的"按伤害缩放"系数（源码 `splashDamage * b.damageMultiplier()` 那一支）。
+A radius ≤ 1e-5 counts as a single point and does not fall off. With `scaledSplashDamage = true` the splash damage is multiplied once more by a damage-proportional factor such as `damage / 100` (the `splashDamage * b.damageMultiplier()` branch in the source).
 
-### 6. 连续伤害（激光/火焰/液流）
+### 6. Continuous damage (lasers / fire / liquid streams)
 
-`damageContinuous(amount)` = `damage(amount * Time.delta)`。**字段里的 damage 是"每 tick 伤害"，不是每发**。60 tick/s，所以 `damage=78` 的 ContinuousLaser 每秒 78*60 = 4680。
+`damageContinuous(amount)` = `damage(amount * Time.delta)`. **The damage field is damage per tick, not per shot.** At 60 tick/s a ContinuousLaser with `damage=78` deals 78*60 = 4680 per second.
 
-## 数值
+## Numbers
 
-| 量 | 值 | 来源 |
+| Quantity | Value | Source |
 |---|---|---|
-| `Vars.minArmorDamage` | 0.1 | Vars.java:133；`00-data/rt_values_raw.json` 反射 const=0.1 |
-| `BulletType.damage` 默认 | 1f | BulletType.java:41 |
-| `BulletType.splashDamage` 默认 | 0f | BulletType.java:109 |
-| `BulletType.statusDuration` 默认 | 480 tick = 8 s | BulletType.java:119（`60*8`） |
-| `BulletType.buildingDamageMultiplier` 默认 | 1.0 | BulletType.java:99 + v160.7 反射 |
-| 溅射衰减 falloff | 0.4 | Damage.java:652-656 |
-| `Vars.tilesize` | 8 px | Vars.java:135；v160.7 反射 const=8 |
+| `Vars.minArmorDamage` | 0.1 | Vars.java:133; `00-data/rt_values_raw.json` reflection const=0.1 |
+| `BulletType.damage` default | 1f | BulletType.java:41 |
+| `BulletType.splashDamage` default | 0f | BulletType.java:109 |
+| `BulletType.statusDuration` default | 480 tick = 8 s | BulletType.java:119 (`60*8`) |
+| `BulletType.buildingDamageMultiplier` default | 1.0 | BulletType.java:99 + v160.7 reflection |
+| splash falloff | 0.4 | Damage.java:652-656 |
+| `Vars.tilesize` | 8 px | Vars.java:135; v160.7 reflection const=8 |
 | `Vars.tilePayload` | 64 px² | Vars.java:137 |
 
-## 源码锚点
+## Source anchors
 
-- `entities/bullet/BulletType.java:480-521` `hitEntity`：护盾上限、三种伤害模式、命中后 `unit.apply(status, statusDuration)` 与击退。
-- `entities/bullet/BulletType.java:549-576` `hit(b,x,y)` 的执行顺序：hitEffect/sound → frags → puddles → incend → createUnits → suppression → **createSplashDamage** → lightning。
-- `entities/bullet/BulletType.java:593-612` `createSplashDamage`：调 `Damage.damage(..., splashDamage * b.damageMultiplier(), splashDamagePierce, ..., armorMultiplier)`，并对区域内单位补 status。
-- `entities/comp/ShieldComp.java:26-31` `damage(amount, withEffect)`：`rawDamage(applyArmor(amount, armorOverride >= 0 ? armorOverride : armor) / healthMultiplier / state.rules.unitHealth(team))`。
-- `ShieldComp.java:35-43` `damagePierce` 直接 rawDamage，不减护甲。
-- `ShieldComp.java:47-55` `damageArmorMult(amount, armorMult)` → `applyArmor(amount, armor * armorMult)`。
-- `ShieldComp.java:57-81` `rawDamage`：先扣 shield（`shieldDamage = min(max(shield,0), amount)`），剩余扣 health；死亡走 `kill()`；护盾碎裂播 `Fx.unitShieldBreak`。
-- `entities/Damage.java:652-661`：`calculateDamage` 的 0.4 falloff 与 `applyArmor`。
-- `entities/comp/HealthComp.java:71-79` `damage(amount)`：`health -= amount; hitTime = 1f; if(health <= 0 && !dead) kill();`
-- `HealthComp.java:109-117` `heal(amount)` 与 `healFract(amount)`（按 maxHealth 的 0~1 比例）。
+- `entities/bullet/BulletType.java:480-521` `hitEntity`: shield cap, the three damage modes, then `unit.apply(status, statusDuration)` and knockback.
+- `entities/bullet/BulletType.java:549-576` execution order of `hit(b,x,y)`: hitEffect/sound → frags → puddles → incend → createUnits → suppression → **createSplashDamage** → lightning.
+- `entities/bullet/BulletType.java:593-612` `createSplashDamage`: calls `Damage.damage(..., splashDamage * b.damageMultiplier(), splashDamagePierce, ..., armorMultiplier)` and re-applies status to units inside the radius.
+- `entities/comp/ShieldComp.java:26-31` `damage(amount, withEffect)`: `rawDamage(applyArmor(amount, armorOverride >= 0 ? armorOverride : armor) / healthMultiplier / state.rules.unitHealth(team))`.
+- `ShieldComp.java:35-43` `damagePierce` goes straight to rawDamage, no armor subtraction.
+- `ShieldComp.java:47-55` `damageArmorMult(amount, armorMult)` → `applyArmor(amount, armor * armorMult)`.
+- `ShieldComp.java:57-81` `rawDamage`: shield first (`shieldDamage = min(max(shield,0), amount)`), the remainder comes off health; death goes through `kill()`; a shield break plays `Fx.unitShieldBreak`.
+- `entities/Damage.java:652-661`: the 0.4 falloff of `calculateDamage` and `applyArmor`.
+- `entities/comp/HealthComp.java:71-79` `damage(amount)`: `health -= amount; hitTime = 1f; if(health <= 0 && !dead) kill();`
+- `HealthComp.java:109-117` `heal(amount)` and `healFract(amount)` (a 0~1 fraction of maxHealth).
 
-## 实测与反例
+## Measurements and counterexamples
 
-**反例 1：把护甲当"百分比减伤"算。**
-错误手算：toxopid 护甲 22（v160.7 jar；v159.3 源码为 13），dagger 单发 9 → 以为 "9 × (1 - 22%) = 7.02"。
-源码结果：`applyArmor(9, 22) = max(9-22, 0.9) = 0.9`。**一发 9 伤害只掉 0.9 血**，22 点护甲把 9 点伤害吃掉 90%（撞到 10% 保底）。这正是"小口径炮打重甲单位几乎无伤"的原因。
+**Counterexample 1: treating armor as a percentage damage reduction.**
+Wrong hand calculation: toxopid armor 22 (v160.7 jar; 13 in the v159.3 source), dagger at 9 per shot → expected "9 × (1 - 22%) = 7.02".
+Source result: `applyArmor(9, 22) = max(9-22, 0.9) = 0.9`. **A 9-damage shot removes only 0.9 health**; 22 armor eats 90% of the 9 damage (it lands on the 10% floor). This is exactly why small-caliber turrets do almost nothing to heavy armor.
 
-**反例 2：以为高护甲能完全免疫。**
-护甲 50 vs 单发 5：`max(5-50, 0.5) = 0.5`，仍掉 0.5。只要 `damage > 0`，伤害恒 ≥ 10%。所以 crawler（自爆 0 速子弹）之外，没有任何"完全免疫"的原版机制；真正的免疫靠 `immunities`（见 COMBAT.ARMOR.001）。
+**Counterexample 2: expecting high armor to give full immunity.**
+Armor 50 vs 5 per shot: `max(5-50, 0.5) = 0.5`, still 0.5. As long as `damage > 0`, damage stays ≥ 10%. So apart from crawler (0-speed self-destruct bullet) vanilla has no "full immunity" mechanism; real immunity comes from `immunities` (see COMBAT.ARMOR.001).
 
-**反例 3：把 statusDuration 当秒。**
-`statusDuration = 480` 是 tick，**8 秒**，不是 480 秒；写成 `60*8` 的写法在源码里就是为了防止误读。
+**Counterexample 3: reading statusDuration as seconds.**
+`statusDuration = 480` is ticks, **8 seconds**, not 480 seconds; the `60*8` spelling in the source exists precisely to prevent that misreading.
 
-**正例（可核对）**：duo 打 dagger（armor 0）：9 伤害 → 9 血；打 fortress（armor 9）：`max(9-9, 0.9)=0.9`。同一发子弹对 900 血 fortress 需要 1000 发，对 150 血 dagger 只需 17 发。
+**A checkable example**: duo vs dagger (armor 0): 9 damage → 9 health; vs fortress (armor 9): `max(9-9, 0.9)=0.9`. The same bullet needs 1000 rounds against a 900-health fortress but only 17 against a 150-health dagger.
 
-## 常见误解
+## Common misconceptions
 
-- ❌ "护盾在护甲之前计算"。→ 错，护甲先算，护盾吃的是**已经减过护甲**的数值。
-- ❌ "穿甲（pierceArmor）是减一半护甲"。→ 是**完全跳过** `applyArmor`，一点护甲都不减。
-- ❌ "溅射边缘是中心的一半"。→ 是 **40%**（falloff 0.4）。
-- ❌ "`rules.unitHealth` 也影响玩家单位"。→ 它按 team 取值，玩家队默认 1，只有波次敌人吃难度缩放。
-- ❌ "护甲对溅射无效"。→ 溅射走同一条 `damage()` 管线（`armorMultiplier` 也一并传下去），护甲同样生效且同样保底 10%。
+- ❌ "shields are computed before armor". → Wrong: armor is settled first, and the shield absorbs a value that **has already been reduced by armor**.
+- ❌ "armor piercing (pierceArmor) halves armor". → It **skips** `applyArmor` entirely; not a single point of armor is subtracted.
+- ❌ "the splash edge is half of the center". → It is **40%** (falloff 0.4).
+- ❌ "`rules.unitHealth` also affects player units". → It is read per team; the player team defaults to 1, and only wave enemies take difficulty scaling.
+- ❌ "armor does not apply to splash". → Splash runs the same `damage()` pipeline (`armorMultiplier` is passed along too), so armor applies and the 10% floor applies with it.
 
-## 相关
+## See also
 
-- [[COMBAT.ARMOR.001]] 护甲公式推导与穿甲
-- [[COMBAT.BULLET.001]] 子弹字段与弹道
-- [[COMBAT.STATUS.001]] 状态倍率（healthMultiplier 就在这条管线里）
-- [[COMBAT.NUMBERS.001]] 用本管线手算 TTK
+- [[COMBAT.ARMOR.001]] armor formula derivation and armor piercing
+- [[COMBAT.BULLET.001]] bullet fields and ballistics
+- [[COMBAT.STATUS.001]] status multipliers (healthMultiplier lives in this pipeline)
+- [[COMBAT.NUMBERS.001]] hand-computing TTK with this pipeline

@@ -1,6 +1,6 @@
 ---
 id: WORLD.NAMES.003
-title: 方块名对照③：合成 / 炮塔 / 效果 / 单位方块 / 逻辑（143 条）
+title: Block name mapping III - crafting / turrets / effects / unit blocks / logic (143 entries)
 domain: world
 status: active
 ver: [v160.7_rt, v159.3_src]
@@ -11,25 +11,25 @@ src:
 data:
   - "00-data/blocks.json"
 depends: [WORLD.BLOCKS.001, COMBAT.TURRET.001]
-tags: [名词, 中文名, 英文名, 翻译, 对照表, 炮塔, 合成, 逻辑, 单位方块]
+tags: [names, chinese-name, english-name, translation, mapping-table, turret, crafting, logic, unit-block]
 ---
 
-## 一句话
+## One line
 
-合成厂、炮塔、特效块、单位建造方块与逻辑块的「中文名 ↔ 英文名 ↔ id」对照；炮塔名常是意象词，查数值前先确认是哪一张表。
+The Chinese name ↔ English name ↔ id mapping for fabricators, turrets, effect blocks, unit-building blocks and logic blocks; turret names are often imagery words, so confirm which table you are in before looking up numbers.
 
-## 规则 / 公式
+## Rules / formulas
 
-- `category` 属于 {crafting, turret, effect, units, logic} 且不含地形类型的 143 条方块。
-- 表内先 crafting、再 turret、effect、units、logic，组内按 id 字母序。
-- 炮塔数值不在本文，见 `00-data/turrets.json` 与 COMBAT.TURRET.001；单位数值见 `00-data/units.json` 与 UNIT.MOVE.001。
-- 逻辑块（`logic-*`）的指令语义见 06-mlog 域，本文只给名字。
+- The 143 blocks whose `category` is one of {crafting, turret, effect, units, logic} and which carry no terrain type.
+- The table runs crafting first, then turret, effect, units and logic, alphabetical by id inside each group.
+- Turret numbers are not in this article - see `00-data/turrets.json` and COMBAT.TURRET.001; unit numbers are in `00-data/units.json` and UNIT.MOVE.001.
+- The instruction semantics of the logic blocks (`logic-*`) belong to the 06-mlog domain; this article gives names only.
 
-## 数值
+## Numbers
 
-本节只列名词，不含射程、DPS、装填等数值；这类数字统一在 COMBAT.TURRET.001 与 COMBAT.NUMBERS.001。
+This section lists names only and carries no range, DPS or reload numbers; those figures live uniformly in COMBAT.TURRET.001 and COMBAT.NUMBERS.001.
 
-| id | 英文名 | 中文名 | 中文名出处 | 英文名出处 |
+| id | English name | Chinese name | Chinese name source | English name source |
 |---|---|---|---|---|
 | `atmospheric-concentrator` | Atmospheric Concentrator | 大气收集器 | zh:2141 | en:2146 |
 | `blast-mixer` | Blast Mixer | 爆炸物混合器 | zh:2009 | en:2014 |
@@ -175,33 +175,33 @@ tags: [名词, 中文名, 英文名, 翻译, 对照表, 炮塔, 合成, 逻辑, 
 | `world-processor` | World Processor | 世界处理器 | zh:2227 | en:2232 |
 | `world-switch` | World Switch | 世界开关 | zh:1962 | en:1967 |
 
-## 源码锚点
+## Source anchors
 
-- `data/game/bundles/bundle_zh_CN.properties`（zh:N）与 `bundle.properties`（en:N）。
-- `00-data/blocks.json`：`category` 分组；143 条中 143 条有中文名。
-- 生成脚本 `knowledge/tools/gen_name_docs.py`。
+- `data/game/bundles/bundle_zh_CN.properties` (zh:N) and `bundle.properties` (en:N).
+- `00-data/blocks.json`: the `category` grouping; 143 of the 143 entries have a Chinese name.
+- Generator script `knowledge/tools/gen_name_docs.py`.
 
-## 实测与反例
+## Measurements and counter-examples
 
-- 反例一：炮塔中文名三种策略并存——`duo`=双管（意译）、`scatter`=分裂与 `hail`=冰雹（意象）、`lancer`=蓝瑟（纯音译）、`fuse`=雷光（造词）。按「散射」「长矛」「引信」直译都搜不到官方串。
-- 反例二：单位方块（`category=units`）是工厂本身，不是单位——陆军、空军、海军工厂与坦克、飞船、机甲制造厂都在方块表，单位记录只在 `00-data/units.json`；查 `dagger` 这类单位名到方块表里找必然落空。
-- 反例三：重构厂用非直译词——Additive→「数增级」、Multiplicative→「倍乘级」、Exponential→「多幂级」、Tetrative→「无量级」；按 add、multiply、exponential 直译找不到。
-- 反例四：`core-shard` 英文 “Core: Shard”，中文「初代核心」——不是直译（直译是「核心：碎片」），按英文逐词翻找不到中文名叫什么。
-- 反例五：`mender` 方块中文「修理器」，与单位能力里的 repair、mend 概念共享词根，但它是可建造方块（见 COMBAT.SUPPORT.001）。
-- 反例六：`overdrive` 作为状态是「过载」，作为方块 `overdrive-projector` 却是「超速投影」——英文同源、中文不同名，按「过载投影仪」搜不到。
-- 反例七：逻辑块 `logic-processor` 是「逻辑处理器」，`logic-display` 是「逻辑显示屏」；缩写 LP、LD 只在社区口头用，不是显示名。
+- **Counter-example A** - three naming strategies coexist in the turret Chinese names: `duo` = twin-barrel (双管) (a free translation), `scatter` = scatter (分裂) and `hail` = hail (冰雹) (imagery), `lancer` = Lancer (蓝瑟) (pure transliteration), `fuse` = thunder-light (雷光) (a coined word). Literal readings as scattering, lance and fuse never match the official strings.
+- **Counter-example B** - unit blocks (`category=units`) are the factories themselves, not units: the ground, air and naval factories and the tank, ship and mech fabricators all sit in the block table, while unit records live only in `00-data/units.json`; looking for a unit name such as `dagger` in the block table always comes up empty.
+- **Counter-example C** - the refabricators use non-literal terms: Additive → quantity tier (数增级), Multiplicative → multiplier tier (倍乘级), Exponential → power tier (多幂级), Tetrative → boundless tier (无量级); literal add, multiply and exponential readings find nothing.
+- **Counter-example D** - `core-shard` is "Core: Shard" in English and first-generation core (初代核心) in Chinese - not a literal translation (a literal one would be core: shard (核心：碎片)), so translating the English word by word never yields the Chinese name.
+- **Counter-example E** - the block `mender` is repairer (修理器); it shares the root of the repair and mend concepts in unit abilities, but it is a buildable block (see COMBAT.SUPPORT.001).
+- **Counter-example F** - `overdrive` as a status is overload (过载), yet as the block `overdrive-projector` it is overdrive projector (超速投影): same English root, different Chinese name, so overload projector (过载投影仪) finds nothing.
+- **Counter-example G** - the logic block `logic-processor` is logic processor (逻辑处理器) and `logic-display` is logic display (逻辑显示屏); the abbreviations LP and LD are community shorthand only, not display names.
 
-## 常见误解
+## Common misconceptions
 
-- 以为炮塔中文名带「炮」字：官方串里 `duo` 就叫「双管」、`ripple` 叫「涟漪」，没有「炮」字。
-- 把 `effect` 类当纯装饰：这类块有实际判定（如 `overdrive-projector` 超速投影），名字像装饰但机制在 COMBAT.STATUS.001。
-- 以为合成厂名与产物同名：`silicon-smelter` 是「硅冶炼厂」，产物是 `silicon`「硅」，名字不同。
+- Assuming turret Chinese names contain the character for "cannon": in the official strings `duo` is simply twin-barrel (双管) and `ripple` is ripple (涟漪), with no cannon (炮) character at all.
+- Treating the `effect` class as pure decoration: these blocks have real mechanics (such as `overdrive-projector`, overdrive projector (超速投影)); the name looks decorative but the mechanics are in COMBAT.STATUS.001.
+- Assuming a fabricator is named after its product: `silicon-smelter` is silicon smelter (硅冶炼厂) while the product is `silicon`, silicon (硅); the names differ.
 
-## 相关
+## Related
 
-- COMBAT.TURRET.001（炮塔射程、装填、弹药）
-- COMBAT.DEFENSE.001（墙体、门、护盾、修理器）
-- COMBAT.STATUS.001（状态与过载）
-- WORLD.CRAFTING.001（配方与制造）
-- UNIT.PRODUCE.001（单位生产链与单位方块）
-- WORLD.NAMES.001 / WORLD.NAMES.002（其余方块名）
+- COMBAT.TURRET.001 (turret range, reload, ammo)
+- COMBAT.DEFENSE.001 (walls, doors, shields, the repairer)
+- COMBAT.STATUS.001 (statuses and overload)
+- WORLD.CRAFTING.001 (recipes and manufacturing)
+- UNIT.PRODUCE.001 (the unit production chain and unit blocks)
+- WORLD.NAMES.001 / WORLD.NAMES.002 (the remaining block names)

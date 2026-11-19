@@ -1,24 +1,24 @@
-# 知识库写作规范（CONVENTIONS）v1
+# Knowledge base writing conventions (CONVENTIONS) v1
 
-本文件是**唯一写作契约**。所有 knowledge/ 下的产出必须遵守，否则 check_kb.py 不通过。
+This file is the **single writing contract**. Everything produced under knowledge/ must obey it, or check_kb.py fails.
 
-## 1. 目录与归属
+## 1. Directories and ownership
 
-    00-data/       机器可读事实表（脚本生成，禁止手改）
-    01-execution/  执行模型（处理器/预算/帧差/同步）
-    02-world/      方块/物流/电力/液体/热/钻探
-    03-combat/     弹道/伤害/护甲/状态/炮塔
-    04-units/      单位/AI/能力/生产
-    05-campaign/   波次/规则/胜负
-    06-mlog/       语言层（语法/指令/陷阱）
-    07-patterns/   蓝图架构/idiom/反模式
-    08-evidence/   证据（claims/probes/bench）
-    tools/         生成与校验脚本
-    .index/        检索产物
+    00-data/       machine-readable fact tables (script-generated; never hand-edit)
+    01-execution/  execution model (processor / budget / frame diff / sync)
+    02-world/      blocks / logistics / power / liquids / heat / drilling
+    03-combat/     ballistics / damage / armor / status / turrets
+    04-units/      units / AI / abilities / production
+    05-campaign/   waves / rules / win and loss
+    06-mlog/       the language layer (syntax / instructions / traps)
+    07-patterns/   blueprint architecture / idioms / anti-patterns
+    08-evidence/   evidence (claims/probes/bench)
+    tools/         generation and validation scripts
+    .index/        retrieval artifacts
 
-## 2. 知识原子 ID
+## 2. Knowledge atom ID
 
-格式：域.子域.三位序号，全大写。
+Format: domain.subdomain.three-digit number, all upper case.
 
     WORLD.LOGISTICS.002
     COMBAT.DAMAGE.003
@@ -28,107 +28,107 @@
     CAMP.WAVES.001
     PATTERN.SWARM.001
 
-- 域代码固定：EXEC / WORLD / COMBAT / UNIT / CAMP / MLOG / PATTERN / DATA
-- 一篇 md = 一个 ID；一篇可以很长，但超过 250 行必须拆成同一子域的多个 ID。
-- ID 一旦发布永不复用、永不改号；废弃用 status: deprecated。
+- Domain codes are fixed: EXEC / WORLD / COMBAT / UNIT / CAMP / MLOG / PATTERN / DATA
+- one md = one ID; an article may be long, but past 250 lines it must be split into several IDs in the same subdomain.
+- an ID is never reused and never renumbered once published; retire it with status: deprecated.
 
-## 3. frontmatter（每篇必带，YAML）
+## 3. frontmatter (required in every article, YAML)
 
     ---
     id: WORLD.LOGISTICS.002
-    title: 传送带吞吐与容量
+    title: conveyor throughput and capacity
     domain: world
     status: active          # active | draft | deprecated
     ver: [v160.7_rt, v159.3_src]
-    conf: E                 # S 源码 / E 实测 / I 推断 / U 未验证
+    conf: E                 # S source / E measured / I inferred / U unverified
     src:
-      - "MBO/docs/14-传送带与布线器实测.md:1-60"
+      - ("MBO/docs/14-传送带与布线器实测.md:1-60")
       - "mindustry.world.blocks.distribution.Conveyor (v159.3)"
-    data: [00-data/logistics.json#conveyor]   # 本文引用的数据表路径
+    data: [00-data/logistics.json#conveyor]   # data tables cited by this article
     depends: [WORLD.LOGISTICS.001]
-    tags: [物流, 吞吐, 传动带]
+    tags: [logistics, throughput, conveyor]
     tokens: 1600
     ---
 
-tokens 由 check 脚本回填，不用手写精确值。
+tokens is backfilled by the check script; you do not hand-write an exact value.
 
-## 4. 置信度（conf）
+## 4. Confidence (conf)
 
-- **S**：有源码行号或 jar 反射字段直接支撑。
-- **E**：真机实测（MBO/ratio-calc/mlog_sim 探针），附实验条件。
-- **I**：由 S/E 推导，文中必须写出推导链。
-- **U**：未验证，必须写明"需要什么实验才能验证"，且**不得出现在 KB.md 的答案路径里**。
+- **S**: directly backed by a source line number or a jar-reflected field.
+- **E**: measured on the real machine (MBO/ratio-calc/mlog_sim probes), with the experimental conditions attached.
+- **I**: inferred from S/E, and the derivation chain must be written out in the article.
+- **U**: unverified; it must state "what experiment would verify this", and it **must not appear on an answer path in KB.md**.
 
-> **出处路径按旧名写、按同级目录找**：`MBO/`、`ratio-calc/`、`assetsraw/` 是拆出本仓库的
-> **同级独立项目**（`../MBO/`、`../ratio-calc/`、`../TextureMDT/`）。`src:` 与 `[实测: …]`
-> 里保留旧名是为了历史可对；真去找文件时去同级目录，本仓库内没有。
+> **Source paths are written with their old names and found in the sibling directory**: `MBO/`, `ratio-calc/`, `assetsraw/` are
+> **sibling standalone projects** split out of this repository (`../MBO/`, `../ratio-calc/`, `../TextureMDT/`). `src:` and `[measured: …]`
+> keep the old name so history still lines up; when you actually go looking for the file, go to the sibling directory, because it is not in this repository.
 
-## 5. 硬规则（违反即失败）
+## 5. Hard rules (violating one is a failure)
 
-1. **无源数字禁止**。任何数值必须满足其一：
-   - 来自 00-data/*.json（写 `见 DATA#xxx` 或直接引用字段名）；
-   - 紧跟 `[src: 文件:行]`；
-   - 来自实测并写 `[实测: MBO/docs/xx]`。
-   宁可写"见数据表"，也不要凭记忆写数字。
-2. **单位必须显式**。/tick 与 /s 不可混写；能量 1 单位/tick = 60/s。写作 `1.5/tick（90/s）`。
-3. **双版本**：凡 v159.3 与 v160.7 可能不同的，写 `[v159.3]… [v160.7]…`，不要只写一个。
-4. **反例必写**。每篇至少一个"什么时候不成立/常见误解"，这是防幻觉的关键。
-5. **不写产品/工具开发内容**（面板宽度、jobqueue、undo 快照等），它们属于工程库。
-6. **不写模组内容**（DP-*、MindustryX），v1 只收录原版。
+1. **no number without a source**. Every value must satisfy one of these:
+   - it comes from 00-data/*.json (write `see DATA#xxx`, or cite the field name directly);
+   - it is immediately followed by `[src: file:line]`;
+   - it comes from a measurement and carries `[measured: MBO/docs/xx]`.
+   Better to write "see the data table" than to write a number from memory.
+2. **units must be explicit**. /tick and /s must not be mixed; for energy 1 unit/tick = 60/s. Write `1.5/tick (90/s)`.
+3. **two versions**: wherever v159.3 and v160.7 may differ, write `[v159.3]… [v160.7]…`; never just one.
+4. **a counter-example is mandatory**. Every article needs at least one "when this does not hold / common misconception" — that is what stops hallucination.
+5. **no product or tool-development content** (panel widths, jobqueue, undo snapshots and the like); that belongs to the engineering library.
+6. **no mod content** (DP-*, MindustryX); v1 covers vanilla only.
 
-## 6. 七段式模板
+## 6. Seven-section template
 
-    ## 一句话
-    <一句话结论，可直接当答案首句>
+    ## In one sentence
+    <a one-sentence conclusion that can serve as the first line of an answer>
 
-    ## 规则 / 公式
-    <可计算的规则，公式用 ``` 代码块；变量含义写清>
+    ## Rules / formulas
+    <computable rules; put formulas in a ``` code block; state what each variable means>
 
-    ## 数值
-    <表格，尽量由 00-data 生成；列出典型值与边界值>
+    ## Numbers
+    <a table, generated from 00-data where possible; list typical values and boundary values>
 
-    ## 源码锚点
-    <类名:行号，说明这段代码在干什么>
+    ## Source anchors
+    <class:line, and what that piece of code is doing>
 
-    ## 实测与反例
-    <真实数字 + 实验条件；至少一个反例/边界>
+    ## Measurements and counter-examples
+    <real numbers + experimental conditions; at least one counter-example / boundary>
 
-    ## 常见误解
-    <AI 最容易答错的 2-4 条，每条给正确说法>
+    ## Common misconceptions
+    <the 2-4 things an AI is most likely to get wrong, each with the correct statement>
 
-    ## 相关
-    <ID 列表 + 数据表路径>
+    ## Related
+    <ID list + data table paths>
 
-## 7. 表格与代码
+## 7. Tables and code
 
-- 表格用 markdown 表格，第一列是 id 或名称，数值列带单位。
-- 代码块语言标记：mlog / json / java / text。
-- 路径一律写相对仓库根的路径，便于 grep。
+- use markdown tables; the first column is the id or the name, and numeric columns carry units.
+- code block language tags: mlog / json / java / text.
+- always write paths relative to the repository root, so they are easy to grep.
 
-## 8. 数据表契约
+## 8. Data table contract
 
-00-data/*.json 每条记录必须含：
+Every 00-data/*.json record must contain:
 
-    id        游戏内 id（kebab-case）
-    name      name 字段
-    src       来源（"jar:v160.7#..." 或 "src:path:line"）
+    id        the in-game id (kebab-case)
+    name      the name field
+    src       the source ("jar:v160.7#..." or "src:path:line")
     ver       "v160.7" | "v159.3" | "both"
-    数值字段   统一 { v: 数值, unit: 单位 } 或纯数值且在该表 README 中声明单位
+    value fields   uniformly { v: value, unit: unit }, or a bare value with the unit declared in that table's README
 
-表级 README 说明单位、口径、生成脚本、生成时间、条数。
+The table-level README states the units, the definition, the generator script, the generation time and the record count.
 
-## 9. 知识归属与提交点（2026-11-08 起）
+## 9. Knowledge ownership and commit points (since 2026-11-08)
 
-**新增的机制 / 数值 / 公式 / 逻辑语义知识，只提交到 `knowledge/`**，按 §1 的域归位；数据进 `00-data/`，证据进 `08-evidence/`。不再往下列旧文档追加内容——它们只作存档与回归测试的输入：
+**New mechanics / numbers / formulas / logic semantics knowledge is committed to `knowledge/` only**, filed by the domains in §1; data goes to `00-data/` and evidence to `08-evidence/`. Stop appending to the old documents below — they serve only as archive and as regression-test input:
 
-| 旧文档 | 现状 | 还在被谁读 |
+| Old document | Status | Still read by |
 |---|---|---|
-| `Logic-Docs-v1.1.0.md` | 存档（部分吸收） | `tests/docsig/run_docsig.py`、`rules/slot-not-in-enum.json`、`rules/under-arity.json` 的 src |
-| `mlog工作笔记.md` | 存档（部分吸收） | `tests/docsig/run_docsig.py` |
-| `蓝图逻辑模式库.md` / `蓝图层逐类精讲.md` | **根级副本已物理删除（2026-11-15）**；模式库内容在 07-patterns | 现存副本 `mindustry-blueprint/PATTERNS.md` / `BLUEPRINT-ANALYSIS.md` 现在是 docsig 的输入源，不再由根级派生 |
-| `docs/游戏速查/` | 存档（薄投影，数值已作废） | `tools/kb.py` 的 DOC_GLOBS（检索语料） |
-| `docs/断言表.md` / `docs/验证记录.md` | 存档（真机制部分已分层进 claims/probes） | 产品侧流程引用 |
+| `Logic-Docs-v1.1.0.md` | archive (partly absorbed) | the src of `tests/docsig/run_docsig.py`, `rules/slot-not-in-enum.json`, `rules/under-arity.json` |
+| `mlog工作笔记.md` | archive (partly absorbed) | `tests/docsig/run_docsig.py` |
+| `蓝图逻辑模式库.md` / `蓝图层逐类精讲.md` | **the root-level copies were physically deleted (2026-11-15)**; the pattern-library content lives in 07-patterns | the surviving copies `mindustry-blueprint/PATTERNS.md` / `BLUEPRINT-ANALYSIS.md` are now docsig's input source and are no longer derived from the root level |
+| `docs/游戏速查/` | archive (a thin projection; its numbers are void) | DOC_GLOBS in `tools/kb.py` (retrieval corpus) |
+| `docs/断言表.md` / `docs/验证记录.md` | archive (the real mechanic parts are layered into claims/probes already) | referenced by product-side process |
 
-- 工具用法（怎么跑命令、怎么自检）仍归 `mindustry-blueprint/SKILL.md`；模组/产品文档仍归 `docs/Mlog辅助-*`。两者都不是知识条目，不要写进 `knowledge/`（见 §5 第 5、6 条）。
-- 若要物理删除某个旧文档，必须同步改 `tests/docsig/run_docsig.py`（它把这些文件当输入校验签名）和 `rules/*.json` 里引用它的 `src` 字符串，然后跑 `python gate.py --full`。
-- 检索库的语料只从 `knowledge/` 构建（`build_index.py --root knowledge` → `kb.py build` → `publish_db.py` → `postpublish.py`）；工作产物放 `knowledge/_report/`，不进索引。
+- tool usage (how to run the commands, how to self-check) still belongs to `mindustry-blueprint/SKILL.md`; mod and product docs still live under (`docs/Mlog辅助-*`). Neither is a knowledge entry, so do not write them into `knowledge/` (see §5 rules 5 and 6).
+- if you physically delete an old document, you must in the same change update `tests/docsig/run_docsig.py` (it uses those files as input to validate signatures) and the `src` strings in `rules/*.json` that reference it, then run `python gate.py --full`.
+- the retrieval corpus is built from `knowledge/` only (`build_index.py --root knowledge` → `kb.py build` → `publish_db.py` → `postpublish.py`); working artifacts go in `knowledge/_report/` and stay out of the index.

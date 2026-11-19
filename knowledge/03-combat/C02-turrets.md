@@ -1,6 +1,6 @@
 ---
 id: COMBAT.TURRET.001
-title: 炮塔机制——射程、装填、弹药、冷却液、朝向与过热
+title: "Turret mechanics: range, reload, ammo, coolant, aiming and overheat"
 domain: combat
 status: active
 ver: [v160.7_rt, v159.3_src]
@@ -15,17 +15,17 @@ src:
   - "MBO/gamedata/v160.7/gamedata.json (jar 反射 raw 字段，28 个 turret)"
 data: [00-data/turrets.json]
 depends: [COMBAT.BULLET.001, COMBAT.DAMAGE.001]
-tags: [炮塔, reload, 冷却液, 弹药, shootCone, 过热, 射速]
+tags: [turret, reload, coolant, ammo, shootCone, heat, fire-rate]
 tokens: 1074
 ---
 
-## 一句话
+## In one line
 
-炮塔的全部节奏由三个计数器构成：**reloadCounter（装填）→ 满则开火 → 冷却期 cooldownTime**；冷却液不是"加速装填百分比"，而是**每 tick 额外往 reloadCounter 里加 `coolantNumber × 液体heatCapacity × coolantMultiplier`**，所以水的加成 = 0.1×0.4×10 = **40%**，冷冻液 = 0.1×0.9×10 = **90%**，与炮塔无关。
+A turret's whole rhythm is three counters: **reloadCounter (reload) → fires when full → cooldownTime cooldown**; coolant is not an "extra reload percentage" but **an extra `coolantNumber × liquid heatCapacity × coolantMultiplier` added to reloadCounter every tick**, so water gives a bonus of 0.1×0.4×10 = **40%** and cryofluid 0.1×0.9×10 = **90%**, independently of the turret.
 
-## 规则 / 公式
+## Rules and formulas
 
-### 1. 射速
+### 1. Rate of fire
 
 ```
 基础射速 shots/s = 60 / reload                     // reload 单位是 tick
@@ -33,10 +33,10 @@ tokens: 1074
 DPS ≈ 60 / reload × shoot.shots × 单发伤害(ammo)
 ```
 
-duo：reload 20 → 3 发/s。smite：reload 100、shots=5 → 3 发/s × 5 = 15 发/s。
-**`reload` 不是毫秒**，写成 20ms 会错 60 倍。
+duo: reload 20 → 3 shots/s. smite: reload 100, shots=5 → 3 shots/s × 5 = 15 shots/s.
+**`reload` is not milliseconds**; writing it as 20ms is off by 60×.
 
-### 2. 冷却液（ReloadTurret.updateCooling）
+### 2. Coolant (ReloadTurret.updateCooling)
 
 ```
 每 tick:  reloadCounter += delta() * baseReloadSpeed()          // 基础 = efficiency ≈ 1
@@ -44,18 +44,18 @@ duo：reload 20 → 3 发/s。smite：reload 100、shots=5 → 3 发/s × 5 = 15
 ready 条件: reloadCounter >= reload
 ```
 
-代入 duo（`coolant.amount = 0.1`，`coolantMultiplier = 10`）：
+Substituting duo (`coolant.amount = 0.1`, `coolantMultiplier = 10`):
 
-| 冷却液 | heatCapacity | 每 tick 额外 | 总装填速度 | 实际 reload | 相对射速 |
+| Coolant | heatCapacity | extra per tick | total reload speed | effective reload | relative rate |
 |---|---|---|---|---|---|
-| 无 | — | 0 | 1.0× | 20 tick | 100% |
+| none | — | 0 | 1.0× | 20 tick | 100% |
 | water | 0.4 | 0.10×0.4×10 = 0.4 | 1.4× | ≈14.3 tick | 140% |
 | oil | 0.7 | 0.7 | 1.7× | ≈11.8 tick | 170% |
 | cryofluid | 0.9 | 0.9 | 1.9× | ≈10.5 tick | 190% |
 
-`coolantMultiplier` 是"接冷却液时的装填/射速倍率"，逐炮塔不同（v160.7 jar / raw 实测，28 个炮塔全查）：从 foreshadow **0.4** 到 arc **30**，跨度约 **75 倍**——同一桶 water（heatCapacity 0.4、`coolant.amount` 0.1）给 foreshadow 只加 +1.6%，给 arc 加 +120%。
+`coolantMultiplier` is the reload / fire-rate multiplier while coolant is connected, and it differs per turret (v160.7 jar / raw measurements, all 28 turrets checked): from foreshadow at **0.4** to arc at **30**, a span of roughly **75×** — the same barrel of water (heatCapacity 0.4, `coolant.amount` 0.1) adds only +1.6% to foreshadow but +120% to arc.
 
-| 炮塔 | coolantMultiplier | water 加成 = 0.1×0.4×mult |
+| Turret | coolantMultiplier | water bonus = 0.1×0.4×mult |
 |---|---|---|
 | foreshadow | 0.4 | +1.6% |
 | spectre | 0.5 | +2.0% |
@@ -69,9 +69,9 @@ ready 条件: reloadCounter >= reload
 | breach / diffuse / scathe / smite | 15 | +60.0% |
 | arc | 30 | +120.0% |
 
-口径：28 个炮塔里**没有 coolantMultiplier = 0** 的（最小即 foreshadow 0.4），所以"0 = 不受冷却液影响"在本版本无实例；若字段设为 0，`ReloadTurret.updateCooling` 里 `amount * … * coolantMultiplier` 恒为 0，接冷却液也不加速（`ReloadTurret.java:28-39`）。
+Accounting note: **no turret out of the 28 has coolantMultiplier = 0** (the minimum is foreshadow at 0.4), so "0 = unaffected by coolant" has no instance in this version; if the field is set to 0, `amount * … * coolantMultiplier` in `ReloadTurret.updateCooling` stays 0 and coolant adds nothing (`ReloadTurret.java:28-39`).
 
-### 3. 弹药容量
+### 3. Ammo capacity
 
 ```
 totalAmmo 上限 = maxAmmo                       // 单位是"弹药点"，不是物品数
@@ -81,37 +81,37 @@ totalAmmo 上限 = maxAmmo                       // 单位是"弹药点"，不�
 可接受物品数 = (maxAmmo - totalAmmo) / ammoMultiplier
 ```
 
-duo：maxAmmo 30、ammoPerShot 1、ammoMultiplier 2 → **15 个铜 = 15 发**（不是 30 发）。
-ripple：maxAmmo 30、ammoPerShot 2 → 15 发；每发消耗 2 弹药点。
+duo: maxAmmo 30, ammoPerShot 1, ammoMultiplier 2 → **15 copper = 15 shots** (not 30 shots).
+ripple: maxAmmo 30, ammoPerShot 2 → 15 shots; each shot burns 2 ammo points.
 
-### 4. 朝向与命中
+### 4. Aiming and hitting
 
-| 字段 | 默认 | 含义 |
+| Field | Default | Meaning |
 |---|---|---|
-| `range` | 各炮塔不同 | 开火距离（px，8px = 1 格） |
-| `minRange` | 0 | 最小射程（ripple/titan 类曲射为 0 也能打近） |
-| `trackingRange` | 0（基类 `range()`） | 目标锁定距离 = range + trackingRange - range |
-| `shootCone` | 8（字段默认）/ 各炮塔覆盖 | 炮口与目标夹角容差（度），>90 的（lustre 360、scorch 50）几乎无死角 |
-| `inaccuracy` | 0 | 弹道随机散布（度） |
-| `rotateSpeed` | 各炮塔 0.9~20 | 度/tick，duo=10 → 600°/s |
-| `targetInterval` / `targetSwitchInterval` | 20 / 70 | 索敌刷新间隔（tick） |
-| `ammoEjectBack` | 1 | 抛壳后坐视觉系数，不影响数值 |
-| `elevation` | -1 | 炮管抬升动画，不影响伤害 |
+| `range` | varies per turret | firing distance (px, 8px = 1 tile) |
+| `minRange` | 0 | minimum range (arc turrets such as ripple/titan take close targets even at 0) |
+| `trackingRange` | 0 (base `range()`) | target lock distance = range + trackingRange - range |
+| `shootCone` | 8 (field default) / overridden per turret | angle tolerance between barrel and target (degrees); values >90 (lustre 360, scorch 50) leave almost no blind spot |
+| `inaccuracy` | 0 | random bullet spread (degrees) |
+| `rotateSpeed` | 0.9~20 per turret | degrees/tick, duo=10 → 600°/s |
+| `targetInterval` / `targetSwitchInterval` | 20 / 70 | target acquisition refresh interval (tick) |
+| `ammoEjectBack` | 1 | shell-eject recoil visual factor, no effect on numbers |
+| `elevation` | -1 | barrel elevation animation, no effect on damage |
 
-`targetAir / targetGround` 决定能否打空中/地面：scorch、lancer、arc、hail、ripple、titan、scathe **不能打空中**（targetAir=0）；其余为 1。这是新手最常踩的坑——用 scorch 打飞行单位，炮塔根本不开火。
+`targetAir / targetGround` decide whether air or ground can be engaged: scorch, lancer, arc, hail, ripple, titan and scathe **cannot hit air** (targetAir=0); every other turret is 1. This is the trap beginners hit most — point a scorch at an air unit and the turret never fires at all.
 
-### 5. 过热（heat）
+### 5. Heat
 
 ```
 heatReq = calculateHeat(sideHeat)                     // 从相邻热源取热
 efficiency *= clamp(heatReq / heatRequirement, 0, maxHeatEfficiency)
 ```
 
-`heatRequirement = -1`（默认）表示**不需要热**，效率恒为 1；只有 **afflict（144）与 malign（144）** 需要热源，否则 efficiency = 0 完全不工作。热不是"过热惩罚"，而是"功率输入"。
+`heatRequirement = -1` (the default) means **no heat is needed** and efficiency stays 1; only **afflict (144) and malign (144)** need a heat source, and without one efficiency = 0 and they do not work at all. Heat is a power input, not an overheat penalty.
 
-## 数值
+## Numbers
 
-| 炮塔 | size | hp | range | reload(tick) | shots/s | inacc | rotate | maxAmmo | ammoPerShot | 打空 | 打地 | coolantMult | 需热 | shootCone | 类别 |
+| Turret | size | hp | range | reload(tick) | shots/s | inacc | rotate | maxAmmo | ammoPerShot | anti-air | anti-ground | coolantMult | heat req | shootCone | class |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
 | duo | 1 | 250 | 160 | 20 | 3.00 | 2 | 10 | 30 | 1 | 1 | 1 | 10 | -1 | 15 | ItemTurret |
 | scatter | 2 | 800 | 220 | 18 | 3.33 | 17 | 15 | 30 | 1 | 1 | 0 | 5 | -1 | 35 | ItemTurret |
@@ -142,47 +142,47 @@ efficiency *= clamp(heatReq / heatRequirement, 0, maxHeatEfficiency)
 | smite | 5 | 8750 | 300 | 100 | 0.60 | 0 | 1.5 | 30 | 2 | 1 | 1 | 15 | -1 | 30 | ItemTurret |
 | malign | 5 | 9250 | 410 | 3.5 | 17.14 | 0 | 2.6 | 30 | 1 | 1 | 1 | 5 | 144 | 100 | PowerTurret(40) |
 
-`shots/s` 全部由 `60/reload` 算出，可逐行复算（hail：60/60 = 1.00；swarmer：reload 34.2857 → 60/34.2857 = 1.75；malign：reload 3.5 → 60/3.5 = 17.14；titan：60/138 = 0.435）。
+Every `shots/s` is derived from `60/reload` and can be recomputed row by row (hail: 60/60 = 1.00; swarmer: reload 34.2857 → 60/34.2857 = 1.75; malign: reload 3.5 → 60/3.5 = 17.14; titan: 60/138 = 0.435).
 
-多管补充（源码显式赋值，其余默认 shots=1）：swarmer `shots = 4`；tsunami `shoot.shots = 2`；ripple `shoot.shots = 4`；smite `shots = barrels = 5`。
+Multi-barrel notes (explicit source assignments; everything else defaults to shots=1): swarmer `shots = 4`; tsunami `shoot.shots = 2`; ripple `shoot.shots = 4`; smite `shots = barrels = 5`.
 
-## 源码锚点
+## Source anchors
 
-- `Turret.java:47-150` 字段块：`maxAmmo=30`(L47)、`ammoPerShot=1`(L49)、`heatRequirement=-1`(L53)、`inaccuracy=0`(L58)、`shootCone=8`(L64)、`trackingRange=0`(L72)、`minRange=0`(L74)、`reloadWhileCharging=true`(L82)、`targetAir=true`(L89)、`targetGround=true`(L91)、`ammoEjectBack=1`(L134)、`cooldownTime=20`(L148)、`elevation=-1`(L150)。
-- `Turret.java:342-351` `range()` 与 `trackingRange()`：弹药可改射程（`peekAmmo().rangeChange`）。
-- `Turret.java:720` 装填主循环：`if(reloadCounter < reload) reloadCounter += delta() * ammoReloadMultiplier() * baseReloadSpeed();`
-- `Turret.java:730-735` 开火：`reloadCounter >= reload` 才发；开火后 `reloadCounter %= reload`。
-- `Turret.java:625-676` 热逻辑：`heatReq <= 0` 直接不工作；`efficiency *= clamp(heatReq/heatRequirement, 0, maxHeatEfficiency)`。
-- `ReloadTurret.java:28-39` 冷却液公式；`:45-51` `baseReloadSpeed()=efficiency`、`canReload()=reloadCounter<reload`。
-- `ItemTurret.java:129-219` 弹药：`totalAmmo += type.ammoMultiplier`(L168/176/183)、上限判断 `totalAmmo + ammoMultiplier <= maxAmmo`(L188)。
-- `Turret.java:194-200` 热的 UI 文本：`bar.heatpercent` 显示 `min(heatReq/heatRequirement, maxHeatEfficiency)`。
+- `Turret.java:47-150` field block: `maxAmmo=30`(L47), `ammoPerShot=1`(L49), `heatRequirement=-1`(L53), `inaccuracy=0`(L58), `shootCone=8`(L64), `trackingRange=0`(L72), `minRange=0`(L74), `reloadWhileCharging=true`(L82), `targetAir=true`(L89), `targetGround=true`(L91), `ammoEjectBack=1`(L134), `cooldownTime=20`(L148), `elevation=-1`(L150).
+- `Turret.java:342-351` `range()` and `trackingRange()`: ammo can change the range (`peekAmmo().rangeChange`).
+- `Turret.java:720` reload main loop: `if(reloadCounter < reload) reloadCounter += delta() * ammoReloadMultiplier() * baseReloadSpeed();`
+- `Turret.java:730-735` firing: a shot leaves only once `reloadCounter >= reload`; afterwards `reloadCounter %= reload`.
+- `Turret.java:625-676` heat logic: `heatReq <= 0` means the turret does not work at all; `efficiency *= clamp(heatReq/heatRequirement, 0, maxHeatEfficiency)`.
+- `ReloadTurret.java:28-39` coolant formula; `:45-51` `baseReloadSpeed()=efficiency`, `canReload()=reloadCounter<reload`.
+- `ItemTurret.java:129-219` ammo: `totalAmmo += type.ammoMultiplier`(L168/176/183), capacity test `totalAmmo + ammoMultiplier <= maxAmmo`(L188).
+- `Turret.java:194-200` heat UI text: `bar.heatpercent` shows `min(heatReq/heatRequirement, maxHeatEfficiency)`.
 
-## 实测与反例
+## Measurements and counterexamples
 
-**反例 1：把 coolantMultiplier 当成"射速加成百分比"。**
-duo 的 `coolantMultiplier = 10`，直观读成"+10% 射速"。实际加成 = 0.1×0.4×10 = +40%。而 arc 的 30 也不是"+30%"，是 +120%（0.1×0.4×30）。
+**Counterexample 1: reading coolantMultiplier as a fire-rate bonus percentage.**
+duo's `coolantMultiplier = 10` reads at face value as "+10% fire rate". The real bonus is 0.1×0.4×10 = +40%. arc's 30 is not "+30%" either, it is +120% (0.1×0.4×30).
 
-**反例 2：以为 `maxAmmo=30` 等于 30 发。**
-duo 每发 1 弹药点、每物品 2 点 → 15 发；ripple 每发 2 点 → 15 发；titan 每发 4 点且 maxAmmo=12 → 3 发。**titan 一个弹夹只有 3 炮**，这是它 DPS 表现得比纸面低的主因。
+**Counterexample 2: assuming `maxAmmo=30` means 30 shots.**
+duo takes 1 ammo point per shot and 2 points per item → 15 shots; ripple takes 2 points per shot → 15 shots; titan takes 4 points per shot with maxAmmo=12 → 3 shots. **titan has only 3 shells per magazine**, which is the main reason its DPS lands below the paper figure.
 
-**反例 3：用 scorch 打飞行单位。**
-scorch `targetAir = 0`，飞行单位进入 60px 射程内它也**完全不开火**，不是命中率低而是没有目标。
+**Counterexample 3: using scorch against air units.**
+scorch has `targetAir = 0`, so it **does not fire at all** even when an air unit comes inside its 60px range: this is not a low hit rate, there is simply no target.
 
-**反例 4：认为 reload 越小射速线性越好。**
-reload 有下限：开火后立刻进入 `cooldownTime`（默认 20 tick，但 Turret 内是 `Mathf.clamp` 后的值），且 shootWarmup 需要 `minWarmup` 才允许开火，超短 reload 并不能无限叠射速。
+**Counterexample 4: assuming a smaller reload always means linearly better rate of fire.**
+reload has a floor: firing drops straight into `cooldownTime` (20 tick by default, but the value Turret keeps after `Mathf.clamp`), and shootWarmup needs `minWarmup` before a shot is allowed, so an extremely short reload cannot stack rate of fire without bound.
 
-## 常见误解
+## Common misconceptions
 
-- ❌ "`rotateSpeed` 是 rpm"。→ 是**度/tick**；10 度/tick = 600°/s。
-- ❌ "炮塔会自动选择最优弹药"。→ 只按 `ammo` 队列（进料顺序）取第一种，玩家要手动排料或靠卸载器换弹。
-- ❌ "`inaccuracy` 是像素偏移"。→ 是**角度**（度），实际横向偏差 ≈ range × tan(inaccuracy)。
-- ❌ "`targetInterval=20` = 20 秒"。→ 20 tick = 0.33 s。
-- ❌ "过热会降射速"。→ 原版炮塔没有过热惩罚；`heat` 只是 afflict/malign 的**输入需求**。
+- ❌ "`rotateSpeed` is rpm". → It is **degrees/tick**; 10 degrees/tick = 600°/s.
+- ❌ "turrets pick the best ammo automatically". → They take the first entry of the `ammo` queue (feed order); the player must sort ammo by hand or swap it with an unloader.
+- ❌ "`inaccuracy` is a pixel offset". → It is an **angle** (degrees); the lateral deviation is roughly range × tan(inaccuracy).
+- ❌ "`targetInterval=20` = 20 seconds". → 20 tick = 0.33 s.
+- ❌ "overheat lowers the fire rate". → Vanilla turrets have no overheat penalty; `heat` is only the **input requirement** of afflict/malign.
 
-## 相关
+## See also
 
-- [[COMBAT.BULLET.001]] 弹药对应的子弹字段（speed/lifetime 决定真实射程）
-- [[COMBAT.NUMBERS.001]] 炮塔 DPS 表与 TTK 表
-- [[COMBAT.DAMAGE.001]] 命中后的伤害管线
-- [[WORLD.BLOCKS.001]] 多格炮塔的 3×3/4×4/5×5 占位
-- [[COMBAT.TURRET.002]] 这些炮塔的性价比与选型结论（DPS/造价、护甲拐点 A*、防空缺口）
+- [[COMBAT.BULLET.001]] the bullet fields each ammo feeds (speed/lifetime decide the real reach)
+- [[COMBAT.NUMBERS.001]] turret DPS and TTK tables
+- [[COMBAT.DAMAGE.001]] the damage pipeline after a hit lands
+- [[WORLD.BLOCKS.001]] the 3×3/4×4/5×5 footprint of multi-tile turrets
+- [[COMBAT.TURRET.002]] value for cost and selection verdicts for these turrets (DPS/cost, armor knee A*, anti-air gaps)

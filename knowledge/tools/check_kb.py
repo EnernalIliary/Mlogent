@@ -62,18 +62,19 @@ VER_OK = {"v159.3", "v160.7", "v159.3_src", "v160.7_rt"}
 
 ID_RE = re.compile(r"^(EXEC|WORLD|COMBAT|UNIT|CAMP|MLOG|PATTERN|DATA|EV)\.[A-Z][A-Z0-9_]*\.\d{3}$")
 SECTIONS = [
-    ("一句话", r"^##\s*一句话"),
-    ("规则/公式", r"^##\s*规则\s*[/／]?\s*公式"),
-    ("数值", r"^##\s*数值"),
-    ("源码锚点", r"^##\s*源码锚点"),
-    ("实测与反例", r"^##\s*实测与反例"),
-    ("常见误解", r"^##\s*常见误解"),
-    ("相关", r"^##\s*相关"),
+    ("一句话", r"^##\s*(?:一句话|One line|In one line|In one sentence|One-liner|TL;DR)\s*$"),
+    ("规则/公式", r"^##\s*(?:规则\s*[/／]?\s*公式|Rules?\s*(?:[/／]|and)\s*formulas?|Rules?)\s*$"),
+    ("数值", r"^##\s*(?:数值|Numbers?)\s*$"),
+    ("源码锚点", r"^##\s*(?:源码锚点|Source anchors?|Anchors?)\s*$"),
+    ("实测与反例", r"^##\s*(?:实测与反例|Measurements? and counter-?examples?|Tests? and counter-?examples?|Measured facts and counter-?examples?|Measurements?)\s*$"),
+    ("常见误解", r"^##\s*(?:常见误解|Common misconceptions?|Misconceptions?)\s*$"),
+    ("相关", r"^##\s*(?:相关|Related|See also)\s*$"),
 ]
-SRC_MARKERS = ("[src:", "[实测", "[ver", "[v159", "[v160", "见 DATA", "见数据表",
-               "00-data/", "DATA#", "src:", "ver:", "conf:")
+SRC_MARKERS = ("[src:", "[实测", "[measured", "[meas:", "[ver", "[v159", "[v160",
+               "见 DATA", "见数据表", "see DATA", "00-data/", "DATA#", "src:",
+               "ver:", "conf:")
 NUM_CLAIM_RE = re.compile(
-    r"\d+(?:\.\d+)?\s*(?:/s|/tick|/秒|items?/s|%|格|秒|tick|帧|MB|KB|B)\b|\d+\.\d+")
+    r"\d+(?:\.\d+)?\s*(?:/s|/tick|/秒|items?/s|%|格|秒|tick|ticks|帧|frames?|s|tiles?|MB|KB|B)\b|\d+\.\d+")
 
 
 def _split_inline_list(s: str) -> list:
@@ -286,6 +287,9 @@ def check_num_conflicts(path, body, first_line, tables, rep) -> int:
     for lineno, ln, in_fence in _iter_body_lines(body, first_line):
         if in_fence or len(ln) < 8:
             continue
+        # 表格行里的 "canvas size | 64" 是列名不是声明；英文比中文更容易撞名
+        if ln.lstrip().startswith("|"):
+            continue
         low = ln.lower()
         for field, labels in NUM_LABELS.items():
             hit_label = None
@@ -311,7 +315,9 @@ def check_num_conflicts(path, body, first_line, tables, rep) -> int:
                     if not nm:
                         continue
                     ni = nm.start()
-                    if abs(ni - li) > 40:
+                    # 名字必须紧挨在标签前面（"duo 血量 250" / "duo: health 250"）；
+                    # 英文散文里的 "an item conveyor of the same size" 不该算
+                    if not (0 <= li - ni <= 10):
                         continue
                     want = _num(rec.get(field))
                     if want is None:
@@ -545,7 +551,7 @@ def check_article(path: Path, root: Path, rep: Report, pending_refs: list, write
             pending_refs.append((path, base + seg[:m.start()].count("\n"), m.group(1)))
 
     # 反例存在性（骨架检查）
-    ce = re.search(r"^##\s*实测与反例\s*$(.*?)(?=^##\s|\Z)", body, re.M | re.S)
+    ce = re.search(r"^##\s*(?:实测与反例|Measurements? and counter-?examples?|Tests? and counter-?examples?|Measured facts and counter-?examples?)\s*$(.*?)(?=^##\s|\Z)", body, re.M | re.S)
     mi = re.search(r"^##\s*常见误解\s*$(.*?)(?=^##\s|\Z)", body, re.M | re.S)
     ce_txt = (ce.group(1) if ce else "") + (mi.group(1) if mi else "")
     if len(re.findall(r"[\u4e00-\u9fff]", ce_txt)) < 20:

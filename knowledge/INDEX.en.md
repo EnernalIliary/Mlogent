@@ -1,16 +1,18 @@
-# Knowledge base — English index
+# Knowledge base - English index
 
-The source of truth is Chinese: `knowledge/README.md` (how the library is
-organised) and `knowledge/CONVENTIONS.md` (what a claim must look like). This
-file is the English door: same articles, English titles, one sentence each.
+Every article here is written in English; the Chinese names that are worth
+keeping live in the name tables and in [GLOSSARY.md](GLOSSARY.md), which maps
+each official Chinese name to its English id. `knowledge/README.md` explains how
+the library is organised, `knowledge/CONVENTIONS.md` what a claim must look
+like, and `knowledge/STYLE-en.md` the writing rules.
 
-Two rules that survive translation:
+Two conventions that survive translation:
 
 - **`null` is not `pass`.** Any field that says "not measured" must not be read
-  as "fine" — that convention runs through every article here.
-- **Names come from the game bundle.** `parallax` is 差扰, not 牵引塔. The
-  three-layer name table (official / legacy / colloquial) is in
-  [GLOSSARY.md](GLOSSARY.md).
+  as "fine" - that convention runs through every article here.
+- **Names come from the game bundle.** `parallax` is the air puller (差扰), not
+  a gravity tower; the three-layer name table (official / legacy / colloquial)
+  is in [GLOSSARY.md](GLOSSARY.md).
 
 ## Where to start
 

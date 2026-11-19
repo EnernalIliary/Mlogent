@@ -34,6 +34,7 @@ import math
 import os
 import re
 import sys
+import time
 from collections import Counter, defaultdict
 from pathlib import Path
 
@@ -140,13 +141,15 @@ def engine_lexical(kb: Path, topk: int):
     return search, f"lexical BM25 over {len(docs)} chunks / {len(set(metas))} files"
 
 
-def engine_kb(root: Path, topk: int):
+def engine_kb(root: Path, topk: int, mode: str | None = None, rerank: bool = False):
     tools_dir = root / "tools"
     if not (tools_dir / "kb.py").exists() or not (root / "out" / "_kb" / "kb.sqlite3").exists():
         return None, "kb.py 或 out/_kb/kb.sqlite3 缺失"
     sys.path.insert(0, str(tools_dir))
     os.environ.setdefault("KB_ROOT", str(root))
     os.environ.setdefault("KB_KNOWLEDGE", str(root / "knowledge"))
+    if mode:
+        os.environ["KB_MODE"] = mode
     try:
         import kb as K  # noqa: N812
         K.search("warmup", 1)      # 触发模型加载，失败即回退
@@ -154,9 +157,12 @@ def engine_kb(root: Path, topk: int):
         return None, f"kb 引擎不可用: {type(exc).__name__}: {exc}"
 
     def search(q: str, k: int):
-        return K.search(q, k)
+        return K.search(q, k, rerank=rerank)
 
-    return search, "kb.py hybrid (dense bge-small-zh + FTS5 BM25 + RRF)"
+    legs = {"hybrid": "dense bge-small-zh + FTS5 BM25 + RRF",
+            "dense": "dense bge-small-zh only",
+            "sparse": "FTS5 BM25 only"}.get(K.MODE, K.MODE)
+    return search, "kb.py %s%s" % (legs, " + rerank" if rerank else "")
 
 
 # ---------------------------------------------------------------- 真源 → gold
@@ -187,6 +193,10 @@ def main(argv=None) -> int:
     ap.add_argument("--kb", default=None, help="knowledge 根（默认 <root>/knowledge）")
     ap.add_argument("--root", default=None, help="仓库根（含 knowledge/ tools/ out/）")
     ap.add_argument("--engine", choices=["auto", "kb", "lexical"], default="auto")
+    ap.add_argument("--mode", choices=["hybrid", "dense", "sparse"], default=None,
+                    help="kb engine leg; sparse never loads a model")
+    ap.add_argument("--rerank", action="store_true",
+                    help="cross-encoder rerank of the fused candidate list")
     ap.add_argument("-k", "--topk", type=int, default=6)
     ap.add_argument("--limit", type=int, default=0, help="只跑前 N 题（调试用）")
     ap.add_argument("--out", default=None, help="JSON 报告落盘路径")
@@ -211,7 +221,7 @@ def main(argv=None) -> int:
     search = None
     engine_note = ""
     if a.engine in ("auto", "kb"):
-        search, engine_note = engine_kb(root, a.topk)
+        search, engine_note = engine_kb(root, a.topk, mode=a.mode, rerank=a.rerank)
         if search is None and a.engine == "kb":
             print(f"kb engine unavailable: {engine_note}", file=sys.stderr)
             return 3
@@ -224,7 +234,9 @@ def main(argv=None) -> int:
         print(f"no documents indexed under {kb}", file=sys.stderr)
         return 2
 
-    per_domain = defaultdict(lambda: {"n": 0, "cov": 0, "hit1": 0, "hitk": 0, "rr": 0.0, "strong": 0, "strong_n": 0})
+    per_domain = defaultdict(lambda: {"n": 0, "cov": 0, "hit1": 0, "hitk": 0, "rr": 0.0,
+                                      "strong": 0, "strong_n": 0, "ndcg": 0.0,
+                                      "ms": 0.0, "chars": 0, "queries": 0})
     gaps, misses = [], []
     per_q = []
     for r in rows:
@@ -241,7 +253,11 @@ def main(argv=None) -> int:
             d["cov"] += 0
             continue
         d["cov"] += 1
+        _t0 = time.perf_counter()
         res = search(r["q"].split("\n")[0], a.topk)
+        d["ms"] += (time.perf_counter() - _t0) * 1000.0
+        d["chars"] += sum(len(x.get("text") or "") for x in res)
+        d["queries"] += 1
         paths = [norm(x["path"]) for x in res]
         rank = next((i for i, p in enumerate(paths) if any(p.endswith(g) for g in gold)), None)
         has_anchor = anchor is not None and any(anchor in docs[g] for g in gold)
@@ -252,6 +268,7 @@ def main(argv=None) -> int:
             d["rr"] += 1.0 / (rank + 1)
             if rank == 0:
                 d["hit1"] += 1
+            d["ndcg"] += 1.0 / math.log2(rank + 2)
             if has_anchor:
                 d["strong"] += 1
         else:
@@ -270,8 +287,15 @@ def main(argv=None) -> int:
     strong = sum(v["strong"] for v in per_domain.values())
     strong_n = sum(v["strong_n"] for v in per_domain.values())
     rr = sum(v["rr"] for v in per_domain.values())
+    ms = sum(v["ms"] for v in per_domain.values())
+    chars = sum(v["chars"] for v in per_domain.values())
+    queries = sum(v["queries"] for v in per_domain.values())
+    ndcg = sum(v["ndcg"] for v in per_domain.values())
     rep = {
         "engine": engine_note,
+        "ms_per_query": round(ms / max(queries, 1), 2),
+        "chars_per_query": round(chars / max(queries, 1), 1),
+        "ndcg@k": round(ndcg / max(cov, 1), 4),
         "knowledge": str(kb),
         "questions": len(rows),
         "topk": a.topk,

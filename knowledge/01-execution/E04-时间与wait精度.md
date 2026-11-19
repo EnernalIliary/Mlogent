@@ -1,6 +1,6 @@
 ---
 id: EXEC.TIME.001
-title: 时间与 wait 精度：tick、秒与帧差
+title: 'Time and wait precision: tick, seconds, and the frame delta'
 domain: exec
 status: active
 ver: [v160.7_rt, v159.3_src]
@@ -14,19 +14,19 @@ data:
   - 08-evidence/claims.jsonl#L1-29
   - 08-evidence/claims.jsonl#L1-30
 depends: [EXEC.MODEL.001]
-tags: [wait, tick, 帧差, 时间, 精度]
+tags: [wait, tick, frame delta, time, precision]
 tokens: 610
 ---
 
-# E04 时间与 wait 精度
+# E04 Time and wait precision
 
-## 一句话
+## In one sentence
 
-游戏时钟只有 **tick**（60 tick/s）；`wait` 的参数单位是**秒**，但实际分辨率是 **1 tick** —— 所以 `wait 0.05` 不是 0.05 s 的精确等待，而是「停 3 tick」。 [src: knowledge/VERSION.md:1]
+The game clock has only **tick** (60 tick/s); `wait` takes its argument in **seconds**, but the real resolution is **1 tick** — so `wait 0.05` is not a precise 0.05 s wait, it is "stop for 3 tick". [src: knowledge/VERSION.md:1]
 
-## 规则 / 公式
+## Rules / formulas
 
-### 1. WaitI 的三个分支（原文）
+### 1. The three WaitI branches (verbatim)
 
 ```java
 // LExecutor.java:1218-1232
@@ -42,83 +42,83 @@ if(value.num() <= 0){          // wait 0 / 负数
 }
 ```
 
-| 分支 | 条件 | 预算 | 下 tick |
+| Branch | Condition | Budget | Next tick |
 |---|---|---|---|
-| 空转让出 | v <= 0 | **不消耗**（yield 在 `accumulator--` 之前 break） | 重试同一条 |
-| 等待完成 | curTime >= v | 正常 | 执行下一条 |
-| 继续等待 | 其它 | 不消耗 | 重试同一条 |
+| Empty yield | v <= 0 | **not consumed** (yield breaks before `accumulator--`) | retries the same instruction |
+| Wait finished | curTime >= v | normal | runs the next instruction |
+| Keep waiting | anything else | not consumed | retries the same instruction |
 
-### 2. 秒 → tick 的换算
+### 2. Converting seconds → tick
 
-每 tick 累加 1/60 ⇒ **停 N tick ⇔ 参数 v ∈ ((N−1)/60, N/60]**，即 `tick 数 = ceil(v × 60)`。
+Each tick adds 1/60 ⇒ **stop N tick ⇔ argument v ∈ ((N−1)/60, N/60]**, i.e. `tick count = ceil(v × 60)`.
 
-| 写法 | 实际停 | 来源（L1-29 实测） |
+| Form | Actual stop | Source (L1-29, measured) |
 |---|---|---|
-| `wait 0` | 1 tick（让出） | 见 L1-30 |
-| `wait 0.001` / `wait 0.01` / `wait 0.0166` | **1 tick** | 三者行为逐字节相同 |
-| `wait 0.02` | 2 tick | 实测 done 首置位 tick = t4 |
+| `wait 0` | 1 tick (yield) | see L1-30 |
+| `wait 0.001` / `wait 0.01` / `wait 0.0166` | **1 tick** | all three behave byte for byte identically |
+| `wait 0.02` | 2 tick | measured: done first set at t4 |
 | `wait 0.05` | 3 tick | t5 |
 | `wait 0.1` | 6 tick | t8 |
-| `wait 1` | **60 tick ≈ 1 s** | 源码换算 |
+| `wait 1` | **60 tick ≈ 1 s** | source conversion |
 
-实测口径：探针是 `wait X` 后接 `set done 1`，记录 done 首次置位的 tick（`out/_scratch/_wq_*.mlog`，起始 tick 有 2 tick 引导开销）。 [src: knowledge/VERSION.md:1]
+Measurement setup: the probe is `wait X` followed by `set done 1`, recording the tick at which done is first set (`out/_scratch/_wq_*.mlog`; the starting tick carries 2 tick of boot overhead). [src: knowledge/VERSION.md:1]
 
-### 3. 帧差（Time.delta）
+### 3. Frame delta (Time.delta)
 
-- `Time.delta` 是**本帧游戏时间步长**（tick 单位），正常 60 fps 下 = 1。
-- 服务器暂停 / 主循环不调用 `Time.update` 时 delta = 0 ⇒ `curTime` 不增长 ⇒ **wait 永远等不完**（与 L3-06「暂停世界需手动 Time.update 否则炮塔不开火」同源）。
-- 低帧率下同一 `wait` 跨的 tick 数变少（因为每 tick 累加 1/60 是常量，而墙钟时间更长）⇒ 逻辑节拍在卡顿时**变慢**。
+- `Time.delta` is **this frame's game-time step** (in tick), = 1 at a normal 60 fps.
+- When the server is paused or the main loop does not call `Time.update`, delta = 0 ⇒ `curTime` does not advance ⇒ **wait never finishes** (the same root as L3-06, "a paused world needs a manual Time.update or turrets will not fire").
+- At a low frame rate the same `wait` spans fewer ticks (the 1/60 per tick is a constant while wall-clock time is longer) ⇒ the logic beat **slows down** during a stall.
 
 ### 4. stop / end
 
-| 指令 | 行为 | 差异 |
+| Instruction | Behaviour | Difference |
 |---|---|---|
-| `stop` | `counter--; yield; stop=true` | 停在**本条**，直到外部恢复 |
-| `end` | 计数器归 0 | 从第 0 条重来 |
-| `wait 0` | yield | 下一条继续（不是停在原地语义） |
+| `stop` | `counter--; yield; stop=true` | halts at **this** instruction until resumed from outside |
+| `end` | counter back to 0 | restarts from instruction 0 |
+| `wait 0` | yield | continues at the next one (it does not halt in place) |
 
-### 5. 延迟下限
+### 5. Lower bound on delay
 
-- 任意两条指令之间最小间隔 = 1 tick（16.7 ms），除非同一 tick 内池子有剩余点。 [src: knowledge/VERSION.md:1]
-- 跨处理器同步：同 tick 的执行顺序**未定**（L3-05 待定）⇒ 别用「A 写完 B 立刻读」的无握手假设。
+- The minimum gap between any two instructions = 1 tick (16.7 ms), unless the pool has leftover points within the same tick. [src: knowledge/VERSION.md:1]
+- Cross-processor sync: the execution order within one tick is **undetermined** (L3-05, open) ⇒ do not assume a handshake-free "A writes, B reads right after".
 
-## 数值
+## Numbers
 
-| 量 | 值 | 来源 |
+| Quantity | Value | Source |
 |---|---|---|
-| tick 率 | 60 /s（客户端） | 换算约定 |
-| 1 tick | 1/60 s ≈ 16.7 ms | VERSION.md 单位口径 |
-| wait 单位 | 秒 | LExecutor.java:1231 |
-| wait 分辨率 | 1 tick | L1-29 实测 |
-| 累加步长 | Time.delta/60 | LExecutor.java:1231 |
+| tick rate | 60 /s (client) | conversion convention |
+| 1 tick | 1/60 s ≈ 16.7 ms | VERSION.md unit convention |
+| wait unit | seconds | LExecutor.java:1231 |
+| wait resolution | 1 tick | L1-29, measured |
+| Accumulation step | Time.delta/60 | LExecutor.java:1231 |
 
-## 源码锚点
+## Source anchors
 
-| 位置 | 内容 |
+| Location | Content |
 |---|---|
-| LExecutor.java:1218-1232 | WaitI.run 三分支（上表原样） |
-| LExecutor.java:1236-1245 | StopI：counter-- + yield + stop |
-| LExecutor.java:1224 | 空转分支重置 curTime（注释：value 可能被别的处理器改） |
-| LogicBlock.java:564-579 | yield 在 accumulator-- 之前 break |
-| Time.java（引擎） | delta 为单位时间步长，暂停时不 update |
+| LExecutor.java:1218-1232 | WaitI.run's three branches (as in the table above) |
+| LExecutor.java:1236-1245 | StopI: counter-- + yield + stop |
+| LExecutor.java:1224 | the idle branch resets curTime (comment: value may be changed by another processor) |
+| LogicBlock.java:564-579 | yield breaks before accumulator-- |
+| Time.java (engine) | delta is the unit time step; it is not updated while paused |
 
-## 实测与反例
+## Measurements and counter-examples
 
-- ✅【E】`wait 0.001/0.01/0.0166` 三者行为完全一致（1 tick），`0.02→2`、`0.05→3`、`0.1→6`（L1-29）。 [实测: docs/断言表.md]
-- ✅【E】`wait 0` 只 yield、不 `counter--`（L1-30），下次执行仍是本条，且不扣预算。
-- 反例（不成立边界）：**「wait 0 能无限循环不卡」不成立**——它每 tick 仍占一条指令的调度机会，且让出后本 tick 剩余池子不会被执行（yield 直接 break）。
-- 反例：**「wait 是精确睡眠」不成立**——暂停/低帧率下 curTime 不走，wait 会「睡过头」。
-- 【U】多人服务器 tick 率低于 60 时的实际 wait 墙钟时长未实测，需要专用服务器计时实验。
+- ✅【E】`wait 0.001/0.01/0.0166` behave identically (1 tick), and `0.02→2`, `0.05→3`, `0.1→6` (L1-29). [measured: assertion table (docs/断言表.md)]
+- ✅【E】`wait 0` only yields and does not `counter--` (L1-30); the next execution is still this instruction, and no budget is spent.
+- Counter-example (a boundary that does not hold): **"wait 0 loops forever without stalling" is false** — it still takes one instruction's scheduling slot per tick, and after the yield the rest of this tick's pool is not executed (yield breaks immediately).
+- Counter-example: **"wait is a precise sleep" is false** — while paused or at a low frame rate curTime does not advance, and wait "oversleeps".
+- 【U】The real wall-clock duration of wait on a multiplayer server below 60 tick/s is unmeasured; a dedicated-server timing experiment is needed.
 
-## 常见误解
+## Common misconceptions
 
-1. 「wait 1 是 1 tick」——是 **1 秒 = 60 tick**；要 1 tick 写 `wait 0.0166`。
-2. 「wait 单位是 tick」（旧手册/部分文档的说法）——源码 `curTime += Time.delta/60f` 与比较值都是秒口径，L1-29 已实测确认。
-3. 「wait 0 等于空指令」——它有让出语义，影响同 tick 剩余预算。
-4. 「暂停游戏逻辑还在跑」——delta=0 时 wait 与依赖时间的指令全部停滞。
+1. "wait 1 is 1 tick" — it is **1 second = 60 tick**; for 1 tick write `wait 0.0166`.
+2. "the wait unit is tick" (an old manual / some documents) — both `curTime += Time.delta/60f` and the comparison value are in seconds in the source, and L1-29 confirmed it by measurement.
+3. "wait 0 is a no-op" — it carries yield semantics and affects the rest of that tick's budget.
+4. "logic keeps running while the game is paused" — with delta=0, wait and every time-dependent instruction stall.
 
-## 相关
+## Related
 
-- M03 控制流（wait 在循环里的用法）
-- M08 性能与限制（延迟与吞吐）
-- E01 执行模型与预算
+- M03 Control flow (using wait inside loops)
+- M08 Performance and limits (latency and throughput)
+- E01 Execution model and budget

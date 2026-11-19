@@ -110,6 +110,14 @@ DEDUPE_FILE = _flag("KB_DEDUPE_FILE")
 ASCII_BOOST = _flag("KB_ASCII_BOOST")
 ASCII_DENSE_WEIGHT = float(os.environ.get("KB_ASCII_DENSE_WEIGHT", "0.7"))
 CANDIDATES = int(os.environ.get("KB_CANDIDATES", "40"))
+# Which retrieval legs to fuse.  `hybrid` is the shipped default; `dense` and
+# `sparse` exist so the four candidate engines (BM25 / semantic / semantic+
+# rerank / hybrid) can be compared on one corpus and one chunker instead of
+# comparing two different programs.  Sparse never loads a model, so it also
+# works on a machine without fastembed.
+MODE = os.environ.get("KB_MODE", "hybrid").strip().lower()
+if MODE not in ("hybrid", "dense", "sparse"):
+    MODE = "hybrid"
 
 
 _EMB = None
@@ -562,17 +570,25 @@ def search(query: str, k: int = 6, kind: str | None = None,
     if not rows:
         conn.close()
         return []
+    if MODE == "sparse":
+        rows = [(r[0], r[1], r[2], r[3], r[4], r[5], r[6], b"") for r in rows]
     by_id = {r[0]: r for r in rows}
-    qv = np.asarray(next(iter(_embedder().embed([query]))), dtype="float32")
-    mat = np.frombuffer(b"".join(r[7] for r in rows), dtype="float32").reshape(len(rows), -1)
-    sims = mat @ qv / (np.linalg.norm(mat, axis=1) * np.linalg.norm(qv) + 1e-9)
-    dense = list(np.argsort(-sims)[:candidates])
-    sparse = _sparse(conn, query, candidates)
+    dense: list[int] = []
+    sparse: list[tuple[int, float]] = []
+    sims = None
+    if MODE in ("hybrid", "dense"):
+        qv = np.asarray(next(iter(_embedder().embed([query]))), dtype="float32")
+        mat = np.frombuffer(b"".join(r[7] for r in rows), dtype="float32").reshape(len(rows), -1)
+        sims = mat @ qv / (np.linalg.norm(mat, axis=1) * np.linalg.norm(qv) + 1e-9)
+        dense = list(np.argsort(-sims)[:candidates])
+    if MODE in ("hybrid", "sparse"):
+        sparse = _sparse(conn, query, candidates)
     conn.close()
     # RRF 的分数是「名次倒数」(1/(60+rank))，同分区分度必然只有百分之几 —— 报告里那串
     # 0.0159/0.0167 就是名次 60 前后的倒数，不是置信度。真要一个能读的数字，得看余弦：
     # 这里顺手把每条命中块与问题的余弦相似度捎出来（只用于显示，不参与排序）。
-    sim_by_id = {rows[i][0]: float(sims[i]) for i in range(len(rows))}
+    sim_by_id = ({rows[i][0]: float(sims[i]) for i in range(len(rows))}
+                 if sims is not None else {})
 
     wd = ASCII_DENSE_WEIGHT if ASCII_BOOST else 1.0
     fused: dict[int, float] = {}

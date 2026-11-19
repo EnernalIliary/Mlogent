@@ -1,6 +1,6 @@
 ---
 id: WORLD.NAMES.002
-title: 方块名对照②：物流 / 电力 / 液体 / 生产（168 条）
+title: Block name mapping II - logistics / power / liquids / production (168 entries)
 domain: world
 status: active
 ver: [v160.7_rt, v159.3_src]
@@ -11,25 +11,25 @@ src:
 data:
   - "00-data/blocks.json"
 depends: [WORLD.BLOCKS.001, WORLD.LOGISTICS.001]
-tags: [名词, 中文名, 英文名, 翻译, 对照表, 物流, 电力, 液体, 生产]
+tags: [names, chinese-name, english-name, translation, mapping-table, logistics, power, liquids, production]
 ---
 
-## 一句话
+## One line
 
-物流、电力、液体、生产四类可建造方块的「中文名 ↔ 英文名 ↔ id」对照；按 `category` 分组，组内按 id 字母序。
+The Chinese name ↔ English name ↔ id mapping for the four buildable block groups - logistics, power, liquids and production; grouped by `category`, alphabetical by id inside each group.
 
-## 规则 / 公式
+## Rules / formulas
 
-- `category` 属于 {distribution, power, liquid, production, defense} 的 168 条方块（已排除地形、矿、墙，见 WORLD.NAMES.001）。
-- 顺序即表内顺序：先 distribution（传送带、路由、交叉、桥、驱动器），再 power、liquid、production、defense。
-- 显示名取自 `block.<id>.name`；「—」= 语言包无该项（隐藏或占位方块）。
-- `defense` 在本组只有极少数条目；真正决定防御数值的墙体与门在 WORLD.NAMES.001 与 COMBAT.DEFENSE.001。
+- The 168 blocks whose `category` is one of {distribution, power, liquid, production, defense} (terrain, ore and walls are excluded - see WORLD.NAMES.001).
+- The order is the table order: distribution first (conveyors, routers, junctions, bridges, drivers), then power, liquid, production, defense.
+- Display names come from `block.<id>.name`; a "—" means the bundle has no such entry (a hidden or placeholder block).
+- `defense` has only a handful of entries in this group; the walls and doors that actually decide defensive numbers are in WORLD.NAMES.001 and COMBAT.DEFENSE.001.
 
-## 数值
+## Numbers
 
-本节只列名词；功耗、容量、速度等数值以 `00-data/blocks.json` 为准（见 WORLD.LOGISTICS.001 / WORLD.POWER.001 的实测章节）。
+This section lists names only; power draw, capacity, speed and similar numbers follow `00-data/blocks.json` (see the measurement sections of WORLD.LOGISTICS.001 / WORLD.POWER.001).
 
-| id | 英文名 | 中文名 | 中文名出处 | 英文名出处 |
+| id | English name | Chinese name | Chinese name source | English name source |
 |---|---|---|---|---|
 | `arkyic-boulder` | Arkyic Boulder | 芳石块 | zh:2129 | en:2134 |
 | `arkyic-wall` | Arkyic Wall | 芳石墙 | zh:2117 | en:2122 |
@@ -200,32 +200,32 @@ tags: [名词, 中文名, 英文名, 翻译, 对照表, 物流, 电力, 液体, 
 | `water-extractor` | Water Extractor | 抽水机 | zh:1988 | en:1993 |
 | `target-dummy` | — | — | — | — |
 
-## 源码锚点
+## Source anchors
 
-- `data/game/bundles/bundle_zh_CN.properties`（中文名，zh:N 为行号）与 `bundle.properties`（英文名，en:N 为行号）。
-- `00-data/blocks.json` 的 `category` 字段是本文的分组依据；168 条中 146 条有中文名。
-- 生成脚本 `knowledge/tools/gen_name_docs.py`。
+- `data/game/bundles/bundle_zh_CN.properties` (Chinese names, zh:N is the line number) and `bundle.properties` (English names, en:N is the line number).
+- The `category` field of `00-data/blocks.json` is this article's grouping key; 146 of the 168 entries have a Chinese name.
+- Generator script `knowledge/tools/gen_name_docs.py`.
 
-## 实测与反例
+## Measurements and counter-examples
 
-- 反例一：`junction` 的官方中文是「交叉器」，不是「路口」；「路由器」是另一个方块 `router`。按字面把 junction 叫成路口，会跟门、路类方块混在一起。
-- 反例二：`duct` 官方中文是「物品管道」，不是「管道」；`conveyor` 才是「传送带」。两者是不同层级（管道走大流量、传送带逐件），名字近似但不是同义词。
-- 反例二：`phase-conveyor` 是「相织布传送带桥」，`bridge-conduit` 是「导管桥」——都叫「桥」但一个是桥接传送带、一个是桥接液体导管。
-- 反例三：`mass-driver` 官方中文「质量驱动器」，与电机、推进器类「驱动器」无关，它是长距离物品投送方块（见 WORLD.PAYLOAD.001）。
-- 反例四：`unloader` 是「装卸器」而不是「卸载器」；`sorter` 是「分类器」而非「分拣器」。按常见译名搜会搜不到。
-- 反例五：`force-projector` 是「力墙投影」，也被叫「力场投影仪」；官方串里没有「仪」字。
+- **Counter-example A** - `junction` is officially junction (交叉器), not "intersection"; router (路由器) is a different block, `router`. Calling junction an intersection by the literal reading lumps it in with doors and road blocks.
+- **Counter-example B** - `duct` is officially item duct (物品管道), not just "duct"; conveyor (传送带) is what `conveyor` means. The two sit at different tiers (ducts move bulk volume, conveyors one item at a time), so the names are close but not synonyms.
+- **Counter-example B** - `phase-conveyor` is phase conveyor bridge (相织布传送带桥) and `bridge-conduit` is conduit bridge (导管桥); both are called a "bridge", but one bridges conveyors and the other bridges liquid conduits.
+- **Counter-example C** - `mass-driver` is officially mass driver (质量驱动器), unrelated to motor and thruster class "drivers"; it is a long-range item delivery block (see WORLD.PAYLOAD.001).
+- **Counter-example D** - `unloader` is officially unloader (装卸器), not the common unloader (卸载器); `sorter` is officially sorter (分类器), not the common sorter (分拣器). Searching with the usual translations finds nothing.
+- **Counter-example E** - `force-projector` is force projector (力墙投影), also called force field projector (力场投影仪); the official string has no instrument (仪) character in it.
 
-## 常见误解
+## Common misconceptions
 
-- 把 `router`（路由器）和 `sorter`（分类器）混为一谈：前者平均分流，后者按物品过滤，机制完全不同。
-- 以为「管道」和「传送带」同 id：`duct` 与 `conveyor` 是两条独立的物流线，吞吐口径也不同。
-- 以为 category 就是 group：`category` 是内部类归类（本文 168 条全覆盖），`group` 只覆盖可建造方块的一部分，240 条为 `none`。
+- Confusing `router` (路由器) with `sorter` (分类器): the first splits flow evenly, the second filters by item; the mechanics are entirely different.
+- Assuming duct (管道) and conveyor (传送带) share an id: `duct` and `conveyor` are two independent logistics lines with different throughput conventions.
+- Assuming category is group: `category` is the internal class grouping (it covers all 168 entries here), while `group` covers only part of the buildable blocks, with 240 entries at `none`.
 
-## 相关
+## Related
 
-- WORLD.LOGISTICS.001（传送带吞吐口径与桥、交叉的排队）
-- WORLD.POWER.001（电力网络）
-- WORLD.LIQUIDS.001（液体与导管）
-- WORLD.STORAGE.001（容器、保险库、核心容量）
-- WORLD.PAYLOAD.001（载荷与质量驱动器）
-- WORLD.NAMES.001 / WORLD.NAMES.003（其余方块名）
+- WORLD.LOGISTICS.001 (conveyor throughput conventions, and bridge and junction queuing)
+- WORLD.POWER.001 (the power network)
+- WORLD.LIQUIDS.001 (liquids and conduits)
+- WORLD.STORAGE.001 (containers, vaults, core capacity)
+- WORLD.PAYLOAD.001 (payloads and the mass driver)
+- WORLD.NAMES.001 / WORLD.NAMES.003 (the remaining block names)

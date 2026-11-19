@@ -1,70 +1,70 @@
-# INDEX_CONTRACT.md — knowledge/index.json 的索引契约
+# INDEX_CONTRACT.md — the index contract for knowledge/index.json
 
-> 生成器：`knowledge/tools/build_index.py`（单一真源）。本文件描述**字段语义**，改字段必须先改本文件与生成器。
-> 消费者：MCP 前置路由、CI 门禁、人工检索。任何字段只能加不能改名（v1 冻结）。
+> Generator: `knowledge/tools/build_index.py` (single source of truth). This file describes **field semantics**; changing a field means changing this file and the generator first.
+> Consumers: MCP pre-routing, the CI gate, and human retrieval. Fields may only be added, never renamed (v1 frozen).
 
-## 顶层字段
-| 字段 | 类型 | 语义 | 稳定性 |
+## Top-level fields
+| Field | Type | Semantics | Stability |
 |---|---|---|---|
-| `version` | int | 契约版本，当前 1 | 冻结 |
-| `generated` | ISO8601 | 生成时间（`--check` 比对时剔除） | 每次变 |
-| `root` | str | 固定 `"knowledge"`（路径均以此为前缀） | 冻结 |
-| `read_order` | [str] | 推荐阅读顺序 | 可加 |
-| `counts` | obj | 汇总数字，见下 | 可加 |
-| `domains` | [obj] | 8 个域，固定顺序 01..08 | 冻结 |
-| `data` | [obj] | `00-data/*.json` 机读表 | 可加 |
-| `evidence` | [obj] | `08-evidence/` 下逐个文件 | 可加 |
-| `evidence_dirs` | [obj] | `08-evidence/{claims,probes,bench}/` 目录汇总（空目录也出现） | 新增 v1.1 |
-| `docs` | [obj] | 契约文档（KB.md / CONVENTIONS.md / VERSION.md） | 可加 |
-| `notes` | [str] | 口径说明（tokens 为估算等） | 可加 |
+| `version` | int | contract version, currently 1 | frozen |
+| `generated` | ISO8601 | generation time (dropped when `--check` compares) | changes every run |
+| `root` | str | fixed `"knowledge"` (all paths use it as prefix) | frozen |
+| `read_order` | [str] | recommended reading order | addable |
+| `counts` | obj | summary numbers, see below | addable |
+| `domains` | [obj] | the 8 domains, fixed order 01..08 | frozen |
+| `data` | [obj] | `00-data/*.json` machine-readable tables | addable |
+| `evidence` | [obj] | one entry per file under `08-evidence/` | addable |
+| `evidence_dirs` | [obj] | directory summary for `08-evidence/{claims,probes,bench}/` (empty directories appear too) | new in v1.1 |
+| `docs` | [obj] | contract documents (KB.md / CONVENTIONS.md / VERSION.md) | addable |
+| `notes` | [str] | convention notes (tokens are an estimate, etc.) | addable |
 
-## counts（判断"库是否可用"的唯一入口）
+## counts (the single entry point for asking "is the library usable")
 ```json
 {"articles":37, "by_domain":{"01-execution":6,"02-world":5,"03-combat":10,"04-units":1,
   "05-campaign":0,"06-mlog":8,"07-patterns":6,"08-evidence":1},
- "data_tables":10, "data_records":948, "data_raw_tables":7,
- "evidence_files":21, "evidence_by_kind":{"top":6,"bench":15}, "evidence_dirs":2,
- "tokens_total":34073, "empty":false}
+  "data_tables":10, "data_records":948, "data_raw_tables":7,
+  "evidence_files":21, "evidence_by_kind":{"top":6,"bench":15}, "evidence_dirs":2,
+  "tokens_total":34073, "empty":false}
 ```
-- `data_tables`/`data_records` **只统计 kind=canonical** 的表；`rt_*`、`*_raw.json` 计入 `data_raw_tables`，只列出不计数。
-- `empty=true` 表示没有任何文章（空库骨架）。`04-units`/`05-campaign` 为 0 时属于内容缺口，不是索引错误。
+- `data_tables`/`data_records` **only count tables with kind=canonical**; `rt_*` and `*_raw.json` go into `data_raw_tables`, which are listed but not counted.
+- `empty=true` means there are no articles at all (empty-library skeleton). `04-units`/`05-campaign` being 0 is a content gap, not an index error.
 
-## domains[].articles[] — 文章的 10 个字段
-| 字段 | 说明 |
+## domains[].articles[] — the article's 10 fields
+| Field | Meaning |
 |---|---|
-| `id` | `DOMAIN.SUB.NNN`，与 frontmatter 同源；缺失时为空串（门禁会报 E_MISSING_FIELD） |
-| `path` | `knowledge/02-world/W01-xxx.md`（**含** knowledge/ 前缀，可直接拼仓库根） |
-| `title` / `domain` / `status` / `conf` | 取自 frontmatter；`conf ∈ {S,E,I,U}` |
-| `ver` | 始终是数组，如 `["v160.7_rt","v159.3_src"]` |
-| `tokens` / `tokens_est` | tokens 为 frontmatter 回填值；`tokens_est=true` 表示该值是本脚本估算（汉字 0.62 + 英文词 0.75） |
-| `lines` | 物理行数（>250 行按约定应拆分） |
+| `id` | `DOMAIN.SUB.NNN`, same source as frontmatter; an empty string when missing (the gate reports E_MISSING_FIELD) |
+| `path` | `knowledge/02-world/W01-xxx.md` (**includes** the knowledge/ prefix, so it can be joined straight onto the repo root) |
+| `title` / `domain` / `status` / `conf` | taken from frontmatter; `conf ∈ {S,E,I,U}` |
+| `ver` | always an array, e.g. `["v160.7_rt","v159.3_src"]` |
+| `tokens` / `tokens_est` | tokens is the frontmatter-backfilled value; `tokens_est=true` means this script estimated it (0.62 per CJK character + 0.75 per English word) |
+| `lines` | physical line count (over 250 lines should be split by convention) |
 
-## data[] — 00-data 机读表
+## data[] — 00-data machine-readable tables
 ```json
 {"path":"knowledge/00-data/blocks.json","kind":"canonical","records":447,
  "bytes":311169,"keys":["armor","category","class","health","id","itemCapacity","name","rotate","size","src","ver"]}
 ```
-- `kind`：`canonical`（正式事实表：blocks/turrets/units/items/liquids/bullets/status/rules/formulas/src_anchors）｜`raw`（`rt_*` 反射抽查件，**不可直接引用为事实**）。
-- `records` 支持两种顶层形态：数组，或 `{records|items|entries|rows|data:[...]}`；其他 dict 视为「值→记录」映射。
-- `keys` 是该表前 2000 条记录的字段并集（最多 40 个），用于回答"这张表能查什么"，不保证完整。
-- 记录内数值统一 `{v, unit}`（CONVENTIONS「00-data 口径」）；索引不展开 unit。
+- `kind`: `canonical` (the formal fact tables: blocks/turrets/units/items/liquids/bullets/status/rules/formulas/src_anchors) | `raw` (`rt_*` reflection spot-check files, **not directly citable as fact**).
+- `records` supports two top-level shapes: an array, or `{records|items|entries|rows|data:[...]}`; any other dict is treated as a "value → record" map.
+- `keys` is the union of fields across the first 2000 records of that table (at most 40), used to answer "what can this table be queried for"; it is not guaranteed complete.
+- Numbers inside records are uniformly `{v, unit}` (the "00-data convention" in CONVENTIONS); the index does not expand unit.
 
-## evidence[] / evidence_dirs[] — 证据层
-- `evidence[]` 逐文件：`{path, kind, bytes, desc}` + `.jsonl` 有 `lines`、`.json` 有 `entries`。
-- `evidence_dirs[]`：`{path, kind, desc, files, bytes}`，`kind ∈ {claims, probes, bench}`。
-- **probes/** 目前 0 文件（目录已建）——探针脚本落地后会自动出现，`files`>0 才算证据层可用。
-- `claims.jsonl` 每行一条可复测断言；`claims-excluded.jsonl` 为剔除项（同样计数，勿混用）。
+## evidence[] / evidence_dirs[] — the evidence layer
+- `evidence[]` per file: `{path, kind, bytes, desc}` plus `lines` for `.jsonl` and `entries` for `.json`.
+- `evidence_dirs[]`: `{path, kind, desc, files, bytes}`, with `kind ∈ {claims, probes, bench}`.
+- **probes/** currently has 0 files (the directory exists) — probe scripts appear automatically once landed; the evidence layer counts as usable only when `files`>0.
+- `claims.jsonl` holds one re-testable assertion per line; `claims-excluded.jsonl` holds the excluded items (also counted, do not mix them up).
 
-## 使用示例
-1. **路由**：先读 `counts.by_domain` 判断哪个域有内容；再按 `domains[].articles[].tokens` 选要载入的篇目，避免整库塞进上下文。
-2. **取值**：文章里的数字若标 `见 DATA#blocks`，用 `data[]` 找表 → 读该表 `#fragment`（`#id=duo`）。
-3. **门禁**：`build_index.py --check` 退出码 1 = index.json 过期（剔除 `generated` 后比对）；CI 里与 `check_kb.py` 串行跑。
-4. **MCP**：检索走 kb.py（FTS+向量），index.json 只做导航与计数，不参与相似度。
+## Usage examples
+1. **Routing**: read `counts.by_domain` first to see which domain has content; then pick the articles to load by `domains[].articles[].tokens`, avoiding stuffing the whole library into the context.
+2. **Looking up a value**: if a number in an article is marked `see DATA#blocks`, locate the table via `data[]` → read that table's `#fragment` (`#id=duo`).
+3. **Gate**: `build_index.py --check` exits 1 = index.json is stale (compared after dropping `generated`); in CI it runs serially with `check_kb.py`.
+4. **MCP**: retrieval goes through kb.py (FTS + vectors); index.json only provides navigation and counts and takes no part in similarity.
 
-## 与门禁的分工
-| 关注点 | check_kb.py | build_index.py |
+## Division of labour with the gate
+| Concern | check_kb.py | build_index.py |
 |---|---|---|
-| frontmatter 完整性 / 七段 / 来源标记 | ✅ 逐篇 | ❌ |
-| 数字与 00-data 冲突 | ✅ `--audit`（num_audit.py） | ❌ |
-| 全库总览 / 计数 / 导航 | ❌ | ✅ |
-| 00-data 记录与 keys | 仅校验 data: 引用 | ✅ 汇总 |
+| frontmatter completeness / seven sections / source markers | ✅ per article | ❌ |
+| numbers conflicting with 00-data | ✅ `--audit` (num_audit.py) | ❌ |
+| whole-library overview / counts / navigation | ❌ | ✅ |
+| 00-data records and keys | validates data: references only | ✅ summarised |

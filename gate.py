@@ -184,6 +184,11 @@ def build_steps(full: bool, only: str | None) -> list[tuple[str, list[str] | Non
         # drift the moment an article is added without its English title, which
         # is exactly the failure an English reader cannot see by himself.
         ("glossary", ["tests/glossary/run_glossary_tests.py"], ""),
+        # The English-isation contract (knowledge/STYLE-en.md): no CJK prose, no
+        # CJK headings, every anchor and code fence intact.  A mixed-language
+        # article reads fine to the person who wrote it and badly to everyone
+        # else, so the rule needs a machine behind it.
+        ("english", ["knowledge/tools/check_en.py"], ""),
         # The observation schema (tools/observation.py) is what makes two runs
         # comparable at all; the differential runner is layered on it.  Pure
         # data, so it runs everywhere -- only the live-world half can skip.
@@ -354,6 +359,7 @@ def build_steps(full: bool, only: str | None) -> list[tuple[str, list[str] | Non
     # package (`mlog-agent-<ver>-knowledge.zip`).  A toolchain-only checkout must
     # still gate cleanly, so name the missing tree instead of failing on it.
     know = {"bundles": "knowledge/tools", "glossary": "knowledge/tools",
+        "english": "knowledge/tools",
             "claims": "knowledge/08-evidence"}
     steps = [(n, None, know[n] + " ships in the knowledge package")
              if (a is not None and n in know and not (ROOT / know[n]).is_dir())

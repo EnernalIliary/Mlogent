@@ -1,6 +1,6 @@
 ---
 id: COMBAT.STATUS.001
-title: 状态效果——倍率字段、时长、叠加与刷新、反应伤害
+title: "Status effects: multiplier fields, duration, stacking and refresh, reaction damage"
 domain: combat
 status: active
 ver: [v160.7_rt, v159.3_src]
@@ -13,17 +13,17 @@ src:
   - "KB/00-data/rt_list_StatusEffect.json (v160.7 反射字段表)"
 data: [00-data/status.json]
 depends: [COMBAT.DAMAGE.001]
-tags: [状态效果, status, 倍率, 减速, 反应, disarm, 持续时间]
+tags: [status-effect, status, multiplier, slow, reaction, disarm, duration]
 tokens: 747
 ---
 
-## 一句话
+## In one line
 
-状态效果**不叠加层数、只刷新时长**：再次施加同一 status 时取 `max(旧剩余时长, 新时长)`；不同 status 的倍率字段**逐帧相乘**汇总到单位的 `speedMultiplier/healthMultiplier/damageMultiplier/reloadMultiplier`，所以"冻结(−20% 血) + 腐蚀"是相乘不是相加。
+Status effects **do not stack layers, they only refresh the duration**: re-applying the same status takes `max(old remaining time, new duration)`; the multiplier fields of different statuses are **multiplied frame by frame** into the unit's `speedMultiplier/healthMultiplier/damageMultiplier/reloadMultiplier`, so "freezing (−20% health) + corroded" multiplies rather than adds.
 
-## 规则 / 公式
+## Rules and formulas
 
-### 1. 施加与刷新
+### 1. Applying and refreshing
 
 ```
 apply(effect, duration):
@@ -34,11 +34,11 @@ apply(effect, duration):
   否则新增一条 entry（reactive 类如 shocked/blasted 不直接入表）
 ```
 
-- **时长单位是 tick**：`60*8 = 480` 就是 8 秒。
-- **permanent = true** 的永不衰减：overdrive、boss、dynamic、以及波次单位由 SpawnGroup 施加的 `999999f`。
-- `reactive = true` 的 status（shocked、blasted）**只能靠反应产生**，不能直接施加。
+- **Duration is in tick**: `60*8 = 480` is 8 seconds.
+- **permanent = true** never decays: overdrive, boss, dynamic, and the `999999f` that SpawnGroup applies to wave units.
+- Statuses with `reactive = true` (shocked, blasted) **can only be produced by a reaction**, never applied directly.
 
-### 2. 每帧聚合（StatusComp.update）
+### 2. Per-frame aggregation (StatusComp.update)
 
 ```
 armorOverride = -1; speed=damage=health=reload=buildSpeed=drag=1; disarmed=false
@@ -55,42 +55,42 @@ for each entry:
         disarmed |= entry.effect.disarm
 ```
 
-**healthMultiplier 越"小"越脆**（因为它作为除数出现在伤害管线里：`applyArmor(...)/healthMultiplier`）。freezing 0.8 → 受击伤害 ×1.25。
+**The smaller healthMultiplier, the more fragile** (it appears as a divisor in the damage pipeline: `applyArmor(...)/healthMultiplier`). freezing at 0.8 → incoming damage ×1.25.
 
-### 3. 伤害类 status
+### 3. Damage statuses
 
-| status | 机制 | 每秒伤害 |
+| status | mechanism | damage per second |
 |---|---|---|
 | burning | `damage = 0.167`/tick | 10.0 |
 | melting | `damage = 0.3`/tick | 18.0 |
-| corroded | `intervalDamage = 20`，`intervalDamageTime = 15` tick | 20/15×60 = 80.0 |
-| overdrive | `damage = -0.01`/tick（回血） | +0.6 治疗/s |
+| corroded | `intervalDamage = 20`, `intervalDamageTime = 15` tick | 20/15×60 = 80.0 |
+| overdrive | `damage = -0.01`/tick (healing) | +0.6 healing/s |
 
-### 4. 反应（transitionDamage / affinity）
+### 4. Reactions (transitionDamage / affinity)
 
-| 组合 | 结果 | 来源 |
+| combination | result | source |
 |---|---|---|
-| burning + wet/freezing | wet 是 burning 的 opposite → 立即熄灭并结算 `transitionDamage = 8` | StatusEffects.java:24-33 |
-| burning + tarred | 穿透伤害 8，并 `min(time+result.time, 300)` 延长 | :28-32 |
-| melting + tarred | 穿透伤害 8，上限 200 tick | :111-115 |
-| freezing + blasted | 穿透伤害 18 | :46-51 |
-| wet + shocked | 非穿透伤害 14 | :83-89 |
-| tarred + burning / melting | `result.set(burning, result.time + time)` 额外延长 | :147-150 |
+| burning + wet/freezing | wet is burning's opposite → extinguished at once, `transitionDamage = 8` applied | StatusEffects.java:24-33 |
+| burning + tarred | piercing damage 8, plus a `min(time+result.time, 300)` extension | :28-32 |
+| melting + tarred | piercing damage 8, capped at 200 tick | :111-115 |
+| freezing + blasted | piercing damage 18 | :46-51 |
+| wet + shocked | non-piercing damage 14 | :83-89 |
+| tarred + burning / melting | `result.set(burning, result.time + time)` extra extension | :147-150 |
 
-**反应优先于叠加**：目标身上有 wet 时打 burning 弹，burning 不会挂上，只会结算 8 点反应伤害。
+**Reactions outrank stacking**: when the target is wet and a burning bullet lands, burning never attaches — only 8 points of reaction damage apply.
 
-### 5. 地形状态
+### 5. Terrain statuses
 
-单位**贴地且不悬停**时，每帧 `apply(floor.status, floor.statusDuration)`：站在 slag 上持续 melting、站在 oil 上持续 tarred、站在水/冰上 wet/freezing。飞行单位（`isGrounded()==false`）与 `hovering` 单位不受地形状态影响。
+While a unit is **on the ground and not hovering**, every frame runs `apply(floor.status, floor.statusDuration)`: standing on slag keeps melting up, on oil keeps tarred, on water/ice wet/freezing. Air units (`isGrounded()==false`) and `hovering` units are unaffected by terrain statuses.
 
-## 数值
+## Numbers
 
-| status | speedMult | healthMult | damageMult | reloadMult | 其它 | 源码行 |
+| status | speedMult | healthMult | damageMult | reloadMult | other | source line |
 |---|---|---|---|---|---|---|
-| none | 1 | 1 | 1 | 1 | 空 | :18 |
-| burning | 1 | 1 | 1 | 1 | damage 0.167/tick，transitionDamage 8 | :20-34 |
+| none | 1 | 1 | 1 | 1 | empty | :18 |
+| burning | 1 | 1 | 1 | 1 | damage 0.167/tick, transitionDamage 8 | :20-34 |
 | freezing | 0.6 | 0.8 | 1 | 1 | transitionDamage 18 | :36-53 |
-| unmoving | 0 | 1 | 1 | 1 | 完全定身 | :55-58 |
+| unmoving | 0 | 1 | 1 | 1 | fully immobilized | :55-58 |
 | slow | 0.4 | 1 | 1 | 1 | show=false | :60-66 |
 | fast | 1.6 | 1 | 1 | 1 | — | :68-73 |
 | wet | 0.94 | 1 | 1 | 1 | transitionDamage 14 | :75-92 |
@@ -99,56 +99,56 @@ for each entry:
 | sapped | 0.7 | 0.8 | 1 | 1 | — | :119-125 |
 | electrified | 0.7 | 1 | 1 | **0.6** | — | :127-133 |
 | spore-slowed | 0.8 | 1 | 1 | 1 | — | :135-140 |
-| tarred | 0.6 | 1 | 1 | 1 | 与 burning/melting 互扩 | :142-151 |
-| overdrive | 1.15 | 0.95 | **1.4** | 1 | damage −0.01/tick，permanent | :153-161 |
+| tarred | 0.6 | 1 | 1 | 1 | spreads with burning/melting | :142-151 |
+| overdrive | 1.15 | 0.95 | **1.4** | 1 | damage −0.01/tick, permanent | :153-161 |
 | overclock | 1.15 | 1 | 1.15 | **1.25** | — | :163-170 |
 | shielded | 1 | **3.0** | 1 | 1 | show=false | :172-176 |
 | boss | 1 | 1.5 | **1.3** | 1 | permanent | :178-183 |
-| shocked | 1 | 1 | 1 | 1 | reactive（只能反应产生） | :185-188 |
+| shocked | 1 | 1 | 1 | 1 | reactive (reaction only) | :185-188 |
 | blasted | 1 | 1 | 1 | 1 | reactive | :190-193 |
 | corroded | 1 | 1 | 1 | 1 | intervalDamage 20 / 15 tick | :195-202 |
-| disarmed | 1 | 1 | 1 | 1 | **disarm = true**（不能开火） | :204-208 |
-| invincible | 1 | **+∞** | 1 | 1 | 完全免伤 | :210-213 |
-| dynamic | — | — | — | — | `dynamic=true`，逻辑魔改用 | :215-219 |
+| disarmed | 1 | 1 | 1 | 1 | **disarm = true** (cannot fire) | :204-208 |
+| invincible | 1 | **+∞** | 1 | 1 | fully immune to damage | :210-213 |
+| dynamic | — | — | — | — | `dynamic=true`, for logic modding | :215-219 |
 
-字段默认值（v160.7 反射，`00-data/rt_list_StatusEffect.json`）：damageMultiplier / healthMultiplier / speedMultiplier / reloadMultiplier / buildSpeedMultiplier / dragMultiplier 全为 **1.0**；transitionDamage **0.0**；disarm / intervalDamagePierce / dynamic / permanent / reactive **false**；effectChance **0.15**；show **true**。
+Field defaults (v160.7 reflection, `00-data/rt_list_StatusEffect.json`): damageMultiplier / healthMultiplier / speedMultiplier / reloadMultiplier / buildSpeedMultiplier / dragMultiplier all **1.0**; transitionDamage **0.0**; disarm / intervalDamagePierce / dynamic / permanent / reactive **false**; effectChance **0.15**; show **true**.
 
-## 源码锚点
+## Source anchors
 
-- `type/StatusEffect.java:19-69` 字段：`damageMultiplier`(L19)、`healthMultiplier`(L21)、`speedMultiplier`(L23)、`reloadMultiplier`(L25)、`buildSpeedMultiplier`(L27)、`dragMultiplier`(L29)、`transitionDamage`(L31)、`disarm`(L33)、`intervalDamagePierce`(L41)、`effectChance = 0.15`(L43)、`dynamic`(L51)、`show`(L53)、`permanent`(L65？见类尾)、`reactive`。
-- `StatusComp.java:36-70` `apply(effect, duration)`：免疫→刷新 `max(time,duration)`→反应→新增。
-- `StatusComp.java:98-100` `isImmune = type.immunities.contains(effect)`。
-- `StatusComp.java:178-235` `update()`：地形状态、`time -= Time.delta`、倍率相乘、`disarmed |= effect.disarm`。
-- `StatusComp.java:24` 聚合用的 transient 字段：`speedMultiplier/damageMultiplier/healthMultiplier/reloadMultiplier/buildSpeedMultiplier/dragMultiplier/armorOverride(-1)`。
-- `content/StatusEffects.java:18-220` 全部 status 定义与反应表。
+- `type/StatusEffect.java:19-69` fields: `damageMultiplier`(L19), `healthMultiplier`(L21), `speedMultiplier`(L23), `reloadMultiplier`(L25), `buildSpeedMultiplier`(L27), `dragMultiplier`(L29), `transitionDamage`(L31), `disarm`(L33), `intervalDamagePierce`(L41), `effectChance = 0.15`(L43), `dynamic`(L51), `show`(L53), `permanent`(L65? see end of class), `reactive`.
+- `StatusComp.java:36-70` `apply(effect, duration)`: immunity → refresh `max(time,duration)` → reaction → add new.
+- `StatusComp.java:98-100` `isImmune = type.immunities.contains(effect)`.
+- `StatusComp.java:178-235` `update()`: terrain status, `time -= Time.delta`, multiplier product, `disarmed |= effect.disarm`.
+- `StatusComp.java:24` transient fields used for aggregation: `speedMultiplier/damageMultiplier/healthMultiplier/reloadMultiplier/buildSpeedMultiplier/dragMultiplier/armorOverride(-1)`.
+- `content/StatusEffects.java:18-220` every status definition and the reaction table.
 
-## 实测与反例
+## Measurements and counterexamples
 
-**反例 1：以为同类 status 会叠层。**
-连打 3 发 burning：不是 3 层 30 dps，而是刷新到 `max` 时长，伤害仍是 0.167/tick。想叠伤害只能靠**不同** status（burning + melting = 28 dps）。
+**Counterexample 1: assuming the same status stacks in layers.**
+Three burning shots in a row are not 3 layers at 30 dps — the duration refreshes to `max` and the damage stays 0.167/tick. Stacking damage requires **different** statuses (burning + melting = 28 dps).
 
-**反例 2：以为 wet 能减伤。**
-wet 只有 `speedMultiplier = 0.94`，**不减伤害**；它的价值是"熄灭 burning + 被 shocked 引爆 14 伤"。
+**Counterexample 2: assuming wet reduces damage.**
+wet only has `speedMultiplier = 0.94` and **reduces no damage**; its value is "extinguishes burning + gets detonated by shocked for 14 damage".
 
-**反例 3：把 healthMultiplier 当加成方向搞反。**
-shielded `healthMultiplier = 3`：看着像"血量 ×3"，实际是伤害除以 3 → 受到伤害仅 1/3，等效 3 倍血。反过来 freezing 0.8 → 伤害 ×1.25。
+**Counterexample 3: getting the direction of healthMultiplier backwards.**
+shielded `healthMultiplier = 3` reads like "health ×3", but it actually divides damage by 3 → incoming damage is only 1/3, an effective 3× health. Conversely freezing at 0.8 → damage ×1.25.
 
-**反例 4：用 burning 打湿身单位。**
-目标站在水里（wet）时，burning 完全不生效，只结算 8 点 transitionDamage —— 火焰类炮塔打水图几乎废掉。
+**Counterexample 4: hitting a wet unit with burning.**
+While the target stands in water (wet), burning does not take effect at all — only 8 points of transitionDamage settle — so flame turrets are nearly dead weight on water maps.
 
-**可复算**：overdrive + boss 同时存在时 `damageMultiplier = 1.4 × 1.3 = 1.82`，`healthMultiplier = 0.95 × 1.5 = 1.425`（受伤 ÷1.425）。
+**Recomputable**: with overdrive + boss both present, `damageMultiplier = 1.4 × 1.3 = 1.82`, `healthMultiplier = 0.95 × 1.5 = 1.425` (incoming damage ÷1.425).
 
-## 常见误解
+## Common misconceptions
 
-- ❌ "status 有叠加上限/层数"。→ 原版**没有层数概念**，只有时长刷新。
-- ❌ "`disarmed` 是减速"。→ 是**禁火**，速度不变。
-- ❌ "corroded 是每帧 20 伤"。→ 每 15 tick 一次 20 伤 = 80 dps。
-- ❌ "地形状态只影响移动"。→ slag 会挂 melting（每秒 18 伤 + 0.8 速、0.8 血）。
-- ❌ "免疫表是全局的"。→ 每个 UnitType 自己维护 `immunities`（如 atrax 免疫 burning/melting）。
+- ❌ "statuses have a stack limit / layer count". → Vanilla has **no notion of layers**, only duration refresh.
+- ❌ "`disarmed` is a slow". → It is a **fire lock**; speed is unchanged.
+- ❌ "corroded is 20 damage per frame". → 20 damage every 15 tick = 80 dps.
+- ❌ "terrain statuses only affect movement". → slag applies melting (18 damage/s plus 0.8 speed, 0.8 health).
+- ❌ "the immunity table is global". → Each UnitType keeps its own `immunities` (e.g. atrax is immune to burning/melting).
 
-## 相关
+## See also
 
-- [[COMBAT.DAMAGE.001]] healthMultiplier 在伤害管线中的位置
-- [[COMBAT.ARMOR.001]] immunities 与 armorOverride
-- [[UNIT.ABILITY.001]] 能力如何周期性施加 status
-- [[UNIT.MOVE.001]] 地形状态与移动倍率
+- [[COMBAT.DAMAGE.001]] where healthMultiplier sits in the damage pipeline
+- [[COMBAT.ARMOR.001]] immunities and armorOverride
+- [[UNIT.ABILITY.001]] how abilities apply statuses periodically
+- [[UNIT.MOVE.001]] terrain statuses and movement multipliers

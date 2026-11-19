@@ -1,6 +1,6 @@
 ---
 id: WORLD.CRAFTING.001
-title: 配方与制造
+title: Recipes and crafting
 domain: world
 status: active
 ver: [v160.7_rt, v159.3_src]
@@ -15,29 +15,29 @@ src:
   - "MBO/gamedata/v160.7/gamedata.json (jar 反射，33 个带 recipe 的方块)"
 data: [00-data/blocks.json]
 depends: [WORLD.BLOCKS.001]
-tags: [配方, craftTime, 制造机, ConsumeItems, ConsumeLiquid, 蓝图, 效率]
+tags: [recipes, craftTime, crafters, ConsumeItems, ConsumeLiquid, schematics, efficiency]
 tokens: 1454
 ---
 
-## 一句话
+## In one sentence
 
-一个配方由三样东西拼成：**输入消费者**（ConsumeItems / ConsumeLiquid / ConsumePower / ConsumeCoolant）、**craftTime**（多少 tick 走满一圈）、**产出**（outputItems / outputLiquids）；三者量纲不同——物品是"每次完工扣一次"，液体和电力是"每 tick 扣一次"，所以任何速率换算必须先分清这个单位边界。
+A recipe is assembled from three things: the **input consumers** (ConsumeItems / ConsumeLiquid / ConsumePower / ConsumeCoolant), **craftTime** (how many tick one full cycle takes), and the **outputs** (outputItems / outputLiquids); their dimensions differ — items are "deducted once per completed craft", liquids and power are "deducted once per tick", so any rate conversion must settle this unit boundary first.
 
-## 规则 / 公式
+## Rules / formulas
 
-### 1. 三个量的单位边界（最常错的一条）
+### 1. Unit boundaries of the three quantities (the most common mistake)
 
-| 字段 | 单位 | 何时扣/给 | 换算 |
+| Field | Unit | When deducted/given | Conversion |
 |---|---|---|---|
-| `ConsumeItems.amount` / `outputItems.amount` | 个 / **craft** | 完工瞬间（`trigger()`） | 个/秒 = amount × 60 / craftTime |
-| `ConsumeLiquid.amount` / `outputLiquids.amount` | 液体 / **tick** | 每 tick 连续扣/给 | 每秒 = amount × 60 |
-| `ConsumePower.usage` | 电力 / **tick** | 每 tick 连续扣 | 每秒 = usage × 60 |
-| `ConsumeCoolant.amount` | 液体 / tick | 每 tick 连续扣 | 同液体 |
-| `craftTime` | **tick**（1 tick = 1/60 s） | 进度累加 | 周期 = craftTime/60 秒；速率 = 60/craftTime 次/秒 |
+| `ConsumeItems.amount` / `outputItems.amount` | items / **craft** | at the instant of completion (`trigger()`) | items/s = amount × 60 / craftTime |
+| `ConsumeLiquid.amount` / `outputLiquids.amount` | liquid / **tick** | continuously, every tick | per second = amount × 60 |
+| `ConsumePower.usage` | power / **tick** | continuously, every tick | per second = usage × 60 |
+| `ConsumeCoolant.amount` | liquid / tick | continuously, every tick | same as liquid |
+| `craftTime` | **tick** (1 tick = 1/60 s) | progress accumulation | period = craftTime/60 s; rate = 60/craftTime per second |
 
-`ConsumeLiquid.update()` 里是 `liquids.remove(liquid, amount * build.edelta() * multiplier)`（每 tick），而 `ConsumeItems.trigger()` 里是 `items.remove(Math.round(amount * multiplier))`（每次完工）——这是源码里两条完全不同的路径，不是文档笔误 [src: ConsumeLiquid.java:37-38, ConsumeItems.java:44-48]。
+`ConsumeLiquid.update()` runs `liquids.remove(liquid, amount * build.edelta() * multiplier)` (every tick), while `ConsumeItems.trigger()` runs `items.remove(Math.round(amount * multiplier))` (once per craft) — two entirely different paths in the source, not a documentation slip [src: ConsumeLiquid.java:37-38, ConsumeItems.java:44-48].
 
-### 2. 进度推进
+### 2. Progress advance
 
 ```
 progress += getProgressIncrease(craftTime)      // 每 tick
@@ -46,123 +46,123 @@ edelta() = efficiency * delta()                 // delta()≈1（60 UPS 归一�
 progress >= 1f  ->  craft(): consume(); 逐个 offload(outputItems); progress %= 1f
 ```
 
-所以**一个方块在效率 100% 下，完成一圈正好用 craftTime 个 tick**；效率 50% 时用 2×craftTime 个 tick。
+So **at 100% efficiency one cycle takes exactly craftTime tick**; at 50% efficiency it takes 2×craftTime tick.
 
-`getProgressIncrease` 还有一层"输出液体剩余容量"限速：输出液体快满时进度会主动放慢，避免浪费输入 [src: GenericCrafter.java:266-285]。
+`getProgressIncrease` also throttles on "remaining output-liquid capacity": as the output liquid nears full, progress deliberately slows so inputs are not wasted [src: GenericCrafter.java:266-285].
 
-### 3. 谁决定效率
+### 3. Who decides efficiency
 
-`efficiency` 是所有**非 optional** 消费者效率的最小值 [src: BuildingComp.java:1975-1992]：
+`efficiency` is the minimum over all **non-optional** consumers [src: BuildingComp.java:1975-1992]:
 
-- `ConsumeItems.efficiency()` = `items.has(需求) ? 1 : 0`（有就给满，不做比例）[src: ConsumeItems.java:51-53]
-- `ConsumeLiquid.efficiency()` = `min(当前库存 / (amount*edelta*mult), 1)`（液体可以"半饱"跑）[src: ConsumeLiquid.java:42-47]
-- `ConsumePower.efficiency()` = 电网供需比（详见 `WORLD.POWER.001`）
+- `ConsumeItems.efficiency()` = `items.has(need) ? 1 : 0` (present ⇒ full, with no proportional scaling) [src: ConsumeItems.java:51-53]
+- `ConsumeLiquid.efficiency()` = `min(current stock / (amount*edelta*mult), 1)` (a liquid can run "half full") [src: ConsumeLiquid.java:42-47]
+- `ConsumePower.efficiency()` = the grid's supply/demand ratio (see `WORLD.POWER.001`)
 
-液体消费者会"半饱"地拖低整机效率，物品消费者只会 0/1 跳变——这解释了为什么缺矿的工厂是"完全停"，而缺水的工厂会"慢速爬"。
+A liquid consumer drags the whole machine's efficiency down while "half full", whereas an item consumer only flips between 0 and 1 — which explains why a factory short of ore stops dead while a factory short of water crawls along.
 
-### 4. 停摆条件（shouldConsume）
+### 4. Stall conditions (shouldConsume)
 
-`GenericCrafterBuild.shouldConsume()` 在以下情况返回 false，整个工厂不进食也不涨进度 [src: GenericCrafter.java:203-232]：
+`GenericCrafterBuild.shouldConsume()` returns false in the following cases, and the whole factory then neither consumes nor advances progress [src: GenericCrafter.java:203-232]:
 
-1. 任一 `outputItems` 在机器内的存量已到 `itemCapacity`（产物堵死）；
-2. 任一 `outputLiquids` 已满 **且** 该输出未设 `dumpExtraLiquid` / `ignoreLiquidFullness`；
-3. `enabled == false`（逻辑处理器关掉）或 `efficiency == 0`。
+1. any `outputItems` has reached `itemCapacity` inside the machine (the product is jammed);
+2. any `outputLiquids` is full **and** that output has neither `dumpExtraLiquid` nor `ignoreLiquidFullness` set;
+3. `enabled == false` (switched off by a logic processor) or `efficiency == 0`.
 
-注意顺序：**先堵输出再谈输入**。输入满、输出堵的工厂不是"待机"，是"卡死"——传送带会把上游一起顶停（见 `WORLD.LOGISTICS.001` 的回压）。
+Mind the order: **outputs jam first, inputs come second**. A factory with full inputs and a jammed output is not "idle", it is "stuck" — the conveyor back-pressure stops everything upstream too (see the back-pressure section of `WORLD.LOGISTICS.001`).
 
-### 5. 工厂 vs 制造机
+### 5. Factories vs crafters
 
-原版**没有**叫"工厂"的方块类型，这是玩家俗称。按 `baseClass` 分，带 `recipe` 的 33 个方块是 5 类：
+Vanilla has **no** block type called "factory"; that is player slang. By `baseClass`, the 33 blocks carrying a `recipe` fall into 5 classes:
 
-| baseClass | 数量 | 代表 | 差别 |
+| baseClass | Count | Examples | Difference |
 |---|---|---|---|
-| `GenericCrafter` | 17 | graphite-press, silicon-smelter, phase-weaver | 基础制造，无额外加成 |
-| `HeatCrafter` | 5 | carbide-crucible, cyanogen-synthesizer | 需要 heat，热量越高越快（见 `WORLD.HEAT.001`） |
-| `HeatProducer` | 6 | oxidation-chamber, electric-heater, heat-reactor | 产物是热量本身（`heatOutput`），无物品产出 |
-| `AttributeCrafter` | 3 | cultivator, vent-condenser, silicon-crucible | 效率随地板属性数量放大 |
-| `Separator` | 2 | separator, disassembler | 从液体/废料里**随机**挑一种产出 |
+| `GenericCrafter` | 17 | graphite-press, silicon-smelter, phase-weaver | basic crafting, no extra bonus |
+| `HeatCrafter` | 5 | carbide-crucible, cyanogen-synthesizer | needs heat, faster the hotter it is (see `WORLD.HEAT.001`) |
+| `HeatProducer` | 6 | oxidation-chamber, electric-heater, heat-reactor | the product is heat itself (`heatOutput`), no item output |
+| `AttributeCrafter` | 3 | cultivator, vent-condenser, silicon-crucible | efficiency scales with the number of floor attributes |
+| `Separator` | 2 | separator, disassembler | picks one output **at random** from a liquid/waste |
 
-玩家口中的"小工厂"= `graphite-press`/`kiln`/`silicon-smelter` 这类 2×2 无电或低电制造；"大工厂"= `plastanium-compressor`/`surge-smelter` 这类多输入高电耗制造。区别只在输入端数量与功耗，机制上没有第二套规则。
+What players call a "small factory" = 2×2 no-power or low-power crafters such as `graphite-press`/`kiln`/`silicon-smelter`; a "big factory" = multi-input, power-hungry crafters such as `plastanium-compressor`/`surge-smelter`. The difference lies only in input count and power draw; mechanically there is no second rule set.
 
-### 6. 蓝图里有什么
+### 6. What a schematic contains
 
-`Schematic.Stile` 只有 4 个字段：`Block block; int x, y; Object config; byte rotation` [src: Schematic.java:126-132]。因此蓝图/复制粘贴：
+`Schematic.Stile` has only 4 fields: `Block block; int x, y; Object config; byte rotation` [src: Schematic.java:126-132]. So a schematic / copy-paste:
 
-- **保存**：方块种类、相对坐标、配置（如卸载器目标、逻辑处理器代码）、朝向；
-- **不保存**：库存（`items`）、液体（`liquids`）、进度（`progress`、`warmup`）、热量、电力储量；
-- **成本**：`Schematic.requirements()` 把每个方块的 `requirements` 累加，粘贴时从核心/库存里扣；`Schematic.powerConsumption()` 用 `block.consPower.usage` 累加，单位同样是 per tick。
+- **saves**: block type, relative coordinates, config (such as an unloader's target or a logic processor's code), rotation;
+- **does not save**: stock (`items`), liquids (`liquids`), progress (`progress`, `warmup`), heat, stored power;
+- **cost**: `Schematic.requirements()` sums each block's `requirements` and deducts them from the core/stock on paste; `Schematic.powerConsumption()` sums `block.consPower.usage`, likewise per tick.
 
-所以复制一座"已经装满矿的工厂"只会得到一个空壳——这是复制工厂最常见的失望点。
+So copying a "factory already full of ore" yields only an empty shell — the most common disappointment when copying factories.
 
-## 数值
+## Numbers
 
-以下取自 v160.7 jar 反射的 `recipe`（同源字段见 `00-data/blocks.json#id=<name>` 的 `recipe` 子树）。速率按 60 UPS 换算：**物品 ×60/craftTime、液体 ×60、电力 ×60**。
+The table below comes from the `recipe` data reflected out of the v160.7 jar (for the same-source fields see the `recipe` subtree of `00-data/blocks.json#id=<name>`). Rates use the 60 UPS conversion: **items ×60/craftTime, liquids ×60, power ×60**.
 
-| 方块 | craftTime (tick) | 次/秒 | 物品输入（每 craft） | 液体输入（每 tick） | 产出 | 电耗/tick | 电耗/秒 |
+| Block | craftTime (tick) | per second | Item input (per craft) | Liquid input (per tick) | Output | Power/tick | Power/s |
 |---|---|---|---|---|---|---|---|
-| graphite-press | 90 | 0.667 | coal 2 | 无 | graphite 1（0.667/s） | 无 | 0 |
-| silicon-smelter | 40 | 1.5 | coal 1 + sand 2 | 无 | silicon 1（1.5/s） | 0.5 | 30 |
-| kiln | 30 | 2.0 | lead 1 + sand 1 | 无 | metaglass 1（2/s） | 0.6 | 36 |
-| pulverizer | 40 | 1.5 | scrap 1 | 无 | sand 1（1.5/s） | 0.5 | 30 |
-| multi-press | 30 | 2.0 | coal 3 | water 0.1（6/s） | graphite 2（4/s） | 1.8 | 108 |
-| plastanium-compressor | 60 | 1.0 | titanium 2 | oil 0.25（15/s） | plastanium 1（1/s） | 3.0 | 180 |
-| phase-weaver | 120 | 0.5 | thorium 4 + sand 10 | 无 | phase-fabric 1（0.5/s） | 5.0 | 300 |
-| surge-smelter | 75 | 0.8 | copper 3 + lead 4 + titanium 2 + silicon 3 | 无 | surge-alloy 1（0.8/s） | 4.0 | 240 |
-| cryofluid-mixer | 120 | 0.5 | titanium 1 | water 0.2（12/s） | cryofluid 0.2（12/s） | 1.0 | 60 |
-| electrolyzer | 10 | 6.0 | 无 | water 0.1667（10/s） | ozone 0.0667（4/s）+ hydrogen 0.1（6/s） | 1.0 | 60 |
-| carbide-crucible | 33.75 | 1.778 | tungsten 2 + graphite 3 | 无 | carbide 1（1.778/s） | 2.0 | 120 |
-| separator | 35 | 1.714 | 无 | slag 0.0667（4/s） | 随机一种：copper 5 / lead 3 / graphite 2 / titanium 2（权重） | 1.1 | 66 |
+| graphite-press | 90 | 0.667 | coal 2 | none | graphite 1 (0.667/s) | none | 0 |
+| silicon-smelter | 40 | 1.5 | coal 1 + sand 2 | none | silicon 1 (1.5/s) | 0.5 | 30 |
+| kiln | 30 | 2.0 | lead 1 + sand 1 | none | metaglass 1 (2/s) | 0.6 | 36 |
+| pulverizer | 40 | 1.5 | scrap 1 | none | sand 1 (1.5/s) | 0.5 | 30 |
+| multi-press | 30 | 2.0 | coal 3 | water 0.1 (6/s) | graphite 2 (4/s) | 1.8 | 108 |
+| plastanium-compressor | 60 | 1.0 | titanium 2 | oil 0.25 (15/s) | plastanium 1 (1/s) | 3.0 | 180 |
+| phase-weaver | 120 | 0.5 | thorium 4 + sand 10 | none | phase-fabric 1 (0.5/s) | 5.0 | 300 |
+| surge-smelter | 75 | 0.8 | copper 3 + lead 4 + titanium 2 + silicon 3 | none | surge-alloy 1 (0.8/s) | 4.0 | 240 |
+| cryofluid-mixer | 120 | 0.5 | titanium 1 | water 0.2 (12/s) | cryofluid 0.2 (12/s) | 1.0 | 60 |
+| electrolyzer | 10 | 6.0 | none | water 0.1667 (10/s) | ozone 0.0667 (4/s) + hydrogen 0.1 (6/s) | 1.0 | 60 |
+| carbide-crucible | 33.75 | 1.778 | tungsten 2 + graphite 3 | none | carbide 1 (1.778/s) | 2.0 | 120 |
+| separator | 35 | 1.714 | none | slag 0.0667 (4/s) | one at random: copper 5 / lead 3 / graphite 2 / titanium 2 (weights) | 1.1 | 66 |
 
-补充计数（同一次 jar 反射，447 个方块全体）：
+Supplementary counts (the same reflection pass, all 447 blocks):
 
-- 带 `recipe` 的方块 **33 个**；`craftTime` 分布（值×个数）：80×6、120×5、30×4、90×2、40×2、20×2、10×2、60/75/35/15/50/45/100/480/600/33.75 各 ×1，共 17 个不同取值、合计 33 个方块。
-- 最小 `craftTime = 10`（melter、electrolyzer），最大 `= 600`（heat-reactor，属 HeatProducer）。
-- 消费者类型计数：`ConsumePower` 104 个方块、`ConsumeLiquid` 60、`ConsumeItems` 45、`ConsumeCoolant` 16、`ConsumeItemDynamic` 11、`ConsumeLiquids` / `ConsumeLiquidsDynamic` / `ConsumePayloadDynamic` 各 3、`ConsumeItemFlammable` / `ConsumeItemExplode` / `ConsumePowerCondition` 各 2、`ConsumeItemRadioactive` / `ConsumePowerDynamic` 各 1。
-- 电解器可做质量守恒自检：进水 10/s，出 ozone 4/s + hydrogen 6/s = 10/s（1:1 分解）。
+- **33** blocks carry a `recipe`; the `craftTime` distribution (value × count): 80×6, 120×5, 30×4, 90×2, 40×2, 20×2, 10×2, and 60/75/35/15/50/45/100/480/600/33.75 once each — 17 distinct values covering 33 blocks in total.
+- Smallest `craftTime = 10` (melter, electrolyzer), largest `= 600` (heat-reactor, a HeatProducer).
+- Consumer-type counts: `ConsumePower` 104 blocks, `ConsumeLiquid` 60, `ConsumeItems` 45, `ConsumeCoolant` 16, `ConsumeItemDynamic` 11, `ConsumeLiquids` / `ConsumeLiquidsDynamic` / `ConsumePayloadDynamic` 3 each, `ConsumeItemFlammable` / `ConsumeItemExplode` / `ConsumePowerCondition` 2 each, `ConsumeItemRadioactive` / `ConsumePowerDynamic` 1 each.
+- The electrolyzer passes a mass-conservation self-check: 10/s water in, 4/s ozone + 6/s hydrogen = 10/s out (a 1:1 decomposition).
 
-## 源码锚点
+## Source anchors
 
-- `GenericCrafter.java:40` `public float craftTime = 80f;` —— 默认 80 tick（≈1.33 s），所以多数工厂"一秒多一点一圈"。
-- `GenericCrafter.java:45` `warmupSpeed = 0.019f` —— 视觉预热，与产能无关。
-- `GenericCrafter.java:66` `stats.timePeriod = craftTime` —— UI 用 craftTime 把"每 craft"折算成"/秒"。
-- `GenericCrafter.java:73` `StatValues.items(craftTime, outputItems)` —— 物品按每条 craftTime 折算。
-- `GenericCrafter.java:77` `StatValues.liquids(1f, outputLiquids)` —— 液体用 **1f** 作时间基准，再内部乘 `60/timePeriod`（`StatValues.java:141`），即"amount 是每 tick"。
-- `GenericCrafter.java:236-264` `GenericCrafterBuild.updateTile()`：进度累加 + 输出液体按 `getProgressIncrease(1f)` 连续给。
-- `GenericCrafter.java:301-316` `craft()`：`consume()` → 逐 `outputItems` 调 `offload()` → `progress %= 1f`。
-- `BuildingComp.java:1209-1211` `getProgressIncrease(baseTime) = 1f / baseTime * edelta()`。
-- `BuildingComp.java:1933-1935` `edelta() = efficiency * delta()`；`1928-1930` `delta() = Time.delta * timeScale`。
-- `BuildingComp.java:2004-2009` 消费者更新被 `if(update && efficiency > 0)` 门控。
-- `ConsumeItems.java:44-48` / `ConsumeLiquid.java:37-38` 两种扣费路径（per craft vs per tick）。
-- `Schematic.java:126-132` 蓝图的 `Stile` 只存 `block/x/y/config/rotation`。
+- `GenericCrafter.java:40` `public float craftTime = 80f;` —— the default is 80 tick (≈1.33 s), so most factories turn a little more than one cycle per second.
+- `GenericCrafter.java:45` `warmupSpeed = 0.019f` —— visual warm-up only, unrelated to throughput.
+- `GenericCrafter.java:66` `stats.timePeriod = craftTime` —— the UI uses craftTime to convert "per craft" into "/second".
+- `GenericCrafter.java:73` `StatValues.items(craftTime, outputItems)` —— items are converted per craftTime.
+- `GenericCrafter.java:77` `StatValues.liquids(1f, outputLiquids)` —— liquids use **1f** as the time basis and then multiply internally by `60/timePeriod` (`StatValues.java:141`), i.e. "amount is per tick".
+- `GenericCrafter.java:236-264` `GenericCrafterBuild.updateTile()`: progress accumulation plus output liquid given continuously at `getProgressIncrease(1f)`.
+- `GenericCrafter.java:301-316` `craft()`: `consume()` → `offload()` for each `outputItems` → `progress %= 1f`.
+- `BuildingComp.java:1209-1211` `getProgressIncrease(baseTime) = 1f / baseTime * edelta()`.
+- `BuildingComp.java:1933-1935` `edelta() = efficiency * delta()`; `1928-1930` `delta() = Time.delta * timeScale`.
+- `BuildingComp.java:2004-2009` consumer updates are gated by `if(update && efficiency > 0)`.
+- `ConsumeItems.java:44-48` / `ConsumeLiquid.java:37-38` the two consumption paths (per craft vs per tick).
+- `Schematic.java:126-132` a schematic's `Stile` stores only `block/x/y/config/rotation`.
 
-## 实测与反例
+## Measurements and counter-examples
 
-**反例 1（旧表的 craftTime 全是 -1）**：旧 `data/game/*.json` 里 447 个方块的 `craftTime` 一律是 `-1`，那是导出脚本没进反射字段的占位值。v160.7 jar 实测 **-1 的数量为 0**，真实区间是 10–600。凡是从旧表读到 -1 的，一律视为"该字段缺失"而不是"瞬间完成"。**该缺陷已于 2026-11 修复**：`tools/dev/dump_game.py` 现在直接读 `b.craftTime`——33 个方块有真值，其余 414 个方块（传送带、塔、墙体、地板…）的类上根本没有这个字段，一律记 `null`（不是 0，也不是 -1）。这条已记入 `VERSION.md` 的已知错误清单。
+**Counter-example 1 (craftTime is -1 everywhere in the old table)**: in the old `data/game/*.json`, `craftTime` is `-1` for all 447 blocks — a placeholder from an export script that never reached the reflected field. In the v160.7 jar the **count of -1 is 0** and the real range is 10–600. Anything that reads -1 from the old table must be treated as "field missing", never as "completes instantly". **The defect was fixed in 2026-11**: `tools/dev/dump_game.py` now reads `b.craftTime` directly — the 33 blocks have real values, and the other 414 blocks (conveyors, turrets, walls, floors, …) do not carry the field on their class at all, so they record `null` (not 0, not -1). This is listed in the known-errors section of `VERSION.md`.
 
-**反例 2（`recipe.outputLiquidsPerSecond` 这个派生字段是错的）**：gamedata.json 里 `cryofluid-mixer.outputLiquidsPerSecond = 0.1`、`melter = 1.2`、`electrolyzer = ozone 0.4 + hydrogen 0.6`。它把公式写成了 `amount / craftTime * 60`（按 per-craft 折算）。而源码 `GenericCrafter.java:243` 是每 tick 加一次 `output.amount * inc`，正确值应是 `amount × 60`：cryofluid 12/s、slag 12/s、ozone 4/s + hydrogen 6/s。用质量守恒立刻能判：电解器进水 10/s，派生字段的产物总和只有 1.0/s，违反 1:1 分解；源码口径 4+6=10/s 才对。**该派生字段不可直接采信。**
+**Counter-example 2 (the derived field `recipe.outputLiquidsPerSecond` is wrong)**: gamedata.json has `cryofluid-mixer.outputLiquidsPerSecond = 0.1`, `melter = 1.2`, `electrolyzer = ozone 0.4 + hydrogen 0.6`. It applies the formula `amount / craftTime * 60` (a per-craft conversion), whereas the source at `GenericCrafter.java:243` adds `output.amount * inc` every tick, so the correct value is `amount × 60`: cryofluid 12/s, slag 12/s, ozone 4/s + hydrogen 6/s. Mass conservation settles it at once: the electrolyzer takes 10/s of water in while the derived field's products sum to only 1.0/s, which violates the 1:1 decomposition; the source reading of 4+6=10/s is the right one. **This derived field cannot be taken at face value.**
 
-**反例 3（改 craftTime 不会等比改液体消耗）**：`multi-press` 现在是 `craftTime=30`、`water 0.1/tick`（6/s）。若把它改到 60，物品消耗减半（coal 由 2 craft/s × 3 = 6/s 降到 1 craft/s × 3 = 3/s，graphite 由 4/s 降到 2/s），但**水仍然是 6/s 不变**，因为 `ConsumeLiquid.update()` 每 tick 扣一次、与进度无关。混配方（物品+液体）的工厂改速度后会改变配比，这是复刻/平衡改动的经典坑。
+**Counter-example 3 (changing craftTime does not change liquid consumption proportionally)**: `multi-press` currently has `craftTime=30` and `water 0.1/tick` (6/s). Change it to 60 and item consumption halves (coal falls from 2 craft/s × 3 = 6/s to 1 craft/s × 3 = 3/s, graphite from 4/s to 2/s), but **water stays at 6/s**, because `ConsumeLiquid.update()` deducts every tick, independent of progress. Mixed-recipe factories (items + liquids) change their ratio when you change the speed — the classic trap when reproducing or rebalancing a build.
 
-**反例 4（craftTime 不必是整数）**：`carbide-crucible` 的 `craftTime = 33.75`，`cyclesPerSecond = 1.777778`。任何"craftTime 必须是整数 tick"的假设都会在这里崩；UI 上它显示成 1.78/s。
+**Counter-example 4 (craftTime need not be an integer)**: `carbide-crucible` has `craftTime = 33.75` and `cyclesPerSecond = 1.777778`. Any assumption that "craftTime must be an integer number of ticks" breaks here; the UI shows it as 1.78/s.
 
-**反例 5（随机制造机没有静态产出率）**：`separator` 的 `recipe.resultsSemantics` 明写 "one random result per craft, weighted by amount"，产出是 copper5/lead3/graphite2/titanium2 里随机挑一种（**给的是该种的总量，不是概率**）。它的 gamedata 记录里既没有 `outputItems` 也没有 `outputItemsPerSecond`——用 `outputItems` 读它会得到空数组，误判为"不产出"。
+**Counter-example 5 (a random-output crafter has no static output rate)**: `separator`'s `recipe.resultsSemantics` says outright "one random result per craft, weighted by amount"; the output is one of copper5/lead3/graphite2/titanium2 picked at random (**the amount given is that kind's total, not a probability**). Its gamedata record has neither `outputItems` nor `outputItemsPerSecond` — reading it through `outputItems` gives an empty array and the false conclusion "it produces nothing".
 
-## 常见误解
+## Common misconceptions
 
-1. **"craftTime 是秒"** → 是 tick。`graphite-press` 的 90 不是 90 秒而是 1.5 秒一圈（这个错会把产能算小 60 倍）。
-2. **"outputLiquids 也是每次完工给一次"** → 是每 tick 连续给。所以液体产率 = `amount × 60`，与 craftTime 无关（见反例 2）。
-3. **"耗电 usage 单位是 /s"** → 是 /tick。`phase-weaver` 的 5 是 5/tick = 300/s，不是 5/s。旧速查表（`docs/游戏速查/方块配方.md`，2026-11-17 已删）的"耗电"列就是每 tick 值却标了 /s，这个坑已记入 `VERSION.md`。
-   反查「谁消耗某物品」时不要手抄：对 `00-data/blocks.json` 的 `consumers[].items[].item` 做反向 join 即可。
-4. **"缺电只是变慢，材料照扣"** → 物品在 `craft()` 完工时才扣，效率 0 就不完工、不扣物品；但液体消费者由 `BuildingComp.java:2005` 门控，仅当 `efficiency > 0` 才扣——效率被输出满限速时会出现"进度变慢、液体照满额扣"的浪费。
-5. **"蓝图会带上工厂里的库存和进度"** → `Schematic.Stile` 只有 block/x/y/config/rotation 四个字段，进度与库存不进蓝图（详见上文「蓝图里有什么」）。
-6. **"工厂和制造机是两类方块"** → 原版只有 `GenericCrafter`/`HeatCrafter`/`AttributeCrafter`/`HeatProducer`/`Separator` 这几种实现类，玩家俗称不构成机制差异。
+1. **"craftTime is in seconds"** → it is tick. `graphite-press`'s 90 is not 90 s but 1.5 s per cycle (this mistake understates throughput by 60×).
+2. **"outputLiquids is given once per craft too"** → it is given continuously every tick. So liquid throughput = `amount × 60`, independent of craftTime (see counter-example 2).
+3. **"the usage unit is /s"** → it is /tick. `phase-weaver`'s 5 is 5/tick = 300/s, not 5/s. The "power use" column of the old quick-reference sheet (docs/游戏速查/方块配方.md, deleted 2026-11-17) held per-tick values while labelled /s; the trap is recorded in `VERSION.md`.
+   To reverse-look-up "who consumes item X", do not copy by hand: reverse-join `consumers[].items[].item` in `00-data/blocks.json`.
+4. **"no power only slows it down, materials are still deducted"** → items are deducted only when `craft()` completes, so efficiency 0 means no completion and no item deduction; liquid consumers, however, are gated by `BuildingComp.java:2005` and deduct only when `efficiency > 0` — when output fullness throttles efficiency you get the waste of "progress slows while liquids are still deducted in full".
+5. **"a schematic carries the factory's stock and progress"** → `Schematic.Stile` has only the four fields block/x/y/config/rotation; progress and stock do not enter a schematic (see "What a schematic contains" above).
+6. **"factories and crafters are two kinds of block"** → vanilla has only these implementation classes — `GenericCrafter`/`HeatCrafter`/`AttributeCrafter`/`HeatProducer`/`Separator` — and the player slang implies no mechanical difference.
 
-## 相关
+## Related
 
-- `WORLD.BLOCKS.001`（size 与布局：工厂占地决定传送带接入点）
-- `WORLD.POWER.001`（`ConsumePower` 与 usage/usagePerSecond 的完整换算）
-- `WORLD.LIQUIDS.001`（`ConsumeLiquid` 的液体属性与堵塞）
-- `WORLD.HEAT.001`（`HeatCrafter` 的加成公式）
-- `WORLD.LOGISTICS.001`（输出堵死导致的回压）
-- 数据表：`00-data/blocks.json`（`recipe` 子树）、`00-data/formulas.json`
-- 源码：`world/blocks/production/GenericCrafter.java`、`world/consumers/*.java`、`game/Schematic.java`、`entities/comp/BuildingComp.java`
+- `WORLD.BLOCKS.001` (size and layout: a factory's footprint decides where conveyors can connect)
+- `WORLD.POWER.001` (the full conversion between `ConsumePower`, usage and usagePerSecond)
+- `WORLD.LIQUIDS.001` (liquid properties and jamming for `ConsumeLiquid`)
+- `WORLD.HEAT.001` (the `HeatCrafter` bonus formula)
+- `WORLD.LOGISTICS.001` (back-pressure from a jammed output)
+- Data tables: `00-data/blocks.json` (the `recipe` subtree), `00-data/formulas.json`
+- Source: `world/blocks/production/GenericCrafter.java`, `world/consumers/*.java`, `game/Schematic.java`, `entities/comp/BuildingComp.java`

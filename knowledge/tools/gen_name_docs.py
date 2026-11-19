@@ -1,18 +1,20 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""gen_name_docs.py — 从 en/zh bundle + 00-data 生成 5 篇中英名对照文章（只读 bundle，不改数据表）。
+"""gen_name_docs.py — generate the five Chinese/English name-mapping articles from the en/zh
+bundles plus 00-data (reads the bundles only; never edits the data tables).
 
-用法:
-    python knowledge/tools/gen_name_docs.py            # 生成 02-world/W13..W16 与 04-units/U06
-    python knowledge/tools/gen_name_docs.py --check    # 与磁盘比对（漂移则退出码 1），不写文件
+Usage:
+    python knowledge/tools/gen_name_docs.py            # write 02-world/W13..W16 and 04-units/U06
+    python knowledge/tools/gen_name_docs.py --check    # diff against disk (exit 1 on drift), write nothing
 
-数据源:
-    data/game/bundles/bundle.properties       英文显示名（仓库内，首选）
-    data/game/bundles/bundle_zh_CN.properties 中文显示名（仓库内，首选）
-    knowledge/00-data/{blocks,units,items,liquids,status}.json  (id 全集与分组)
-    bundle 目录依次找 $MLOG_BUNDLES、本仓库的 data/game/bundles/、assetsraw/、以及同级的
-    TextureMDT/（游戏素材拆出去后的目录名）—— 素材树只是覆盖用，行号须与仓库内一致。
-key 规则: <kind>.<id>.name，kind ∈ block/unit/item/liquid/status。
+Data sources:
+    data/game/bundles/bundle.properties       English display names (in-repo, preferred)
+    data/game/bundles/bundle_zh_CN.properties Chinese display names (in-repo, preferred)
+    knowledge/00-data/{blocks,units,items,liquids,status}.json  (full id set and grouping)
+    the bundle directory is looked for in $MLOG_BUNDLES, then this repo's data/game/bundles/,
+    assetsraw/, and a sibling TextureMDT/ (the split-out game-asset tree) — the asset tree only
+    overrides; line numbers must still match the in-repo copies.
+Key rule: <kind>.<id>.name with kind in block/unit/item/liquid/status.
 """
 from __future__ import annotations
 
@@ -185,7 +187,7 @@ def fm(art_id, title, data_refs, depends, tags, extra_src=()):
     return lines
 
 
-HDR = ("id", "英文名", "中文名", "中文名出处", "英文名出处")
+HDR = ("id", "English name", "Chinese name", "Chinese name source", "English name source")
 
 
 def table(idents, kind="block"):
@@ -200,61 +202,95 @@ def doc1():
     ids = [b["id"] for b in tb]
     hit, zh_only, total = coverage("block", ids)
     art = "WORLD.NAMES.001"
-    L = fm(art, "方块名对照①：地形 / 矿石 / 墙壁（%d 条）" % total,
+    L = fm(art, "Block name mapping I - terrain / ore / walls (%d entries)" % total,
            ["00-data/blocks.json"],
            ["WORLD.BLOCKS.001", "WORLD.TERRAIN.001"],
-           ["名词", "中文名", "英文名", "翻译", "对照表", "地形", "矿石", "墙壁"])
+           ["names", "chinese-name", "english-name", "translation", "mapping-table",
+            "terrain", "ore", "walls"])
     L += [
         "",
-        "## 一句话",
+        "## One line",
         "",
-        "界面上的中文名既不是 id、也不是英文名的直译；要在地图、沙盒与攻略之间对号，先用这张表把「看到的名字」换成 id，再去正文查机制与数值。",
+        "A Chinese name on screen is neither the id nor a literal translation of the English "
+        "name; to cross-reference a map, the sandbox and a guide, use this table first to turn "
+        "\"the name you saw\" into an id, then look up mechanics and numbers in the main "
+        "articles.",
         "",
-        "## 规则 / 公式",
+        "## Rules / formulas",
         "",
-        "- 显示名的唯一来源是语言包：`block.<id>.name` 给方块名，`<kind>.<id>.name` 给其余实体；本文只收 `kind=block` 的地形层。",
-        "- 分组依据是 00-data 的 `types` 字段：含 `floor` / `wall` / `ore` 的 %d 条即本文范围，涵盖地板、矿层、矿墙与编辑器专用地形。" % total,
-        "- 表内「—」表示语言包里没有该 id 的 `.name` 项，不等于名字未知：这类方块在界面上通常不显示名字（编辑器、旧版遗留、矿层贴图）。",
-        "- 显示串可能混入颜色标记（如 `[lightgray]`），表中已剥掉标记、保留括号内的文字。",
+        "- The only source of a display name is the language bundle: `block.<id>.name` gives a "
+        "block name and `<kind>.<id>.name` gives the remaining entities; this article only "
+        "covers the terrain layer, `kind=block`.",
+        "- Grouping follows the `types` field in 00-data: the %d entries containing `floor` / "
+        "`wall` / `ore` are this article's scope, covering floors, ore layers, ore walls and "
+        "editor-only terrain." % total,
+        "- A \"—\" in the table means the bundle has no `.name` entry for that id; it does not "
+        "mean the name is unknown, because such blocks normally show no name in the UI (editor "
+        "placeholders, legacy leftovers, ore overlays).",
+        "- A display string may carry colour markers (such as `[lightgray]`); the table strips "
+        "the markers and keeps the text inside the parentheses.",
         "",
-        "## 数值",
+        "## Numbers",
         "",
-        "本节只列名词，不含任何数值；血量、尺寸、装甲等数值见 `00-data/blocks.json` 与 WORLD.BLOCKS.001。",
+        "This section lists names only and contains no numbers; health, size, armor and similar "
+        "figures are in `00-data/blocks.json` and WORLD.BLOCKS.001.",
         "",
     ]
     L += table(ids)
     L += [
         "",
-        "## 源码锚点",
+        "## Source anchors",
         "",
-        "- `data/game/bundles/bundle_zh_CN.properties` —— 中文显示名；表内「中文名出处 zh:N」即该文件第 N 行。",
-        "- `data/game/bundles/bundle.properties` —— 英文显示名；「英文名出处 en:N」即该文件第 N 行。",
-        "- `00-data/blocks.json` —— `id` / `types` / `category` 字段；本文按 `types` 过滤出 %d 条（其中 %d 条有中文名）。" % (total, zh_only),
-        "- 生成脚本 `knowledge/tools/gen_name_docs.py`（游戏版本更新后重跑即可，不改 00-data）。",
+        "- `data/game/bundles/bundle_zh_CN.properties` - the Chinese display names; \"Chinese "
+        "name source zh:N\" in the table is line N of that file.",
+        "- `data/game/bundles/bundle.properties` - the English display names; \"English name "
+        "source en:N\" is line N of that file.",
+        "- `00-data/blocks.json` - the `id` / `types` / `category` fields; this article filters "
+        "out %d entries by `types` (%d of which have a Chinese name)." % (total, zh_only),
+        "- The generator script `knowledge/tools/gen_name_docs.py` (re-run it after a game "
+        "version update; it does not modify 00-data).",
         "",
-        "## 实测与反例",
+        "## Measurements and counter-examples",
         "",
-        "- 反例一：`dacite` 英文 Dacite（地质学上是英安岩），官方中文却是「安山岩」；而安山岩的英文是 andesite。中英名不对应，按地质名对号会错。",
-        "- 反例二：`char` 英文 “Charred Stone”（烧焦的石头），中文「焦土」——既不是逐词直译，也不是石头类（它是地板）。",
-        "- 反例三：`ore-copper` / `ore-lead` / `ore-thorium` 等矿层 id 在语言包里没有任何 `.name` 项；它们在沙盒菜单里以贴图出现、不显示名字。拿「铜矿」去搜 id 一定落空，必须反查 WORLD.DRILLING.001 的资源表。",
-        "- 反例四：`block.launch-pad.name` 的原始值是「发射台[lightgray]（旧版）」，颜色标记不是名字的一部分；直接抄进文档会带上 `[lightgray]`。",
-        "- 反例五：`build1`～`build16`、`air`、`target-dummy`、`legacy-*` 同样无 `.name`；它们是编辑器占位或旧版遗留，玩家界面不可见。",
+        "- **Counter-example A** - `dacite` has the English name \"Dacite\" (geologically "
+        "dacite), yet the official Chinese name is andesite (安山岩); and andesite's English "
+        "name is \"Andesite\" as well. The Chinese and English names do not line up, so "
+        "matching by geological name goes wrong.",
+        "- **Counter-example B** - `char` has the English name \"Charred Stone\" and the Chinese "
+        "name scorched earth (焦土) - neither a word-for-word translation nor a stone class (it "
+        "is a floor).",
+        "- **Counter-example C** - ore layer ids such as `ore-copper` / `ore-lead` / "
+        "`ore-thorium` have no `.name` entry at all in the bundle; they appear in the sandbox "
+        "menu as textures with no name shown. Searching ids for copper ore (铜矿) always comes "
+        "up empty - you have to cross-reference the resource table in WORLD.DRILLING.001.",
+        "- **Counter-example D** - the raw value of `block.launch-pad.name` is \"launch pad "
+        "(发射台)[lightgray] (legacy version)\"; the colour marker is not part of the name, and "
+        "copying it straight into a document drags `[lightgray]` along.",
+        "- **Counter-example E** - `build1`–`build16`, `air`, `target-dummy` and `legacy-*` "
+        "likewise have no `.name`; they are editor placeholders or legacy leftovers and are "
+        "invisible in the player UI.",
         "",
-        "## 常见误解",
+        "## Common misconceptions",
         "",
-        "- 把中文名当 id 用：`传送带` 不是 id，`conveyor` 才是；文档、蓝图、逻辑里只认 id。",
-        "- 以为英文名等于 id：`Titanium Conveyor` 有空格和大小写，id 是 `titanium-conveyor`。",
-        "- 以为中文名是英文名的直译：`Duo`=双管、`Dagger`=尖刀、`Mender`=修理器，都不是逐词对译。",
-        "- 以为每个方块都有显示名：本文 %d 条里有 %d 条没有，查到「—」不代表名字缺失，而是该方块在界面不显示名字。" % (total, total - zh_only),
+        "- Using the Chinese name as an id: conveyor (传送带) is not an id, `conveyor` is; "
+        "documents, blueprints and logic only accept ids.",
+        "- Assuming the English name equals the id: `Titanium Conveyor` has spaces and capitals, "
+        "while the id is `titanium-conveyor`.",
+        "- Assuming the Chinese name is a literal translation of the English one: Duo (双管), "
+        "Dagger (尖刀), Mender (修理器) are none of them word-for-word.",
+        "- Assuming every block has a display name: %d of the %d entries here do not; a \"—\" "
+        "means that block shows no name in the UI, not that the name is missing."
+        % (total - zh_only, total),
         "",
-        "## 相关",
+        "## Related",
         "",
-        "- WORLD.BLOCKS.001（方块模型与多格锚点，数值口径）",
-        "- WORLD.TERRAIN.001（地形、矿层、墙三层结构，移动倍率）",
-        "- WORLD.DRILLING.001（矿层与钻头覆盖，ore-* 的实际用途）",
-        "- WORLD.SANDBOX.001（编辑器可见性与 build 系列占位）",
-        "- WORLD.NAMES.002 / WORLD.NAMES.003（其余方块名）",
-        "- EV.CHEAT.001（速查卡）",
+        "- WORLD.BLOCKS.001 (block model and multiblock anchors, the numeric conventions)",
+        "- WORLD.TERRAIN.001 (terrain, the ore-layer and wall three-layer structure, movement "
+        "multipliers)",
+        "- WORLD.DRILLING.001 (ore layers and drill coverage, what ore-* is actually for)",
+        "- WORLD.SANDBOX.001 (editor visibility and the build series placeholders)",
+        "- WORLD.NAMES.002 / WORLD.NAMES.003 (the remaining block names)",
+        "- EV.CHEAT.001 (cheat sheet)",
     ]
     return art, "02-world/W13-name-blocks-terrain.md", L
 
@@ -264,60 +300,90 @@ def doc2():
     ids = [b["id"] for b in bl]
     hit, zh_only, total = coverage("block", ids)
     art = "WORLD.NAMES.002"
-    L = fm(art, "方块名对照②：物流 / 电力 / 液体 / 生产（%d 条）" % total,
+    L = fm(art, "Block name mapping II - logistics / power / liquids / production "
+           "(%d entries)" % total,
            ["00-data/blocks.json"],
            ["WORLD.BLOCKS.001", "WORLD.LOGISTICS.001"],
-           ["名词", "中文名", "英文名", "翻译", "对照表", "物流", "电力", "液体", "生产"])
+           ["names", "chinese-name", "english-name", "translation", "mapping-table",
+            "logistics", "power", "liquids", "production"])
     L += [
         "",
-        "## 一句话",
+        "## One line",
         "",
-        "物流、电力、液体、生产四类可建造方块的「中文名 ↔ 英文名 ↔ id」对照；按 `category` 分组，组内按 id 字母序。",
+        "The Chinese name ↔ English name ↔ id mapping for the four buildable block groups - "
+        "logistics, power, liquids and production; grouped by `category`, alphabetical by id "
+        "inside each group.",
         "",
-        "## 规则 / 公式",
+        "## Rules / formulas",
         "",
-        "- `category` 属于 {distribution, power, liquid, production, defense} 的 %d 条方块（已排除地形、矿、墙，见 WORLD.NAMES.001）。" % total,
-        "- 顺序即表内顺序：先 distribution（传送带、路由、交叉、桥、驱动器），再 power、liquid、production、defense。",
-        "- 显示名取自 `block.<id>.name`；「—」= 语言包无该项（隐藏或占位方块）。",
-        "- `defense` 在本组只有极少数条目；真正决定防御数值的墙体与门在 WORLD.NAMES.001 与 COMBAT.DEFENSE.001。",
+        "- The %d blocks whose `category` is one of {distribution, power, liquid, production, "
+        "defense} (terrain, ore and walls are excluded - see WORLD.NAMES.001)." % total,
+        "- The order is the table order: distribution first (conveyors, routers, junctions, "
+        "bridges, drivers), then power, liquid, production, defense.",
+        "- Display names come from `block.<id>.name`; a \"—\" means the bundle has no such "
+        "entry (a hidden or placeholder block).",
+        "- `defense` has only a handful of entries in this group; the walls and doors that "
+        "actually decide defensive numbers are in WORLD.NAMES.001 and COMBAT.DEFENSE.001.",
         "",
-        "## 数值",
+        "## Numbers",
         "",
-        "本节只列名词；功耗、容量、速度等数值以 `00-data/blocks.json` 为准（见 WORLD.LOGISTICS.001 / WORLD.POWER.001 的实测章节）。",
+        "This section lists names only; power draw, capacity, speed and similar numbers follow "
+        "`00-data/blocks.json` (see the measurement sections of WORLD.LOGISTICS.001 / "
+        "WORLD.POWER.001).",
         "",
     ]
     L += table(ids)
     L += [
         "",
-        "## 源码锚点",
+        "## Source anchors",
         "",
-        "- `data/game/bundles/bundle_zh_CN.properties`（中文名，zh:N 为行号）与 `bundle.properties`（英文名，en:N 为行号）。",
-        "- `00-data/blocks.json` 的 `category` 字段是本文的分组依据；%d 条中 %d 条有中文名。" % (total, zh_only),
-        "- 生成脚本 `knowledge/tools/gen_name_docs.py`。",
+        "- `data/game/bundles/bundle_zh_CN.properties` (Chinese names, zh:N is the line number) "
+        "and `bundle.properties` (English names, en:N is the line number).",
+        "- The `category` field of `00-data/blocks.json` is this article's grouping key; %d of "
+        "the %d entries have a Chinese name." % (zh_only, total),
+        "- Generator script `knowledge/tools/gen_name_docs.py`.",
         "",
-        "## 实测与反例",
+        "## Measurements and counter-examples",
         "",
-        "- 反例一：`junction` 的官方中文是「交叉器」，不是「路口」；「路由器」是另一个方块 `router`。按字面把 junction 叫成路口，会跟门、路类方块混在一起。",
-        "- 反例二：`duct` 官方中文是「物品管道」，不是「管道」；`conveyor` 才是「传送带」。两者是不同层级（管道走大流量、传送带逐件），名字近似但不是同义词。",
-        "- 反例二：`phase-conveyor` 是「相织布传送带桥」，`bridge-conduit` 是「导管桥」——都叫「桥」但一个是桥接传送带、一个是桥接液体导管。",
-        "- 反例三：`mass-driver` 官方中文「质量驱动器」，与电机、推进器类「驱动器」无关，它是长距离物品投送方块（见 WORLD.PAYLOAD.001）。",
-        "- 反例四：`unloader` 是「装卸器」而不是「卸载器」；`sorter` 是「分类器」而非「分拣器」。按常见译名搜会搜不到。",
-        "- 反例五：`force-projector` 是「力墙投影」，也被叫「力场投影仪」；官方串里没有「仪」字。",
+        "- **Counter-example A** - `junction` is officially junction (交叉器), not "
+        "\"intersection\"; router (路由器) is a different block, `router`. Calling junction an "
+        "intersection by the literal reading lumps it in with doors and road blocks.",
+        "- **Counter-example B** - `duct` is officially item duct (物品管道), not just "
+        "\"duct\"; conveyor (传送带) is what `conveyor` means. The two sit at different tiers "
+        "(ducts move bulk volume, conveyors one item at a time), so the names are close but not "
+        "synonyms.",
+        "- **Counter-example B** - `phase-conveyor` is phase conveyor bridge (相织布传送带桥) "
+        "and `bridge-conduit` is conduit bridge (导管桥); both are called a \"bridge\", but one "
+        "bridges conveyors and the other bridges liquid conduits.",
+        "- **Counter-example C** - `mass-driver` is officially mass driver (质量驱动器), "
+        "unrelated to motor and thruster class \"drivers\"; it is a long-range item delivery "
+        "block (see WORLD.PAYLOAD.001).",
+        "- **Counter-example D** - `unloader` is officially unloader (装卸器), not the common "
+        "unloader (卸载器); `sorter` is officially sorter (分类器), not the common sorter "
+        "(分拣器). Searching with the usual translations finds nothing.",
+        "- **Counter-example E** - `force-projector` is force projector (力墙投影), also called "
+        "force field projector (力场投影仪); the official string has no instrument (仪) "
+        "character in it.",
         "",
-        "## 常见误解",
+        "## Common misconceptions",
         "",
-        "- 把 `router`（路由器）和 `sorter`（分类器）混为一谈：前者平均分流，后者按物品过滤，机制完全不同。",
-        "- 以为「管道」和「传送带」同 id：`duct` 与 `conveyor` 是两条独立的物流线，吞吐口径也不同。",
-        "- 以为 category 就是 group：`category` 是内部类归类（本文 %d 条全覆盖），`group` 只覆盖可建造方块的一部分，240 条为 `none`。" % total,
+        "- Confusing `router` (路由器) with `sorter` (分类器): the first splits flow evenly, the "
+        "second filters by item; the mechanics are entirely different.",
+        "- Assuming duct (管道) and conveyor (传送带) share an id: `duct` and `conveyor` are two "
+        "independent logistics lines with different throughput conventions.",
+        "- Assuming category is group: `category` is the internal class grouping (it covers all "
+        "%d entries here), while `group` covers only part of the buildable blocks, with 240 "
+        "entries at `none`." % total,
         "",
-        "## 相关",
+        "## Related",
         "",
-        "- WORLD.LOGISTICS.001（传送带吞吐口径与桥、交叉的排队）",
-        "- WORLD.POWER.001（电力网络）",
-        "- WORLD.LIQUIDS.001（液体与导管）",
-        "- WORLD.STORAGE.001（容器、保险库、核心容量）",
-        "- WORLD.PAYLOAD.001（载荷与质量驱动器）",
-        "- WORLD.NAMES.001 / WORLD.NAMES.003（其余方块名）",
+        "- WORLD.LOGISTICS.001 (conveyor throughput conventions, and bridge and junction "
+        "queuing)",
+        "- WORLD.POWER.001 (the power network)",
+        "- WORLD.LIQUIDS.001 (liquids and conduits)",
+        "- WORLD.STORAGE.001 (containers, vaults, core capacity)",
+        "- WORLD.PAYLOAD.001 (payloads and the mass driver)",
+        "- WORLD.NAMES.001 / WORLD.NAMES.003 (the remaining block names)",
     ]
     return art, "02-world/W14-name-blocks-industry.md", L
 
@@ -327,61 +393,95 @@ def doc3():
     ids = [b["id"] for b in bl]
     hit, zh_only, total = coverage("block", ids)
     art = "WORLD.NAMES.003"
-    L = fm(art, "方块名对照③：合成 / 炮塔 / 效果 / 单位方块 / 逻辑（%d 条）" % total,
+    L = fm(art, "Block name mapping III - crafting / turrets / effects / unit blocks / "
+           "logic (%d entries)" % total,
            ["00-data/blocks.json"],
            ["WORLD.BLOCKS.001", "COMBAT.TURRET.001"],
-           ["名词", "中文名", "英文名", "翻译", "对照表", "炮塔", "合成", "逻辑", "单位方块"])
+           ["names", "chinese-name", "english-name", "translation", "mapping-table",
+            "turret", "crafting", "logic", "unit-block"])
     L += [
         "",
-        "## 一句话",
+        "## One line",
         "",
-        "合成厂、炮塔、特效块、单位建造方块与逻辑块的「中文名 ↔ 英文名 ↔ id」对照；炮塔名常是意象词，查数值前先确认是哪一张表。",
+        "The Chinese name ↔ English name ↔ id mapping for fabricators, turrets, effect blocks, "
+        "unit-building blocks and logic blocks; turret names are often imagery words, so "
+        "confirm which table you are in before looking up numbers.",
         "",
-        "## 规则 / 公式",
+        "## Rules / formulas",
         "",
-        "- `category` 属于 {crafting, turret, effect, units, logic} 且不含地形类型的 %d 条方块。" % total,
-        "- 表内先 crafting、再 turret、effect、units、logic，组内按 id 字母序。",
-        "- 炮塔数值不在本文，见 `00-data/turrets.json` 与 COMBAT.TURRET.001；单位数值见 `00-data/units.json` 与 UNIT.MOVE.001。",
-        "- 逻辑块（`logic-*`）的指令语义见 06-mlog 域，本文只给名字。",
+        "- The %d blocks whose `category` is one of {crafting, turret, effect, units, logic} "
+        "and which carry no terrain type." % total,
+        "- The table runs crafting first, then turret, effect, units and logic, alphabetical by "
+        "id inside each group.",
+        "- Turret numbers are not in this article - see `00-data/turrets.json` and "
+        "COMBAT.TURRET.001; unit numbers are in `00-data/units.json` and UNIT.MOVE.001.",
+        "- The instruction semantics of the logic blocks (`logic-*`) belong to the 06-mlog "
+        "domain; this article gives names only.",
         "",
-        "## 数值",
+        "## Numbers",
         "",
-        "本节只列名词，不含射程、DPS、装填等数值；这类数字统一在 COMBAT.TURRET.001 与 COMBAT.NUMBERS.001。",
+        "This section lists names only and carries no range, DPS or reload numbers; those "
+        "figures live uniformly in COMBAT.TURRET.001 and COMBAT.NUMBERS.001.",
         "",
     ]
     L += table(ids)
     L += [
         "",
-        "## 源码锚点",
+        "## Source anchors",
         "",
-        "- `data/game/bundles/bundle_zh_CN.properties`（zh:N）与 `bundle.properties`（en:N）。",
-        "- `00-data/blocks.json`：`category` 分组；%d 条中 %d 条有中文名。" % (total, zh_only),
-        "- 生成脚本 `knowledge/tools/gen_name_docs.py`。",
+        "- `data/game/bundles/bundle_zh_CN.properties` (zh:N) and `bundle.properties` (en:N).",
+        "- `00-data/blocks.json`: the `category` grouping; %d of the %d entries have a Chinese "
+        "name." % (zh_only, total),
+        "- Generator script `knowledge/tools/gen_name_docs.py`.",
         "",
-        "## 实测与反例",
+        "## Measurements and counter-examples",
         "",
-        "- 反例一：炮塔中文名三种策略并存——`duo`=双管（意译）、`scatter`=分裂与 `hail`=冰雹（意象）、`lancer`=蓝瑟（纯音译）、`fuse`=雷光（造词）。按「散射」「长矛」「引信」直译都搜不到官方串。",
-        "- 反例二：单位方块（`category=units`）是工厂本身，不是单位——陆军、空军、海军工厂与坦克、飞船、机甲制造厂都在方块表，单位记录只在 `00-data/units.json`；查 `dagger` 这类单位名到方块表里找必然落空。",
-        "- 反例三：重构厂用非直译词——Additive→「数增级」、Multiplicative→「倍乘级」、Exponential→「多幂级」、Tetrative→「无量级」；按 add、multiply、exponential 直译找不到。",
-        "- 反例四：`core-shard` 英文 “Core: Shard”，中文「初代核心」——不是直译（直译是「核心：碎片」），按英文逐词翻找不到中文名叫什么。",
-        "- 反例五：`mender` 方块中文「修理器」，与单位能力里的 repair、mend 概念共享词根，但它是可建造方块（见 COMBAT.SUPPORT.001）。",
-        "- 反例六：`overdrive` 作为状态是「过载」，作为方块 `overdrive-projector` 却是「超速投影」——英文同源、中文不同名，按「过载投影仪」搜不到。",
-        "- 反例七：逻辑块 `logic-processor` 是「逻辑处理器」，`logic-display` 是「逻辑显示屏」；缩写 LP、LD 只在社区口头用，不是显示名。",
+        "- **Counter-example A** - three naming strategies coexist in the turret Chinese names: "
+        "`duo` = twin-barrel (双管) (a free translation), `scatter` = scatter (分裂) and `hail` "
+        "= hail (冰雹) (imagery), `lancer` = Lancer (蓝瑟) (pure transliteration), `fuse` = "
+        "thunder-light (雷光) (a coined word). Literal readings as scattering, lance and fuse "
+        "never match the official strings.",
+        "- **Counter-example B** - unit blocks (`category=units`) are the factories themselves, "
+        "not units: the ground, air and naval factories and the tank, ship and mech fabricators "
+        "all sit in the block table, while unit records live only in `00-data/units.json`; "
+        "looking for a unit name such as `dagger` in the block table always comes up empty.",
+        "- **Counter-example C** - the refabricators use non-literal terms: Additive → quantity "
+        "tier (数增级), Multiplicative → multiplier tier (倍乘级), Exponential → power tier "
+        "(多幂级), Tetrative → boundless tier (无量级); literal add, multiply and exponential "
+        "readings find nothing.",
+        "- **Counter-example D** - `core-shard` is \"Core: Shard\" in English and "
+        "first-generation core (初代核心) in Chinese - not a literal translation (a literal one "
+        "would be core: shard (核心：碎片)), so translating the English word by word never "
+        "yields the Chinese name.",
+        "- **Counter-example E** - the block `mender` is repairer (修理器); it shares the root "
+        "of the repair and mend concepts in unit abilities, but it is a buildable block (see "
+        "COMBAT.SUPPORT.001).",
+        "- **Counter-example F** - `overdrive` as a status is overload (过载), yet as the block "
+        "`overdrive-projector` it is overdrive projector (超速投影): same English root, "
+        "different Chinese name, so overload projector (过载投影仪) finds nothing.",
+        "- **Counter-example G** - the logic block `logic-processor` is logic processor "
+        "(逻辑处理器) and `logic-display` is logic display (逻辑显示屏); the abbreviations LP and "
+        "LD are community shorthand only, not display names.",
         "",
-        "## 常见误解",
+        "## Common misconceptions",
         "",
-        "- 以为炮塔中文名带「炮」字：官方串里 `duo` 就叫「双管」、`ripple` 叫「涟漪」，没有「炮」字。",
-        "- 把 `effect` 类当纯装饰：这类块有实际判定（如 `overdrive-projector` 超速投影），名字像装饰但机制在 COMBAT.STATUS.001。",
-        "- 以为合成厂名与产物同名：`silicon-smelter` 是「硅冶炼厂」，产物是 `silicon`「硅」，名字不同。",
+        "- Assuming turret Chinese names contain the character for \"cannon\": in the official "
+        "strings `duo` is simply twin-barrel (双管) and `ripple` is ripple (涟漪), with no "
+        "cannon (炮) character at all.",
+        "- Treating the `effect` class as pure decoration: these blocks have real mechanics "
+        "(such as `overdrive-projector`, overdrive projector (超速投影)); the name looks "
+        "decorative but the mechanics are in COMBAT.STATUS.001.",
+        "- Assuming a fabricator is named after its product: `silicon-smelter` is silicon "
+        "smelter (硅冶炼厂) while the product is `silicon`, silicon (硅); the names differ.",
         "",
-        "## 相关",
+        "## Related",
         "",
-        "- COMBAT.TURRET.001（炮塔射程、装填、弹药）",
-        "- COMBAT.DEFENSE.001（墙体、门、护盾、修理器）",
-        "- COMBAT.STATUS.001（状态与过载）",
-        "- WORLD.CRAFTING.001（配方与制造）",
-        "- UNIT.PRODUCE.001（单位生产链与单位方块）",
-        "- WORLD.NAMES.001 / WORLD.NAMES.002（其余方块名）",
+        "- COMBAT.TURRET.001 (turret range, reload, ammo)",
+        "- COMBAT.DEFENSE.001 (walls, doors, shields, the repairer)",
+        "- COMBAT.STATUS.001 (statuses and overload)",
+        "- WORLD.CRAFTING.001 (recipes and manufacturing)",
+        "- UNIT.PRODUCE.001 (the unit production chain and unit blocks)",
+        "- WORLD.NAMES.001 / WORLD.NAMES.002 (the remaining block names)",
     ]
     return art, "02-world/W15-name-blocks-combat.md", L
 
@@ -395,65 +495,93 @@ def doc4():
     zh_hit = sum(1 for kind, ids in (("item", items), ("liquid", liqs), ("status", sts))
                  for i in ids if names(kind, i)[2])
     st_zh = sum(1 for i in sts if names("status", i)[2])
-    L = fm(art, "物品 / 液体 / 状态效果名对照（%d 条）" % total,
+    L = fm(art, "Item / liquid / status effect name mapping (%d entries)" % total,
            ["00-data/items.json", "00-data/liquids.json", "00-data/status.json"],
            ["WORLD.CRAFTING.001", "COMBAT.STATUS.001"],
-           ["名词", "中文名", "英文名", "翻译", "对照表", "物品", "液体", "状态"])
+           ["names", "chinese-name", "english-name", "translation", "mapping-table",
+            "item", "liquid", "status"])
     L += [
         "",
-        "## 一句话",
+        "## One line",
         "",
-        "物品、液体、状态效果三类实体的显示名对照——这三类在界面上只有名字没有方块 id，是把配方表、状态图标、液体色块翻译回 id 的唯一入口。",
+        "The display-name mapping for the three entity classes - items, liquids and status "
+        "effects - which show only a name in the UI and have no block id; it is the only way "
+        "back from a recipe table, a status icon or a liquid swatch to an id.",
         "",
-        "## 规则 / 公式",
+        "## Rules / formulas",
         "",
-        "- key 规则：`item.<id>.name` / `liquid.<id>.name` / `status.<id>.name`；三张表的记录见 00-data。",
-        "- 顺序：物品 %d 条（`00-data/items.json`）→ 液体 %d 条（`liquids.json`）→ 状态 %d 条（`status.json`），组内按 id 字母序。" % (len(items), len(liqs), len(sts)),
-        "- 状态里有 `none` / `invincible` / `dynamic` 三个「无名」项：它们不是玩家可获状态，语言包没有对应显示名，表内记「—」。",
-        "- 物品名多为物质名（铜、铅、硅），液体名多为液体名（水、矿渣、石油），状态名多为形容词（缓慢、过载、缴械）。",
+        "- Key rule: `item.<id>.name` / `liquid.<id>.name` / `status.<id>.name`; the records "
+        "behind the three tables are in 00-data.",
+        "- Order: %d items (`00-data/items.json`) → %d liquids (`liquids.json`) → %d statuses "
+        "(`status.json`), alphabetical by id inside each group."
+        % (len(items), len(liqs), len(sts)),
+        "- Three statuses are \"nameless\" entries: `none` / `invincible` / `dynamic`; they are "
+        "not player-obtainable statuses and the bundle has no display name for them, so the "
+        "table records a \"—\".",
+        "- Item names are mostly substance names (copper, lead, silicon), liquid names are "
+        "mostly liquid names (water, slag, oil), and status names are mostly adjectives (slow, "
+        "overload, disarmed).",
         "",
-        "## 数值",
+        "## Numbers",
         "",
-        "本节只列名词；硬度、造价、可燃性、倍率等数值见 `00-data/items.json` / `liquids.json` / `status.json`，口径见 COMBAT.STATUS.001。",
+        "This section lists names only; hardness, cost, flammability, multipliers and similar "
+        "numbers are in `00-data/items.json` / `liquids.json` / `status.json`, with conventions "
+        "in COMBAT.STATUS.001.",
         "",
-        "### 物品",
+        "### Items",
         "",
     ]
     L += table(items, "item")
-    L += ["", "### 液体", ""]
+    L += ["", "### Liquids", ""]
     L += table(liqs, "liquid")
-    L += ["", "### 状态效果", ""]
+    L += ["", "### Status effects", ""]
     L += table(sts, "status")
     L += [
         "",
-        "## 源码锚点",
+        "## Source anchors",
         "",
-        "- `data/game/bundles/bundle_zh_CN.properties`（zh:N）与 `bundle.properties`（en:N）。",
-        "- `00-data/items.json`（%d 条）/ `liquids.json`（%d 条）/ `status.json`（%d 条）；三类共 %d 条，%d 条有中文名。"
+        "- `data/game/bundles/bundle_zh_CN.properties` (zh:N) and `bundle.properties` (en:N).",
+        "- `00-data/items.json` (%d entries) / `liquids.json` (%d entries) / `status.json` "
+        "(%d entries); %d entries across the three classes, %d of them with a Chinese name."
         % (len(items), len(liqs), len(sts), total, zh_hit),
-        "- 生成脚本 `knowledge/tools/gen_name_docs.py`。",
+        "- Generator script `knowledge/tools/gen_name_docs.py`.",
         "",
-        "## 实测与反例",
+        "## Measurements and counter-examples",
         "",
-        "- 反例一：`plastanium` 中文是「塑钢」，不是「塑料」；`phase-fabric` 是「相织布」而不是「相位布」——按英文词根直译会错。",
-        "- 反例二：`pyratite` 官方中文「硫化物」，和 pyrite（黄铁矿）不是一回事；英文名形近但中文串完全不同。",
-        "- 反例三：`surge-alloy` 是「巨浪合金」，不是「电涌合金」；`carbide` 是「碳化物」、`oxide` 是「氧化物」，与 `beryllium`「铍」同属合金体系但命名不统一。",
-        "- 反例四：状态 `none` / `invincible` / `dynamic` 查不到中文名，若按「无状态」「无敌」去反查 id 会得到空结果；正确 id 就是字面那三个。",
-        "- 反例五：液体 `neoplasm` 是「瘤液」、`arkycite` 是「芳油」、`gallium` 是「镓液」——三条中只有 gallium 保留了元素名的「液」后缀。",
+        "- **Counter-example A** - `plastanium` is plastic-steel (塑钢), not plastic (塑料); "
+        "`phase-fabric` is phase fabric (相织布), not phase cloth (相位布) - literal readings by "
+        "English root go wrong.",
+        "- **Counter-example B** - `pyratite` is officially sulfide (硫化物), which is not the "
+        "same thing as pyrite (黄铁矿); the English names look alike but the Chinese strings are "
+        "completely different.",
+        "- **Counter-example C** - `surge-alloy` is officially surge alloy (巨浪合金), not surge "
+        "alloy (电涌合金); `carbide` is carbide (碳化物) and `oxide` is oxide (氧化物), which "
+        "belong to the same alloy family as `beryllium`, beryllium (铍), yet the naming is not "
+        "uniform.",
+        "- **Counter-example D** - the statuses `none` / `invincible` / `dynamic` have no "
+        "Chinese name, so reverse-looking up an id from \"no status\" or \"invincible\" returns "
+        "nothing; the correct ids are literally those three.",
+        "- **Counter-example E** - the liquid `neoplasm` is tumor fluid (瘤液), `arkycite` is "
+        "arkycite (芳油) and `gallium` is gallium liquid (镓液); of the three, only gallium "
+        "keeps the liquid (液) suffix of an element name.",
         "",
-        "## 常见误解",
+        "## Common misconceptions",
         "",
-        "- 以为状态名就是方块名：`overdrive` 既是状态也是方块 `overdrive-projector` 的产物，两个 id 不同名。",
-        "- 以为液体名与物品名同表：`water` / `slag` 只在 liquids 表，`sand` / `coal` 只在 items 表；跨表按名字查会漏。",
-        "- 以为每个状态都有中文名：%d 条里有 %d 条没有（三个特殊状态）。" % (len(sts), len(sts) - st_zh),
+        "- Assuming a status name is a block name: `overdrive` is both a status and the product "
+        "of the block `overdrive-projector`; the two ids are named differently.",
+        "- Assuming liquid names and item names share a table: `water` / `slag` are only in the "
+        "liquids table and `sand` / `coal` only in the items table, so a name lookup across "
+        "tables misses.",
+        "- Assuming every status has a Chinese name: %d of the %d do not (the three special "
+        "statuses)." % (len(sts) - st_zh, len(sts)),
         "",
-        "## 相关",
+        "## Related",
         "",
-        "- WORLD.CRAFTING.001（配方与产物）",
-        "- WORLD.LIQUIDS.001（液体属性与导管）",
-        "- COMBAT.STATUS.001（状态倍率与叠加）",
-        "- WORLD.NAMES.001 / WORLD.NAMES.002 / WORLD.NAMES.003（方块名）",
-        "- UNIT.NAMES.001（单位名）",
+        "- WORLD.CRAFTING.001 (recipes and products)",
+        "- WORLD.LIQUIDS.001 (liquid properties and conduits)",
+        "- COMBAT.STATUS.001 (status multipliers and stacking)",
+        "- WORLD.NAMES.001 / WORLD.NAMES.002 / WORLD.NAMES.003 (block names)",
+        "- UNIT.NAMES.001 (unit names)",
     ]
     return art, "02-world/W16-name-items.md", L
 
@@ -463,59 +591,83 @@ def doc5():
     total = len(ids)
     zh_hit = sum(1 for i in ids if names("unit", i)[2])
     art = "UNIT.NAMES.001"
-    L = fm(art, "单位名对照：%d 个单位的英文名与中文名（其中 %d 个有官方简中）" % (total, zh_hit),
+    L = fm(art, "Unit name table — English and Chinese names for all %d units "
+           "(%d have an official Simplified Chinese name)" % (total, zh_hit),
            ["00-data/units.json"],
            ["UNIT.MOVE.001", "UNIT.PRODUCE.001"],
-           ["名词", "中文名", "英文名", "翻译", "对照表", "单位"])
+           ["names", "Chinese name", "English name", "translation", "lookup table", "unit"])
     L += [
         "",
-        "## 一句话",
+        "## One line",
         "",
-        "单位的中文名与 id 对照。单位在界面只显示名字、不显示 id，而蓝图、逻辑、波次表只认 id，所以这张表是两边唯一的桥。",
+        "The Chinese names of the units against their ids. In the interface a unit shows only "
+        "its name and never its id, while blueprints, logic and wave tables only know ids, so "
+        "this table is the only bridge between the two.",
         "",
-        "## 规则 / 公式",
+        "## Rules / formulas",
         "",
-        "- 显示名 key 是 `unit.<id>.name`；数值在 `00-data/units.json`（血量、护甲、速度、射程等）。",
-        "- 共 %d 条，%d 条有官方简中名；缺名的 %d 条集中在导弹子单位与几个内部占位单位。" % (total, zh_hit, total - zh_hit),
-        "- 缺名单位（表内「—」）：导弹类 `*-missile`、`scathe-missile-*`，以及内部占位 `block` / `dummy` / `turret-unit-build-tower`；它们在实战中以弹药或建造塔出现，不单独显示名字。",
-        "- 单位按 id 字母序排列；档次（T1～T5）与生产链见 UNIT.PRODUCE.001，不在这张表里。",
+        "- The display-name key is `unit.<id>.name`; the numbers live in `00-data/units.json` "
+        "(health, armor, speed, range and so on).",
+        "- There are %d entries and %d have an official Simplified Chinese name; the %d that "
+        "lack one are missile sub-units and a few internal placeholders."
+        % (total, zh_hit, total - zh_hit),
+        "- Units with no name (shown as \"—\" in the table): the missile types `*-missile`, "
+        "`scathe-missile-*`, and the internal placeholders `block` / `dummy` / "
+        "`turret-unit-build-tower`; in play they appear as ammunition or as build towers and "
+        "never display a name.",
+        "- Units are sorted alphabetically by id; tiers (T1–T5) and the production chain are in "
+        "UNIT.PRODUCE.001 and are not part of this table.",
         "",
-        "## 数值",
+        "## Numbers",
         "",
-        "本节只列名词，不含数值；速度单位、hitSize、护甲等见 UNIT.MOVE.001 与 `00-data/units.json`。",
+        "This section lists names only, no numbers; for speed units, hitSize, armor and the "
+        "rest see UNIT.MOVE.001 and `00-data/units.json`.",
         "",
     ]
     L += table(ids, "unit")
     L += [
         "",
-        "## 源码锚点",
+        "## Source anchors",
         "",
-        "- `data/game/bundles/bundle_zh_CN.properties`（zh:N）与 `bundle.properties`（en:N）。",
-        "- `00-data/units.json`：%d 条单位记录，`id` 与 bundle key 一一对应。" % total,
-        "- 生成脚本 `knowledge/tools/gen_name_docs.py`。",
+        "- `data/game/bundles/bundle_zh_CN.properties` (zh:N) and `bundle.properties` (en:N).",
+        "- `00-data/units.json`: %d unit records, with `id` mapping one-to-one onto the bundle "
+        "key." % total,
+        "- The generator script `knowledge/tools/gen_name_docs.py`.",
         "",
-        "## 实测与反例",
+        "## Measurements and counter-examples",
         "",
-        "- 反例一：单位名是意象词而不是功能名——`dagger`=尖刀、`mace`=战锤、`fortress`=堡垒、`scepter`=权杖、`reign`=王座。按「匕首」「锤子」搜中文名对不上。",
-        "- 反例二：同一张表里两种命名策略并存——`anthicus` 官方中文是「天灾」（意译造词，不是音译的「安提库斯」），而 `alpha` / `beta` / `gamma` 是纯音译（阿尔法、贝塔、伽马）。",
-        "- 反例三：`crawler`=爬虫、`atrax`=毒蛛，英文名与中文名都是意象；而 `alpha` / `beta` / `gamma` 直接保留希腊字母音译（阿尔法、贝塔、伽马）。",
-        "- 反例四：导弹子单位（如 `anthicus-missile`）无显示名，按「导弹」反查只能查到发射它的单位 `anthicus`，不是它本身。",
+        "- Counterexample 1: unit names are imagery, not function names — `dagger` (尖刀, a "
+        "blade), `mace` (战锤, a warhammer), `fortress` (堡垒), `scepter` (权杖), `reign` "
+        "(王座). Searching the Chinese names for \"dagger\" or \"hammer\" turns up nothing.",
+        "- Counterexample 2: two naming strategies coexist in one table — the official Chinese "
+        "name of `anthicus` is a semantic coinage (天灾, \"disaster\") rather than a "
+        "transliteration (安提库斯), while `alpha` / `beta` / `gamma` are pure transliterations "
+        "(阿尔法, 贝塔, 伽马).",
+        "- Counterexample 3: `crawler` (爬虫) and `atrax` (毒蛛) are imagery in both languages, "
+        "while `alpha` / `beta` / `gamma` keep the Greek letters as transliterations (阿尔法, "
+        "贝塔, 伽马).",
+        "- Counterexample 4: missile sub-units (such as `anthicus-missile`) have no display "
+        "name, so searching the Chinese word for \"missile\" finds only the unit that fires "
+        "them, `anthicus`, never the sub-unit itself.",
         "",
-        "## 常见误解",
+        "## Common misconceptions",
         "",
-        "- 以为单位名带 T1、T2：档次不是名字的一部分，官方串里没有等级字样。",
-        "- 以为英文名可直译成 id：`Fortress` → `fortress` 可以，但 `Core: Shard` 这类带冒号的名字只出现在方块表。",
-        "- 以为缺名单位是数据遗漏：%d 个缺名单位都有记录、有数值，只是语言包不显示名字。" % (total - zh_hit),
+        "- Thinking unit names carry T1, T2: tier is not part of the name, and the official "
+        "strings contain no level wording.",
+        "- Thinking the English name translates straight into an id: `Fortress` → `fortress` "
+        "works, but colon-bearing names such as `Core: Shard` appear only in the block table.",
+        "- Thinking nameless units are a data gap: all %d have records and numbers, the "
+        "language bundle simply does not display a name for them." % (total - zh_hit),
         "",
-        "## 相关",
+        "## Related",
         "",
-        "- UNIT.MOVE.001（速度单位与地形）",
-        "- UNIT.PRODUCE.001（生产链与单位上限）",
-        "- UNIT.AI.001（单位 AI 与指令）",
-        "- UNIT.ABILITY.001（16 类 Ability）",
-        "- UNIT.PROGRESSION.001（档次与波次表）",
-        "- COMBAT.UNITWEAPON.001（单位武器与 DPS）",
-        "- WORLD.NAMES.001 / 002 / 003 / 004（方块与物品名）",
+        "- UNIT.MOVE.001 (speed units and terrain)",
+        "- UNIT.PRODUCE.001 (production chain and unit cap)",
+        "- UNIT.AI.001 (unit AI and commands)",
+        "- UNIT.ABILITY.001 (the 16 Ability classes)",
+        "- UNIT.PROGRESSION.001 (tiers and the wave table)",
+        "- COMBAT.UNITWEAPON.001 (unit weapons and DPS)",
+        "- WORLD.NAMES.001 / 002 / 003 / 004 (block and item names)",
     ]
     return art, "04-units/U06-name-units.md", L
 

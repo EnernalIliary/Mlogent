@@ -1,6 +1,6 @@
 ---
 id: PATTERN.COMM.001
-title: 通信与总线：内存信箱、通道编码与读写竞态
+title: Communication and buses: memory mailboxes, channel encoding, read/write races
 domain: pattern
 status: active
 ver: [v159.3_src, v160.7_rt]
@@ -12,38 +12,36 @@ src:
   - "mindustry-blueprint/PATTERNS.md:457-582,1057-1140,1673-1745"
 data: []
 depends: [PATTERN.ARCH.001]
-tags: [通信, 内存格, 黑板, 竞态, 多核]
+tags: [communication, memory-cell, blackboard, race, multi-core]
 tokens: 569
 ---
 
-## 一句话
+## One line
 
-跨处理器通信只有两条物理通道 —— 内存建筑（read/write + 数字索引）和处理器变量空间（read/write + 字符串变量名，可存对象引用）；两者都没有锁，协议必须靠「单写者 + 序号」手工实现，不能指望原子性。
+There are only two physical channels for cross-processor communication — memory buildings (read/write + numeric index) and processor variable space (read/write + string variable name, which can hold object references); neither has locks, so a protocol must be hand-built from "single writer + sequence number" and cannot rely on atomicity.
 
-## 规则 / 公式
+## Rules / formulas
 
-read/write 的地址参数有两种形态，语义完全不同：
+The address argument of read/write has two forms with completely different semantics:
 
-| 地址形式 | 目标 | 能存什么 | 容量 |
+| Address form | Target | What it can hold | Capacity |
 |---|---|---|---|
-| 数字索引 0..N-1 | 内存建筑（cell / bank） | 数字（引用不可依赖） | cell 64 格 / bank 512 格 |
-| 字符串名 | 处理器的变量空间（按变量名） | 数字或对象引用 | 受变量数限制 |
+| Numeric index 0..N-1 | memory building (cell / bank) | numbers (references unreliable) | cell 64 slots / bank 512 slots |
+| String name | the processor's variable space (by variable name) | number or object reference | limited by variable count |
 
-三种可用拓扑：
+Three usable topologies:
 
-1. 黑板（共享内存）：多写多读，靠手工索引分段避免冲突。
-2. 信箱（点对点）：固定索引 = 固定收件人，写者只写自己那格。
-3. 变量空间直连：write 单位引用 processor \"slot1\"，分配核把实体引用直接塞进控制核的变量 —— 唯一能跨处理器传实体引用的方式。
+1. Blackboard (shared memory): many writers, many readers, conflicts avoided by hand-partitioned index segments.
+2. Mailbox (point-to-point): fixed index = fixed recipient, a writer only touches its own slot.
+3. Direct variable-space link: write a unit reference to processor "slot1", where the dispatcher core stuffs the entity reference straight into a control core's variable — the only way to pass entity references across processors.
 
-无锁下的竞态规则（三条，缺一不可）：
+Race rules without locks (three, all required):
 
-- 一个格子只允许一个写者；多写者必然互相覆盖。
-- 读写顺序用序号列判定：写者先写数据、再自增序号；读者比对序号与上次记录，变化才取数据。
-- 同一 tick 内写入后立刻读取不保证读到新值（处理器按 @ipt 预算交错执行，且 sensor 有 30 tick 刷新窗口）。
+- One slot allows exactly one writer; multiple writers inevitably overwrite each other.
+- Read/write ordering is decided by a sequence column: the writer writes data first, then increments the sequence; the reader compares the sequence with its last recorded value and takes the data only when it changed.
+- A write followed immediately by a read within the same tick does not guarantee the new value (processors interleave on their @ipt budgets, and sensor has a 30 tick refresh window).
 
-**边沿会丢，序号不会**：把「有新数据」编码成 `0 → 1` 的边沿是错的。写在下一 tick 就是可见的，对方
-可能在任意指令点采样，中间态被整段跳过 ⇒ 双方互相等待、永不推进。可用协议是**只增相位号 + 完成计数**：
-发送方自增相位、写数据、写相位；接收方发现相位变了才取数据并回写完成计数；发送方等完成计数跟上。
+**Edges get lost, sequence numbers do not**: encoding "there is new data" as a `0 → 1` edge is wrong. The write is visible on the next tick, the other side may sample at any instruction point, and the intermediate state is skipped wholesale ⇒ both sides wait on each other and never advance. A workable protocol is a **monotonic phase number + completion counter**: the sender increments the phase, writes the data, writes the phase; the receiver takes the data only when it sees the phase changed and writes back a completion count; the sender waits for the completion count to catch up.
 
 ```mlog
 op add t t 1
@@ -53,42 +51,41 @@ read d cell1 258
 jump @counter lessThan d t
 ```
 
-（`259` 存数据、`257` 存相位、`258` 存完成计数，索引只是示例。前提仍是上面第 1 条：一格一个写者，
-否则序号本身就会丢。）
+(`259` holds data, `257` holds the phase, `258` holds the completion count; the indices are just an example. The premise is still rule 1 above: one writer per slot, otherwise the sequence number itself is lost.)
 
-## 数值
+## Numbers
 
-| 量 | 值 | 来源 |
+| Quantity | Value | Source |
 |---|---|---|
-| memory-cell 格数 | 64 | [src: Blocks.java:6875] |
-| memory-bank 格数 | 512 | [src: Blocks.java:6881] |
-| 大型内存（世界处理器侧） | 512 | [src: Blocks.java:6967] |
-| sensor/radar 结果刷新窗口 | 30 tick（0.5 s） | [src: LExecutor.java:761-763] |
-| 语料 read 指令用量 | 8052 条 | tools/corpus/mine_idioms.py 的 `unigrams` 统计 |
+| memory-cell slots | 64 | [src: Blocks.java:6875] |
+| memory-bank slots | 512 | [src: Blocks.java:6881] |
+| Large memory (world-processor side) | 512 | [src: Blocks.java:6967] |
+| sensor/radar result refresh window | 30 tick (0.5 s) | [src: LExecutor.java:761-763] |
+| read instruction usage in corpus | 8052 | `unigrams` count in tools/corpus/mine_idioms.py |
 
-## 源码锚点
+## Source anchors
 
-- Blocks.java:6875/6881 —— memoryCapacity = 64 / 512。
-- LogicBlock.java:300-322 —— 蓝图里链接以 (name, dx, dy) 存储，读入时转绝对坐标。
-- LExecutor.java:761-763 —— 注释原文 fixed 30 tick interval，timer.get(30f) 决定 sensor/radar 类读取何时重算。
+- Blocks.java:6875/6881 — memoryCapacity = 64 / 512.
+- LogicBlock.java:300-322 — links are stored in the blueprint as (name, dx, dy) and turned into absolute coordinates on load.
+- LExecutor.java:761-763 — the comment reads fixed 30 tick interval; timer.get(30f) decides when sensor/radar reads are recomputed.
 
-## 实测与反例
+## Measurements and counter-examples
 
-语料里真实使用的黑板分段（mindustry-blueprint/PATTERNS.md:1693-1695）：中国象棋.msch 在 bank1 用索引 91 存 shooting、96 存 s.team、99 存 t.team；超车模拟器.msch 在 cell1 用 30 存 dead、9 存 stop-r、6/7 存 run-r/run-l、1/2 存 o1x/o1y。共同点是索引分段且留空档（1/2/6/7/9/20/30/39、91/96/99），不是连续紧排 —— 给后续扩展留位。
+Blackboard segmentation actually used in the corpus (mindustry-blueprint/PATTERNS.md:1693-1695): the Chinese-chess blueprint (中国象棋.msch) uses index 91 for shooting, 96 for s.team, 99 for t.team in bank1; the overtaking simulator (超车模拟器.msch) uses 30 for dead, 9 for stop-r, 6/7 for run-r/run-l, 1/2 for o1x/o1y in cell1. What they share is segmented indices with gaps (1/2/6/7/9/20/30/39, 91/96/99) rather than a contiguous packing — leaving room for later extension.
 
-**反例（用内存格传引用）**：内存格只能可靠承载数值。把单位/建筑引用写进 cell 再读到另一个处理器，不能当作稳定协议；要传引用改用 write 引用 processor \"变量名\"。
+**Counter-example (passing references through memory slots)**: a memory slot can reliably carry numbers only. Writing a unit or building reference into a cell and reading it on another processor is not a stable protocol; to pass references, use write reference processor "variable name" instead.
 
-**反例（多写者）**：两个处理器都往 cell1[0] 写自己的状态，读者无法判断这格属于谁，症状是数值随机跳变、偶发卡死。修法：一格一写者，或加写者 ID 列由读者过滤。
+**Counter-example (multiple writers)**: two processors both write their own state into cell1[0]; the reader cannot tell whose slot it is, and the symptom is values jumping randomly and occasional hangs. Fix: one writer per slot, or add a writer-ID column that the reader filters on.
 
-## 常见误解
+## Common misconceptions
 
-1. 「read/write 地址只能是数字」—— 错，字符串地址访问处理器变量空间，可存对象引用，是分配核/控制核架构的关键。
-2. 「内存格是原子的，写完立刻能读」—— 错，无锁无事务，跨核可见性依赖 tick 顺序，必须用序号/双缓冲判新旧。
-3. 「链接名是所在位置」—— 错，链接名随建筑变化会重算（getLinkName()），改名后旧代码静默失配。
-4. 「@controlled 能判断是哪个处理器在控」—— 错，所有逻辑控制一律返回 1；要判断归属只能比较 @controller 与 @this。
+1. "read/write addresses can only be numeric" — wrong, a string address reaches processor variable space and can hold object references, which is the key to dispatcher-core/control-core architectures.
+2. "a memory slot is atomic; a write is readable immediately" — wrong, there are no locks or transactions, cross-core visibility depends on tick order, and you must use sequence numbers or double buffering to tell new from old.
+3. "a link name is its position" — wrong, link names are recomputed as buildings change (getLinkName()), so after a rename old code silently mismatches.
+4. "@controlled tells you which processor is in control" — wrong, every logic-controlled unit returns 1; to determine ownership compare @controller with @this.
 
-## 相关
+## Related
 
-- PATTERN.ARCH.001 架构总览（分配核 + 控制核）
-- PATTERN.DATA.001 数据结构（索引布局）
-- PATTERN.PERF.001 帧差与同步
+- PATTERN.ARCH.001 architecture overview (dispatcher core + control cores)
+- PATTERN.DATA.001 data structures (index layout)
+- PATTERN.PERF.001 frame delta and synchronisation

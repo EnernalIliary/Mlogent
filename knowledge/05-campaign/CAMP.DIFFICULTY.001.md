@@ -1,6 +1,6 @@
 ---
 id: CAMP.DIFFICULTY.001
-title: 难度系数换算卡——三元组如何变成血量、数量、造价与波次间隔
+title: Difficulty conversion card — how the triple becomes health, numbers, cost and wave interval
 domain: camp
 status: active
 ver: [v159.3_src, v160.7_rt]
@@ -14,15 +14,15 @@ src:
   - "Mindustry-Source/core/src/mindustry/maps/planet/SerpuloPlanetGenerator.java:730"
 data: [00-data/formulas.json, 00-data/constants_rules_difficulty_drill_heat.json]
 depends: [CAMP.WAVES.001, CAMP.SPAWN.001]
-tags: [难度, 战役, 三元组, 敌血, 数量倍率, 造价]
+tags: [difficulty, campaign, triple, enemy health, spawn multiplier, cost]
 tokens: 616
 ---
 
-## 一句话
+## In one line
 
-难度就是三个浮点数 `(enemyHealthMultiplier, enemySpawnMultiplier, waveTimeMultiplier)`；`CampaignRules` 把它们写进**敌方阵营**的 4 个 team 规则字段，于是「难度」= 敌血 ×N、敌数 ×M、波时 ×T 三件事，**完全不含伤害倍率**。
+Difficulty is three floats `(enemyHealthMultiplier, enemySpawnMultiplier, waveTimeMultiplier)`; `CampaignRules` writes them into 4 rule fields **of the enemy team**, so "difficulty" means enemy health ×N, enemy numbers ×M and wave time ×T — and **contains no damage multiplier whatsoever**.
 
-## 规则 / 公式
+## Rules / formulas
 
 ```
 Difficulty 枚举 = (enemyHealthMultiplier, enemySpawnMultiplier, waveTimeMultiplier)   [Difficulty.java:5-10]
@@ -40,7 +40,7 @@ CampaignRules.apply 时写入 waveTeam：                                       
 压力指数 P = enemyHealthMultiplier × enemySpawnMultiplier / waveTimeMultiplier
 ```
 
-生成（随机）地图还有两层难度曲线：
+Generated (random) maps add two more layers of difficulty curve:
 
 ```
 generate(difficulty) → generate(pow(difficulty, 1.12), ...)     [Waves.java:258-260]
@@ -48,9 +48,9 @@ generate(difficulty) → generate(pow(difficulty, 1.12), ...)     [Waves.java:25
   d=0.4 → shift 0；d=0.6 → shift 3；d=1.0 → shift 9
 ```
 
-## 数值
+## Numbers
 
-| 难度 | 敌血倍率 | 数量倍率 | 波时倍率 | 敌方造价 | 敌方造速 | 压力指数 P | 来源 |
+| Difficulty | enemy health | number multiplier | wave-time multiplier | enemy cost | enemy build speed | pressure index P | source |
 |---|---|---|---|---|---|---|---|
 | casual | 0.5 | 0.5 | 2.0 | ×2.0 | ×0.5 | 0.125 | [v160.7] |
 | easy | 1.0 | 0.75 | 1.5 | ×1.33 | ×0.75 | 0.500 | [v160.7] |
@@ -58,46 +58,46 @@ generate(difficulty) → generate(pow(difficulty, 1.12), ...)     [Waves.java:25
 | hard | 1.25 | 1.5 | 0.8 | ×0.67 | ×1.5 | 2.344 | [v160.7] |
 | eradication | 1.5 | 2.0 | 0.6 | ×0.5 | ×2.0 | 5.000 | [v160.7] |
 
-三元组为 [verified v160.7]（jar 反射逐值核对：0.5/0.5/2.0、1.0/0.75/1.5、1.0/1.0/1.0、1.25/1.5/0.8、1.5/2.0/0.6）；造价/造速两列由上面的倒数与直乘公式算出，压力指数为 P 的三项运算结果。
+The triple is [verified v160.7] (checked value by value through jar reflection: 0.5/0.5/2.0, 1.0/0.75/1.5, 1.0/1.0/1.0, 1.25/1.5/0.8, 1.5/2.0/0.6); the cost and build-speed columns follow from the reciprocal and the direct-multiply formulas above, and the pressure index is the three-term arithmetic result for P.
 
-| 同一张图、同一单位 | casual | normal | eradication | 来源 |
+| Same map, same unit | casual | normal | eradication | source |
 |---|---|---|---|---|
-| 单位类型 health = 200 的敌人 | 100 | 200 | 300 | Rules.java:302-304 代入 |
-| 非 boss 组 getSpawned = 6 的实际刷出 | 3 | 6 | 12 | WaveSpawner.java:80-81 代入 |
-| 到达第 30 波时刻 | 7440 s | 3720 s | 2232 s | CAMP.WAVES.001 的 T(N) |
-| 进攻模式胜利波数 winWave | — | 10+5×max(d×10,1) | — | SerpuloPlanetGenerator.java:730 |
+| An enemy whose unit type health = 200 | 100 | 200 | 300 | substituted into Rules.java:302-304 |
+| Actual spawns for a non-boss group with getSpawned = 6 | 3 | 6 | 12 | substituted into WaveSpawner.java:80-81 |
+| Time to reach wave 30 | 7440 s | 3720 s | 2232 s | T(N) from CAMP.WAVES.001 |
+| attackMode victory wave winWave | — | 10+5×max(d×10,1) | — | SerpuloPlanetGenerator.java:730 |
 
-## 源码锚点
+## Source anchors
 
-- Difficulty.java:5-10 五档三元组；:15-21 字段与构造顺序（enemyHealth / enemySpawn / waveTime）。
-- CampaignRules.java:39-42 三元组 → team 的 4 个字段（blockHealth / unitHealth / unitCost 的倒数 / unitBuildSpeed）。
-- Rules.java:85,87,111 全局倍率默认 1；:374-384 TeamRules 的同名三字段；:302-304 `unitHealth(team)` 取乘积且下限 1e-6。
-- WaveSpawner.java:77-82 数量乘难度后 `Mathf.round`（boss 用 `(int)`）。
-- Waves.java:258-260 `pow(difficulty,1.12)`；:299-302 生成地图的 cap=150、shieldsPerWave=20+d×30；:436-441 shift [src: Waves.java:258-302,436-441]。
-- SerpuloPlanetGenerator.java:730 进攻模式 `winWave = 10 + 5×max(d×10,1)`。
+- Difficulty.java:5-10 the five triples; :15-21 the fields and constructor order (enemyHealth / enemySpawn / waveTime).
+- CampaignRules.java:39-42 the triple → 4 team fields (blockHealth / unitHealth / the reciprocal of unitCost / unitBuildSpeed).
+- Rules.java:85,87,111 global multipliers default to 1; :374-384 the three same-named fields of TeamRules; :302-304 `unitHealth(team)` takes the product with a floor of 1e-6.
+- WaveSpawner.java:77-82 multiplies the count by difficulty and then `Mathf.round` (bosses use `(int)`).
+- Waves.java:258-260 `pow(difficulty,1.12)`; :299-302 the generated map's cap=150, shieldsPerWave=20+d×30; :436-441 shift [src: Waves.java:258-302,436-441].
+- SerpuloPlanetGenerator.java:730 attack mode `winWave = 10 + 5×max(d×10,1)`.
 
-## 实测与反例
+## Tests and counterexamples
 
-**反例 1：以为高难度敌人伤害更高。** 难度三元组里没有伤害项，`rules.unitDamageMultiplier` 也不被 CampaignRules 改写（全局默认 1 [verified v160.7]）——eradication 下敌人子弹的基础伤害与 casual 相同，变的是血量（÷1.5 血）与同时在场数量（×4）。
+**Counterexample 1: assuming higher difficulty means harder-hitting enemies.** The difficulty triple has no damage term, and `rules.unitDamageMultiplier` is not rewritten by CampaignRules either (the global default is 1 [verified v160.7]) — under eradication an enemy bullet has the same base damage as on casual; what changes is health (÷1.5) and the number on the field at once (×4).
 
-**反例 2：以为 enemySpawnMultiplier 只影响刷怪。** 它还让敌方 AI 的兵**更便宜（unitCost ÷ M）且造得更快（unitBuildSpeed × M）**；所以 hard 难度下敌方生产线的实际产能是 normal 的 1.5 倍建速。
+**Counterexample 2: assuming enemySpawnMultiplier only affects spawning.** It also makes enemy AI units **cheaper (unitCost ÷ M) and quicker to build (unitBuildSpeed × M)**; so on hard the enemy production line actually builds at 1.5× the normal rate.
 
-**反例 3：以为 hard 只是「血多 25%」。** 同时数量 ×1.5、间隔 ×0.8 → P = 1.25×1.5/0.8 ≈ 2.34，等效压力是 normal 的 2.34 倍，而非 1.25。
+**Counterexample 3: assuming hard is only "25% more health".** Numbers are also ×1.5 and the interval ×0.8 → P = 1.25×1.5/0.8 ≈ 2.34, so the effective pressure is 2.34× normal, not 1.25×.
 
-**反例 4：以为难度直接改 SpawnGroup 的护盾。** 固定关卡里护盾由 `shields/shieldScaling` 决定；随机生成地图的 `shieldsPerWave = 20 + difficulty×30` 才含难度项（Waves.java:301），两者别混。
+**Counterexample 4: assuming difficulty directly changes a SpawnGroup's shields.** In fixed levels the shields come from `shields/shieldScaling`; only randomly generated maps have `shieldsPerWave = 20 + difficulty×30`, which does contain a difficulty term (Waves.java:301) — do not mix the two.
 
-**可复算**：某单位 `type.health=200`、某非 boss 组 `getSpawned=6` → normal 实际刷出 6 只、每只 200 血；eradication 刷出 `round(12)=12` 只、每只 `200×1.5=300` 血，同屏等效血量池 1200 → 3600（3 倍），再叠加波次间隔 0.6 倍，压力指数 5.0（代入见 00-data/formulas.json DATA.FORMULA.012/013）。
+**Recomputable**: take a unit with `type.health=200` and a non-boss group with `getSpawned=6` → on normal 6 spawn with 200 health each; on eradication `round(12)=12` spawn with `200×1.5=300` health each, so the on-screen effective health pool goes 1200 → 3600 (3×); compounding the 0.6× wave interval gives a pressure index of 5.0 (substitutions in 00-data/formulas.json DATA.FORMULA.012/013).
 
-## 常见误解
+## Common misconceptions
 
-- 「难度影响的是伤害」→ 不；只影响敌血、敌数、敌造速/造价、波时。
-- 「casual 只是怪少」→ 血也减半、波次间隔翻倍（P=0.125，是 normal 的 1/8）[v160.7]。
-- 「难度在 Rules 里直接改」→ 战役是 `CampaignRules` 写 team 字段；沙盒改 Rules 不会动这三元组。
-- 「难度改的是波数上限」→ 波数上限由 `winWave`/地图决定，与难度无关（进攻模式例外，见 SerpuloPlanetGenerator.java:730）。
+- "Difficulty affects damage" → it does not; it only touches enemy health, enemy numbers, enemy build speed/cost and wave time.
+- "casual just spawns fewer enemies" → health is halved too and the wave interval is doubled (P=0.125, one eighth of normal) [v160.7].
+- "Difficulty is changed directly in Rules" → campaign writes team fields through `CampaignRules`; editing Rules in sandbox does not move this triple.
+- "Difficulty changes the wave cap" → the wave cap is set by `winWave`/the map and is unrelated to difficulty (attack mode is the exception, see SerpuloPlanetGenerator.java:730).
 
-## 相关
+## Related
 
-- [[CAMP.WAVES.001]] 波次计时与 T(N) 的完整推导
-- [[CAMP.SPAWN.001]] SpawnGroup 的实参与每波数量/护盾公式
-- DATA.FORMULA.013 难度三元组与派生字段
-- DATA.FORMULA.012 波次血量缩放（结论：不随波数增长）
+- [[CAMP.WAVES.001]] wave timing and the full derivation of T(N)
+- [[CAMP.SPAWN.001]] SpawnGroup's actual arguments and the per-wave count/shield formulas
+- DATA.FORMULA.013 the difficulty triple and its derived fields
+- DATA.FORMULA.012 wave health scaling (conclusion: it does not grow with the wave number)

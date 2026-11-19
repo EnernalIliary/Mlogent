@@ -1,107 +1,107 @@
-# 版本与真源（VERSION）
+# Version and sources of truth (VERSION)
 
-## 双版本并列
+## Two versions side by side
 
-| 代号 | 含义 | 位置 | 权威性 |
+| Code | Meaning | Location | Authority |
 |---|---|---|---|
-| v160.7_rt | 当前线上版本（jar 反射 + 真机） | out/_server160.jar、MBO/gamedata/v160.7/ | **数值权威** |
-| v159.3_src | 源码树（HEAD 5811844…，tag v159.3） | Mindustry-Source/core/src/mindustry | **语义权威** |
+| v160.7_rt | the current live version (jar reflection + real machine) | out/_server160.jar, MBO/gamedata/v160.7/ | **numeric authority** |
+| v159.3_src | the source tree (HEAD 5811844…, tag v159.3) | Mindustry-Source/core/src/mindustry | **semantic authority** |
 
-源码落后一个次版本：源码里没有 v160.x 新增内容。凡涉及"当前版本是否仍如此"，以 v160.7 为准；凡涉及"算法怎么写的"，以源码为准；两者冲突必须在文中显式说明。
+The source lags one minor version behind: the source does not contain what v160.x added. Whenever the question is "is it still like this in the current version", v160.7 decides; whenever it is "how is the algorithm written", the source decides; a conflict between the two must be spelled out explicitly in the text.
 
-## 数值真源优先级（冲突时按此裁决）
+## Numeric source-of-truth priority (adjudicate conflicts in this order)
 
-1. v160.7 jar 反射（运行时真实值）
-2. v159.3 源码（公式/字段语义/边界）
-3. 真机实测（MBO/ratio-calc，带实验条件）
-4. 自写手册/笔记（只作线索，必须回源）
-5. 其它副本（不入库）
+1. v160.7 jar reflection (the real runtime values)
+2. v159.3 source (formulas / field semantics / boundaries)
+3. measurements on the real machine (MBO/ratio-calc, with experimental conditions)
+4. hand-written manuals and notes (leads only; always go back to the source)
+5. other copies (never indexed)
 
-## 已知错误（不得继承）
+## Known errors (do not inherit them)
 
-- ~~旧 data/game/*.json 的 craftTime **447 条全为 -1**~~ → **2026-11 已修复**：`tools/dev/dump_game.py` 直接读 `b.craftTime`，33 个方块有真值（10–600 tick），其余 414 个方块类上无此字段（记 `null`）。不再有 -1 哨兵值；读到 null 即"该方块没有 craftTime"，不是"瞬间完成"。
-- docs/游戏速查/方块配方.md 的"耗电"列是**每 tick**，标签却写 /s → 差 60 倍。
-- 蓝图逻辑模式库.md / 蓝图层逐类精讲.md 的根级副本已删除（2026-11-15，内容与 07-patterns 重复），现存以 `mindustry-blueprint/PATTERNS.md` / `BLUEPRINT-ANALYSIS.md` 为准。
-- instr_semantics.json 存在 3 个尺寸版本，以仓库 tools/ 版（56.5KB）为准；instr_enums.json（v160.7）作枚举补充。
-- **单位数值以 jar 为准**：toxopid 护甲 jar=22 / v159.3 源码=13；reign armor jar=30 / 源码=18；dagger 主武器 jar=2 挂点×reload 26（DPS 41.5）/ 源码单挂点 reload 13（DPS 83.1）。文章主值一律 jar，源码差异写在版本注里。
-- **连续伤害不是 estimateDPS**：meltdown 实战 DPS = damage/5×60 = **936**；旧稿 4680 是 BulletType.estimateDPS 的假设值，Turret 面板 3120 是重复除 reload 的产物。
-- **MBO/gamedata 的 BeamDrill baseRate 与真实值差 2 倍**；drillTime 也不等于 getDrillTime（后者加 50×hardness）。
-- **radar 缓存是 30 tick**（旧笔记写 40）；`uradar` 第 5 参数（order）是死槽。
-- **ConditionOp 是 8 个**（旧题库写 7 只在排除 always 的口径成立）；`strictEqual` 不是恒 false。
-- **memory 容量不是 32**：memory-cell **64**、memory-bank/world-cell **512**（32 只是 `MemoryBlock.java:12` 的类默认值，三个实例全部覆盖；v159.3 与 v160.7 一致）。
-- **记忆格越界读是 null（NaN），不是 0**；越界写静默丢弃（`MemoryBlock.java:64-81` 注释原文 `Return null when out of bounds. (instead of 0)`）。
-- **`format` 一次只吃 1 个值**，填「已在文本缓冲里」的**最低编号**占位符，必须先 `print` 再 `format`；占位符只认单数字 0-9（`{10}` 不替换）。
-- **ipt 的单位是「点/tick」不是点/s**：micro 2 / logic 8 / hyper 25 ⇒ 120/480/1500 点/s。累积池上限是 **5×ipt**（micro 10 / logic 40 / hyper **125**）；`maxInstructionsPerTick` 只限 `setrate` 能设到的 ipt（非特权 40、世处 1000），**不参与削顶**（`LogicBlock.java:565` 用的是 `maxInstructionScale * ipt`，而 `:558-559` 每帧把非特权处理器的 ipt 复位成建筑默认值）。旧说法「hyper 的 125 被截到 40」是错的。
-- **单位护甲表不能混口径**：spiroct jar=9 / 源码=5、arkyid 14/6、toxopid 22/13、eclipse 22/13、antumbra 17/9、scepter 20/10、reign 30/18 —— U05/C05 已统一取 jar 并加版本注。
-- **炮塔 coolantMultiplier 没有 0**：最小 foreshadow **0.4**、spectre **0.5**、arc **30**（跨度 75 倍），旧表写 0 是错的。
+- ~~the old data/game/*.json had **all 447 craftTime entries at -1**~~ → **fixed in 2026-11**: `tools/dev/dump_game.py` reads `b.craftTime` directly, 33 blocks have real values (10–600 tick), and the other 414 blocks have no such field on the class (recorded as `null`). The -1 sentinel value is gone; a null means "this block has no craftTime", not "it completes instantly".
+- the power-draw column in the block-recipe cheat sheet (`docs/游戏速查/方块配方.md`) is **per tick**, though the label says /s → a factor of 60 off.
+- the root-level copies of (`蓝图逻辑模式库.md`) and (`蓝图层逐类精讲.md`) were deleted (2026-11-15, content duplicated by 07-patterns); the live version is `mindustry-blueprint/PATTERNS.md` / `BLUEPRINT-ANALYSIS.md`.
+- instr_semantics.json exists in 3 size variants; the tools/ version in the repo (56.5KB) is authoritative, with instr_enums.json (v160.7) as the enum supplement.
+- **unit numbers follow the jar**: toxopid armor jar=22 / v159.3 source=13; reign armor jar=30 / source=18; dagger main weapon jar=2 mounts × reload 26 (DPS 41.5) / source single mount reload 13 (DPS 83.1). Article headline values are always the jar; source differences go in a version note.
+- **continuous damage is not estimateDPS**: meltdown's real DPS = damage/5×60 = **936**; the old draft's 4680 was the assumed value of BulletType.estimateDPS, and the Turret panel's 3120 is the product of dividing by reload twice.
+- **BeamDrill baseRate in MBO/gamedata is off by 2× against the real value**; drillTime is not getDrillTime either (the latter adds 50×hardness).
+- **the radar cache is 30 tick** (the old note said 40); the 5th argument of `uradar` (order) is a dead slot.
+- **there are 8 ConditionOps** (the old question bank said 7, which only holds if always is excluded); `strictEqual` is not always false.
+- **memory capacity is not 32**: memory-cell **64**, memory-bank/world-cell **512** (32 is only the class default at `MemoryBlock.java:12`, overridden by all three instances; v159.3 and v160.7 agree).
+- **an out-of-range memory read is null (NaN), not 0**; an out-of-range write is silently dropped (`MemoryBlock.java:64-81`, comment text `Return null when out of bounds. (instead of 0)`).
+- **`format` consumes 1 value per call**, filling the **lowest-numbered** placeholder already in the text buffer, so `print` must come before `format`; placeholders accept single digits 0-9 only (`{10}` is not replaced).
+- **ipt is measured in points/tick, not points/s**: micro 2 / logic 8 / hyper 25 ⇒ 120/480/1500 points/s. The accumulator pool cap is **5×ipt** (micro 10 / logic 40 / hyper **125**); `maxInstructionsPerTick` only bounds the ipt that `setrate` can set (40 unprivileged, 1000 for a world processor) and **does not participate in the clipping** (`LogicBlock.java:565` uses `maxInstructionScale * ipt`, while `:558-559` resets an unprivileged processor's ipt to the block default every frame). The old claim that "hyper's 125 is clipped to 40" is wrong.
+- **unit armor tables must not mix definitions**: spiroct jar=9 / source=5, arkyid 14/6, toxopid 22/13, eclipse 22/13, antumbra 17/9, scepter 20/10, reign 30/18 — U05/C05 now uniformly take the jar and carry a version note.
+- **no turret has coolantMultiplier 0**: the minimum is foreshadow **0.4**, spectre **0.5**, arc **30** (a 75× spread); the old table's 0 is wrong.
 
-## 环境坑（重建/复现前必读）
+## Environment traps (required reading before a rebuild or a repro)
 
-1. `out/_kb/kb.sqlite3` 在 OneDrive 下是 Pinned 只读：MCP 持句柄时 `unlink` 会 WinError 5 并把库清成 24KB 空库 → 必须用 `tools/publish_db.py`（sqlite3 backup 原地重写）。
-2. 重建时 `KB_ROOT` 必须是**仓库根**（整个仓库的根目录），`KB_DIR` 指向临时目录；`KB_ROOT` 若设成 `knowledge` 会去找 `knowledge/out/_kblibs` → `ModuleNotFoundError: fastembed`。
-3. `tools/mlogsim.py` 的 `tempfile.mkdtemp(dir=<repo>/out/_sim)` 在 OneDrive 同步目录下可能卡死数分钟（爬到 `tempfile.py:375` 不动）；设环境变量 `MLOG_SIM_BASEDIR` 指向本地非同步目录即可绕过（已支持）。
-4. 门禁 `check_kb.py` 的 warning 是提示级（exit 0 即合规）；`W_NUM_NO_SOURCE` 多为源码行号与举例数值，不必逐行补来源。
+1. `out/_kb/kb.sqlite3` is OneDrive-Pinned read-only: if MCP holds a handle, `unlink` raises WinError 5 and empties the database to a 24KB shell → you must use `tools/publish_db.py` (an in-place sqlite3 backup rewrite).
+2. On a rebuild `KB_ROOT` must be the **repo root** (the root of the whole repository) and `KB_DIR` a temp directory; if `KB_ROOT` is set to `knowledge` it looks for `knowledge/out/_kblibs` → `ModuleNotFoundError: fastembed`.
+3. `tempfile.mkdtemp(dir=<repo>/out/_sim)` in `tools/mlogsim.py` can hang for minutes inside a OneDrive-synced directory (stuck around `tempfile.py:375`); set the `MLOG_SIM_BASEDIR` environment variable to a local non-synced directory to bypass it (supported).
+4. Warnings from the `check_kb.py` gate are advisory (exit 0 means compliant); `W_NUM_NO_SOURCE` mostly fires on source line numbers and example values, so you do not have to add a source line by line.
 
-## 2026-11-08 整合重建（两处外部会话并入）
+## 2026-11-08 consolidation rebuild (two external sessions merged in)
 
-同一工作区的两个会话把各自的平行知识库并进来，本库据此做了一轮整理（内容源头已随仓库提交 8494ea4 / 5c2f933 / a5cf501 / 805fb4d）：
+Two sessions in the same workspace merged their parallel knowledge bases into this one, and this library did a round of tidying on that basis (the content sources came in with commits 8494ea4 / 5c2f933 / a5cf501 / 805fb4d):
 
-- **退场两份平行库**：`docs/本地知识库.md`（检索器说明）与 `docs/MBO与配比计算器.md`（配比文档）。机制/数值并入 `02-world/W02/W03/W06/W07` + `04-units/U02`，检索用法归 `tools/README.md`/`tools/REBUILD.md`，工程细节归 `ratio-calc/README.md`；映射见 `INTEGRATION.md` 第 45-46 行。
-- **新增配比推导**：`04-units/U02-production.md` 第 128-156 行「台数比例与整链瓶颈」——每台每秒 = 60/constructTime、台数按速率反比、整链产出取最慢段；含 1/1/1/2/5 实例与「按 1:1 配 T4/T5」反例。
-- **传送带吞吐统一口径**：v160.7 jar `speed=0.035`、`itemSpace=0.4` ⇒ **5.25 件/s**（UI 的 `displayedSpeed=5` 是手填近似）；v159.3 源码 `0.046` ⇒ 6.9 件/s 作为版本注保留。此前 6.9 被误当当前值，`00-data/formulas.json`、`CHEAT.md`、`W06` 表格已一致。
-- **整理动作**：修 `P01-architecture.md` 里指向不存在的 `EXEC.PROCESSOR.001` → `EXEC.MODEL.001`；`W06` 吞吐表 conveyor 行补全口径；删掉过期的 `knowledge/index.repo.json`（04:18 的旧目录副本，移到 `_report/attic/`）。
-- **重建结果**：index.json 57 篇 / 18 张表；正式库 **8,243 chunk / 140 files**（42.8MB，code 6322 / doc 1758 / data 163）；postpublish 三项 PASS（A@1 16/20、库外 top1 0）；300 题 **hit@1 59.7% / hit@6 86.3% / mrr 0.694 / strong@6 94.2%**（逐域与上一版一致，41 题未命中）。
+- **two parallel libraries retired**: the retriever notes (`docs/本地知识库.md`) and the ratio document (`docs/MBO与配比计算器.md`). Mechanics and numbers went into `02-world/W02/W03/W06/W07` + `04-units/U02`, retrieval usage into `tools/README.md`/`tools/REBUILD.md`, engineering detail into `ratio-calc/README.md`; the mapping is in `INTEGRATION.md` lines 45-46.
+- **ratio derivation added**: `04-units/U02-production.md` lines 128-156, "per-building ratios and the whole-chain bottleneck" — per machine per second = 60/constructTime, machine counts in inverse proportion to rate, whole-chain output set by the slowest stage; includes a 1/1/1/2/5 example and the "pair T4/T5 at 1:1" counter-example.
+- **conveyor throughput brought onto one definition**: v160.7 jar `speed=0.035`, `itemSpace=0.4` ⇒ **5.25 items/s** (the UI's `displayedSpeed=5` is a hand-entered approximation); v159.3 source `0.046` ⇒ 6.9 items/s is kept as a version note. 6.9 had previously been mistaken for the current value; `00-data/formulas.json`, `CHEAT.md` and the `W06` table now agree.
+- **clean-up**: fixed the `EXEC.PROCESSOR.001` reference in `P01-architecture.md` that pointed at nothing → `EXEC.MODEL.001`; completed the definition in the conveyor row of the `W06` throughput table; deleted the stale `knowledge/index.repo.json` (the old 04:18 catalogue copy, moved to `_report/attic/`).
+- **rebuild result**: index.json 57 articles / 18 tables; the production library **8,243 chunk / 140 files** (42.8MB, code 6322 / doc 1758 / data 163); postpublish three items PASS (A@1 16/20, off-library top1 0); 300 questions **hit@1 59.7% / hit@6 86.3% / mrr 0.694 / strong@6 94.2%** (per domain identical to the previous version, 41 questions missed).
 
-## 2026-11-08 第二轮：炮塔评价 + 中英名对照（外部提交 49fac39 / 42aa158）
+## 2026-11-08 second round: turret verdicts + English-Chinese name mapping (external commits 49fac39 / 42aa158)
 
-- **新增 `03-combat/C11-turret-verdict.md`**（`COMBAT.TURRET.002`，conf I）：13 门主力的 DPS/造价、按目标护甲选型、7 门不能打空的防空缺口。表 1/表 2 的 DPS(0甲) 与 A* 逐格等于 C10 表 3/表 4；造价=件数之和、耗电=`usagePerSecond`、射程=`range/8` 已逐条复算通过；`targetAir=false` 恰为 arc / hail / lancer / ripple / scathe / scorch / titan（31 条 turrets 记录里非战斗 3 条：build-tower / repair-point / repair-turret）。
-- **新增中英名对照 5 篇**：`02-world/W13-W15-name-blocks-*.md` 合计 **447 条 = `00-data/blocks.json` 全量**（136 + 168 + 143，无重无漏）；`W16-name-items.md`（22 物品 + 11 液体 + 23 状态 = 56）；`04-units/U06-name-units.md`（70 单位，60 有官方简中）。
-- **名称真源**：`bundle.properties` + `bundle_zh_CN.properties`（2867 个 key）。这两份语言包已复制进仓库（`data/game/bundles/`，理由见那里的 `NOTICE.md`），所以生成器不依赖仓库外的素材树；外部素材目录仍可覆盖，查找顺序见 `knowledge/tools/gen_name_docs.py` 的 `_bundle_dirs()`——`out/_server160.jar` 里没有任何 bundle 条目（服务端 jar 剥掉资源），所以名称只能取自素材包；生成器 `tools/gen_name_docs.py`（key 规则 `<kind>.<id>.name`）。`data/game/aliases.json` 吃的是同一份 bundle：`knowledge/tools/gen_game_aliases.py` 负责重写，第一个别名恒为官方中文名，旧的手写译名只在不与任何官方名撞车时降级为搜索别名（2026-11-18 覆盖了 66 处错译，如 flare 耀斑→星辉、toxopid 毒蛛→天蝎）。缺名的 36 方块 / 10 单位 / 3 状态全是内部占位（air、build1-7、`*-missile`、dummy、turret-unit-build-tower…）。
-- **交叉链接**：C02/C10 → `[[COMBAT.TURRET.002]]`；W01 → `[[WORLD.NAMES.001]]`-003；U01 → `[[UNIT.NAMES.001]]`；`08-evidence/CHEAT.md` 路由表下补一行「查中文名走哪」。
-- **重建结果**：门禁 **61 篇 / 0 error / 193 warning**；正式库 **8,317 chunk / 146 files**（43.6MB，doc 1831 / code 6322 / data 163）；postpublish 三项 PASS（A@1 16/20、库外 top1 0、p50 68.3ms）；300 题 **hit@1 59.7% / hit@6 86.3% / mrr 0.693 / strong@6 94.2%**（新增内容未抢金标，分数与上一版持平）。
+- **added `03-combat/C11-turret-verdict.md`** (`COMBAT.TURRET.002`, conf I): DPS/cost of 13 mainline turrets, selection by target armor, and the 7-turret anti-air gap that cannot hit air at all. DPS(0 armor) in table 1 / table 2 matches table 3 / table 4 of C10 cell by cell; cost = sum of item counts, power = `usagePerSecond`, range = `range/8`, all recomputed and passing; `targetAir=false` is exactly arc / hail / lancer / ripple / scathe / scorch / titan (3 of the 31 turrets records are non-combat: build-tower / repair-point / repair-turret).
+- **added 5 name-mapping articles**: `02-world/W13-W15-name-blocks-*.md` covers **447 entries = all of `00-data/blocks.json`** (136 + 168 + 143, no duplicates and no gaps); `W16-name-items.md` (22 items + 11 liquids + 23 status = 56); `04-units/U06-name-units.md` (70 units, 60 with an official Simplified Chinese name).
+- **naming source of truth**: `bundle.properties` + `bundle_zh_CN.properties` (2867 keys). Both language packs are now copied into the repo (`data/game/bundles/`, rationale in the `NOTICE.md` there), so the generator does not depend on an out-of-repo asset tree; external asset directories can still override, see `_bundle_dirs()` in `knowledge/tools/gen_name_docs.py` — `out/_server160.jar` has no bundle entry at all (the server jar strips resources), so names can only come from the asset packs; generator `tools/gen_name_docs.py` (key rule `<kind>.<id>.name`). `data/game/aliases.json` eats the same bundle: `knowledge/tools/gen_game_aliases.py` rewrites it, the first alias is always the official Chinese name, and old hand-written translations are demoted to search aliases only when they collide with no official name (2026-11-18 fixed 66 mistranslations, e.g. flare (耀斑→星辉), toxopid (毒蛛→天蝎)). The 36 blocks / 10 units / 3 statuses without a name are all internal placeholders (air, build1-7, `*-missile`, dummy, turret-unit-build-tower…).
+- **cross-links**: C02/C10 → `[[COMBAT.TURRET.002]]`; W01 → `[[WORLD.NAMES.001]]`-003; U01 → `[[UNIT.NAMES.001]]`; a row "where to look up a Chinese name" added under the routing table in `08-evidence/CHEAT.md`.
+- **rebuild result**: gate **61 articles / 0 error / 193 warning**; production library **8,317 chunk / 146 files** (43.6MB, doc 1831 / code 6322 / data 163); postpublish three items PASS (A@1 16/20, off-library top1 0, p50 68.3ms); 300 questions **hit@1 59.7% / hit@6 86.3% / mrr 0.693 / strong@6 94.2%** (the new content did not steal gold labels; the score is level with the previous version).
 
-## 2026-11-15 第四轮：成品逻辑代码库（P09）
+## 2026-11-15 fourth round: finished logic code library (P09)
 
-- **新增目录 `07-patterns/code/`，收六份可直接粘贴的成品 .mlog**（逐字节复制自 `Logic/`）：`p09-haul-31slot-v27.mlog`（988 行 / 31 槽 / stride 19 / sig `40d4b4c5cfef`）、`p09-mine-30slot-v3.mlog`（966 行 / 30 槽 / stride 18 / 含 `ucontrol boost 1` ×30 / sig `daf5df426e9a`）、`p09-haul-8slot-research.mlog`（313 行 / 8 槽研究版 / sig `78b191d1de02`）、`p09-rows-v2.mlog`（71 行 / 50 行 name 表 / 声明移末尾 / sig `6102cb1316d2`）、`p09-luozi-v6-micro8.mlog`（463 行 / 着陆台硬编码 8 台 / sig `8922af28ca6b`）、`p09-luozi-v52-micro8.mlog`（149 行 / 循环版 / sig `b87d988e7ad9`）。子目录只放 .mlog —— 若放 .md 会因目录名不是域名报 `E_DOMAIN_DIR`。
-- **新增文章 `07-patterns/P09-code-examples.md`**（`PATTERN.CODE.001`「成品逻辑代码库」）：骨架公式（一圈 = 3 + N×stride；一圈时间 = 条数/(60×ipt)；相对派发 `tmp.hp = -(N×stride+3)`）+ 六文件规模表（带「来源」列）+ 五条实战反例（派发两 op 放表头会落到第 slots−N 槽、`itemDrop` 失败后紧跟返回腿会覆盖去程、loc 段 `ubind u1` 在单位数 < N 时恒空、着陆台累计配额 floor 和 < npad 少配一台、搬运闭环 itemTake 55 / itemDrop 48）。
-- **门禁结果**：`check_kb.py --root knowledge --write-tokens` ⇒ **PASS**，**92 篇 / 0 error / 192 warning**（warning 全为提示级；P09 自身 0 条，首轮 5 条 `W_NUM_NO_SOURCE` 已补 `[src:]`/`[实测:]` 标记与表格来源列）。
-- 注：正式库 chunk 未重建 —— 下次 `kb.py build` 才会把 P09 与 `code/` 纳入索引。
+- **new directory `07-patterns/code/`, holding six paste-ready finished .mlog files** (byte-for-byte copies from `Logic/`): `p09-haul-31slot-v27.mlog` (988 lines / 31 slots / stride 19 / sig `40d4b4c5cfef`), `p09-mine-30slot-v3.mlog` (966 lines / 30 slots / stride 18 / contains `ucontrol boost 1` ×30 / sig `daf5df426e9a`), `p09-haul-8slot-research.mlog` (313 lines / 8-slot research version / sig `78b191d1de02`), `p09-rows-v2.mlog` (71 lines / 50-row name table / declarations moved to the end / sig `6102cb1316d2`), `p09-luozi-v6-micro8.mlog` (463 lines / landing pad hard-coded to 8 / sig `8922af28ca6b`), `p09-luozi-v52-micro8.mlog` (149 lines / loop version / sig `b87d988e7ad9`). The subdirectory holds .mlog only — a .md there would raise `E_DOMAIN_DIR` because the directory name is not a domain name.
+- **new article `07-patterns/P09-code-examples.md`** (`PATTERN.CODE.001` "finished logic code library (成品逻辑代码库)"): skeleton formulas (one round = 3 + N×stride; one round's time = entries/(60×ipt); relative dispatch `tmp.hp = -(N×stride+3)`) + a table of the six files' scale (with a "source" column) + five real-world counter-examples (putting the two dispatch ops at the head of the table lands them in slot slots−N, the return leg right after a failed `itemDrop` overwrites the outbound trip, `ubind u1` in the loc section is always empty when the unit count < N, the landing pad's cumulative quota floor sums short of npad by one pad, the transport loop itemTake 55 / itemDrop 48).
+- **gate result**: `check_kb.py --root knowledge --write-tokens` ⇒ **PASS**, **92 articles / 0 error / 192 warning** (all warnings advisory; P09 itself has 0, its 5 first-round `W_NUM_NO_SOURCE` now carry `[src:]`/`[实测:]` markers and a table source column).
+- note: the production library's chunks were not rebuilt — only the next `kb.py build` will bring P09 and `code/` into the index.
 
-## 2026-11-15 第三轮：逐台炮塔页 28 篇 + 结构整理
+## 2026-11-15 third round: 28 per-turret pages + structural clean-up
 
-- **新增 `03-combat/turrets/` 28 篇逐台炮塔页**：`COMBAT.TURRET.101`-`118`（塞普罗 18 门）/ `.201`-`.210`（埃里克尔 10 门），每页 4.7-5.7KB、七节齐全（DPS / 造价 / 弹药 / 射程 / 证据行），与总览 `C11-turret-verdict.md`（`COMBAT.TURRET.002`）互链 56 处。
-- **新增 `03-combat/_turrets/verdicts.serpulo.json`（52,441B）与 `verdicts.erekir.json`（32,534B）**：`tools/gen_turrets.py` 的评价文案源数据；改文案后重跑生成器即再生 28 页 + 总览。
-- **新增 `00-data/turret_shots.json`（10,494B / 28 条）**：唯一非 jar 反射的表，由 `tools/gen_turret_shots.py` 从 v159.3 源码派生 shots/pattern/barrels + 证据行 ⇒ canonical 数据表 11 → **12**。
-- **补提交 `07-patterns/P07-unit-multicontrol.md`、`P08-counter-architectures.md`**（此前只在未跟踪列表）⇒ 蓝图模式 8 篇。
-- **`C11-turret-verdict.md` 重写为总览**（98 行，七节齐全，56 处指向 T 页）；`KB.md` / `README.md` / `00-data/README.md` 同步结构树与篇数。
-- 注：`kb.py build` 的 chunk 数在 tokenizer 估算上非严格确定（同一份内容两次构建为 9,461 / 9,462），文档统一记作 ≈9,460。
-- **重建结果**：门禁 **91 篇 / 0 error / 187 warning**；`index.json` 重生成（articles 93 / canonical 12 / records 1039）；正式库 **≈9,460 chunk / 187 files / 19 张数据表**（46.6MB，doc 2,098 / code 7,196 / data 167）；postpublish 三项 PASS（bench20 A@1 16/20、库外 top1 0、p50 约 160ms（复跑 122-277ms，随机器负载波动））；300 题 hit@1 **59.0%**、hit@6 **85.0%**、mrr 0.685。
+- **added 28 per-turret pages under `03-combat/turrets/`**: `COMBAT.TURRET.101`-`118` (18 Serpulo (塞普罗) turrets) / `.201`-`.210` (10 Erekir (埃里克尔) turrets), each page 4.7-5.7KB with all seven sections (DPS / cost / ammo / range / evidence rows), cross-linked 56 times with the overview `C11-turret-verdict.md` (`COMBAT.TURRET.002`).
+- **added `03-combat/_turrets/verdicts.serpulo.json` (52,441B) and `verdicts.erekir.json` (32,534B)**: the source data for the verdict copy that `tools/gen_turrets.py` renders; edit the copy and rerun the generator to regenerate the 28 pages + the overview.
+- **added `00-data/turret_shots.json` (10,494B / 28 records)**: the only table that is not jar-reflected, derived by `tools/gen_turret_shots.py` from the v159.3 source as shots/pattern/barrels + evidence rows ⇒ canonical data tables 11 → **12**.
+- **late-committed `07-patterns/P07-unit-multicontrol.md`, `P08-counter-architectures.md`** (previously only in the untracked list) ⇒ blueprint patterns 8 articles.
+- **`C11-turret-verdict.md` rewritten as the overview** (98 lines, seven sections complete, 56 links out to T pages); `KB.md` / `README.md` / `00-data/README.md` had their structure trees and article counts synced.
+- note: the chunk count from `kb.py build` is not strictly deterministic on the tokenizer estimate (the same content built twice gives 9,461 / 9,462), so the docs uniformly record ≈9,460.
+- **rebuild result**: gate **91 articles / 0 error / 187 warning**; `index.json` regenerated (articles 93 / canonical 12 / records 1039); production library **≈9,460 chunk / 187 files / 19 data tables** (46.6MB, doc 2,098 / code 7,196 / data 167); postpublish three items PASS (bench20 A@1 16/20, off-library top1 0, p50 about 160ms (122-277ms on a rerun, varies with machine load)); 300 questions hit@1 **59.0%**, hit@6 **85.0%**, mrr 0.685.
 
-## 交付验收（v1.2，2026-11-15）
+## Delivery acceptance (v1.2, 2026-11-15)
 
-| 项 | 结果 | 复现命令 |
+| Item | Result | Repro command |
 |---|---|---|
-| 门禁 | **92 篇 / 0 error**（192 warning，全部提示级） | `check_kb.py --root knowledge --all` |
-| 正式库 | **≈9,460 chunk / 187 files / 19 张数据表**（46.6MB，doc 2,098 / code 7,196 / data 167） | `dbstat.py out/_kb/kb.sqlite3` |
-| 发布后校验 | STRUCT / COUNT / RETRIEVAL **三项 PASS**（chunks 9,461 = staging 9,461、files 187，journal 已落盘） | `postpublish.py --db ... --staging ...` |
-| 300 题冻结评测 | coverage 100% / **hit@1 59.0% / hit@6 85.0%** / mrr 0.685 / strong@6 93.4% / 库外槽 0%（v1.2 复跑，含 28 篇炮塔页） | `08-evidence/bench/`（A+B+C 全开，k=6） |
-| 推导题 | 公式 22 题 hit@6 **72.7%**（16/22）/ hit@1 59.1%；跨源 24 题 hit@6 **83.3%**（20/24）/ hit@1 75.0% | `bench/questions-derive.jsonl`（k=6） |
-| 20 题冒烟（bench20） | A@1 **16/20（80%）**、A@3 16、库外 top1 **0/20**、p50 约 160ms（复跑 122-277ms，随机器负载波动） | `bench20.py --db out/_kb/kb.sqlite3` |
-| 可执行探针 | **17 PASS / 1 FAIL（已修claims）/ 2 INCONCLUSIVE** | `08-evidence/probes/_run_all.py` |
-| jar 真值核对 | **终版 RERUN：178 条 / PASS 175 / FAIL 0 / 口径差 3**（①CHEAT 26 · ②C10 14 · ③W06/W07 41 · ④C02 28(3 口径差) · ⑤C05 41 · ⑥C06 28），退出码 0 | `python knowledge/tools/rt_verify.py`；明细 `08-evidence/_report/_rtverify/RERUN.md` |
+| gate | **92 articles / 0 error** (192 warning, all advisory) | `check_kb.py --root knowledge --all` |
+| production library | **≈9,460 chunk / 187 files / 19 data tables** (46.6MB, doc 2,098 / code 7,196 / data 167) | `dbstat.py out/_kb/kb.sqlite3` |
+| post-publish check | STRUCT / COUNT / RETRIEVAL **all three PASS** (chunks 9,461 = staging 9,461, files 187, journal flushed to disk) | `postpublish.py --db ... --staging ...` |
+| 300-question frozen evaluation | coverage 100% / **hit@1 59.0% / hit@6 85.0%** / mrr 0.685 / strong@6 93.4% / off-library slot 0% (v1.2 rerun, including the 28 turret pages) | `08-evidence/bench/` (A+B+C all on, k=6) |
+| derivation questions | formulas 22 questions hit@6 **72.7%** (16/22) / hit@1 59.1%; cross-source 24 questions hit@6 **83.3%** (20/24) / hit@1 75.0% | `bench/questions-derive.jsonl` (k=6) |
+| 20-question smoke (bench20) | A@1 **16/20 (80%)**, A@3 16, off-library top1 **0/20**, p50 about 160ms (122-277ms on a rerun, varies with machine load) | `bench20.py --db out/_kb/kb.sqlite3` |
+| executable probes | **17 PASS / 1 FAIL (claims since fixed) / 2 INCONCLUSIVE** | `08-evidence/probes/_run_all.py` |
+| jar ground-truth check | **final RERUN: 178 records / PASS 175 / FAIL 0 / 3 definition gaps** (①CHEAT 26 · ②C10 14 · ③W06/W07 41 · ④C02 28(3 definition gaps) · ⑤C05 41 · ⑥C06 28), exit code 0 | `python knowledge/tools/rt_verify.py`; detail in `08-evidence/_report/_rtverify/RERUN.md` |
 
-检索三开关（默认全开，可用环境变量关）见 `tools/REBUILD.md` §4：`KB_ONLY_KNOWLEDGE`（只检索 knowledge/）、`KB_DEDUPE_FILE`（按文件去重）、`KB_ASCII_BOOST`（ASCII 标识符加权）。
+The three retrieval switches (all on by default, can be turned off with environment variables) are in `tools/REBUILD.md` §4: `KB_ONLY_KNOWLEDGE` (search knowledge/ only), `KB_DEDUPE_FILE` (dedupe by file), `KB_ASCII_BOOST` (weight ASCII identifiers).
 
-## 当前内容规模（v1.2）
+## Current content scale (v1.2)
 
-| 域 | 篇数 | 目录 |
+| Domain | Articles | Directory |
 |---|---|---|
-| 执行模型 | 6 | `01-execution/`（E01-E06） |
-| 世界/方块 | 16 | `02-world/`（W01-W16，含 W13-W16 中英名对照） |
-| 战斗 | 39 | `03-combat/`（C01-C11 + `turrets/` T101-T210 逐台炮塔页） |
-| 单位 | 6 | `04-units/`（U01-U06，含 U06 单位名对照） |
-| 战役 | 6 | `05-campaign/`（CAMP.*） |
-| mlog 语言 | 8 + 2 JSON | `06-mlog/`（M01-M08、instructions.json、enums.json） |
-| 蓝图模式 | 9 + JSON | `07-patterns/`（P01-P09、`code/` 六份成品 .mlog、idioms.json） |
-| 证据/评测 | 2 + 300 题 + 探针 | `08-evidence/`（claims.jsonl、CHEAT.md、bench/、probes/） |
-| 数据表 | 12 张 canonical（+7 张 raw 抽查件） | `00-data/`（blocks/turrets/turret_shots/units/bullets/items/liquids/status/rules/formulas/constants/src_anchors） |
+| execution model | 6 | `01-execution/` (E01-E06) |
+| world / blocks | 16 | `02-world/` (W01-W16, including the name mappings in W13-W16) |
+| combat | 39 | `03-combat/` (C01-C11 + `turrets/` T101-T210 per-turret pages) |
+| units | 6 | `04-units/` (U01-U06, including the unit name mapping in U06) |
+| campaign | 6 | `05-campaign/` (CAMP.*) |
+| mlog language | 8 + 2 JSON | `06-mlog/` (M01-M08, instructions.json, enums.json) |
+| blueprint patterns | 9 + JSON | `07-patterns/` (P01-P09, six finished .mlog in `code/`, idioms.json) |
+| evidence / evaluation | 2 + 300 questions + probes | `08-evidence/` (claims.jsonl, CHEAT.md, bench/, probes/) |
+| data tables | 12 canonical (+7 raw spot-check copies) | `00-data/` (blocks/turrets/turret_shots/units/bullets/items/liquids/status/rules/formulas/constants/src_anchors) |

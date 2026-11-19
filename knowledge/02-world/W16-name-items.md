@@ -1,6 +1,6 @@
 ---
 id: WORLD.NAMES.004
-title: 物品 / 液体 / 状态效果名对照（56 条）
+title: Item / liquid / status effect name mapping (56 entries)
 domain: world
 status: active
 ver: [v160.7_rt, v159.3_src]
@@ -13,27 +13,27 @@ data:
   - "00-data/liquids.json"
   - "00-data/status.json"
 depends: [WORLD.CRAFTING.001, COMBAT.STATUS.001]
-tags: [名词, 中文名, 英文名, 翻译, 对照表, 物品, 液体, 状态]
+tags: [names, chinese-name, english-name, translation, mapping-table, item, liquid, status]
 ---
 
-## 一句话
+## One line
 
-物品、液体、状态效果三类实体的显示名对照——这三类在界面上只有名字没有方块 id，是把配方表、状态图标、液体色块翻译回 id 的唯一入口。
+The display-name mapping for the three entity classes - items, liquids and status effects - which show only a name in the UI and have no block id; it is the only way back from a recipe table, a status icon or a liquid swatch to an id.
 
-## 规则 / 公式
+## Rules / formulas
 
-- key 规则：`item.<id>.name` / `liquid.<id>.name` / `status.<id>.name`；三张表的记录见 00-data。
-- 顺序：物品 22 条（`00-data/items.json`）→ 液体 11 条（`liquids.json`）→ 状态 23 条（`status.json`），组内按 id 字母序。
-- 状态里有 `none` / `invincible` / `dynamic` 三个「无名」项：它们不是玩家可获状态，语言包没有对应显示名，表内记「—」。
-- 物品名多为物质名（铜、铅、硅），液体名多为液体名（水、矿渣、石油），状态名多为形容词（缓慢、过载、缴械）。
+- Key rule: `item.<id>.name` / `liquid.<id>.name` / `status.<id>.name`; the records behind the three tables are in 00-data.
+- Order: 22 items (`00-data/items.json`) → 11 liquids (`liquids.json`) → 23 statuses (`status.json`), alphabetical by id inside each group.
+- Three statuses are "nameless" entries: `none` / `invincible` / `dynamic`; they are not player-obtainable statuses and the bundle has no display name for them, so the table records a "—".
+- Item names are mostly substance names (copper, lead, silicon), liquid names are mostly liquid names (water, slag, oil), and status names are mostly adjectives (slow, overload, disarmed).
 
-## 数值
+## Numbers
 
-本节只列名词；硬度、造价、可燃性、倍率等数值见 `00-data/items.json` / `liquids.json` / `status.json`，口径见 COMBAT.STATUS.001。
+This section lists names only; hardness, cost, flammability, multipliers and similar numbers are in `00-data/items.json` / `liquids.json` / `status.json`, with conventions in COMBAT.STATUS.001.
 
-### 物品
+### Items
 
-| id | 英文名 | 中文名 | 中文名出处 | 英文名出处 |
+| id | English name | Chinese name | Chinese name source | English name source |
 |---|---|---|---|---|
 | `beryllium` | Beryllium | 铍 | zh:1745 | en:1750 |
 | `blast-compound` | Blast Compound | 爆炸混合物 | zh:1740 | en:1745 |
@@ -58,9 +58,9 @@ tags: [名词, 中文名, 英文名, 翻译, 对照表, 物品, 液体, 状态]
 | `titanium` | Titanium | 钛 | zh:1732 | en:1737 |
 | `tungsten` | Tungsten | 钨 | zh:1746 | en:1751 |
 
-### 液体
+### Liquids
 
-| id | 英文名 | 中文名 | 中文名出处 | 英文名出处 |
+| id | English name | Chinese name | Chinese name source | English name source |
 |---|---|---|---|---|
 | `arkycite` | Arkycite | 芳油 | zh:1756 | en:1761 |
 | `cryofluid` | Cryofluid | 冷冻液 | zh:1754 | en:1759 |
@@ -74,9 +74,9 @@ tags: [名词, 中文名, 英文名, 翻译, 对照表, 物品, 液体, 状态]
 | `slag` | Slag | 矿渣 | zh:1752 | en:1757 |
 | `water` | Water | 水 | zh:1751 | en:1756 |
 
-### 状态效果
+### Status effects
 
-| id | 英文名 | 中文名 | 中文名出处 | 英文名出处 |
+| id | English name | Chinese name | Chinese name source | English name source |
 |---|---|---|---|---|
 | `blasted` | Blasted | 爆炸 | zh:1081 | en:1086 |
 | `boss` | Guardian | Boss | zh:1084 | en:1089 |
@@ -102,30 +102,30 @@ tags: [名词, 中文名, 英文名, 翻译, 对照表, 物品, 液体, 状态]
 | `unmoving` | Unmoving | 静止 | zh:1083 | en:1088 |
 | `wet` | Wet | 潮湿 | zh:1071 | en:1076 |
 
-## 源码锚点
+## Source anchors
 
-- `data/game/bundles/bundle_zh_CN.properties`（zh:N）与 `bundle.properties`（en:N）。
-- `00-data/items.json`（22 条）/ `liquids.json`（11 条）/ `status.json`（23 条）；三类共 56 条，53 条有中文名。
-- 生成脚本 `knowledge/tools/gen_name_docs.py`。
+- `data/game/bundles/bundle_zh_CN.properties` (zh:N) and `bundle.properties` (en:N).
+- `00-data/items.json` (22 entries) / `liquids.json` (11 entries) / `status.json` (23 entries); 56 entries across the three classes, 53 of them with a Chinese name.
+- Generator script `knowledge/tools/gen_name_docs.py`.
 
-## 实测与反例
+## Measurements and counter-examples
 
-- 反例一：`plastanium` 中文是「塑钢」，不是「塑料」；`phase-fabric` 是「相织布」而不是「相位布」——按英文词根直译会错。
-- 反例二：`pyratite` 官方中文「硫化物」，和 pyrite（黄铁矿）不是一回事；英文名形近但中文串完全不同。
-- 反例三：`surge-alloy` 是「巨浪合金」，不是「电涌合金」；`carbide` 是「碳化物」、`oxide` 是「氧化物」，与 `beryllium`「铍」同属合金体系但命名不统一。
-- 反例四：状态 `none` / `invincible` / `dynamic` 查不到中文名，若按「无状态」「无敌」去反查 id 会得到空结果；正确 id 就是字面那三个。
-- 反例五：液体 `neoplasm` 是「瘤液」、`arkycite` 是「芳油」、`gallium` 是「镓液」——三条中只有 gallium 保留了元素名的「液」后缀。
+- **Counter-example A** - `plastanium` is plastic-steel (塑钢), not plastic (塑料); `phase-fabric` is phase fabric (相织布), not phase cloth (相位布) - literal readings by English root go wrong.
+- **Counter-example B** - `pyratite` is officially sulfide (硫化物), which is not the same thing as pyrite (黄铁矿); the English names look alike but the Chinese strings are completely different.
+- **Counter-example C** - `surge-alloy` is officially surge alloy (巨浪合金), not surge alloy (电涌合金); `carbide` is carbide (碳化物) and `oxide` is oxide (氧化物), which belong to the same alloy family as `beryllium`, beryllium (铍), yet the naming is not uniform.
+- **Counter-example D** - the statuses `none` / `invincible` / `dynamic` have no Chinese name, so reverse-looking up an id from "no status" or "invincible" returns nothing; the correct ids are literally those three.
+- **Counter-example E** - the liquid `neoplasm` is tumor fluid (瘤液), `arkycite` is arkycite (芳油) and `gallium` is gallium liquid (镓液); of the three, only gallium keeps the liquid (液) suffix of an element name.
 
-## 常见误解
+## Common misconceptions
 
-- 以为状态名就是方块名：`overdrive` 既是状态也是方块 `overdrive-projector` 的产物，两个 id 不同名。
-- 以为液体名与物品名同表：`water` / `slag` 只在 liquids 表，`sand` / `coal` 只在 items 表；跨表按名字查会漏。
-- 以为每个状态都有中文名：23 条里有 3 条没有（三个特殊状态）。
+- Assuming a status name is a block name: `overdrive` is both a status and the product of the block `overdrive-projector`; the two ids are named differently.
+- Assuming liquid names and item names share a table: `water` / `slag` are only in the liquids table and `sand` / `coal` only in the items table, so a name lookup across tables misses.
+- Assuming every status has a Chinese name: 3 of the 23 do not (the three special statuses).
 
-## 相关
+## Related
 
-- WORLD.CRAFTING.001（配方与产物）
-- WORLD.LIQUIDS.001（液体属性与导管）
-- COMBAT.STATUS.001（状态倍率与叠加）
-- WORLD.NAMES.001 / WORLD.NAMES.002 / WORLD.NAMES.003（方块名）
-- UNIT.NAMES.001（单位名）
+- WORLD.CRAFTING.001 (recipes and products)
+- WORLD.LIQUIDS.001 (liquid properties and conduits)
+- COMBAT.STATUS.001 (status multipliers and stacking)
+- WORLD.NAMES.001 / WORLD.NAMES.002 / WORLD.NAMES.003 (block names)
+- UNIT.NAMES.001 (unit names)

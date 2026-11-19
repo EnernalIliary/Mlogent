@@ -1,7 +1,7 @@
 ---
 tokens: 527
 id: COMBAT.TURRET.116
-title: foreshadow —— 500 世界单位外的 405 点重锤
+title: foreshadow — a 405-damage hammer at 500 world units
 domain: combat
 status: active
 ver: [v160.7_rt, v159.3_src]
@@ -14,70 +14,70 @@ src:
   - "jar:v160.7#blocks/foreshadow"
 data: [00-data/turrets.json, 00-data/blocks.json, 00-data/bullets.json, 00-data/turret_shots.json]
 depends: [COMBAT.TURRET.001, COMBAT.TURRET.002, COMBAT.NUMBERS.001]
-tags: [炮塔, foreshadow, 超远程狙击 / 反重甲先手]
+tags: [turret, foreshadow, extreme-range sniping / anti-heavy-armor opener]
 ---
 
-## 一句话
+## One line
 
-foreshadow 用 2700 件买一门能打到 500 世界单位（62.5 格）的炮：0.3 发/s、单发 1350 直伤、405 DPS，对 22 甲还有 398.4——护甲几乎不影响它。它是「在敌人进入任何其他塔射界之前就先削掉它」的塔，代价是 600/s 的电、5 件/发的弹药和极慢的节奏。 [src: 00-data/turrets.json]
+foreshadow spends 2700 items on a gun that reaches 500 world units (62.5 tiles): 0.3 shots/s, 1350 direct damage per shot, 405 DPS, and still 398.4 against 22 armor — armor barely affects it. It is the tower that chips the enemy down before that enemy enters any other tower's firing arc, at the price of 600/s of power, 5 items per shot and a very slow rhythm. [src: 00-data/turrets.json]
 
-## 规则 / 公式
+## Rules / formulas
 
-- **层位**：A ｜ **岗位**：超远程狙击 / 反重甲先手
-- **射击模式**：ShootPattern(默认)（每触发 1 发；reload 200 tick） [src: 00-data/turret_shots.json]
-- **目标层**：空中、地面、建筑
-- 每触发 1 发，reload 200 tick ⇒ 0.3 发/s；射界 500 世界单位（62.5 格）是全作最远 [src: 00-data/turrets.json]
-- surge-alloy 单发 1350 直伤 → 405 DPS，对 22 甲 398.4：一发就够破甲，护甲在它面前几乎不存在 [src: 00-data/turrets.json]
-- ammoPerShot 5 + maxAmmo 40：每次开火吃 5 件弹药，弹匣只够 8 发，供弹必须跟上
-- 600/s 的耗电是全作最高档之一，没有独立电网根本带不动 [src: 00-data/turrets.json]
-- **优点**：
-  - 62.5 格射界 + 405 单体 DPS，让它能在其他塔全部沉默的距离上开火 [src: 00-data/turrets.json]
-  - 对 22 甲 398.4，是全作对重甲最有效的单塔（lancer 39、fuse 426.9 但射界 11.25 格） [src: 00-data/turrets.json]
-  - 一发 1350，对高血量单体目标是效率最高的爆发
-- **缺点**：
-  - 0.3 发/s：一发打空就损失 3 秒以上，对高机动目标命中率是硬伤 [src: 00-data/turrets.json]
-  - 2700 件 + 600/s 电 + 5 件/发，是全家最贵的维持成本 [src: 00-data/turrets.json]
-  - 4×4 占地 + 极慢射速，前期完全不可用 [src: 00-data/turrets.json]
-- **口径**：单体 DPS = 60/(reload × reloadMultiplier) × shots × 直伤；面板 DPS 再按 BulletType.estimateDPS 把溅射按 0.75 折进去（见 [[COMBAT.NUMBERS.001]]）。 [src: Mindustry-Source/core/src/mindustry/entities/bullet/BulletType.java:414]
+- **Tier**: A | **Role**: extreme-range sniping / anti-heavy-armor opener
+- **Shoot pattern**: ShootPattern(default) (1 shot per trigger; reload 200 ticks) [src: 00-data/turret_shots.json]
+- **Target layers**: air, ground, buildings
+- 1 shot per trigger, reload 200 ticks ⇒ 0.3 shots/s; the 500-world-unit (62.5-tile) firing arc is the longest in the game [src: 00-data/turrets.json]
+- surge-alloy 1350 direct damage per shot → 405 DPS, 398.4 against 22 armor: one shot is enough to crack armor, armor is close to non-existent against it [src: 00-data/turrets.json]
+- ammoPerShot 5 + maxAmmo 40: each shot eats 5 items, the magazine holds only 8 shots, so the feed must keep up
+- 600/s of power is one of the highest tiers in the game; without a dedicated grid it cannot run at all [src: 00-data/turrets.json]
+- **Pros**:
+  - 62.5-tile firing arc + 405 single-target DPS lets it fire at a distance where every other tower is silent [src: 00-data/turrets.json]
+  - 398.4 against 22 armor makes it the most effective single tower against heavy armor (lancer 39; fuse 426.9 but with an 11.25-tile arc) [src: 00-data/turrets.json]
+  - 1350 per shot is the most efficient burst against high-health single targets
+- **Cons**:
+  - 0.3 shots/s: one missed shot loses more than 3 seconds, and hit rate against high-mobility targets is a hard flaw [src: 00-data/turrets.json]
+  - 2700 items + 600/s power + 5 items per shot is the most expensive upkeep in the family [src: 00-data/turrets.json]
+  - 4×4 footprint + extremely slow fire rate: completely unusable early [src: 00-data/turrets.json]
+- **Convention**: single-target DPS = 60/(reload × reloadMultiplier) × shots × direct damage; panel DPS further folds splash in at 0.75 through BulletType.estimateDPS (see [[COMBAT.NUMBERS.001]]). [src: Mindustry-Source/core/src/mindustry/entities/bullet/BulletType.java:414]
 
-## 数值
+## Numbers
 
-| 项 | 值 | 来源 |
+| Item | Value | Source |
 |---|---|---|
-| 尺寸 | 4 | 00-data/blocks.json |
-| 血量 | 2400 | 00-data/blocks.json |
-| 护甲 | 0 | 00-data/blocks.json |
-| 造价 | 2700 件（copper × 1000、metaglass × 600、silicon × 600、plastanium × 200、surge-alloy × 300） | 00-data/blocks.json |
-| 射程 | 500 世界单位（62.50 格） | 00-data/turrets.json |
-| reload | 200 tick | 00-data/turrets.json |
+| Size | 4 | 00-data/blocks.json |
+| Health | 2400 | 00-data/blocks.json |
+| Armor | 0 | 00-data/blocks.json |
+| Cost | 2700 items (copper × 1000, metaglass × 600, silicon × 600, plastanium × 200, surge-alloy × 300) | 00-data/blocks.json |
+| Range | 500 world units (62.50 tiles) | 00-data/turrets.json |
+| reload | 200 ticks | 00-data/turrets.json |
 | shots | 1 | 00-data/turret_shots.json |
-| 冷却液倍率 / shootCone | 0.4 / 2 | 00-data/turrets.json |
-| 耗电 | 600/s | 00-data/turrets.json |
+| Coolant multiplier / shootCone | 0.4 / 2 | 00-data/turrets.json |
+| Power | 600/s | 00-data/turrets.json |
 
-| 弹药 | 直伤 | 溅射 | reloadMult | 发/s | 单体DPS(0甲) | 面板DPS | 物品/秒 | 对22甲DPS | 来源 |
+| Ammo | Direct damage | Splash | reloadMult | shots/s | Single-target DPS (0 armor) | Panel DPS | Items/s | DPS vs 22 armor | Source |
 |---|---|---|---|---|---|---|---|---|---|
 | surge-alloy | 1350 | 0 | 1.00 | 0.30 | 405.0 | 405.0 | 1.50 | 398.4 | 00-data |
 
-- 398.4 = 0.3 × (1350 − 22)，与 405 只差 1.6%，这是「单发够重时护甲可忽略」的最好例证 [src: 00-data/turrets.json]
-- 1.5 件/s = 0.3 发/s × 5 件/发，规划供弹时按这个数字算 [src: 00-data/turrets.json]
+- 398.4 = 0.3 × (1350 − 22), only 1.6% below 405 — the best illustration that armor can be ignored once the single shot is heavy enough [src: 00-data/turrets.json]
+- 1.5 items/s = 0.3 shots/s × 5 items/shot; use this number when planning the feed [src: 00-data/turrets.json]
 
-## 源码锚点
+## Source anchors
 
-- Mindustry-Source/core/src/mindustry/content/Blocks.java:4203 —— 定义行 new ItemTurret("foreshadow")
-- Mindustry-Source/core/src/mindustry/entities/pattern/ShootPattern.java:9 —— shots 默认 1（本塔未覆写）
-- 00-data/turret_shots.json#id=foreshadow —— 源码派生记录（含证据行）
+- Mindustry-Source/core/src/mindustry/content/Blocks.java:4203 — definition line new ItemTurret("foreshadow")
+- Mindustry-Source/core/src/mindustry/entities/pattern/ShootPattern.java:9 — shots defaults to 1 (this tower does not override it)
+- 00-data/turret_shots.json#id=foreshadow — source-derived record (with evidence line)
 
-## 实测与反例
+## Measurements and counter-examples
 
-- 反例：用 foreshadow 打 crawler 群，0.3 发/s 一轮只杀一个，性价比远不如 cyclone 的 415.5 面板；复现：00-data/turrets.json 里 foreshadow 与 cyclone 的「面板DPS」列 [src: 00-data/turrets.json]
-- 反例：以为它靠溅射清群，1350 是纯直伤、面板=单体，群伤能力为零；复现：同表 foreshadow 行 [src: 00-data/turrets.json]
+- Counter-example: firing foreshadow at a crawler swarm, 0.3 shots/s kills one per round, far worse value than cyclone's 415.5 panel DPS; reproduce: the panel DPS column for foreshadow and cyclone in 00-data/turrets.json [src: 00-data/turrets.json]
+- Counter-example: assuming it clears swarms with splash — 1350 is pure direct damage, panel = single-target, so its group damage is zero; reproduce: the foreshadow row of the same table [src: 00-data/turrets.json]
 
-## 常见误解
+## Common misconceptions
 
-- 「射程最远所以最强」错：0.3 发/s 的节奏让它在近身混战里几乎没有输出 [src: 00-data/turrets.json]
-- 「高护甲目标打不动」错：对 22 甲仍有 398.4，是全作抗甲最好的塔之一 [src: 00-data/turrets.json]
+- "Longest range means strongest" — wrong: the 0.3 shots/s rhythm leaves it with almost no output in a close-range melee [src: 00-data/turrets.json]
+- "It cannot hurt high-armor targets" — wrong: it still has 398.4 against 22 armor, one of the best armor-resistant towers in the game [src: 00-data/turrets.json]
 
-## 相关
+## Related
 
 - [[COMBAT.TURRET.106]]
 - [[COMBAT.TURRET.117]]

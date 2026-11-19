@@ -1,7 +1,7 @@
 ---
 tokens: 580
 id: COMBAT.TURRET.206
-title: afflict —— 368 世界单位、216 DPS 的穿甲电炮
+title: afflict — a 368-world-unit, 216-DPS armor-piercing electric gun
 domain: combat
 status: active
 ver: [v160.7_rt, v159.3_src]
@@ -14,76 +14,76 @@ src:
   - "jar:v160.7#blocks/afflict"
 data: [00-data/turrets.json, 00-data/blocks.json, 00-data/bullets.json, 00-data/turret_shots.json]
 depends: [COMBAT.TURRET.001, COMBAT.TURRET.002, COMBAT.NUMBERS.001]
-tags: [炮塔, afflict, 中口径电塔 / 穿刺射击]
+tags: [turret, afflict, medium-caliber electric tower / piercing shot]
 ---
 
-## 一句话
+## One line
 
-afflict 解决「中期远程点掉两三个目标」，不是「终局主力」：reload 50 tick 的 180 直伤 = 216 DPS，pierceCap 2 让它在密集队形里打双份，368 世界单位（46.00 格）覆盖配 300 电/s。它不吃护甲惩罚（无 armorMultiplier，对 22 甲剩 158、88%），代价是慢弹道与对电网的绝对依赖。 [src: Mindustry-Source/core/src/mindustry/content/Blocks.java:5025]
+afflict solves "pick off two or three targets at range in the mid-game", not "be the endgame mainstay": a 50-tick reload with 180 direct damage = 216 DPS, pierceCap 2 lets it deal double in a dense formation, and 368 world units (46.00 tiles) of coverage comes with 300 power/s. It takes no armor penalty (no armorMultiplier, 158 left against 22 armor, 88%); the price is a slow projectile and absolute dependence on the grid. [src: Mindustry-Source/core/src/mindustry/content/Blocks.java:5025]
 
-## 规则 / 公式
+## Rules / formulas
 
-- **层位**：B ｜ **岗位**：中口径电塔 / 穿刺射击
-- **射击模式**：ShootPattern(默认)（每触发 1 发；reload 50 tick） [src: 00-data/turret_shots.json]
-- **目标层**：空中、地面、建筑
-- reload 50 tick ⇒ 1.2 发/s，直伤 180 → 216 DPS [src: Mindustry-Source/core/src/mindustry/content/Blocks.java:5025]
-- pierceCap 2 可穿 2 个目标；speed 5、lifetime 80 ⇒ 弹道慢，打机动目标要预判 [src: Mindustry-Source/core/src/mindustry/content/Blocks.java:5030]
-- 无 armorMultiplier，对 22 甲单发剩 158（88%），是 Erekir 中不吃护甲惩罚的中口径 [src: Mindustry-Source/core/src/mindustry/content/Blocks.java:5036]
-- 耗电 300/s，4×4、590 件、3520 血 [src: 00-data/turrets.json]
-- 368 世界单位（46.00 格）比 titan 短但比大多数 Erekir 塔远 [src: Mindustry-Source/core/src/mindustry/content/Blocks.java:5024]
-- **优点**：
-  - 590 件 + 368 覆盖，是 Erekir 中期最便宜的远程点名塔 [src: 00-data/turrets.json]
-  - pierceCap 2 在密集队形里等效双倍输出，且不吃护甲惩罚 [src: Mindustry-Source/core/src/mindustry/content/Blocks.java:5030]
-- **缺点**：
-  - 216 DPS 在 590 件档不算高：smite 562.5 只贵 3.7 倍 [src: 00-data/turrets.json]
-  - 300 电/s 需要独立电网，断电直接变摆设 [src: 00-data/turrets.json]
-  - 弹道 speed 5，对高速飞行/走位单位命中率打折 [src: Mindustry-Source/core/src/mindustry/content/Blocks.java:5030]
-- **口径**：单体 DPS = 60/(reload × reloadMultiplier) × shots × 直伤；面板 DPS 再按 BulletType.estimateDPS 把溅射按 0.75 折进去（见 [[COMBAT.NUMBERS.001]]）。 [src: Mindustry-Source/core/src/mindustry/entities/bullet/BulletType.java:414]
+- **Tier**: B | **Role**: medium-caliber electric tower / piercing shot
+- **Shoot pattern**: ShootPattern(default) (1 shot per trigger; reload 50 ticks) [src: 00-data/turret_shots.json]
+- **Target layers**: air, ground, buildings
+- reload 50 ticks ⇒ 1.2 shots/s, 180 direct damage → 216 DPS [src: Mindustry-Source/core/src/mindustry/content/Blocks.java:5025]
+- pierceCap 2 punches through 2 targets; speed 5, lifetime 80 ⇒ slow projectile, so moving targets need leading [src: Mindustry-Source/core/src/mindustry/content/Blocks.java:5030]
+- No armorMultiplier: against 22 armor a shot leaves 158 (88%), which makes it the medium caliber that avoids the armor penalty in Erekir [src: Mindustry-Source/core/src/mindustry/content/Blocks.java:5036]
+- 300/s of power, 4×4, 590 items, 3520 health [src: 00-data/turrets.json]
+- 368 world units (46.00 tiles) is shorter than titan but longer than most Erekir towers [src: Mindustry-Source/core/src/mindustry/content/Blocks.java:5024]
+- **Pros**:
+  - 590 items + 368 of coverage makes it Erekir's cheapest mid-game ranged sniper [src: 00-data/turrets.json]
+  - pierceCap 2 doubles its effective output in a dense formation, and it takes no armor penalty [src: Mindustry-Source/core/src/mindustry/content/Blocks.java:5030]
+- **Cons**:
+  - 216 DPS is not high at the 590-item tier: smite's 562.5 costs only 3.7× more [src: 00-data/turrets.json]
+  - 300 power/s needs a dedicated grid, and a blackout turns it into decoration [src: 00-data/turrets.json]
+  - Projectile speed 5 discounts the hit rate against fast fliers and strafing units [src: Mindustry-Source/core/src/mindustry/content/Blocks.java:5030]
+- **Convention**: single-target DPS = 60/(reload × reloadMultiplier) × shots × direct damage; panel DPS further folds splash in at 0.75 through BulletType.estimateDPS (see [[COMBAT.NUMBERS.001]]). [src: Mindustry-Source/core/src/mindustry/entities/bullet/BulletType.java:414]
 
-## 数值
+## Numbers
 
-| 项 | 值 | 来源 |
+| Item | Value | Source |
 |---|---|---|
-| 尺寸 | 4 | 00-data/blocks.json |
-| 血量 | 3520 | 00-data/blocks.json |
-| 护甲 | 0 | 00-data/blocks.json |
-| 造价 | 590 件（graphite × 250、silicon × 200、surge-alloy × 100、oxide × 40） | 00-data/blocks.json |
-| 射程 | 368 世界单位（46.00 格） | 00-data/turrets.json |
-| reload | 50 tick | 00-data/turrets.json |
+| Size | 4 | 00-data/blocks.json |
+| Health | 3520 | 00-data/blocks.json |
+| Armor | 0 | 00-data/blocks.json |
+| Cost | 590 items (graphite × 250, silicon × 200, surge-alloy × 100, oxide × 40) | 00-data/blocks.json |
+| Range | 368 world units (46.00 tiles) | 00-data/turrets.json |
+| reload | 50 ticks | 00-data/turrets.json |
 | shots | 1 | 00-data/turret_shots.json |
-| 冷却液倍率 / shootCone | 5 / 20 | 00-data/turrets.json |
-| 耗电 | 300/s | 00-data/turrets.json |
+| Coolant multiplier / shootCone | 5 / 20 | 00-data/turrets.json |
+| Power | 300/s | 00-data/turrets.json |
 
-| 项 | 值 | 说明 | 来源 |
+| Item | Value | Note | Source |
 |---|---|---|---|
-| 直伤 | 180 | BasicBulletType | Mindustry-Source/core/src/mindustry/content/Blocks.java:5025 |
-| 发/s | 1.2 | reload 50 tick | Mindustry-Source/core/src/mindustry/content/Blocks.java:5030 |
-| 0甲 DPS | 216 | 180 × 1.2 | 本文口径 |
-| 耗电 | 300/s | | Mindustry-Source/core/src/mindustry/content/Blocks.java:5036 |
+| Direct damage | 180 | BasicBulletType | Mindustry-Source/core/src/mindustry/content/Blocks.java:5025 |
+| shots/s | 1.2 | reload 50 ticks | Mindustry-Source/core/src/mindustry/content/Blocks.java:5030 |
+| 0-armor DPS | 216 | 180 × 1.2 | this article's convention |
+| Power | 300/s | | Mindustry-Source/core/src/mindustry/content/Blocks.java:5036 |
 
-- pierceCap 2（可穿 2 个目标），speed 5、lifetime 80 ⇒ 弹道偏慢、需要预判。 [src: Mindustry-Source/core/src/mindustry/content/Blocks.java:5024]
-- Erekir 中口径电塔，定位类似 lancer 但不吃护甲惩罚（无 armorMultiplier）。 [src: Mindustry-Source/core/src/mindustry/content/Blocks.java:5024]
+- pierceCap 2 (punches through 2 targets), speed 5, lifetime 80 ⇒ a rather slow projectile that needs leading. [src: Mindustry-Source/core/src/mindustry/content/Blocks.java:5024]
+- Erekir's medium-caliber electric tower, positioned like lancer but without the armor penalty (no armorMultiplier). [src: Mindustry-Source/core/src/mindustry/content/Blocks.java:5024]
 
-- 本库没有 afflict 的 ammo[]（shootType 不在 bullets.json），180 与 1.2 发/s 来自源码手工表；158 是按 max(180−22, 18) 算的对 22 甲单发 [src: Mindustry-Source/core/src/mindustry/content/Blocks.java:5025]
+- This library has no afflict ammo[] (shootType is not in bullets.json); 180 and 1.2 shots/s come from the hand-written source table, and 158 is the vs-22-armor per-shot figure computed as max(180−22, 18) [src: Mindustry-Source/core/src/mindustry/content/Blocks.java:5025]
 
-## 源码锚点
+## Source anchors
 
-- Mindustry-Source/core/src/mindustry/content/Blocks.java:5024 —— 定义行 new PowerTurret("afflict")
-- Mindustry-Source/core/src/mindustry/entities/pattern/ShootPattern.java:9 —— shots 默认 1（本塔未覆写）
-- 00-data/turret_shots.json#id=afflict —— 源码派生记录（含证据行）
+- Mindustry-Source/core/src/mindustry/content/Blocks.java:5024 — definition line new PowerTurret("afflict")
+- Mindustry-Source/core/src/mindustry/entities/pattern/ShootPattern.java:9 — shots defaults to 1 (this tower does not override it)
+- 00-data/turret_shots.json#id=afflict — source-derived record (with evidence line)
 
-## 实测与反例
+## Measurements and counter-examples
 
-- 反例：把 afflict 当防空用，弹道 speed 5 追不上高速飞行单位；同价 590 件的 lustre 是瞬时命中 [src: Mindustry-Source/core/src/mindustry/content/Blocks.java:5030]
-- 反例：断电时 216 DPS 归零，一台 590 件的塔被电网单点故障整死 [src: 00-data/turrets.json]
+- Counter-example: using afflict as anti-air — projectile speed 5 cannot catch fast fliers; the 590-item lustre at the same price hits instantly [src: Mindustry-Source/core/src/mindustry/content/Blocks.java:5030]
+- Counter-example: during a blackout 216 DPS goes to zero, and one grid single-point failure kills a 590-item tower [src: 00-data/turrets.json]
 
-## 常见误解
+## Common misconceptions
 
-- 「pierceCap 2 = 双倍 DPS」错：只有两个目标重叠站位时才成立 [src: Mindustry-Source/core/src/mindustry/content/Blocks.java:5030]
-- 「电塔不吃弹药所以便宜」错：300 电/s 要占发电与储能，成本只是从料转到电 [src: 00-data/turrets.json]
-- 「180 单发对 22 甲掉一半」错：剩 158，保留 88% [src: Mindustry-Source/core/src/mindustry/content/Blocks.java:5036]
+- "pierceCap 2 = double DPS" — wrong: it holds only when two targets stand overlapped [src: Mindustry-Source/core/src/mindustry/content/Blocks.java:5030]
+- "Electric towers use no ammo, so they are cheap" — wrong: 300 power/s occupies generation and storage; the cost simply moves from items to power [src: 00-data/turrets.json]
+- "180 per shot halves against 22 armor" — wrong: 158 is left, 88% retained [src: Mindustry-Source/core/src/mindustry/content/Blocks.java:5036]
 
-## 相关
+## Related
 
 - [[COMBAT.TURRET.106]]
 - [[COMBAT.NUMBERS.001]]

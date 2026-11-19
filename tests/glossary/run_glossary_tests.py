@@ -66,7 +66,7 @@ class Glossary(unittest.TestCase):
     def test_hand_written_half_is_not_regenerated(self):
         """The concept table must survive a rewrite -- it is not generated."""
         page = read("knowledge/GLOSSARY.md")
-        self.assertIn("逻辑与工具链（手写）", page)
+        self.assertIn("Logic and tool chain (hand-written)", page)
         self.assertIn("累积池", page)
 
 

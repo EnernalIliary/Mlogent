@@ -1,6 +1,6 @@
 ---
 id: MLOG.MIND.002
-title: Mindcode 语法速查（实测）：每条规则都附编译出来的 mlog
+title: "Mindcode syntax cheat sheet (measured): every rule comes with the mlog it compiles to"
 domain: mlog
 status: active
 ver: [v160.7_rt]
@@ -13,45 +13,45 @@ src:
 data:
   - 06-mlog/instructions.json#meta
 depends: [MLOG.MIND.001, MLOG.EXEC.001]
-tags: [mindcode, 语法, 编译产物, 实测]
+tags: [mindcode, syntax, compile output, measured]
 tokens: 1820
 ---
 
-# M10 Mindcode 语法速查（实测）
+# M10 Mindcode syntax cheat sheet (measured)
 
-## 一句话
+## In one sentence
 
-Mindcode 3.19.3 / target 7.0 / `optimize=False` 下逐条编译得到的语法规则；每条规则后面都跟着它编出来的 mlog，`tests/mindcode` 里有一组同样的用例，语法变了测试会红。编译选项与版本裁决看 M09（`MLOG.MIND.001`）。
+Grammar rules obtained by compiling them one at a time under Mindcode 3.19.3 / target 7.0 / `optimize=False`; each rule is followed by the mlog it compiles to, and `tests/mindcode` holds the same set of cases, so a grammar change turns the tests red. For compile options and version arbitration see M09 (`MLOG.MIND.001`).
 
-## 规则 / 公式
+## Rules / formulas
 
-- **变量**：`a = 3;` → `set :a 3`。变量名在产物里带 `:` 前缀（`:a`），这是 Mindcode 的命名空间，用来避开游戏内置变量 `@counter`/`@this`。
-- **表达式**：先算进编译器分配的临时变量 `*tmpN`，再 `set` 进目标变量。编号不稳定，别在产物里找它。
-- **分支**：`if cond then ... else ... end;`。关键字是 **`then`**；`case v when 1 then ... end;` 同样用 `then`。三目 `c ? a : b` 可用。
-- **范围判断**：`x in 1..9` 编成两条比较 + 跳转，不是一条指令。
-- **循环**：`for n in 1..3 do ... end;`、`while cond do ... end;`、C 风格 `for i = 0; i < n; i += 1 do`、`do ... while cond;`、`loop ... end;` + `break`。`do` 只属于循环。
-- **函数**：`def f(x) return x * 2; end;`，**内联展开**，没有调用开销也没有栈；参数变量改名成 `:函数名:参数名`，因此不同函数的同名参数不冲突。`void` 修饰 `def` 表示无返回值。
-- **数组**：没有字面量。用堆：`allocate heap in cell1;` + `$expr`（下标可以是运行时变量）→ `write`/`read cellN`。`allocate stack` **不**给外部变量分配堆。
-- **字符串**：只有 `$"..."` 会插值，且只认 `$变量`；它会展开成多条 `print`。`"a" + i` 是错误，`format()` 不是内置函数。
-- **常量**：`const L = 4;` 编译期折叠，不占指令。
-- **字面量分号**：块尾写 `end;`；顶层不能出现裸 `end`。
+- **Variables**: `a = 3;` → `set :a 3`. In the output the name carries a `:` prefix (`:a`), Mindcode's namespace, used to stay clear of the game's built-in variables `@counter`/`@this`.
+- **Expressions**: they are computed into a compiler-assigned temporary `*tmpN` first, then `set` into the target variable. The numbering is unstable, so do not look for it in the output.
+- **Branches**: `if cond then ... else ... end;`. The keyword is **`then`**; `case v when 1 then ... end;` uses `then` as well. The ternary `c ? a : b` works.
+- **Range tests**: `x in 1..9` compiles to two comparisons + jumps, not to one instruction.
+- **Loops**: `for n in 1..3 do ... end;`, `while cond do ... end;`, the C style `for i = 0; i < n; i += 1 do`, `do ... while cond;`, `loop ... end;` + `break`. `do` belongs to loops only.
+- **Functions**: `def f(x) return x * 2; end;` is **inlined**, so there is no call overhead and no stack; the parameters are renamed to `:<function>:<parameter>`, so same-named parameters of different functions do not clash. `void` on a `def` means no return value.
+- **Arrays**: there are no literals. Use a heap: `allocate heap in cell1;` + `$expr` (the index may be a runtime variable) → `write`/`read cellN`. `allocate stack` does **not** allocate a heap for external variables.
+- **Strings**: only `$"..."` interpolates, and it recognises only `$variable`; it expands into several `print` calls. `"a" + i` is an error and `format()` is not a built-in function.
+- **Constants**: `const L = 4;` folds at compile time and occupies no instruction.
+- **The semicolon is literal**: a block ends with `end;`; a bare `end` may not appear at the top level.
 
-## 数值
+## Numbers
 
-- 每条可执行体末尾编译器会追加一行 banner：`print "Compiled by Mindcode 3.19.3 - github.com/cardillan/mindcode"`，位置在 `end` 之后（不可达）。做行对齐时必须排除。
-- `for n in 1..3` 展开后是 6 条指令（set / set / jump / op add / op add / jump），比手写 mlog 多 1 条 `set :n 1`。
-- `const L = 4; print(L * 2);` 只剩 1 条 `print 8`。
-- `def twice(x) return x * 2; end; print(twice(5));` 只剩 `print 10`——内联 + 常量传播把整条调用链消掉了。
-- 优化器打开（`optimize=True`）时，未使用变量直接报错，不是警告。
+- The compiler appends one banner line to the end of every executable body: `print "Compiled by Mindcode 3.19.3 - github.com/cardillan/mindcode"`, placed after `end` (so it is unreachable). Line alignment has to exclude it.
+- `for n in 1..3` expands to 6 instructions (set / set / jump / op add / op add / jump), one more than the hand-written mlog: `set :n 1`.
+- `const L = 4; print(L * 2);` leaves only 1 instruction, `print 8`.
+- `def twice(x) return x * 2; end; print(twice(5));` leaves only `print 10` — inlining plus constant propagation removes the whole call chain.
+- With the optimiser on (`optimize=True`) an unused variable is a hard error, not a warning.
 
-## 源码锚点
+## Source anchors
 
-- `tools/mindcode.py:641` `compile_source(source, *, target, optimize, ...)`、`:655` `compile_file(path, **kw)`：唯一编译入口。
-- `tools/mlog_mcp.py:531-564`：MCP 的 `mindcode_compile`，`map:true` 走 `sourcemap.build()`（固定 `optimize=False`）。
-- `docs/Mindcode集成.md:1-60`：为什么是 3.19.3、jar/JRE 定位顺序。
-- 语法规范本身在 jar 里（`MindcodeParser.g4`），本仓库不复制。
+- `tools/mindcode.py:641` `compile_source(source, *, target, optimize, ...)`, `:655` `compile_file(path, **kw)`: the only compile entry points.
+- `tools/mlog_mcp.py:531-564`: the MCP `mindcode_compile`; `map:true` goes through `sourcemap.build()` (with `optimize=False` hardcoded).
+- the integration doc (`docs/Mindcode集成.md:1-60`): why 3.19.3, and the jar/JRE resolution order.
+- The grammar itself lives in the jar (`MindcodeParser.g4`); this repo does not copy it.
 
-## 实测与反例
+## Measured facts and counter-examples
 
 ```mindcode
 a = 3;
@@ -106,26 +106,26 @@ print "i="
 print :i
 ```
 
-反例（都是真报错原文）：
+Counter-examples (all verbatim error text):
 
-- `if v > 5 do` → `missing 'then' at 'do'`。
+- `if v > 5 do` → `missing 'then' at 'do'`.
 - `print("i=" + i)` → `Unsupported string expression.`
-- `print($"i={i}")` 能编过，但 `{i}` **不插值**，产物里就是 `print "i={i}"`。
-- 函数体末尾写裸 `end`（不带分号）→ `missing semicolon after 'end'`；顶层写 `end;` → `mismatched input 'end'`。
+- `print($"i={i}")` compiles, but `{i}` is **not interpolated**; the output is literally `print "i={i}"`.
+- A bare `end` at the end of a function body (no semicolon) → `missing semicolon after 'end'`; `end;` at the top level → `mismatched input 'end'`.
 - `allocate stack in cell1;` + `$i` → `No heap allocated for external variables.`
-- `optimize=True` + 未使用变量 → `Variable 'b' is not used.`
-- `a = [1, 2, 3];`、`a = (1, 2, 3);`、`a[1]` 都是语法错误（`extraneous input '['`）。
+- `optimize=True` + an unused variable → `Variable 'b' is not used.`
+- `a = [1, 2, 3];`, `a = (1, 2, 3);` and `a[1]` are all syntax errors (`extraneous input '['`).
 
-## 常见误解
+## Common misconceptions
 
-- **「函数是一个入口，调用有开销」**：不是。函数在编译期内联，产物里没有调用；`twice(5)` 直接变成 `print 10`。
-- **「`$"..."` 里可以写任意表达式」**：不能。只认 `$变量`，`{i}` 原样输出；想拼接只能多写几条 `print`。
-- **「数组就是 `a[0]`」**：不是。Mindcode 只有堆单元 `$expr`，落在真实内存块 `cellN` 上，和 mlog 的 `read/write` 一一对应。
-- **「优化器只删代码」**：它还会**报错**——未使用变量在 `optimize=True` 下编译失败，这是建源码映射时必须关优化的原因。
-- **「`end` 和 `end;` 一样」**：不一样，分号属于语法。
+- **"A function is an entry point, so calling it costs something"**: no. Functions are inlined at compile time and the output holds no call; `twice(5)` simply becomes `print 10`.
+- **"Any expression can go inside `$"..."`"**: it cannot. Only `$variable` is recognised and `{i}` is emitted verbatim; for concatenation, write several `print` calls.
+- **"An array is just `a[0]`"**: it is not. Mindcode has only heap cells `$expr`, which land on a real memory block `cellN` and map one-to-one onto mlog's `read/write`.
+- **"The optimiser only deletes code"**: it also **errors** — an unused variable fails the compile under `optimize=True`, which is why optimisation must be off when a source map is built.
+- **"`end` and `end;` are the same"**: they are not; the semicolon is part of the grammar.
 
-## 相关
+## Related
 
-- `06-mlog/M09-Mindcode.md`（`MLOG.MIND.001`）：入口、版本裁决、诊断三列、失败分类。
-- `06-mlog/M01-执行模型总览.md`（`MLOG.EXEC.001`）：产物最终跑在什么时钟与预算上。
-- `tools/sourcemap.py`：只对顶层语句建图；块内语句与内联掉的函数调用标 `inside control flow` / `dead code or folded`。
+- `06-mlog/M09-Mindcode.md` (`MLOG.MIND.001`): entry points, version arbitration, the three diagnostic columns, failure classes.
+- the execution model overview (`06-mlog/M01-执行模型总览.md`, `MLOG.EXEC.001`): which clock and budget the output finally runs on.
+- `tools/sourcemap.py`: maps top-level statements only; statements inside blocks and inlined-away calls are marked `inside control flow` / `dead code or folded`.

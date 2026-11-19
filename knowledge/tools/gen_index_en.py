@@ -1,9 +1,9 @@
-"""Generate knowledge/INDEX.en.md — the English door into the knowledge base.
+"""Generate knowledge/INDEX.en.md - the English door into the knowledge base.
 
-Chinese stays the source of truth (see knowledge/README.md and CONVENTIONS.md);
-this index exists so an English-only reader (or model) can find the right
-article without guessing at Chinese titles. Titles and one-line summaries come
-from knowledge/00-data/en_titles.json; the routing prose below is hand-written.
+Every article is English; the Chinese names worth keeping live in the name
+tables and in GLOSSARY.md. This index exists so a reader can find the right
+article from one title and one sentence. Titles and summaries come from
+knowledge/00-data/en_titles.json; the routing prose below is hand-written.
 
 Usage:
   python knowledge/tools/gen_index_en.py            # check
@@ -22,19 +22,21 @@ KB = os.path.join(ROOT, "knowledge")
 DATA = os.path.join(KB, "00-data", "en_titles.json")
 OUT = os.path.join(KB, "INDEX.en.md")
 
-HEAD = """# Knowledge base — English index
+HEAD = """# Knowledge base - English index
 
-The source of truth is Chinese: `knowledge/README.md` (how the library is
-organised) and `knowledge/CONVENTIONS.md` (what a claim must look like). This
-file is the English door: same articles, English titles, one sentence each.
+Every article here is written in English; the Chinese names that are worth
+keeping live in the name tables and in [GLOSSARY.md](GLOSSARY.md), which maps
+each official Chinese name to its English id. `knowledge/README.md` explains how
+the library is organised, `knowledge/CONVENTIONS.md` what a claim must look
+like, and `knowledge/STYLE-en.md` the writing rules.
 
-Two rules that survive translation:
+Two conventions that survive translation:
 
 - **`null` is not `pass`.** Any field that says "not measured" must not be read
-  as "fine" — that convention runs through every article here.
-- **Names come from the game bundle.** `parallax` is 差扰, not 牵引塔. The
-  three-layer name table (official / legacy / colloquial) is in
-  [GLOSSARY.md](GLOSSARY.md).
+  as "fine" - that convention runs through every article here.
+- **Names come from the game bundle.** `parallax` is the air puller (差扰), not
+  a gravity tower; the three-layer name table (official / legacy / colloquial)
+  is in [GLOSSARY.md](GLOSSARY.md).
 
 ## Where to start
 

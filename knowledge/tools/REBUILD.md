@@ -1,9 +1,9 @@
-# REBUILD.md — 正式库重建与发布（三行命令）
+# REBUILD.md — production library rebuild and publish (three lines of commands)
 
-> 适用：把 `knowledge/` 的最新内容重建进 MCP 正在服务的正式库 `<repo>/out/_kb/kb.sqlite3`。
-> 正式库被 `mcp__kb__kb_search`（kb.py serve）持有句柄，**不能**直接 `kb.py build`（build 会 unlink，Windows 报 PermissionError [WinError 5]，实测一度把库清成 24KB 空库）。
+> Applies to: rebuilding the latest content of `knowledge/` into the production library `<repo>/out/_kb/kb.sqlite3` that MCP is currently serving.
+> The production library holds a handle via `mcp__kb__kb_search` (kb.py serve), so `kb.py build` **cannot** be run in place (build unlinks the file; Windows raises PermissionError [WinError 5], and measured once it wiped the library down to a 24KB empty DB).
 
-## 0. 准备（一次性）
+## 0. Preparation (one-time)
 ```powershell
 $R = "<仓库根>"; $W = "<临时暂存目录>"   # 仓库根为本机仓库绝对路径；$W 为任意本地目录，脚本按参数/环境变量取
 $py = "C:\Users\lliary\AppData\Local\Programs\Python\Python311\python.exe"
@@ -11,62 +11,62 @@ $env:KB_ROOT = $R; $env:KB_KNOWLEDGE = "$R\knowledge"
 $env:KB_LIBS = "$R\out\_kblibs311"; $env:KB_MODELS = "$R\out\_kbmodels"
 ```
 
-## 1. 构建到临时目录（不动正式库）
+## 1. Build into a temporary directory (production library untouched)
 ```powershell
 $env:KB_DIR = "$W\_kb_build"; & $py "$R\knowledge\tools\kb.py" build
 ```
-预期输出形如 `{"chunks": N, "files": M, "data_tables": 10}`，耗时 50–90s（含 embedding）。
+Expected output looks like `{"chunks": N, "files": M, "data_tables": 10}`, taking 50–90s (embedding included).
 
-## 2. 发布（sqlite backup，读方无需关闭）
+## 2. Publish (sqlite backup, readers need not be closed)
 ```powershell
 & $py "$R\knowledge\tools\publish_db.py" "$W\_kb_build\kb.sqlite3" "$R\out\_kb\kb.sqlite3"
 ```
-预期 `published kb.sqlite3 -> ...\out\_kb\kb.sqlite3  chunks src=N dst=N fts=N`，src==dst 才成功。
+Expected `published kb.sqlite3 -> ...\out\_kb\kb.sqlite3  chunks src=N dst=N fts=N`; it succeeded only if src==dst.
 
-## 3. 校验
+## 3. Verification
 ```powershell
 & $py "$R\knowledge\tools\dbstat.py" "$R\out\_kb\kb.sqlite3"
 & $py "$R\knowledge\tools\check_kb.py" --root "$R\knowledge" <# 期望 errors=0, exit 0 #>
 & $py "$R\knowledge\tools\build_index.py" --root "$R\knowledge" --check
 ```
-MCP 侧冒烟：任意 `kb_search` 调用返回新文章路径（如 `knowledge/03-combat/C05-armor.md`）即生效，无需重启服务。
+MCP-side smoke test: any `kb_search` call returning new article paths (e.g. `knowledge/03-combat/C05-armor.md`) means it took effect; no service restart needed.
 
-## 3b. 发布后固定校验顺序（按此顺序跑，任一步失败就回滚）
+## 3b. Fixed post-publish verification order (run in this order; roll back if any step fails)
 
-0. **等 journal 落盘**：`out/_kb\kb.sqlite3-journal` 必须消失，dbstat 能读且 chunks 与 build 输出一致，才允许冒烟（发布瞬间库不可读：mode=ro 会报 `attempt to write a readonly database`，实测 bench20 会全 0 且 p50 3ms，误判成"检索崩了"）。
-1. **库体检**（10s）：`dbstat.py <正式库>` → 看 `chunks/files/kinds` 是否与 build 输出一致；**data 块应 >100**，且不应出现 `knowledge/_report/`、`knowledge/_kb/` 路径（工作产物不进口语料）。
-2. **索引一致**（2s）：`build_index.py --root "$R\knowledge" --check` → 期望「与库一致」。
-3. **门禁全量**（5s）：`check_kb.py --root "$R\knowledge" --all --audit --audit-out <报告>` → 期望 errors=0 / RESULT PASS / exit 0；audit 行数只报告不阻塞。
-4. **检索冒烟**（30s）：`bench20.py --db <正式库> --out <报告>` → 20 题固定样本，看 A 锚点 top1/top3/top6、B 答案命中、`top1 落在 knowledge/ 之外` 计数；与上一版对比，A@1 不应下降。
+0. **Wait for the journal to hit disk**: `out/_kb\kb.sqlite3-journal` must disappear, and dbstat must be readable with chunks matching the build output, before the smoke test is allowed (for an instant after publishing the library is unreadable: mode=ro raises `attempt to write a readonly database`, and measured bench20 then returns all 0 with p50 3ms, misjudged as "retrieval broke").
+1. **Database health check** (10s): `dbstat.py <production db>` → check whether `chunks/files/kinds` match the build output; **the data blocks should be >100**, and paths like `knowledge/_report/` or `knowledge/_kb/` must not appear (work products do not enter the corpus).
+2. **Index consistency** (2s): `build_index.py --root "$R\knowledge" --check` → expect "consistent with the library".
+3. **Full gate** (5s): `check_kb.py --root "$R\knowledge" --all --audit --audit-out <report>` → expect errors=0 / RESULT PASS / exit 0; audit line counts are reported but do not block.
+4. **Retrieval smoke test** (30s): `bench20.py --db <production db> --out <report>` → the 20-question fixed sample; check anchor-A top1/top3/top6, B answer hits, and the `top1 falls outside knowledge/` count; compare with the previous version, and A@1 must not drop.
 
-> 回滚：正式库旁保留 `kb.sqlite3.bak`（发布前复制），第 4 步明显变差就 backup 回去再 publish。
+> Rollback: keep a `kb.sqlite3.bak` beside the production library (copied before publishing); if step 4 degrades noticeably, copy the backup back and publish again.
 
-## 3c. 一条命令跑完 3b（发布后校验）
+## 3c. Run all of 3b with one command (post-publish verification)
 
-> 必须先执行第 0 步设置 `KB_ROOT/KB_KNOWLEDGE/KB_LIBS/KB_MODELS`；否则 bench20 会报 `no index yet: python tools/kb.py build`（实际只是缺模型/库路径，库本身没问题）。
+> Step 0 must be done first to set `KB_ROOT/KB_KNOWLEDGE/KB_LIBS/KB_MODELS`; otherwise bench20 reports `no index yet: python tools/kb.py build` (in reality only the model/library path is missing, and the library itself is fine).
 
 ```powershell
 & $py "$R\knowledge\tools\postpublish.py" --db "$R\out\_kb\kb.sqlite3" --knowledge "$R\knowledge" --staging "$W\_kb_build\kb.sqlite3" --min-a1 12 --out "$W\_report\postpublish.md"
 ```
-三项判定：**STRUCT**（库可读、无 `knowledge/_report/` 等工作产物路径）/ **COUNT**（chunks 与 staging 构建一致）/ **RETRIEVAL**（bench20 A@1 ≥ --min-a1 且 outside_top1 ≤ --max-outside）。
-退出码 0 = 无 FAIL（SKIP 不阻塞）；JSON 用 `--json <path>`。只给期望值不传 staging 时用 `--expect-chunks 8094`。
+Three verdicts: **STRUCT** (library readable, no work-product paths such as `knowledge/_report/`) / **COUNT** (chunks match the staging build) / **RETRIEVAL** (bench20 A@1 ≥ --min-a1 and outside_top1 ≤ --max-outside).
+Exit code 0 = no FAIL (SKIP does not block); use `--json <path>` for JSON. When only an expected value is given without staging, use `--expect-chunks 8094`.
 
-## 常见坑
-| 现象 | 原因 | 处理 |
+## Common pitfalls
+| Symptom | Cause | Handling |
 |---|---|---|
-| `PermissionError [WinError 5]` on kb.sqlite3 | 原地 build 且 MCP 持有句柄 | 用第 1+2 步的 staging + publish 流程 |
-| `attempt to write a readonly database` | 该文件是 OneDrive 占位/被沙箱标只读 | 先整文件读一遍水合；仍失败则停 MCP 进程后再 publish |
-| `Unexpected UTF-8 BOM` | PowerShell 5.1 `Set-Content -Encoding UTF8` 写 BOM | 读侧统一 `encoding="utf-8-sig"`（三个脚本已改） |
-| 构建后 `data_tables=0` | 00-data 只有 rt_* 抽查件 | 需 canonical 表（blocks/turrets/units/items/liquids/bullets/status/rules） |
+| `PermissionError [WinError 5]` on kb.sqlite3 | in-place build while MCP holds a handle | use the staging + publish flow of steps 1+2 |
+| `attempt to write a readonly database` | the file is a OneDrive placeholder / flagged read-only by the sandbox | read the whole file once to hydrate it first; if that still fails, stop the MCP process before publishing |
+| `Unexpected UTF-8 BOM` | PowerShell 5.1 `Set-Content -Encoding UTF8` writes a BOM | readers always use `encoding="utf-8-sig"` (the three scripts have been changed) |
+| `data_tables=0` after building | 00-data holds only the rt_* spot-check files | canonical tables are required (blocks/turrets/units/items/liquids/bullets/status/rules) |
 
-## 产物对照
-| 文件 | 作用 |
+## Artifact map
+| File | Role |
 |---|---|
 | `knowledge/tools/kb.py` | build / search / serve(MCP kb_search) / stats |
-| `knowledge/tools/publish_db.py` | staging → 正式库（backup API） |
-| `knowledge/tools/dbstat.py` | 只读库体检（chunks/files/kinds/data） |
-| `knowledge/tools/build_index.py` | 生成 knowledge/index.json（--check 比对） |
-| `knowledge/tools/check_kb.py` | 静态门禁（--audit 附带数字审计） |
-| `knowledge/tools/smoke_kb.py` | N 题检索冒烟（计时 + top1/3/k 命中率） |
-| `knowledge/tools/bench20.py` | bench/questions.jsonl 确定性 20 题（**固定行 1,16,31,…,286**，题库冻结勿改），锚点+答案双口径 + outside-knowledge 统计 |
-| `knowledge/tools/postpublish.py` | 发布后一条命令校验：dbstat + chunks 比对 + bench20 + 三项 PASS/FAIL |
+| `knowledge/tools/publish_db.py` | staging → production library (backup API) |
+| `knowledge/tools/dbstat.py` | read-only database health check (chunks/files/kinds/data) |
+| `knowledge/tools/build_index.py` | generates knowledge/index.json (--check compares) |
+| `knowledge/tools/check_kb.py` | static gate (--audit adds the number audit) |
+| `knowledge/tools/smoke_kb.py` | N-question retrieval smoke test (timing + top1/3/k hit rate) |
+| `knowledge/tools/bench20.py` | bench/questions.jsonl deterministic 20 questions (**fixed rows 1,16,31,…,286**, question set frozen, do not edit), anchor + answer dual scoring plus outside-knowledge stats |
+| `knowledge/tools/postpublish.py` | one-command post-publish verification: dbstat + chunks comparison + bench20 + three PASS/FAIL verdicts |

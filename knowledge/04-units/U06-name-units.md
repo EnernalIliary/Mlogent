@@ -1,6 +1,6 @@
 ---
 id: UNIT.NAMES.001
-title: 单位名对照：70 个单位的英文名与中文名（其中 60 个有官方简中）
+title: Unit name table — English and Chinese names for all 70 units (60 have an official Simplified Chinese name)
 domain: unit
 status: active
 ver: [v160.7_rt, v159.3_src]
@@ -11,25 +11,25 @@ src:
 data:
   - "00-data/units.json"
 depends: [UNIT.MOVE.001, UNIT.PRODUCE.001]
-tags: [名词, 中文名, 英文名, 翻译, 对照表, 单位]
+tags: [names, Chinese name, English name, translation, lookup table, unit]
 ---
 
-## 一句话
+## One line
 
-单位的中文名与 id 对照。单位在界面只显示名字、不显示 id，而蓝图、逻辑、波次表只认 id，所以这张表是两边唯一的桥。
+The Chinese names of the units against their ids. In the interface a unit shows only its name and never its id, while blueprints, logic and wave tables only know ids, so this table is the only bridge between the two.
 
-## 规则 / 公式
+## Rules / formulas
 
-- 显示名 key 是 `unit.<id>.name`；数值在 `00-data/units.json`（血量、护甲、速度、射程等）。
-- 共 70 条，60 条有官方简中名；缺名的 10 条集中在导弹子单位与几个内部占位单位。
-- 缺名单位（表内「—」）：导弹类 `*-missile`、`scathe-missile-*`，以及内部占位 `block` / `dummy` / `turret-unit-build-tower`；它们在实战中以弹药或建造塔出现，不单独显示名字。
-- 单位按 id 字母序排列；档次（T1～T5）与生产链见 UNIT.PRODUCE.001，不在这张表里。
+- The display-name key is `unit.<id>.name`; the numbers live in `00-data/units.json` (health, armor, speed, range and so on).
+- There are 70 entries and 60 have an official Simplified Chinese name; the 10 that lack one are missile sub-units and a few internal placeholders.
+- Units with no name (shown as "—" in the table): the missile types `*-missile`, `scathe-missile-*`, and the internal placeholders `block` / `dummy` / `turret-unit-build-tower`; in play they appear as ammunition or as build towers and never display a name.
+- Units are sorted alphabetically by id; tiers (T1–T5) and the production chain are in UNIT.PRODUCE.001 and are not part of this table.
 
-## 数值
+## Numbers
 
-本节只列名词，不含数值；速度单位、hitSize、护甲等见 UNIT.MOVE.001 与 `00-data/units.json`。
+This section lists names only, no numbers; for speed units, hitSize, armor and the rest see UNIT.MOVE.001 and `00-data/units.json`.
 
-| id | 英文名 | 中文名 | 中文名出处 | 英文名出处 |
+| id | English name | Chinese name | Chinese name source | English name source |
 |---|---|---|---|---|
 | `aegires` | Aegires | 玄武 | zh:1792 | en:1797 |
 | `alpha` | Alpha | 阿尔法 | zh:1794 | en:1799 |
@@ -102,31 +102,31 @@ tags: [名词, 中文名, 英文名, 翻译, 对照表, 单位]
 | `vela` | Vela | 灾星 | zh:1799 | en:1804 |
 | `zenith` | Zenith | 苍穹 | zh:1776 | en:1781 |
 
-## 源码锚点
+## Source anchors
 
-- `data/game/bundles/bundle_zh_CN.properties`（zh:N）与 `bundle.properties`（en:N）。
-- `00-data/units.json`：70 条单位记录，`id` 与 bundle key 一一对应。
-- 生成脚本 `knowledge/tools/gen_name_docs.py`。
+- `data/game/bundles/bundle_zh_CN.properties` (zh:N) and `bundle.properties` (en:N).
+- `00-data/units.json`: 70 unit records, with `id` mapping one-to-one onto the bundle key.
+- The generator script `knowledge/tools/gen_name_docs.py`.
 
-## 实测与反例
+## Measurements and counter-examples
 
-- 反例一：单位名是意象词而不是功能名——`dagger`=尖刀、`mace`=战锤、`fortress`=堡垒、`scepter`=权杖、`reign`=王座。按「匕首」「锤子」搜中文名对不上。
-- 反例二：同一张表里两种命名策略并存——`anthicus` 官方中文是「天灾」（意译造词，不是音译的「安提库斯」），而 `alpha` / `beta` / `gamma` 是纯音译（阿尔法、贝塔、伽马）。
-- 反例三：`crawler`=爬虫、`atrax`=毒蛛，英文名与中文名都是意象；而 `alpha` / `beta` / `gamma` 直接保留希腊字母音译（阿尔法、贝塔、伽马）。
-- 反例四：导弹子单位（如 `anthicus-missile`）无显示名，按「导弹」反查只能查到发射它的单位 `anthicus`，不是它本身。
+- Counterexample 1: unit names are imagery, not function names — `dagger` (尖刀, a blade), `mace` (战锤, a warhammer), `fortress` (堡垒), `scepter` (权杖), `reign` (王座). Searching the Chinese names for "dagger" or "hammer" turns up nothing.
+- Counterexample 2: two naming strategies coexist in one table — the official Chinese name of `anthicus` is a semantic coinage (天灾, "disaster") rather than a transliteration (安提库斯), while `alpha` / `beta` / `gamma` are pure transliterations (阿尔法, 贝塔, 伽马).
+- Counterexample 3: `crawler` (爬虫) and `atrax` (毒蛛) are imagery in both languages, while `alpha` / `beta` / `gamma` keep the Greek letters as transliterations (阿尔法, 贝塔, 伽马).
+- Counterexample 4: missile sub-units (such as `anthicus-missile`) have no display name, so searching the Chinese word for "missile" finds only the unit that fires them, `anthicus`, never the sub-unit itself.
 
-## 常见误解
+## Common misconceptions
 
-- 以为单位名带 T1、T2：档次不是名字的一部分，官方串里没有等级字样。
-- 以为英文名可直译成 id：`Fortress` → `fortress` 可以，但 `Core: Shard` 这类带冒号的名字只出现在方块表。
-- 以为缺名单位是数据遗漏：10 个缺名单位都有记录、有数值，只是语言包不显示名字。
+- Thinking unit names carry T1, T2: tier is not part of the name, and the official strings contain no level wording.
+- Thinking the English name translates straight into an id: `Fortress` → `fortress` works, but colon-bearing names such as `Core: Shard` appear only in the block table.
+- Thinking nameless units are a data gap: all 10 have records and numbers, the language bundle simply does not display a name for them.
 
-## 相关
+## Related
 
-- UNIT.MOVE.001（速度单位与地形）
-- UNIT.PRODUCE.001（生产链与单位上限）
-- UNIT.AI.001（单位 AI 与指令）
-- UNIT.ABILITY.001（16 类 Ability）
-- UNIT.PROGRESSION.001（档次与波次表）
-- COMBAT.UNITWEAPON.001（单位武器与 DPS）
-- WORLD.NAMES.001 / 002 / 003 / 004（方块与物品名）
+- UNIT.MOVE.001 (speed units and terrain)
+- UNIT.PRODUCE.001 (production chain and unit cap)
+- UNIT.AI.001 (unit AI and commands)
+- UNIT.ABILITY.001 (the 16 Ability classes)
+- UNIT.PROGRESSION.001 (tiers and the wave table)
+- COMBAT.UNITWEAPON.001 (unit weapons and DPS)
+- WORLD.NAMES.001 / 002 / 003 / 004 (block and item names)
