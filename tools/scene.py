@@ -40,7 +40,9 @@ import argparse
 import json
 import math
 import os
+import re
 import sys
+from pathlib import Path
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
@@ -83,10 +85,18 @@ def _abs(path: str, base: str = ROOT) -> str:
     return path if os.path.isabs(path) else os.path.join(base, path)
 
 
-def load(path: str, base: str | None = None) -> dict:
-    """Read a scene file, fill defaults, resolve code paths and validate."""
+def load(path: str, base: str | None = None, *, workspace_root: str | None = None) -> dict:
+    """Read a scene file, with optional containment for server-side references."""
     base = base or ROOT
     full = _abs(path, base)
+    root = Path(workspace_root).resolve() if workspace_root is not None else None
+    if root is not None:
+        if not Path(os.path.abspath(full)).is_relative_to(root):
+            raise SceneError("scene must be a .json file within the server workspace")
+        resolved = Path(full).resolve()
+        if not resolved.is_relative_to(root) or resolved.suffix.lower() != ".json":
+            raise SceneError("scene must be a .json file within the server workspace")
+        full = str(resolved)
     if not os.path.exists(full):
         raise SceneError("scene not found: %s" % full)
     with open(full, encoding="utf-8-sig") as fh:
@@ -121,9 +131,17 @@ def load(path: str, base: str | None = None) -> dict:
     world = raw.get("world") or {}
     if not isinstance(world, dict):
         raise SceneError("world must be an object")
+    rules = world.get("rules", {})
+    if not isinstance(rules, dict):
+        raise SceneError("world.rules must be an object")
+    for key, value in rules.items():
+        if (not re.fullmatch(r"[A-Za-z][A-Za-z0-9_]*", key)
+                or type(value) not in (bool, int, float)
+                or (type(value) is float and not math.isfinite(value))):
+            raise SceneError("world.rules requires rule names and boolean or finite numeric values")
     sc["world"] = {
         "size": int(world.get("size") or 64),
-        "rules": {**DEFAULT_RULES, **(world.get("rules") or {})},
+        "rules": {**DEFAULT_RULES, **rules},
     }
 
     if raw.get("clear"):
@@ -154,10 +172,27 @@ def load(path: str, base: str | None = None) -> dict:
             cands = [_abs(raw_code, sc["dir"])] if not os.path.isabs(raw_code) else [raw_code]
             if not os.path.isabs(raw_code):
                 cands.append(_abs(raw_code, ROOT))
+            if root is not None:
+                guarded = []
+                for candidate in cands:
+                    path = Path(os.path.abspath(candidate))
+                    if path.is_relative_to(root):
+                        resolved = path.resolve()
+                        if resolved.is_relative_to(root) and resolved.suffix.lower() == ".mlog":
+                            guarded.append(str(resolved))
+                if not guarded:
+                    raise SceneError("scene code must be a .mlog file within the server workspace")
+                cands = guarded
             code_src = next((c for c in cands if os.path.exists(c)), None)
             if code_src is None:
                 raise SceneError("buildings[%d] (%s): code not found, tried: %s"
                                  % (i, name, ", ".join(cands)))
+            if root is not None:
+                source = Path(code_src)
+                if not source.is_file():
+                    raise SceneError("scene code must be a regular .mlog file")
+                if source.stat().st_size > 100 * 1024:
+                    raise SceneError("scene code exceeds the 100 KiB input limit")
             with open(code_src, encoding="utf-8-sig") as fh:
                 code_text = fh.read()
         ent = {
@@ -230,6 +265,8 @@ def load(path: str, base: str | None = None) -> dict:
         sc["project"] = {"units": units_mode, "anchor": anchor, "at": where}
 
     errors = validate(sc)
+    if root is not None and sum(u["count"] for u in sc["units"]) > 64:
+        errors.append("at most 64 units can be spawned by an MCP scene")
     if errors:
         raise SceneError("; ".join(errors))
     return sc

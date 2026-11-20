@@ -12,16 +12,20 @@ No JVM needed: every case here answers without the executor.
 from __future__ import annotations
 
 import base64
+from concurrent.futures import ThreadPoolExecutor
 import json
 import os
+from pathlib import Path
 import socket
 import subprocess
 import sys
 import tempfile
+import threading
 import time
 import unittest
 import urllib.error
 import urllib.request
+from unittest.mock import patch
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 SERVER = os.path.join(ROOT, "tools", "mlog_mcp_http.py")
@@ -30,6 +34,8 @@ TOOLS = os.path.join(ROOT, "tools")
 if TOOLS not in sys.path:
     sys.path.insert(0, TOOLS)
 import mlog_mcp  # noqa: E402  (needs the path above; the count comes from here)
+import mlog_mcp_http  # noqa: E402
+import scene  # noqa: E402
 
 
 
@@ -431,6 +437,165 @@ class Protocol(unittest.TestCase):
         self.assertEqual(status, 200)
         replies = json.loads(body)
         self.assertEqual([r["id"] for r in replies], [10, 11])
+
+
+class Simulation(unittest.TestCase):
+    @staticmethod
+    def call(args, rid=1):
+        return {"jsonrpc": "2.0", "id": rid, "method": "tools/call",
+                "params": {"name": "mlog_sim", "arguments": args}}
+
+    def test_input_limits_and_projection_paths(self):
+        cases = (
+            ({"path": "../outside.mlog"}, "within the server workspace"),
+            ({"scene": "../outside.json"}, "within the server workspace"),
+            ({"logic": "end", "save": "../outside.msav"}, "within the server workspace"),
+            ({"logic": "end", "project": "out/_world/daemon.json"}, "JSON feed"),
+            ({"logic": "end", "project": "out/_proj/../../outside.json"}, "JSON feed"),
+            ({"logic": "end", "ticks": 1201}, "between 1 and 1200"),
+            ({"logic": "end", "steps": True}, "between 1 and 2400"),
+            ({"logic": "end", "ticks": 601, "trace_vars": []}, "between 1 and 600"),
+            ({"logic": "end", "ticks": 1200, "rt": 0.1}, "pacing exceeds"),
+        )
+        with patch.object(mlog_mcp, "_bounded_sim_worker") as worker:
+            for args, message in cases:
+                with self.subTest(args=args):
+                    status, reply = mlog_mcp_http.dispatch(self.call(args))
+                    self.assertEqual(status, 200)
+                    self.assertTrue(reply["result"]["isError"])
+                    self.assertIn(message, reply["result"]["content"][0]["text"])
+            worker.assert_not_called()
+
+    def test_power_profile_rejects_invalid_points_and_modes(self):
+        first = {"tick": 1, "power_per_second": 12}
+        cases = (
+            ({"power": "variable"}, "power must be"),
+            ({"power": "none", "power_profile": [first]}, "requires power=grid"),
+            ({"power": "grid", "steps": 10}, "requires a tick run"),
+            ({"power": "grid", "update": "none"}, "requires a tick run"),
+            ({"power_profile": []}, "requires 1"),
+            ({"power_profile": [first] * 65}, "requires 1"),
+            ({"power_profile": [{"tick": 0, "power_per_second": 12}]}, "start at tick 1"),
+            ({"power_profile": [first, first]}, "increase within the run"),
+            ({"ticks": 10, "power_profile": [first, {"tick": 11, "power_per_second": 0}]},
+             "increase within the run"),
+            ({"power_profile": [{**first, "note": "extra"}]}, "requires tick and power_per_second"),
+            ({"power_profile": [{**first, "power_per_second": "12"}]}, "power_per_second must be"),
+            ({"power_profile": [{**first, "power_per_second": True}]}, "power_per_second must be"),
+            ({"power_profile": [{**first, "power_per_second": float("inf")}]}, "power_per_second must be"),
+        )
+        with patch.object(mlog_mcp, "_bounded_sim_worker") as worker:
+            for args, message in cases:
+                with self.subTest(args=args):
+                    _, reply = mlog_mcp_http.dispatch(self.call({"logic": "end", **args}))
+                    self.assertTrue(reply["result"]["isError"])
+                    self.assertIn(message, reply["result"]["content"][0]["text"])
+            worker.assert_not_called()
+
+    def test_power_profile_dispatches_bounded_schedule_data(self):
+        points = [{"tick": 1, "power_per_second": 12}, {"tick": 40, "power_per_second": 1.5}]
+
+        def run(command):
+            self.assertIn("--ticks=60", command)
+            self.assertIn("--power=grid", command)
+            self.assertFalse(any(arg.startswith("--init-js") for arg in command))
+            profile = next(arg.split("=", 1)[1] for arg in command if arg.startswith("--power-profile="))
+            self.assertEqual(json.loads(profile), points)
+            return '[{"vars": {}, "mode": "tick"}]'
+
+        with patch.object(mlog_mcp, "_bounded_sim_worker", side_effect=run):
+            _, reply = mlog_mcp_http.dispatch(self.call({"logic": "end", "power_profile": points}))
+        self.assertFalse(reply["result"]["isError"])
+        result = json.loads(reply["result"]["content"][0]["text"])
+        self.assertEqual(result["power"], "grid")
+        self.assertEqual(result["mode"], "tick")
+
+    def test_scene_nested_source_and_rule_types(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            outer = Path(tmp)
+            root = outer / "workspace"
+            root.mkdir()
+            inside = root / "inside.mlog"
+            outside = outer / "outside.mlog"
+            for source in (inside, outside):
+                source.write_text("end\n", encoding="utf-8")
+            path = root / "scene.json"
+            block = {"block": "micro-processor", "x": 2, "y": 2, "code": inside.name}
+            data = {"buildings": [block], "world": {"rules": {"waves": False}}}
+            path.write_text(json.dumps(data), encoding="utf-8")
+            loaded = scene.load(str(path), workspace_root=str(root))
+            self.assertEqual(loaded["buildings"][0]["code"], "end\n")
+            block["code"] = str(outside)
+            path.write_text(json.dumps(data), encoding="utf-8")
+            with self.assertRaisesRegex(scene.SceneError, "within the server workspace"):
+                scene.load(str(path), workspace_root=str(root))
+            block["code"] = inside.name
+            for rules in ({"waves": "false"}, {"invalid name": True}):
+                data["world"]["rules"] = rules
+                path.write_text(json.dumps(data), encoding="utf-8")
+                with self.assertRaisesRegex(scene.SceneError, "world.rules requires"):
+                    scene.load(str(path), workspace_root=str(root))
+
+    def test_scene_inline_and_multiple_worker_records(self):
+        records = [{"vars": {"n": "42"}, "scene": {"done": True}}, {"vars": {}}]
+
+        def run(command):
+            self.assertTrue(any(arg.startswith("--scene=") for arg in command))
+            self.assertNotIn("--logic", command)
+            self.assertEqual(command[-2], "--")
+            self.assertEqual(Path(command[-1]).read_text(encoding="utf-8"), "set n 42\nend\n")
+            return json.dumps(records, indent=2)
+
+        with patch.object(mlog_mcp, "_bounded_sim_worker", side_effect=run):
+            result = mlog_mcp.tool_sim({"scene": "scenes/sim/sandbox-haul.json", "ticks": 8,
+                                        "logic": "\ufeffset n 42\nend\n"})
+        self.assertEqual(result["vars"], records[0]["vars"])
+        self.assertEqual(result["scene"], records[0]["scene"])
+        artifact = mlog_mcp.tool_fetch({"ref": result["results_ref"]["artifact_ref"]})
+        self.assertEqual(json.loads(artifact["text"]), records)
+
+    def test_worker_timeout_reaps_process(self):
+        started = []
+        popen = subprocess.Popen
+
+        def start(*args, **kwargs):
+            proc = popen(*args, **kwargs)
+            started.append(proc)
+            return proc
+
+        with patch.object(mlog_mcp, "_MCP_SIM_TIMEOUT", 0.1):
+            with patch.object(mlog_mcp.subprocess, "Popen", side_effect=start):
+                with self.assertRaisesRegex(RuntimeError, "wall-clock limit"):
+                    mlog_mcp._bounded_sim_worker([sys.executable, "-c", "import time; time.sleep(3)"])
+        self.assertIsNotNone(started[0].poll())
+        self.assertEqual(mlog_mcp._bounded_sim_worker([sys.executable, "-c", "print('ready')"]).strip(),
+                         "ready")
+
+    def test_simulation_slot_allows_other_rpc(self):
+        started = threading.Event()
+        release = threading.Event()
+
+        def wait_for_release(args):
+            started.set()
+            if not release.wait(5):
+                raise RuntimeError("test failed to release simulation")
+            return {"done": True}
+
+        with patch.dict(mlog_mcp.HANDLERS, {"mlog_sim": wait_for_release}):
+            with ThreadPoolExecutor(max_workers=2) as pool:
+                running = pool.submit(mlog_mcp_http.dispatch, self.call({"logic": "end"}))
+                try:
+                    self.assertTrue(started.wait(2))
+                    ping = pool.submit(mlog_mcp_http.dispatch,
+                                       {"jsonrpc": "2.0", "id": 2, "method": "ping"})
+                    self.assertEqual(ping.result(timeout=2)[1]["result"], {})
+                    _, busy = mlog_mcp_http.dispatch(self.call({"logic": "end"}, rid=3))
+                    self.assertTrue(busy["result"]["isError"])
+                    self.assertIn("simulation_busy", busy["result"]["content"][0]["text"])
+                finally:
+                    release.set()
+                self.assertFalse(running.result(timeout=2)[1]["result"]["isError"])
+            self.assertFalse(mlog_mcp_http.dispatch(self.call({"logic": "end"}))[1]["result"]["isError"])
 
 
 class Auth(unittest.TestCase):

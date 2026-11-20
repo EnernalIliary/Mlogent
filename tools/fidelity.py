@@ -2,7 +2,7 @@
 """fidelity.py -- what the offline executor reproduces, and what it does not.
 
 `tools/mlogsim.py` runs the real `LExecutor` from the real v160.7 server jar,
-but it is not the game: no wave AI, no power graphs, terrain collision only at
+but it is not the game: no wave AI, terrain collision only at
 "B level", a processor placed by the harness instead of by a player.  That gap
 is not a bug and cannot be closed by testing harder -- it has to be *written
 down*, or every difference between a simulated run and a live run looks like a
@@ -98,10 +98,12 @@ ENTRIES = [
     {
         "id": "power",
         "scope": "power graphs, batteries, consumption",
-        "verdict": "unsupported",
-        "evidence": "tools/mlogsim.py: 'Power graphs are not simulated'",
-        "note": "--power pins every consumer's power.status to 1.0 (or 0.0). A design "
-                "whose behaviour depends on power shortage cannot be judged offline.",
+        "verdict": "partial",
+        "evidence": "tests/scenario/run_scenario_tests.py: check_grid_tick_parity",
+        "note": "CLI --power grid and MCP mlog_sim power=grid drive the native graph before building updates. "
+                "One saved grid matches the native server for 420 fixed-delta ticks, "
+                "including charge, battery backup and link loss. Variable frame times "
+                "and other grid topologies are unverified. Scenario comparisons still use fixed power.",
     },
     {
         "id": "logistics",

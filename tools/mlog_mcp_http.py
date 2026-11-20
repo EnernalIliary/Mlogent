@@ -56,10 +56,10 @@ import mlog_mcp as M  # noqa: E402
 MAX_BODY = 8 * 1024 * 1024
 START = time.time()
 
-#: `mlog_fetch` hands back blobs the trimmed answers parked in `M._ARTIFACTS`.
-#: One dict, many threads: serialise dispatch so a fetch cannot read a half
-#: written entry, and so two calls cannot pick the same artifact id.
+# Legacy handlers share mutable task and executor state. The isolated
+# simulation worker does not need that lock, but only one job runs at a time.
 _LOCK = threading.Lock()
+_SIM_SLOT = threading.BoundedSemaphore(1)
 
 
 def _json_body(obj: bytes) -> dict:
@@ -86,8 +86,21 @@ def dispatch(payload):
         return 200, {"jsonrpc": "2.0", "id": payload.get("id") if isinstance(payload, dict) else None,
                      "error": {"code": -32600, "message": "not a JSON-RPC request"}}
     collected = []
-    with _LOCK:
-        M.handle(payload, emit=collected.append)
+    params = payload.get("params")
+    if (payload["method"] == "tools/call" and isinstance(params, dict)
+            and params.get("name") == "mlog_sim"):
+        if not _SIM_SLOT.acquire(blocking=False):
+            return 200, {"jsonrpc": "2.0", "id": payload.get("id"), "result": {
+                "content": [{"type": "text", "text": "simulation_busy: one simulation is already running"}],
+                "isError": True,
+            }}
+        try:
+            M.handle(payload, emit=collected.append)
+        finally:
+            _SIM_SLOT.release()
+    else:
+        with _LOCK:
+            M.handle(payload, emit=collected.append)
     return 200, (collected[0] if collected else None)
 
 

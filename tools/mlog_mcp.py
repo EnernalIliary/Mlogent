@@ -22,6 +22,7 @@ from __future__ import annotations
 import base64
 import re
 import tempfile
+import threading
 import uuid
 from datetime import datetime, timezone
 from bisect import bisect_right
@@ -29,6 +30,7 @@ from itertools import zip_longest
 import difflib
 import hashlib
 import json
+import signal
 import os
 import subprocess
 import sys
@@ -55,7 +57,7 @@ except Exception:  # pragma: no cover
 
 PROTO = "2024-11-05"
 NAME = "mlog-toolkit"
-VERSION = "0.3.0"
+VERSION = "0.4.0"
 
 #: Blobs bigger than this are moved behind an artifact ref when the caller did
 #: not ask for "full".  2 KB is roughly the point where a truncated preview
@@ -196,19 +198,36 @@ TOOLS = [
     },
     {
         "name": "mlog_sim",
-        "description": "Run code on the real v160.7 executor (warm server, ~0.6 s after "
-                       "the first call). Returns variables, @counter and the text buffer. "
-                       "Add project (a feed path) to also write the live-world projection "
-                       "feed; add rt to slow it down enough to watch in-game.",
+        "description": "Run code on the real v160.7 executor in a time-limited worker. "
+                       "Returns variables, @counter and text. Use power=grid for the native grid, "
+                       "or power_profile to vary external power-source output over time. Add project "
+                       "to write a projection feed in the allowed output directory.",
         "inputSchema": {
             "type": "object",
             "properties": {
-                "path": {"type": "string", "description": ".mlog or .msch"},
+                "path": {"type": "string", "description": ".mlog or .msch within the server workspace"},
                 "logic": {"type": "string", "description": "inline mlog (instead of path)"},
-                "ticks": {"type": "integer", "description": "run N ticks (time-accurate)"},
-                "steps": {"type": "integer", "description": "run N instructions"},
+                "ticks": {"type": "integer", "minimum": 1, "maximum": 1200},
+                "steps": {"type": "integer", "minimum": 1, "maximum": 2400},
+                "power": {"type": "string", "enum": ["full", "none", "grid"],
+                          "description": "Building power mode. Defaults to full, or grid when power_profile is supplied."},
+                "power_profile": {
+                    "type": "array", "minItems": 1, "maxItems": _sim.POWER_PROFILE_MAX_POINTS,
+                    "description": "Output schedule per power-source block in a loaded save or scene. "
+                                   "Start at tick 1 and use strictly increasing ticks. "
+                                   "A point applies before its tick's grid update and holds until the next point.",
+                    "items": {
+                        "type": "object", "additionalProperties": False,
+                        "required": ["tick", "power_per_second"],
+                        "properties": {
+                            "tick": {"type": "integer", "minimum": 1, "maximum": 1200},
+                            "power_per_second": {"type": "number", "minimum": 0,
+                                                 "maximum": _sim.POWER_PROFILE_MAX_PER_SECOND},
+                        },
+                    },
+                },
                 "trace_vars": {"type": "array", "items": {"type": "string"}, "maxItems": 16,
-                               "description": "capture an instruction trace and these variables (inline or .mlog, 1–600 ticks)"},
+                               "description": "capture an instruction trace (inline or .mlog, 1–600 ticks or 1–1200 steps)"},
                 "units": {"type": "string", "description": "e.g. 'mono:1,flare:2'"},
                 "unit_pos": {"type": "string", "description": "x,y tile position"},
                 "core_items": {"type": "string", "description": "e.g. 'silicon:400'"},
@@ -218,8 +237,7 @@ TOOLS = [
                                          "buildings); the scene is also recorded in the "
                                          "projection feed so the world can rebuild it"},
                 "project": {"type": "string",
-                            "description": "feed file to write each project_every ticks "
-                                           "(world_server --watch-feed reads it)"},
+                            "description": "JSON feed under out/_proj or out/_world/feeds, or out/_world/feed.json"},
                 "project_every": {"type": "integer",
                                   "description": "feed refresh period in ticks (default 3)"},
                 "rt": {"type": "number",
@@ -468,16 +486,18 @@ TOOLS = [
 _ARTIFACTS: dict[str, str] = {}
 _ARTIFACT_ORDER: list[str] = []
 _ARTIFACT_MAX = 32
+_ARTIFACT_LOCK = threading.Lock()
 
 
 def _stash(text: str) -> dict:
     """Store *text* and return the reference record that goes in its place."""
     ref = "a" + hashlib.sha1(text.encode("utf-8", "replace")).hexdigest()[:12]
-    if ref not in _ARTIFACTS:
-        _ARTIFACTS[ref] = text
-        _ARTIFACT_ORDER.append(ref)
-        while len(_ARTIFACT_ORDER) > _ARTIFACT_MAX:
-            _ARTIFACTS.pop(_ARTIFACT_ORDER.pop(0), None)
+    with _ARTIFACT_LOCK:
+        if ref not in _ARTIFACTS:
+            _ARTIFACTS[ref] = text
+            _ARTIFACT_ORDER.append(ref)
+            while len(_ARTIFACT_ORDER) > _ARTIFACT_MAX:
+                _ARTIFACTS.pop(_ARTIFACT_ORDER.pop(0), None)
     return {"artifact_ref": ref, "bytes": len(text),
             "preview": text[:200].replace("\n", " ")[:200],
             "how": "call mlog_fetch with this ref"}
@@ -656,7 +676,9 @@ def tool_gen(args):
 
 def _workspace_input_path(value: str, suffixes: tuple[str, ...]) -> Path:
     root = HERE.parent
-    path = (root / Path(value).expanduser()).resolve()
+    path = Path(os.path.abspath(root / Path(value).expanduser()))
+    if path.is_relative_to(root):
+        path = path.resolve()
     if not path.is_relative_to(root) or path.suffix.lower() not in suffixes:
         raise ValueError(f"path must be a {' or '.join(suffixes)} file within the server workspace")
     return path
@@ -938,47 +960,187 @@ def tool_inject(args):
     return response
 
 
-def _sim_subprocess(args):
-    """Advanced options (units/save/core) go through the CLI so behaviour stays
-    identical to the documented command; the warm path below covers the common case."""
+_MCP_SIM_TIMEOUT = 45.0
+_MCP_SIM_JS_TIMEOUT = 30.0
+_MCP_SIM_RESULT_LIMIT = 8 * 1024 * 1024
+_MCP_SIM_INPUT_LIMITS = {".mlog": 100 * 1024, ".json": 2 * 1024 * 1024,
+                        ".msch": 16 * 1024 * 1024, ".msav": 32 * 1024 * 1024}
+
+
+def _projection_path(value: str) -> Path:
     root = HERE.parent
-    cmd = [sys.executable, str(HERE / "mlogsim.py")]
-    if args.get("path"):
-        cmd.append(args["path"])
-    elif args.get("logic"):
-        cmd += ["--logic", args["logic"]]
-    # 只有 scene: 不传程序, 场景自带处理器
-    if args.get("scene"):
-        cmd += ["--scene", args["scene"]]
-    if args.get("ticks"):
-        cmd += ["--ticks", str(int(args["ticks"]))]
-    elif not args.get("scene"):
-        cmd += ["--steps", str(int(args.get("steps") or 60))]
-    if args.get("project"):
-        cmd += ["--push", args["project"]]
-        cmd += ["--push-every", str(int(args.get("project_every") or 3))]
-    if args.get("rt"):
-        cmd += ["--rt", str(args["rt"])]
-    if args.get("units"):
-        cmd += ["--units", args["units"]]
-    if args.get("unit_pos"):
-        cmd += ["--unit-pos", args["unit_pos"]]
-    if args.get("core_items"):
-        cmd += ["--core-items", args["core_items"]]
-    if args.get("save"):
-        cmd += ["--save", args["save"]]
-    if args.get("update"):
-        cmd += ["--update", args["update"]]
-    if args.get("links"):
-        cmd += ["--links", args["links"]]
-    cmd.append("--json")
-    p = subprocess.run(cmd, cwd=str(root), capture_output=True, text=True,
-                       encoding="utf-8", errors="replace")
-    if p.returncode != 0:
-        raise RuntimeError((p.stderr or p.stdout).strip()[:2000])
-    data = json.loads((p.stdout or "").strip().splitlines()[-1])
-    rec = (data.get("results") or [data])[0]
-    return rec
+    path = Path(os.path.abspath(root / Path(value).expanduser()))
+    if path.is_relative_to(root):
+        path = path.resolve()
+    relative = path.relative_to(root) if path.is_relative_to(root) else None
+    if (relative is None or path.suffix.lower() != ".json"
+            or (relative != Path("out/_world/feed.json")
+                and not any(relative.is_relative_to(folder) and relative != folder
+                            for folder in (Path("out/_proj"), Path("out/_world/feeds"))))):
+        raise ValueError("project must be a JSON feed in out/_proj, out/_world/feeds or out/_world/feed.json")
+    return path
+
+
+def _bounded_sim_worker(command: list[str]) -> str:
+    # Files avoid holding unbounded pipe data in memory and let us reap the worker
+    # even if a descendant briefly survives and still holds an output descriptor.
+    with tempfile.TemporaryFile() as stdout, tempfile.TemporaryFile() as stderr:
+        proc = subprocess.Popen(command, cwd=HERE.parent, stdout=stdout, stderr=stderr,
+                                stdin=subprocess.DEVNULL, start_new_session=os.name != "nt")
+        try:
+            proc.wait(timeout=_MCP_SIM_TIMEOUT)
+        except subprocess.TimeoutExpired as exc:
+            try:
+                if os.name == "nt":
+                    # The simulator owns a KILL_ON_JOB_CLOSE job for its JVM.
+                    proc.kill()
+                else:
+                    os.killpg(proc.pid, signal.SIGKILL)
+            except ProcessLookupError:
+                pass
+            proc.wait(timeout=3)
+            raise RuntimeError(f"simulation exceeded the {_MCP_SIM_TIMEOUT:g}s wall-clock limit") from exc
+        if proc.returncode:
+            stderr.seek(0)
+            message = stderr.read(2000).decode("utf-8", errors="replace").strip()
+            raise RuntimeError(message or f"simulation exited with code {proc.returncode}")
+        stdout.seek(0)
+        data = stdout.read(_MCP_SIM_RESULT_LIMIT + 1)
+        if len(data) > _MCP_SIM_RESULT_LIMIT:
+            raise RuntimeError("simulation result exceeds the MCP output limit")
+        return data.decode("utf-8")
+
+
+def _sim_subprocess(args):
+    if "ticks" in args and "steps" in args:
+        raise ValueError("choose ticks or steps")
+    has_profile = "power_profile" in args
+    power = args.get("power", "grid" if has_profile else "full")
+    if power not in ("full", "none", "grid"):
+        raise ValueError("power must be full, none or grid")
+    if has_profile and power != "grid":
+        raise ValueError("power_profile requires power=grid")
+    ticks = "ticks" in args or ("steps" not in args and
+                                bool(args.get("project") or args.get("rt") or power == "grid"))
+    key = "ticks" if ticks else "steps"
+    limit = 1200 if ticks else 2400
+    names = _trace_vars(args["trace_vars"]) if "trace_vars" in args else None
+    if names is not None:
+        limit = 600 if ticks else 1200
+        if "ticks" not in args and "steps" not in args:
+            ticks, key, limit = True, "ticks", 600
+    count = args.get(key, 60)
+    if type(count) is not int or not 1 <= count <= limit:
+        raise ValueError(f"simulation {key} must be between 1 and {limit}")
+    if power == "grid" and (not ticks or args.get("update", "all") != "all"):
+        raise ValueError("power=grid requires a tick run with update=all")
+    profile = _sim.validate_power_profile(args["power_profile"], count) if has_profile else None
+
+    files = {}
+    for field, suffixes in (("path", (".mlog", ".msch")), ("scene", (".json",)), ("save", (".msav",))):
+        if field in args:
+            value = args[field]
+            if not isinstance(value, str) or not value.strip():
+                raise ValueError(f"{field} must be a non-empty workspace path")
+            path = _workspace_input_path(value, suffixes)
+            if not path.is_file():
+                raise ValueError(f"{field} must name an existing regular file")
+            if path.stat().st_size > _MCP_SIM_INPUT_LIMITS[path.suffix.lower()]:
+                raise ValueError(f"{field} exceeds the simulation input size limit")
+            files[field] = path
+    if power == "grid" and "path" in files and files["path"].suffix.lower() == ".msch":
+        raise ValueError("power=grid requires a layout with power links; use save instead of a .msch file")
+    logic = args.get("logic")
+    if "logic" in args and (not isinstance(logic, str) or not logic.strip()):
+        raise ValueError("logic must be non-empty text")
+    if logic and "path" in files:
+        raise ValueError("choose logic or path")
+    if not logic and not ({"path", "scene"} & files.keys()):
+        raise ValueError("path, logic or scene required")
+    if logic and len(logic.encode("utf-8")) > 100 * 1024:
+        raise ValueError("inline logic exceeds the 100 KiB input limit")
+
+    project = None
+    if "project" in args:
+        value = args["project"]
+        if not isinstance(value, str) or not value.strip():
+            raise ValueError("project must be a JSON feed path")
+        project = _projection_path(value)
+    rt = args.get("rt", 0)
+    if type(rt) not in (int, float) or not 0 <= rt <= 60:
+        raise ValueError("rt must be between 0 and 60")
+    if (project or rt) and (not ticks or ("path" in files and files["path"].suffix.lower() == ".msch")):
+        raise ValueError("pacing and projection require a tick run with mlog or a scene")
+    if rt and count > 60 * rt * (_MCP_SIM_JS_TIMEOUT - 5):
+        raise ValueError("realtime pacing exceeds the MCP simulation budget; use fewer ticks or a faster rt")
+    if names is not None and (project or rt or "scene" in files or "save" in files
+            or any(args.get(k) for k in ("units", "unit_pos", "core_items"))
+            or ("path" in files and files["path"].suffix.lower() != ".mlog")):
+        raise ValueError("trace_vars supports inline or .mlog input without scene options")
+    every = args.get("project_every", 3)
+    if project and (type(every) is not int or not 1 <= every <= 1200):
+        raise ValueError("project_every must be between 1 and 1200")
+    units = args.get("units")
+    if units is not None:
+        if not isinstance(units, str) or len(units) > 1024:
+            raise ValueError("units must be text of at most 1024 characters")
+        quantities = []
+        for spec in units.split(","):
+            name, separator, number = spec.strip().partition(":")
+            if not name or (separator and (not number.isascii() or not number.isdigit() or len(number) > 2)):
+                raise ValueError("units must use positive counts, e.g. flare:2")
+            quantities.append(int(number) if separator else 1)
+        if not all(quantities) or sum(quantities) > 64:
+            raise ValueError("at most 64 units can be spawned per simulation")
+
+    for field, limit in (("unit_pos", 64), ("core_items", 1024)):
+        if field in args and (not isinstance(args[field], str) or len(args[field]) > limit):
+            raise ValueError(f"{field} must be text of at most {limit} characters")
+    for field, choices in (("update", ("all", "none")), ("links", ("auto", "off"))):
+        if field in args and args[field] not in choices:
+            raise ValueError(f"{field} must be {' or '.join(choices)}")
+
+    with tempfile.TemporaryDirectory(prefix="mlog-mcp-sim-") as directory:
+        work = Path(directory)
+        path = files.get("path")
+        if logic is not None:
+            path = work / "inline.mlog"
+            path.write_text(logic.lstrip("\ufeff"), encoding="utf-8", newline="\n")
+        cmd = [sys.executable, "-X", "utf8", str(HERE / "mlogsim.py"),
+               f"--{key}={count}", f"--js-timeout={_MCP_SIM_JS_TIMEOUT}",
+               f"--workspace-root={HERE.parent}", f"--power={power}", "--json"]
+        if profile is not None:
+            cmd.append("--power-profile=" + json.dumps(profile, allow_nan=False, separators=(",", ":")))
+        for field in ("scene", "save"):
+            if field in files:
+                cmd.append(f"--{field}={files[field]}")
+        for arg_name, flag in (("units", "units"), ("unit_pos", "unit-pos"), ("core_items", "core-items"),
+                               ("update", "update"), ("links", "links")):
+            if args.get(arg_name) is not None:
+                cmd.append(f"--{flag}={args[arg_name]}")
+        if rt:
+            cmd.append(f"--rt={rt}")
+        if project:
+            project.parent.mkdir(parents=True, exist_ok=True)
+            cmd.extend([f"--push={project}", f"--push-every={every}"])
+        trace_file = work / "trace.tsv"
+        source = None
+        if names is not None:
+            cmd.append(f"--itrace={trace_file}")
+            cmd.extend(f"--itrace-var={name}" for name in names)
+            source = path.read_text(encoding="utf-8-sig")
+        if path is not None:
+            cmd.extend(["--", str(path)])
+
+        records = json.loads(_bounded_sim_worker(cmd))
+        if not isinstance(records, list) or not records or not all(isinstance(x, dict) for x in records):
+            raise RuntimeError("simulation did not return any processor results")
+        trace_ref = None
+        if names is not None:
+            bundle = {"schema": "mlog-itrace/v1", "mlog": source, "vars": names,
+                      "mode": records[0]["mode"], "tsv": trace_file.read_text(encoding="utf-8")}
+            trace_ref = _stash(json.dumps(bundle, ensure_ascii=False))
+    return records, trace_ref, project, files.get("scene")
 
 
 def _run_code(path: str | None, logic: str | None, args: dict):
@@ -999,33 +1161,9 @@ def _trace_vars(names) -> list[str]:
     return names
 
 
-def _capture_instruction_trace(args) -> tuple[dict, dict]:
-    names = _trace_vars(args["trace_vars"])
-    if any(args.get(k) for k in ("scene", "project", "units", "unit_pos", "core_items", "save", "steps")):
-        raise ValueError("trace_vars requires an inline or .mlog tick run without scene options")
-    ticks = args.get("ticks", 60)
-    if type(ticks) is not int or not 1 <= ticks <= 600:
-        raise ValueError("trace capture ticks must be between 1 and 600")
-    path, logic = args.get("path"), args.get("logic")
-    if bool(path) == bool(logic):
-        raise ValueError("trace capture requires exactly one of logic or a .mlog path")
-    code = logic if logic else _workspace_input_path(path, (".mlog",)).read_text(encoding="utf-8-sig")
-    if not isinstance(code, str):
-        raise ValueError("trace source must be text")
-    code = code.lstrip("\ufeff")
-    srv = _server(None)
-    with tempfile.TemporaryDirectory(dir=srv.workdir, prefix="itrace-") as directory:
-        result_path = Path(directory) / "trace.tsv"
-        rec = _sim.run_mlog(srv, path or "inline", code, ticks, ticks=True,
-                            update=args.get("update") or "all", links=args.get("links") or "auto",
-                            itrace=str(result_path), itrace_vars=tuple(names))
-        bundle = {"schema": "mlog-itrace/v1", "mlog": code, "vars": names,
-                  "tsv": result_path.read_text(encoding="utf-8")}
-    return rec, _stash(json.dumps(bundle, ensure_ascii=False))
-
-
 def _trace_rows(text: str, source: str | None):
     captured = set()
+    mode = None
     if text.lstrip().startswith("{"):
         bundle = json.loads(text)
         if bundle.get("schema") != "mlog-itrace/v1":
@@ -1033,6 +1171,7 @@ def _trace_rows(text: str, source: str | None):
         text = bundle["tsv"]
         source = source if source is not None else bundle["mlog"]
         captured.update(bundle["vars"])
+        mode = bundle.get("mode")
     lines = iter(text.lstrip("\ufeff").rstrip("\r\n").split("\n"))
     if next(lines, "").rstrip("\r") != "tick\tpc\tvars\tsource":
         raise ValueError("expected an instruction trace TSV with tick, pc, vars, and source columns")
@@ -1061,7 +1200,7 @@ def _trace_rows(text: str, source: str | None):
                 section = bisect_right(boundaries, row["pc"]) - 1
                 row["labels"] = by_pc[boundaries[section]] if section >= 0 else []
         rows.append(row)
-    return rows, captured
+    return rows, captured, mode
 
 
 def _trace_argument(args: dict, inline: str, reference: str, *, required: bool) -> str | None:
@@ -1069,9 +1208,11 @@ def _trace_argument(args: dict, inline: str, reference: str, *, required: bool) 
         raise ValueError(f"choose {inline} or {reference}")
     if reference in args:
         ref = args[reference]
-        if not isinstance(ref, str) or ref not in _ARTIFACTS:
+        with _ARTIFACT_LOCK:
+            result = _ARTIFACTS.get(ref) if isinstance(ref, str) else None
+        if result is None:
             raise ValueError(f"unknown trace reference {ref!r}")
-        return _ARTIFACTS[ref]
+        return result
     if inline in args:
         if not isinstance(args[inline], str):
             raise ValueError(f"{inline} must be text")
@@ -1086,7 +1227,7 @@ def tool_trace(args):
     label = args.get("label")
     if source is not None and not isinstance(source, str):
         raise ValueError("mlog must be text")
-    rows, captured = _trace_rows(_trace_argument(args, "trace", "trace_ref", required=True), source)
+    rows, captured, mode = _trace_rows(_trace_argument(args, "trace", "trace_ref", required=True), source)
     baseline = _trace_argument(args, "baseline_trace", "baseline_ref", required=False)
     variables = _trace_vars(args["vars"]) if "vars" in args else sorted(captured)
     missing = set(variables) - captured
@@ -1109,8 +1250,12 @@ def tool_trace(args):
               "next_offset": offset + len(page) if offset + len(page) < len(selected) else None,
               "variables": variables,
               "labels": list(dict.fromkeys(name for row in rows for name in row.get("labels", ())))}
+    if mode is not None:
+        result["mode"] = mode
     if baseline is not None:
-        previous, previous_vars = _trace_rows(baseline, None)
+        previous, previous_vars, previous_mode = _trace_rows(baseline, None)
+        if mode and previous_mode and mode != previous_mode:
+            raise ValueError("compare traces captured in the same simulation mode")
         missing = set(variables) - previous_vars
         if missing:
             raise ValueError(f"variables not captured in baseline: {', '.join(sorted(missing))}")
@@ -1129,35 +1274,8 @@ def tool_trace(args):
 
 
 def tool_sim(args):
-    path = args.get("path")
-    logic = args.get("logic")
-    if not path and not logic and not args.get("scene"):
-        raise ValueError("path, logic or scene required")
-    trace_ref = None
-    if "trace_vars" in args:
-        rec, trace_ref = _capture_instruction_trace(args)
-    elif args.get("scene") or args.get("project"):
-        # 场景/投影走 CLI: 这两条路要 Java 侧的 _scene 与 push 循环, 进程内那条
-        # warm 路径只覆盖"跑一段看变量"的常见用法.
-        rec = _sim_subprocess(args)
-    elif any(args.get(k) for k in ("units", "unit_pos", "core_items", "save")):
-        rec = _sim_subprocess(args)
-    else:
-        srv = _server(None)
-        ticks = bool(args.get("ticks"))
-        steps = int(args.get("ticks") or args.get("steps") or 60)
-        update = args.get("update") or ("all" if ticks else "none")
-        links = args.get("links") or "auto"
-        if logic:
-            rec = _sim.run_mlog(srv, "inline", logic, steps, ticks=ticks,
-                                update=update, links=links)
-        elif path.lower().endswith(".msch"):
-            rec = _sim.run_msch(srv, path, path, steps, ticks=ticks,
-                                update=update)[0]
-        else:
-            code = Path(path).read_text(encoding="utf-8-sig")
-            rec = _sim.run_mlog(srv, path, code, steps, ticks=ticks,
-                                update=update, links=links)
+    records, trace_ref, project, scene = _sim_subprocess(args)
+    rec = records[0]
     text = rec.get("text") or ""
     out = {
         "vars": rec.get("vars", {}),
@@ -1167,17 +1285,19 @@ def tool_sim(args):
         "processor": rec.get("processor"),
         "links": rec.get("links", []),
     }
+    if "power" in args or "power_profile" in args:
+        out["power"] = args.get("power", "grid")
     if trace_ref is not None:
         out["trace_ref"] = trace_ref
-    if args.get("project"):
-        # 投影这条路的"下一步"是可执行的: 一条命令就能把这帧画进游戏
-        feed = os.path.abspath(args["project"])
+    if len(records) > 1:
+        out["results_ref"] = _stash(json.dumps(records, ensure_ascii=False))
+    if rec.get("scene"):
+        out["scene"] = rec["scene"]
+    if project:
         out["projection"] = {
-            "feed": feed,
-            "scene": os.path.abspath(args["scene"]) if args.get("scene") else None,
-            "watch": "python tools/world_server.py --watch-feed %s" % args["project"],
-            "note": "the scene path travels inside the feed, so --watch-scene is optional; "
-                    "start the world before or after the sim -- it attaches either way",
+            "feed": str(project),
+            "scene": str(scene) if scene else None,
+            "watch": "python tools/world_server.py --watch-feed %s" % project,
         }
     return out
 
@@ -1501,7 +1621,8 @@ def _load_json(path: str):
 
 def tool_fetch(args):
     ref = args.get("ref")
-    text = _ARTIFACTS.get(ref)
+    with _ARTIFACT_LOCK:
+        text = _ARTIFACTS.get(ref)
     if text is None:
         raise ValueError("unknown artifact ref %r (re-run the tool that produced it)"
                          % ref)

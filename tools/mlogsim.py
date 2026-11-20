@@ -26,11 +26,11 @@ World simulation (`--ticks` only; `--steps` stays pure logic stepping):
                     so factories, conveyors, drills, power and turrets run
     --update none   logic only; buildings stay frozen
 
-`--update all` snapshots Groups.build, skips processors (the step loop drives
-those), pins every consumer's `power.status` to 1.0 (`--power full`, default;
-`--power none` pins 0.0), and sets `state` to playing for the duration of the
-loop only -- otherwise `Building.update()`/`updateConsumption()` no-op, and
-the server's own frame loop never gets a chance to advance the world.
+`--update all` snapshots Groups.build and skips processors (the step loop
+drives those). `--power full` (default) or `--power none` pins power status
+to 1.0 or 0.0. `--power grid` runs the original power graphs before buildings
+and preserves the game's power status, including the charge in batteries.
+The loop sets the game state to playing only while it drives the updates.
 
 Units spawned with `--units` are driven by their controller in the same mode:
 under `--update all` every unit whose controller is a `LogicAI` gets one real
@@ -40,12 +40,13 @@ Units that are not logic-controlled are not updated by default (wild AI is not
 simulated; `--unit-ai all` turns it on), and a unit whose 10s control timeout
 expires simply stops -- it does not revert to its faction AI. This is "B
 level": real executor, real unit update, real `LogicAI`, but no wave AI, combat
-targeting, power graphs or terrain collision detail in the world. Passing here
+targeting or full terrain collision detail in the world. Passing here
 does not replace a real game run.
 `--update none` keeps units frozen where they spawned. `--unit-pos X,Y` spawns
 them at a tile coordinate instead of two tiles off the processor, which makes
 motion demos reproducible (e.g. start a unit exactly on its orbit).
-Power graphs are not simulated; `--power` is the hook reserved for that.
+Grid mode requires a local tick run with building updates. Use `--save`
+to bring a real grid layout, node links and initial battery charge.
 
 Scenes (`--save FILE`) load a real `.msav`: the map, teams, cores, buildings
 and units come with it, so logic runs against the exact layout it will meet in
@@ -139,6 +140,7 @@ from __future__ import annotations
 import argparse
 import atexit
 import json
+import math
 import os
 import queue
 import re
@@ -343,8 +345,34 @@ def sweep_orphans(dry_run=False):
     return killed
 
 
+_JS_CONSOLE_END = re.compile(r"\[[A-Z]\]\s+undefined\s*$")
+_JS_CONSOLE_ERROR = re.compile(
+    r"\[[A-Z]\]\s+(?:JavaScriptException|EcmaError|EvaluatorException|WrappedException):"
+)
+
+
 class SimError(RuntimeError):
     pass
+
+
+POWER_PROFILE_MAX_POINTS = 64
+POWER_PROFILE_MAX_PER_SECOND = 600_000  # default native power-source output per second
+
+
+def validate_power_profile(value, ticks: int) -> list[dict]:
+    if not isinstance(value, list) or not 1 <= len(value) <= POWER_PROFILE_MAX_POINTS:
+        raise ValueError(f"power_profile requires 1–{POWER_PROFILE_MAX_POINTS} points")
+    previous = 0
+    for point in value:
+        if not isinstance(point, dict) or point.keys() != {"tick", "power_per_second"}:
+            raise ValueError("each power_profile point requires tick and power_per_second")
+        tick, power = point["tick"], point["power_per_second"]
+        if type(tick) is not int or not previous < tick <= ticks or (previous == 0 and tick != 1):
+            raise ValueError("power_profile must start at tick 1 and increase within the run")
+        if type(power) not in (int, float) or not 0 <= power <= POWER_PROFILE_MAX_PER_SECOND:
+            raise ValueError(f"power_per_second must be between 0 and {POWER_PROFILE_MAX_PER_SECOND}")
+        previous = tick
+    return value
 
 
 class Server:
@@ -372,6 +400,7 @@ class Server:
         self._unit_spec = None
         self._unit_pos = None
         self._weather_specs = []
+        self._power_profile = None
         os.makedirs(os.path.join(self.workdir, "config", "logs"), exist_ok=True)
         self.proc = subprocess.Popen(
             [java, "-Dstdout.encoding=UTF-8", "-Dstderr.encoding=UTF-8", "-jar", jar],
@@ -390,6 +419,7 @@ class Server:
         # of processors) loops for minutes inside a single command, so this is a
         # knob, not a constant (--js-timeout).
         self.js_timeout = 180.0
+        self.js_timeout_explicit = False
         _LIVE_SERVERS.append(self)
         self.lines: queue.Queue = queue.Queue()
         self.buffer: list[str] = []
@@ -446,12 +476,12 @@ class Server:
         self.proc.stdin.write(cmd + "\n")
         self.proc.stdin.flush()
 
-    def wait_for(self, needle: str, timeout: float = 60.0) -> list[str]:
-        deadline = time.time() + timeout
+    def wait_for(self, needle: str, timeout: float = 60.0, *, terminal=None) -> list[str]:
+        deadline = time.monotonic() + timeout
         out: list[str] = []
-        while time.time() < deadline:
+        while (remaining := deadline - time.monotonic()) > 0:
             try:
-                line = self.lines.get(timeout=0.2)
+                line = self.lines.get(timeout=min(0.2, remaining))
             except queue.Empty:
                 continue
             if line is None:
@@ -459,7 +489,8 @@ class Server:
             self.buffer.append(line)
             self.all.append(line)
             out.append(line)
-            if needle in line:
+            matched = terminal(line) if terminal is not None else needle in line
+            if matched:
                 return out
         raise SimError(f"timeout waiting for {needle!r}; tail:\n" + "\n".join(self.all[-20:]))
 
@@ -474,12 +505,11 @@ class Server:
         self.send("js " + " ".join(script.splitlines()))
         if timeout is None:
             timeout = self.js_timeout
-        lines = self.wait_for("undefined", timeout)
-        out = [ln.split("[none/base.js]:", 1)[1].strip() for ln in lines if "[none/base.js]:" in ln]
-        err = [ln for ln in lines if "Exception" in ln or "Error:" in ln]
-        if err:
-            raise SimError("\n".join(err))
-        return out
+        lines = self.wait_for("JS result", timeout, terminal=lambda line: (
+            _JS_CONSOLE_END.search(line) or _JS_CONSOLE_ERROR.search(line)))
+        if _JS_CONSOLE_ERROR.search(lines[-1]):
+            raise SimError(lines[-1])
+        return [ln.split("[none/base.js]:", 1)[1].strip() for ln in lines if "[none/base.js]:" in ln]
 
     def fill_cores(self, spec: str) -> list[dict]:
         """Stock our team's cores; if there is none, drop a core-shard next to base.
@@ -1123,12 +1153,13 @@ var GS = Packages.mindustry.core.GameState; var ST = GS.State;
 var GB = Packages.mindustry.gen.Groups.build;
 /* Snapshot first: update() may add/remove buildings and shift the group. */
 function worldTick(){
+    %(power_update)s
     var arr = [];
     for(var k = 0; k < GB.size(); k++){ arr.push(GB.index(k)); }
     for(var k = 0; k < arr.length; k++){
         var w = arr[k];
         if(w.block.name.indexOf("processor") >= 0) continue;
-        if(w.power != null) w.power.status = %(power)s;
+        %(fixed_power)s
         w.update();
     }
 }
@@ -1266,8 +1297,19 @@ def parse_trace(lines: list[str]) -> list[list[str]]:
     return rows
 
 
-def _world_js(power: float, unit_ai: str = "logic") -> str:
-    return WORLD_JS % {"power": power} + UNITS_JS % {"all": "true" if unit_ai == "all" else "false"}
+def _world_js(power: float | None, unit_ai: str = "logic") -> str:
+    # None lets the engine own power.status, which also holds battery charge.
+    world = WORLD_JS % {
+        "power_update": "Packages.mindustry.gen.Groups.powerGraph.update();" if power is None else "",
+        "fixed_power": f"if(w.power != null) w.power.status = {power};" if power is not None else "",
+    }
+    return world + UNITS_JS % {"all": "true" if unit_ai == "all" else "false"}
+
+
+def _world_tick_js(power: float | None, unit_ai: str) -> str:
+    # The live engine steps units before power graphs, then updates buildings.
+    calls = "unitTick(); worldTick();" if power is None else "worldTick(); unitTick();"
+    return _world_js(power, unit_ai) + calls
 
 
 
@@ -1282,18 +1324,22 @@ function itr_val(ex, name){
     return v.isobj ? "<obj>" : String(v.numval);
   }catch(e){ return "?"; }
 }
+function itr_sample(ex, t){
+  if(ex.instructions.length === 0) return;
+  var counter = ex.counter.numval;
+  var pc = (counter < 0 || counter >= ex.instructions.length) ? 0 : counter|0;
+  var src = (ex.instructions.length === ITR_CODE.length && pc < ITR_CODE.length) ? ITR_CODE[pc] : "";
+  var extra = "";
+  for(var q = 0; q < ITR_VARS.length; q++){ extra += ITR_VARS[q] + "=" + itr_val(ex, ITR_VARS[q]) + ";"; }
+  ITRACE.push("ITRACE\t" + t + "\t" + pc + "\t" + extra + "\t" + src);
+}
 function itr_exec(obj, t){
   var ex = obj.executor;
   if(!obj.enabled || !ex.initialized()) return;
   obj.accumulator += obj.block.instructionsPerTick;
   var guard = 0;
   while(obj.accumulator >= 1){
-    var counter = ex.counter.numval;
-    var pc = (counter < 0 || counter >= ex.instructions.length) ? 0 : counter|0;
-    var src = (ex.instructions.length === ITR_CODE.length && pc < ITR_CODE.length) ? ITR_CODE[pc] : "";
-    var extra = "";
-    for(var q = 0; q < ITR_VARS.length; q++){ extra += ITR_VARS[q] + "=" + itr_val(ex, ITR_VARS[q]) + ";"; }
-    ITRACE.push("ITRACE\t" + t + "\t" + pc + "\t" + extra + "\t" + src);
+    itr_sample(ex, t);
     ex.runOnce();
     obj.accumulator -= 1;
     if(++guard > 2000) break;
@@ -1357,18 +1403,46 @@ def _push_js(path: str, every: int, anchor=None, scene=None, label=None) -> str:
     也能按它把建筑复刻出来（见 projection_director 的 feed 自足模式）。"""
     # the JVM's cwd is a temp dir, so a relative path would land somewhere else
     full = os.path.abspath(path).replace("\\", "/")
-    body = PUSH_DEF_JS.replace("__PATH__", json.dumps(full))
-    body = body.replace("__ANCHOR__", json.dumps(list(anchor) if anchor else None))
-    body = body.replace("__SCENE__", json.dumps(scene.replace("\\", "/") if scene else None))
-    body = body.replace("__LABEL__", json.dumps(label or None, ensure_ascii=False))
+    fields = {
+        "__PATH__": full,
+        "__ANCHOR__": list(anchor) if anchor else None,
+        "__SCENE__": scene.replace("\\", "/") if scene else None,
+        "__LABEL__": label or None,
+    }
+    body = re.sub(r"__PATH__|__ANCHOR__|__SCENE__|__LABEL__",
+                  lambda match: json.dumps(fields[match.group()]), PUSH_DEF_JS)
     return (" if(i == 0){" + body + "}"
             " if(i %% %d == 0) _pushNow();" % max(1, int(every)))
 
 
-def _loop_js(obj: str, steps: int, ticks: bool, update: str = "none", power: float = 1.0,
+def _power_profile_js(profile: list[dict]) -> str:
+    # Only validated numeric pairs enter JS. Check the layout after it has
+    # loaded, since a scene can place the source as well as a save.
+    schedule = [[point["tick"], point["power_per_second"]] for point in profile]
+    return """
+        var gridSchedule = %s, gridPoint = 0;
+        var gridSource = Blocks.powerSource, sourceFound = false;
+        var graphs = Packages.mindustry.gen.Groups.powerGraph;
+        for(var gi=0; gi<graphs.size() && !sourceFound; gi++){
+            var producers = graphs.index(gi).graph.producers;
+            for(var pi=0; pi<producers.size; pi++){
+                if(producers.get(pi).block == gridSource){ sourceFound = true; break; }
+            }
+        }
+        if(!sourceFound) throw new Error("power_profile requires a power-source block in the loaded world");
+        function applyGridProfile(tick){
+            if(gridPoint < gridSchedule.length && gridSchedule[gridPoint][0] == tick){
+                gridSource.powerProduction = gridSchedule[gridPoint][1] / 60;
+                gridPoint++;
+            }
+        }
+    """ % json.dumps(schedule, allow_nan=False, separators=(",", ":"))
+
+
+def _loop_js(obj: str, steps: int, ticks: bool, update: str = "none", power: float | None = 1.0,
              combat: bool = False, trace: bool = False, unit_ai: str = "logic",
              preflight: bool = True, itrace: dict | None = None,
-             tick_extra: str = "") -> str:
+             tick_extra: str = "", power_profile: list[dict] | None = None) -> str:
     """Instruction mode steps the executor directly; tick mode drives updateTile.
 
     In tick mode Time.delta must be 1.0: edelta() = delta * timeScale feeds the
@@ -1378,10 +1452,20 @@ def _loop_js(obj: str, steps: int, ticks: bool, update: str = "none", power: flo
     itrace={"code": [...], "vars": [...]} switches tick mode from updateTile()
     to a hand-driven loop that records (tick, pc, vars, source line) per
     executed instruction. That is the only way to see which line ran: reading
-    @counter after updateTile only tells you where the tick ended.
+    @counter after updateTile only tells you where the tick ended. In instruction
+    mode no world ticks advance, so every trace row uses tick 0.
     """
+    itr_setup = itr_dump = ""
+    if itrace is not None:
+        values = {"__CODE__": itrace.get("code", []), "__VARS__": itrace.get("vars", [])}
+        itr_setup = re.sub(r"__CODE__|__VARS__", lambda m: json.dumps(values[m[0]], ensure_ascii=False),
+                           ITRACE_JS)
+        itr_dump = " for(var q = 0; q < ITRACE.length; q++){ print(ITRACE[q]); }"
     if ticks:
-        world = _world_js(power, unit_ai) + "worldTick(); unitTick();" if update == "all" else ""
+        world = _world_tick_js(power, unit_ai) if update == "all" else ""
+        profile_setup = _power_profile_js(power_profile) if power_profile else ""
+        if power_profile:
+            world = "applyGridProfile(i + 1); " + world
         setup = PREFLIGHT_JS + WEATHER_JS
         pre = post = ""
         if combat:
@@ -1390,10 +1474,7 @@ def _loop_js(obj: str, steps: int, ticks: bool, update: str = "none", power: flo
             post = " combatPost();"
         if trace:
             setup += TRACE_JS
-        if itrace is not None:
-            values = {"__CODE__": itrace.get("code", []), "__VARS__": itrace.get("vars", [])}
-            setup += re.sub(r"__CODE__|__VARS__", lambda m: json.dumps(values[m[0]], ensure_ascii=False),
-                            ITRACE_JS)
+        setup += itr_setup
         trace_tick = " traceTick();" if trace else ""
         if itrace is not None:
             body = pre + world + tick_extra + " itr_exec(%s, i);" % obj + post + trace_tick
@@ -1403,17 +1484,18 @@ def _loop_js(obj: str, steps: int, ticks: bool, update: str = "none", power: flo
         dump = ""
         if trace:
             dump += " for(var q = 0; q < TRACE.length; q++){ print(TRACE[q]); }"
-        if itrace is not None:
-            dump += " for(var q = 0; q < ITRACE.length; q++){ print(ITRACE[q]); }"
-        return ("var GS = Packages.mindustry.core.GameState; var ST = GS.State;"
+        dump += itr_dump
+        return (profile_setup + "var GS = Packages.mindustry.core.GameState; var ST = GS.State;"
                 " Vars.state.set(ST.playing); Time.delta = 1.0; %s"
                 " try{ for(var i = 0; i < %d; i++){"
                 " Vars.state.tick++; Time.update(); Vars.logicVars.update(); weatherTick(); %s%s }"
                 " } finally { Vars.state.set(ST.paused); }%s" % (setup, steps, body, check, dump))
-    return "for(var i = 0; i < %d; i++){ %s.executor.runOnce(); }" % (steps, obj)
+    sample = f"itr_sample({obj}.executor, 0); " if itrace is not None else ""
+    return (itr_setup + f"for(var i = 0; i < {steps}; i++){{ {sample}{obj}.executor.runOnce(); }}"
+            + itr_dump)
 
 
-def _scene_loop_js(steps: int, ticks: bool, update: str = "none", power: float = 1.0,
+def _scene_loop_js(steps: int, ticks: bool, update: str = "none", power: float | None = 1.0,
                    combat: bool = False, trace: bool = False, unit_ai: str = "logic",
                    preflight: bool = True) -> str:
     """Same, but tick every processor together so cross-reads see one world.
@@ -1423,7 +1505,7 @@ def _scene_loop_js(steps: int, ticks: bool, update: str = "none", power: float =
     let one processor run far ahead of the other.
     """
     if ticks:
-        world = _world_js(power, unit_ai) + "worldTick(); unitTick();" if update == "all" else ""
+        world = _world_tick_js(power, unit_ai) if update == "all" else ""
         setup = PREFLIGHT_JS + WEATHER_JS
         pre = post = ""
         if combat:
@@ -1551,7 +1633,7 @@ def infer_links(code: str) -> list[dict]:
 
 
 def run_mlog(srv: Server, name: str, code: str, steps: int, ticks: bool = False,
-             update: str = "none", power: float = 1.0, processor: str = "auto",
+             update: str = "none", power: float | None = 1.0, processor: str = "auto",
              combat: bool = False, trace: bool = False, unit_ai: str = "logic",
              preflight: bool = True, links: str = "auto",
              itrace: str | None = None, itrace_vars: tuple = (),
@@ -1585,6 +1667,7 @@ def run_mlog(srv: Server, name: str, code: str, steps: int, ticks: bool = False,
 
             itr = {"code": [stmt.raw[:512] for stmt in parse(code.splitlines()).stmts],
                    "vars": list(itrace_vars)}
+        pace_ms = int(1000.0 / 60.0 / rt) if ticks and rt > 0 else 0
         js = STEP_JS % {"path": path.replace("\\", "/"), "x": srv.base[0], "y": srv.base[1],
                         "links": json.dumps(link_specs, ensure_ascii=False),
                         "setup": setup_js or "",
@@ -1592,16 +1675,21 @@ def run_mlog(srv: Server, name: str, code: str, steps: int, ticks: bool = False,
                         "pads_report": pads_report,
                         "loop": _loop_js("b", steps, ticks, update, power, combat, trace, unit_ai,
                                          preflight, itr,
+                                         power_profile=srv._power_profile,
                                          tick_extra=(
                                               ("try{ java.lang.Thread.sleep(%d); }catch(e9){} "
-                                               % int(1000.0 / 60.0 / rt) if rt > 0 else "")
+                                               % pace_ms if pace_ms else "")
                                               + scene_tick + (" padTick();" if pads else "")
                                               + (_push_js(push_file, push_every,
                                                           anchor=_scene_anchor(srv),
                                                           scene=_scene_path(srv),
                                                           label=getattr(srv, "_scene_name", None))
                                                  if push_file else "")))}
-        lines = srv.js(js)
+        if pace_ms and steps > 0 and not srv.js_timeout_explicit:
+            # A paced run spends this much wall time sleeping before Java/IO overhead.
+            lines = srv.js(js, timeout=srv.js_timeout + steps * pace_ms / 1000.0)
+        else:
+            lines = srv.js(js)
         if preflight:
             warns = [ln.split("\t") for ln in lines if ln.startswith("LINKWARN\t")]
             if warns:
@@ -1630,7 +1718,7 @@ def run_mlog(srv: Server, name: str, code: str, steps: int, ticks: bool = False,
 
 
 def run_msch(srv: Server, name: str, path: str, steps: int, ticks: bool = False,
-             update: str = "none", power: float = 1.0,
+             update: str = "none", power: float | None = 1.0,
              combat: bool = False, trace: bool = False, unit_ai: str = "logic",
              preflight: bool = True) -> list[dict]:
     sys.path.insert(0, TOOLS)
@@ -1687,10 +1775,10 @@ TRACE_COLUMNS = ["unit", "tick", "ux", "uy", "uhp", "range", "tx", "ty", "dist",
                  "cx", "cy", "chp", "bullets", "shots"]
 
 
-def check_asserts(rows: list[list[str]], exprs: list[str]) -> int:
+def check_asserts(rows: list[list[str]], exprs: list[str], *, output=None) -> int:
     """Evaluate EXPR per trace row; return the number of failed evaluations."""
     if not rows:
-        print("ASSERT: no trace rows (are you using --ticks?)", file=sys.stderr)
+        print("ASSERT: no unit trace rows (spawn units or use a scene with units)", file=sys.stderr)
         return 1
     fails = []
     for expr in exprs:
@@ -1712,14 +1800,14 @@ def check_asserts(rows: list[list[str]], exprs: list[str]) -> int:
             if not ok:
                 fails.append((expr, env))
     if not fails:
-        print(f"ASSERT PASS  {len(rows)} row(s) x {len(exprs)} expr(s)")
+        print(f"ASSERT PASS  {len(rows)} row(s) x {len(exprs)} expr(s)", file=output)
         return 0
     for expr, env in fails[:5]:
         detail = " ".join(f"{k}={env[k]}" for k in
                           ("tick", "unit", "dist", "range", "chp", "ux", "uy") if k in env)
         err = f"  ({env['_error']})" if "_error" in env else ""
-        print(f"ASSERT FAIL  {expr}\n              {detail}{err}")
-    print(f"ASSERT FAILED  {len(fails)}/{len(rows) * len(exprs)} evaluation(s)")
+        print(f"ASSERT FAIL  {expr}\n              {detail}{err}", file=output)
+    print(f"ASSERT FAILED  {len(fails)}/{len(rows) * len(exprs)} evaluation(s)", file=output)
     return len(fails)
 
 
@@ -1743,8 +1831,10 @@ def _xy_arg(spec: str | None):
 
 def configure_server(srv: Server, args):
     """Attach per-run world setup so prepare() can replay it after each reset."""
-    if getattr(args, "js_timeout", None):
+    if getattr(args, "js_timeout", None) is not None:
         srv.js_timeout = float(args.js_timeout)
+        srv.js_timeout_explicit = True
+    srv._power_profile = args.power_profile
     if args.base:
         srv.base = tuple(int(v) for v in args.base.split(","))
         srv._base0 = srv.base
@@ -1876,9 +1966,8 @@ def main(argv=None):
     ap.add_argument("--steps", type=int, default=None, help="instructions to execute (default 200)")
     ap.add_argument("--ticks", type=int, default=None,
                     help="simulated ticks: drive updateTile() with Time.delta=1 (accumulator/ipt/wait)")
-    ap.add_argument("--js-timeout", type=float, default=180.0, metavar="SEC",
-                    help="wall-clock budget for one internal js command (default 180); "
-                         "raise it for huge scene schematics (a few thousand processors)")
+    ap.add_argument("--js-timeout", type=float, metavar="SEC",
+                    help="override the JS wall-clock budget (default: 180 s plus realtime pacing)")
     ap.add_argument("--world", type=int, default=None, metavar="N",
                     help="blank NxN world loaded with loadGenerator (default 64, or the "
                          "scene's world.size with --scene; 0 = host a random map)")
@@ -1900,8 +1989,10 @@ def main(argv=None):
                     help="spawn units at this tile coordinate instead of 2 tiles off the processor, e.g. 6,4")
     ap.add_argument("--update", choices=["none", "all"], default=None,
                     help="world update per tick: all = every building (default in --ticks mode), none = logic only")
-    ap.add_argument("--power", choices=["full", "none"], default="full",
-                    help="for --update all: pin every consumer's power.status (default full = 100 percent power)")
+    ap.add_argument("--power", choices=["full", "none", "grid"],
+                    help="full (default) or none pins power; grid advances the original power graphs in local tick runs")
+    ap.add_argument("--power-profile", metavar="JSON",
+                    help="grid output schedule for all power-source blocks, as tick/power_per_second points")
     ap.add_argument("--combat", choices=["on", "off"], default=None,
                     help="run bullet physics + damage each tick (default on with --ticks). "
                          "Without it a unit fires but bullets never move or hit")
@@ -1979,9 +2070,14 @@ def main(argv=None):
     ap.add_argument("--sweep-orphans", action="store_true",
                     help="kill simulator JVMs left behind by killed runs, then exit")
     ap.add_argument("--json", action="store_true")
+    ap.add_argument("--workspace-root", help=argparse.SUPPRESS)
     ap.add_argument("--rt", type=float, default=0.0, metavar="X",
-                    help="throttle the sim so 1 sim-second takes X wall seconds (1 = realtime). Only useful for watching --push markers live.")
+                    help="simulation speed multiplier (1 = realtime, 3 = about 3x, 0 = unthrottled)")
     args = ap.parse_args(argv)
+    if not math.isfinite(args.rt) or args.rt < 0:
+        ap.error("--rt must be finite and non-negative")
+    if args.js_timeout is not None and (not math.isfinite(args.js_timeout) or args.js_timeout <= 0):
+        ap.error("--js-timeout must be finite and positive")
     if args.project and not args.push:
         args.push = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
                                  "out", "_world", "feed.json")
@@ -1995,9 +2091,29 @@ def main(argv=None):
     ticks = args.ticks is not None
     steps = args.ticks if ticks else (args.steps if args.steps is not None else 200)
     update = args.update if args.update is not None else ("all" if ticks else "none")
-    power = 1.0 if args.power == "full" else 0.0
+    args.power = args.power or ("grid" if args.power_profile is not None else "full")
+    if args.power_profile is not None and args.power != "grid":
+        ap.error("--power-profile requires --power grid")
+    if args.power == "grid":
+        if not ticks or args.ticks < 1 or update != "all" or args.remote or args.daemon:
+            ap.error("--power grid requires a positive local --ticks count with --update all")
+        if any(path.lower().endswith(".msch") for path in args.files):
+            ap.error("--power grid needs a layout with power links; use --save instead of a .msch file")
+    if args.power_profile is not None:
+        try:
+            args.power_profile = validate_power_profile(json.loads(args.power_profile), steps)
+        except ValueError as exc:
+            ap.error(str(exc))
+    power = {"full": 1.0, "none": 0.0, "grid": None}[args.power]
     combat = (args.combat == "on") if args.combat else ticks
     want_trace = bool(args.trace or args.asserts or args.asserts_last)
+    if want_trace and (not ticks or args.remote or args.daemon):
+        ap.error("unit traces and their assertions require a local --ticks run")
+    if args.itrace_vars and not args.itrace:
+        ap.error("--itrace-var requires --itrace")
+    if args.itrace and (args.remote or args.daemon or not args.files
+                        or any(name.lower().endswith(".msch") for name in args.files)):
+        ap.error("--itrace requires a local mlog file (not a blueprint or scene-only run)")
     preflight = not args.no_preflight
 
     if not os.path.exists(args.jar):
@@ -2007,7 +2123,7 @@ def main(argv=None):
     if getattr(args, "scene", None):
         import scene as _scene_mod
         try:
-            scene_obj = _scene_mod.load(args.scene)
+            scene_obj = _scene_mod.load(args.scene, workspace_root=args.workspace_root)
         except _scene_mod.SceneError as exc:
             sys.exit(f"scene invalid: {exc}")
         if args.world is None:
@@ -2093,9 +2209,10 @@ def main(argv=None):
         trace_rows.extend(r.pop("trace", []) or [])
     if args.trace:
         _write_trace(args.trace, trace_rows)
-    failed = check_asserts(trace_rows, args.asserts) if args.asserts else 0
+    diagnostic_stream = sys.stderr if args.json else sys.stdout
+    failed = check_asserts(trace_rows, args.asserts, output=diagnostic_stream) if args.asserts else 0
     if args.asserts_last:
-        failed += check_asserts(trace_rows[-1:], args.asserts_last)
+        failed += check_asserts(trace_rows[-1:], args.asserts_last, output=diagnostic_stream)
 
     if args.json:
         print(json.dumps(results, ensure_ascii=False, indent=2))
@@ -2139,7 +2256,7 @@ def main(argv=None):
                       f" water={num('water', '.0f')} eff={num('efficiency', '.0f')}"
                       f" landings={num('landings', '.0f')}")
     if args.trace:
-        print(f"TRACE  {len(trace_rows)} row(s) -> {args.trace}")
+        print(f"TRACE  {len(trace_rows)} row(s) -> {args.trace}", file=diagnostic_stream)
     if scene_report and scene_report["errors"]:
         failed += len(scene_report["errors"])
     if scene_probe:

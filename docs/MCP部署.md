@@ -82,8 +82,10 @@ curl -s -H "Authorization: Bearer $TOKEN" http://127.0.0.1:8765/health
 - 健康检查：`GET /health` 是**廉价**的（不探 JVM、不跑 doctor），可以每 10 秒打一次；
   要看执行器就调 MCP 工具 `mlog_doctor`。
 - 日志：一行一请求，写 stderr；`--quiet` 关掉。systemd 下 `journalctl -u mlogent-mcp -f`。
-- 并发：`ThreadingHTTPServer`，但分发串行（`mlog_fetch` 的 artifact 表是一个 dict，
-  串行才不会读到半写）。一个长调用会挡住后面的调用 —— 需要并行就一租户一进程。
+- 并发：`mlog_sim` 在独立进程中执行，每次最多 45 秒。同一服务进程同时执行一个模拟，
+  新的并发模拟请求返回 `simulation_busy`。其余 RPC 串行处理，模拟期间可继续调用。
+- 电网：`mlog_sim` 的 `power=grid` 使用原版电网。`power_profile` 接收有限个
+  `tick` 和 `power_per_second` 数值点，更新当前模拟中的沙盒电源。用法见 [工具说明](../tools/README.md)。
 - 发布与回滚：记录部署包的 Git 提交或镜像摘要，并保留上一份已验证产物。MCP 的接口版本可通过
   `GET /health` 的 `version` 或 `initialize` 的 `serverInfo.version` 查询，部署包的来源可查
   `PACKAGE.txt`。升级后检查 `/health` 和 `tools/list`；需要回退时切回上一份产物。
@@ -99,9 +101,8 @@ curl -s -H "Authorization: Bearer $TOKEN" http://127.0.0.1:8765/health
 |---|---|---|
 | 客户端位置 | 同机 | 任意 |
 | 鉴权 | 由启动它的进程决定 | Bearer token |
-| 并发 | 单流 | 多连接、分发串行 |
+| 并发 | 单流 | 多连接，模拟与其他 RPC 分开执行 |
 | 健康检查 | 无 | `GET /health` |
 | 代码 | 20 个工具 | 同一份 `handle()`，同一份工具表 |
 
-测试在 `tests/mcphttp/`（17 项，不需要 JVM）：状态码、通知 202 空包、鉴权 401、
-未知方法 -32601、坏 JSON 400、批次回列表、`GET /mcp` 405、非回环无令牌拒启。
+测试在 `tests/mcphttp/`（不需要 JVM），覆盖传输、鉴权、模拟输入检查、超时和并发。

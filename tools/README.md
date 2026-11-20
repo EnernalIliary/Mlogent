@@ -5,6 +5,9 @@
 
 环境：先跑 `python tools/mlog.py doctor`。静态分析（check/ir/values/pack/cross/report）**全部只用 Python 标准库**；只有 `kb.py` 的本地知识库检索要 `fastembed`（仓库根 `requirements.txt`）；模拟器要 Java 21 + server jar。全部可覆盖的环境变量见仓库根 `.env.example`。
 
+实时投影可用 `--rt 1`。默认 JS 等待预算会在 180 秒基础上加上节流耗时；
+显式传 `--js-timeout` 可设定本次运行的上限。`--json` 模式的断言诊断走 stderr。
+
 ## 常用命令
 
 | 想做什么 | 命令 |
@@ -16,13 +19,14 @@
 | 静态检查 | `python tools/mlog.py check x.mlog`（`--cost` 加成本/最坏指令数，`--rid` 每行尾部显示规则 id） |
 | 生成只含处理器的蓝图 | `python tools/mlog.py gen --name 名字 --code x.mlog` |
 | 模拟运行 | `python tools/mlogsim.py x.mlog --ticks 120 --trace t.csv` |
+| 在存档里验证电网 | `python tools/mlogsim.py x.mlog --save grid.msav --ticks 420 --power grid --json` |
 | 调试着陆台（真 4×4 接收台，带水/卸货） | `python tools/mlogsim.py x.mlog --ticks 1200 --pads 9 --pad-drain 2 --units flare:1 --core-items copper:400` |
 | 把仿真画进真世界（状态镜） | `python tools/mlogsim.py x.mlog --units poly:8 --ticks 240 --push out/_world/mirror.json --push-every 15`，服务端用 `--mirror-feed out/_world/mirror.json` 启动 |
 | 超大场景（几千台）跑模拟 | `python tools/mlogsim.py 图.msch --ticks 110 --js-timeout 3600`（默认预算 180 s，几万台会把一条 js 命令跑到几分钟） |
 | 一次启动跑多个文件 | `python tools/mlogsim.py a.mlog b.mlog c.mlog --ticks 60` |
 | 预热模拟器（预处理时先起） | `python tools/mlogsim.py --daemon` → `python tools/mlogsim.py --remote x.mlog --ticks 60` |
 | 值域 / 跳转表 | `python tools/mlog.py ranges x.mlog --var n`；`python tools/mlog.py jumps x.mlog --var n` |
-| 指令级执行流 | `python tools/mlogsim.py x.mlog --ticks 120 --itrace t.tsv --itrace-var n` |
+| 指令级执行流 | `python tools/mlogsim.py x.mlog --steps 120 --itrace t.tsv --itrace-var n`（也支持 `--ticks`；逐指令模式不推进游戏 tick） |
 | 把数字跳转换成标签，方便编辑 | `python tools/mlog.py labelize x.mlog`（输出 `x.labels.mlog`；签名文件会先把注释还原到正文） |
 | 交付前把标签转回行号并签名 | `python tools/mlog.py post x.labels.mlog -o x.mlog`（注释和每个目标的首个标签名随签名 token 保存；再解析时可用 `--labelize` 恢复） |
 | 看/取回签名里的注释 | `python tools/aigenerated.py extract x.mlog` / `restore x.mlog`（按原始行号与语句锚点） |
@@ -35,6 +39,23 @@
 | 调试世界契约 | `python tests/world/run_world_tests.py`（feed 读取 / 文本通道 / 43 个 MCP 工具的 schema 与协议，不需要 JVM） |
 
 `mlog.py --help` 是子命令总表；`tools/mlogsim.py --help` 是模拟器参数（世界、单位、战斗 tick、trace/assert）。
+
+### 电网（`--power grid`）
+
+本地 `--ticks` 配合 `--update all`（tick 模式的默认值）时，`--power grid` 每 tick
+在建筑更新前推进一次原版电网。`--save` 会带入存档里的节点接线和电池电量。
+可以用 Mlog 的 `@powerNetIn`、`@powerNetOut`、`@powerNetStored` 读取电网状态，
+用负载的 `@efficiency` 观察供电对运行的影响。
+
+默认的 `--power full` 和可选的 `--power none` 仍提供固定供电。本地 CLI 和 MCP
+`mlog_sim` 都可以启用原版电网。电网模式暂不支持 `scenario_run` 或 `.msch` 蓝图加载。
+
+`python tests/scenario/run_scenario_tests.py` 会用同一份存档分别运行模拟器和隔离的
+原版 headless 服务器。两边以固定步长 `Time.delta = 1` 推进，在建筑更新后采样。
+v160.7 上连续 420 tick 的电网输入、输出、储量、电池电量及三处负载效率一致。
+测试中下游在第 90 tick 断电，第 120 tick 停发后电池继续供电，
+第 284 tick 耗尽，第 285 tick 负载效率归零。该对照覆盖固定步长和这份存档的电网，
+实时负载波动和更复杂的电网拓扑仍需单独验证。
 
 ### 着陆台（`--pads N`）
 
@@ -141,7 +162,8 @@ python tools/mlogsim.py --sweep-orphans     # orphan sweep: N stale JVM(s) 1234 
 记录默认保存在 `out/_mlog_revisions/`，可用 `MLOG_REVISION_DIR` 指定持久目录。
 
 用 `mlog_sim {logic, ticks, trace_vars: ["i"]}` 采集指令轨迹。该模式支持内联代码或单个
-`.mlog` 文件，最多 600 tick 和 16 个变量，观测值来自指令执行前；对象值显示为 `<obj>`。
+`.mlog` 文件，最多 600 tick 或 1200 条指令，可观察最多 16 个变量。观测值来自指令执行前；对象值显示为 `<obj>`。
+逐指令模式中的 `tick` 固定为 0，按 `step` 查看顺序。单位轨迹和相应断言仍需要本地 tick 模式。
 传 `trace_ref.artifact_ref` 给 `mlog_trace`，可按 `label` 筛选标签段、按 `vars` 选变量、
 按 `offset` 分页。也可传 `trace`（`--itrace` TSV）和 `mlog` 来匹配标签及源码行。
 同时传 `baseline_ref` 或 `baseline_trace`，会按完整执行顺序比较 tick、PC 和所选变量，
@@ -168,7 +190,35 @@ python tools/mlog_mcp.py          # stdio JSON-RPC，供 DSH / Claude Desktop �
 验证与差分工具使用 `level: summary|diagnostics|full` 和 `mlog-eval/v1` 信封
 （见 `tools/mlog_eval.py`）：默认只回 10 个键的摘要（`task` 恒在，未接任务时为 `null`），大块内容（mlog 源码、变量转储、
 完整轨迹）自动换成 `artifact_ref`，用 `mlog_fetch` 取回。
-模拟器在服务进程内保温，首次约 3.7 s，之后约 0.6 s。DSH 侧配置片段：
+`mlog_sim` 在独立进程中执行，每次最多 45 秒。单次最多 1200 tick 或 2400 条指令，
+启用 `trace_vars` 时上限为 600 tick 或 1200 条指令。文件输入及场景引用的 Mlog 必须
+位于服务工作区内。投影只写入 `out/_proj/`、`out/_world/feeds/` 中的 JSON 文件或
+`out/_world/feed.json`。将 `results_ref.artifact_ref` 传给 `mlog_fetch` 可读取多处理器结果。
+长时间模拟可直接运行 `python tools/mlogsim.py`。
+
+给 `mlog_sim` 加 `power: "grid"` 可以启用原版电网。`power_profile` 会自动选用该模式，
+并按时间调整存档或场景内所有 `power-source` 方块的每块输出。电源需要启用并连接到待测电网。
+计划最多 64 个点，从 tick 1 开始，tick 严格递增且不能超过本次运行的 tick 数。
+`power_per_second` 的范围为 0–600000，每个档位在对应 tick 的电网更新前生效。
+例如，存档里有接上电网的沙盒电源及坐标 `(12, 10)` 的负载时，可以这样调用：
+
+```json
+{
+  "save": "out/grid.msav",
+  "logic": "getblock building load 12 10\nsensor input load @powerNetIn\nsensor efficiency load @efficiency\nend",
+  "ticks": 420,
+  "power_profile": [
+    {"tick": 1, "power_per_second": 120},
+    {"tick": 120, "power_per_second": 30},
+    {"tick": 240, "power_per_second": 0},
+    {"tick": 360, "power_per_second": 120}
+  ]
+}
+```
+
+`vars` 返回程序结束时的变量。要判断中间阶段是否发生过，可以在 Mlog 中把观测结果累计到变量里。
+
+DSH 侧配置片段：
 
 ```yaml
 - insert:
@@ -187,18 +237,17 @@ python tools/mlog_mcp.py          # stdio JSON-RPC，供 DSH / Claude Desktop �
 python tools/mlog_mcp_http.py --port 8765 --token "$TOKEN"    # POST /mcp, GET /health
 ```
 
-它 import 同一份 `handle()`，所以 15 个工具、同一个信封、同一套错误码；区别只在
-「谁来连」。**默认只绑 `127.0.0.1`；绑非回环而没有 `--token` 又没显式 `--insecure`
-时进程拒绝启动**（退出码 2）—— `mlog_sim` 会执行调用方发来的程序、`world_js` 会在
-游戏服务端求值 JS，没有鉴权的执行器就是远程代码执行。
+HTTP 版与 stdio 版共用工具表、响应格式和错误码。**默认只绑定 `127.0.0.1`。绑定非回环
+地址时，必须设置 `--token` 或显式传入 `--insecure`，否则进程以状态码 2 退出。**
 
 - `POST /mcp`：JSON-RPC 单包或批次；通知（无 `id`）回 **202 空包**。
 - `GET /health`：廉价探针（工具数、repo、`uptime_s`），不启动 JVM。
 - `GET /mcp`：**405 + `Allow: POST`** —— 这一版不做服务端推送。
-- 分发串行（artifact 表是裸 dict），并发连接只省排队时间，不并行执行。
+- 同一服务进程同时执行一个 `mlog_sim`。已有模拟时新的模拟请求立即返回
+  `simulation_busy`，其他 RPC 可继续执行。
 
 部署物在 `deploy/`（systemd unit、Dockerfile、反代写法），完整说明见
-`docs/MCP部署.md`；契约测试在 `tests/mcphttp/`（11 项，不需要 JVM）。
+`docs/MCP部署.md`。契约测试在 `tests/mcphttp/`（不需要 JVM）。
 
 两个检索器，用途不同但都不需要联网：
 
@@ -717,8 +766,8 @@ python tools/scenario.py run scenes/scenarios/generated-resource-drain.json --vi
 
 ## 差分验证（`observation.py` + `differential.py` + `fidelity.py`）
 
-离线执行器是**真执行器 + 真单位更新**，但不是游戏：没有波次 AI、没有电网、地形碰撞只到
-「B 级」。实施记录 §3 要求把同一个场景交给两边、**比较观察**，把差异变成有名字的边界。
+离线执行器使用原版逻辑执行器和单位更新。场景差分的离线侧使用固定供电，波次 AI 和完整地形碰撞
+仍由真实世界提供。实施记录 §3 要求把同一个场景交给两边、**比较观察**，把差异变成有名字的边界。
 
 三个模块分工：
 

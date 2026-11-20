@@ -28,9 +28,11 @@ from __future__ import annotations
 
 import copy
 import json
+import math
 import os
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -422,6 +424,309 @@ def test_failed_assertion() -> None:
        "the text report shows the missed expectation")
 
 
+def test_instruction_trace_step_and_tick_modes() -> None:
+    TMP.mkdir(parents=True, exist_ok=True)
+    with tempfile.TemporaryDirectory(dir=TMP, prefix="itrace-") as directory:
+        path = Path(directory) / "loop.mlog"
+        path.write_text("set n 0\n# comment\nloop:\nop add n n 1\njump loop lessThan n 3\n"
+                        "print n\nend\n", encoding="utf-8")
+        command = [sys.executable, "-X", "utf8", str(TOOLS / "mlogsim.py"), str(path)]
+        for flag, amount, expected_ticks in (
+            ("--steps", "10", [0] * 10),
+            ("--ticks", "5", [i for i in range(5) for _ in range(2)]),
+        ):
+            trace = Path(directory) / (flag[2:] + ".tsv")
+            proc = subprocess.run(command + [flag, amount, "--itrace", str(trace),
+                                             "--itrace-var", "n", "--json"],
+                                  cwd=ROOT, capture_output=True, text=True, encoding="utf-8", timeout=45)
+            if not ok(proc.returncode == 0 and trace.is_file(), f"{flag} writes a trace: {proc.stderr}"):
+                continue
+            rows = [line.split("\t", 3) for line in trace.read_text(encoding="utf-8").splitlines()[1:]]
+            ok([int(row[0]) for row in rows] == expected_ticks, f"{flag} records the expected tick values")
+            ok([int(row[1]) for row in rows] == [0, 1, 2, 1, 2, 1, 2, 3, 4, 0],
+               f"{flag} traces each actual instruction, including restart at PC 0")
+            ok(len(rows) == 10 and rows[1][3] == "op add n n 1" and rows[6][2] == "n=3;",
+               f"{flag} maps labelled source and captures values before execution")
+
+        refusal = subprocess.run(command + ["--remote", "--itrace", str(Path(directory) / "remote.tsv")],
+                                 cwd=ROOT, capture_output=True, text=True, encoding="utf-8", timeout=10)
+        ok(refusal.returncode == 2 and "--itrace requires a local mlog file" in refusal.stderr,
+           "remote mode reports unsupported instruction tracing rather than dropping it")
+
+
+def test_sim_json_trace_and_assertions() -> None:
+    TMP.mkdir(parents=True, exist_ok=True)
+    with tempfile.TemporaryDirectory(dir=TMP, prefix="trace-json-") as directory:
+        path = Path(directory) / "scene.json"
+        trace = Path(directory) / "units.csv"
+        path.write_text(json.dumps({
+            "name": "unit trace", "world": {"size": 64},
+            "buildings": [
+                {"name": "core", "block": "core-shard", "x": 32, "y": 32},
+                {"name": "ctrl", "block": "micro-processor", "x": 20, "y": 32,
+                 "code_inline": "ubind @flare\nucontrol move 40 32 0 0\nend\n"},
+            ],
+            "units": [{"type": "flare", "count": 1, "at": [24, 32], "team": "sharded"}],
+        }), encoding="utf-8")
+        command = [sys.executable, "-X", "utf8", str(TOOLS / "mlogsim.py"), "--scene", str(path),
+                   "--ticks", "5", "--trace", str(trace), "--json"]
+        for expression, expected_code, diagnostic in (
+            ("uhp > 0", 0, "ASSERT PASS"),
+            ("uhp < 0", 3, "ASSERT FAILED"),
+        ):
+            proc = subprocess.run(command + ["--assert-last", expression],
+                                  cwd=ROOT, capture_output=True, text=True, encoding="utf-8", timeout=45)
+            ok(proc.returncode == expected_code and diagnostic in proc.stderr and "TRACE " in proc.stderr,
+               f"JSON run reports {expression!r} and trace location on stderr with exit {expected_code}")
+            try:
+                result = json.loads(proc.stdout)
+            except json.JSONDecodeError:
+                result = []
+            ok(bool(result) and result[0].get("steps") == 5,
+               f"stdout stays JSON when asserting {expression!r}")
+
+
+def test_pacing_extends_default_js_timeout() -> None:
+    import mlogsim
+
+    server = mlogsim.Server(mlogsim._default_java(), mlogsim._default_jar(), world_size=32)
+    try:
+        server.prepare()
+        messages = server.js("print('undefined'); print('Error: user text');")
+        ok(messages[-2:] == ["undefined", "Error: user text"], "JS console distinguishes printed text from protocol markers")
+        try:
+            server.js("throw new Error('intentional test failure');", timeout=3.0)
+        except mlogsim.SimError as exc:
+            ok("intentional test failure" in str(exc) and "timeout" not in str(exc),
+               "JS exceptions fail immediately rather than timing out")
+        else:
+            ok(False, "JS exceptions fail immediately rather than timing out")
+        # Test the same case as a long realtime projection without waiting 3 minutes.
+        server.js_timeout = 1.0
+        result = mlogsim.run_mlog(server, "paced", "end", 60, ticks=True, rt=0.5)
+        ok(result["steps"] == 60, "default JS budget includes paced sleeps beyond the base timeout")
+    finally:
+        server.close()
+
+
+GRID_EVENTS_JS = """
+    Time.run(90, function(){ Vars.world.tile(4,20).setBlock(Blocks.air); });
+    Time.run(120, function(){ Vars.world.tile(10,10).setBlock(Blocks.air); });
+"""
+
+
+def grid_tick_samples(save: Path, ticks: int, *, native: bool) -> list[list[float]]:
+    import mlogsim
+
+    server = mlogsim.Server(mlogsim._default_java(), mlogsim._default_jar(), world_size=32)
+    try:
+        # Read the save in one console command while paused, so neither run
+        # advances between loading the grid and arming the tick sampler.
+        server.js("""
+            var stateEnum = Packages.mindustry.core.GameState.State;
+            Packages.mindustry.io.SaveIO.load(new Packages.arc.files.Fi(%s));
+            Vars.state.set(stateEnum.paused);
+            Vars.state.rules.waves = false;
+            Vars.state.rules.canGameOver = false;
+            Time.setDeltaProvider(new Packages.arc.func.Floatp({get:function(){ return 1; }}));
+            Time.delta = 1;
+            var access = Packages.mindustry.logic.LAccess;
+            var battery = Vars.world.build(11,10), load = Vars.world.build(12,10);
+            var up = Vars.world.build(11,20), down = Vars.world.build(3,20);
+            var gridSamples = [];
+            function sampleGrid(){
+                gridSamples.push([Time.delta, load.sense(access.powerNetIn), load.sense(access.powerNetOut),
+                    battery.sense(access.powerNetStored), battery.sense(access.totalPower),
+                    load.sense(access.efficiency), up.sense(access.efficiency), down.sense(access.efficiency)]);
+            }
+        """ % json.dumps(save.as_posix()) + GRID_EVENTS_JS)
+        if native:
+            # The reference lets Logic.update() drive the world through its
+            # normal update path. Only the delta and the observed phase are fixed.
+            server.js("""
+                var afterTick = new java.lang.Runnable({run:function(){
+                    sampleGrid();
+                    if(gridSamples.length == %d){
+                        Vars.state.set(stateEnum.paused);
+                        print("POWER_GRID_DONE");
+                    }
+                }});
+                Packages.arc.Events.run(Packages.mindustry.game.EventType$Trigger.afterGameUpdate, afterTick);
+                Vars.state.set(stateEnum.playing);
+            """ % ticks)
+            server.wait_for("POWER_GRID_DONE", 45)
+        else:
+            server.js("var probe = {updateTile:function(){}};" + mlogsim._loop_js(
+                "probe", ticks, True, update="all", power=None, tick_extra="sampleGrid();",
+            ))
+        samples = server.js('print("GRID\t" + JSON.stringify(gridSamples));')
+        return json.loads(next(line.split("\t", 1)[1] for line in samples if line.startswith("GRID\t")))
+    finally:
+        server.close()
+
+
+def check_grid_tick_parity(save: Path) -> None:
+    ticks = 420
+    simulated = grid_tick_samples(save, ticks, native=False)
+    native = grid_tick_samples(save, ticks, native=True)
+    if not ok(len(simulated) == len(native) == ticks, "both hosts captured all 420 power ticks"):
+        return
+    fields = ("delta", "powerNetIn", "powerNetOut", "powerNetStored", "battery charge",
+              "battery load efficiency", "upstream efficiency", "downstream efficiency")
+    max_error = 0.0
+    for tick, (sim_row, native_row) in enumerate(zip(simulated, native), 1):
+        for field, observed, expected in zip(fields, sim_row, native_row, strict=True):
+            if not math.isclose(observed, expected, rel_tol=1e-6, abs_tol=1e-6):
+                ok(False, f"first grid difference at tick {tick} in {field}: sim {observed:g}, native {expected:g}")
+                return
+            max_error = max(max_error, abs(observed - expected))
+    ok(True, f"all 420 ticks match native power flow, charge and load efficiency (max error {max_error:g})")
+
+    downstream_cut = next((tick for tick, row in enumerate(native, 1) if tick >= 90 and row[7] == 0), None)
+    generation_stops = next((tick for tick, row in enumerate(native, 1) if tick >= 120 and row[1] == 0), None)
+    battery_empty = next((tick for tick, row in enumerate(native, 1) if tick >= 120 and row[4] == 0), None)
+    load_stops = next((tick for tick, row in enumerate(native, 1) if tick >= 120 and row[5] == 0), None)
+    ok(downstream_cut == 90 and generation_stops == 120
+       and battery_empty is not None and load_stops is not None
+       and 120 < battery_empty <= load_stops <= ticks,
+       f"matched transition ticks: downstream cut {downstream_cut}, generation stops {generation_stops}, "
+       f"battery empty {battery_empty}, battery load stops {load_stops}")
+
+
+def test_grid_power_from_save() -> None:
+    import mlogsim
+
+    TMP.mkdir(parents=True, exist_ok=True)
+    with tempfile.TemporaryDirectory(prefix="power-grid-", dir=TMP) as directory:
+        root = Path(directory)
+        save = root / "grid.msav"
+        logic = root / "observe.mlog"
+        events = root / "events.js"
+        server = mlogsim.Server(mlogsim._default_java(), mlogsim._default_jar(), world_size=32)
+        try:
+            server.js("""
+                var team = Packages.mindustry.game.Team.sharded;
+                function place(x,y,name){
+                    Vars.world.tile(x,y).setBlock(Vars.content.block(name), team);
+                    return Vars.world.build(x,y);
+                }
+                place(24,24,"core-shard");
+                place(10,10,"solar-panel");
+                place(11,10,"battery");
+                place(12,10,"illuminator");
+                place(10,20,"solar-panel");
+                place(10,21,"solar-panel");
+                place(11,20,"illuminator");
+                var upstream = place(9,20,"power-node");
+                var downstream = place(4,20,"power-node");
+                place(3,20,"illuminator");
+                var links = java.lang.reflect.Array.newInstance(java.lang.Class.forName("arc.math.geom.Point2"), 1);
+                links[0] = new Packages.arc.math.geom.Point2(downstream.tileX() - upstream.tileX(), 0);
+                upstream.configured(null, links);
+                if(upstream.power.graph != downstream.power.graph){
+                    throw new Error("fixture power nodes did not connect");
+                }
+                Packages.mindustry.io.SaveIO.save(new Packages.arc.files.Fi(%s));
+            """ % json.dumps(save.as_posix()))
+        finally:
+            server.close()
+
+        events.write_text(GRID_EVENTS_JS, encoding="utf-8")
+        logic.write_text(
+            "getblock building battery 11 10\n"
+            "getblock building load 12 10\n"
+            "getblock building upstream 11 20\n"
+            "getblock building downstream 3 20\n"
+            "sensor charge battery @totalPower\n"
+            "sensor stored battery @powerNetStored\n"
+            "sensor supplied load @efficiency\n"
+            "sensor source load @powerNetIn\n"
+            "sensor demand load @powerNetOut\n"
+            "sensor upstreamPower upstream @efficiency\n"
+            "sensor downstreamPower downstream @efficiency\n"
+            "op max maxCharge maxCharge charge\n"
+            "op max maxStored maxStored stored\n"
+            "op max maxSource maxSource source\n"
+            "op max maxDemand maxDemand demand\n"
+            "op max maxDownstream maxDownstream downstreamPower\n"
+            "op greaterThan stopped @tick 135\n"
+            "op mul backup supplied stopped\n"
+            "op max maxBackup maxBackup backup\n"
+            "end\n",
+            encoding="utf-8",
+        )
+        command = [sys.executable, str(TOOLS / "mlogsim.py"), str(logic),
+                   "--save", str(save), "--init-js", str(events), "--base", "20,24",
+                   "--processor", "world", "--links", "off", "--ticks", "420", "--json"]
+        cp = subprocess.run([*command, "--power", "grid"], cwd=ROOT, capture_output=True,
+                            text=True, encoding="utf-8", timeout=180)
+        if not ok(cp.returncode == 0, "grid mode loads and runs a real save: " + cp.stderr.strip()):
+            return
+        values = {key: float(value) for key, value in json.loads(cp.stdout)[0]["vars"].items()
+                  if key in {"charge", "supplied", "upstreamPower", "downstreamPower",
+                             "maxCharge", "maxStored", "maxSource", "maxDemand", "maxDownstream", "maxBackup"}}
+        ok(values["maxCharge"] > 0 and values["maxStored"] > 0
+           and values["maxSource"] > values["maxDemand"] > 0,
+           "surplus charges a battery and Mlog senses grid flow and storage")
+        ok(values["maxBackup"] > 0.99 and values["charge"] == 0 and values["supplied"] == 0,
+           "battery powers its load after generation stops, then the load loses power")
+        ok(values["maxDownstream"] > 0.99 and values["downstreamPower"] == 0
+           and values["upstreamPower"] > 0.99,
+           "removing the node cuts just the downstream side of the saved link "
+           "(downstream peak %.2f, final %.2f, upstream final %.2f)"
+           % (values["maxDownstream"], values["downstreamPower"], values["upstreamPower"]))
+
+        cp = subprocess.run(command, cwd=ROOT, capture_output=True, text=True,
+                            encoding="utf-8", timeout=180)
+        if ok(cp.returncode == 0, "the default fixed-power mode still runs the same save"):
+            values = json.loads(cp.stdout)[0]["vars"]
+            ok(float(values["downstreamPower"]) > 0.99 and float(values["supplied"]) > 0.99,
+               "default full mode still powers disconnected loads")
+
+        check_grid_tick_parity(save)
+
+
+def test_mcp_power_profile() -> None:
+    import mlog_mcp
+
+    TMP.mkdir(parents=True, exist_ok=True)
+    with tempfile.TemporaryDirectory(prefix="mcp-power-", dir=TMP) as directory:
+        path = Path(directory) / "source.json"
+        path.write_text(json.dumps({"buildings": [
+            {"block": "power-source", "x": 10, "y": 10},
+            {"block": "illuminator", "x": 11, "y": 10},
+        ]}), encoding="utf-8")
+        logic = (
+            "getblock building lamp 11 10\n"
+            "sensor input lamp @powerNetIn\n"
+            "sensor efficiency lamp @efficiency\n"
+            "op equal partial efficiency 0.5\n"
+            "op max sawPartial sawPartial partial\n"
+            "op equal off efficiency 0\n"
+            "op mul offAfterPartial off sawPartial\n"
+            "op max sawOutage sawOutage offAfterPartial\n"
+            "end\n"
+        )
+        profile = [{"tick": tick, "power_per_second": rate}
+                   for tick, rate in ((1, 12), (10, 1.5), (20, 0), (30, 12))]
+        replies = []
+        mlog_mcp.handle({
+            "jsonrpc": "2.0", "id": 1, "method": "tools/call",
+            "params": {"name": "mlog_sim", "arguments": {
+                "scene": str(path), "logic": logic, "ticks": 40, "power_profile": profile,
+            }},
+        }, emit=replies.append)
+        response = replies[0]["result"]
+        payload = response["content"][0]["text"]
+        if not ok(not response["isError"], f"MCP runs a power profile: {payload if response['isError'] else 'OK'}"):
+            return
+        result = json.loads(payload)
+        values = result["vars"]
+        ok(result["power"] == "grid" and values["sawPartial"] == values["sawOutage"] == "1"
+           and values["input"] == "12" and values["efficiency"] == "1",
+           "MCP observes brownout, outage and restored full supply in one run")
+
+
 def main(argv: list[str] | None = None) -> int:
     args = list(sys.argv[1:] if argv is None else argv)
     fast = "--fast" in args
@@ -440,6 +745,11 @@ def main(argv: list[str] | None = None) -> int:
     if not fast and env["ok"]:
         test_simulation(True)
         test_failed_assertion()
+        test_instruction_trace_step_and_tick_modes()
+        test_sim_json_trace_and_assertions()
+        test_pacing_extends_default_js_timeout()
+        test_grid_power_from_save()
+        test_mcp_power_profile()
     else:
         skip("simulation tests (%s)" % ("--fast" if fast else "no JVM/jar"))
 

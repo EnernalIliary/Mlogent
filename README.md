@@ -4,6 +4,10 @@ Mlogent 是一套 Mindustry 逻辑和蓝图工具。它能从复杂蓝图里取�
 恢复可读的跳转标签，检查并替换代码，再输出可以粘回游戏的蓝图。也可以用 Mindustry
 执行器跑测试、查看指令轨迹，或通过 MCP 把这些操作交给编辑器和代码助理。
 
+电网调试支持原版电网与外部供电曲线。MCP `mlog_sim` 使用 `power: "grid"` 或
+`power_profile` 可以验证电池备用、欠电和恢复供电。参数与逐 tick 对照范围见
+[电网说明](tools/README.md#电网--power-grid)。
+
 ## 快速开始
 
 需要 Python 3.11 或更新版本。静态检查、蓝图解析和生成不需要安装 Python 第三方包，也不需要 Java。
