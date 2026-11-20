@@ -3,6 +3,37 @@
 只记对外可见的变化。工程日志（每一版的动机、踩过的坑、源码依据）见
 `MlogAuxiliary/HISTORY.md` 与 `docs/`。
 
+## 1.3.0 — 2026-11-20
+
+世界后端从单文件拆成模块，技能载荷改为构建时生成。行为面没有新工具，改的是
+"这些工具从哪里来、能不能被单独验证"。
+
+- **世界后端模块化**：`tools/world_server.py` 从约 164 KB 降到 29.7 KB，拆成 18 个
+  `world_*.py`（protocol / runtime / cli / process / channel / events / queries /
+  edits / maps / schematics / scenes / projection / display / mirrors / doors …），
+  路由与启动生命周期收敛到 `OperationRouter`、`WorldPaths` 与 services dataclass。
+  契约测试从 0 涨到 84 项、分成 16 个 `tests/world/run_*_tests.py`，`gate.py` 也把
+  world 拆成 16 步（总步数 34 → 54）。模块职责与行为边界写在
+  `docs/World后端重构计划.md`。
+- **技能载荷不再入库**：`.dsh/skills/*/tools` 与 `mindustry-blueprint/tools` 由
+  `tools/build_skills.py` 在构建时生成（−75 760 行入库副本）。仓库侧 manifest
+  因此只覆盖 `tools/ tests/ rules/`；发布包照样带生成物，`mlogagent.py info --verify`
+  在解压后的技能包里仍然核对 `MANIFEST.sha256`。
+- **重新 arm feed 时重置投影槽位**（`a5adac3`）：多槽沙盘反复开启时，旧槽位的
+  建筑不会被上一轮的残留占住。
+- **CI 两条真 bug**：①`tests/world` 的路径断言用了未解析的 root，Windows 的 8.3
+  短名（`RUNNER~1`）让 `WorldPaths.from_root()` 的 `resolve()` 结果与期望串不等；
+  ②技能验证子进程带 `-I`，而 `-I` 隐含 `-E`，`PYTHONUTF8`/`PYTHONIOENCODING`
+  根本传不进去，runner 的 cp1252 控制台让一句中文告警抛 `UnicodeEncodeError`。
+  两处都改成"不依赖控制台"的写法（解析后的 root、`-X utf8`），`gate.py` 的失败
+  tail 也从 12 行加到 40 行——这次就是靠它才看到真 traceback。
+- **顺手**：`.dockerignore`、`ci.yml`/`gates.yml` 精简、`dsh-preset-mlog` 的
+  `sync_blueprint_docs.py`。
+
+验证：`tests/run_tests.py` 50/50；`gate.py` 48 PASS / 6 SKIP / 0 FAIL / 0 WARN
+（202.7 s，干净 checkout）；manifest 294 文件一致；CI 的 `gates` 与 `ci` 在
+`0387859` 上均 success。四个包都在隔离目录里解压实跑过（见 `docs/RELEASE-1.3.0.md`）。
+
 ## 1.2.3 — 2026-11-19
 
 知识库从「中文母本 + 中文读者」变成「英文母本 + 中文读者」，并为后者补上了桥。
