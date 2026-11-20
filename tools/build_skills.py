@@ -90,7 +90,7 @@ def remove_generated(path: Path, skill: Path) -> None:
 def verify(dest: Path) -> None:
     for name in ('mlog-agentskill', 'mindustry-blueprint'):
         skill = dest / name
-        subprocess.run([sys.executable, '-I', '-B', str(skill / 'tools/mlogagent.py'),
+        subprocess.run([sys.executable, '-X', 'utf8', '-I', '-B', str(skill / 'tools/mlogagent.py'),
                         'info', '--verify'], cwd=skill, check=True, env=child_env(),
                        stdout=subprocess.DEVNULL)
         # Golden behavior must also survive relocation without the source tree.
@@ -98,7 +98,7 @@ def verify(dest: Path) -> None:
                         ignore=shutil.ignore_patterns('__pycache__', '*.pyc'))
         try:
             for test in ('run_tests.py', 'service/run_service_tests.py', 'http/run_http_tests.py', 'runtime/run_runtime_tests.py', 'cli/run_cli_tests.py', 'world/run_transport_tests.py', 'world/run_process_tests.py', 'world/run_channel_tests.py', 'world/run_query_tests.py', 'world/run_edit_tests.py', 'world/run_schematic_tests.py', 'world/run_map_tests.py', 'world/run_scene_tests.py', 'world/run_projection_tests.py', 'world/run_projection_action_tests.py', 'world/run_display_tests.py', 'world/run_mirror_tests.py', 'world/run_door_tests.py', 'world/run_event_tests.py', 'world/run_runtime_tests.py', 'world/run_config_tests.py'):
-                subprocess.run([sys.executable, '-I', '-B', str(skill / 'tests' / test)],
+                subprocess.run([sys.executable, '-X', 'utf8', '-I', '-B', str(skill / 'tests' / test)],
                                cwd=skill, check=True, env=child_env())
         finally:
             remove_generated(skill / 'tests', skill)
