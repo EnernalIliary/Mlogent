@@ -42,6 +42,29 @@ _execution_lock = threading.Lock()
 _owner = uuid.uuid4().hex
 
 
+def describe_action(name, args):
+    labels = {
+        'world_stop': '关闭游戏服务器', 'world_load': '载入世界存档',
+        'world_reset': '重置当前世界', 'world_switch_map': '切换游戏地图',
+        'world_clear': '清除指定区域', 'world_clear_buildings': '清除建筑',
+        'world_kill_units': '清除单位', 'world_place': '放置或替换建筑',
+        'world_spawn': '生成单位', 'world_logic_set': '修改逻辑处理器程序',
+        'world_scene': '部署场景并修改世界', 'world_console': '执行服务器控制台操作',
+        'world_js': '执行修改世界的脚本', 'world_push_action': '切换游戏地图',
+    }
+    label = labels.get(name, '修改游戏世界')
+    if name in {'world_console', 'world_js'} and delay_for(name, args) == 60:
+        label = '执行可能关闭游戏服务器的操作'
+    details = []
+    for key, title in (('map_id', '地图编号'), ('map', '地图'), ('name', '名称'),
+                       ('unit', '单位类型'), ('count', '数量'), ('x', '横坐标'),
+                       ('y', '纵坐标'), ('radius', '范围半径')):
+        if key in args:
+            value = ' '.join(str(args[key]).split())[:80].replace('[', '［').replace(']', '］')
+            details.append(title + '：' + value)
+    return label + ('（' + '，'.join(details) + '）' if details else '')
+
+
 def delay_for(name, args):
     if name == 'world_stop':
         return 60
@@ -103,9 +126,7 @@ def schedule(client, name, fn, args):
     # Install is idempotent and does not replace pending veto state.
     if _js(client, GAME_INSTALL) != 'ready':
         raise RuntimeError('Could not install /abort; operation not executed')
-    summary = ', '.join(str(k) + '=' + str(args[k])[:80] for k in
-                        ('action', 'map_id', 'map', 'name', 'unit', 'count', 'x', 'y', 'radius') if k in args)
-    label = name + (' (' + summary + ')' if summary else '')
+    label = describe_action(name, args)
     message = '[MCP] ' + label + ' 将在 ' + str(delay) + ' 秒后执行。任何玩家可输入 /abort 否决，/abort all 否决全部。'
     # Transport ASCII only: the world console rewrites unicode escapes.
     import base64

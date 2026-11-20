@@ -10,6 +10,12 @@ spec.loader.exec_module(guard)
 
 
 class VetoTests(unittest.TestCase):
+    def test_player_announcements_describe_function(self):
+        self.assertEqual(guard.describe_action('world_stop', {}), '关闭游戏服务器')
+        for name in guard.DESTRUCTIVE:
+            self.assertNotIn('world_', guard.describe_action(name, {}))
+        self.assertIn('地图编号：25122', guard.describe_action('world_switch_map', {'map_id': 25122}))
+
     def test_delays(self):
         self.assertEqual(guard.delay_for('world_stop', {}), 60)
         for name in ('world_load', 'world_reset', 'world_clear', 'world_kill_units', 'world_switch_map'):
