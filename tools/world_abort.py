@@ -5,6 +5,7 @@ asynchronous so HTTP timeouts cannot shorten the grace period.
 """
 import copy
 import json
+import re
 import threading
 import time
 import uuid
@@ -42,8 +43,11 @@ _owner = uuid.uuid4().hex
 
 
 def delay_for(name, args):
-    # Arbitrary console/JS could shut down the server, so use the longer grace.
-    if name in {'world_stop', 'world_console', 'world_js'}:
+    if name == 'world_stop':
+        return 60
+    if name in {'world_console', 'world_js'} and re.search(
+            r'\b(?:exit|quit|shutdown|stop)\b|closeServer|System\s*\.\s*exit',
+            json.dumps(args), re.IGNORECASE):
         return 60
     if name in DESTRUCTIVE:
         return 15
