@@ -52,3 +52,9 @@ dsh plugin --profile desktop remove dsh-preset-mlog
 - 全局技能副本 `~/.dsh/skills/mlog-agentskill` 可能过期（它指向
   `.dsh-pack/skills/default`，当前没有写权限）；本预设通过 `customSkillDirs` 用仓库内
   的 `.dsh/skills`，不依赖那份全局副本。
+
+## 维护蓝图技能文档
+
+在仓库根目录编辑 `mindustry-blueprint/` 下的 Markdown，再运行
+`python dsh-preset-mlog/sync_blueprint_docs.py` 更新 `.dsh/skills/mindustry-blueprint/`。
+DSH 安装副本一并提交，干净检出后可直接加载。CI 用 `--check` 检查同步状态。

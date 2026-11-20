@@ -1,0 +1,21 @@
+# Limit the context to the source trees copied by deploy/Dockerfile.
+**
+!tools/
+!tools/**
+!rules/
+!rules/**
+!data/
+!data/**
+!deploy/
+!deploy/**
+
+**/__pycache__/
+**/*.pyc
+**/.find_cache.json
+**/.env*
+tools/dev/_*
+!tools/dev/_build_release.py
+tools/corpus/**
+!tools/corpus/mine_idioms.py
+!tools/corpus/check_corpus.py
+!tools/corpus/instr_coverage.py

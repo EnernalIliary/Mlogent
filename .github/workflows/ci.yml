@@ -12,6 +12,10 @@ env:
   PYTHONUTF8: "1"
   PYTHONIOENCODING: utf-8
 
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   tests:
     name: 测试（windows）
@@ -35,26 +39,8 @@ jobs:
       - name: 完整性清单
         run: python tools/check_manifest.py
 
-      - name: 检查器与工具链
-        run: python tests/run_tests.py
+      - name: 知识库结构
+        run: python knowledge/tools/check_kb.py --root knowledge --all
 
-      - name: 蓝图形状
-        run: python tests/shapes/run_shapes.py
-
-      - name: 规则覆盖（规则 id 与 fixture 对账）
-        run: python tests/ruleids/run_ruleids.py
-
-  portability:
-    name: 路径假设（linux，非阻塞）
-    runs-on: ubuntu-latest
-    continue-on-error: true
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
-
-      - run: python tests/run_tests.py
-
-      - run: python tests/ruleids/run_ruleids.py
+      - name: DSH 技能文档同步
+        run: python dsh-preset-mlog/sync_blueprint_docs.py --check

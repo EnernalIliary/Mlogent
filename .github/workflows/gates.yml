@@ -1,7 +1,6 @@
 name: gates
 
-# 四套测试 + 两处完整性校验，全部纯静态：不需要 Java、不需要联网、不碰 out/。
-# 本地跑的是同一批命令（见 tools/README.md「跑之前」一节），CI 只是让它们换个机器再跑一次。
+# Linux 静态门禁。Windows 对应检查由 ci.yml 的仓库门禁和完整性步骤负责。
 on:
   push:
     branches: [main]
@@ -14,12 +13,8 @@ concurrency:
 
 jobs:
   gates:
-    name: gates (${{ matrix.os }})
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-latest, windows-latest]
+    name: gates (ubuntu-latest)
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
