@@ -166,6 +166,7 @@ def build_logic_config(code: str, links: list[Link], level: int = 9) -> bytes:
     return zlib.compress(bytes(inner), level)
 
 
+
 # --------------------------------------------------------------------------- #
 # blueprint assembly
 # --------------------------------------------------------------------------- #
@@ -207,7 +208,7 @@ class Blueprint:
 
     def add_logic(self, code: str, x: int = 0, y: int = 0,
                   block: str = "micro-processor", rotation: int = 0,
-                  links: list[Link] | None = None) -> Tile:
+                  links: list[Link] | None = None, *, check_limits: bool = False) -> Tile:
         """Place a processor. `links` coordinates must be relative to (x, y).
 
         NOTE: the link *target* building is NOT placed. A schematic only carries
@@ -223,6 +224,8 @@ class Blueprint:
         # and the game's parser does not care.
         code = code.replace("\r\n", "\n").replace("\r", "\n")
         cfg = build_logic_config(code, links or [], self.deflate_level)
+        if check_limits:
+            msch.check_logic_config_limits(code, cfg)
         for lk in (links or []):
             self.link_points.append((x + lk.dx, y + lk.dy))
         return self.add(block, x, y, rotation, cfg)

@@ -56,6 +56,8 @@ curl -s -H "Authorization: Bearer $TOKEN" http://127.0.0.1:8765/health
 ```
 
 `mlogsim` 要 Java 21+，Mindcode 3.19.3 要 Java 22+（class 66）。
+`mlog_extract` 的带标签 mlog 输出也可离线使用；选 `format: "mindcode"` 时需要 Mindcode 运行时。
+
 找不到运行时时服务照常起、静态工具照常可用 —— 这是有意的降级，不是故障。
 
 ## 客户端接法
@@ -82,8 +84,12 @@ curl -s -H "Authorization: Bearer $TOKEN" http://127.0.0.1:8765/health
 - 日志：一行一请求，写 stderr；`--quiet` 关掉。systemd 下 `journalctl -u mlogent-mcp -f`。
 - 并发：`ThreadingHTTPServer`，但分发串行（`mlog_fetch` 的 artifact 表是一个 dict，
   串行才不会读到半写）。一个长调用会挡住后面的调用 —— 需要并行就一租户一进程。
-- 升级：`git -C /opt/mlogent pull && systemctl restart mlogent-mcp`；包里的 `PACKAGE.txt`
-  写了这一份是从哪个版本切出来的。
+- 发布与回滚：记录部署包的 Git 提交或镜像摘要，并保留上一份已验证产物。MCP 的接口版本可通过
+  `GET /health` 的 `version` 或 `initialize` 的 `serverInfo.version` 查询，部署包的来源可查
+  `PACKAGE.txt`。升级后检查 `/health` 和 `tools/list`；需要回退时切回上一份产物。
+- 蓝图历史：`mlog_inject` 的版本记录默认写到 `out/_mlog_revisions/`，格式为 `mlog-revision/v1`。
+  部署容器时将此目录放在持久卷，或用 `MLOG_REVISION_DIR` 指向服务用户可写的持久路径。
+  记录包含原蓝图和检查结果，服务切换版本时应保留并备份这份数据。记录当前由运维按需清理。
 - 限额：反代上做（nginx `limit_req`）。服务本身不做租户隔离：一个令牌一个进程一个
   `out/` 抓目录，多租户请一个容器一份。
 
@@ -95,7 +101,7 @@ curl -s -H "Authorization: Bearer $TOKEN" http://127.0.0.1:8765/health
 | 鉴权 | 由启动它的进程决定 | Bearer token |
 | 并发 | 单流 | 多连接、分发串行 |
 | 健康检查 | 无 | `GET /health` |
-| 代码 | 15 个工具 | 同一份 `handle()`，同一份工具表 |
+| 代码 | 20 个工具 | 同一份 `handle()`，同一份工具表 |
 
-测试在 `tests/mcphttp/`（11 项，不需要 JVM）：状态码、通知 202 空包、鉴权 401、
+测试在 `tests/mcphttp/`（17 项，不需要 JVM）：状态码、通知 202 空包、鉴权 401、
 未知方法 -32601、坏 JSON 400、批次回列表、`GET /mcp` 405、非回环无令牌拒启。

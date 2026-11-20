@@ -347,6 +347,69 @@ def test_documented_gotchas_still_fail_the_documented_way():
                                   for d in stack['diagnostics']),
           'stack/heap distinction changed')
 
+@case
+def test_decompile_preserves_utf8_and_emits_a_draft():
+    with tempfile.TemporaryDirectory() as directory:
+        src = Path(directory) / "示例.mlog"
+        dst = Path(directory) / "草稿.mnd"
+        text = '\ufeffset i 0\nop add i i 1\njump 1 lessThan i 3\nprint "你好😀"\nend\n'
+        src.write_text(text, encoding="utf-8")
+        proc = run_cli("decompile", str(src))
+        check(proc.returncode == 0, proc.stderr)
+        for expected in ("i = 0;", "i = i + 1;", "if i < 3 then goto", 'print("你好😀");'):
+            check(expected in proc.stdout, f"missing {expected!r} in decompiled draft")
+        proc_file = run_cli("decompile", str(src), "-o", str(dst))
+        check(proc_file.returncode == 0, proc_file.stderr)
+        check(dst.read_text(encoding="utf-8") == proc.stdout, "file and stdout drafts differ")
+        refused = run_cli("decompile", str(src), "-o", str(src))
+        check(refused.returncode == 2 and src.read_text(encoding="utf-8") == text,
+              "the command must preserve the input file")
+
+
+@case
+def test_extract_logic_decompiles_each_processor_with_labels():
+    import base64
+
+    import aigenerated
+    import mschgen
+
+    code, *_ = aigenerated.sign_delivery(
+        "set i 0\nretry:\nop add i i 1\njump retry lessThan i 3\nend\n", "test-author")
+    blueprint = mschgen.Blueprint("decompile")
+    blueprint.add_logic(code)
+    blueprint.add_logic('print "second"\nend\n', x=2)
+    paste = base64.b64encode(blueprint.build()).decode("ascii")
+    with tempfile.TemporaryDirectory() as directory:
+        proc = subprocess.run(
+            [sys.executable, str(TOOLS / "mlog.py"), "extract-logic", paste, "--format", "mindcode",
+             "--all", "--out-dir", directory],
+            capture_output=True, text=True, encoding="utf-8", timeout=30)
+        check(proc.returncode == 0, proc.stderr)
+        first = (Path(directory) / "logic-0.mnd").read_text(encoding="utf-8")
+        second = (Path(directory) / "logic-1.mnd").read_text(encoding="utf-8")
+        check("then goto retry;" in first and sum("goto " in line for line in first.splitlines() if not line.startswith("//")) == 1
+              and "aigenerated:" not in first, "saved label or signing wrapper in draft")
+        check('print("second");' in second and "goto retry" not in second, "mixed processor drafts")
+
+
+@case
+def test_mcp_extract_returns_mindcode_with_saved_names():
+    import aigenerated
+    import mlog_mcp
+
+    signed, *_ = aigenerated.sign_delivery(
+        "set i 0\nretry:\nop add i i 1\njump retry lessThan i 3\nend\n", "test-author")
+    reply = mlog_mcp.handle({
+        "jsonrpc": "2.0", "id": 42, "method": "tools/call",
+        "params": {"name": "mlog_extract", "arguments": {"mlog": signed, "format": "mindcode"}},
+    }, emit=lambda _reply: None)["result"]
+    check(not reply["isError"], str(reply))
+    payload = json.loads(reply["content"][0]["text"])
+    check(payload["ok"] and payload["format"] == "mindcode"
+          and "goto retry;" in payload["processors"][0]["code"]
+          and "manual" in payload["note"], str(payload))
+
+
 def main():
     info = MC.locate()
     if not info['ok']:

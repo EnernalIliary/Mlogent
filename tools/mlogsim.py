@@ -1288,8 +1288,9 @@ function itr_exec(obj, t){
   obj.accumulator += obj.block.instructionsPerTick;
   var guard = 0;
   while(obj.accumulator >= 1){
-    var pc = ex.counter.numval|0;
-    var src = (pc >= 0 && pc < ITR_CODE.length) ? ITR_CODE[pc] : "";
+    var counter = ex.counter.numval;
+    var pc = (counter < 0 || counter >= ex.instructions.length) ? 0 : counter|0;
+    var src = (ex.instructions.length === ITR_CODE.length && pc < ITR_CODE.length) ? ITR_CODE[pc] : "";
     var extra = "";
     for(var q = 0; q < ITR_VARS.length; q++){ extra += ITR_VARS[q] + "=" + itr_val(ex, ITR_VARS[q]) + ";"; }
     ITRACE.push("ITRACE\t" + t + "\t" + pc + "\t" + extra + "\t" + src);
@@ -1390,8 +1391,9 @@ def _loop_js(obj: str, steps: int, ticks: bool, update: str = "none", power: flo
         if trace:
             setup += TRACE_JS
         if itrace is not None:
-            setup += (ITRACE_JS.replace("__CODE__", json.dumps(itrace.get("code", []), ensure_ascii=False))
-                      .replace("__VARS__", json.dumps(itrace.get("vars", []), ensure_ascii=False)))
+            values = {"__CODE__": itrace.get("code", []), "__VARS__": itrace.get("vars", [])}
+            setup += re.sub(r"__CODE__|__VARS__", lambda m: json.dumps(values[m[0]], ensure_ascii=False),
+                            ITRACE_JS)
         trace_tick = " traceTick();" if trace else ""
         if itrace is not None:
             body = pre + world + tick_extra + " itr_exec(%s, i);" % obj + post + trace_tick
@@ -1579,7 +1581,10 @@ def run_mlog(srv: Server, name: str, code: str, steps: int, ticks: bool = False,
             f.write(code)
         itr = None
         if itrace:
-            itr = {"code": code.splitlines(), "vars": list(itrace_vars)}
+            from mlogir import parse
+
+            itr = {"code": [stmt.raw[:512] for stmt in parse(code.splitlines()).stmts],
+                   "vars": list(itrace_vars)}
         js = STEP_JS % {"path": path.replace("\\", "/"), "x": srv.base[0], "y": srv.base[1],
                         "links": json.dumps(link_specs, ensure_ascii=False),
                         "setup": setup_js or "",

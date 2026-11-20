@@ -9,7 +9,10 @@
 
 | 想做什么 | 命令 |
 |---|---|
-| 看蓝图里的逻辑 | `python tools/mlog.py parse 图.msch` |
+| 看蓝图里的逻辑 | `python tools/mlog.py parse 图.msch`（加 `--labelize` 以标签显示处理器跳转，原蓝图不变） |
+| 只提取带标签的 mlog | `python tools/mlog.py extract-logic 图.msch --index 0 -o processor.mlog`；输入也可用蓝图粘贴码、`.mlog` 或 `-`（stdin） |
+| 分别导出蓝图内所有逻辑 | `python tools/mlog.py extract-logic 图.msch --all --out-dir 提取目录`（从 0 编号，按蓝图顺序输出 `logic-<index>.mlog`） |
+| 提取为 Mindcode 反编译草稿 | `python tools/mlog.py extract-logic 图.msch --format mindcode --index 0 -o draft.mnd`；`--all --out-dir` 会分别写出各处理器的 `.mnd` |
 | 静态检查 | `python tools/mlog.py check x.mlog`（`--cost` 加成本/最坏指令数，`--rid` 每行尾部显示规则 id） |
 | 生成只含处理器的蓝图 | `python tools/mlog.py gen --name 名字 --code x.mlog` |
 | 模拟运行 | `python tools/mlogsim.py x.mlog --ticks 120 --trace t.csv` |
@@ -21,7 +24,7 @@
 | 值域 / 跳转表 | `python tools/mlog.py ranges x.mlog --var n`；`python tools/mlog.py jumps x.mlog --var n` |
 | 指令级执行流 | `python tools/mlogsim.py x.mlog --ticks 120 --itrace t.tsv --itrace-var n` |
 | 把数字跳转换成标签，方便编辑 | `python tools/mlog.py labelize x.mlog`（输出 `x.labels.mlog`；签名文件会先把注释还原到正文） |
-| 交付前把标签转回行号并签名 | `python tools/mlog.py post x.labels.mlog -o x.mlog`（`#` 注释打包进签名 token） |
+| 交付前把标签转回行号并签名 | `python tools/mlog.py post x.labels.mlog -o x.mlog`（注释和每个目标的首个标签名随签名 token 保存；再解析时可用 `--labelize` 恢复） |
 | 看/取回签名里的注释 | `python tools/aigenerated.py extract x.mlog` / `restore x.mlog`（按原始行号与语句锚点） |
 | 这个程序需要哪些世界符号 | `python tools/mlog_needs.py 图.msch` |
 | 整批存档里的逻辑 | `python tools/mlog.py map <存档目录>` |
@@ -117,21 +120,52 @@ python tools/mlogsim.py --sweep-orphans     # orphan sweep: N stale JVM(s) 1234 
 
 ## MCP 服务（`mlog_mcp.py`）
 
+`mlog_extract` 默认输出带标签的 mlog，`format: "mindcode"` 输出反编译草稿。
+远程调用可传 `blueprint_code` 或 `mlog`，`path` 只读取服务端工作区内的 `.msch` 或 `.mlog`。
+多处理器蓝图未指定 `index`（从 0 开始）或 `all: true` 时，返回处理器坐标、链接与签名载荷注释预览。
+每个签名校验通过的处理器最多预览两条注释，每条最多 160 字符，附原始行号。
+长结果通过 `mlog_fetch` 读取 `code_ref` 或 `programs_ref` 中的 `artifact_ref`，
+后者是包含各处理器索引和代码的 JSON 数组。
+
+`mlog_inject` 接收原蓝图粘贴码或服务端工作区的 `.msch` 路径、`mlog_extract` 显示的处理器索引
+和完整替换 mlog，返回新的 `blueprint_base64`。它只替换该处理器的代码并保留链接。
+命名跳转会转回数字，名称记录进签名载荷，之后可用 `mlog_extract` 还原。
+先传 `preview: true` 获取带标签的代码差异、静态诊断、链接目标及 `source_sha256`，这一调用不会生成蓝图。
+确认后用同样输入，把 `source_sha256` 作为 `expected_sha256` 传回；目标处理器的原始代码变动会返回 `source_conflict`。
+静态诊断供审查，不会因告警自动拒绝生成。已配置链接的目标不在蓝图内时，可能仍会在实际地图上连接。
+长差异可用 `mlog_fetch` 读取 `diff_ref`。
+
+应用成功后返回 `revision`。用 `mlog_revision {revision}` 查原处理器代码、差异和检查结果；
+传 `action: "rollback"` 及当前 `blueprint_code` 取回原蓝图。回退要求当前蓝图的原始字节与该次输出
+完全匹配；已发生后续修改或被重新导出时会返回 `blueprint_conflict`。回退只返回粘贴码。
+记录默认保存在 `out/_mlog_revisions/`，可用 `MLOG_REVISION_DIR` 指定持久目录。
+
+用 `mlog_sim {logic, ticks, trace_vars: ["i"]}` 采集指令轨迹。该模式支持内联代码或单个
+`.mlog` 文件，最多 600 tick 和 16 个变量，观测值来自指令执行前；对象值显示为 `<obj>`。
+传 `trace_ref.artifact_ref` 给 `mlog_trace`，可按 `label` 筛选标签段、按 `vars` 选变量、
+按 `offset` 分页。也可传 `trace`（`--itrace` TSV）和 `mlog` 来匹配标签及源码行。
+同时传 `baseline_ref` 或 `baseline_trace`，会按完整执行顺序比较 tick、PC 和所选变量，
+返回第一处偏离；标签和分页只控制列表显示。轨迹引用随 MCP 进程缓存失效，可以用 `mlog_fetch` 下载留存。
+
+
+
 把检查器和模拟器直接暴露成工具，模型不用记路径、不用拼 PowerShell：
 
 ```bash
 python tools/mlog_mcp.py          # stdio JSON-RPC，供 DSH / Claude Desktop 连接
 ```
 
-工具（16 个）：`mlog_doctor`、`mlog_check{path,cost,limit,level}`、`mlog_ir{path}`、
+工具（20 个）：`mlog_doctor`、`mlog_check{path,cost,limit,level}`、`mlog_ir{path}`、
 `mlog_values{path}`、`mlog_gen{source|logic,name,links,blocks,out}`、
-`mlog_sim{path|logic,ticks,units,save,...}`、`mindcode_compile{source|path,target,optimize,out,map}`、
+`mlog_extract{blueprint_code|mlog|path,index|all,format}`、`mlog_inject{blueprint_code|path,index,mlog,preview,expected_sha256}`、
+`mlog_revision{revision,action,blueprint_code}`、`mlog_sim{path|logic,ticks,trace_vars,...}`、
+`mlog_trace{trace_ref|trace,mlog,label,vars,baseline_ref|baseline_trace,offset,limit}`、`mindcode_compile{source|path,target,optimize,out,map}`、
 `mlog_validate{path|logic|mind|mnd_path,ticks,expect,level,task,hypothesis,next_step}`、
 `mlog_task{action,task_id,source,hypothesis,next_step}`、`scenario_run{path,via,level}`、
 `mlog_diff{path,spec,level}`、`mlog_fidelity{action,capability,difference}`、
 `mlog_observe{a,b,spec,level}`、`mlog_explore{action,template,seeds,params,modifiers,via,limit,shrink}`、
 `mlog_kb{query,k,kind}`、`mlog_fetch{ref,offset,limit}`。
-每个工具都接受 `level: summary|diagnostics|full`，返回同一个 `mlog-eval/v1` 信封
+验证与差分工具使用 `level: summary|diagnostics|full` 和 `mlog-eval/v1` 信封
 （见 `tools/mlog_eval.py`）：默认只回 10 个键的摘要（`task` 恒在，未接任务时为 `null`），大块内容（mlog 源码、变量转储、
 完整轨迹）自动换成 `artifact_ref`，用 `mlog_fetch` 取回。
 模拟器在服务进程内保温，首次约 3.7 s，之后约 0.6 s。DSH 侧配置片段：

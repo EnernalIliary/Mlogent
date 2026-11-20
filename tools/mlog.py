@@ -7,6 +7,7 @@ One entry point for everything this skill does.
 Usage
 -----
   python mlog.py parse  <file.msch>            # dump a blueprint's blocks + logic
+  python mlog.py extract-logic <file|paste>    # extract editable labelled mlog
   python mlog.py text   <file.msch...> [--plain] # what the message block (信息板) says
   python mlog.py gen    <logic.mlog> [opts]    # build a .msch (or paste code)
   python mlog.py check  <logic.mlog | --msch F> # static analysis of mlog
@@ -190,14 +191,153 @@ def cmd_parse(args) -> int:
                 print(body)
                 print()
 
+    failed = False
+    labelize_code = getattr(args, "labelize", False)
+    if labelize_code:
+        from mlog_labelize import labelize_source
+
     if logic:
         print()
         print("=" * 70)
         for t in logic:
             assert t.logic is not None
+            code = t.logic.code
+            if labelize_code:
+                try:
+                    code, *_ = labelize_source(code)
+                except (ValueError, _sig.SignError) as exc:
+                    print(f"!! {t.block} @({t.x},{t.y}): labelize failed: {exc}; "
+                          "showing original code", file=sys.stderr)
+                    failed = True
             print(f"--- {t.block} @({t.x},{t.y}) ---")
-            print(t.logic.code.rstrip("\n"))
+            print(code.rstrip("\n"))
             print()
+    return int(failed)
+
+
+_PASTE_HEADER = re.compile(r"^\s*b\s*X\s*N\s*j\s*a")
+
+
+def decode_logic_input(raw: bytes, *, expect_schematic: bool = False):
+    """Split uploaded bytes into either a schematic or UTF-8 mlog."""
+    if raw.startswith(b"msch"):
+        return msch.parse_bytes(raw), None
+    text = raw.decode("utf-8-sig")
+    if expect_schematic or _PASTE_HEADER.match(text):
+        return msch.parse_base64(text), None
+    if not text.strip():
+        raise ValueError("input contains no mlog")
+    return None, text
+
+
+def logic_programs(schematic, text: str | None):
+    """Return ordered (processor metadata, source) pairs."""
+    if schematic is None:
+        return [({"index": 0}, text)]
+    return [(
+        {"index": index, "block": tile.block, "x": tile.x, "y": tile.y,
+         "links": [{"name": link.name, "x": link.x, "y": link.y} for link in tile.logic.links]},
+        tile.logic.code,
+    ) for index, tile in enumerate(schematic.logic_tiles())]
+
+
+def render_extracted_logic(code: str, *, format: str = "mlog", timeout: float = 120.0):
+    """Restore edit labels and optionally return a Mindcode draft."""
+    from mlog_labelize import labelize_source
+
+    labelled, *_ = labelize_source(code)
+    if format == "mindcode":
+        from mindcode import decompile_source
+
+        # Omit the signing wrapper from the draft while retaining the labels.
+        body = _sig._body(labelled) if _sig._find(labelled) else labelled
+        return decompile_source(body, timeout=timeout)
+    return labelled, ""
+
+
+def _extract_logic_input(value: str):
+    """Load a binary schematic, a paste code, or UTF-8 mlog."""
+    source = None
+    if value == "-":
+        raw = sys.stdin.buffer.read()
+    elif _PASTE_HEADER.match(value):
+        raw = value.encode("utf-8")
+    else:
+        source = Path(value).expanduser()
+        raw = source.read_bytes()
+
+    schematic, text = decode_logic_input(
+        raw, expect_schematic=source is not None and source.suffix.lower() == ".msch")
+    return source, schematic, text
+
+
+def cmd_extract_logic(args) -> int:
+    from mindcode import DecompileError
+
+    try:
+        source, schematic, text = _extract_logic_input(args.input)
+    except (OSError, ValueError, msch.MschError) as exc:
+        print(f"extract-logic: {exc}", file=sys.stderr)
+        return 1
+
+    programs = logic_programs(schematic, text)
+    count = len(programs)
+    if count == 0:
+        print("extract-logic: blueprint contains no logic processors", file=sys.stderr)
+        return 1
+    if args.index is not None:
+        if not 0 <= args.index < count:
+            print(f"extract-logic: index {args.index} is outside 0..{count - 1}", file=sys.stderr)
+            return 2
+        indices = [args.index]
+    elif args.all or count == 1:
+        indices = range(count)
+    else:
+        print(f"extract-logic: found {count} programs; use --index 0..{count - 1} or --all",
+              file=sys.stderr)
+        return 2
+    if args.out and len(indices) > 1:
+        print("extract-logic: use --out-dir to write multiple programs separately", file=sys.stderr)
+        return 2
+
+    as_mindcode = args.format == "mindcode"
+    # Convert every selected program before writing anything.
+    results = []
+    for index in indices:
+        info, code = programs[index]
+        title = "{block} @({x},{y})".format(**info) if "block" in info else "mlog"
+        try:
+            result, diagnostic = render_extracted_logic(code, format=args.format, timeout=args.timeout)
+        except (ValueError, _sig.SignError, DecompileError) as exc:
+            print(f"extract-logic: [{index}] {title}: {exc}", file=sys.stderr)
+            return exc.exit_code if isinstance(exc, DecompileError) else 1
+        if diagnostic:
+            print(f"extract-logic: [{index}] {title}: {diagnostic}", file=sys.stderr)
+        results.append((index, title, result))
+
+    if not args.out and not args.out_dir:
+        for index, title, code in results:
+            if len(results) > 1:
+                comment = "//" if as_mindcode else "#"
+                print(f"{comment} --- [{index}] {title} ---")
+            sys.stdout.write(code)
+        return 0
+
+    directory = Path(args.out_dir).expanduser() if args.out_dir else None
+    suffix = "mnd" if as_mindcode else "mlog"
+    outputs = [directory / f"logic-{index}.{suffix}" if directory else Path(args.out).expanduser()
+               for index, _, _ in results]
+    try:
+        if source and any(target.resolve() == source.resolve()
+                          or (target.exists() and target.samefile(source)) for target in outputs):
+            raise ValueError("output would overwrite the input")
+        if directory:
+            directory.mkdir(parents=True, exist_ok=True)
+        for target, (_, _, code) in zip(outputs, results):
+            target.write_text(code, encoding="utf-8", newline="\n")
+    except (OSError, ValueError) as exc:
+        print(f"extract-logic: {exc}", file=sys.stderr)
+        return 1
     return 0
 
 
@@ -216,7 +356,14 @@ def cmd_gen(args) -> int:
     else:
         code = sys.stdin.read()
 
-    if not args.no_sign:
+    if not args.no_sign and any(_sig.LABEL_LINE_RE.fullmatch(line) for line in code.splitlines()):
+        try:
+            code, pid, _, _ = _sig.sign_delivery(code, args.author)
+        except _sig.SignError as exc:
+            print(f"!! {exc}", file=sys.stderr)
+            return 1
+        print(f"# signed labelized source for delivery (id={pid})", file=sys.stderr)
+    elif not args.no_sign:
         # auto-sign what we are about to emit: an AI-written program should not
         # depend on a human remembering a second command.
         if args.source:
@@ -266,7 +413,12 @@ def cmd_gen(args) -> int:
     links = [_gen.Link(l.name, *_to_rel(l.dx, l.dy)) for l in links]
 
     bp = _gen.Blueprint(args.name, args.description, args.label)
-    bp.add_logic(code, px, py, args.block, args.rotation, links)
+    try:
+        bp.add_logic(code, px, py, args.block, args.rotation, links,
+                     check_limits=_sig.has_saved_labels(code))
+    except (ValueError, _sig.SignError) as exc:
+        print(f"!! {exc}", file=sys.stderr)
+        return 1
 
     placed = []
     for spec in args.with_block:
@@ -1680,9 +1832,14 @@ def cmd_post(args) -> int:
     if args.output and len(args.files) > 1:
         sys.exit("-o takes a single file")
     out = Path(args.output) if args.output else None
+    failed = False
     for f in args.files:
-        print(aigenerated.post(Path(f), args.author or aigenerated.DEFAULT_AUTHOR, out))
-    return 0
+        try:
+            print(aigenerated.post(Path(f), args.author or aigenerated.DEFAULT_AUTHOR, out))
+        except aigenerated.SignError as exc:
+            print(f"!! {f}: {exc}", file=sys.stderr)
+            failed = True
+    return int(failed)
 
 
 def cmd_labelize(args) -> int:
@@ -1752,7 +1909,23 @@ def main() -> int:
                    help="drop blank lines from message text")
     p.add_argument("--no-text", action="store_true",
                    help="do not print message-block (信息板) contents")
+    p.add_argument("--labelize", action="store_true",
+                   help="show processor code with labels instead of numeric jump targets")
     p.set_defaults(fn=cmd_parse)
+
+    p = sub.add_parser("extract-logic", help="extract labelled mlog or a partial Mindcode draft")
+    p.add_argument("input", help="path to a blueprint or mlog, a blueprint paste code, or - for stdin")
+    p.add_argument("--format", choices=("mlog", "mindcode"), default="mlog",
+                   help="output format (default: labelled mlog)")
+    p.add_argument("--timeout", type=float, default=120.0,
+                   help="Mindcode decompiler timeout in seconds per program")
+    select = p.add_mutually_exclusive_group()
+    select.add_argument("--index", type=int, help="select one logic program by zero-based index")
+    select.add_argument("--all", action="store_true", help="select all logic programs in blueprint order")
+    output = p.add_mutually_exclusive_group()
+    output.add_argument("-o", "--out", help="write one output file (default: stdout)")
+    output.add_argument("--out-dir", help="write separate logic-<index>.mlog or .mnd files")
+    p.set_defaults(fn=cmd_extract_logic)
 
     p = sub.add_parser("text", help="read message-block (信息板) contents")
     p.add_argument("files", nargs="+")

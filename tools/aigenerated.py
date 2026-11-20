@@ -144,7 +144,8 @@ def _body(text: str) -> str:
     return _canonical(_clean(text))
 
 
-_LABEL_LINE = re.compile(r"^\s*([A-Za-z_][\w.\-]*):\s*$")
+LABEL_NAME = re.compile(r"[A-Za-z_][\w.\-]*")
+_LABEL_LINE = re.compile(r"^\s*(" + LABEL_NAME.pattern + r"):\s*$")
 
 
 def collect_comments(text: str) -> list[dict]:
@@ -210,26 +211,29 @@ def meta_of_job(job: dict) -> dict | None:
     return out or None
 
 
-def encode_comments(comments: list[dict], meta: dict | None = None) -> str:
-    """注释块 -> payload。没有 meta 时保持 v1（裸数组），老代码照样能读。
+def encode_comments(comments: list[dict], meta: dict | None = None, *,
+                    labels: dict[int, str] | None = None) -> str:
+    """Encode comment-only v1 or v2 with optional context and primary labels.
 
-    v2 是对象 {"v":2,"c":[[line,stmt,text],…],"m":{…}}：注释与上下文一起走，
-    因为 .msch 编译会把 `#` 注释剥掉，能跟着代码跑的只有字符串里的 base64。
+    v2 readers can keep consuming c/m and ignore the optional labels field.
+    Labels are sorted pairs of zero-based statement index and name.
     """
-    if not comments and not meta:
+    if not comments and not meta and not labels:
         return ""
     rows = [[c["line"], c["stmt"], c["text"]] for c in comments]
-    obj = {"v": PAYLOAD_V, "c": rows, "m": meta} if meta else rows
+    obj = {"v": PAYLOAD_V, "c": rows, "m": meta} if meta or labels else rows
+    if labels:
+        obj["labels"] = sorted(labels.items())
     raw = json.dumps(obj, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
     comp = zlib.compress(raw, 9)
     blob = (b"z" + comp) if len(comp) < len(raw) else (b"j" + raw)
     return base64.urlsafe_b64encode(blob).decode("ascii").rstrip("=")
 
 
-def decode_payload(payload: str | None) -> tuple[list[dict], dict | None]:
-    """-> (comments, meta)。v1（数组）与 v2（对象）都吃。"""
+def decode_signature_payload(payload: str | None) -> tuple[list[dict], dict | None, dict[int, str]]:
+    """Read comments, context and the optional v2 primary label table."""
     if not payload:
-        return [], None
+        return [], None, {}
     pad = "=" * (-len(payload) % 4)
     try:
         blob = base64.urlsafe_b64decode(payload + pad)
@@ -238,6 +242,7 @@ def decode_payload(payload: str | None) -> tuple[list[dict], dict | None]:
     except (ValueError, UnicodeDecodeError, zlib.error, json.JSONDecodeError):
         raise SignError("bad comment payload in the signature")
     meta = None
+    labels = {}
     rows = doc
     if isinstance(doc, dict):
         rows = doc.get("c") or []
@@ -245,9 +250,33 @@ def decode_payload(payload: str | None) -> tuple[list[dict], dict | None]:
         if isinstance(m, dict):
             meta = {k: str(m[k])[:200] for k in META_KEYS if str(m.get(k) or "")}
             meta = meta or None
+        if "labels" in doc:
+            label_rows = doc["labels"]
+            if not isinstance(label_rows, list) or not label_rows:
+                raise SignError("bad label table in the signature")
+            names = set()
+            for row in label_rows:
+                if not isinstance(row, list) or len(row) != 2:
+                    raise SignError("bad label table in the signature")
+                target, name = row
+                if (type(target) is not int or target < 0 or target in labels
+                        or not isinstance(name, str) or not LABEL_NAME.fullmatch(name)
+                        or name in names):
+                    raise SignError("bad label table in the signature")
+                labels[target] = name
+                names.add(name)
     if not isinstance(rows, list):
         raise SignError("bad comment payload in the signature")
-    return [{"line": int(r[0]), "stmt": int(r[1]), "text": str(r[2])} for r in rows], meta
+    try:
+        comments = [{"line": int(r[0]), "stmt": int(r[1]), "text": str(r[2])} for r in rows]
+    except (IndexError, KeyError, TypeError, ValueError) as exc:
+        raise SignError("bad comment payload in the signature") from exc
+    return comments, meta, labels
+
+
+def decode_payload(payload: str | None) -> tuple[list[dict], dict | None]:
+    comments, meta, _ = decode_signature_payload(payload)
+    return comments, meta
 
 
 def decode_comments(payload: str | None) -> list[dict]:
@@ -258,8 +287,11 @@ def decode_meta(payload: str | None) -> dict | None:
     return decode_payload(payload)[1]
 
 
-def _hash(author: str, body: str) -> str:
-    return hashlib.sha256((author + "\n" + body).encode("utf-8")).hexdigest()
+def _hash(author: str, body: str, labels: dict[int, str] | None = None) -> str:
+    material = author + "\n" + body
+    if labels:
+        material += "\0labels\0" + json.dumps(sorted(labels.items()), separators=(",", ":"))
+    return hashlib.sha256(material.encode("utf-8")).hexdigest()
 
 
 def _find(text: str):
@@ -268,7 +300,8 @@ def _find(text: str):
 
 
 def sign_text(text: str, author: str = DEFAULT_AUTHOR, force: bool = False,
-              comments: list[dict] | None = None, meta: dict | None = None):
+              comments: list[dict] | None = None, meta: dict | None = None,
+              *, labels: dict[int, str] | None = None):
     """Return (signed_text, id).  Raises SignError if it would change an id.
 
     Comments are moved into the signature string (base64 payload), so the
@@ -295,7 +328,7 @@ def sign_text(text: str, author: str = DEFAULT_AUTHOR, force: bool = False,
     # code: the game's assembler drops `#` lines, and `b.code` -- which the mod
     # compares with the job's code character by character -- is rebuilt from the
     # assembled program, so a kept comment line would read as "the write did not
-    # land".  The canonical body still carries them, which is what the id hashes.
+    # land". The id covers the code body and, when present, the label table.
     lines = [l for l in lines if not l.strip().startswith("#")]
     idx = len(lines) - 2
     while idx >= 0 and not lines[idx].strip():
@@ -316,7 +349,11 @@ def sign_text(text: str, author: str = DEFAULT_AUTHOR, force: bool = False,
         # the signed text is the terminal jump alone, and verify_text() rebuilds
         # "" from it, so "" is what the id hashes (re-signing stays idempotent)
         body = ""
-    pid = _hash(author, body)[:12]
+    old, old_meta, old_labels = decode_signature_payload(hits[0].group(3)) if hits else ([], None, {})
+    if labels is None:
+        # Anchors from a modified body cannot be safely reused.
+        labels = old_labels if old_labels and not verify_text(text) else {}
+    pid = _hash(author, body, labels)[:12]
     if hits:
         old_id, old_author = hits[0].group(2), hits[0].group(1)
         if old_id == pid and old_author == author and not force:
@@ -326,8 +363,6 @@ def sign_text(text: str, author: str = DEFAULT_AUTHOR, force: bool = False,
                 f"body changed since signing (id {old_id} -> {pid}); "
                 f"pass --force to re-sign")
     cs = collect_comments(text) if comments is None else comments
-    old, old_meta = (decode_payload(hits[0].group(3))
-                     if hits and hits[0].group(3) else ([], None))
     # 重签没显式给 meta 就把旧的带过来：上下文跟着代码走，不该因为一次重签丢掉
     if meta is None:
         meta = old_meta
@@ -338,7 +373,7 @@ def sign_text(text: str, author: str = DEFAULT_AUTHOR, force: bool = False,
                 c["line"] = o["line"]
         else:
             cs = old
-    enc = encode_comments(cs, meta)
+    enc = encode_comments(cs, meta, labels=labels)
     payload = f":{enc}" if enc else ""
     sig = f'"aigenerated:{author}:{pid}{payload}"'
     if slot is not None:
@@ -360,7 +395,11 @@ def verify_text(text: str) -> list[str]:
     if len(hits) > 1:
         return [f"{len(hits)} @aigenerated arguments found, expected 1"]
     author, want = hits[0].group(1), hits[0].group(2)
-    got = _hash(author, _body(text))[:12]
+    try:
+        _, _, labels = decode_signature_payload(hits[0].group(3))
+    except SignError as exc:
+        return [str(exc)]
+    got = _hash(author, _body(text), labels)[:12]
     if want != got:
         return [f"body changed after signing (id {want} != {got})"]
     return []
@@ -368,21 +407,14 @@ def verify_text(text: str) -> list[str]:
 
 def sign(path: Path, author: str, force: bool) -> str:
     text = _read(path)
-    hits = _find(text)
-    body = _body(text)
-    if not body:
+    if not _body(text):
         raise SignError(f"{path}: no statement to attach the signature to")
-    pid = _hash(author, body)[:12]
-    if hits:
-        old_id, old_author = hits[0].group(2), hits[0].group(1)
-        if old_id == pid and old_author == author and not force:
-            return f"already signed  {path}  id={pid}"
-        if (old_id != pid or old_author != author) and not force:
-            raise SignError(
-                f"{path}: body changed since signing "
-                f"(id {old_id} -> {pid}); pass --force to re-sign")
-
-    signed, pid = sign_text(text, author, force=True)
+    try:
+        signed, pid = sign_text(text, author, force=force)
+    except SignError as exc:
+        raise SignError(f"{path}: {exc}") from exc
+    if signed == text and not force:
+        return f"already signed  {path}  id={pid}"
     _write(path, signed)
     return f"signed  {path}  id={pid}  author={author}"
 
@@ -391,11 +423,11 @@ def verify(path: Path) -> list[str]:
     return [f"{path}: {p}" for p in verify_text(_read(path))]
 
 
-LABEL_LINE_RE = re.compile(r"^\s*([A-Za-z_][\w.\-]*):\s*$")
+LABEL_LINE_RE = _LABEL_LINE
 JUMP_LABEL_RE = re.compile(r"^(\s*jump\s+)([A-Za-z_][\w.\-]*)(\s+.*)?$", re.I)
 
 
-def resolve_labels(text: str) -> tuple[str, int, int]:
+def _resolve_labels(text: str, *, strict: bool = False) -> tuple[str, dict[str, int], int]:
     """Turn `jump label` back into `jump N` and drop the label lines.
 
     A label line does not occupy a statement slot, so `label -> N` is the
@@ -413,7 +445,10 @@ def resolve_labels(text: str) -> tuple[str, int, int]:
         if not s or s.startswith("#"):
             kinds.append("keep")
         elif m:
-            labels[m.group(1)] = idx
+            name = m.group(1)
+            if strict and name in labels:
+                raise SignError(f"duplicate label {name!r}")
+            labels[name] = idx
             kinds.append("label")
         else:
             kinds.append("stmt")
@@ -429,7 +464,12 @@ def resolve_labels(text: str) -> tuple[str, int, int]:
                 line = f"{m.group(1)}{labels[m.group(2)]}{m.group(3) or ''}"
                 rewritten += 1
         out.append(line)
-    return "\n".join(out) + "\n", len(labels), rewritten
+    return "\n".join(out) + "\n", labels, rewritten
+
+
+def resolve_labels(text: str) -> tuple[str, int, int]:
+    numeric, labels, rewritten = _resolve_labels(text)
+    return numeric, len(labels), rewritten
 
 
 def _group_comments(text: str) -> str:
@@ -448,19 +488,55 @@ def _group_comments(text: str) -> str:
     return "\n".join(code + [""] + comments) + "\n"
 
 
+def sign_delivery(text: str, author: str) -> tuple[str, str, int, int]:
+    """Resolve editable labels and carry the first name per target in the payload."""
+    hits = _find(text)
+    comments = meta = None
+    saved_labels = {}
+    if hits:
+        if not verify_text(text):
+            author = hits[0].group(1)
+            comments, meta, saved_labels = decode_signature_payload(hits[0].group(3))
+        # Strip the old token before resolving jumps: converting a label in a
+        # signature-bearing tail jump to 0 can otherwise hide that instruction.
+        if comments is None:
+            comments = collect_comments(text)
+        text = _body(text)
+
+    numeric, declarations, rewritten = _resolve_labels(text, strict=True)
+    canonical = _body(numeric)
+    count = sum(bool(line.strip()) for line in canonical.splitlines())
+    labels: dict[int, str] = {}
+    for name, target in declarations.items():
+        if target < count:
+            labels.setdefault(target, name)
+    if not declarations:
+        labels = {target: name for target, name in saved_labels.items() if target < count}
+    if comments is None:
+        comments = collect_comments(text)
+    signed, pid = sign_text(numeric, author, force=True, comments=comments, meta=meta, labels=labels)
+    return signed, pid, len(declarations), rewritten
+
+
 def post(path: Path, author: str, output: Path | None = None) -> str:
     """Delivery post-process: labels -> line numbers, then sign."""
-    text = _read(path)
-    if not verify_text(text):
-        m = re.search(r'"aigenerated:([^":]+):[0-9a-f]{12}"', text)
-        if m:
-            author = m.group(1)
-    numeric, nlabels, rewritten = resolve_labels(text)
-    signed, pid = sign_text(numeric, author, force=True)
+    signed, pid, nlabels, rewritten = sign_delivery(_read(path), author)
+    if has_saved_labels(signed):
+        from msch import build_logic_data, check_logic_config_limits
+        try:
+            check_logic_config_limits(signed, build_logic_data(signed, []))
+        except ValueError as exc:
+            raise SignError(str(exc)) from exc
     dst = output or path
     _write(dst, signed)
+    author = _find(signed)[0].group(1)
     return (f"post  {dst}: {nlabels} label(s), {rewritten} jump(s) numeric; "
             f"signed id={pid} author={author}")
+
+
+def has_saved_labels(text: str) -> bool:
+    hits = _find(text)
+    return bool(hits and decode_signature_payload(hits[0].group(3))[2])
 
 
 def extract_text(text: str) -> list[dict]:
@@ -476,7 +552,7 @@ def restore_text(text: str) -> tuple[str, str, list[dict]]:
     if not hits:
         raise SignError("missing hidden @aigenerated argument")
     author = hits[0].group(1)
-    cs, meta = decode_payload(hits[0].group(3))
+    cs = decode_comments(hits[0].group(3))
     body = _body(text)
     lines = body.rstrip("\n").split("\n")
     total = len(lines)
@@ -491,8 +567,8 @@ def restore_text(text: str) -> tuple[str, str, list[dict]]:
             buckets.clear()
         out.append(line)
     out.extend(c["text"] for k in sorted(buckets) for c in buckets[k])
-    # keep the comments in the delivered text; only the hash ignores them
-    enc = encode_comments(cs, meta)
+    # Preserve the complete token payload, including the label table.
+    enc = hits[0].group(3)
     payload = f":{enc}" if enc else ""
     sig = SIG_LINE.format(author=author, pid=hits[0].group(2), payload=payload)
     while out and not out[-1].strip():

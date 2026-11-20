@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-"""mindcode.py -- Mindcode source in, mlog text out.
+"""mindcode.py -- compile Mindcode and partially decompile mlog.
 
 WHY THIS FILE EXISTS
 ====================
-Mindcode (https://github.com/cardillan/mindcode) is a Java compiler: the only
-interface is `java -jar mindcode.jar cm ...`.  Everything else in this repo
+Mindcode (https://github.com/cardillan/mindcode) exposes its Java compiler and
+partial decompiler through `java -jar mindcode.jar`. Everything else in this repo
 consumes mlog *text* (mlogcheck / mlogir / mlogagent / mlogsim), so every
 consumer that shells out by hand has to rediscover the same traps below.  This
 module is that seam, once:
@@ -12,7 +12,8 @@ module is that seam, once:
     locate()          find a jar + JRE that actually run, and say why if not
     compile_source()  source string -> {"mlog", "diagnostics", "stats", ...}
     compile_file()    the same for a path on disk
-    CLI: compile / doctor / version  (exit 0 = ok, 1 = the source did not
+    CLI: compile / decompile / doctor / version
+                                     (exit 0 = ok, 1 = the source did not
                                       compile, 2 = could not run at all: no
                                       usable compiler, unreadable source, or a
                                       timeout)
@@ -92,6 +93,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import math
 import locale
 import os
 import re
@@ -818,6 +820,67 @@ def _cmd_compile(args) -> int:
     return _exit_code(result)
 
 
+class DecompileError(Exception):
+    def __init__(self, message: str, exit_code: int = 2, *, kind: str = "decompilation_error"):
+        super().__init__(message)
+        self.exit_code = exit_code
+        self.kind = kind
+
+
+def decompile_source(text: str, *, timeout: float = 120.0) -> tuple[str, str]:
+    """Turn mlog into a partial Mindcode draft and return any tool diagnostics."""
+    if not math.isfinite(timeout) or timeout <= 0:
+        raise DecompileError("--timeout must be finite and positive")
+    runtime = locate()
+    if not runtime["ok"]:
+        why = runtime["notes"][-1] if runtime["notes"] else "no usable compiler"
+        raise DecompileError(f"mindcode unavailable: {why}", kind="unsupported_environment")
+
+    try:
+        with tempfile.TemporaryDirectory(prefix="mindcode-dm-", dir=_temp_base(None)) as directory:
+            # The upstream parser treats a UTF-8 BOM as part of the first opcode.
+            staged = Path(directory) / "input.mlog"
+            staged.write_text(_strip_bom(text), encoding="utf-8", newline="\n")
+            # Capture stdout instead of relying on the JVM to write a Windows path.
+            rc, stdout, stderr, timed_out = _run(
+                [runtime["java"], "-Dfile.encoding=UTF-8", "-Dstdout.encoding=UTF-8",
+                 "-Dstderr.encoding=UTF-8", "-jar", runtime["jar"], "dm",
+                 str(staged), "--output-decompiled", "-"], timeout)
+    except OSError as exc:
+        raise DecompileError(str(exc)) from exc
+    if timed_out:
+        raise DecompileError(f"Mindcode timed out after {timeout:g} s", kind="timeout")
+
+    draft = _decode(stdout).replace("\r\n", "\n").replace("\r", "\n")
+    diagnostic = _decode(stderr).strip()
+    if rc != 0 or not draft.strip():
+        raise DecompileError(diagnostic or f"Mindcode exited {rc} without output",
+                             2 if rc is None else 1)
+    return draft, diagnostic
+
+
+def _cmd_decompile(args) -> int:
+    source = Path(args.file).expanduser()
+    output = Path(args.out).expanduser() if args.out else None
+    try:
+        text = source.read_text(encoding="utf-8-sig")
+        if output is not None and (output.resolve() == source.resolve()
+                                   or (output.exists() and output.samefile(source))):
+            raise DecompileError("output would overwrite the mlog input")
+        draft, diagnostic = decompile_source(text, timeout=args.timeout)
+        if diagnostic:
+            print(diagnostic, file=sys.stderr)
+        if output is None:
+            sys.stdout.write(draft)
+        else:
+            output.write_text(draft, encoding="utf-8", newline="\n")
+            print(f"wrote {output}")
+    except (OSError, UnicodeError, DecompileError) as exc:
+        print(f"decompile: {exc}", file=sys.stderr)
+        return exc.exit_code if isinstance(exc, DecompileError) else 2
+    return 0
+
+
 def _cmd_doctor(args) -> int:
     report = doctor(timeout=args.timeout, smoke=not args.no_smoke)
     if args.json:
@@ -867,7 +930,7 @@ def main(argv=None) -> int:
             pass
     ap = argparse.ArgumentParser(
         prog="mindcode.py",
-        description="Compile Mindcode (.mnd) into mlog through mindcode.jar.")
+        description="Compile Mindcode or partially decompile mlog through mindcode.jar.")
     sub = ap.add_subparsers(dest="cmd", required=True)
 
     cp = sub.add_parser("compile", help="compile one .mnd file")
@@ -878,6 +941,12 @@ def main(argv=None) -> int:
     cp.add_argument("--json", action="store_true", help="print the result dict as one JSON line")
     cp.add_argument("--timeout", type=float, default=120.0, help="compiler timeout in seconds")
     cp.set_defaults(func=_cmd_compile)
+
+    dc = sub.add_parser("decompile", help="turn mlog into a partial Mindcode draft")
+    dc.add_argument("file", help="UTF-8 mlog file")
+    dc.add_argument("-o", "--out", help="write the draft here (default: stdout)")
+    dc.add_argument("--timeout", type=float, default=120.0, help="decompiler timeout in seconds")
+    dc.set_defaults(func=_cmd_decompile)
 
     dp = sub.add_parser("doctor", help="check jar/java, then compile a smoke program")
     dp.add_argument("--json", action="store_true", help="print the report as one JSON line")

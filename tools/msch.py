@@ -358,8 +358,7 @@ def parse_logic(data: bytes, relative_to: tuple[int, int] | None = None) -> Logi
     return LogicBlockData(version=version, code=code, links=links)
 
 
-def parse_bytes(data: bytes) -> Schematic:
-    """Parse raw .msch bytes into a Schematic."""
+def _unpack_schematic(data: bytes) -> tuple[int, bytes]:
     if len(data) < 5:
         raise MschError("file too small to be a schematic")
     if data[:4] != MAGIC:
@@ -373,10 +372,20 @@ def parse_bytes(data: bytes) -> Schematic:
 
     body = data[5:]
     try:
-        raw = zlib.decompress(body) if version > 0 else zlib.decompress(body)
+        raw = zlib.decompress(body)
     except zlib.error as e:
         raise MschError(f"body is not a valid zlib stream: {e}") from e
 
+    return version, raw
+
+
+def parse_bytes(data: bytes) -> Schematic:
+    """Parse raw .msch bytes into a Schematic."""
+    version, raw = _unpack_schematic(data)
+    return _parse_body(raw, version)
+
+
+def _parse_body(raw: bytes, version: int, *, logic_spans: list[tuple[int, int]] | None = None) -> Schematic:
     r = Reader(raw)
     width, height = r.s(), r.s()
 
@@ -411,7 +420,9 @@ def parse_bytes(data: bytes) -> Schematic:
         block = block_dict[bidx]
         pos = r.i()
         px, py = _unpack_point(pos)
+        config_start = r.pos
         config = _read_object(r)
+        config_end = r.pos
         rotation = r.b()
 
         if block == "air":
@@ -425,6 +436,8 @@ def parse_bytes(data: bytes) -> Schematic:
             try:
                 tile.logic = parse_logic(bytes(config), relative_to=(px, py))
                 tile.raw_config = bytes(config)
+                if logic_spans is not None:
+                    logic_spans.append((config_start, config_end))
             except MschError:
                 tile.raw_config = bytes(config)
 
@@ -432,6 +445,66 @@ def parse_bytes(data: bytes) -> Schematic:
 
     return Schematic(width=width, height=height, tags=tags, tiles=tiles,
                      version=version, labels=labels)
+
+
+def check_logic_config_limits(code: str, config: bytes) -> None:
+    """Check the processor limits applied by Mindustry's LogicBlock."""
+    code_bytes = len(code.encode("utf-8"))
+    if code_bytes > 100 * 1024 or len(config) > 16_000:
+        raise ValueError(f"processor config exceeds Mindustry limits: {code_bytes}/102400 "
+                         f"code bytes, {len(config)}/16000 compressed bytes")
+
+
+@dataclass
+class LogicCodeTarget:
+    header: bytes
+    body: bytes
+    schematic: Schematic
+    tile: Stile
+    span: tuple[int, int]
+    processor: bytes
+
+    @property
+    def original_code_bytes(self) -> bytes:
+        size = struct.unpack_from(">i", self.processor, 1)[0]
+        return self.processor[5:5 + size]
+
+    def replace(self, code: str, *, preview: bool = False) -> bytes | None:
+        start, stop = self.span
+        logic_version, old_size = struct.unpack_from(">Bi", self.processor)
+        if logic_version not in (0, 1):
+            raise MschError(f"editing processor config version {logic_version} is unsupported")
+        source = code.encode("utf-8")
+        config = zlib.compress(self.processor[:1] + struct.pack(">i", len(source)) + source
+                               + self.processor[5 + old_size:], 9)
+        check_logic_config_limits(code, config)
+        if preview:
+            return None
+        replacement = bytes([T_BYTEARRAY]) + struct.pack(">i", len(config)) + config
+        return self.header + zlib.compress(self.body[:start] + replacement + self.body[stop:], 9)
+
+
+def logic_code_target(data: bytes, index: int) -> LogicCodeTarget:
+    """Locate the processor and patch span in the same input snapshot."""
+    version, body = _unpack_schematic(data)
+    if version != CURRENT_VERSION:
+        raise MschError(f"editing schematic version {version} is unsupported")
+    spans: list[tuple[int, int]] = []
+    schematic = _parse_body(body, version, logic_spans=spans)
+    if not 0 <= index < len(spans):
+        raise MschError(f"processor index {index} is outside the {len(spans)} available processors")
+    start, stop = spans[index]
+    # TypeIO byte[] config: tag + 32-bit length + the compressed processor data.
+    processor = zlib.decompress(body[start + 5:stop])
+    return LogicCodeTarget(data[:5], body, schematic, schematic.logic_tiles()[index], (start, stop), processor)
+
+
+def replace_logic_code(data: bytes, index: int, code: str) -> tuple[bytes, Schematic]:
+    """Splice only a processor's code, keeping its links and all other raw bytes."""
+    target = logic_code_target(data, index)
+    result = target.replace(code)
+    assert result is not None
+    return result, target.schematic
 
 
 def parse_file(path) -> Schematic:

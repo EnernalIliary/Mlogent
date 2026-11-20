@@ -63,7 +63,7 @@ PACKAGES = {
             rel.startswith(("tools/", "rules/", "data/", "tests/", "docs/",
                             "scenes/", "bench/", "deploy/"))
             or rel in ("README.md", "LICENSE", "CHANGELOG.md", "gate.py",
-                       "MANIFEST.repo.sha256", ".gitattributes")
+                       "MANIFEST.repo.sha256", ".gitattributes", ".dockerignore")
         ) and keep_dev(rel),
     },
     "knowledge": {
@@ -96,7 +96,7 @@ PACKAGES = {
         "pick": lambda rel: (
             rel.startswith(("tools/", "rules/", "data/", "deploy/", "knowledge/"))
             or rel in ("README.md", "LICENSE", "CHANGELOG.md", "SECURITY.md",
-                       "docs/MCP部署.md")
+                       "docs/MCP部署.md", ".dockerignore")
         ) and keep_dev(rel),
     },
 }

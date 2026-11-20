@@ -19,6 +19,14 @@ Run:  python tools/mlog_mcp.py
 """
 from __future__ import annotations
 
+import base64
+import re
+import tempfile
+import uuid
+from datetime import datetime, timezone
+from bisect import bisect_right
+from itertools import zip_longest
+import difflib
 import hashlib
 import json
 import os
@@ -47,7 +55,7 @@ except Exception:  # pragma: no cover
 
 PROTO = "2024-11-05"
 NAME = "mlog-toolkit"
-VERSION = "0.2.0"
+VERSION = "0.3.0"
 
 #: Blobs bigger than this are moved behind an artifact ref when the caller did
 #: not ask for "full".  2 KB is roughly the point where a truncated preview
@@ -102,11 +110,11 @@ TOOLS = [
     {
         "name": "mlog_gen",
         "description": "Turn mlog source into a blueprint paste code (base64 .msch). "
-                       "Optionally writes the binary and signs the source.",
+                       "Signs the embedded program and optionally writes a binary schematic.",
         "inputSchema": {
             "type": "object",
             "properties": {
-                "source": {"type": "string", "description": ".mlog path (default: logic)"},
+                "source": {"type": "string", "description": ".mlog path within the server workspace"},
                 "logic": {"type": "string", "description": "inline mlog code"},
                 "name": {"type": "string"},
                 "links": {"type": "array", "items": {"type": "string"},
@@ -115,6 +123,75 @@ TOOLS = [
                            "description": "block@dx,dy extra blocks"},
                 "out": {"type": "string", "description": "optional .msch output path"},
             },
+        },
+    },
+    {
+        "name": "mlog_extract",
+        "description": "Extract editable labelled mlog or a partial Mindcode draft. "
+                       "Supply blueprint_code, mlog or a server workspace path. "
+                       "For a multi-processor blueprint, omit index/all for the inventory and signed comment previews. "
+                       "Use mlog_fetch for referenced output. Mindcode drafts need manual "
+                       "control-flow edits before they can compile.",
+        "annotations": {"readOnlyHint": True},
+        "inputSchema": {
+            "type": "object",
+            "additionalProperties": False,
+            "properties": {
+                "blueprint_code": {"type": "string", "description": "Mindustry blueprint paste code"},
+                "mlog": {"type": "string", "description": "inline mlog source"},
+                "path": {"type": "string", "description": ".msch or .mlog path inside the server workspace"},
+                "index": {"type": "integer", "minimum": 0, "description": "zero-based processor index"},
+                "all": {"type": "boolean", "description": "extract every processor"},
+                "format": {"type": "string", "enum": ["mlog", "mindcode"], "default": "mlog"},
+            },
+            "oneOf": [{"required": [key]} for key in ("blueprint_code", "mlog", "path")],
+            "not": {"required": ["index", "all"], "properties": {"all": {"const": True}}},
+        },
+    },
+    {
+        "name": "mlog_inject",
+        "description": "Replace one processor's mlog in an existing blueprint and return a new "
+                       "paste code. Use the zero-based index from mlog_extract. Preserves the "
+                       "original blueprint's layout, links and other configurations. Named jumps "
+                       "are resolved for delivery and their names saved in the signature payload. "
+                       "Use preview to inspect the diff and checks before generating, then pass "
+                       "source_sha256 back as expected_sha256 to guard against stale edits. "
+                       "Successful generation stores a revision for mlog_revision.",
+        "annotations": {"destructiveHint": False},
+        "inputSchema": {
+            "type": "object",
+            "additionalProperties": False,
+            "properties": {
+                "blueprint_code": {"type": "string", "description": "Mindustry blueprint paste code"},
+                "path": {"type": "string", "description": ".msch path inside the server workspace"},
+                "index": {"type": "integer", "minimum": 0, "description": "zero-based processor index"},
+                "mlog": {"type": "string", "description": "complete replacement mlog, optionally with labels"},
+                "preview": {"type": "boolean", "default": False,
+                            "description": "validate and show the diff without generating a blueprint"},
+                "expected_sha256": {"type": "string", "pattern": "^[0-9a-fA-F]{64}$",
+                                    "description": "expected source_sha256 from a previous preview"},
+            },
+            "required": ["index", "mlog"],
+            "oneOf": [{"required": ["blueprint_code"]}, {"required": ["path"]}],
+        },
+    },
+    {
+        "name": "mlog_revision",
+        "description": "Read a saved mlog_inject revision and its original processor source. "
+                       "With action=rollback, return the original blueprint paste code after verifying "
+                       "that the supplied current blueprint exactly matches the generated revision.",
+        "annotations": {"readOnlyHint": True},
+        "inputSchema": {
+            "type": "object",
+            "additionalProperties": False,
+            "properties": {
+                "revision": {"type": "string", "pattern": "^[0-9a-f]{32}$"},
+                "action": {"enum": ["show", "rollback"], "default": "show"},
+                "blueprint_code": {"type": "string", "description": "current blueprint for rollback"},
+            },
+            "required": ["revision"],
+            "if": {"required": ["action"], "properties": {"action": {"const": "rollback"}}},
+            "then": {"required": ["blueprint_code"]},
         },
     },
     {
@@ -130,6 +207,8 @@ TOOLS = [
                 "logic": {"type": "string", "description": "inline mlog (instead of path)"},
                 "ticks": {"type": "integer", "description": "run N ticks (time-accurate)"},
                 "steps": {"type": "integer", "description": "run N instructions"},
+                "trace_vars": {"type": "array", "items": {"type": "string"}, "maxItems": 16,
+                               "description": "capture an instruction trace and these variables (inline or .mlog, 1–600 ticks)"},
                 "units": {"type": "string", "description": "e.g. 'mono:1,flare:2'"},
                 "unit_pos": {"type": "string", "description": "x,y tile position"},
                 "core_items": {"type": "string", "description": "e.g. 'silicon:400'"},
@@ -150,6 +229,30 @@ TOOLS = [
                 "links": {"type": "string", "enum": ["auto", "off"]},
             },
             "required": [],
+        },
+    },
+    {
+        "name": "mlog_trace",
+        "description": "Inspect a saved instruction trace by label and variable. Compare against "
+                       "another trace to find the first change in tick, program counter or watched "
+                       "values. Use mlog_sim(trace_vars=...) to capture live-executor traces.",
+        "annotations": {"readOnlyHint": True},
+        "inputSchema": {
+            "type": "object",
+            "additionalProperties": False,
+            "properties": {
+                "trace_ref": {"type": "string", "description": "artifact_ref from mlog_sim"},
+                "trace": {"type": "string", "description": "raw --itrace TSV"},
+                "mlog": {"type": "string", "description": "source for labelling an uploaded TSV"},
+                "label": {"type": "string", "description": "return rows from the named label section"},
+                "vars": {"type": "array", "items": {"type": "string"}, "maxItems": 16},
+                "baseline_ref": {"type": "string"},
+                "baseline_trace": {"type": "string"},
+                "offset": {"type": "integer", "minimum": 0, "default": 0},
+                "limit": {"type": "integer", "minimum": 1, "maximum": 200, "default": 40},
+            },
+            "oneOf": [{"required": ["trace_ref"]}, {"required": ["trace"]}],
+            "not": {"required": ["baseline_ref", "baseline_trace"]},
         },
     },
     {
@@ -528,10 +631,11 @@ def tool_values(args):
 def tool_gen(args):
     root = HERE.parent
     cmd = [sys.executable, str(HERE / "mlog.py"), "gen"]
-    if args.get("source"):
-        cmd += ["--source", args["source"]]
-    if args.get("logic"):
-        cmd += ["--logic", args["logic"]]
+    source, logic = args.get("source"), args.get("logic")
+    if bool(source) == bool(logic):
+        raise ValueError("provide exactly one of source or logic")
+    if source:
+        logic = _workspace_input_path(source, (".mlog",)).read_text(encoding="utf-8-sig")
     if args.get("name"):
         cmd += ["--name", args["name"]]
     for link in args.get("links") or []:
@@ -540,7 +644,7 @@ def tool_gen(args):
         cmd += ["--with-block", b]
     if args.get("out"):
         cmd += ["--binary", args["out"]]
-    p = subprocess.run(cmd, cwd=str(root), capture_output=True, text=True,
+    p = subprocess.run(cmd, cwd=str(root), input=logic, capture_output=True, text=True,
                        encoding="utf-8", errors="replace")
     if p.returncode != 0:
         raise RuntimeError((p.stderr or p.stdout).strip()[:2000])
@@ -548,6 +652,290 @@ def tool_gen(args):
     return {"blueprint_base64": code,
             "binary": args.get("out"),
             "stderr": (p.stderr or "").strip()[:500]}
+
+
+def _workspace_input_path(value: str, suffixes: tuple[str, ...]) -> Path:
+    root = HERE.parent
+    path = (root / Path(value).expanduser()).resolve()
+    if not path.is_relative_to(root) or path.suffix.lower() not in suffixes:
+        raise ValueError(f"path must be a {' or '.join(suffixes)} file within the server workspace")
+    return path
+
+
+def _blueprint_bytes(code: str) -> bytes:
+    return base64.b64decode("".join(code.lstrip("\ufeff").split()), validate=True)
+
+
+def tool_extract(args):
+    from mindcode import DecompileError
+    from mlog import decode_logic_input, logic_programs, render_extracted_logic
+
+    inputs = [key for key in ("blueprint_code", "mlog", "path") if key in args]
+    if len(inputs) != 1:
+        raise ValueError("provide exactly one of blueprint_code, mlog, or path")
+    key = inputs[0]
+    value = args[key]
+    if not isinstance(value, str) or not value.strip():
+        raise ValueError(f"{key} must be a non-empty string")
+
+    output_format = args.get("format", "mlog")
+    if output_format not in ("mlog", "mindcode"):
+        raise ValueError("format must be mlog or mindcode")
+    index = args.get("index")
+    all_programs = args.get("all", False)
+    if "index" in args and (type(index) is not int or index < 0):
+        raise ValueError("index must be a non-negative integer")
+    if type(all_programs) is not bool:
+        raise ValueError("all must be a boolean")
+    if index is not None and all_programs:
+        raise ValueError("choose index or all, not both")
+
+    if key == "blueprint_code":
+        schematic, text = msch.parse_bytes(_blueprint_bytes(value)), None
+    elif key == "mlog":
+        schematic, text = None, value.lstrip("\ufeff")
+    else:
+        path = _workspace_input_path(value, (".msch", ".mlog"))
+        schematic, text = decode_logic_input(path.read_bytes(), expect_schematic=path.suffix.lower() == ".msch")
+
+    programs = logic_programs(schematic, text)
+    count = len(programs)
+    response = {"ok": True, "format": output_format, "total": count}
+    if schematic is not None:
+        response["blueprint"] = {"name": schematic.name, "width": schematic.width, "height": schematic.height}
+    if index is not None and index >= count:
+        raise ValueError(f"index {index} exceeds the number of processors ({count})")
+    if not count or (count > 1 and index is None and not all_programs):
+        from aigenerated import extract_text, verify_text
+
+        inventory = []
+        for info, code in programs:
+            entry = dict(info)
+            if "aigenerated:" in code and not verify_text(code):
+                comments = extract_text(code)
+                if comments:
+                    entry["comment_preview"] = [
+                        {"line": item["line"], "text": item["text"][:160]}
+                        for item in comments[:2]
+                    ]
+            inventory.append(entry)
+        return {**response, "mode": "inventory", "processors": inventory}
+
+    selected = programs[index:index + 1] if index is not None else programs
+    result = []
+    for info, code in selected:
+        try:
+            draft, diagnostic = render_extracted_logic(code, format=output_format)
+        except DecompileError as exc:
+            return {**response, "ok": False, "index": info["index"],
+                    "failure_type": exc.kind, "message": str(exc)}
+        detail = {**info, "code": draft}
+        if diagnostic:
+            detail["diagnostic"] = diagnostic
+        result.append(detail)
+
+    response.update(mode="extract", processors=result)
+    if output_format == "mindcode":
+        response["note"] = "Partial decompilation; control flow may need manual rewriting before compilation."
+    # A batch uses a single reference, so it cannot evict its own earlier outputs.
+    if sum(len(item["code"].encode("utf-8")) for item in result) > ARTIFACT_THRESHOLD:
+        if len(result) == 1:
+            result[0]["code_ref"] = _stash(result[0].pop("code"))
+        else:
+            codes = [{"index": item["index"], "code": item.pop("code")} for item in result]
+            response["programs_ref"] = {"encoding": "json", **_stash(json.dumps(codes, ensure_ascii=False))}
+    return response
+
+
+def _inject_review_source(code: str) -> str:
+    import aigenerated
+    from mlog import render_extracted_logic
+
+    try:
+        labelled, _ = render_extracted_logic(code)
+    except (ValueError, aigenerated.SignError):
+        # An existing malformed signature should not prevent fixing the program.
+        labelled = code
+    return aigenerated._body(labelled) if aigenerated._find(labelled) else labelled
+
+
+def _inject_checks(target: msch.LogicCodeTarget, code: str) -> dict:
+    from mschgen import block_size
+
+    links = target.tile.logic.links
+    ipt = {"micro-processor": 2, "logic-processor": 8, "hyper-processor": 25,
+           "world-processor": 8}.get(target.tile.block, 2)
+    findings = _check.analyse(code.splitlines(), [link.name for link in links],
+                              ipt=ipt, links_authoritative=True)
+    diagnostics = [{"severity": f.sev, "line": f.line, "code": f.code, "message": f.msg,
+                    "rule_id": f.rid} for f in findings]
+    checks = {
+        "counts": {severity: sum(f.sev == severity for f in findings)
+                   for severity in ("ERR", "SUSPECT", "WARN", "INFO")},
+        "findings": diagnostics,
+    }
+
+    # Parsed msch links are already absolute. Include multi-tile footprints,
+    # and describe absence from the blueprint rather than claiming runtime null.
+    wanted = {(link.x, link.y) for link in links}
+    targets = {}
+    for tile in target.schematic.tiles if wanted else ():
+        size = block_size(tile.block)
+        half = (size - 1) // 2
+        for x in range(tile.x - half, tile.x - half + size):
+            for y in range(tile.y - half, tile.y - half + size):
+                if (x, y) in wanted:
+                    targets[x, y] = tile.block
+    checks["links"] = [
+        {"name": link.name, "x": link.x, "y": link.y,
+         "target_block": targets.get((link.x, link.y)),
+         "in_blueprint": (link.x, link.y) in targets}
+        for link in links
+    ]
+    return checks
+
+
+def _revision_path(revision: str) -> Path:
+    if not isinstance(revision, str) or not re.fullmatch(r"[0-9a-f]{32}", revision):
+        raise ValueError("revision must be a 32-digit lowercase hex ID")
+    directory = os.environ.get("MLOG_REVISION_DIR")
+    root = Path(directory).expanduser() if directory else HERE.parent / "out" / "_mlog_revisions"
+    return root / f"{revision}.json"
+
+
+def _write_revision(original: bytes, updated: bytes, info: dict, diff: str, checks: dict) -> str:
+    revision = uuid.uuid4().hex
+    path = _revision_path(revision)
+    record = {
+        "schema": "mlog-revision/v1", "revision": revision,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "before_blueprint_sha256": hashlib.sha256(original).hexdigest(),
+        "after_blueprint_sha256": hashlib.sha256(updated).hexdigest(),
+        **info, "diff": diff, "checks": checks,
+        "before_blueprint": base64.b64encode(original).decode("ascii"),
+    }
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with tempfile.NamedTemporaryFile(dir=path.parent, encoding="utf-8", mode="w",
+                                     prefix=".revision-", delete=False) as stream:
+        temp = Path(stream.name)
+        try:
+            json.dump(record, stream, ensure_ascii=False)
+            stream.close()
+            temp.replace(path)
+        finally:
+            stream.close()
+            temp.unlink(missing_ok=True)
+    return revision
+
+
+def _review_fields(response: dict, diff: str, checks: dict) -> None:
+    if len(diff.encode("utf-8")) > ARTIFACT_THRESHOLD:
+        response["diff_ref"] = _stash(diff)
+    else:
+        response["diff"] = diff
+    diagnostics = checks["findings"]
+    response["checks"] = {**checks, "findings": diagnostics[:20]}
+    if len(diagnostics) > 20:
+        response["checks"]["findings_ref"] = _stash(json.dumps(diagnostics, ensure_ascii=False))
+
+
+def tool_revision(args):
+    revision = args.get("revision")
+    action = args.get("action", "show")
+    if action not in ("show", "rollback"):
+        raise ValueError("action must be show or rollback")
+    current = args.get("blueprint_code")
+    if action == "rollback" and (not isinstance(current, str) or not current.strip()):
+        raise ValueError("rollback requires the current blueprint_code")
+    try:
+        record = json.loads(_revision_path(revision).read_text(encoding="utf-8"))
+    except FileNotFoundError as exc:
+        raise ValueError("revision not found") from exc
+    if record.get("schema") != "mlog-revision/v1" or record.get("revision") != revision:
+        raise ValueError("unrecognized or mismatched revision record")
+    original_code = record.pop("before_blueprint")
+    original = _blueprint_bytes(original_code)
+    if hashlib.sha256(original).hexdigest() != record["before_blueprint_sha256"]:
+        raise ValueError("revision's original blueprint failed its integrity check")
+    diff, checks = record.pop("diff"), record.pop("checks")
+    response = {"ok": True, **record}
+    if action == "rollback":
+        if hashlib.sha256(_blueprint_bytes(current)).hexdigest() != record["after_blueprint_sha256"]:
+            return {"ok": False, "revision": revision, "failure_type": "blueprint_conflict",
+                    "message": "current blueprint differs from this revision's generated blueprint"}
+        response["blueprint_base64"] = original_code
+    else:
+        target = msch.logic_code_target(original, record["processor"]["index"])
+        code = target.tile.logic.code
+        if len(code.encode("utf-8")) > ARTIFACT_THRESHOLD:
+            response["original_mlog_ref"] = _stash(code)
+        else:
+            response["original_mlog"] = code
+    _review_fields(response, diff, checks)
+    return response
+
+
+def tool_inject(args):
+    from aigenerated import DEFAULT_AUTHOR, sign_delivery
+    from mlog import logic_programs
+
+    inputs = [key for key in ("blueprint_code", "path") if key in args]
+    if len(inputs) != 1:
+        raise ValueError("provide exactly one of blueprint_code or path")
+    key = inputs[0]
+    value = args[key]
+    if not isinstance(value, str) or not value.strip():
+        raise ValueError(f"{key} must be a non-empty string")
+    index = args.get("index")
+    if type(index) is not int or index < 0:
+        raise ValueError("index must be a non-negative integer")
+    source = args.get("mlog")
+    if not isinstance(source, str) or not source.lstrip("\ufeff").strip():
+        raise ValueError("mlog must be a non-empty replacement program")
+    preview = args.get("preview", False)
+    if type(preview) is not bool:
+        raise ValueError("preview must be a boolean")
+    expected = args.get("expected_sha256")
+    if "expected_sha256" in args and (
+            not isinstance(expected, str) or len(expected) != 64
+            or any(c not in "0123456789abcdefABCDEF" for c in expected)):
+        raise ValueError("expected_sha256 must be a 64-digit hexadecimal SHA-256")
+
+    if key == "path":
+        data = _workspace_input_path(value, (".msch",)).read_bytes()
+        if not data.startswith(msch.MAGIC):
+            data = _blueprint_bytes(data.decode("utf-8-sig"))
+    else:
+        data = _blueprint_bytes(value)
+
+    target = msch.logic_code_target(data, index)
+    original = target.tile.logic.code
+    source_sha256 = hashlib.sha256(target.original_code_bytes).hexdigest()
+    response = {
+        "ok": True,
+        "mode": "preview" if preview else "apply",
+        "processor": logic_programs(target.schematic, None)[index][0],
+        "source_sha256": source_sha256,
+    }
+    if expected is not None and expected.lower() != source_sha256:
+        return {**response, "ok": False, "failure_type": "source_conflict",
+                "message": "processor source changed; extract or preview it again"}
+
+    code, _, _, _ = sign_delivery(source.lstrip("\ufeff"), DEFAULT_AUTHOR)
+    updated = target.replace(code, preview=preview)
+    before = _inject_review_source(original).splitlines()
+    after = _inject_review_source(code)
+    diff = "\n".join(difflib.unified_diff(before, after.splitlines(),
+                                         fromfile="original.mlog", tofile="replacement.mlog",
+                                         lineterm=""))
+    response["replacement_sha256"] = hashlib.sha256(code.encode("utf-8")).hexdigest()
+    checks = _inject_checks(target, after)
+    if updated is not None:
+        info = {key: response[key] for key in ("processor", "source_sha256", "replacement_sha256")}
+        response["revision"] = _write_revision(data, updated, info, diff, checks)
+        response["blueprint_base64"] = base64.b64encode(updated).decode("ascii")
+    _review_fields(response, diff, checks)
+    return response
 
 
 def _sim_subprocess(args):
@@ -602,12 +990,153 @@ def _run_code(path: str | None, logic: str | None, args: dict):
     return None, logic
 
 
+def _trace_vars(names) -> list[str]:
+    if (not isinstance(names, list) or len(names) > 16
+            or any(not isinstance(name, str) or not name or len(name) > 100
+                   or any(c in name for c in "=;\t\r\n") for name in names)
+            or len(set(names)) != len(names)):
+        raise ValueError("trace variables must be a list of up to 16 distinct names")
+    return names
+
+
+def _capture_instruction_trace(args) -> tuple[dict, dict]:
+    names = _trace_vars(args["trace_vars"])
+    if any(args.get(k) for k in ("scene", "project", "units", "unit_pos", "core_items", "save", "steps")):
+        raise ValueError("trace_vars requires an inline or .mlog tick run without scene options")
+    ticks = args.get("ticks", 60)
+    if type(ticks) is not int or not 1 <= ticks <= 600:
+        raise ValueError("trace capture ticks must be between 1 and 600")
+    path, logic = args.get("path"), args.get("logic")
+    if bool(path) == bool(logic):
+        raise ValueError("trace capture requires exactly one of logic or a .mlog path")
+    code = logic if logic else _workspace_input_path(path, (".mlog",)).read_text(encoding="utf-8-sig")
+    if not isinstance(code, str):
+        raise ValueError("trace source must be text")
+    code = code.lstrip("\ufeff")
+    srv = _server(None)
+    with tempfile.TemporaryDirectory(dir=srv.workdir, prefix="itrace-") as directory:
+        result_path = Path(directory) / "trace.tsv"
+        rec = _sim.run_mlog(srv, path or "inline", code, ticks, ticks=True,
+                            update=args.get("update") or "all", links=args.get("links") or "auto",
+                            itrace=str(result_path), itrace_vars=tuple(names))
+        bundle = {"schema": "mlog-itrace/v1", "mlog": code, "vars": names,
+                  "tsv": result_path.read_text(encoding="utf-8")}
+    return rec, _stash(json.dumps(bundle, ensure_ascii=False))
+
+
+def _trace_rows(text: str, source: str | None):
+    captured = set()
+    if text.lstrip().startswith("{"):
+        bundle = json.loads(text)
+        if bundle.get("schema") != "mlog-itrace/v1":
+            raise ValueError("artifact is not an instruction trace")
+        text = bundle["tsv"]
+        source = source if source is not None else bundle["mlog"]
+        captured.update(bundle["vars"])
+    lines = iter(text.lstrip("\ufeff").rstrip("\r\n").split("\n"))
+    if next(lines, "").rstrip("\r") != "tick\tpc\tvars\tsource":
+        raise ValueError("expected an instruction trace TSV with tick, pc, vars, and source columns")
+
+    # Group aliases at each exact target and use the preceding target as the section.
+    program = _ir.parse(source.splitlines()) if source is not None else None
+    by_pc = {}
+    if program is not None:
+        for name, pc in program.labels.items():
+            by_pc.setdefault(pc, []).append(name)
+    boundaries = sorted(by_pc)
+    rows = []
+    for raw in lines:
+        try:
+            tick, pc, variables, instruction = raw.rstrip("\r").split("\t", 3)
+            row = {"step": len(rows), "tick": int(tick), "pc": int(pc), "source": instruction,
+                   "vars": dict(item.split("=", 1) for item in variables.split(";") if item)}
+        except ValueError as exc:
+            raise ValueError(f"invalid instruction trace row {len(rows) + 2}") from exc
+        captured.update(row["vars"])
+        if program is not None and 0 <= row["pc"] < len(program.stmts):
+            stmt = program.stmts[row["pc"]]
+            # Do not attach a source line to a row that was captured from different code.
+            if instruction.strip() in (stmt.raw.strip(), stmt.raw[:512].strip()):
+                row["line"] = stmt.line
+                section = bisect_right(boundaries, row["pc"]) - 1
+                row["labels"] = by_pc[boundaries[section]] if section >= 0 else []
+        rows.append(row)
+    return rows, captured
+
+
+def _trace_argument(args: dict, inline: str, reference: str, *, required: bool) -> str | None:
+    if inline in args and reference in args:
+        raise ValueError(f"choose {inline} or {reference}")
+    if reference in args:
+        ref = args[reference]
+        if not isinstance(ref, str) or ref not in _ARTIFACTS:
+            raise ValueError(f"unknown trace reference {ref!r}")
+        return _ARTIFACTS[ref]
+    if inline in args:
+        if not isinstance(args[inline], str):
+            raise ValueError(f"{inline} must be text")
+        return args[inline]
+    if required:
+        raise ValueError(f"provide {inline} or {reference}")
+    return None
+
+
+def tool_trace(args):
+    source = args.get("mlog")
+    label = args.get("label")
+    if source is not None and not isinstance(source, str):
+        raise ValueError("mlog must be text")
+    rows, captured = _trace_rows(_trace_argument(args, "trace", "trace_ref", required=True), source)
+    baseline = _trace_argument(args, "baseline_trace", "baseline_ref", required=False)
+    variables = _trace_vars(args["vars"]) if "vars" in args else sorted(captured)
+    missing = set(variables) - captured
+    if missing:
+        raise ValueError(f"variables not captured: {', '.join(sorted(missing))}")
+    if label is not None and (not isinstance(label, str) or not label.strip()):
+        raise ValueError("label must be a non-empty name")
+    offset, limit = args.get("offset", 0), args.get("limit", 40)
+    if type(offset) is not int or offset < 0 or type(limit) is not int or not 1 <= limit <= 200:
+        raise ValueError("offset must be non-negative and limit must be between 1 and 200")
+
+    def project(row):
+        if row is None:
+            return None
+        return {**row, "vars": {name: row["vars"].get(name) for name in variables}}
+
+    selected = [row for row in rows if label is None or label in row.get("labels", ())]
+    page = selected[offset:offset + limit]
+    result = {"total": len(rows), "matched": len(selected), "rows": [project(row) for row in page],
+              "next_offset": offset + len(page) if offset + len(page) < len(selected) else None,
+              "variables": variables,
+              "labels": list(dict.fromkeys(name for row in rows for name in row.get("labels", ())))}
+    if baseline is not None:
+        previous, previous_vars = _trace_rows(baseline, None)
+        missing = set(variables) - previous_vars
+        if missing:
+            raise ValueError(f"variables not captured in baseline: {', '.join(sorted(missing))}")
+        def state(row):
+            if row is None:
+                return None
+            return row["tick"], row["pc"], tuple(row["vars"].get(name) for name in variables)
+
+        divergence = None
+        for step, (before, after) in enumerate(zip_longest(previous, rows)):
+            if state(before) != state(after):
+                divergence = {"step": step, "baseline": project(before), "current": project(after)}
+                break
+        result["first_divergence"] = divergence
+    return result
+
+
 def tool_sim(args):
     path = args.get("path")
     logic = args.get("logic")
     if not path and not logic and not args.get("scene"):
         raise ValueError("path, logic or scene required")
-    if args.get("scene") or args.get("project"):
+    trace_ref = None
+    if "trace_vars" in args:
+        rec, trace_ref = _capture_instruction_trace(args)
+    elif args.get("scene") or args.get("project"):
         # 场景/投影走 CLI: 这两条路要 Java 侧的 _scene 与 push 循环, 进程内那条
         # warm 路径只覆盖"跑一段看变量"的常见用法.
         rec = _sim_subprocess(args)
@@ -638,6 +1167,8 @@ def tool_sim(args):
         "processor": rec.get("processor"),
         "links": rec.get("links", []),
     }
+    if trace_ref is not None:
+        out["trace_ref"] = trace_ref
     if args.get("project"):
         # 投影这条路的"下一步"是可执行的: 一条命令就能把这帧画进游戏
         feed = os.path.abspath(args["project"])
@@ -1003,7 +1534,11 @@ HANDLERS = {
     "mlog_ir": tool_ir,
     "mlog_values": tool_values,
     "mlog_gen": tool_gen,
+    "mlog_extract": tool_extract,
+    "mlog_inject": tool_inject,
+    "mlog_revision": tool_revision,
     "mlog_sim": tool_sim,
+    "mlog_trace": tool_trace,
     "mindcode_compile": tool_mindcode_compile,
     "mlog_validate": tool_mlog_validate,
     "mlog_task": tool_task,

@@ -329,6 +329,193 @@ SUITE: list[tuple[str, str, str | None]] = [
     ("values/cross-fold",     "crossvalues", None),
 ]
 
+def check_labelize() -> None:
+    """Exercise the public CLI and compare destinations after delivery conversion."""
+    import aigenerated as signature
+
+    def destinations(text):
+        numeric, _, _ = signature.resolve_labels(text)
+        return [stmt.jump_target() for stmt in I.parse(numeric).stmts
+                if stmt.mnemonic == "jump"]
+
+    source = "L1:\nset n 0\n# loop\nop add n n 1\njump 1 lessThan n 3\nend\n"
+    with tempfile.TemporaryDirectory() as directory:
+        src = Path(directory) / "input.mlog"
+        dst = src.with_suffix(".labels.mlog")
+        command = [sys.executable, "-X", "utf8", str(TOOLS / "mlog.py"), "labelize", str(src)]
+        results = {}
+        for case, text, options, error in (
+            ("duplicate", "foo:\nset n 0\nfoo:\nset n 1\njump 0 always 0 0\n",
+             [], "duplicate label"),
+            ("prefix", source, ["--prefix", "bad label"], "invalid label prefix"),
+            ("captured_reference", "set n 0\njump 0 always 0 0\njump L0 always 0 0\n",
+             [], "labelization changed jump"),
+        ):
+            src.write_text(text, encoding="utf-8")
+            dst.write_text("existing output", encoding="utf-8")
+            run = subprocess.run(command + options, capture_output=True, text=True, encoding="utf-8")
+            results[case] = [run.returncode, error in run.stderr,
+                             dst.read_text(encoding="utf-8") == "existing output"]
+
+        signed, _ = signature.sign_text(source, "test-author", meta={"prompt": "test context"})
+        for case, text in (("plain", source), ("signed", signed)):
+            src.write_text(text, encoding="utf-8")
+            subprocess.run(command + ["--check"], capture_output=True, check=True)
+            output = dst.read_text(encoding="utf-8")
+            result = {
+                "targets": destinations(signature._body(output) if case == "signed" else output),
+                "original_targets": destinations(signature._body(text) if case == "signed" else text),
+                "collision_avoided": "jump L1_2 " in output,
+                "comment_preserved": "# loop" in output,
+            }
+            if case == "signed":
+                result["valid_signature"] = not signature.verify_text(output)
+                result["same_author"] = '"aigenerated:test-author:' in output
+                result["same_meta"] = (
+                    signature.decode_meta(signature._find(output)[0].group(3))
+                    == signature.decode_meta(signature._find(text)[0].group(3))
+                    == {"prompt": "test context"}
+                )
+            results[case] = result
+        for case in ("duplicate", "prefix", "captured_reference"):
+            if results[case] != [1, True, True]:
+                raise AssertionError(f"labelize accepted invalid input: {case}: {results[case]}")
+        for case in ("plain", "signed"):
+            result = results[case]
+            if (result.pop("targets") != [1] or result.pop("original_targets") != [1]
+                    or not all(result.values())):
+                raise AssertionError(f"labelize did not preserve {case} logic: {result}")
+
+
+def check_parse_labelize() -> None:
+    import base64
+    import mschgen
+
+    blueprint = mschgen.Blueprint("labelize")
+    blueprint.add_logic("set n 0\njump 0 lessThan n 3\nend\n")
+    blueprint.add_logic("foo:\nset n 0\nfoo:\njump 0 always 0 0\n", x=2)
+    data = blueprint.build()
+    with tempfile.TemporaryDirectory() as directory:
+        for filename, payload in (("logic.msch", data), ("paste.txt", base64.b64encode(data))):
+            path = Path(directory) / filename
+            path.write_bytes(payload)
+            command = [sys.executable, "-X", "utf8", str(TOOLS / "mlog.py"), "parse", str(path)]
+            default = subprocess.run(command, capture_output=True, text=True, encoding="utf-8", check=True)
+            result = subprocess.run(command + ["--labelize"], capture_output=True, text=True, encoding="utf-8")
+            if ("jump 0 lessThan" not in default.stdout or "jump L0 lessThan" in default.stdout
+                    or "L0:\nset n 0\njump L0 lessThan" not in result.stdout
+                    or "jump 0 always 0 0" not in result.stdout
+                    or result.returncode != 1 or "@(2,0): labelize failed" not in result.stderr
+                    or path.read_bytes() != payload):
+                raise AssertionError(f"parse --labelize failed for {filename}: {result}")
+
+
+def check_saved_labels() -> None:
+    import hashlib
+
+    import aigenerated as sig
+    import msch
+
+    editable = "set n 0\n# loop\nretry:\nalias:\nop add n n 1\njump alias lessThan n 3\nend\n"
+    with tempfile.TemporaryDirectory() as directory:
+        root = Path(directory)
+        src, delivered, blueprint = (root / name for name in ("edit.mlog", "deliver.mlog", "graph.msch"))
+        cli = [sys.executable, "-X", "utf8", str(TOOLS / "mlog.py")]
+
+        def run(*args, check=True):
+            return subprocess.run(cli + list(map(str, args)), check=check,
+                                  capture_output=True, text=True, encoding="utf-8")
+
+        # A legacy v2 token with comments/context must survive the forward conversion.
+        signed_source, _ = sig.sign_text(editable, "original-author", meta={"job": "job-1"})
+        src.write_text(signed_source, encoding="utf-8")
+        run("post", src, "-o", delivered)
+        code = delivered.read_text(encoding="utf-8")
+        hit = sig._find(code)[0]
+        comments, meta, labels = sig.decode_signature_payload(hit.group(3))
+        if (sig.verify_text(code) or "jump 1 lessThan n 3" not in code or "retry:" in code
+                or labels != {1: "retry"} or meta != {"job": "job-1"}
+                or hit.group(1) != "original-author" or comments[0]["text"] != "# loop"):
+            raise AssertionError("post did not deliver numeric jumps with the original label and context")
+
+        for replacement in ({1: "wrong"}, {}):
+            changed = code.replace(hit.group(3), sig.encode_comments(comments, meta, labels=replacement))
+            if not sig.verify_text(changed):
+                raise AssertionError("changed label table unexpectedly verified")
+
+        # Exercise both public recovery paths and direct generation from editable source.
+        run("labelize", delivered)
+        recovered = delivered.with_suffix(".labels.mlog").read_text(encoding="utf-8")
+        run("gen", src, "--name", "graph", "--binary", blueprint, "--quiet")
+        output = run("parse", blueprint, "--labelize").stdout
+        numeric = msch.parse_file(blueprint).logic_tiles()[0].logic.code
+        if (numeric != code or src.read_text(encoding="utf-8") != signed_source
+                or "retry:\nop add" not in output or "jump retry lessThan n 3" not in output
+                or "jump retry lessThan n 3" not in recovered or sig.verify_text(recovered)):
+            raise AssertionError("gen/parse and standalone labelize did not recover the same name")
+        run("post", delivered.with_suffix(".labels.mlog"), "-o", delivered)
+        if delivered.read_text(encoding="utf-8") != code:
+            raise AssertionError("post → labelize → post did not preserve the delivered program")
+
+        # Incompressible names make the actual processor config exceed the game limit.
+        rows = []
+        for index in range(600):
+            name = "L" + hashlib.sha256(str(index).encode("ascii")).hexdigest()
+            rows.extend((name + ":", f"jump {name} lessThan @time 0"))
+        src.write_text("\n".join(rows) + "\nend\n", encoding="utf-8")
+        oversized = run("post", src, "-o", delivered, check=False)
+        if (oversized.returncode != 1 or "compressed bytes" not in oversized.stderr
+                or delivered.read_text(encoding="utf-8") != code):
+            raise AssertionError("oversized label payload reached the output file")
+
+
+def check_extract_logic() -> None:
+    import base64
+
+    import aigenerated
+    import mschgen
+
+    primary = "set i 0\nretry:\nop add i i 1\njump retry lessThan i 3\nend\n"
+    secondary = "set other 0\njump 0 lessThan other 3\nend\n"
+    signed, *_ = aigenerated.sign_delivery(primary, "test-author")
+    blueprint = mschgen.Blueprint("extract")
+    blueprint.add_logic(signed)
+    blueprint.add_logic(secondary, x=2)
+    data = blueprint.build()
+    paste = base64.b64encode(data).decode("ascii")
+
+    with tempfile.TemporaryDirectory() as directory:
+        root = Path(directory)
+        binary, text, source = (root / name for name in ("logic.msch", "paste.txt", "source.mlog"))
+        binary.write_bytes(data)
+        text.write_text(paste, encoding="ascii")
+        source.write_text(signed, encoding="utf-8")
+
+        def extract(*args, input=None, check=True):
+            return subprocess.run([sys.executable, "-X", "utf8", str(TOOLS / "mlog.py"),
+                                   "extract-logic", *map(str, args)], input=input,
+                                  text=True, encoding="utf-8", capture_output=True, check=check)
+
+        one = extract(source).stdout
+        if "jump retry lessThan i 3" not in one or aigenerated.verify_text(one):
+            raise AssertionError("standalone extraction lost the saved label or signature")
+        for value in (binary, text, paste):
+            if extract(value, "--index", 0).stdout != one:
+                raise AssertionError("blueprint input changed the first processor")
+        if extract("-", input=paste + "\n", check=False).returncode != 2:
+            raise AssertionError("multi-processor input should require explicit selection")
+        if extract("-", input=signed).stdout != one:
+            raise AssertionError("stdin did not accept mlog")
+        if extract(binary, "--index", 2, check=False).returncode != 2:
+            raise AssertionError("out-of-range processor index was accepted")
+        export = root / "exports"
+        extract(binary, "--all", "--out-dir", export)
+        if ((export / "logic-0.mlog").read_text(encoding="utf-8") != one
+                or "jump L0 lessThan other 3" not in (export / "logic-1.mlog").read_text(encoding="utf-8")
+                or binary.read_bytes() != data):
+            raise AssertionError("batch extraction mixed or changed processor code")
+
+
 def digest_aigenerated() -> dict:
     """Sign, verify, tamper, re-sign, strip -- on a scratch copy."""
     tool = HERE.parent / "tools" / "aigenerated.py"
@@ -559,6 +746,15 @@ def main() -> int:
     total = len(got)
     print(f"\n{total - bad}/{total} passed" + ("" if not missing else
                                                f", {len(missing)} stale"))
+    if not args.case:
+        for check in (check_labelize, check_parse_labelize, check_saved_labels, check_extract_logic):
+            try:
+                check()
+            except (AssertionError, subprocess.CalledProcessError) as exc:
+                print(f"FAIL  {check.__name__}: {exc}")
+                bad += 1
+            else:
+                print(f"PASS  {check.__name__}")
     return 1 if bad else 0
 
 

@@ -44,8 +44,14 @@ CLI：
 python tools/mindcode.py version
 python tools/mindcode.py doctor --json
 python tools/mindcode.py compile demo.mnd -o demo.mlog --target 7.0 [--no-optimize] [--json]
+python tools/mindcode.py decompile demo.mlog -o draft.mnd
+python tools/mlog.py extract-logic demo.msch --format mindcode --all --out-dir drafts
 python tests/mindcode/run_mindcode_tests.py      # 退出码 3 = 这台机器上没有可用编译器
 ```
+
+反编译复用 Mindcode 的 `dm`。省略 `-o` 时将草稿输出到终端。
+`extract-logic --format mindcode` 还可以接收蓝图粘贴码或 mlog，先恢复标签名再反编译。
+输出里的标签和 `goto` 需要手动改成循环、条件等结构才能重新编译；它无法还原原始源码。
 
 MCP 工具：`mindcode_compile`（`source` 或 `path`，`target`、`optimize`、`out`、`level`）。
 编译失败返回 `failure_type="compilation_error"`，诊断逐条带 `line`/`col`；
