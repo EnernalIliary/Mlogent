@@ -256,6 +256,8 @@ class World(WorldProcess):
             print("[warn] 变更日志监听安装失败: %s" % exc, flush=True)
         # 门的动作本体: 只定义一次, TapEvent 监听与 door_enter 共用
         try:
+            from world_abort import GAME_INSTALL
+            self.js(GAME_INSTALL)
             self.js(DOOR_ACT_JS)
         except Exception as exc:
             print("[warn] 门动作安装失败: %s" % exc, flush=True)

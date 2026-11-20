@@ -969,6 +969,10 @@ HANDLERS = {
 }
 
 
+from world_abort import install as _install_veto
+_install_veto(HANDLERS, TOOLS, _wc)
+
+
 def _reply(rid, result=None, error=None):
     msg = {"jsonrpc": "2.0", "id": rid}
     if error is not None:
