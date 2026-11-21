@@ -216,7 +216,7 @@ TOOLS = [
     },
     {
         "name": "world_logic_code",
-        "description": "读处理器 (x,y) 的完整 mlog 源码。",
+        "description": "读取处理器类型、源码、带标签的源码、当前 @ipt、链接和用于修改的 revision。",
         "inputSchema": {
             "type": "object",
             "properties": {"x": {"type": "number"}, "y": {"type": "number"}},
@@ -225,15 +225,32 @@ TOOLS = [
     },
     {
         "name": "world_logic_set",
-        "description": "写入处理器 (x,y) 的 mlog 源码(等价于在游戏里粘贴)。破坏性: 会替换玩家现有"
-                       "代码并重编译, 记审计日志。",
+        "description": "按 world_logic_code 返回的 revision 写入源码或修改单台处理器的链接。"
+                       "用在线原版汇编器验证，写后回读并返回可回滚的 snapshot_id。",
         "inputSchema": {
             "type": "object",
             "properties": {
-                "x": {"type": "number"}, "y": {"type": "number"},
+                "x": {"type": "integer"}, "y": {"type": "integer"},
                 "code": {"type": "string"},
+                "expected_revision": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+                "link_changes": {"type": "object", "additionalProperties": False, "properties": {
+                    "add": {"type": "array", "items": {
+                        "type": "object", "required": ["x", "y"], "additionalProperties": False,
+                        "properties": {"x": {"type": "integer"}, "y": {"type": "integer"},
+                                       "name": {"type": "string"}},
+                    }},
+                    "remove": {"type": "array", "items": {"type": "string"}},
+                }},
             },
-            "required": ["x", "y", "code"],
+            "required": ["x", "y", "expected_revision"],
+        },
+    },
+    {
+        "name": "world_logic_rollback",
+        "description": "用 snapshot_id 回滚一次在线编辑，核对处理器源码和链接仍匹配编辑后的版本。",
+        "inputSchema": {
+            "type": "object", "required": ["snapshot_id"],
+            "properties": {"snapshot_id": {"type": "string", "pattern": "^[0-9a-f]{32}$"}},
         },
     },
     {
@@ -751,8 +768,11 @@ def tool_logic_code(a):
 
 
 def tool_logic_set(a):
-    return _wc.call({"op": "logic_set", "x": int(a["x"]), "y": int(a["y"]),
-                     "code": str(a.get("code") or "")}, timeout=180)
+    return _wc.call({**a, "op": "logic_set"}, timeout=180)
+
+
+def tool_logic_rollback(a):
+    return _wc.call({"op": "logic_rollback", "snapshot_id": a["snapshot_id"]}, timeout=180)
 
 
 def tool_logic_vars(a):
@@ -940,6 +960,7 @@ HANDLERS = {
     "world_logic": tool_logic,
     "world_logic_code": tool_logic_code,
     "world_logic_set": tool_logic_set,
+    "world_logic_rollback": tool_logic_rollback,
     "world_logic_vars": tool_logic_vars,
     "world_schematic": tool_schematic,
     "world_schematic_save": tool_schematic_save,

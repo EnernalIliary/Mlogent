@@ -232,27 +232,7 @@ TOOLS = [
                 "steps": {"type": "integer", "minimum": 1, "maximum": 2400},
                 "processor": {"type": "string", "enum": ["auto", "micro", "world"],
                               "description": "Processor for standalone Mlog (default auto). Scene and blueprint processors keep their types."},
-                "world_probe": {
-                    "type": "object", "minProperties": 1, "additionalProperties": False,
-                    "description": "Read selected tiles, objective flags and rules after the final tick. "
-                                   "Uses ticks (default 60).",
-                    "properties": {
-                        "tiles": {
-                            "type": "array", "minItems": 1, "maxItems": _world_probe.MAX_ENTRIES,
-                            "items": {
-                                "type": "object", "additionalProperties": False, "required": ["x", "y"],
-                                "properties": {
-                                    axis: {"type": "integer", "minimum": 0, "maximum": _world_probe.MAX_TILE_COORD}
-                                    for axis in ("x", "y")
-                                },
-                            },
-                        },
-                        "flags": {"type": "array", "minItems": 1, "maxItems": _world_probe.MAX_ENTRIES,
-                                  "items": {"type": "string", "minLength": 1, "maxLength": _world_probe.MAX_FLAG_LENGTH}},
-                        "rules": {"type": "array", "minItems": 1, "maxItems": _world_probe.MAX_ENTRIES,
-                                  "items": {"type": "string", "enum": list(_world_probe.RULES)}},
-                    },
-                },
+                "world_probe": _world_probe.QUERY_SCHEMA,
                 "power": {"type": "string", "enum": ["full", "none", "grid"],
                           "description": "Building power mode. Defaults to full, or grid when power_profile is supplied."},
                 "power_profile": {
@@ -1195,6 +1175,8 @@ def _sim_subprocess(args):
         cmd = [sys.executable, "-X", "utf8", str(HERE / "mlogsim.py"),
                f"--{key}={count}", f"--js-timeout={_MCP_SIM_JS_TIMEOUT}",
                f"--workspace-root={HERE.parent}", f"--power={power}", "--json"]
+        if logic is not None or (path is not None and path.suffix.lower() == ".mlog"):
+            cmd.append("--compile-diagnostics")
         preview_file = work / "markers.png"
         if preview:
             cmd.append(f"--marker-preview={preview_file}")
@@ -1405,6 +1387,9 @@ def tool_sim(args, *, images=None):
         out["scene_probe"] = rec["scene_probe"]
     if "world_probe" in rec:
         out["world_probe"] = rec["world_probe"]
+    for key in ("ipt", "processor_block", "compile", "executed"):
+        if key in rec:
+            out[key] = rec[key]
     if png is not None:
         out["marker_preview"] = rec["marker_preview"]
         if images is not None:

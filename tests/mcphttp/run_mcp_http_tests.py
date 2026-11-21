@@ -514,13 +514,25 @@ class Simulation(unittest.TestCase):
 
     def test_world_probe_validates_query_before_starting_worker(self):
         cases = (
-            ({"world_probe": {}}, "must specify tiles, flags or rules"),
+            ({"world_probe": {}}, "must specify at least one supported selection or checks"),
             ({"world_probe": {"tiles": [{"x": True, "y": 0}]}}, "integer x and y"),
             ({"world_probe": {"flags": ["line\nbreak"]}}, "printable text"),
             ({"world_probe": {"rules": ["objectiveFlags"]}}, "must be one of"),
             ({"world_probe": {"tiles": [{"x": 0, "y": 0}] * 33}}, "1 to 32 entries"),
             ({"world_probe": {"rules": ["waves"]}, "steps": 10}, "requires ticks"),
             ({"processor": "hyper"}, "must be auto, micro or world"),
+            ({"world_probe": {"checks": [{"flag": "gate", "equals": 1}]}}, "valid bool"),
+            ({"world_probe": {"checks": [{"rule": "waveSpacing", "equals": True}]}}, "valid float"),
+            ({"world_probe": {"checks": [{"marker": 2**31, "equals": False}]}}, ".marker is invalid"),
+            ({"world_probe": {"checks": [{"memory": {"x": 0, "y": 0, "index": -1},
+                                           "equals": None}]}}, ".memory is invalid"),
+            ({"world_probe": {"checks": [{"unit_count": {"x": 0, "y": 0, "width": 2, "height": 2},
+                                           "equals": -1}]}}, "non-negative unit count"),
+            ({"world_probe": {"checks": [{"tile": {"x": 8, "y": 9}, "field": "config",
+                                           "equals": "value"}]}}, ".field must be one of"),
+            ({"world_probe": {"tiles": [{"x": x, "y": 0} for x in range(32)], "checks": [
+                {"tile": {"x": 32, "y": 0}, "field": "block", "equals": "air"},
+            ]}}, "at most 32 entries including checks"),
         )
         with patch.object(mlog_mcp, "_bounded_sim_worker") as worker:
             for args, message in cases:

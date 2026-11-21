@@ -55,7 +55,7 @@ from world_mirrors import (MK_INSTALL_JS, MK_STATE_JS, MK_ON_JS, MK_CLEAR_JS, MK
                            MK_LIST_JS, CONTROL_OPERATIONS as MIRROR_CONTROL_OPS, control as mirror_control)
 from world_events import (EV_INSTALL_JS, CHANGES_JS, CHAT_JS, PUSH_JS,
                           OPERATIONS as WORLD_EVENT_OPS, read_events)
-from world_queries import BUILDS_JS, BUILDING_AT_JS, LOGIC_LIST_JS, LOGIC_GET_JS, LOGIC_VARS_JS
+from world_queries import BUILDS_JS, BUILDING_AT_JS, LOGIC_LIST_JS, LOGIC_VARS_JS
 import world_doors as _door_registry
 from world_doors import OPERATIONS as WORLD_DOOR_OPS
 from world_doors import (DOORS_JS, DOOR_ACT_JS, DOOR_CLEAR_JS, DOOR_ENTER_JS, DOOR_HITS_JS, DOOR_SET_JS, TAPS_JS, TAP_FIRE_JS)
@@ -68,7 +68,7 @@ from world_maps import switch_map, change_map, OPERATIONS as WORLD_MAP_OPS
 from world_schematics import (SCHEMATIC_PLACE_JS, SCHEMATIC_SAVE_JS, SCHEMATIC_LIST_JS,
                               OPERATIONS as WORLD_SCHEMATIC_OPS, schematic as schematic_world)
 from world_edits import (PLACE_JS, CLEAR_JS, SPAWN_JS, KILLUNITS_JS, CLEARBUILDS_JS,
-                         LOGIC_SET_JS, OPERATIONS as WORLD_EDIT_OPS, edit as edit_world)
+                         OPERATIONS as WORLD_EDIT_OPS, edit as edit_world)
 from world_queries import (STATUS_JS, PLAYERS_JS, UNITS_JS, UNIT_JS, MAPS_JS,
                            OPERATIONS as WORLD_QUERY_OPS, query as query_world)
 from world_protocol import API, coerce, units_table, parse_tsv
@@ -624,7 +624,7 @@ def make_handler(world: World, stop_cb):
 CHAT_LOG = True            # --chat-log 控制：把 agent 的写操作打进游戏聊天栏
 CHAT_PREFIX = "[agent] "
 CHAT_OPS = {"place", "clear", "spawn", "killunits", "clearbuilds", "reset", "switch", "door",
-            "logic_set", "schematic", "schematic_save", "scene", "load", "save", "pause",
+            "logic_set", "logic_rollback", "schematic", "schematic_save", "scene", "load", "save", "pause",
             "mirror", "mirror_state", "mirror_feed", "arm", "projection", "frames",
             "sblog"}
 

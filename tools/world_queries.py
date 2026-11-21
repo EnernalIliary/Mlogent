@@ -2,8 +2,8 @@
 import json
 import os
 import time
-import uuid
 from world_protocol import coerce, parse_tsv, units_table
+from world_logic_edit import read as read_logic
 
 OPERATIONS = frozenset(('', 'ping', 'status', 'maps', 'players', 'units', 'unit', 'buildings', 'building', 'logic', 'logic_code', 'logic_vars'))
 
@@ -175,19 +175,6 @@ if(n>=lim) sb.append('TRUNC\t').append(lim).append('\n');
 """
 
 
-LOGIC_GET_JS = r"""
-var t=Vars.world.tile(%(x)d, %(y)d);
-var b = t==null ? null : t.build;
-if(b==null){ sb.append('ERR\tno building at %(x)d,%(y)d'); }
-else if(b.getClass().getName().indexOf('LogicBlock$')<0){ sb.append('ERR\tnot a logic block: '+b.block.name); }
-else {
-  var w=new java.io.PrintWriter('%(res)s','UTF-8');
-  w.print(b.code==null ? '' : b.code); w.close();
-  sb.append('OK');
-}
-"""
-
-
 LOGIC_VARS_JS = r"""
 var t=Vars.world.tile(%(x)d, %(y)d);
 var b = t==null ? null : t.build;
@@ -299,14 +286,7 @@ def query(w, req, *, data_dir):
                                 "CX": float(req.get("x") or 0), "CY": float(req.get("y") or 0)}
         return {"ok": True, **parse_tsv(w.js(body), ["x", "y", "block", "codeLen", "vars"])}
     if op == "logic_code":
-        x, y = int(req.get("x")), int(req.get("y"))
-        res = "code-%s.txt" % uuid.uuid4().hex[:12]
-        out = w.js(LOGIC_GET_JS % {"x": x, "y": y, "res": res})
-        if out and out[0].startswith("ERR"):
-            return {"ok": False, "error": out[0][4:]}
-        code = w.take_file(res)
-        return {"ok": True, "x": x, "y": y, "code": code,
-                "lines": code.count("\n") + (0 if code.endswith("\n") or not code else 1)}
+        return read_logic(w, req)
     if op == "logic_vars":
         x, y = int(req.get("x")), int(req.get("y"))
         rows = []

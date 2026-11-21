@@ -911,10 +911,12 @@ for(var k = 0; k < links.length; k++){
     print("LINK\t" + spec.name + "\t" + spot[0] + "\t" + spot[1] + "\t" + blk.name);
 }
 %(pads)s
+%(compile)s
 b.updateCode(s);
 /* compile errors (undefined label, malformed statement) leave no instructions;
    fail here in ~3 s instead of after a full scene run */
-if(!b.executor.initialized()){
+var runnable = b.executor.initialized();
+if(!runnable && !%(diagnostics)s){
     throw new Error("PREFLIGHT: program did not compile (run mlog.py check; "
                     + "a jump target out of range/undefined label compiles to nothing)");
 }
@@ -936,7 +938,7 @@ b.efficiency = 1;
    bound unit, hand it to another processor) and then let the program see it.
    `b` is this processor's building; empty when the caller passes nothing. */
 %(setup)s
-%(loop)s
+if(runnable){ %(loop)s }
 %(pads_report)s
 print("@@BEGIN");
 var vs = b.executor.vars;
@@ -947,6 +949,8 @@ for(var i = 0; i < vs.length; i++){
 }
 print("COUNTER\t" + b.executor.counter.numval);
 print("IPT\t" + b.executor.ipt.numval);
+print("BLOCK\t" + b.block.name);
+print("RAN\t" + runnable);
 print("ACC\t" + b.accumulator);
 print("TEXT\t" + String(b.executor.textBuffer.toString()).replace(/\n/g, "\\n"));
 print("@@END");
@@ -1651,6 +1655,10 @@ def parse_results(lines: list[str]) -> list[dict]:
                 cur["counter"] = float(ln.split("\t", 1)[1])
             elif ln.startswith("IPT\t"):
                 cur["ipt"] = float(ln.split("\t", 1)[1])
+            elif ln.startswith("BLOCK\t"):
+                cur["processor_block"] = ln.split("\t", 1)[1]
+            elif ln.startswith("RAN\t"):
+                cur["executed"] = ln.split("\t", 1)[1] == "true"
             elif ln.startswith("ACC\t"):
                 cur["accumulator"] = float(ln.split("\t", 1)[1])
             elif ln.startswith("TEXT\t"):
@@ -1713,7 +1721,7 @@ def run_mlog(srv: Server, name: str, code: str, steps: int, ticks: bool = False,
              setup_js: str | None = None, pads: int = 0, pad_radius: int = 11,
              pad_water: float = -1.0, pad_drain: float = 0.0,
              pad_refill: bool = True, push_file: str | None = None,
-             push_every: int = 30, rt: float = 0.0) -> dict:
+             push_every: int = 30, rt: float = 0.0, compile_diagnostics: bool = False) -> dict:
     # privileged statements exist only in world processors; selecting the block
     # that makes them compile is better than silently dropping whole lines.
     world_proc = processor == "world" or (processor == "auto" and PRIVILEGED_RE.search(code) is not None)
@@ -1741,8 +1749,14 @@ def run_mlog(srv: Server, name: str, code: str, steps: int, ticks: bool = False,
             itr = {"code": [stmt.raw[:512] for stmt in parse(code.splitlines()).stmts],
                    "vars": list(itrace_vars)}
         pace_ms = int(1000.0 / 60.0 / rt) if ticks and rt > 0 else 0
+        compile_js = ""
+        if compile_diagnostics:
+            from native_mlog import COMPILE_JS
+
+            compile_js = COMPILE_JS + r'print("COMPILE\t" + JSON.stringify(compileMlog(s, b.block.privileged)));'
         js = STEP_JS % {"path": path.replace("\\", "/"), "x": srv.base[0], "y": srv.base[1],
                         "links": json.dumps(link_specs, ensure_ascii=False),
+                        "compile": compile_js, "diagnostics": "true" if compile_diagnostics else "false",
                         "setup": setup_js or "",
                         "pads": pads_setup,
                         "pads_report": pads_report,
@@ -1770,6 +1784,9 @@ def run_mlog(srv: Server, name: str, code: str, steps: int, ticks: bool = False,
                 raise SimError(f"link preflight: {detail} (use --links off to allow null links)")
         recs = parse_results(lines)
         rec = recs[0] if recs else {"vars": {}, "counter": None, "text": ""}
+        if compile_diagnostics:
+            rec["compile"] = next(json.loads(ln.split("\t", 1)[1]) for ln in lines
+                                  if ln.startswith("COMPILE\t"))
         rec["trace"] = parse_trace(lines) if trace else []
         if itrace:
             rows = [ln for ln in lines if ln.startswith("ITRACE\t")]
@@ -2041,8 +2058,11 @@ def main(argv=None):
                     help="simulated ticks: drive updateTile() with Time.delta=1 (accumulator/ipt/wait)")
     ap.add_argument("--marker-preview", metavar="PNG",
                     help="render the final marker frame to a PNG and include its state in --json")
+    ap.add_argument("--compile-diagnostics", action="store_true",
+                    help="report native compiler diagnostics for standalone Mlog in --json")
     ap.add_argument("--world-probe", metavar="FILE",
-                    help="read a JSON query for tiles, objective flags and rules at the final tick (use with --json)")
+                    help="read a JSON query with optional checks for tiles, objective flags and rules "
+                         "at the final tick (use with --json)")
     ap.add_argument("--js-timeout", type=float, metavar="SEC",
                     help="override the JS wall-clock budget (default: 180 s plus realtime pacing)")
     ap.add_argument("--world", type=int, default=None, metavar="N",
@@ -2285,7 +2305,8 @@ def main(argv=None):
                                         pads=args.pads, pad_radius=args.pad_radius,
                                         pad_water=args.pad_water, pad_drain=args.pad_drain,
                                         pad_refill=args.pad_refill,
-                                         push_file=args.push, push_every=args.push_every, rt=args.rt))
+                                        push_file=args.push, push_every=args.push_every, rt=args.rt,
+                                        compile_diagnostics=args.compile_diagnostics))
         if scene_obj is not None and (args.scene_probe or args.uploaded_scene):
             import scene as _scene_probe_mod
             scene_probe = _scene_probe_mod.probe_sim(srv, scene_obj)
@@ -2293,7 +2314,7 @@ def main(argv=None):
             import marker_preview
             results[0]["marker_preview"] = marker_preview.capture(srv, args.marker_preview, steps)
         if world_query is not None and results:
-            results[0]["world_probe"] = world_probe.capture(srv, world_query, steps)
+            results[0]["world_probe"] = world_probe.capture(srv.js, world_query, steps)
     except FileNotFoundError as e:
         sys.exit(f"missing input: {e.filename}")
     except SimError as e:

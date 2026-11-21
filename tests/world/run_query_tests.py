@@ -1,4 +1,6 @@
 """Read-only query response contracts, without a JVM."""
+import base64
+import json
 from pathlib import Path
 from types import SimpleNamespace
 import sys
@@ -42,12 +44,15 @@ class QueryTests(unittest.TestCase):
         self.assertEqual(result['origin'], {'x':4,'y':5})
 
     def test_logic_code_uses_file_channel_and_counts_lines(self):
-        w=self.world(['OK'])
-        w.take_file=Mock(return_value='set a 1\nend\n')
+        state = {"ok": True, "code": "jump 1 always 0 0\nend\n",
+                 "processor": "world-processor", "ipt": 60, "links": []}
+        w=self.world([base64.b64encode(json.dumps(state).encode()).decode()])
         result=query(w, {'op':'logic_code','x':1,'y':2}, data_dir='x')
         self.assertEqual(result['lines'], 2)
-        self.assertEqual(result['code'], 'set a 1\nend\n')
-        w.take_file.assert_called_once()
+        self.assertEqual(result['code'], state['code'])
+        self.assertIn('L1:', result['labelled_code'])
+        self.assertEqual((result['processor'], result['ipt']), ('world-processor', 60))
+        w.js.assert_called_once()
 
     def test_logic_variable_values_are_coerced(self):
         result=query(self.world(['count\t2.0','name\tmono']), {'op':'logic_vars','x':1,'y':2}, data_dir='x')

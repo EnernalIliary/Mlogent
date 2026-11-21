@@ -751,6 +751,126 @@ def test_uploaded_power_scene() -> None:
        "uploaded scene adds a native power connection to just the selected grid")
 
 
+def test_native_world_processor_and_side_effects() -> None:
+    import mlog_mcp
+
+    rate = mlog_mcp.tool_sim({"logic": "setrate 60\nset recorded @ipt\nstop",
+                              "processor": "world", "ticks": 4})
+    ok(rate["processor"] == "world" and rate["processor_block"] == "world-processor"
+       and rate["ipt"] == 60 and rate["vars"]["recorded"] == "60" and rate["compile"]["ok"],
+       "native world-processor setrate 60 updates @ipt and reports the compiled block")
+    bad = mlog_mcp.tool_sim({"logic": "jump missing always 0 0", "processor": "world", "ticks": 4})
+    ok(not bad["executed"] and not bad["compile"]["ok"]
+       and "Undefined jump" in bad["compile"]["diagnostics"][0]["message"],
+       "the real assembler reports undefined labels without running the source")
+
+    case = {
+        "version": 2, "id": "side-effects", "title": "Side effects", "goal": "Inspect the real world",
+        "limits": {"ticks": 8, "timeout_s": 30}, "world": {"size": 32},
+        "buildings": [
+            {"name": "control", "block": "world-processor", "x": 10, "y": 10, "code_inline": [
+                "getblock building cell 13 10", "write 42 cell 5", 'write "gate" cell 6',
+                "makemarker text 300 20 20 false", "setrule unitCap 20 0 0 0 0",
+                "spawn @flare 20 20 0 @sharded spawned false", "stop",
+            ]},
+            {"name": "cell", "block": "world-cell", "x": 13, "y": 10},
+        ],
+        "world_probe": {"checks": [
+            {"marker": 300, "equals": True}, {"marker": 301, "equals": False},
+            {"memory": {"x": 13, "y": 10, "index": 5}, "equals": 42},
+            {"memory": {"x": 13, "y": 10, "index": 6}, "equals": "gate"},
+            {"memory": {"x": 13, "y": 10, "index": 7}, "equals": 0},
+            {"unit_count": {"x": 18, "y": 18, "width": 4, "height": 4,
+                            "team": "sharded", "type": "flare"}, "equals": 1},
+            {"unit_count": {"x": 0, "y": 0, "width": 4, "height": 4}, "equals": 0},
+        ]},
+    }
+    TMP.mkdir(parents=True, exist_ok=True)
+    with tempfile.TemporaryDirectory(prefix="side-effects-", dir=TMP) as directory:
+        path = Path(directory) / "scenario.json"
+        path.write_text(json.dumps(case), encoding="utf-8")
+        passed = scenario.run_record(scenario.load(str(path)), level="diagnostics")
+        if ok(passed["envelope"]["ok"], f"scenario_run checks marker, world-cell and unit side effects: {passed['envelope']['message']}"):
+            checks = passed["record"]["world_probe"]["checks"]
+            ok([c["actual"] for c in checks] == [True, False, 42, "gate", 0, 1, 0],
+               "scenario measures the changed area and confirms the unrelated observations")
+        case["world_probe"]["checks"][-1]["equals"] = 1
+        path.write_text(json.dumps(case), encoding="utf-8")
+        failure = scenario.run(scenario.load(str(path)), level="diagnostics")
+        ok(failure["failure_type"] == "assertion_failed"
+           and failure["diagnostics"][-1]["actual"] == 0,
+           "scenario_run fails when a world-state assertion is wrong")
+
+
+def test_live_logic_edit() -> None:
+    import mlogsim
+    from world_runtime import WorldPaths
+    from world_server import World
+    from world_edits import edit
+    from world_queries import query
+
+    TMP.mkdir(parents=True, exist_ok=True)
+    with tempfile.TemporaryDirectory(prefix="live-processor-", dir=TMP) as directory:
+        paths = WorldPaths.from_root(directory)
+        game = World(mlogsim._default_java(), mlogsim._default_jar(), host=False, game_port=0, paths=paths)
+        try:
+            game.js(mlogsim.load_js(32))
+            for x, block in ((10, "world-processor"), (12, "memory-cell"), (14, "switch")):
+                game.js(mlogsim.place_js(x, 10, block))
+            game.js("Vars.state.rules.allowEditWorldProcessors=true;")
+            at = {"x": 10, "y": 10}
+
+            def read():
+                return query(game, {"op": "logic_code", **at}, data_dir=paths.data)
+
+            def change(op="logic_set", **args):
+                request = {"op": op, **(at if op == "logic_set" else {}), **args}
+                return edit(game, request, audit=lambda *a, **kw: None, data_dir=paths.data)
+
+            original = read()
+            initial = change(expected_revision=original["revision"], code="jump 1 always 0 0\nstop",
+                             link_changes={"add": [{"x": 14, "y": 10}]})
+            if not ok(initial["ok"], f"world daemon installs validated source and link: {initial.get('error', 'OK')}"):
+                return
+            ok("jump L1" in initial["labelled_code"] and initial["links"][0]["name"] == "switch1"
+               and initial["processor"] == "world-processor" and initial["compile"]["version"],
+               "world readback includes labelled source, type, native version and link target")
+            bad = change(expected_revision=initial["revision"], code="jump missing always 0 0",
+                         link_changes={"remove": ["switch1"]})
+            missing = change(expected_revision=initial["revision"], link_changes={"add": [{"x": 5, "y": 5}]})
+            ok(not bad["ok"] and not bad["compile"]["ok"] and not missing["ok"]
+               and read()["revision"] == initial["revision"],
+               "invalid source and invalid link targets leave the live processor unchanged")
+            changed = change(expected_revision=initial["revision"],
+                             link_changes={"remove": ["switch1"], "add": [{"x": 12, "y": 10}]})
+            if not ok(changed["ok"], f"world daemon accepts a link-only edit: {changed.get('error', 'OK')}"):
+                return
+            stale = change(expected_revision=initial["revision"], code="setrate 60\nstop")
+            ok(stale["conflict"] and stale["source_sha256"] == initial["source_sha256"]
+               and stale["links_sha256"] != initial["links_sha256"],
+               "a changed link alone invalidates a pending code edit")
+            restored = change("logic_rollback", snapshot_id=changed["snapshot_id"])
+            ok(restored["ok"] and restored["code"] == initial["code"] and restored["links"] == initial["links"]
+               and read()["revision"] == initial["revision"],
+               "rollback restores code and links from the durable snapshot")
+            both = change(expected_revision=initial["revision"], code="setrate 60\nstop",
+                          link_changes={"remove": ["switch1"], "add": [{"x": 12, "y": 10}]})
+            if not ok(both["ok"], "a single edit can replace both source and links"):
+                return
+            rolled_back = change("logic_rollback", snapshot_id=both["snapshot_id"])
+            ok(rolled_back["ok"] and rolled_back["source_sha256"] == initial["source_sha256"]
+               and rolled_back["links_sha256"] == initial["links_sha256"],
+               "rollback restores a revision that changed both source and links")
+
+            from world_probe import capture, validate
+
+            probe = capture(game.js, validate({"checks": [{"flag": "门", "equals": False}]}), 0, live=True)
+            ok(probe["checks_passed"] and probe["flags"][0]["name"] == "门",
+               "live world probes preserve Unicode selectors through the console")
+        finally:
+            game.close()
+
+
 def test_mcp_world_probe() -> None:
     import mlog_mcp_http
 
@@ -767,15 +887,18 @@ def test_mcp_world_probe() -> None:
         return json.loads(payload)
 
     flag_logic = 'setflag "gate-open" true\nstop'
-    flag_query = {"flags": ["gate-open", "unseen"]}
+    flag_query = {"flags": ["unseen"], "checks": [{"flag": "gate-open", "equals": True}]}
     for processor, expected in (("auto", True), ("micro", False)):
         data = simulate(logic=flag_logic, processor=processor, world_probe=flag_query)
         if data:
             probe = data["world_probe"]
             ok(data["processor"] == ("world" if expected else "micro") and probe["ticks"] == 60
-               and probe["flags"] == [{"name": "gate-open", "value": expected},
-                                       {"name": "unseen", "value": False}],
-               f"{processor} processor mode returns the expected flag state")
+               and probe["flags"] == [{"name": "unseen", "value": False},
+                                       {"name": "gate-open", "value": expected}]
+               and probe["checks_passed"] == expected
+               and probe["checks"] == [{"flag": "gate-open", "equals": True,
+                                        "actual": expected, "ok": expected}],
+               f"{processor} processor mode returns the expected flag state and verdict")
 
     scene = {"world": {"size": 32}, "buildings": [{
         "name": "gate", "block": "world-processor", "x": 10, "y": 10,
@@ -783,8 +906,14 @@ def test_mcp_world_probe() -> None:
                         'setrule waveSpacing 5 0 0 0 0\nstop'),
     }]}
     data = simulate(scene_json=scene, power="full", ticks=5, world_probe={
-        "tiles": [{"x": 14, "y": 15}, {"x": 31, "y": 31}, {"x": 32, "y": 0}],
-        "rules": ["waveSpacing"],
+        "checks": [
+            {"tile": {"x": 14, "y": 15}, "field": "block", "equals": "copper-wall"},
+            {"tile": {"x": 14, "y": 15}, "field": "building.team", "equals": "crux"},
+            {"tile": {"x": 31, "y": 31}, "field": "has_building", "equals": False},
+            {"tile": {"x": 31, "y": 31}, "field": "building.health", "equals": 0},
+            {"tile": {"x": 32, "y": 0}, "field": "in_bounds", "equals": False},
+            {"rule": "waveSpacing", "equals": 300},
+        ],
     })
     if data:
         probe = data["world_probe"]
@@ -795,6 +924,10 @@ def test_mcp_world_probe() -> None:
            and empty["in_bounds"] and empty["building"] is None and not outside["in_bounds"]
            and probe["rules"] == [{"name": "waveSpacing", "value": 300}],
            "uploaded scene probe reports native tile, building and rule state")
+        ok(probe["checks_passed"] is False
+           and [c["ok"] for c in probe["checks"]] == [True, False, True, False, True, True]
+           and [c["actual"] for c in probe["checks"]] == ["copper-wall", "sharded", False, None, False, 300],
+           "checks-only query returns all actual values and preserves mixed verdicts")
 
 
 def test_mcp_marker_preview() -> None:
@@ -941,6 +1074,8 @@ def main(argv: list[str] | None = None) -> int:
         test_grid_power_from_save()
         test_mcp_power_profile()
         test_uploaded_power_scene()
+        test_native_world_processor_and_side_effects()
+        test_live_logic_edit()
         test_mcp_world_probe()
         test_mcp_marker_preview()
         test_marker_from_svg_roundtrip()

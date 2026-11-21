@@ -12,8 +12,12 @@ Mlogent 是一套 Mindustry 逻辑和蓝图工具。它能从复杂蓝图里取�
 也可以先用 `marker_from_svg` 将简单 SVG 转为世处 Mlog，再运行预览。
 [单帧预览](tools/README.md#世处-marker-单帧预览) · [静态 SVG 转换](tools/README.md#静态-svg-转世处-marker)
 
-世处调试也可以用 `mlog_sim.world_probe` 查看指定 tick 后的地格、建筑、任务旗标和地图规则。
+世处调试可以用 `mlog_sim.world_probe` 查看指定 tick 后的地格、建筑、任务旗标和地图规则，
+并检查读数是否符合预期。
 [地图状态检查](tools/README.md#世处地图状态检查)
+
+在线调试世界支持读取带标签源码、源码哈希、处理器类型、`@ipt` 和链接目标，按 revision
+安全修改单台处理器，写后回读并生成可回滚快照。
 
 ## 快速开始
 

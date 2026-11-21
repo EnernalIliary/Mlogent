@@ -1,4 +1,6 @@
 """Editing contracts without changing a running world."""
+import base64
+import json
 from pathlib import Path
 from types import SimpleNamespace
 import sys
@@ -34,11 +36,24 @@ class EditTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as root:
             source = Path(root) / 'source.txt'
             source.write_text('end', encoding='utf-8')
-            world = SimpleNamespace(js=Mock(return_value=['OK\t3']), put_file=Mock(return_value=source.name))
-            result = edit(world, {'op': 'logic_set', 'x': 1, 'y': 2, 'code': 'end'}, audit=Mock(), data_dir=root)
-            world.put_file.assert_called_once_with('end', 'src')
+            reply = base64.b64encode(b'{"ok":true,"code":"end"}').decode()
+            world = SimpleNamespace(js=Mock(return_value=[reply]), put_file=Mock(return_value=source.name))
+            request = {'op': 'logic_set', 'x': 1, 'y': 2, 'code': 'end', 'expected_revision': '1' * 64}
+            result = edit(world, request, audit=Mock(), data_dir=root)
+            args, prefix = world.put_file.call_args.args
+            staged = json.loads(args)
+            self.assertEqual(prefix, 'logic-edit')
+            self.assertEqual({key: staged[key] for key in request}, request)
             self.assertEqual(result['codeLen'], 3)
             self.assertFalse(source.exists())
+
+    def test_logic_write_without_revision_never_calls_game(self):
+        world = SimpleNamespace(js=Mock(), put_file=Mock())
+        with self.assertRaisesRegex(ValueError, 'expected_revision'):
+            edit(world, {'op': 'logic_set', 'x': 1, 'y': 2, 'code': 'end'},
+                 audit=Mock(), data_dir='unused')
+        world.js.assert_not_called()
+        world.put_file.assert_not_called()
 
 
 if __name__ == '__main__':

@@ -1,8 +1,8 @@
 """World edit operations with explicit audit and file-directory dependencies."""
-import os
 from world_protocol import coerce
+from world_logic_edit import edit as edit_logic
 
-OPERATIONS = frozenset(('place', 'clear', 'spawn', 'killunits', 'clearbuilds', 'logic_set'))
+OPERATIONS = frozenset(('place', 'clear', 'spawn', 'killunits', 'clearbuilds', 'logic_set', 'logic_rollback'))
 
 PLACE_JS = r"""
 var blk = Vars.content.block('%(block)s');
@@ -83,21 +83,6 @@ sb.append('CLEARED\t').append(n).append('\t').append(kept);
 """
 
 
-LOGIC_SET_JS = r"""
-var t=Vars.world.tile(%(x)d, %(y)d);
-var b = t==null ? null : t.build;
-if(b==null){ sb.append('ERR\tno building at %(x)d,%(y)d'); }
-else if(b.getClass().getName().indexOf('LogicBlock$')<0){ sb.append('ERR\tnot a logic block: '+b.block.name); }
-else {
-  try{
-    var src=new java.lang.String(java.nio.file.Files.readAllBytes(java.nio.file.Paths.get('%(src)s')), 'UTF-8');
-    b.updateCode(src);
-    sb.append('OK\t'+b.code.length);
-  }catch(e){ sb.append('ERR\t'+e); }
-}
-"""
-
-
 def edit(w, req, *, audit, data_dir):
     op = (req.get("op") or "").strip()
     if op == "place":
@@ -160,18 +145,6 @@ def edit(w, req, *, audit, data_dir):
         parts = (out[0] if out else "").split("\t")
         return {"ok": True, "cleared": coerce(parts[1]) if len(parts) > 1 else 0,
                 "kept": coerce(parts[2]) if len(parts) > 2 else 0}
-    if op == "logic_set":
-        x, y = int(req.get("x")), int(req.get("y"))
-        code = str(req.get("code") or "")
-        audit("logic_set", x=x, y=y, bytes=len(code))
-        src = w.put_file(code, "src")
-        out = w.js(LOGIC_SET_JS % {"x": x, "y": y, "src": src})
-        try:
-            os.remove(os.path.join(data_dir, src))
-        except Exception:
-            pass
-        if out and out[0].startswith("ERR"):
-            return {"ok": False, "error": out[0][4:]}
-        return {"ok": True, "x": x, "y": y,
-                "codeLen": coerce(out[0].partition("\t")[2]) if out else None}
+    if op in {"logic_set", "logic_rollback"}:
+        return edit_logic(w, req, audit=audit, data_dir=data_dir)
     return NotImplemented

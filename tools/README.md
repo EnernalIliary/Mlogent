@@ -68,17 +68,29 @@ v160.7 上连续 420 tick 的电网输入、输出、储量、电池电量及三
   "processor": "world",
   "ticks": 15,
   "world_probe": {
-    "tiles": [{"x": 14, "y": 15}],
-    "flags": ["gate-open"],
-    "rules": ["waveSpacing"]
+    "checks": [
+      {"tile": {"x": 14, "y": 15}, "field": "block", "equals": "copper-wall"},
+      {"flag": "gate-open", "equals": true},
+      {"rule": "waveSpacing", "equals": 300}
+    ]
   }
 }
 ```
 
-示例应返回 `copper-wall`、`gate-open: true` 以及 `waveSpacing: 300`。规则读数沿用游戏内部单位，
-波次间隔以 tick 返回。`world_probe` 还包含地图宽高，以及所选地格的地板、覆盖层和建筑状态。
-空地的 `building` 为 `null`，越界地格返回 `in_bounds: false`。三组查询任选，每组最多 32 项，
-省略 `ticks` 时读取第 60 tick 的结束状态。可查规则在工具参数中列出。
+示例验证墙的方块类型、旗标和波次间隔。每条断言返回 `actual` 和 `ok`，整组结果看
+`world_probe.checks_passed`。断言失败时仍会返回模拟结果和实际值。检查项自动纳入相应的
+`tiles`、`flags` 或 `rules` 查询，也可以用这三个字段单独读取状态。
+
+地格结果包含地板、覆盖层和建筑状态。可用 `has_building: false` 验证地格没有建筑实体，
+也可检查 `block` 是否为 `air`。越界地格返回 `in_bounds: false`。
+规则读数沿用游戏内部单位，波次间隔以 tick 返回。可查字段和规则在工具参数中列出。
+每组查询和断言各限 32 项，断言选中的地格、旗标和规则也计入各自的查询上限。
+省略 `ticks` 时读取第 60 tick 的结束状态。
+
+场景文件也可以把 `world_probe` 放在顶层。`scenario_run` 会在场景结束后执行同样的检查，
+把检查结果并入场景断言。可检查 marker 是否存在、world-cell/world-bank 的指定内存槽、指定矩形
+内的单位数量，以及单个地块、旗标和规则。单位区域可选 `team` 与 `type`，越界或未知筛选会返回
+不可通过的检查结果。
 
 独立 Mlog 可用 `processor: "auto" | "micro" | "world"` 选择处理器。默认会识别
 `getflag`、`setflag`、`spawnwave` 等世处指令。也可上传含 `code_inline` 的 `scene_json`，

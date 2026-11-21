@@ -35,7 +35,7 @@ sb.append('ready');
 DESTRUCTIVE = {
     'world_stop', 'world_load', 'world_reset', 'world_switch_map',
     'world_clear', 'world_clear_buildings', 'world_kill_units',
-    'world_place', 'world_spawn', 'world_logic_set', 'world_scene',
+    'world_place', 'world_spawn', 'world_logic_set', 'world_logic_rollback', 'world_scene',
     'world_console', 'world_js',
 }
 _execution_lock = threading.Lock()
@@ -49,6 +49,7 @@ def describe_action(name, args):
         'world_clear': '清除指定区域', 'world_clear_buildings': '清除建筑',
         'world_kill_units': '清除单位', 'world_place': '放置或替换建筑',
         'world_spawn': '生成单位', 'world_logic_set': '修改逻辑处理器程序',
+        'world_logic_rollback': '回滚逻辑处理器程序和链接',
         'world_scene': '部署场景并修改世界', 'world_console': '执行服务器控制台操作',
         'world_js': '执行修改世界的脚本', 'world_push_action': '切换游戏地图',
     }

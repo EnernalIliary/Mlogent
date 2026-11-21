@@ -89,6 +89,7 @@ if HERE not in sys.path:
     sys.path.insert(0, HERE)
 
 import scene as _scene  # noqa: E402
+import world_probe as _world_probe  # noqa: E402
 import modifier as _modifier  # noqa: E402
 from mlog_eval import FAILURE_TYPES, classify, result  # noqa: E402
 
@@ -98,7 +99,7 @@ SHADOW_DIR = os.path.join(ROOT, "out", "_scenario", "v1")
 
 #: Keys schema v2 adds on top of scene v1.
 V2_KEYS = ("id", "title", "goal", "limits", "observations", "assertions",
-           "success_criteria", "modifiers")
+           "success_criteria", "modifiers", "world_probe")
 ALLOWED_KEYS = set(_scene.TOP_KEYS) | set(V2_KEYS)
 AGGREGATES = ("last", "max", "min", "sum")
 OPS = ("eq", "ne", "gt", "ge", "lt", "le", "contains")
@@ -269,6 +270,8 @@ def _apply_v2(sc: dict, raw: dict, v2: bool) -> None:
     assertions = raw.get("assertions")
     sc["assertions"] = assertions if isinstance(assertions, list) else (
         [] if assertions is None else assertions)
+    if "world_probe" in raw:
+        sc["world_probe"] = raw["world_probe"]
     sc["success_criteria"] = raw.get("success_criteria") or {"all_assertions": True}
     modifiers = raw.get("modifiers")
     sc["modifiers"] = modifiers if isinstance(modifiers, list) else (
@@ -393,7 +396,13 @@ def validate(sc: dict, via: str | None = None) -> list[str]:
                         "observations (%s)"
                         % (where, named, ", ".join(sorted(seen_obs)) or "none"))
 
-    if v2 and not assertions:
+    probe_checks = []
+    if "world_probe" in sc:
+        try:
+            probe_checks = _world_probe.validate(sc["world_probe"]).get("checks", [])
+        except ValueError as exc:
+            errs.append(str(exc))
+    if v2 and not (assertions or probe_checks):
         errs.append("a v2 scenario needs at least one assertion (otherwise it "
                     "cannot fail)")
 
@@ -887,10 +896,14 @@ def _sim(sc: dict, deadline: float) -> dict:
         units, _ = _snapshot(_js(srv, _units_js(ids, False)))
         _, buildings = _snapshot(_js(srv, _builds_js(refs, False)))
 
-        return {"ticks": done, "samples": samples, "finals": finals,
+        record = {"ticks": done, "samples": samples, "finals": finals,
                 "checks": checks, "report": report, "refs": refs,
                 "units": units, "buildings": buildings,
                 "modifiers": _public_modifiers(mods)}
+        if "world_probe" in sc:
+            probe = _world_probe.validate(sc["world_probe"])
+            record["world_probe"] = _world_probe.capture(lambda script: _js(srv, script), probe, done)
+        return record
     finally:
         try:
             srv.close()
@@ -1401,11 +1414,15 @@ def _world(sc: dict, deadline: float) -> dict:
                     "map": env["map"], "world_size": size,
                     "team": _scene_team(sc), "update": "live", "sampling": "poll"},
         }
-        return {"via": "world", "ticks": done, "samples": samples, "finals": finals,
+        record = {"via": "world", "ticks": done, "samples": samples, "finals": finals,
                 "checks": checks, "report": report, "refs": refs,
                 "units": units, "buildings": buildings, "core": core,
                 "events": events, "payload": payload, "env": payload["env"],
                 "modifiers": _public_modifiers(mods)}
+        if "world_probe" in sc:
+            probe = _world_probe.validate(sc["world_probe"])
+            record["world_probe"] = _world_probe.capture(fire_world, probe, done, live=True)
+        return record
     finally:
         if was_paused:
             try:
@@ -1476,6 +1493,13 @@ def _assertions(sc: dict, sim: dict, observations: dict) -> list[dict]:
         })
         if a.get("observation"):
             evaluated[-1]["observation"] = str(a["observation"])
+    for i, check in enumerate(sim.get("world_probe", {}).get("checks", []), 1):
+        selection = {k: v for k, v in check.items() if k not in {"equals", "actual", "ok"}}
+        evaluated.append({
+            "kind": "assertion", "source": "world_probe", "id": "world_probe[%d]" % i,
+            "desc": "", "logic": None, "var": None, "op": "eq", "selection": selection,
+            "expect": check["equals"], "actual": check["actual"], "ok": check["ok"],
+        })
     return evaluated
 
 
@@ -1620,6 +1644,8 @@ def _execute(sc: dict, via: str = "sim", level: str = "summary") -> tuple:
             artifacts["world"] = report.get("world")
         artifacts["state"] = {"units": len(record.get("units") or []),
                               "buildings": len(record.get("buildings") or [])}
+        if "world_probe" in record:
+            artifacts["world_probe"] = record["world_probe"]
         # The scored view rides with the record: a caller that wants to diff two
         # hosts needs the same numbers the envelope was built from, per assertion.
         record["assertions"] = evaluated
