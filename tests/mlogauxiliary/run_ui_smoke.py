@@ -32,8 +32,9 @@ sys.stdout.reconfigure(encoding='utf-8', errors='replace')
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(os.path.dirname(HERE))
 sys.path.insert(0, os.path.join(ROOT, 'tools'))
+from dependencies import project_dir
 
-SCRIPTS = os.path.join(ROOT, 'MlogAuxiliary', 'scripts')
+SCRIPTS = os.path.join(str(project_dir('MlogAuxiliary')), 'scripts')
 MAIN = os.path.join(SCRIPTS, 'main.js')
 
 

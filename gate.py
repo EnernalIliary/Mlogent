@@ -42,6 +42,8 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
 PY = sys.executable
+sys.path.insert(0, str(ROOT / "tools"))
+from dependencies import project_dir  # noqa: E402
 
 # The four --full steps are independent of each other and of the cheap gates:
 # each drives its own JVM (mlogsim/mlog.py start one per run, and a host-less
@@ -70,7 +72,8 @@ def run_child(argv: list[str], timeout: int = 3600) -> tuple[int, str, float]:
     return cp.returncode, out, time.time() - t0
 
 
-def run_step(name: str, argv: list[str], stream: bool = False) -> tuple[str, str, float, str, str]:
+def run_step(name: str, argv: list[str], stream: bool = False,
+             timeout: int = 3600) -> tuple[str, str, float, str, str]:
     """Run one child and turn its exit code into a gate row."""
     t0 = time.time()
     if stream:
@@ -370,7 +373,7 @@ def build_steps(full: bool, only: str | None) -> list[tuple[str, list[str] | Non
             "ui": "MlogAuxiliary", "package": "MlogAuxiliary",
             "gtb": "GriefToBan", "gtbprobe": "GriefToBan"}
     steps = [(n, None, deps[n] + "/ is a separate project (absent from this checkout)")
-             if (a is not None and n in deps and not (ROOT / deps[n]).is_dir())
+             if (a is not None and n in deps and not project_dir(deps[n]).is_dir())
              else (n, a, s) for n, a, s in steps]
     # `bundles`, `claims`, `kbgrep` and `cjken` grade/read the knowledge base,
     # which ships as its own package (`mlog-agent-<ver>-knowledge.zip`).  A

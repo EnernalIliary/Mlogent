@@ -11,6 +11,9 @@ var path = require("path");
 
 var here = __dirname;
 var scripts = path.join(here, "..", "..", "MlogAuxiliary", "scripts");
+if(!fs.existsSync(scripts)) {
+    scripts = path.join(here, "..", "..", "..", "MlogAuxiliary", "scripts");
+}
 
 var rules = require(path.join(scripts, "rules.generated.js"));
 var quickcheck = require(path.join(scripts, "quickcheck.js"));

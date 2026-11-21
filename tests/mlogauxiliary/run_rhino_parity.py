@@ -5,6 +5,7 @@ sys.stdout.reconfigure(encoding='utf-8', errors='replace')
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(os.path.dirname(HERE))
 sys.path.insert(0, os.path.join(ROOT, 'tools'))
+from dependencies import project_dir
 
 CASES = os.path.join(HERE, 'cases.json')
 HARNESS = os.path.join(HERE, 'harness.js')
@@ -54,7 +55,7 @@ def rhino_side():
     os.makedirs(d, exist_ok=True)
     inner_path = os.path.join(d, 'inner.js')
     io.open(inner_path, 'w', encoding='utf-8', newline='\n').write(INNER.replace('__CASES__', CASES.replace(chr(92), '/')))
-    scripts = os.path.join(ROOT, 'MlogAuxiliary', 'scripts').replace(chr(92), '/')
+    scripts = os.path.join(str(project_dir('MlogAuxiliary')), 'scripts').replace(chr(92), '/')
     js = ' '.join([
         "var s = Packages.mindustry.Vars.mods.getScripts();",
         "var F = Packages.java.nio.file.Files, P = Packages.java.nio.file.Paths, JS = Packages.java.lang.String;",

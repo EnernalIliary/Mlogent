@@ -57,8 +57,13 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 TOOLS = ROOT / 'tools'
-MOD = ROOT / 'MlogAuxiliary'
+sys.path.insert(0, str(TOOLS))
+from dependencies import project_dir  # noqa: E402
+
+MOD = project_dir('MlogAuxiliary')
 PACKAGING = ROOT / 'packaging'
+if not PACKAGING.is_dir():
+    PACKAGING = MOD / 'packaging'
 DIST = ROOT / 'out' / '_dist'
 EXE_CACHE = ROOT / 'out' / '_exe'
 

@@ -31,8 +31,9 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "tools"))
 
 import mlogcheck as C  # noqa: E402  (needs the sys.path line above)
+from dependencies import project_dir  # noqa: E402
 
-OUT = ROOT / "MlogAuxiliary" / "scripts" / "rules.generated.js"
+OUT = project_dir("MlogAuxiliary") / "scripts" / "rules.generated.js"
 
 
 def payload() -> dict:
