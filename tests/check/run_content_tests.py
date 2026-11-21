@@ -71,6 +71,26 @@ def check_user_unreachable_statements_still_report() -> None:
     assert any(f.rid == "unreachable-statement" for f in findings), findings
 
 
+def check_signature_requires_and_preserves_safe_slot() -> None:
+    import aigenerated
+
+    unsigned = "set x 1\nend\n"
+    try:
+        aigenerated.sign_text(unsigned, "test-author")
+    except aigenerated.SignError:
+        pass
+    else:
+        raise AssertionError("unsigned code without a safe slot was accepted")
+
+    source = "set x 1\njump 0 always 0\nend\n"
+    signed, _ = aigenerated.sign_text(source, "test-author")
+    body = aigenerated._body(signed)
+    assert signed.count("\n") == source.count("\n"), signed
+    assert "AI-Generated:Mlogent:test-author:" in signed, signed
+    assert aigenerated.verify_text(signed) == [], aigenerated.verify_text(signed)
+    assert body == aigenerated._body(source), (body, aigenerated._body(source))
+
+
 if __name__ == "__main__":
     check_content_names_are_not_undefined()
     check_unknown_content_name_still_reports()
@@ -78,4 +98,5 @@ if __name__ == "__main__":
     check_invalid_jump_condition_does_not_add_branch()
     check_mindcode_generated_unreachable_noise_is_ignored()
     check_user_unreachable_statements_still_report()
+    check_signature_requires_and_preserves_safe_slot()
     print("all run_content_tests.py passed")

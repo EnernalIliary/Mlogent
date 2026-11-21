@@ -338,7 +338,7 @@ def check_labelize() -> None:
         return [stmt.jump_target() for stmt in I.parse(numeric).stmts
                 if stmt.mnemonic == "jump"]
 
-    source = "L1:\nset n 0\n# loop\nop add n n 1\njump 1 lessThan n 3\nend\n"
+    source = "L1:\nset n 0\n# loop\nop add n n 1\njump 1 lessThan n 3\njump 0 always 0\nend\n"
     with tempfile.TemporaryDirectory() as directory:
         src = Path(directory) / "input.mlog"
         dst = src.with_suffix(".labels.mlog")
@@ -385,7 +385,7 @@ def check_labelize() -> None:
                 raise AssertionError(f"labelize accepted invalid input: {case}: {results[case]}")
         for case in ("plain", "signed"):
             result = results[case]
-            if (result.pop("targets") != [1] or result.pop("original_targets") != [1]
+            if (result.pop("targets") != [1, 0] or result.pop("original_targets") != [1, 0]
                     or not all(result.values())):
                 raise AssertionError(f"labelize did not preserve {case} logic: {result}")
 
@@ -419,7 +419,7 @@ def check_saved_labels() -> None:
     import aigenerated as sig
     import msch
 
-    editable = "set n 0\n# loop\nretry:\nalias:\nop add n n 1\njump alias lessThan n 3\nend\n"
+    editable = "set n 0\n# loop\nretry:\nalias:\nop add n n 1\njump alias lessThan n 3\njump 0 always 0\nend\n"
     with tempfile.TemporaryDirectory() as directory:
         root = Path(directory)
         src, delivered, blueprint = (root / name for name in ("edit.mlog", "deliver.mlog", "graph.msch"))
@@ -479,7 +479,7 @@ def check_extract_logic() -> None:
     import aigenerated
     import mschgen
 
-    primary = "set i 0\nretry:\nop add i i 1\njump retry lessThan i 3\nend\n"
+    primary = "set i 0\nretry:\nop add i i 1\njump retry lessThan i 3\njump 0 always 0\nend\n"
     secondary = "set other 0\njump 0 lessThan other 3\nend\n"
     signed, *_ = aigenerated.sign_delivery(primary, "test-author")
     blueprint = mschgen.Blueprint("extract")
@@ -554,17 +554,18 @@ def digest_aigenerated() -> dict:
         j.write_text("set x 1\njump 27 always 0\nend\n", "utf-8", newline="\n")
         out["slot_sign"], _ = run("sign", str(j))
         sl = j.read_text(encoding="utf-8").splitlines()
-        out["slot_line"] = sl[-1]
+        out["slot_line"] = next((l for l in sl if "AI-Generated:Mlogent:" in l), "")
         out["slot_end_kept"] = any(l.strip() == "end" for l in sl)
-        # placement: no end -> append terminal jump 0
+        # A program without a safe slot is refused.
         t = Path(d) / "term.mlog"
         t.write_text("set x 1\nprint x\n", "utf-8", newline="\n")
-        out["terminal_sign"], _ = run("sign", str(t))
+        out["terminal_sign"], terminal_msg = run("sign", str(t))
+        out["terminal_rejected"] = "no safe signature slot" in terminal_msg
         out["terminal_line"] = t.read_text(encoding="utf-8").splitlines()[-1]
 
         # comments travel inside the signature payload, with original lines
         c = Path(d) / "c.mlog"
-        c.write_text("# head\nset x 1\n# mid\nprint \"hi\"\nend\n",
+        c.write_text("# head\nset x 1\n# mid\nprint \"hi\"\njump 0 always 0\nend\n",
                      "utf-8", newline="\n")
         out["comments_sign"], _ = run("sign", "--force", str(c))
         out["comments_body_has_none"] = not any(

@@ -106,8 +106,8 @@ def _clean(text: str) -> list[str]:
             continue
         if SIG_RE.match(line.strip()):
             m = SIG_PARTS_RE.match(line.strip())
-            if m and m.group(1) != "0":
-                # signature sat in an existing jump's compare slot
+            if m:
+                # Signature always occupies an existing jump's compare slot.
                 out.append(f"jump {m.group(1)} always {m.group(2)}")
             continue
         if OLD_MARK_RE.match(line):
@@ -136,10 +136,6 @@ def _canonical(lines: list[str]) -> str:
     head = lines[:last + 1]
     if head[last].strip() == "end":
         head = head[:last]
-    # a trailing `jump 0 always ...` is exactly an `end`; normalise it away so
-    # signing in its value slot keeps the id stable
-    while head and re.match(r'^jump\s+0\s+always(?:\s+\S+)?\s*$', head[-1].strip()):
-        head.pop()
     return "\n".join(head + trailing + ["end"]) + "\n"
 
 
@@ -338,25 +334,21 @@ def sign_text(text: str, author: str = DEFAULT_AUTHOR, force: bool = False,
     # assembled program, so a kept comment line would read as "the write did not
     # land". The id covers the code body and, when present, the label table.
     lines = [l for l in lines if not l.strip().startswith("#")]
-    idx = len(lines) - 2
-    while idx >= 0 and not lines[idx].strip():
-        idx -= 1
+    idx = len(lines) - 1
     slot = None
-    if idx >= 0:
+    while idx >= 0:
         m = re.match(r'^(jump\s+(\S+)\s+always)\s+(\S+)\s*$', lines[idx].strip())
-        if m and m.group(2) != "0":
+        if m:
             slot = f"{m.group(1)} {m.group(3)}"
+            break
         elif m is None:
             m = re.match(r'^(jump\s+(\S+)\s+always)\s*$', lines[idx].strip())
-            if m and m.group(2) != "0":
+            if m:
                 slot = f"{m.group(1)} 0"
                 lines[idx] = slot
                 body = "\n".join(lines) + "\n"
-    if idx < 0:
-        # a program of nothing but `end` has no statement to hang the token on:
-        # the signed text is the terminal jump alone, and verify_text() rebuilds
-        # "" from it, so "" is what the id hashes (re-signing stays idempotent)
-        body = ""
+                break
+        idx -= 1
     old, old_meta, old_labels = decode_signature_payload(hits[0].group(3)) if hits else ([], None, {})
     if labels is None:
         # Anchors from a modified body cannot be safely reused.
@@ -388,14 +380,11 @@ def sign_text(text: str, author: str = DEFAULT_AUTHOR, force: bool = False,
     enc = encode_comments(cs, meta, labels=labels)
     payload = f":{enc}" if enc else ""
     sig = f'"AI-Generated:Mlogent:{author}:{pid}{payload}"'
-    if slot is not None:
-        lines[idx] = f"{slot} {sig}"
-        # an unconditional jump never falls through: the `end` behind it can
-        # never run, and mlogcheck reports exactly that as an unreachable
-        # statement, so the signed text stops at the jump
-        lines.pop()
-    else:
-        lines[-1] = f"jump 0 always 0 {sig}"
+    if slot is None:
+        raise SignError(
+            "no safe signature slot in the final logic statement; "
+            "add an unconditional jump with an unused compare slot")
+    lines[idx] = f"{slot} {sig}"
     return "\n".join(lines) + "\n", pid
 
 

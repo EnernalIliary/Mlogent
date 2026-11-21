@@ -147,7 +147,7 @@ class Protocol(unittest.TestCase):
 
         code, *_ = aigenerated.sign_delivery(
             "# purpose\n# " + "b" * 200 + "\n# not in preview\n"
-            "set i 0\nretry:\nop add i i 1\njump retry lessThan i 3\nend\n", "test-author")
+            "set i 0\nretry:\nop add i i 1\njump retry lessThan i 3\njump 0 always 0\nend\n", "test-author")
         blueprint = mschgen.Blueprint("extract")
         blueprint.add_logic(code, links=[mschgen.Link("cell1", 0, 2)])
         second = "# " + "x" * 2100 + "\nprint 42\nend\n"
@@ -220,7 +220,7 @@ class Protocol(unittest.TestCase):
         body = body.replace(old_config, bytes([msch.T_DOUBLE]) + struct.pack(">d", 1.23456789012345))
         raw = raw[:5] + zlib.compress(body)
         paste = base64.b64encode(raw).decode("ascii")
-        replacement = "set n 0\nretry:\nop add n n 1\njump retry lessThan n 3\nend\n"
+        replacement = "set n 0\nretry:\nop add n n 1\njump retry lessThan n 3\njump 0 always 0\nend\n"
 
         def call(tool, args, *, error=False):
             if tool in ("mlog_inject", "mlog_gen"):
@@ -281,14 +281,14 @@ class Protocol(unittest.TestCase):
         import mschgen
 
         blueprint = mschgen.Blueprint("preview")
-        original = "print 1\nend\n"
+        original = "print 1\njump 0 always 0\nend\n"
         blueprint.add_logic(original, links=[
             mschgen.Link("cell1", 1, 0), mschgen.Link("message1", 9, 0),
         ])
         blueprint.add_block("memory-cell", 1, 0)
         paste = base64.b64encode(blueprint.build()).decode("ascii")
         args = {"blueprint_code": paste, "index": 0, "mlog": "read n cell1 0\nprint n\n"
-                "printflush message2\nend\n"}
+                "printflush message2\njump 0 always 0\nend\n"}
 
         def inject(arguments):
             arguments = dict(arguments)
@@ -335,7 +335,7 @@ class Protocol(unittest.TestCase):
         import mschgen
 
         blueprint = mschgen.Blueprint("revision")
-        blueprint.add_logic("print 1\nend\n")
+        blueprint.add_logic("print 1\njump 0 always 0\nend\n")
         paste = base64.b64encode(blueprint.build()).decode("ascii")
 
         def call(server, name, args):
@@ -349,7 +349,7 @@ class Protocol(unittest.TestCase):
             return json.loads(reply["content"][0]["text"])
 
         applied = call(self.srv, "mlog_inject", {"blueprint_code": paste, "index": 0,
-                                                "mlog": "print 2\nend\n"})
+                                                "mlog": "print 2\njump 0 always 0\nend\n"})
         revision = applied["revision"]
 
         # A separate process has no access to the injecting process's artifact cache.
@@ -402,7 +402,7 @@ class Protocol(unittest.TestCase):
 
         with tempfile.TemporaryDirectory(prefix="gen-test-", dir=ROOT) as directory:
             path = Path(directory) / "source.mlog"
-            original = "print 42\nend\n"
+            original = "print 42\njump 0 always 0\nend\n"
             path.write_text(original, encoding="utf-8")
             status, body, _ = self.srv.post({
                 "jsonrpc": "2.0", "id": 37, "method": "tools/call",
