@@ -308,6 +308,12 @@ def jump_parts(code: str):
             toks[4] if len(toks) > 4 else None)
 
 
+_VALID_JUMP_CONDITIONS = frozenset({
+    "equal", "notEqual", "lessThan", "lessThanEq",
+    "greaterThan", "greaterThanEq", "strictEqual", "always",
+})
+
+
 def _vars(tokens) -> list[str]:
     """Filter operand tokens down to things that can actually be variables."""
     out = []
@@ -784,7 +790,7 @@ _NON_NUM_SLOTS = {
     "print": {1: _SLOT_ANY},
     "format": {1: _SLOT_ANY},
     "localeprint": {1: _SLOT_ANY},
-    "select": {4: _SLOT_ANY, 5: _SLOT_ANY},
+    "select": {5: _SLOT_ANY, 6: _SLOT_ANY},
     "setprop": {3: _SLOT_ANY},
     "setrule": {2: _SLOT_ANY},
     "setflag": {2: _SLOT_ANY},
@@ -805,14 +811,13 @@ _NON_NUM_SLOTS = {
 
 #: ucontrol <sub> ... -- the slots depend on the sub-command.
 _UCONTROL_SLOTS = {
-    "target": {2: _SLOT_OBJ},
+    "target": {4: _SLOT_BOOL},
     "targetp": {2: _SLOT_OBJ, 3: _SLOT_BOOL},
-    "itemdrop": {2: _SLOT_OBJ, 3: _SLOT_OBJ},
-    "itemtake": {2: _SLOT_OBJ, 3: _SLOT_OBJ},
+    "itemdrop": {2: _SLOT_OBJ},
+    "itemtake": {2: _SLOT_OBJ, 3: _SLOT_ANY},
     "paytake": {2: _SLOT_BOOL},
     "boost": {2: _SLOT_BOOL},
-    "build": {2: _SLOT_OBJ, 4: _SLOT_ANY},
-    "deconstruct": {2: _SLOT_OBJ, 3: _SLOT_BOOL},
+    "build": {4: _SLOT_ANY, 6: _SLOT_ANY},
 }
 
 #: control <type> ... -- config takes a content or a number, shoot / shootp
@@ -897,7 +902,15 @@ def uses_of(c: str) -> list[str]:
         return _vars(p[2:3])
     if op == "getlink":
         return _vars(p[2:3])
-    if op in ("select", "lookup"):
+    if op == "packcolor":
+        return _vars(p[2:6])
+    if op == "unpackcolor":
+        return _vars(p[5:6])
+    if op == "select":
+        # comp0/comp1 are always read; exactly one of a/b is dereferenced at
+        # runtime, but both are valid candidate inputs and must be analysed.
+        return _vars(p[3:7])
+    if op == "lookup":
         return _vars(p[3:6])
     if op == "read":
         return _vars(p[3:4])
@@ -1264,19 +1277,9 @@ def analyse(lines: list[str], links: list[str] | None = None, ipt: int = 2,
     def def_of(i: int) -> set[str]:
         return set(defs_of(stmts[i][1]))
 
-    # ---- predecessors (successors are i+1 and, for jump, the target) ------
+    # ---- predecessors (keep the data-flow graph aligned with reachability) -
     preds: list[set[int]] = [set() for _ in range(n)]
-    for i, (_, c) in enumerate(stmts):
-        jp = jump_parts(c)
-        succ = []
-        if jp:
-            tgt = jp[0]
-            if 0 <= tgt < n:
-                succ.append(tgt)
-            if jp[1] != "always":
-                succ.append(i + 1)                # fall-through when not taken
-        else:
-            succ.append(i + 1)
+    for i, succ in enumerate(_cfg(stmts)):
         for s in succ:
             if 0 <= s < n:
                 preds[s].add(i)
@@ -1653,7 +1656,7 @@ def analyse(lines: list[str], links: list[str] | None = None, ipt: int = 2,
             # in unreachable or signature code, so do not classify them as
             # undefined variables. Status effects stay on their dedicated
             # validation path below.
-            if CONTENT_NAMES.get(v.lower()) in CONTENT_DECLARATION_CATEGORIES:
+            if CONTENT_NAMES.get(v) in CONTENT_DECLARATION_CATEGORIES:
                 continue
             # A name made only of punctuation (`/`, `///`, `//`) is never data;
             # it is a comment marker the author parks in a real argument slot
@@ -1869,6 +1872,8 @@ def analyse(lines: list[str], links: list[str] | None = None, ipt: int = 2,
     for i, (orig, c) in enumerate(stmts):
         jp = jump_parts(c)
         if not jp:
+            continue
+        if jp[1] not in _VALID_JUMP_CONDITIONS:
             continue
         tgt = jp[0]
         if tgt == -1:
@@ -2299,6 +2304,12 @@ def _cfg(stmts: list[tuple[int, str]]) -> list[list[int]]:
         jp = jump_parts(c)
         if jp:
             tgt, cond = jp[0], jp[1]
+            # LParser treats -1 as the decorative no-op jump used by some
+            # generated programs. An unknown condition also becomes an
+            # InvalidStatement, so neither form contributes a branch edge.
+            if tgt == -1 or cond not in _VALID_JUMP_CONDITIONS:
+                succ.append([i + 1] if i + 1 < n else [0])
+                continue
             out = []
             if tgt >= 0 and tgt < n:
                 out.append(tgt)
