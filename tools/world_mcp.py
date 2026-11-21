@@ -40,6 +40,7 @@ _READ_CACHEABLE = frozenset({
     "world_buildings", "world_building", "world_logic", "world_logic_code",
     "world_logic_graph", "world_logic_snapshot", "world_logic_vars",
 })
+_CACHE_CONTROL_TOOLS = frozenset({"world_cache_stats"})
 _READ_CACHE = ResponseCache(ttl=0.75, limit=256)
 
 SERVER = str(HERE / "world_server.py")
@@ -1144,7 +1145,7 @@ def handle(req):
                 raise ValueError("cache must be auto or fresh")
             out = _READ_CACHE.get((name, cache_key)) if name in _READ_CACHEABLE and cache_mode == "auto" else None
             if out is None:
-                if name not in _READ_CACHEABLE:
+                if name not in _READ_CACHEABLE and name not in _CACHE_CONTROL_TOOLS:
                     _READ_CACHE.clear()
                 out = fn(arguments)
                 if name in _READ_CACHEABLE and isinstance(out, dict) and out.get("ok"):

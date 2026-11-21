@@ -163,6 +163,42 @@ def test_world_response_cache() -> None:
     ok(cache.stats()["entries"] == 0, "world cache invalidates all entries")
 
 
+def test_world_mcp_cache_stats_preserve_entries() -> None:
+    import contextlib
+    import io
+    import json
+    import world_mcp
+
+    world_mcp._READ_CACHE.clear()
+    calls = {"count": 0}
+    original = world_mcp.HANDLERS["world_status"]
+
+    def fake_status(_args):
+        calls["count"] += 1
+        return {"ok": True, "value": calls["count"]}
+
+    world_mcp.HANDLERS["world_status"] = fake_status
+    try:
+        request = {"jsonrpc": "2.0", "id": 1, "method": "tools/call",
+                   "params": {"name": "world_status", "arguments": {}}}
+        with contextlib.redirect_stdout(io.StringIO()):
+            world_mcp.handle(request)
+            world_mcp.handle(request)
+        stats_request = {"jsonrpc": "2.0", "id": 2, "method": "tools/call",
+                         "params": {"name": "world_cache_stats", "arguments": {}}}
+        output = io.StringIO()
+        with contextlib.redirect_stdout(output):
+            world_mcp.handle(stats_request)
+        payload = json.loads(output.getvalue())
+        stats = json.loads(payload["result"]["content"][0]["text"])["cache"]
+        ok(calls["count"] == 1, "world MCP serves the second read from cache")
+        ok(stats["entries"] == 1 and stats["hits"] >= 1,
+           "world_cache_stats reports live entries and hits")
+    finally:
+        world_mcp.HANDLERS["world_status"] = original
+        world_mcp._READ_CACHE.clear()
+
+
 def main() -> int:
     for name, fn in sorted(globals().items()):
         if name.startswith("test_") and callable(fn):
