@@ -69,6 +69,12 @@ class Matching(unittest.TestCase):
         self.assertTrue(any(" " in f for f in forms), forms)
 
 class Expansion(unittest.TestCase):
+    def test_community_aliases_inside_grouped_game_data_are_searchable(self):
+        _, hits = cjken.expand("蓝带接T3空辅")
+        terms = dict(hits)
+        self.assertIn("titanium-conveyor", terms["蓝带"])
+        self.assertIn("mega", terms["T3空辅"])
+
     def test_it_appends_and_never_rewrites(self):
         q = "差扰是什么"
         out, hit = cjken.expand(q)

@@ -93,9 +93,10 @@ def _from_glossary(table: dict[str, list[str]]) -> int:
             cells = [c.strip() for c in head.strip("|").split("|")]
             if (len(cells) >= 4 and left and not CJK.search(left)
                     and CJK.search(cells[2] + cells[3])):
-                for zh in (cells[2] + " / " + cells[3]).split("/"):
-                    for en in (cells[0], cells[1]):
-                        _add(table, zh, en)
+                for zh in re.split(r"/|,\s+", cells[2] + " / " + cells[3]):
+                    if CJK.search(zh):
+                        for en in (cells[0], cells[1]):
+                            _add(table, zh, en)
                 rows += 1
             continue
         if not inside_auto and CJK.search(left) and mid and not CJK.search(mid):
@@ -113,13 +114,15 @@ def _from_aliases(table: dict[str, list[str]]) -> int:
     except (ValueError, OSError):
         return 0
     rows = 0
-    for ident, names in data.items():
-        if not isinstance(names, list):
-            continue
-        for zh in names:
-            if CJK.search(zh or ""):
-                _add(table, zh, ident)
-                rows += 1
+    for key, value in data.items():
+        entries = value.items() if isinstance(value, dict) else ((key, value),)
+        for ident, names in entries:
+            if not isinstance(names, list):
+                continue
+            for zh in names:
+                if CJK.search(zh or ""):
+                    _add(table, zh, ident)
+                    rows += 1
     return rows
 
 
