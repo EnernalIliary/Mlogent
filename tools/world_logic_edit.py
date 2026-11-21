@@ -152,6 +152,35 @@ def batch_preview(world, request, *, data_dir):
     return result
 
 
+def batch_set(world, request, *, audit, data_dir):
+    processors = request.get("processors") if isinstance(request, dict) else None
+    if not isinstance(processors, list) or not 1 <= len(processors) <= 32:
+        raise ValueError("processors must contain 1 to 32 entries")
+    checked = []
+    for item in processors:
+        if not isinstance(item, dict) or not _coords(item):
+            raise ValueError("each processor needs integer x and y")
+        revision = item.get("expected_revision")
+        if not isinstance(revision, str) or _REVISION.fullmatch(revision) is None:
+            raise ValueError("each processor needs expected_revision from world_logic_code")
+        if "code" not in item and "link_changes" not in item:
+            raise ValueError("each processor must supply code or link_changes")
+        entry = {"x": item["x"], "y": item["y"], "expected_revision": revision}
+        if "code" in item:
+            if not isinstance(item["code"], str) or len(item["code"].encode("utf-8")) > 100 * 1024:
+                raise ValueError("batch set code must be UTF-8 Mlog of at most 100 KiB")
+            entry["code"] = item["code"]
+        if "link_changes" in item:
+            entry["link_changes"] = _validate_changes(item["link_changes"])
+        checked.append(entry)
+    result = _run(world, {"op": "batch_set", "processors": checked}, data_dir=data_dir)
+    audit("logic_batch_set", ok=result.get("ok"), processors=len(checked))
+    for processor in result.get("processors", []):
+        if isinstance(processor.get("code"), str):
+            _label_source(processor)
+    return result
+
+
 _READ_JS = r"""
 var world = Vars.world, Logic = Packages.mindustry.world.blocks.logic.LogicBlock;
 var Link = Packages.mindustry.world.blocks.logic.LogicBlock$LogicLink;
@@ -266,8 +295,8 @@ function releaseUnlinked(b, previous, current){
     });
 }
 function journalPath(id){ return "logic-revisions/" + id + ".json"; }
-function persist(snapshot){
-    var file = new java.io.FileOutputStream(journalPath(req.journal));
+function persist(snapshot, id){
+    var file = new java.io.FileOutputStream(journalPath(id || req.journal));
     try{
         file.write(bytes(JSON.stringify(snapshot)));
         file.getFD().sync();
@@ -348,12 +377,57 @@ function batchPreview(){
     req.processors.forEach(function(item){ var row=batchPlan(item); rows.push(row); if(!row.ok) all=false; });
     return {ok:all,processors:rows};
 }
+
+function batchSet(){
+    var plans=[], all=true;
+    req.processors.forEach(function(item){ var row=batchPlan(item); plans.push(row); if(!row.ok) all=false; });
+    if(!all) return {ok:false,preview:plans};
+    var applied=[];
+    try{
+        plans.forEach(function(plan, index){
+            var item=req.processors[index], b=worldBuild(plan.x,plan.y);
+            var before=stateFor(b,String(b.code||""),linksFor(b));
+            var code=plan.proposed.code, links=plan.proposed.links;
+            var config=configFor(b,code,links);
+            applyConfig(b,code,links,config);
+            var after=stateFor(b,String(b.code||""),linksFor(b));
+            if(after.revision !== plan.proposed.revision || !after.ok){
+                throw new Error("Processor readback differs at " + plan.x + "," + plan.y);
+            }
+            var snapshotId=String(java.util.UUID.randomUUID()).replace(/-/g,"");
+            persist({x:plan.x,y:plan.y,before:{code:before.code,links:before.links},
+                     before_revision:before.revision,after_revision:after.revision},snapshotId);
+            after.before_revision=before.revision;
+            after.snapshot_id=snapshotId;
+            after.compile=plan.compile;
+            after.broadcast=config.broadcast;
+            releaseUnlinked(b,before.links,links);
+            applied.push(after);
+        });
+        return {ok:true,processors:applied};
+    }catch(e){
+        var restored=true;
+        for(var i=applied.length-1;i>=0;i--){
+            try{
+                var row=applied[i], b=worldBuild(row.x,row.y), old=plans[i].proposed;
+                var before=JSON.parse(JSON.stringify(row));
+                var original=req.processors[i];
+                /* The pre-write state is stored in the snapshot file and is also in the plan's before row. */
+                var snapshotPath=journalPath(row.snapshot_id);
+                var saved=JSON.parse(String(java.nio.file.Files.readString(java.nio.file.Paths.get(snapshotPath))));
+                applyConfig(b,saved.before.code,saved.before.links,configFor(b,saved.before.code,saved.before.links));
+            }catch(ignored){ restored=false; }
+        }
+        return {ok:false,error:String(e.javaException || e),restored:restored,preview:plans};
+    }
+}
 """
 
 
 _CALL_JS = r"""
 function run(){
     if(req.op === "batch_preview") return batchPreview();
+    if(req.op === "batch_set") return batchSet();
     if(req.op === "logic_rollback"){
         var path = java.nio.file.Paths.get(journalPath(req.snapshot_id));
         if(!java.nio.file.Files.exists(path)) return {ok:false,error:"Snapshot not found"};

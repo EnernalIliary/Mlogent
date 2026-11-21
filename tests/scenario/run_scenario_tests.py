@@ -842,6 +842,18 @@ def test_live_logic_edit() -> None:
                and batch["processors"][0]["proposed"]["links"][0]["name"] == "switch1"
                and read()["revision"] == original["revision"],
                "batch preview validates source and links without writing")
+            applied = edit(game, {"op": "logic_batch_set", "processors": [{
+                "x": 10, "y": 10, "expected_revision": original["revision"],
+                "code": "setrate 60\nstop",
+                "link_changes": {"add": [{"x": 14, "y": 10}]},
+            }]}, audit=lambda *a, **kw: None, data_dir=paths.data)
+            if ok(applied["ok"] and applied["processors"][0]["snapshot_id"],
+                  "batch set writes the prevalidated processor and returns a snapshot"):
+                restored_batch = edit(game, {"op": "logic_rollback",
+                                              "snapshot_id": applied["processors"][0]["snapshot_id"]},
+                                      audit=lambda *a, **kw: None, data_dir=paths.data)
+                ok(restored_batch["ok"] and read()["revision"] == original["revision"],
+                   "batch set snapshot restores the processor before the next edit")
             initial = change(expected_revision=original["revision"], code="jump 1 always 0 0\nstop",
                              link_changes={"add": [{"x": 14, "y": 10}]})
             if not ok(initial["ok"], f"world daemon installs validated source and link: {initial.get('error', 'OK')}"):
