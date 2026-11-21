@@ -861,6 +861,11 @@ def test_live_logic_edit() -> None:
             ok(rolled_back["ok"] and rolled_back["source_sha256"] == initial["source_sha256"]
                and rolled_back["links_sha256"] == initial["links_sha256"],
                "rollback restores a revision that changed both source and links")
+            pending = change(expected_revision=initial["revision"], code="setrate 60\nstop")
+            intervening = change(expected_revision=pending["revision"], code="setrate 30\nstop")
+            stale_rollback = change("logic_rollback", snapshot_id=pending["snapshot_id"])
+            ok(stale_rollback["conflict"] and stale_rollback["revision"] == intervening["revision"],
+               "rollback refuses to overwrite a newer player edit")
 
             from world_probe import capture, validate
 

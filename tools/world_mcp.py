@@ -203,8 +203,8 @@ TOOLS = [
     },
     {
         "name": "world_logic",
-        "description": "列出逻辑处理器(可按半径)。每行 x/y/block/codeLen/vars(变量数)。配合 "
-                       "world_logic_code 读代码、world_logic_vars 读变量。",
+        "description": "列出逻辑处理器(可按半径)。每行 x/y/block/codeLen/vars(变量数)。单台详情由 "
+                       "world_logic_code 返回源码、revision、@ipt 和链接目标。",
         "inputSchema": {
             "type": "object",
             "properties": {
