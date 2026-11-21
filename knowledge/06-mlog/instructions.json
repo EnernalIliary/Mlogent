@@ -3153,7 +3153,7 @@
    "name": "getblock",
    "title": "getblock（获取方块）",
    "category": "world",
-   "format": "getblock <result> <x> <y> <layer>",
+   "format": "getblock <layer> <result> <x> <y>",
    "arity": 4,
    "params": [
     "layer",
@@ -3217,7 +3217,7 @@
    "name": "setblock",
    "title": "setblock（设置方块）",
    "category": "world",
-   "format": "setblock <x> <y> <block> <team> <rotation> <layer>",
+   "format": "setblock <layer> <block> <x> <y> <team> <rotation>",
    "arity": 6,
    "params": [
     "layer",
@@ -3502,7 +3502,7 @@
    "name": "status",
    "title": "status（应用/清除状态效果）",
    "category": "world",
-   "format": "status <apply|clear> <effect> <unit> <duration>",
+   "format": "status <true|false> <effect> <unit> <duration>",
    "arity": 4,
    "params": [
     "clear",
@@ -3564,7 +3564,7 @@
    "name": "weathersense",
    "title": "weathersense（检测天气）",
    "category": "world",
-   "format": "weathersense <weather> <result>",
+   "format": "weathersense <result> <weather>",
    "arity": 2,
    "params": [
     "result",
@@ -3661,7 +3661,7 @@
    "name": "spawnwave",
    "title": "spawnwave（生成波次）",
    "category": "world",
-   "format": "spawnwave <natural> <x> <y>",
+   "format": "spawnwave <x> <y> <natural>",
    "arity": 3,
    "params": [
     "x",
@@ -4306,7 +4306,7 @@
    "name": "playsound",
    "title": "playsound（播放音效）",
    "category": "world",
-   "format": "playsound <positional> <id> <volume> <pitch> <pan/x> <y> <limit>",
+   "format": "playsound <positional> <id> <volume> <pitch> <pan> <x> <y> <limit>",
    "arity": 8,
    "params": [
     "positional",
