@@ -1,6 +1,6 @@
 # 06-mlog index (file names starting with `_` ⇒ the check_kb.py gate does not scan them as articles)
 
-The mlog language layer: 10 articles + 2 machine-readable tables. Wording follows the v159.3 source (semantics) and the v160.7 jar / live game (numbers).
+The mlog language layer: 11 articles + 2 machine-readable tables. Wording follows the v159.3 source (semantics) and the v160.7 jar / live game (numbers).
 
 ## Articles
 
@@ -16,6 +16,7 @@ The mlog language layer: 10 articles + 2 machine-readable tables. Wording follow
 | M08-性能与限制.md | MLOG.PERF.001 | 116 | budget caps/latency/stutter/memory limits |
 | M09-Mindcode.md | MLOG.MIND.001 | 202 | the .mnd→mlog compile front end: cm/pm, three entry points, version arbitration, the three diagnostic columns, failure classes |
 | M10-Mindcode-Syntax.md | MLOG.MIND.002 | 176 | Mindcode syntax cheat sheet (measured): variables/branches/loops/function inlining/heap arrays/interpolation, each with its compiled output |
+| M11-世界指令实战样例.md | MLOG.WORLD.EXAMPLES.001 | 140 | real world-processor command examples mined from public schematics and local saves |
 
 ## instructions.json (73 instructions)
 
