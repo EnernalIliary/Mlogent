@@ -123,6 +123,8 @@ TOOLS = [
                 "name": {"type": "string"},
                 "author": {"type": "string", "minLength": 1,
                             "description": "author required when the input has no valid signature"},
+                "allow_unsigned": {"type": "boolean", "default": False,
+                                   "description": "allow writing when no safe signature slot exists"},
                 "links": {"type": "array", "items": {"type": "string"},
                           "description": "name@dx,dy, relative to the processor"},
                 "blocks": {"type": "array", "items": {"type": "string"},
@@ -178,6 +180,8 @@ TOOLS = [
                                     "description": "expected source_sha256 from a previous preview"},
                 "author": {"type": "string", "minLength": 1,
                             "description": "author required when the replacement has no valid signature"},
+                "allow_unsigned": {"type": "boolean", "default": False,
+                                   "description": "allow writing when no safe signature slot exists"},
             },
             "required": ["index", "mlog"],
             "oneOf": [{"required": ["blueprint_code"]}, {"required": ["path"]}],
@@ -699,15 +703,21 @@ def tool_gen(args):
     if source:
         logic = _workspace_input_path(source, (".mlog",)).read_text(encoding="utf-8-sig")
     existing = aigenerated._find(logic)
-    signed_author = existing[0].group(1) if existing and not aigenerated.verify_text(logic) else ""
+    if existing and aigenerated.verify_text(logic):
+        raise ValueError("input contains an invalid signature")
+    signed_author = existing[0].group(1) if existing else ""
     author = signed_author or supplied_author or _MCP_AUTHOR_CACHE
-    if not author:
+    allow_unsigned = bool(args.get("allow_unsigned", False))
+    if not author and not allow_unsigned:
         raise ValueError("author is required when mlog has no valid signature")
     if supplied_author:
         _MCP_AUTHOR_CACHE = supplied_author
     if args.get("name"):
         cmd += ["--name", args["name"]]
-    cmd += ["--author", author]
+    if author:
+        cmd += ["--author", author]
+    if allow_unsigned and not existing:
+        cmd += ["--no-sign"]
     for link in args.get("links") or []:
         cmd += ["--link", link]
     for b in args.get("blocks") or []:
@@ -719,7 +729,9 @@ def tool_gen(args):
     if p.returncode != 0:
         raise RuntimeError((p.stderr or p.stdout).strip()[:2000])
     code = (p.stdout or "").strip().splitlines()[-1].strip()
-    return {"blueprint_base64": code,
+    signed = bool(existing) or (bool(author) and not allow_unsigned)
+    return {"blueprint_base64": code, "signed": signed,
+            "warning": None if signed else "no signature requested",
             "binary": args.get("out"),
             "stderr": (p.stderr or "").strip()[:500]}
 
@@ -997,13 +1009,23 @@ def tool_inject(args):
     global _MCP_AUTHOR_CACHE
     supplied_author = str(args.get("author") or "").strip()
     existing = aigenerated._find(source)
-    signed_author = existing[0].group(1) if existing and not aigenerated.verify_text(source) else ""
+    if existing and aigenerated.verify_text(source):
+        raise ValueError("replacement contains an invalid signature")
+    signed_author = existing[0].group(1) if existing else ""
     author = signed_author or supplied_author or _MCP_AUTHOR_CACHE
-    if not author:
+    allow_unsigned = bool(args.get("allow_unsigned", False))
+    if not author and not allow_unsigned:
         raise ValueError("author is required when replacement has no valid signature")
     if supplied_author:
         _MCP_AUTHOR_CACHE = supplied_author
-    code, _, _, _ = sign_delivery(source.lstrip("\ufeff"), author)
+    signed = True
+    try:
+        code, _, _, _ = sign_delivery(source.lstrip("\ufeff"), author)
+    except aigenerated.SignError as exc:
+        if not allow_unsigned or "no safe signature slot" not in str(exc):
+            raise
+        code, _, _ = aigenerated.resolve_labels(source.lstrip("\ufeff"))
+        signed = False
     updated = target.replace(code, preview=preview)
     before = _inject_review_source(original).splitlines()
     after = _inject_review_source(code)
@@ -1011,6 +1033,9 @@ def tool_inject(args):
                                          fromfile="original.mlog", tofile="replacement.mlog",
                                          lineterm=""))
     response["replacement_sha256"] = hashlib.sha256(code.encode("utf-8")).hexdigest()
+    response["signed"] = signed
+    if not signed:
+        response["warning"] = "no safe signature slot; written unsigned"
     checks = _inject_checks(target, after)
     if updated is not None:
         info = {key: response[key] for key in ("processor", "source_sha256", "replacement_sha256")}
