@@ -236,6 +236,22 @@ TOOLS = [
         },
     },
     {
+        "name": "world_logic_batch_preview",
+        "description": "预览多台处理器的源码和链接联合修改。只做 revision、原版汇编器和链接校验，不写入游戏。",
+        "inputSchema": {
+            "type": "object", "required": ["processors"], "additionalProperties": False,
+            "properties": {"processors": {"type": "array", "minItems": 1, "maxItems": 32, "items": {
+                "type": "object", "required": ["x", "y", "expected_revision"], "additionalProperties": False,
+                "properties": {
+                    "x": {"type": "integer", "minimum": 0}, "y": {"type": "integer", "minimum": 0},
+                    "expected_revision": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+                    "code": {"type": "string", "maxLength": 102400},
+                    "link_changes": {"type": "object"},
+                },
+            }}},
+        },
+    },
+    {
         "name": "world_logic_snapshot",
         "description": "读取 world_logic_set 生成的持久快照，返回回滚前源码、带标签源码、链接和前后 revision。",
         "inputSchema": {
@@ -791,6 +807,10 @@ def tool_logic_graph(a):
     return _wc.call({"op": "logic_graph", **{key: int(value) for key, value in a.items()}})
 
 
+def tool_logic_batch_preview(a):
+    return _wc.call({"op": "logic_batch_preview", "processors": a["processors"]}, timeout=180)
+
+
 def tool_logic_snapshot(a):
     return _wc.call({"op": "logic_snapshot", "snapshot_id": a["snapshot_id"]})
 
@@ -988,6 +1008,7 @@ HANDLERS = {
     "world_logic": tool_logic,
     "world_logic_code": tool_logic_code,
     "world_logic_graph": tool_logic_graph,
+    "world_logic_batch_preview": tool_logic_batch_preview,
     "world_logic_snapshot": tool_logic_snapshot,
     "world_logic_set": tool_logic_set,
     "world_logic_rollback": tool_logic_rollback,

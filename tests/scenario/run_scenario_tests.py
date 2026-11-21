@@ -828,6 +828,20 @@ def test_live_logic_edit() -> None:
                 return edit(game, request, audit=lambda *a, **kw: None, data_dir=paths.data)
 
             original = read()
+            graph = query(game, {"op": "logic_graph", "limit": 8}, data_dir=paths.data)
+            ok(graph["ok"] and len(graph["processors"]) == 1
+               and graph["processors"][0]["source_sha256"] == original["source_sha256"]
+               and graph["processors"][0]["links_sha256"] == original["links_sha256"],
+               "logic graph exposes the live processor hashes")
+            batch = query(game, {"op": "logic_batch_preview", "processors": [{
+                "x": 10, "y": 10, "expected_revision": original["revision"],
+                "code": "setrate 60\nstop",
+                "link_changes": {"add": [{"x": 14, "y": 10}]},
+            }]}, data_dir=paths.data)
+            ok(batch["ok"] and batch["processors"][0]["compile"]["ok"]
+               and batch["processors"][0]["proposed"]["links"][0]["name"] == "switch1"
+               and read()["revision"] == original["revision"],
+               "batch preview validates source and links without writing")
             initial = change(expected_revision=original["revision"], code="jump 1 always 0 0\nstop",
                              link_changes={"add": [{"x": 14, "y": 10}]})
             if not ok(initial["ok"], f"world daemon installs validated source and link: {initial.get('error', 'OK')}"):

@@ -4,9 +4,9 @@ import base64
 import os
 import time
 from world_protocol import coerce, parse_tsv, units_table
-from world_logic_edit import read as read_logic, snapshot as read_snapshot
+from world_logic_edit import batch_preview, read as read_logic, snapshot as read_snapshot
 
-OPERATIONS = frozenset(('', 'ping', 'status', 'maps', 'players', 'units', 'unit', 'buildings', 'building', 'logic', 'logic_code', 'logic_graph', 'logic_snapshot', 'logic_vars'))
+OPERATIONS = frozenset(('', 'ping', 'status', 'maps', 'players', 'units', 'unit', 'buildings', 'building', 'logic', 'logic_code', 'logic_graph', 'logic_batch_preview', 'logic_snapshot', 'logic_vars'))
 
 STATUS_JS = r"""
 var put=function(k,v){ sb.append(k).append('=').append(v).append('\n'); };
@@ -333,6 +333,8 @@ def query(w, req, *, data_dir):
         if row is None:
             raise RuntimeError("game did not return a processor graph")
         return {"ok": True, **json.loads(base64.b64decode(row.split("\t", 1)[1], validate=True))}
+    if op == "logic_batch_preview":
+        return batch_preview(w, req, data_dir=data_dir)
     if op == "logic_snapshot":
         return read_snapshot(data_dir, req.get("snapshot_id"))
     if op == "logic_vars":

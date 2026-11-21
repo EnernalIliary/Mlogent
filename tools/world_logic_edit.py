@@ -52,7 +52,7 @@ def _run(world, request, *, data_dir=None):
     if len(lines) != 1:
         raise RuntimeError("game did not return a processor response")
     result = json.loads(base64.b64decode(lines[0], validate=True))
-    if result.get("ok"):
+    if result.get("ok") and "code" in result:
         _label_source(result)
     return result
 
@@ -121,6 +121,34 @@ def edit(world, request, *, audit, data_dir):
     audit(op, x=result.get("x", job.get("x")), y=result.get("y", job.get("y")),
           ok=result.get("ok"), snapshot_id=result.get("snapshot_id"),
           source_sha256=result.get("source_sha256"), links_sha256=result.get("links_sha256"))
+    return result
+
+
+def batch_preview(world, request, *, data_dir):
+    processors = request.get("processors") if isinstance(request, dict) else None
+    if not isinstance(processors, list) or not 1 <= len(processors) <= 32:
+        raise ValueError("processors must contain 1 to 32 entries")
+    checked = []
+    for item in processors:
+        if not isinstance(item, dict) or not _coords(item):
+            raise ValueError("each processor needs integer x and y")
+        revision = item.get("expected_revision")
+        if not isinstance(revision, str) or _REVISION.fullmatch(revision) is None:
+            raise ValueError("each processor needs expected_revision from world_logic_code")
+        if "code" not in item and "link_changes" not in item:
+            raise ValueError("each processor must supply code or link_changes")
+        entry = {"x": item["x"], "y": item["y"], "expected_revision": revision}
+        if "code" in item:
+            if not isinstance(item["code"], str) or len(item["code"].encode("utf-8")) > 100 * 1024:
+                raise ValueError("batch preview code must be UTF-8 Mlog of at most 100 KiB")
+            entry["code"] = item["code"]
+        if "link_changes" in item:
+            entry["link_changes"] = _validate_changes(item["link_changes"])
+        checked.append(entry)
+    result = _run(world, {"op": "batch_preview", "processors": checked}, data_dir=data_dir)
+    for processor in result.get("processors", []):
+        if isinstance(processor.get("proposed"), dict):
+            _label_source(processor["proposed"])
     return result
 
 
@@ -293,11 +321,39 @@ function edit(b, before){
         return {ok:false,error:String(e.javaException || e), restored:restored, snapshot_id:req.journal};
     }
 }
+
+function batchPlan(item){
+    var b=worldBuild(item.x,item.y);
+    if(b==null || !(b.block instanceof Logic)) return {ok:false,x:item.x,y:item.y,error:"No logic processor at the requested tile"};
+    var before=stateFor(b,String(b.code||""),linksFor(b));
+    if(before.revision !== item.expected_revision){
+        return {ok:false,x:item.x,y:item.y,conflict:true,revision:before.revision,
+                source_sha256:before.source_sha256,links_sha256:before.links_sha256};
+    }
+    try{
+        var code=typeof item.code === "string" ? item.code : before.code;
+        var links=applyChanges(b,before.links,item.link_changes);
+        var compile=compileMlog(code,b.block.privileged);
+        var config=compile.ok ? configFor(b,code,links) : null;
+        var proposed=stateFor(b,code,links);
+        return {ok:compile.ok,x:item.x,y:item.y,before_revision:before.revision,
+                proposed:proposed,compile:compile,broadcast:config==null?false:config.broadcast};
+    }catch(e){
+        return {ok:false,x:item.x,y:item.y,error:String(e.javaException || e)};
+    }
+}
+
+function batchPreview(){
+    var rows=[], all=true;
+    req.processors.forEach(function(item){ var row=batchPlan(item); rows.push(row); if(!row.ok) all=false; });
+    return {ok:all,processors:rows};
+}
 """
 
 
 _CALL_JS = r"""
 function run(){
+    if(req.op === "batch_preview") return batchPreview();
     if(req.op === "logic_rollback"){
         var path = java.nio.file.Paths.get(journalPath(req.snapshot_id));
         if(!java.nio.file.Files.exists(path)) return {ok:false,error:"Snapshot not found"};
