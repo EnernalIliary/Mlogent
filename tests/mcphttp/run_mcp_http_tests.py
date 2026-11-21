@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import base64
 from concurrent.futures import ThreadPoolExecutor
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -25,6 +26,7 @@ import time
 import unittest
 import urllib.error
 import urllib.request
+from urllib.parse import parse_qs, urlencode, urlsplit
 from unittest.mock import patch
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -36,6 +38,10 @@ if TOOLS not in sys.path:
 import mlog_mcp  # noqa: E402  (needs the path above; the count comes from here)
 import mlog_mcp_http  # noqa: E402
 import scene  # noqa: E402
+import mlog_acl  # noqa: E402
+import mlog_mcp_http_profiles  # noqa: E402
+import mlog_oauth  # noqa: E402
+import mlog_resource_policy  # noqa: E402
 
 
 
@@ -670,6 +676,147 @@ class Auth(unittest.TestCase):
                             capture_output=True, text=True, timeout=60)
         self.assertEqual(cp.returncode, 2)
         self.assertIn("refusing to bind", cp.stderr)
+
+
+class ProfileOAuth(unittest.TestCase):
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory(prefix="mlog-oauth-test-")
+        self.addCleanup(self.temp.cleanup)
+        self.store = Path(self.temp.name) / "oauth_state.json"
+        self.patches = [
+            patch.object(mlog_oauth, "STORE", str(self.store)),
+            patch.object(mlog_oauth, "ENABLED", True),
+            patch.object(mlog_oauth, "BASE", "https://mcp.example.test"),
+            patch.object(mlog_acl, "match_password",
+                         return_value={"name": "test-user", "profile": "reader"}),
+        ]
+        for item in self.patches:
+            item.start()
+            self.addCleanup(item.stop)
+
+    @staticmethod
+    def _body(fields):
+        return urlencode(fields).encode("utf-8")
+
+    def _register(self, redirect_uri="http://127.0.0.1:43123/callback"):
+        raw = json.dumps({"client_name": "test client", "redirect_uris": [redirect_uri]}).encode()
+        status, _, body, _ = mlog_oauth.route("POST", "/register", {}, {}, raw)
+        self.assertEqual(status, 201)
+        return json.loads(body)
+
+    def _authorize(self, client, redirect_uri):
+        verifier = "verifier-for-the-oauth-profile-test"
+        digest = base64.urlsafe_b64encode(
+            hashlib.sha256(verifier.encode("ascii")).digest()
+        ).decode("ascii").rstrip("=")
+        query = {
+            "client_id": client["client_id"],
+            "redirect_uri": redirect_uri,
+            "response_type": "code",
+            "code_challenge_method": "S256",
+            "code_challenge": digest,
+            "state": "test-state",
+        }
+        status, _, page, _ = mlog_oauth.route("GET", "/authorize", query, {}, b"")
+        self.assertEqual(status, 200)
+        self.assertIn(b"test client", page)
+        form = {
+            **query,
+            "password": "correct-password",
+        }
+        status, _, _, headers = mlog_oauth.route(
+            "POST", "/authorize", {}, {}, self._body(form))
+        self.assertEqual(status, 302)
+        location = urlsplit(headers["Location"])
+        code = parse_qs(location.query)["code"][0]
+        return code, verifier
+
+    def test_code_and_refresh_tokens_are_single_use_and_store_is_private(self):
+        redirect_uri = "http://127.0.0.1:43123/callback"
+        client = self._register(redirect_uri)
+        code, verifier = self._authorize(client, redirect_uri)
+        token_body = self._body({
+            "grant_type": "authorization_code",
+            "client_id": client["client_id"],
+            "redirect_uri": redirect_uri,
+            "code": code,
+            "code_verifier": verifier,
+        })
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            results = list(pool.map(
+                lambda _: mlog_oauth.route("POST", "/token", {}, {}, token_body), range(2)))
+        self.assertEqual(sorted(result[0] for result in results), [200, 400])
+        issued = json.loads(next(result[2] for result in results if result[0] == 200))
+        self.assertEqual(mlog_oauth.resolve(issued["access_token"])["profile"], "reader")
+        if os.name != "nt":
+            self.assertEqual(self.store.stat().st_mode & 0o777, 0o600)
+
+        refresh_body = self._body({
+            "grant_type": "refresh_token",
+            "client_id": client["client_id"],
+            "refresh_token": issued["refresh_token"],
+        })
+        refreshed = mlog_oauth.route("POST", "/token", {}, {}, refresh_body)
+        reused = mlog_oauth.route("POST", "/token", {}, {}, refresh_body)
+        self.assertEqual(refreshed[0], 200)
+        self.assertEqual(reused[0], 400)
+
+    def test_registration_rejects_untrusted_or_malformed_redirect_uris(self):
+        for uris in (
+            "https://client.example/callback",
+            ["http://attacker.example/callback"],
+            ["javascript:alert(1)"],
+            ["https://client.example/callback#fragment"],
+        ):
+            with self.subTest(uris=uris):
+                body = json.dumps({"redirect_uris": uris}).encode()
+                result = mlog_oauth.route("POST", "/register", {}, {}, body)
+                self.assertEqual(result[0], 400)
+
+    def test_unsupported_authorize_method_is_rejected(self):
+        self.assertEqual(mlog_oauth.route("PUT", "/authorize", {}, {}, b"")[0], 405)
+
+    def test_malformed_state_file_fails_closed(self):
+        self.store.write_text("[]", encoding="utf-8")
+        self.assertEqual(mlog_oauth._load(), mlog_oauth._empty())
+        self.assertIsNone(mlog_oauth.resolve("not-a-token"))
+
+
+class ProfilePolicy(unittest.TestCase):
+    def test_tools_list_is_filtered_by_profile(self):
+        profile_data = ({
+            "reader": {"label": "reader", "rpm": 30,
+                       "tools": ["mlog_check", "world_status"]},
+            "runner": {"label": "runner", "rpm": 120, "tools": ["*"]},
+        }, [], "runner")
+
+        def handle(payload, emit):
+            emit({"jsonrpc": "2.0", "id": payload.get("id"),
+                  "result": {"tools": [{"name": "mlog_check"}, {"name": "mlog_sim"}]}})
+
+        with patch.object(mlog_acl, "_table", return_value=profile_data):
+            with patch.object(mlog_mcp_http_profiles.M, "handle", side_effect=handle):
+                _, reply = mlog_mcp_http_profiles.dispatch(
+                    {"jsonrpc": "2.0", "id": 1, "method": "tools/list"}, profile="reader")
+        names = {tool["name"] for tool in reply["result"]["tools"]}
+        self.assertEqual(names, {"mlog_check", "world_status"})
+
+    def test_resource_policy_bounds_heavy_simulation(self):
+        self.assertIsNone(mlog_resource_policy.refusal("mlog_sim", {"ticks": 1800}))
+        self.assertIn("ticks", mlog_resource_policy.refusal("mlog_sim", {"ticks": 1801}))
+        self.assertIn("KiB", mlog_resource_policy.refusal("world_status", {
+            "query": "x" * (128 * 1024 + 1),
+        }))
+
+    def test_malformed_profile_file_falls_back_to_default_profiles(self):
+        with tempfile.TemporaryDirectory(prefix="mlog-acl-test-") as temp:
+            path = Path(temp) / "users.json"
+            path.write_text('{"profiles": [], "users": null, "static_profile": {}}', encoding="utf-8")
+            with patch.object(mlog_acl, "USERS_FILE", str(path)):
+                self.assertEqual(mlog_acl.rpm("reader"), 30)
+                self.assertEqual(mlog_acl.static_profile(), "reader")
+                self.assertTrue(mlog_acl.allows("runner", "world_js"))
+                self.assertFalse(mlog_acl.allows("reader", "world_js"))
 
 
 if __name__ == "__main__":

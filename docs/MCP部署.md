@@ -77,6 +77,41 @@ curl -s -H "Authorization: Bearer $TOKEN" http://127.0.0.1:8765/health
 只支持 stdio 的客户端如果就在本机，直接用 stdio 版（`python tools/mlog_mcp.py`）更省事：
 没端口、没令牌、没反代。
 
+## 多用户权限档
+
+默认的 `mlog_mcp_http.py` 使用单个 Bearer 令牌。需要给不同用户分配权限和限流时，
+可以改用 `mlog_mcp_http_profiles.py`，监听参数、静态令牌和 `/mcp` 协议保持相同：
+
+```bash
+python tools/mlog_mcp_http_profiles.py --bind 127.0.0.1 --port 8765 --token "$MLOG_MCP_TOKEN"
+```
+
+它会合并 `mlog_mcp` 与可用的 `world_mcp` 工具，再按 `MLOG_USERS_FILE` 指向的 JSON 配置
+过滤工具并限流。未设置该变量时读取 `/etc/mlogent/users.json`。配置包含 `profiles`、`users`
+和可选的 `static_profile`；用户项用 `password_sha256` 保存授权口令的 SHA-256 摘要：
+
+```json
+{
+  "static_profile": "runner",
+  "profiles": {
+    "reader": {"label": "只读", "rpm": 30, "tools": ["mlog_doctor", "mlog_check"]},
+    "runner": {"label": "全权", "rpm": 120, "tools": ["*"]}
+  },
+  "users": [
+    {"name": "guest", "profile": "reader", "password_sha256": "<sha256>"}
+  ]
+}
+```
+
+设置 `MLOG_OAUTH_PASSWORD` 后会启用 OAuth 2.1 授权码 + PKCE、动态客户端注册和刷新令牌。
+OAuth 登录口令通过 `users` 表匹配，环境变量中的 `MLOG_OAUTH_PASSWORD` 对应 `runner` 档。
+`MLOG_OAUTH_BASE` 指定发布的 issuer URL，`MLOG_OAUTH_STORE` 指定持久化状态文件；默认写入
+仓库 `out/oauth_state.json`，文件权限为 `0600`。备份和迁移时保留该文件与 `out/` 数据。
+
+`MLOG_USERS_FILE`、`MLOG_OAUTH_BASE`、`MLOG_OAUTH_STORE` 和 `MLOG_OAUTH_PASSWORD` 都应配置在
+服务环境文件中，不要写入仓库。`/health` 的 `tools` 数量只统计 `mlog_mcp` 工具，完整权限过滤
+结果以 MCP `tools/list` 为准。
+
 ## 运维
 
 - 健康检查：`GET /health` 是**廉价**的（不探 JVM、不跑 doctor），可以每 10 秒打一次；
@@ -92,8 +127,8 @@ curl -s -H "Authorization: Bearer $TOKEN" http://127.0.0.1:8765/health
 - 蓝图历史：`mlog_inject` 的版本记录默认写到 `out/_mlog_revisions/`，格式为 `mlog-revision/v1`。
   部署容器时将此目录放在持久卷，或用 `MLOG_REVISION_DIR` 指向服务用户可写的持久路径。
   记录包含原蓝图和检查结果，服务切换版本时应保留并备份这份数据。记录当前由运维按需清理。
-- 限额：反代上做（nginx `limit_req`）。服务本身不做租户隔离：一个令牌一个进程一个
-  `out/` 抓目录，多租户请一个容器一份。
+- 限额与隔离：反代可用 nginx `limit_req` 限制请求速率。profiles 入口按用户过滤工具并限流，
+  但所有档位仍共享一个进程和 `out/` 目录，不提供文件系统租户隔离；需要隔离时按租户部署独立实例。
 
 ## 与 stdio 版的差别
 
@@ -103,6 +138,6 @@ curl -s -H "Authorization: Bearer $TOKEN" http://127.0.0.1:8765/health
 | 鉴权 | 由启动它的进程决定 | Bearer token |
 | 并发 | 单流 | 多连接，模拟与其他 RPC 分开执行 |
 | 健康检查 | 无 | `GET /health` |
-| 代码 | 20 个工具 | 同一份 `handle()`，同一份工具表 |
+| 代码 | 当前 MCP 工具表 | 同一份 `handle()`，同一份工具表 |
 
 测试在 `tests/mcphttp/`（不需要 JVM），覆盖传输、鉴权、模拟输入检查、超时和并发。
