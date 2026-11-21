@@ -224,6 +224,18 @@ TOOLS = [
         },
     },
     {
+        "name": "world_logic_graph",
+        "description": "读取多台处理器的 revision、链接目标和处理器间依赖边，供批量编辑预览使用。",
+        "inputSchema": {
+            "type": "object", "additionalProperties": False,
+            "properties": {
+                "x": {"type": "integer", "minimum": 0}, "y": {"type": "integer", "minimum": 0},
+                "radius": {"type": "integer", "minimum": 0, "maximum": 32767},
+                "limit": {"type": "integer", "minimum": 1, "maximum": 1024},
+            },
+        },
+    },
+    {
         "name": "world_logic_snapshot",
         "description": "读取 world_logic_set 生成的持久快照，返回回滚前源码、带标签源码、链接和前后 revision。",
         "inputSchema": {
@@ -775,6 +787,10 @@ def tool_logic_code(a):
     return _wc.call({"op": "logic_code", "x": int(a["x"]), "y": int(a["y"])})
 
 
+def tool_logic_graph(a):
+    return _wc.call({"op": "logic_graph", **{key: int(value) for key, value in a.items()}})
+
+
 def tool_logic_snapshot(a):
     return _wc.call({"op": "logic_snapshot", "snapshot_id": a["snapshot_id"]})
 
@@ -971,6 +987,7 @@ HANDLERS = {
     "world_clear": tool_clear,
     "world_logic": tool_logic,
     "world_logic_code": tool_logic_code,
+    "world_logic_graph": tool_logic_graph,
     "world_logic_snapshot": tool_logic_snapshot,
     "world_logic_set": tool_logic_set,
     "world_logic_rollback": tool_logic_rollback,

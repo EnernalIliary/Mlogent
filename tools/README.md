@@ -92,6 +92,10 @@ v160.7 上连续 420 tick 的电网输入、输出、储量、电池电量及三
 内的单位数量，以及单个地块、旗标和规则。单位区域可选 `team` 与 `type`，越界或未知筛选会返回
 不可通过的检查结果。
 
+多台处理器可以先调用 `world_logic_graph`。结果包含每台处理器的源码和链接哈希、revision、
+链接名、目标坐标、目标方块和处理器间目标列表。它适合在批量编辑前建立依赖预览，
+`world_logic_set` 仍按单台处理器的 revision 提交。
+
 独立 Mlog 可用 `processor: "auto" | "micro" | "world"` 选择处理器。默认会识别
 `getflag`、`setflag`、`spawnwave` 等世处指令。也可上传含 `code_inline` 的 `scene_json`，
 让场景内的处理器驱动地图变化。纯地图测试可设 `power: "full"` 跳过电网自动接线。

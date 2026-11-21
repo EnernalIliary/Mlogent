@@ -1,11 +1,12 @@
 """Read-only world queries with explicit process and data-directory inputs."""
 import json
+import base64
 import os
 import time
 from world_protocol import coerce, parse_tsv, units_table
 from world_logic_edit import read as read_logic, snapshot as read_snapshot
 
-OPERATIONS = frozenset(('', 'ping', 'status', 'maps', 'players', 'units', 'unit', 'buildings', 'building', 'logic', 'logic_code', 'logic_snapshot', 'logic_vars'))
+OPERATIONS = frozenset(('', 'ping', 'status', 'maps', 'players', 'units', 'unit', 'buildings', 'building', 'logic', 'logic_code', 'logic_graph', 'logic_snapshot', 'logic_vars'))
 
 STATUS_JS = r"""
 var put=function(k,v){ sb.append(k).append('=').append(v).append('\n'); };
@@ -191,6 +192,38 @@ else {
 """
 
 
+LOGIC_GRAPH_JS = r"""
+var world=Vars.world, result=[], seen=Object.create(null);
+var cx=%(cx)d, cy=%(cy)d, radius=%(radius)d, limit=%(limit)d;
+function digest(text){
+  var bytes=new java.lang.String(String(text)).getBytes(java.nio.charset.StandardCharsets.UTF_8);
+  var hash=java.security.MessageDigest.getInstance("SHA-256").digest(bytes);
+  return String(java.util.HexFormat.of().formatHex(hash));
+}
+function targetOf(link){
+  var t=world.build(link.x,link.y);
+  return t==null ? null : {x:t.tileX(),y:t.tileY(),block:String(t.block.name),team:String(t.team.name),
+    processor:t.getClass().getName().indexOf('LogicBlock$')>=0};
+}
+for(var y=0;y<world.height();y++) for(var x=0;x<world.width();x++){
+  var b=world.build(x,y);
+  if(b==null || !b.isValid() || b.getClass().getName().indexOf('LogicBlock$')<0) continue;
+  var bx=b.tileX(), by=b.tileY(), key=bx+','+by;
+  if(seen[key] || (radius>0 && (bx-cx)*(bx-cx)+(by-cy)*(by-cy)>radius*radius)) continue;
+  seen[key]=true;
+  var code=String(b.code||''), links=[], targets=[];
+  for(var i=0;i<b.links.size;i++){ var l=b.links.get(i), target=targetOf(l); links.push({name:String(l.name),x:l.x,y:l.y,valid:l.valid,target:target}); if(target!=null && target.processor) targets.push(target.x+','+target.y); }
+  var linksHash=digest(JSON.stringify(links)), sourceHash=digest(code);
+  result.push({x:bx,y:by,block:String(b.block.name),codeLen:code.length,ipt:b.ipt,
+    source_sha256:sourceHash,links_sha256:linksHash,
+    revision:digest(bx+','+by+':'+sourceHash+':'+linksHash),links:links,processor_targets:targets});
+  if(result.length>=limit) break;
+}
+var payload=java.util.Base64.getEncoder().encodeToString(new java.lang.String(JSON.stringify({processors:result,total:result.length>=limit?result.length+1:result.length})).getBytes("UTF-8"));
+sb.append('LOGIC_GRAPH\t').append(payload);
+"""
+
+
 def query(w, req, *, data_dir):
     op = (req.get("op") or "").strip()
     if op in ("ping", ""):
@@ -287,6 +320,19 @@ def query(w, req, *, data_dir):
         return {"ok": True, **parse_tsv(w.js(body), ["x", "y", "block", "codeLen", "vars"])}
     if op == "logic_code":
         return read_logic(w, req)
+    if op == "logic_graph":
+        limit = int(req.get("limit") or 256)
+        radius = int(req.get("radius") or 0)
+        cx, cy = int(req.get("x") or 0), int(req.get("y") or 0)
+        if not 1 <= limit <= 1024 or not 0 <= radius <= 32767:
+            raise ValueError("logic_graph limit must be 1..1024 and radius 0..32767")
+        if not 0 <= cx <= 32767 or not 0 <= cy <= 32767:
+            raise ValueError("logic_graph x and y must be in 0..32767")
+        rows = w.js(LOGIC_GRAPH_JS % {"cx": cx, "cy": cy, "radius": radius, "limit": limit})
+        row = next((line for line in rows if line.startswith("LOGIC_GRAPH\t")), None)
+        if row is None:
+            raise RuntimeError("game did not return a processor graph")
+        return {"ok": True, **json.loads(base64.b64decode(row.split("\t", 1)[1], validate=True))}
     if op == "logic_snapshot":
         return read_snapshot(data_dir, req.get("snapshot_id"))
     if op == "logic_vars":
