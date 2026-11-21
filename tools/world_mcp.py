@@ -224,6 +224,14 @@ TOOLS = [
         },
     },
     {
+        "name": "world_logic_snapshot",
+        "description": "读取 world_logic_set 生成的持久快照，返回回滚前源码、带标签源码、链接和前后 revision。",
+        "inputSchema": {
+            "type": "object", "required": ["snapshot_id"], "additionalProperties": False,
+            "properties": {"snapshot_id": {"type": "string", "pattern": "^[0-9a-f]{32}$"}},
+        },
+    },
+    {
         "name": "world_logic_set",
         "description": "按 world_logic_code 返回的 revision 写入源码或修改单台处理器的链接。"
                        "用在线原版汇编器验证，写后回读并返回可回滚的 snapshot_id。",
@@ -767,6 +775,10 @@ def tool_logic_code(a):
     return _wc.call({"op": "logic_code", "x": int(a["x"]), "y": int(a["y"])})
 
 
+def tool_logic_snapshot(a):
+    return _wc.call({"op": "logic_snapshot", "snapshot_id": a["snapshot_id"]})
+
+
 def tool_logic_set(a):
     return _wc.call({**a, "op": "logic_set"}, timeout=180)
 
@@ -959,6 +971,7 @@ HANDLERS = {
     "world_clear": tool_clear,
     "world_logic": tool_logic,
     "world_logic_code": tool_logic_code,
+    "world_logic_snapshot": tool_logic_snapshot,
     "world_logic_set": tool_logic_set,
     "world_logic_rollback": tool_logic_rollback,
     "world_logic_vars": tool_logic_vars,

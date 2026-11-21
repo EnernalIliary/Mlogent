@@ -8,6 +8,7 @@ import unittest
 from unittest.mock import Mock
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / 'tools'))
 from world_queries import query
+from world_logic_edit import snapshot
 
 class QueryTests(unittest.TestCase):
     def world(self, lines):
@@ -58,6 +59,23 @@ class QueryTests(unittest.TestCase):
         result=query(self.world(['count\t2.0','name\tmono']), {'op':'logic_vars','x':1,'y':2}, data_dir='x')
         self.assertEqual(result['count'], 2)
         self.assertEqual(result['vars'], [{'name':'count','value':2}, {'name':'name','value':'mono'}])
+
+    def test_logic_snapshot_returns_labelled_before_state(self):
+        import json
+        import tempfile
+        with tempfile.TemporaryDirectory() as root:
+            path = Path(root) / 'logic-revisions'
+            path.mkdir()
+            (path / ('a' * 32 + '.json')).write_text(json.dumps({
+                'x': 1, 'y': 2, 'before_revision': 'b' * 64,
+                'after_revision': 'c' * 64,
+                'before': {'code': 'jump 1 always 0 0\nstop\n', 'links': []},
+            }), encoding='utf-8')
+            result = snapshot(root, 'a' * 32)
+            self.assertTrue(result['ok'])
+            self.assertEqual(result['before_revision'], 'b' * 64)
+            self.assertIn('L1:', result['before']['labelled_code'])
+            self.assertEqual(snapshot(root, 'd' * 32), {'ok': False, 'error': 'Snapshot not found'})
 
 if __name__ == '__main__':
     unittest.main()

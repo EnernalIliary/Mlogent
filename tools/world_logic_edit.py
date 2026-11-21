@@ -76,6 +76,23 @@ def read(world, request):
     return _run(world, {"op": "read", "x": request["x"], "y": request["y"]})
 
 
+def snapshot(data_dir, snapshot_id):
+    if not isinstance(snapshot_id, str) or _SNAPSHOT.fullmatch(snapshot_id) is None:
+        raise ValueError("invalid snapshot_id")
+    path = Path(data_dir) / "logic-revisions" / (snapshot_id + ".json")
+    if not path.is_file():
+        return {"ok": False, "error": "Snapshot not found"}
+    record = json.loads(path.read_text(encoding="utf-8"))
+    before = dict(record.get("before") or {})
+    if not isinstance(before.get("code"), str) or not isinstance(before.get("links"), list):
+        raise ValueError("snapshot is malformed")
+    view = {"snapshot_id": snapshot_id, "x": record.get("x"), "y": record.get("y"),
+            "before_revision": record.get("before_revision"),
+            "after_revision": record.get("after_revision"), "before": before}
+    _label_source(view["before"])
+    return {"ok": True, **view}
+
+
 def edit(world, request, *, audit, data_dir):
     op = request["op"]
     job = {"op": op, "journal": uuid.uuid4().hex}

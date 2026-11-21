@@ -3,9 +3,9 @@ import json
 import os
 import time
 from world_protocol import coerce, parse_tsv, units_table
-from world_logic_edit import read as read_logic
+from world_logic_edit import read as read_logic, snapshot as read_snapshot
 
-OPERATIONS = frozenset(('', 'ping', 'status', 'maps', 'players', 'units', 'unit', 'buildings', 'building', 'logic', 'logic_code', 'logic_vars'))
+OPERATIONS = frozenset(('', 'ping', 'status', 'maps', 'players', 'units', 'unit', 'buildings', 'building', 'logic', 'logic_code', 'logic_snapshot', 'logic_vars'))
 
 STATUS_JS = r"""
 var put=function(k,v){ sb.append(k).append('=').append(v).append('\n'); };
@@ -287,6 +287,8 @@ def query(w, req, *, data_dir):
         return {"ok": True, **parse_tsv(w.js(body), ["x", "y", "block", "codeLen", "vars"])}
     if op == "logic_code":
         return read_logic(w, req)
+    if op == "logic_snapshot":
+        return read_snapshot(data_dir, req.get("snapshot_id"))
     if op == "logic_vars":
         x, y = int(req.get("x")), int(req.get("y"))
         rows = []
