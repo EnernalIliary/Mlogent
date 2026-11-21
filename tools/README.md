@@ -20,6 +20,7 @@
 | 生成只含处理器的蓝图 | `python tools/mlog.py gen --name 名字 --code x.mlog` |
 | 模拟运行 | `python tools/mlogsim.py x.mlog --ticks 120 --trace t.csv` |
 | 在存档里验证电网 | `python tools/mlogsim.py x.mlog --save grid.msav --ticks 420 --power grid --json` |
+| 将静态 SVG 转成世处 marker | `python tools/marker_svg.py icon.svg --out icon.mlog` |
 | 调试着陆台（真 4×4 接收台，带水/卸货） | `python tools/mlogsim.py x.mlog --ticks 1200 --pads 9 --pad-drain 2 --units flare:1 --core-items copper:400` |
 | 把仿真画进真世界（状态镜） | `python tools/mlogsim.py x.mlog --units poly:8 --ticks 240 --push out/_world/mirror.json --push-every 15`，服务端用 `--mirror-feed out/_world/mirror.json` 启动 |
 | 超大场景（几千台）跑模拟 | `python tools/mlogsim.py 图.msch --ticks 110 --js-timeout 3600`（默认预算 180 s，几万台会把一条 js 命令跑到几分钟） |
@@ -36,7 +37,7 @@
 | 本地知识库（向量+可选重排） | `python tools/kb.py search "read @this 怎么写" -k 6` |
 | MCP 服务（模型直接调用工具） | `python tools/mlog_mcp.py`（stdio，见下节） |
 | 自检工具链 | `python tools/mlog.py selftest`（`--jobs N` 分片）；`python tests/run_tests.py` |
-| 调试世界契约 | `python tests/world/run_world_tests.py`（feed 读取 / 文本通道 / 43 个 MCP 工具的 schema 与协议，不需要 JVM） |
+| 调试世界契约 | `python tests/world/run_world_tests.py`（feed 读取、文本通道和 MCP 工具协议，无需 JVM） |
 
 `mlog.py --help` 是子命令总表；`tools/mlogsim.py --help` 是模拟器参数（世界、单位、战斗 tick、trace/assert）。
 
@@ -56,6 +57,85 @@ v160.7 上连续 420 tick 的电网输入、输出、储量、电池电量及三
 测试中下游在第 90 tick 断电，第 120 tick 停发后电池继续供电，
 第 284 tick 耗尽，第 285 tick 负载效率归零。该对照覆盖固定步长和这份存档的电网，
 实时负载波动和更复杂的电网拓扑仍需单独验证。
+
+### 世处地图状态检查
+
+`mlog_sim` 可以在同一次模拟中执行世处脚本，并读取指定地格、任务旗标和地图规则：
+
+```json
+{
+  "logic": "setblock block @copper-wall 14 15 @sharded 0\nsetflag \"gate-open\" true\nsetrule waveSpacing 5 0 0 0 0\nstop",
+  "processor": "world",
+  "ticks": 15,
+  "world_probe": {
+    "tiles": [{"x": 14, "y": 15}],
+    "flags": ["gate-open"],
+    "rules": ["waveSpacing"]
+  }
+}
+```
+
+示例应返回 `copper-wall`、`gate-open: true` 以及 `waveSpacing: 300`。规则读数沿用游戏内部单位，
+波次间隔以 tick 返回。`world_probe` 还包含地图宽高，以及所选地格的地板、覆盖层和建筑状态。
+空地的 `building` 为 `null`，越界地格返回 `in_bounds: false`。三组查询任选，每组最多 32 项，
+省略 `ticks` 时读取第 60 tick 的结束状态。可查规则在工具参数中列出。
+
+独立 Mlog 可用 `processor: "auto" | "micro" | "world"` 选择处理器。默认会识别
+`getflag`、`setflag`、`spawnwave` 等世处指令。也可上传含 `code_inline` 的 `scene_json`，
+让场景内的处理器驱动地图变化。纯地图测试可设 `power: "full"` 跳过电网自动接线。
+
+### 世处 marker 单帧预览
+
+在 MCP 中调用 `mlog_sim`：
+
+```json
+{
+  "logic": "makemarker text 1 12 9 false\nprint \"Gate ready\"\nsetmarker flushText 1 false 0 0\nstop",
+  "ticks": 60,
+  "marker_preview": true
+}
+```
+
+预览在指定 tick 结束时读取原版执行器里的 marker。独立 mlog 使用世处运行，省略
+`ticks` 时跑 60 tick。`scene_json` 也可开启预览，场景里的处理器按原有类型运行。
+只上传 marker 场景时可设 `power: "full"`，跳过外部电源的自动接线。
+MCP 返回两个内容块，JSON 文本中的 `marker_preview` 提供 ID、坐标、样式和可见性，
+随后是独立的 `image/png`。本地也可运行：
+
+```powershell
+python tools/mlogsim.py program.mlog --ticks 60 --marker-preview markers.png --json
+```
+
+坐标以格为单位，原点是左下角格子的中心，Y 向上。PNG 用格网显示全图范围，最长边
+为 768 像素。图中可见的文字、线段、形状、带字形状、点和白底四边形以简化样式绘制。
+四边形按顶点顺序填充并使用首个顶点的颜色，JSON 保留各顶点的颜色和 UV。
+纹理和光照的状态保留在 JSON 中，图中的标签使用系统字体。仅小地图可见的 marker
+也保留在 JSON 中。已移除的 marker 不会出现。帧最多保留按 ID 排序的 256 个 marker，
+`total` 和 `truncated` 可用于判断是否截断。
+
+### 静态 SVG 转世处 marker
+
+MCP 工具 `marker_from_svg` 接收 SVG 文本与可选的坐标参数：
+
+```json
+{
+  "svg": "<svg viewBox=\"0 0 24 16\"><polygon points=\"2,14 12,2 22,14\" fill=\"#38bdf8\"/></svg>",
+  "width": 24,
+  "x": 2,
+  "y": 2,
+  "start_id": 1000
+}
+```
+
+视口按比例缩放到 `width` 格，左下角放在 `(x, y)`。代码使用从 `start_id` 开始的一段连续
+ID，运行时会替换同 ID 的 marker。在现有地图中运行前，请为每张图预留独立的 ID 区间。
+将返回的 `mlog` 作为 `mlog_sim` 的 `logic`，并传入 `ticks: preview_ticks`
+和 `marker_preview: true`，即可得到单帧预览。
+
+支持 `line`、`polyline`、`polygon`、`rect`、`circle`、`ellipse` 和 `g`，支持十六进制纯色填充、
+描边、填充与描边透明度。凹多边形会拆成三角形，圆和椭圆用 24 段近似，描边按线段绘制。
+视口用于定位和缩放，边缘裁剪由实际地图范围决定。`path`、变换、文字、渐变和 CSS
+选择器会报错。输入上限为 64 KiB，单次最多生成 128 个 marker。
 
 ### 着陆台（`--pads N`）
 

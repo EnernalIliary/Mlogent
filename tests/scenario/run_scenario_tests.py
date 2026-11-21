@@ -26,10 +26,12 @@ simulation tests were skipped, everything else still ran).
 """
 from __future__ import annotations
 
+import base64
 import copy
 import json
 import math
 import os
+import struct
 import subprocess
 import sys
 import tempfile
@@ -749,6 +751,172 @@ def test_uploaded_power_scene() -> None:
        "uploaded scene adds a native power connection to just the selected grid")
 
 
+def test_mcp_world_probe() -> None:
+    import mlog_mcp_http
+
+    def simulate(**args):
+        status, reply = mlog_mcp_http.dispatch({
+            "jsonrpc": "2.0", "id": 1, "method": "tools/call",
+            "params": {"name": "mlog_sim", "arguments": args},
+        })
+        result = reply["result"]
+        payload = result["content"][0]["text"]
+        if not ok(status == 200 and not result["isError"],
+                  f"MCP reads the simulated world: {payload if result['isError'] else 'OK'}"):
+            return None
+        return json.loads(payload)
+
+    flag_logic = 'setflag "gate-open" true\nstop'
+    flag_query = {"flags": ["gate-open", "unseen"]}
+    for processor, expected in (("auto", True), ("micro", False)):
+        data = simulate(logic=flag_logic, processor=processor, world_probe=flag_query)
+        if data:
+            probe = data["world_probe"]
+            ok(data["processor"] == ("world" if expected else "micro") and probe["ticks"] == 60
+               and probe["flags"] == [{"name": "gate-open", "value": expected},
+                                       {"name": "unseen", "value": False}],
+               f"{processor} processor mode returns the expected flag state")
+
+    scene = {"world": {"size": 32}, "buildings": [{
+        "name": "gate", "block": "world-processor", "x": 10, "y": 10,
+        "code_inline": ('setblock block @copper-wall 14 15 @sharded 0\n'
+                        'setrule waveSpacing 5 0 0 0 0\nstop'),
+    }]}
+    data = simulate(scene_json=scene, power="full", ticks=5, world_probe={
+        "tiles": [{"x": 14, "y": 15}, {"x": 31, "y": 31}, {"x": 32, "y": 0}],
+        "rules": ["waveSpacing"],
+    })
+    if data:
+        probe = data["world_probe"]
+        wall, empty, outside = probe["tiles"]
+        ok(probe["width"] == probe["height"] == 32 and probe["ticks"] == 5
+           and wall["block"] == "copper-wall" and wall["building"]["team"] == "sharded"
+           and wall["building"]["health"] == wall["building"]["max_health"]
+           and empty["in_bounds"] and empty["building"] is None and not outside["in_bounds"]
+           and probe["rules"] == [{"name": "waveSpacing", "value": 300}],
+           "uploaded scene probe reports native tile, building and rule state")
+
+
+def test_mcp_marker_preview() -> None:
+    import mlog_mcp_http
+
+    logic = """makemarker text 101 12 9 false
+print "Gate ready"
+setmarker flushText 101 false 0 0
+makemarker shape 102 20 10 false
+setmarker shape 102 5 true false
+makemarker line 103 17 12 false
+setmarker endPos 103 27 18 0
+makemarker quad 104 0 0 false
+setmarker posi 104 0 5 5
+setmarker posi 104 1 5 9
+setmarker posi 104 2 9 9
+setmarker posi 104 3 9 5
+makemarker point 105 24 12 false
+setmarker minimap 105 true 0 0
+setmarker world 105 false 0 0
+makemarker text 106 1 1 false
+setmarker remove 106 0 0 0
+makemarker shapeText 107 36 20 false
+makemarker texture 108 38 20 false
+wait 0.2
+setmarker pos 101 30 9 0
+stop
+"""
+
+    def call(**options):
+        arguments = {"marker_preview": True, **options}
+        if "scene_json" not in options:
+            arguments["logic"] = logic
+        return mlog_mcp_http.dispatch({
+            "jsonrpc": "2.0", "id": 1, "method": "tools/call",
+            "params": {"name": "mlog_sim", "arguments": arguments},
+        })[1]["result"]
+
+    first, last = call(ticks=4), call()
+    errors = [r["content"][0]["text"] for r in (first, last) if r["isError"]]
+    if not ok(not first["isError"] and not last["isError"],
+              f"MCP returns marker frames: {', '.join(errors) or 'OK'}"):
+        return
+    early = json.loads(first["content"][0]["text"])["marker_preview"]
+    data = json.loads(last["content"][0]["text"])
+    frame = data["marker_preview"]
+    markers = {marker["id"]: marker for marker in frame["markers"]}
+    ok(early["tick"] == 4 and early["markers"][0]["pos"] == [12, 9]
+       and frame["tick"] == 60 and data["processor"] == "world"
+       and markers[101]["pos"] == [30, 9] and markers[101]["text"] == "Gate ready",
+       "marker snapshot follows the requested tick, defaulting to 60")
+    ok(frame["total"] == 7 and 106 not in markers
+       and markers[102]["sides"] == 5 and markers[102]["fill"]
+       and markers[103]["end"] == [27, 18] and markers[104]["vertices"][2]["pos"] == [9, 9]
+       and markers[105]["preview"] == "hidden" and markers[105]["minimap"]
+       and markers[107]["preview"] == "drawn" and markers[108]["preview"] == "unsupported",
+       "marker state keeps geometry and minimap-only markers, omits removed markers")
+    text_block, image = last["content"]
+    png = base64.b64decode(image["data"], validate=True)
+    ok(text_block["type"] == "text" and "data" not in frame
+       and image["type"] == "image" and image["mimeType"] == "image/png"
+       and png.startswith(b"\x89PNG\r\n\x1a\n")
+       and struct.unpack(">II", png[16:24]) == (frame["image"]["width"], frame["image"]["height"]),
+       "MCP supplies a separate PNG content block with the advertised dimensions")
+    ok(call(steps=60)["isError"], "marker preview rejects instruction-step mode")
+    scene = {"world": {"size": 32}, "buildings": [{
+        "name": "markerproc", "block": "world-processor", "x": 10, "y": 10,
+        "code_inline": "makemarker point 987 14 14 false\nstop",
+    }]}
+    uploaded = call(scene_json=scene, power="full", ticks=3)
+    payload = uploaded["content"][0]["text"]
+    if ok(not uploaded["isError"], f"MCP previews an uploaded scene: {payload if uploaded['isError'] else 'OK'}"):
+        scene_frame = json.loads(payload)["marker_preview"]
+        ok(scene_frame["bounds"]["max_x"] == 31.5 and scene_frame["total"] == 1
+           and scene_frame["markers"][0]["id"] == 987,
+           "uploaded scene supplies its own world dimensions and processor markers")
+
+
+def test_marker_from_svg_roundtrip() -> None:
+    import mlog_mcp_http
+
+    def call(name, args):
+        return mlog_mcp_http.dispatch({
+            "jsonrpc": "2.0", "id": 1, "method": "tools/call",
+            "params": {"name": name, "arguments": args},
+        })[1]["result"]
+
+    svg = """<svg xmlns="http://www.w3.org/2000/svg" viewBox="10 20 100 50">
+      <g fill="#4af">
+        <rect x="10" y="20" width="20" height="20"/>
+        <line x1="10" y1="70" x2="110" y2="20" style="stroke: #ff660080; stroke-width: 2"/>
+        <polygon points="50,30 90,30 90,55 70,40 50,55" fill="#10ef80"/>
+      </g>
+    </svg>"""
+    response = call("marker_from_svg", {"svg": svg, "x": 3, "y": 5, "width": 20, "start_id": 8000})
+    payload = response["content"][0]["text"]
+    if not ok(not response["isError"], f"MCP compiles SVG to Mlog: {payload if response['isError'] else 'OK'}"):
+        return
+    compiled = json.loads(payload)
+    response = call("mlog_sim", {
+        "logic": compiled["mlog"], "ticks": compiled["preview_ticks"], "marker_preview": True,
+    })
+    payload = response["content"][0]["text"]
+    if not ok(not response["isError"], f"generated Mlog runs in the original executor: {payload if response['isError'] else 'OK'}"):
+        return
+    frame = json.loads(payload)["marker_preview"]
+    markers = frame["markers"]
+    ok(compiled["marker_count"] == frame["total"] == 5
+       and [m["id"] for m in markers] == list(range(8000, 8005))
+       and [m["draw_layer"] for m in markers] == sorted({m["draw_layer"] for m in markers}),
+       "SVG paint order and reserved marker IDs survive the round trip")
+    rect, line, *concave = markers
+    ok({tuple(v["pos"]) for v in rect["vertices"]} == {(3, 11), (3, 15), (7, 11), (7, 15)}
+       and all(v["color"] == "#44aaffff" for v in rect["vertices"])
+       and line["pos"] == [3, 5] and line["end"] == [23, 15]
+       and line["colors"] == ["#ff660080"] * 2 and math.isclose(line["stroke"], 0.4, abs_tol=1e-6),
+       "SVG viewBox, group paint, stroke alpha and Y-axis flip survive the round trip")
+    ok(all(m["type"] == "quad" and len({tuple(v["pos"]) for v in m["vertices"]}) == 3
+           for m in concave) and response["content"][1]["mimeType"] == "image/png",
+       "concave SVG fill reaches the PNG preview as three triangles")
+
+
 def main(argv: list[str] | None = None) -> int:
     args = list(sys.argv[1:] if argv is None else argv)
     fast = "--fast" in args
@@ -773,6 +941,9 @@ def main(argv: list[str] | None = None) -> int:
         test_grid_power_from_save()
         test_mcp_power_profile()
         test_uploaded_power_scene()
+        test_mcp_world_probe()
+        test_mcp_marker_preview()
+        test_marker_from_svg_roundtrip()
     else:
         skip("simulation tests (%s)" % ("--fast" if fast else "no JVM/jar"))
 

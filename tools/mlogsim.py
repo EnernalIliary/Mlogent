@@ -163,7 +163,7 @@ TOOLS = os.path.join(ROOT, "mindustry-blueprint", "tools")
 # an empty instruction list, which reads like a version gap until you look.
 PRIVILEGED_RE = re.compile(
     r"^\s*(weathersense|weatherset|setrule|message|cutscene|effect|fetch|sync|"
-    r"getblock|setblock|spawn|status|clientdata|localeprint)\b", re.M)
+    r"getblock|setblock|getflag|setflag|spawnwave|spawn|status|clientdata|localeprint)\b", re.M)
 STEAM_JAVA = r"E:\Program Files (x86)\Steam\steamapps\common\Mindustry\jre\bin\java.exe"
 V160_JAR = os.path.join(ROOT, "out", "_server160.jar")
 V159_JAR = os.path.join(ROOT, "out", "_server159.jar")
@@ -378,7 +378,7 @@ def validate_power_profile(value, ticks: int) -> list[dict]:
 class Server:
     def __init__(self, java: str, jar: str, world_size: int | None = 64,
                  save: str | None = None, ore: str = "", ore_at=None,
-                 ore_radius: int = 4):
+                 ore_radius: int = 4, *, marker_preview: bool = False):
         # Java runs with cwd=<workdir> below, so relative jar/java paths must be
         # resolved against the *caller's* cwd first (same meaning as the CLI).
         java = _abs_path(java)
@@ -402,8 +402,14 @@ class Server:
         self._weather_specs = []
         self._power_profile = None
         os.makedirs(os.path.join(self.workdir, "config", "logs"), exist_ok=True)
+        jvm_options = ["-Dstdout.encoding=UTF-8", "-Dstderr.encoding=UTF-8"]
+        if marker_preview:
+            # Rhino accesses the concrete Java2D graphics and font metrics classes.
+            jvm_options += ["-Djava.awt.headless=true",
+                            "--add-exports=java.desktop/sun.java2d=ALL-UNNAMED",
+                            "--add-exports=java.desktop/sun.font=ALL-UNNAMED"]
         self.proc = subprocess.Popen(
-            [java, "-Dstdout.encoding=UTF-8", "-Dstderr.encoding=UTF-8", "-jar", jar],
+            [java, *jvm_options, "-jar", jar],
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
@@ -2033,6 +2039,10 @@ def main(argv=None):
     ap.add_argument("--steps", type=int, default=None, help="instructions to execute (default 200)")
     ap.add_argument("--ticks", type=int, default=None,
                     help="simulated ticks: drive updateTile() with Time.delta=1 (accumulator/ipt/wait)")
+    ap.add_argument("--marker-preview", metavar="PNG",
+                    help="render the final marker frame to a PNG and include its state in --json")
+    ap.add_argument("--world-probe", metavar="FILE",
+                    help="read a JSON query for tiles, objective flags and rules at the final tick (use with --json)")
     ap.add_argument("--js-timeout", type=float, metavar="SEC",
                     help="override the JS wall-clock budget (default: 180 s plus realtime pacing)")
     ap.add_argument("--world", type=int, default=None, metavar="N",
@@ -2158,6 +2168,25 @@ def main(argv=None):
         return 0
 
     ticks = args.ticks is not None
+    world_query = None
+    if args.world_probe is not None:
+        import world_probe
+
+        if not ticks or args.ticks < 1 or args.steps is not None or args.remote or args.daemon or len(args.files) > 1:
+            ap.error("--world-probe requires a positive local --ticks run with at most one input file")
+        if not args.json:
+            ap.error("--world-probe requires --json")
+        try:
+            with open(args.world_probe, encoding="utf-8-sig") as source:
+                world_query = world_probe.validate(json.load(source))
+        except (OSError, ValueError) as exc:
+            ap.error(str(exc))
+    if args.marker_preview:
+        if not ticks or args.ticks < 1 or args.steps is not None or args.remote or args.daemon or len(args.files) > 1:
+            ap.error("--marker-preview requires a positive local --ticks run with at most one input file")
+        if args.processor == "auto":
+            args.processor = "world"
+        args.marker_preview = os.path.abspath(args.marker_preview)
     steps = args.ticks if ticks else (args.steps if args.steps is not None else 200)
     update = args.update if args.update is not None else ("all" if ticks else "none")
     args.power = args.power or ("grid" if args.power_profile is not None else "full")
@@ -2211,7 +2240,8 @@ def main(argv=None):
     if not args.files and scene_obj is None:
         sys.exit("no input files (or use --daemon, or --scene with a logic file)")
     srv = Server(args.java, args.jar, world_size, args.save, ore=args.ore,
-                 ore_at=_xy_arg(args.ore_at), ore_radius=args.ore_radius)
+                 ore_at=_xy_arg(args.ore_at), ore_radius=args.ore_radius,
+                 marker_preview=bool(args.marker_preview))
     configure_server(srv, args)
     if scene_obj is not None:
         srv._scene = scene_obj
@@ -2259,6 +2289,11 @@ def main(argv=None):
         if scene_obj is not None and (args.scene_probe or args.uploaded_scene):
             import scene as _scene_probe_mod
             scene_probe = _scene_probe_mod.probe_sim(srv, scene_obj)
+        if args.marker_preview and results:
+            import marker_preview
+            results[0]["marker_preview"] = marker_preview.capture(srv, args.marker_preview, steps)
+        if world_query is not None and results:
+            results[0]["world_probe"] = world_probe.capture(srv, world_query, steps)
     except FileNotFoundError as e:
         sys.exit(f"missing input: {e.filename}")
     except SimError as e:

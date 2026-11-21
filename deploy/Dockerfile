@@ -22,7 +22,11 @@ COPY rules/    ./rules/
 COPY data/     ./data/
 COPY deploy/   ./deploy/
 
-RUN useradd --system --create-home --uid 10001 mlog \
+# Font metrics for headless marker previews when a JVM is mounted.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends fontconfig fonts-dejavu-core \
+    && rm -rf /var/lib/apt/lists/* \
+    && useradd --system --create-home --uid 10001 mlog \
     && mkdir -p /opt/mlogent/out /opt/mlogent/runtime \
     && chown -R mlog:mlog /opt/mlogent
 USER mlog

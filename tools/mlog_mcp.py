@@ -47,6 +47,7 @@ import mlogval as _val  # noqa: E402
 import msch  # noqa: E402
 import mlog_eval as _eval  # noqa: E402
 import mlogsim as _sim  # noqa: E402
+import world_probe as _world_probe  # noqa: E402
 
 try:  # every byte this process writes is UTF-8
     sys.stdin.reconfigure(encoding="utf-8", errors="replace")
@@ -197,6 +198,26 @@ TOOLS = [
         },
     },
     {
+        "name": "marker_from_svg",
+        "description": "Compile static SVG primitives into world-processor mlog. Supports line, "
+                       "polyline, polygon, rect, circle, ellipse and groups with solid fills and strokes. "
+                       "Send the returned mlog and preview_ticks to mlog_sim with marker_preview=true.",
+        "inputSchema": {
+            "type": "object", "required": ["svg"], "additionalProperties": False,
+            "properties": {
+                "svg": {"type": "string", "maxLength": 65536, "description": "Inline SVG XML"},
+                "width": {"type": "number", "exclusiveMinimum": 0, "maximum": 1024,
+                          "description": "Drawing width in tiles (default 24). Preserves aspect ratio."},
+                "x": {"type": "number", "minimum": -10000, "maximum": 10000,
+                      "description": "Lower-left x in tiles (default 2)"},
+                "y": {"type": "number", "minimum": -10000, "maximum": 10000,
+                      "description": "Lower-left y in tiles (default 2)"},
+                "start_id": {"type": "integer", "minimum": 0, "maximum": 2147483647,
+                             "description": "First reserved world marker ID (default 1000)"},
+            },
+        },
+    },
+    {
         "name": "mlog_sim",
         "description": "Run code on the real v160.7 executor in a time-limited worker. "
                        "Returns variables, @counter and text. Use power=grid for the native grid, "
@@ -209,6 +230,29 @@ TOOLS = [
                 "logic": {"type": "string", "description": "inline mlog (instead of path)"},
                 "ticks": {"type": "integer", "minimum": 1, "maximum": 1200},
                 "steps": {"type": "integer", "minimum": 1, "maximum": 2400},
+                "processor": {"type": "string", "enum": ["auto", "micro", "world"],
+                              "description": "Processor for standalone Mlog (default auto). Scene and blueprint processors keep their types."},
+                "world_probe": {
+                    "type": "object", "minProperties": 1, "additionalProperties": False,
+                    "description": "Read selected tiles, objective flags and rules after the final tick. "
+                                   "Uses ticks (default 60).",
+                    "properties": {
+                        "tiles": {
+                            "type": "array", "minItems": 1, "maxItems": _world_probe.MAX_ENTRIES,
+                            "items": {
+                                "type": "object", "additionalProperties": False, "required": ["x", "y"],
+                                "properties": {
+                                    axis: {"type": "integer", "minimum": 0, "maximum": _world_probe.MAX_TILE_COORD}
+                                    for axis in ("x", "y")
+                                },
+                            },
+                        },
+                        "flags": {"type": "array", "minItems": 1, "maxItems": _world_probe.MAX_ENTRIES,
+                                  "items": {"type": "string", "minLength": 1, "maxLength": _world_probe.MAX_FLAG_LENGTH}},
+                        "rules": {"type": "array", "minItems": 1, "maxItems": _world_probe.MAX_ENTRIES,
+                                  "items": {"type": "string", "enum": list(_world_probe.RULES)}},
+                    },
+                },
                 "power": {"type": "string", "enum": ["full", "none", "grid"],
                           "description": "Building power mode. Defaults to full, or grid when power_profile is supplied."},
                 "power_profile": {
@@ -226,6 +270,9 @@ TOOLS = [
                         },
                     },
                 },
+                "marker_preview": {"type": "boolean", "description":
+                                   "Return final world marker state and a PNG on a tile grid. Uses ticks "
+                                   "(default 60) and a world processor for standalone mlog."},
                 "trace_vars": {"type": "array", "items": {"type": "string"}, "maxItems": 16,
                                "description": "capture an instruction trace (inline or .mlog, 1–600 ticks or 1–1200 steps)"},
                 "units": {"type": "string", "description": "e.g. 'mono:1,flare:2'"},
@@ -1021,6 +1068,17 @@ def _bounded_sim_worker(command: list[str]) -> str:
 def _sim_subprocess(args):
     if "ticks" in args and "steps" in args:
         raise ValueError("choose ticks or steps")
+    preview = args.get("marker_preview", False)
+    if type(preview) is not bool:
+        raise ValueError("marker_preview must be a boolean")
+    if preview and "steps" in args:
+        raise ValueError("marker_preview requires ticks")
+    query = _world_probe.validate(args["world_probe"]) if "world_probe" in args else None
+    if query is not None and "steps" in args:
+        raise ValueError("world_probe requires ticks")
+    processor = args.get("processor", "auto")
+    if processor not in ("auto", "micro", "world"):
+        raise ValueError("processor must be auto, micro or world")
     has_profile = "power_profile" in args
     uploaded = "scene_json" in args
     power = args.get("power", "grid" if has_profile or uploaded else "full")
@@ -1029,7 +1087,7 @@ def _sim_subprocess(args):
     if has_profile and power != "grid":
         raise ValueError("power_profile requires power=grid")
     ticks = "ticks" in args or ("steps" not in args and
-                                bool(args.get("project") or args.get("rt") or power == "grid" or uploaded))
+                                bool(preview or query or args.get("project") or args.get("rt") or power == "grid" or uploaded))
     key = "ticks" if ticks else "steps"
     limit = 1200 if ticks else 2400
     names = _trace_vars(args["trace_vars"]) if "trace_vars" in args else None
@@ -1081,6 +1139,8 @@ def _sim_subprocess(args):
         raise ValueError("logic must be non-empty text")
     if logic and "path" in files:
         raise ValueError("choose logic or path")
+    if "processor" in args and not (logic or ("path" in files and files["path"].suffix.lower() == ".mlog")):
+        raise ValueError("processor requires inline logic or a .mlog path")
     if not logic and not uploaded and not ({"path", "scene"} & files.keys()):
         raise ValueError("path, logic, scene or scene_json required")
     if logic and len(logic.encode("utf-8")) > 100 * 1024:
@@ -1135,6 +1195,15 @@ def _sim_subprocess(args):
         cmd = [sys.executable, "-X", "utf8", str(HERE / "mlogsim.py"),
                f"--{key}={count}", f"--js-timeout={_MCP_SIM_JS_TIMEOUT}",
                f"--workspace-root={HERE.parent}", f"--power={power}", "--json"]
+        preview_file = work / "markers.png"
+        if preview:
+            cmd.append(f"--marker-preview={preview_file}")
+        if query is not None:
+            probe_file = work / "world-probe.json"
+            probe_file.write_text(json.dumps(query, ensure_ascii=False), encoding="utf-8")
+            cmd.append(f"--world-probe={probe_file}")
+        if "processor" in args:
+            cmd.append(f"--processor={processor}")
         if profile is not None:
             cmd.append("--power-profile=" + json.dumps(profile, allow_nan=False, separators=(",", ":")))
         if uploaded:
@@ -1172,7 +1241,8 @@ def _sim_subprocess(args):
             bundle = {"schema": "mlog-itrace/v1", "mlog": source, "vars": names,
                       "mode": records[0]["mode"], "tsv": trace_file.read_text(encoding="utf-8")}
             trace_ref = _stash(json.dumps(bundle, ensure_ascii=False))
-    return records, trace_ref, project, files.get("scene")
+        png = preview_file.read_bytes() if preview else None
+    return records, trace_ref, project, files.get("scene"), png
 
 
 def _run_code(path: str | None, logic: str | None, args: dict):
@@ -1305,8 +1375,14 @@ def tool_trace(args):
     return result
 
 
-def tool_sim(args):
-    records, trace_ref, project, scene = _sim_subprocess(args)
+def tool_marker_from_svg(args):
+    import marker_svg
+
+    return marker_svg.convert(**args)
+
+
+def tool_sim(args, *, images=None):
+    records, trace_ref, project, scene, png = _sim_subprocess(args)
     rec = records[0]
     text = rec.get("text") or ""
     out = {
@@ -1327,6 +1403,13 @@ def tool_sim(args):
         out["scene"] = rec["scene"]
     if rec.get("scene_probe") is not None:
         out["scene_probe"] = rec["scene_probe"]
+    if "world_probe" in rec:
+        out["world_probe"] = rec["world_probe"]
+    if png is not None:
+        out["marker_preview"] = rec["marker_preview"]
+        if images is not None:
+            images.append({"type": "image", "mimeType": "image/png",
+                           "data": base64.b64encode(png).decode("ascii")})
     if project:
         out["projection"] = {
             "feed": str(project),
@@ -1692,6 +1775,7 @@ HANDLERS = {
     "mlog_extract": tool_extract,
     "mlog_inject": tool_inject,
     "mlog_revision": tool_revision,
+    "marker_from_svg": tool_marker_from_svg,
     "mlog_sim": tool_sim,
     "mlog_trace": tool_trace,
     "mindcode_compile": tool_mindcode_compile,
@@ -1754,9 +1838,11 @@ def handle(req, emit=None):
         if fn is None:
             return reply(rid, error={"code": -32602, "message": f"unknown tool {name}"})
         try:
-            out = fn(params.get("arguments") or {})
+            arguments = params.get("arguments") or {}
+            images = []
+            out = fn(arguments, images=images) if fn is tool_sim else fn(arguments)
             text = json.dumps(out, ensure_ascii=False)
-            return reply(rid, {"content": [{"type": "text", "text": text}],
+            return reply(rid, {"content": [{"type": "text", "text": text}, *images],
                                 "isError": False})
         except Exception as exc:  # report, do not crash the server
             return reply(rid, {"content": [{"type": "text",

@@ -438,6 +438,26 @@ class Protocol(unittest.TestCase):
         replies = json.loads(body)
         self.assertEqual([r["id"] for r in replies], [10, 11])
 
+    def test_marker_from_svg_rejects_unsupported_and_oversize_geometry(self):
+        cases = (
+            ('<path d="M0 0 L1 1"/>', "unsupported SVG element"),
+            ('<rect width="3" height="2" transform="rotate(10)"/>', "unsupported SVG attribute"),
+            ('<polygon points="0,0 9,9 9,0 0,9"/>', "simple polygon"),
+            ('<rect width="1" height="1"/>' * 129, "more than 128 markers"),
+        )
+        for geometry, message in cases:
+            with self.subTest(message=message):
+                status, body, _ = self.srv.post({
+                    "jsonrpc": "2.0", "id": 1, "method": "tools/call",
+                    "params": {"name": "marker_from_svg", "arguments": {
+                        "svg": f'<svg viewBox="0 0 10 10">{geometry}</svg>',
+                    }},
+                })
+                self.assertEqual(status, 200)
+                result = json.loads(body)["result"]
+                self.assertTrue(result["isError"])
+                self.assertIn(message, result["content"][0]["text"])
+
 
 class Simulation(unittest.TestCase):
     @staticmethod
@@ -483,6 +503,24 @@ class Simulation(unittest.TestCase):
             ({"power_profile": [{**first, "power_per_second": "12"}]}, "power_per_second must be"),
             ({"power_profile": [{**first, "power_per_second": True}]}, "power_per_second must be"),
             ({"power_profile": [{**first, "power_per_second": float("inf")}]}, "power_per_second must be"),
+        )
+        with patch.object(mlog_mcp, "_bounded_sim_worker") as worker:
+            for args, message in cases:
+                with self.subTest(args=args):
+                    _, reply = mlog_mcp_http.dispatch(self.call({"logic": "end", **args}))
+                    self.assertTrue(reply["result"]["isError"])
+                    self.assertIn(message, reply["result"]["content"][0]["text"])
+            worker.assert_not_called()
+
+    def test_world_probe_validates_query_before_starting_worker(self):
+        cases = (
+            ({"world_probe": {}}, "must specify tiles, flags or rules"),
+            ({"world_probe": {"tiles": [{"x": True, "y": 0}]}}, "integer x and y"),
+            ({"world_probe": {"flags": ["line\nbreak"]}}, "printable text"),
+            ({"world_probe": {"rules": ["objectiveFlags"]}}, "must be one of"),
+            ({"world_probe": {"tiles": [{"x": 0, "y": 0}] * 33}}, "1 to 32 entries"),
+            ({"world_probe": {"rules": ["waves"]}, "steps": 10}, "requires ticks"),
+            ({"processor": "hyper"}, "must be auto, micro or world"),
         )
         with patch.object(mlog_mcp, "_bounded_sim_worker") as worker:
             for args, message in cases:

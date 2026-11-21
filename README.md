@@ -8,6 +8,13 @@ Mlogent 是一套 Mindustry 逻辑和蓝图工具。它能从复杂蓝图里取�
 `power_profile` 可以验证电池备用、欠电和恢复供电。参数与逐 tick 对照范围见
 [电网说明](tools/README.md#电网--power-grid)。
 
+世处脚本可通过 MCP `mlog_sim` 的 `marker_preview` 返回指定 tick 的 marker 状态和 PNG。
+也可以先用 `marker_from_svg` 将简单 SVG 转为世处 Mlog，再运行预览。
+[单帧预览](tools/README.md#世处-marker-单帧预览) · [静态 SVG 转换](tools/README.md#静态-svg-转世处-marker)
+
+世处调试也可以用 `mlog_sim.world_probe` 查看指定 tick 后的地格、建筑、任务旗标和地图规则。
+[地图状态检查](tools/README.md#世处地图状态检查)
+
 ## 快速开始
 
 需要 Python 3.11 或更新版本。静态检查、蓝图解析和生成不需要安装 Python 第三方包，也不需要 Java。

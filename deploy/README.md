@@ -54,6 +54,11 @@ docker run ... \
 answer `unsupported_environment` when they cannot find a runtime — the server
 stays up, the static tools keep working.
 
+The `mlog_sim` marker preview uses the JVM's `java.desktop` module in headless
+mode. On Linux, install Fontconfig and a system font for labels. The Docker
+image provides Fontconfig and DejaVu Sans. Install a CJK font on the host or
+inside the container if you need Chinese, Japanese or Korean labels in PNGs.
+
 ## Reverse proxy
 
 Caddy, which is the shortest correct config:
