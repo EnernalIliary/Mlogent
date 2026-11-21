@@ -624,7 +624,7 @@ def make_handler(world: World, stop_cb):
 CHAT_LOG = True            # --chat-log 控制：把 agent 的写操作打进游戏聊天栏
 CHAT_PREFIX = "[agent] "
 CHAT_OPS = {"place", "clear", "spawn", "killunits", "clearbuilds", "reset", "switch", "door",
-            "logic_set", "logic_batch_set", "logic_rollback", "schematic", "schematic_save", "scene", "load", "save", "pause",
+            "logic_set", "logic_batch_set", "logic_batch_rollback", "logic_rollback", "schematic", "schematic_save", "scene", "load", "save", "pause",
             "mirror", "mirror_state", "mirror_feed", "arm", "projection", "frames",
             "sblog"}
 

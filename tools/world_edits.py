@@ -1,8 +1,8 @@
 """World edit operations with explicit audit and file-directory dependencies."""
 from world_protocol import coerce
-from world_logic_edit import batch_set, edit as edit_logic
+from world_logic_edit import batch_rollback, batch_set, edit as edit_logic
 
-OPERATIONS = frozenset(('place', 'clear', 'spawn', 'killunits', 'clearbuilds', 'logic_set', 'logic_batch_set', 'logic_rollback'))
+OPERATIONS = frozenset(('place', 'clear', 'spawn', 'killunits', 'clearbuilds', 'logic_set', 'logic_batch_set', 'logic_batch_rollback', 'logic_rollback'))
 
 PLACE_JS = r"""
 var blk = Vars.content.block('%(block)s');
@@ -149,4 +149,6 @@ def edit(w, req, *, audit, data_dir):
         return edit_logic(w, req, audit=audit, data_dir=data_dir)
     if op == "logic_batch_set":
         return batch_set(w, req, audit=audit, data_dir=data_dir)
+    if op == "logic_batch_rollback":
+        return batch_rollback(w, req, audit=audit, data_dir=data_dir)
     return NotImplemented

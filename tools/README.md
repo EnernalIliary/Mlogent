@@ -93,10 +93,11 @@ v160.7 上连续 420 tick 的电网输入、输出、储量、电池电量及三
 不可通过的检查结果。
 
 多台处理器可以先调用 `world_logic_graph`。结果包含每台处理器的源码和链接哈希、revision、
-链接名、目标坐标、目标方块和处理器间目标列表。它适合在批量编辑前建立依赖预览，
+链接名、目标坐标、目标方块、处理器间目标列表和 `cycles` 环。它适合在批量编辑前建立依赖预览，
 `world_logic_batch_preview` 会在不写入的情况下验证整批源码、revision 和链接。
 确认后使用 `world_logic_batch_set` 提交整批修改。它会重新复核整批状态，写后逐台回读，
 每台处理器生成独立快照，失败时恢复已写入的处理器。
+`world_logic_batch_rollback` 可以用一组快照原子回滚，并生成可再次撤销的反向快照。
 
 独立 Mlog 可用 `processor: "auto" | "micro" | "world"` 选择处理器。默认会识别
 `getflag`、`setflag`、`spawnwave` 等世处指令。也可上传含 `code_inline` 的 `scene_json`，

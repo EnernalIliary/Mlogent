@@ -268,6 +268,15 @@ TOOLS = [
         },
     },
     {
+        "name": "world_logic_batch_rollback",
+        "description": "原子回滚一批处理器快照。先核对所有当前 revision，成功后为本次回滚生成反向快照。",
+        "inputSchema": {
+            "type": "object", "required": ["snapshot_ids"], "additionalProperties": False,
+            "properties": {"snapshot_ids": {"type": "array", "minItems": 1, "maxItems": 32,
+                                               "uniqueItems": True, "items": {"type": "string", "pattern": "^[0-9a-f]{32}$"}}},
+        },
+    },
+    {
         "name": "world_logic_snapshot",
         "description": "读取 world_logic_set 生成的持久快照，返回回滚前源码、带标签源码、链接和前后 revision。",
         "inputSchema": {
@@ -831,6 +840,10 @@ def tool_logic_batch_set(a):
     return _wc.call({"op": "logic_batch_set", "processors": a["processors"]}, timeout=180)
 
 
+def tool_logic_batch_rollback(a):
+    return _wc.call({"op": "logic_batch_rollback", "snapshot_ids": a["snapshot_ids"]}, timeout=180)
+
+
 def tool_logic_snapshot(a):
     return _wc.call({"op": "logic_snapshot", "snapshot_id": a["snapshot_id"]})
 
@@ -1030,6 +1043,7 @@ HANDLERS = {
     "world_logic_graph": tool_logic_graph,
     "world_logic_batch_preview": tool_logic_batch_preview,
     "world_logic_batch_set": tool_logic_batch_set,
+    "world_logic_batch_rollback": tool_logic_batch_rollback,
     "world_logic_snapshot": tool_logic_snapshot,
     "world_logic_set": tool_logic_set,
     "world_logic_rollback": tool_logic_rollback,

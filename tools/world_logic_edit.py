@@ -181,6 +181,22 @@ def batch_set(world, request, *, audit, data_dir):
     return result
 
 
+def batch_rollback(world, request, *, audit, data_dir):
+    snapshots = request.get("snapshot_ids") if isinstance(request, dict) else None
+    if not isinstance(snapshots, list) or not 1 <= len(snapshots) <= 32:
+        raise ValueError("snapshot_ids must contain 1 to 32 entries")
+    if any(not isinstance(snapshot, str) or _SNAPSHOT.fullmatch(snapshot) is None for snapshot in snapshots):
+        raise ValueError("snapshot_ids contains an invalid snapshot_id")
+    if len(set(snapshots)) != len(snapshots):
+        raise ValueError("snapshot_ids must be unique")
+    result = _run(world, {"op": "batch_rollback", "snapshot_ids": snapshots}, data_dir=data_dir)
+    audit("logic_batch_rollback", ok=result.get("ok"), snapshots=len(snapshots))
+    for processor in result.get("processors", []):
+        if isinstance(processor.get("code"), str):
+            _label_source(processor)
+    return result
+
+
 _READ_JS = r"""
 var world = Vars.world, Logic = Packages.mindustry.world.blocks.logic.LogicBlock;
 var Link = Packages.mindustry.world.blocks.logic.LogicBlock$LogicLink;
@@ -421,6 +437,52 @@ function batchSet(){
         return {ok:false,error:String(e.javaException || e),restored:restored,preview:plans};
     }
 }
+
+function batchRollback(){
+    var plans=[], all=true;
+    req.snapshot_ids.forEach(function(id){
+        var path=java.nio.file.Paths.get(journalPath(id));
+        if(!java.nio.file.Files.exists(path)){ plans.push({ok:false,snapshot_id:id,error:"Snapshot not found"}); all=false; return; }
+        var snapshot=JSON.parse(String(java.nio.file.Files.readString(path)));
+        var b=worldBuild(snapshot.x,snapshot.y);
+        if(b==null || !(b.block instanceof Logic)){ plans.push({ok:false,snapshot_id:id,error:"No logic processor at snapshot coordinates"}); all=false; return; }
+        var current=stateFor(b,String(b.code||""),linksFor(b));
+        if(current.revision !== snapshot.after_revision){
+            plans.push({ok:false,snapshot_id:id,x:snapshot.x,y:snapshot.y,conflict:true,
+                        revision:current.revision,expected_revision:snapshot.after_revision});
+            all=false; return;
+        }
+        plans.push({ok:true,snapshot_id:id,snapshot:snapshot,current:current});
+    });
+    if(!all) return {ok:false,conflict:true,processors:plans};
+    var applied=[];
+    try{
+        plans.forEach(function(plan){
+            var b=worldBuild(plan.snapshot.x,plan.snapshot.y), before=plan.snapshot.before;
+            var undoId=String(java.util.UUID.randomUUID()).replace(/-/g,"");
+            persist({x:plan.snapshot.x,y:plan.snapshot.y,before:plan.current,
+                     before_revision:plan.current.revision,after_revision:plan.snapshot.before_revision},undoId);
+            applyConfig(b,before.code,before.links,configFor(b,before.code,before.links));
+            var after=stateFor(b,String(b.code||""),linksFor(b));
+            if(after.revision !== plan.snapshot.before_revision){
+                throw new Error("Rollback readback differs at " + plan.snapshot.x + "," + plan.snapshot.y);
+            }
+            after.snapshot_id=undoId;
+            after.restored_snapshot_id=plan.snapshot_id;
+            applied.push(after);
+        });
+        return {ok:true,processors:applied};
+    }catch(e){
+        var restored=true;
+        for(var i=applied.length-1;i>=0;i--){
+            try{
+                var row=applied[i], b=worldBuild(row.x,row.y), undo=JSON.parse(String(java.nio.file.Files.readString(java.nio.file.Paths.get(journalPath(row.snapshot_id)))));
+                applyConfig(b,undo.before.code,undo.before.links,configFor(b,undo.before.code,undo.before.links));
+            }catch(ignored){ restored=false; }
+        }
+        return {ok:false,error:String(e.javaException || e),restored:restored,processors:applied};
+    }
+}
 """
 
 
@@ -428,6 +490,7 @@ _CALL_JS = r"""
 function run(){
     if(req.op === "batch_preview") return batchPreview();
     if(req.op === "batch_set") return batchSet();
+    if(req.op === "batch_rollback") return batchRollback();
     if(req.op === "logic_rollback"){
         var path = java.nio.file.Paths.get(journalPath(req.snapshot_id));
         if(!java.nio.file.Files.exists(path)) return {ok:false,error:"Snapshot not found"};

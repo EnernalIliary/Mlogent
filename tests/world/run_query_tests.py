@@ -82,12 +82,13 @@ class QueryTests(unittest.TestCase):
         import json
         payload = {'processors': [{'x': 1, 'y': 2, 'block': 'world-processor',
                                    'revision': 'a' * 64, 'links': [{'name': 'cell1', 'target': {'x': 3}}]}],
-                   'total': 1}
+                   'total': 1, 'cycles': []}
         encoded = base64.b64encode(json.dumps(payload).encode()).decode()
         result = query(self.world(['LOGIC_GRAPH\t' + encoded]),
                        {'op': 'logic_graph', 'limit': 4}, data_dir='x')
         self.assertEqual(result['processors'][0]['links'][0]['name'], 'cell1')
         self.assertEqual(result['total'], 1)
+        self.assertEqual(result['cycles'], [])
 
 if __name__ == '__main__':
     unittest.main()

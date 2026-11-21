@@ -35,7 +35,7 @@ sb.append('ready');
 DESTRUCTIVE = {
     'world_stop', 'world_load', 'world_reset', 'world_switch_map',
     'world_clear', 'world_clear_buildings', 'world_kill_units',
-    'world_place', 'world_spawn', 'world_logic_set', 'world_logic_batch_set', 'world_logic_rollback', 'world_scene',
+    'world_place', 'world_spawn', 'world_logic_set', 'world_logic_batch_set', 'world_logic_batch_rollback', 'world_logic_rollback', 'world_scene',
     'world_console', 'world_js',
 }
 _execution_lock = threading.Lock()

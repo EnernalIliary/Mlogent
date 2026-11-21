@@ -220,6 +220,18 @@ for(var y=0;y<world.height();y++) for(var x=0;x<world.width();x++){
   if(result.length>=limit) break;
 }
 var payload=java.util.Base64.getEncoder().encodeToString(new java.lang.String(JSON.stringify({processors:result,total:result.length>=limit?result.length+1:result.length})).getBytes("UTF-8"));
+var byKey=Object.create(null), visiting=Object.create(null), done=Object.create(null), cycles=[];
+result.forEach(function(p){byKey[p.x+','+p.y]=p;});
+function walk(key,path){
+  if(visiting[key]){ var start=path.indexOf(key); if(start>=0) cycles.push(path.slice(start).concat([key])); return; }
+  if(done[key] || !byKey[key]) return;
+  visiting[key]=true; path.push(key);
+  byKey[key].processor_targets.forEach(function(next){walk(next,path);});
+  path.pop(); delete visiting[key]; done[key]=true;
+}
+result.forEach(function(p){walk(p.x+','+p.y,[]);});
+var graph={processors:result,total:result.length>=limit?result.length+1:result.length,cycles:cycles};
+payload=java.util.Base64.getEncoder().encodeToString(new java.lang.String(JSON.stringify(graph)).getBytes("UTF-8"));
 sb.append('LOGIC_GRAPH\t').append(payload);
 """
 
