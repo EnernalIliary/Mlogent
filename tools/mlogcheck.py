@@ -492,6 +492,7 @@ def _load_content_names() -> dict[str, str]:
 
 
 CONTENT_NAMES = _load_content_names()
+CONTENT_DECLARATION_CATEGORIES = frozenset({"block", "item", "liquid", "unit"})
 
 
 def _load_specs() -> dict[str, dict]:
@@ -1646,6 +1647,13 @@ def analyse(lines: list[str], links: list[str] | None = None, ipt: int = 2,
         tag = (len(p) >= 3 and p[0] == "set" and p[1] not in ever_read)
         for v in uses_of(c):
             if v in ever_defined:
+                continue
+            # Bare vanilla content names are valid editor declarations even
+            # when the program never assigns them. They are commonly parked
+            # in unreachable or signature code, so do not classify them as
+            # undefined variables. Status effects stay on their dedicated
+            # validation path below.
+            if CONTENT_NAMES.get(v.lower()) in CONTENT_DECLARATION_CATEGORIES:
                 continue
             # A name made only of punctuation (`/`, `///`, `//`) is never data;
             # it is a comment marker the author parks in a real argument slot
