@@ -689,6 +689,7 @@
         "mlog_extract",
         "mlog_inject",
         "mlog_revision",
+        "marker_from_svg",
         "mlog_sim",
         "mlog_trace",
         "mindcode_compile",
