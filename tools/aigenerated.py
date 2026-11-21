@@ -64,20 +64,23 @@ import zlib
 from pathlib import Path
 
 DEFAULT_AUTHOR = "MAI"
+PROJECT_NAME = "Mlogent"
+PROJECT_VERSION = os.environ.get("MLOGENT_VERSION", "1.8.0")
+PROJECT_REPO = "https://github.com/EnernalIliary/Mlogent"
 # the sidecar (tools/logicd.py, tools/jobqueue.py) signs with this one; the
 # environment override exists so a build can attribute a different author
 SIGN_AUTHOR = os.environ.get("MAI_SIGN_AUTHOR") or DEFAULT_AUTHOR
-SIG_LINE = 'jump 0 always 0 "aigenerated:{author}:{pid}{payload}"'
+SIG_LINE = 'jump 0 always 0 "AI-Generated:Mlogent:{author}:{pid}{payload}"'
 # addr/value are not captured: author/id/payload stay at groups 1/2/3
 SIG_RE = re.compile(
-    r'^jump\s+\S+\s+always\s+\S+\s+"aigenerated:([^":]+):([0-9a-f]{12})'
+    r'^jump\s+\S+\s+always\s+\S+\s+"AI-Generated:Mlogent:([^":]+):([0-9a-f]{12})'
     r'(?::([A-Za-z0-9_-]+))?"\s*$')
-SIG_PARTS_RE = re.compile(r'^jump\s+(\S+)\s+always\s+(\S+)\s+"aigenerated:')
+SIG_PARTS_RE = re.compile(r'^jump\s+(\S+)\s+always\s+(\S+)\s+"AI-Generated:Mlogent:')
 # older releases used a comment header + unreachable set; drop those on re-sign
 OLD_MARK_RE = re.compile(
     r"^(?:# @aigenerated(?:-end)?\b.*|set aigenerated\.[0-9a-f]{12}\b.*)$")
 # release 0.9 put the token after `end`; normalise that back to a plain `end`
-OLD_TAIL_RE = re.compile(r'^end\s+"aigenerated:[^"]*"\s*$')
+OLD_TAIL_RE = re.compile(r'^end\s+"AI-Generated:Mlogent:[^"]*"\s*$')
 
 
 class SignError(Exception):
@@ -170,11 +173,16 @@ def collect_comments(text: str) -> list[dict]:
     return out
 
 
-PAYLOAD_V = 2
+PAYLOAD_V = 3
 
 #: meta 里这四把键是有意义的：ws（工作区 id）、name（工作区/蓝图名）、
 #: prompt（用户那句话）、job（作业 id）。mod 侧只认这四个，别的一律忽略。
-META_KEYS = ("ws", "name", "prompt", "job")
+META_KEYS = ("tool", "version", "repo", "author", "ws", "name", "prompt", "job")
+
+
+def project_meta(author: str) -> dict:
+    return {"tool": PROJECT_NAME, "version": PROJECT_VERSION,
+            "repo": PROJECT_REPO, "author": author}
 
 
 def _meta_text(value, limit: int) -> str:
@@ -364,8 +372,12 @@ def sign_text(text: str, author: str = DEFAULT_AUTHOR, force: bool = False,
                 f"pass --force to re-sign")
     cs = collect_comments(text) if comments is None else comments
     # 重签没显式给 meta 就把旧的带过来：上下文跟着代码走，不该因为一次重签丢掉
-    if meta is None:
-        meta = old_meta
+    merged_meta = project_meta(author)
+    if old_meta:
+        merged_meta.update(old_meta)
+    if meta:
+        merged_meta.update(meta)
+    meta = merged_meta
     if comments is None and old:
         if len(cs) == len(old):
             # keep the original line numbers, refresh the text/anchors
@@ -375,7 +387,7 @@ def sign_text(text: str, author: str = DEFAULT_AUTHOR, force: bool = False,
             cs = old
     enc = encode_comments(cs, meta, labels=labels)
     payload = f":{enc}" if enc else ""
-    sig = f'"aigenerated:{author}:{pid}{payload}"'
+    sig = f'"AI-Generated:Mlogent:{author}:{pid}{payload}"'
     if slot is not None:
         lines[idx] = f"{slot} {sig}"
         # an unconditional jump never falls through: the `end` behind it can

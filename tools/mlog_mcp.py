@@ -38,6 +38,7 @@ import traceback
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
+_MCP_AUTHOR_CACHE = None
 if str(HERE) not in sys.path:
     sys.path.insert(0, str(HERE))
 
@@ -120,6 +121,8 @@ TOOLS = [
                 "source": {"type": "string", "description": ".mlog path within the server workspace"},
                 "logic": {"type": "string", "description": "inline mlog code"},
                 "name": {"type": "string"},
+                "author": {"type": "string", "minLength": 1,
+                            "description": "author required when the input has no valid signature"},
                 "links": {"type": "array", "items": {"type": "string"},
                           "description": "name@dx,dy, relative to the processor"},
                 "blocks": {"type": "array", "items": {"type": "string"},
@@ -173,6 +176,8 @@ TOOLS = [
                             "description": "validate and show the diff without generating a blueprint"},
                 "expected_sha256": {"type": "string", "pattern": "^[0-9a-fA-F]{64}$",
                                     "description": "expected source_sha256 from a previous preview"},
+                "author": {"type": "string", "minLength": 1,
+                            "description": "author required when the replacement has no valid signature"},
             },
             "required": ["index", "mlog"],
             "oneOf": [{"required": ["blueprint_code"]}, {"required": ["path"]}],
@@ -686,12 +691,23 @@ def tool_gen(args):
     root = HERE.parent
     cmd = [sys.executable, str(HERE / "mlog.py"), "gen"]
     source, logic = args.get("source"), args.get("logic")
+    import aigenerated
+    global _MCP_AUTHOR_CACHE
+    supplied_author = str(args.get("author") or "").strip()
     if bool(source) == bool(logic):
         raise ValueError("provide exactly one of source or logic")
     if source:
         logic = _workspace_input_path(source, (".mlog",)).read_text(encoding="utf-8-sig")
+    existing = aigenerated._find(logic)
+    signed_author = existing[0].group(1) if existing and not aigenerated.verify_text(logic) else ""
+    author = signed_author or supplied_author or _MCP_AUTHOR_CACHE
+    if not author:
+        raise ValueError("author is required when mlog has no valid signature")
+    if supplied_author:
+        _MCP_AUTHOR_CACHE = supplied_author
     if args.get("name"):
         cmd += ["--name", args["name"]]
+    cmd += ["--author", author]
     for link in args.get("links") or []:
         cmd += ["--link", link]
     for b in args.get("blocks") or []:
@@ -767,7 +783,7 @@ def tool_extract(args):
         inventory = []
         for info, code in programs:
             entry = dict(info)
-            if "aigenerated:" in code and not verify_text(code):
+            if "AI-Generated:Mlogent:" in code and not verify_text(code):
                 comments = extract_text(code)
                 if comments:
                     entry["comment_preview"] = [
@@ -932,7 +948,7 @@ def tool_revision(args):
 
 
 def tool_inject(args):
-    from aigenerated import DEFAULT_AUTHOR, sign_delivery
+    from aigenerated import sign_delivery
     from mlog import logic_programs
 
     inputs = [key for key in ("blueprint_code", "path") if key in args]
@@ -977,7 +993,17 @@ def tool_inject(args):
         return {**response, "ok": False, "failure_type": "source_conflict",
                 "message": "processor source changed; extract or preview it again"}
 
-    code, _, _, _ = sign_delivery(source.lstrip("\ufeff"), DEFAULT_AUTHOR)
+    import aigenerated
+    global _MCP_AUTHOR_CACHE
+    supplied_author = str(args.get("author") or "").strip()
+    existing = aigenerated._find(source)
+    signed_author = existing[0].group(1) if existing and not aigenerated.verify_text(source) else ""
+    author = signed_author or supplied_author or _MCP_AUTHOR_CACHE
+    if not author:
+        raise ValueError("author is required when replacement has no valid signature")
+    if supplied_author:
+        _MCP_AUTHOR_CACHE = supplied_author
+    code, _, _, _ = sign_delivery(source.lstrip("\ufeff"), author)
     updated = target.replace(code, preview=preview)
     before = _inject_review_source(original).splitlines()
     after = _inject_review_source(code)

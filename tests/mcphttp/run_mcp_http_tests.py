@@ -223,6 +223,9 @@ class Protocol(unittest.TestCase):
         replacement = "set n 0\nretry:\nop add n n 1\njump retry lessThan n 3\nend\n"
 
         def call(tool, args, *, error=False):
+            if tool in ("mlog_inject", "mlog_gen"):
+                args = dict(args)
+                args.setdefault("author", "mcp-test")
             status, reply, _ = self.srv.post({
                 "jsonrpc": "2.0", "id": 32, "method": "tools/call",
                 "params": {"name": tool, "arguments": args},
@@ -288,6 +291,8 @@ class Protocol(unittest.TestCase):
                 "printflush message2\nend\n"}
 
         def inject(arguments):
+            arguments = dict(arguments)
+            arguments.setdefault("author", "mcp-test")
             status, reply, _ = self.srv.post({
                 "jsonrpc": "2.0", "id": 33, "method": "tools/call",
                 "params": {"name": "mlog_inject", "arguments": arguments},
@@ -304,7 +309,7 @@ class Protocol(unittest.TestCase):
         self.assertEqual(preview["source_sha256"], hashlib.sha256(original.encode()).hexdigest())
         self.assertIn("-print 1", preview["diff"])
         self.assertIn("+printflush message2", preview["diff"])
-        self.assertNotIn("aigenerated:", preview["diff"])
+        self.assertNotIn("AI-Generated:Mlogent:", preview["diff"])
         self.assertTrue(any(f["rule_id"] == "link-name-not-bound" and "message2" in f["message"]
                             for f in preview["checks"]["findings"]))
         self.assertEqual(preview["checks"]["links"], [
@@ -401,7 +406,8 @@ class Protocol(unittest.TestCase):
             path.write_text(original, encoding="utf-8")
             status, body, _ = self.srv.post({
                 "jsonrpc": "2.0", "id": 37, "method": "tools/call",
-                "params": {"name": "mlog_gen", "arguments": {"source": str(path)}},
+                "params": {"name": "mlog_gen", "arguments": {"source": str(path),
+                                                                     "author": "mcp-test"}},
             })
             self.assertEqual(status, 200)
             result = json.loads(body)["result"]

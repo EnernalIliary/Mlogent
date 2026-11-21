@@ -370,11 +370,14 @@ def check_labelize() -> None:
             }
             if case == "signed":
                 result["valid_signature"] = not signature.verify_text(output)
-                result["same_author"] = '"aigenerated:test-author:' in output
+                result["same_author"] = '"AI-Generated:Mlogent:test-author:' in output
+                out_meta = signature.decode_meta(signature._find(output)[0].group(3))
+                src_meta = signature.decode_meta(signature._find(text)[0].group(3))
                 result["same_meta"] = (
-                    signature.decode_meta(signature._find(output)[0].group(3))
-                    == signature.decode_meta(signature._find(text)[0].group(3))
-                    == {"prompt": "test context"}
+                    out_meta == src_meta
+                    and out_meta.get("prompt") == "test context"
+                    and out_meta.get("tool") == "Mlogent"
+                    and out_meta.get("repo") == signature.PROJECT_REPO
                 )
             results[case] = result
         for case in ("duplicate", "prefix", "captured_reference"):
@@ -434,7 +437,8 @@ def check_saved_labels() -> None:
         hit = sig._find(code)[0]
         comments, meta, labels = sig.decode_signature_payload(hit.group(3))
         if (sig.verify_text(code) or "jump 1 lessThan n 3" not in code or "retry:" in code
-                or labels != {1: "retry"} or meta != {"job": "job-1"}
+                or labels != {1: "retry"} or meta.get("job") != "job-1"
+                or meta.get("tool") != "Mlogent"
                 or hit.group(1) != "original-author" or comments[0]["text"] != "# loop"):
             raise AssertionError("post did not deliver numeric jumps with the original label and context")
 
@@ -533,7 +537,7 @@ def digest_aigenerated() -> dict:
         out["sign"], _ = run("sign", str(p))
         out["verify"], _ = run("verify", str(p))
         body = p.read_text(encoding="utf-8")
-        out["token"] = bool(re.search(r'"aigenerated:[^"]+"\s*$', body))
+        out["token"] = bool(re.search(r'"AI-Generated:Mlogent:[^"]+"\s*$', body))
         p.write_text(body.replace("set x 1", "set x 2"), "utf-8", newline="\n")
         out["verify_tampered"], _ = run("verify", str(p))
         out["resign_refused"], msg = run("sign", str(p))
@@ -587,8 +591,8 @@ def digest_aigenerated() -> dict:
                 capture_output=True, text=True, encoding="utf-8", errors="replace")
             code = msch.parse_file(bp).logic_tiles()[0].logic.code
             out[f"{label}_rc"] = r.returncode
-            out[f"{label}_signed"] = "aigenerated:" in code
-            out[f"{label}_source_signed"] = "aigenerated:" in src.read_text(
+            out[f"{label}_signed"] = "AI-Generated:Mlogent:" in code
+            out[f"{label}_source_signed"] = "AI-Generated:Mlogent:" in src.read_text(
                 encoding="utf-8")
     return out
 

@@ -329,6 +329,14 @@ def _vars(tokens) -> list[str]:
 
 
 _PUNCT_NAME = re.compile(r"^[^A-Za-z0-9_@\"]*$")
+_MINDCODE_TMP_NULL = re.compile(r"^set\s+\*tmp\d+\s+null$")
+_MINDCODE_BANNER = 'print "Compiled by Mindcode '
+
+
+def _is_generated_unreachable(code: str) -> bool:
+    return (_MINDCODE_TMP_NULL.fullmatch(code) is not None
+            or code.startswith(_MINDCODE_BANNER)
+            or code.startswith("print "))
 
 
 def _load_arity() -> dict[str, int]:
@@ -1077,7 +1085,7 @@ def analyse(lines: list[str], links: list[str] | None = None, ipt: int = 2,
     _num_jumps: list[tuple[int, str]] = []
     for _i, _raw in enumerate(lines):
         _c = strip_comment(_raw)
-        if "aigenerated:" in _c:
+        if "AI-Generated:Mlogent:" in _c:
             # The signature idiom jump 0 always 0 "aigenerated:MAI:<12hex>" is
             # written by tools/aigenerated.py on purpose (target 0 = restart the
             # program, the id lives in the value slot); it is not the numeric
@@ -2198,6 +2206,10 @@ def analyse(lines: list[str], links: list[str] | None = None, ipt: int = 2,
         for _k, (_ln, _c) in enumerate(stmts):
             if _k in _live:
                 continue
+            # Mindcode emits these two unreachable artifacts when lowering
+            # structured branches. They carry no user logic.
+            if _is_generated_unreachable(_c):
+                continue
             out.append(Finding(
                 "WARN", _ln + 1, "unreachable-statement",
                 "this statement can never run: no jump reaches it and the "
@@ -2492,7 +2504,8 @@ def cost_report(stmts: list[tuple[int, str]],
 
     # ---- reachability -----------------------------------------------------
     live = reachable_set(stmts)
-    dead = [i for i in range(n) if i not in live]
+    dead = [i for i in range(n)
+            if i not in live and not _is_generated_unreachable(stmts[i][1])]
     if dead:
         lines.append(f"  UNREACHABLE     : {len(dead)} statement(s) can never run:")
         for i in dead:

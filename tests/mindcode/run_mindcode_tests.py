@@ -388,7 +388,7 @@ def test_extract_logic_decompiles_each_processor_with_labels():
         first = (Path(directory) / "logic-0.mnd").read_text(encoding="utf-8")
         second = (Path(directory) / "logic-1.mnd").read_text(encoding="utf-8")
         check("then goto retry;" in first and sum("goto " in line for line in first.splitlines() if not line.startswith("//")) == 1
-              and "aigenerated:" not in first, "saved label or signing wrapper in draft")
+              and "AI-Generated:Mlogent:" not in first, "saved label or signing wrapper in draft")
         check('print("second");' in second and "goto retry" not in second, "mixed processor drafts")
 
 

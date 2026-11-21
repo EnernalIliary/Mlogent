@@ -186,9 +186,9 @@ def test_protocol():
             # and read it back unchanged (armWriteCheck compares b.code verbatim)
             need(re.match(r'^[0-9a-f]{12}$', res.get('sig') or ''),
                  'compose %s: sig is not a 12-hex id: %r' % (tid, res.get('sig')))
-            need(res['code'].count('"aigenerated:') == 1,
+            need(res['code'].count('"AI-Generated:Mlogent:') == 1,
                  'compose %s: %d @aigenerated token(s) in the code, want 1'
-                 % (tid, res['code'].count('"aigenerated:')))
+                 % (tid, res['code'].count('"AI-Generated:Mlogent:')))
             need(aigenerated.verify_text(res['code']) == [],
                  'compose %s: the signature does not verify: %r'
                  % (tid, aigenerated.verify_text(res['code'])))
@@ -576,9 +576,9 @@ def test_jobs():
         # v0.14.2: the queue signs before it gates, so the job's code IS the program
         # the mod writes -- and the mod compares it with b.code character by
         # character, so the token has to be in the job, not added at write time.
-        need(job['code'].count('"aigenerated:') == 1,
+        need(job['code'].count('"AI-Generated:Mlogent:') == 1,
              'a done job carries %d @aigenerated token(s), want 1: %r'
-             % (job['code'].count('"aigenerated:'), job['code']))
+             % (job['code'].count('"AI-Generated:Mlogent:'), job['code']))
         need(aigenerated.verify_text(job['code']) == [],
              'the job code does not verify: %r' % (aigenerated.verify_text(job['code']),))
         need(re.match(r'^[0-9a-f]{12}$', job.get('sig') or ''),
@@ -729,7 +729,7 @@ def test_jobs():
              'template tier code looks wrong: %r' % (auto['code'],))
         # the template tier goes through compose(), which signs too -- a job that
         # reaches a processor must never be the one unsigned path
-        need(auto['code'].count('"aigenerated:') == 1
+        need(auto['code'].count('"AI-Generated:Mlogent:') == 1
              and aigenerated.verify_text(auto['code']) == []
              and re.match(r'^[0-9a-f]{12}$', auto.get('sig') or ''),
              'the template tier wrote an unsigned program: sig=%r code=%r'
@@ -1294,12 +1294,12 @@ def test_improve():
         # v0.16.0（B3）：签名 payload 里现在带作业上下文（meta v2），所以「同一个程序」
         # 的比较要把签名行里的 payload 摘掉再看：id 与语句必须一模一样。
         def _no_payload(text):
-            return re.sub(r'(aigenerated:[^:\"]+:[0-9a-f]{12}):[^\"]*', r'\1', text)
+            return re.sub(r'(AI-Generated:Mlogent:[^:\"]+:[0-9a-f]{12}):[^\"]*', r'\1', text)
 
         need(echoed.get('sig') == prev_sig and _no_payload(echoed['code']) == _no_payload(prev_signed),
              're-signing the echoed version did not reproduce the same program: '
              'sig %r -> %r' % (prev_sig, echoed.get('sig')))
-        _m = re.search(r'aigenerated:[^:\"]+:[0-9a-f]{12}:([^\"]*)', echoed['code'])
+        _m = re.search(r'AI-Generated:Mlogent:[^:\"]+:[0-9a-f]{12}:([^\"]*)', echoed['code'])
         need(_m is not None, 'the echoed program lost its signature payload')
         _meta = aigenerated.decode_meta(_m.group(1))
         need(isinstance(_meta, dict) and _meta.get('ws') == ws['id'],
