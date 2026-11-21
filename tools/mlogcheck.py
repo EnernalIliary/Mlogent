@@ -1086,10 +1086,8 @@ def analyse(lines: list[str], links: list[str] | None = None, ipt: int = 2,
     for _i, _raw in enumerate(lines):
         _c = strip_comment(_raw)
         if "AI-Generated:Mlogent:" in _c:
-            # The signature idiom jump 0 always 0 "aigenerated:MAI:<12hex>" is
-            # written by tools/aigenerated.py on purpose (target 0 = restart the
-            # program, the id lives in the value slot); it is not the numeric
-            # confusion this note is about.
+            # Mlogent signatures live in an unused compare slot of an
+            # unconditional jump; they are metadata, not a numeric jump target.
             continue
         _t = _c.split()
         if len(_t) < 2 or _t[0].lower() != "jump" or not is_number(_t[1]):

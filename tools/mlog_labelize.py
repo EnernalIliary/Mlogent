@@ -15,7 +15,9 @@ What it does
 * Labels are inserted immediately before their target statement.
 * Jumps to -1 / out of range, and jumps that already use a label, are left
   alone. Duplicate labels and invalid prefixes are rejected.
-* Comments and blank lines are preserved.
+* Comments and blank lines are preserved; a signed editable result ends with
+  the attribution token as a comment, ready for `aigenerated.py post` to mount
+  it back into a safe slot.
 
 The result is for *editing*. Mindustry's LAssembler accepts `label:` lines, but
 for delivery run the same post-process as the signature:
@@ -95,7 +97,8 @@ def _check_jump_targets(before: str, after: str):
                              f"{target!r} -> {after_jumps[index]!r}")
 
 
-def labelize(text: str, prefix: str = "L", *, preferred_labels: dict[int, str] | None = None):
+def labelize(text: str, prefix: str = "L", *, preferred_labels: dict[int, str] | None = None,
+            preserve_always: bool = False):
     if not LABEL_NAME_RE.fullmatch(prefix):
         raise ValueError(f"invalid label prefix: {prefix!r}")
 
@@ -112,6 +115,10 @@ def labelize(text: str, prefix: str = "L", *, preferred_labels: dict[int, str] |
     jumps = []          # (line_no, target)
     for i, (kind, idx) in enumerate(kinds):
         if kind != "stmt":
+            continue
+        # Keep the signed delivery mount point numeric in editable output.
+        if preserve_always and re.match(
+                r"^\s*jump\s+\S+\s+always(?:\s+\S+)?(?:\s+.*)?$", lines[i], re.I):
             continue
         m = JUMP_RE.match(lines[i])
         if not m:
@@ -179,13 +186,14 @@ def labelize_source(text: str, prefix: str = "L", *, sign: bool = False):
         author = aigenerated.DEFAULT_AUTHOR
         comments, meta = aigenerated.collect_comments(text), None
 
-    out_text, total, njumps, labels = labelize(text, prefix, preferred_labels=saved_labels)
+    out_text, total, njumps, labels = labelize(
+        text, prefix, preferred_labels=saved_labels, preserve_always=signed)
     signature = None
     if signed or sign:
         out_text, pid = aigenerated.sign_text(
             out_text, author, force=True, comments=comments, meta=meta,
             labels={target: name for target, name in saved_labels.items() if target < total})
-        if comments:
+        if signed or comments:
             out_text, pid, _ = aigenerated.restore_text(out_text)
         _check_jump_targets(aigenerated._body(text), aigenerated._body(out_text))
         signature = (author, pid)

@@ -356,7 +356,7 @@ class Protocol(unittest.TestCase):
         fresh = Server(env=self.server_env)
         try:
             record = call(fresh, "mlog_revision", {"revision": revision})
-            self.assertEqual(record["original_mlog"], "print 1\nend\n")
+            self.assertEqual(record["original_mlog"], "print 1\njump 0 always 0\nend\n")
             self.assertEqual(record["diff"], applied["diff"])
             self.assertEqual(record["checks"], applied["checks"])
             restored = call(fresh, "mlog_revision", {

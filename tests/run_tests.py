@@ -370,7 +370,7 @@ def check_labelize() -> None:
             }
             if case == "signed":
                 result["valid_signature"] = not signature.verify_text(output)
-                result["same_author"] = '"AI-Generated:Mlogent:test-author:' in output
+                result["same_author"] = "AI-Generated:Mlogent:test-author:" in output
                 out_meta = signature.decode_meta(signature._find(output)[0].group(3))
                 src_meta = signature.decode_meta(signature._find(text)[0].group(3))
                 result["same_meta"] = (
@@ -466,7 +466,7 @@ def check_saved_labels() -> None:
         for index in range(600):
             name = "L" + hashlib.sha256(str(index).encode("ascii")).hexdigest()
             rows.extend((name + ":", f"jump {name} lessThan @time 0"))
-        src.write_text("\n".join(rows) + "\nend\n", encoding="utf-8")
+        src.write_text("\n".join(rows) + "\njump 0 always 0\nend\n", encoding="utf-8")
         oversized = run("post", src, "-o", delivered, check=False)
         if (oversized.returncode != 1 or "compressed bytes" not in oversized.stderr
                 or delivered.read_text(encoding="utf-8") != code):
@@ -537,7 +537,7 @@ def digest_aigenerated() -> dict:
         out["sign"], _ = run("sign", str(p))
         out["verify"], _ = run("verify", str(p))
         body = p.read_text(encoding="utf-8")
-        out["token"] = bool(re.search(r'"AI-Generated:Mlogent:[^"]+"\s*$', body))
+        out["token"] = bool(re.search(r'"AI-Generated:Mlogent:[^"]+"', body))
         p.write_text(body.replace("set x 1", "set x 2"), "utf-8", newline="\n")
         out["verify_tampered"], _ = run("verify", str(p))
         out["resign_refused"], msg = run("sign", str(p))
@@ -547,9 +547,7 @@ def digest_aigenerated() -> dict:
         out["strip"], _ = run("strip", str(p))
 
         # placement: reuse the compare slot of an existing unconditional jump.
-        # v0.14.2: the `end` behind such a jump can never run, so signing drops it
-        # (mlogcheck would report it as an unreachable statement) -- the token line
-        # is therefore the LAST line now, and no `end` survives.
+        # The signature reuses the compare slot and preserves the existing `end`.
         j = Path(d) / "slot.mlog"
         j.write_text("set x 1\njump 27 always 0\nend\n", "utf-8", newline="\n")
         out["slot_sign"], _ = run("sign", str(j))

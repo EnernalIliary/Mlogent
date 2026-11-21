@@ -249,7 +249,20 @@ def render_extracted_logic(code: str, *, format: str = "mlog", timeout: float = 
     if format == "mindcode":
         from mindcode import decompile_source
 
-        # Omit the signing wrapper from the draft while retaining the labels.
+        # Omit the signing wrapper from the draft while retaining editable
+        # labels. The safe jump is metadata, not user control flow.
+        if _sig._find(labelled):
+            lines = [line for line in labelled.splitlines()
+                     if "AI-Generated:Mlogent:" not in line]
+            # The editable signature comment corresponds to the final
+            # unconditional jump slot; omit that metadata jump from a
+            # Mindcode draft as well.
+            for i in range(len(lines) - 1, -1, -1):
+                if re.match(r"^\s*jump\s+\S+\s+always(?:\s+\S+)?(?:\s+.*)?$",
+                            lines[i], re.I):
+                    del lines[i]
+                    break
+            labelled = "\n".join(lines) + "\n"
         body = _sig._body(labelled) if _sig._find(labelled) else labelled
         return decompile_source(body, timeout=timeout)
     return labelled, ""

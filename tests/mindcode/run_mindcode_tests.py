@@ -374,7 +374,7 @@ def test_extract_logic_decompiles_each_processor_with_labels():
     import mschgen
 
     code, *_ = aigenerated.sign_delivery(
-        "set i 0\nretry:\nop add i i 1\njump retry lessThan i 3\nend\n", "test-author")
+        "set i 0\nretry:\nop add i i 1\njump retry lessThan i 3\njump 0 always 0\nend\n", "test-author")
     blueprint = mschgen.Blueprint("decompile")
     blueprint.add_logic(code)
     blueprint.add_logic('print "second"\nend\n', x=2)
@@ -398,7 +398,7 @@ def test_mcp_extract_returns_mindcode_with_saved_names():
     import mlog_mcp
 
     signed, *_ = aigenerated.sign_delivery(
-        "set i 0\nretry:\nop add i i 1\njump retry lessThan i 3\nend\n", "test-author")
+        "set i 0\nretry:\nop add i i 1\njump retry lessThan i 3\njump 0 always 0\nend\n", "test-author")
     reply = mlog_mcp.handle({
         "jsonrpc": "2.0", "id": 42, "method": "tools/call",
         "params": {"name": "mlog_extract", "arguments": {"mlog": signed, "format": "mindcode"}},

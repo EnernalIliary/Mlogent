@@ -1,4 +1,4 @@
-"""Hidden @aigenerated signature for AI-written mlog.
+"""Hidden Mlogent signature for AI-written mlog.
 
     python tools/aigenerated.py sign   Logic/foo.mlog [--author MAI] [--force]
     python tools/aigenerated.py verify Logic/foo.mlog
@@ -6,36 +6,21 @@
 
 Where the mark lives
 --------------------
-Preferred: if the program's last real statement is an unconditional
-`jump <n> always <x>`, the token replaces its unused `compare` slot (the
-fourth and last operand; `always` never reads it):
+The token is mounted only in an existing unconditional `jump <n> always <x>`
+statement's unused `compare` slot (the fourth and last operand; `always` never
+reads it):
 
-    jump 27 always 0 "aigenerated:MAI:1f02465d9e75"
+    jump 27 always 0 "AI-Generated:Mlogent:MAI:<body-id>:<payload>"
 
 A bare `jump <n> always` (no value operand) gets one spelled out as `0` first,
 because `always` never reads it either:
 
-    jump 27 always 0 "aigenerated:MAI:1f02465d9e75"
+    jump 27 always 0 "AI-Generated:Mlogent:MAI:<body-id>:<payload>"
 
-Either way the `end` that used to follow such a jump is dropped: an
-unconditional jump never falls through, so that `end` could not run and
-`mlogcheck` reports it as an unreachable statement (v0.13.2 rule
-`unreachable-statement`).  Signing therefore never adds a statement and never
-leaves a dead one behind.
-
-Otherwise the closing `end` becomes
-
-    jump 0 always 0 "aigenerated:MAI:1f02465d9e75"
-
-`end` means "next instruction reads 0"; `jump 0 always` does the same thing, so
-the program behaves identically.  The token sits in a declared `JumpStatement`
-operand that `always` never reads, so the game's own `LAssembler.read` /
-`LAssembler.write` round-trip re-emits it verbatim (measured on v160.7 with the
-four-operand form, no `end`: `b.code` comes back byte-identical).  A surplus
-token after `end`, `set` or `op` is *not* used: `LogicIO.write` drops everything
-past the declared arity (measured on v160.7, see mlog工作笔记).  A program with
-no `end` gets one appended by the canonical form, then the same replacement
-applies.
+The existing statements, including `end`, are preserved. Editable labelized
+output restores the token as a trailing comment; delivery post-processing
+moves it back into the safe slot. If no safe slot is available signing fails;
+callers that explicitly permit unsigned output may write without a signature.
 
 Why not a comment?
 -----------------
@@ -65,7 +50,7 @@ from pathlib import Path
 
 DEFAULT_AUTHOR = "MAI"
 PROJECT_NAME = "Mlogent"
-PROJECT_VERSION = os.environ.get("MLOGENT_VERSION", "1.8.0")
+PROJECT_VERSION = os.environ.get("MLOGENT_VERSION", "1.9.0")
 PROJECT_REPO = "https://github.com/EnernalIliary/Mlogent"
 # the sidecar (tools/logicd.py, tools/jobqueue.py) signs with this one; the
 # environment override exists so a build can attribute a different author
@@ -75,6 +60,9 @@ SIG_LINE = 'jump 0 always 0 "AI-Generated:Mlogent:{author}:{pid}{payload}"'
 SIG_RE = re.compile(
     r'^jump\s+\S+\s+always\s+\S+\s+"AI-Generated:Mlogent:([^":]+):([0-9a-f]{12})'
     r'(?::([A-Za-z0-9_-]+))?"\s*$')
+SIG_COMMENT_RE = re.compile(
+    r'^#\s*AI-Generated:Mlogent:([^":]+):([0-9a-f]{12})'
+    r'(?::([A-Za-z0-9_-]+))?\s*$')
 SIG_PARTS_RE = re.compile(r'^jump\s+(\S+)\s+always\s+(\S+)\s+"AI-Generated:Mlogent:')
 # older releases used a comment header + unreachable set; drop those on re-sign
 OLD_MARK_RE = re.compile(
@@ -300,7 +288,12 @@ def _hash(author: str, body: str, labels: dict[int, str] | None = None) -> str:
 
 def _find(text: str):
     text = text.replace("\r\n", "\n").replace("\r", "\n").rstrip("\n")
-    return [m for m in (SIG_RE.match(ln.strip()) for ln in text.split("\n")) if m]
+    hits = []
+    for ln in text.split("\n"):
+        m = SIG_RE.match(ln.strip()) or SIG_COMMENT_RE.match(ln.strip())
+        if m:
+            hits.append(m)
+    return hits
 
 
 def sign_text(text: str, author: str = DEFAULT_AUTHOR, force: bool = False,
@@ -392,7 +385,7 @@ def verify_text(text: str) -> list[str]:
     hits = _find(text)
     if not hits:
         return ['missing hidden @aigenerated argument '
-                '(expected `jump 0 always 0 "aigenerated:<author>:<id>"`)']
+                '(expected `jump <target> always <unused> "AI-Generated:Mlogent:<author>:<body-id>:<payload>"`)']
     if len(hits) > 1:
         return [f"{len(hits)} @aigenerated arguments found, expected 1"]
     author, want = hits[0].group(1), hits[0].group(2)
@@ -568,13 +561,15 @@ def restore_text(text: str) -> tuple[str, str, list[dict]]:
             buckets.clear()
         out.append(line)
     out.extend(c["text"] for k in sorted(buckets) for c in buckets[k])
-    # Preserve the complete token payload, including the label table.
+    # Editable labelized output keeps the signature visible as a trailing
+    # comment. Delivery post-processing recognizes it and mounts it back into
+    # an existing safe compare slot.
     enc = hits[0].group(3)
     payload = f":{enc}" if enc else ""
-    sig = SIG_LINE.format(author=author, pid=hits[0].group(2), payload=payload)
+    sig = f'# AI-Generated:Mlogent:{author}:{hits[0].group(2)}{payload}'
     while out and not out[-1].strip():
         out.pop()
-    out[-1] = sig
+    out.append(sig)
     return "\n".join(out) + "\n", hits[0].group(2), cs
 
 

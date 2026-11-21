@@ -612,10 +612,11 @@
       "verify_forced": 0,
       "strip": 2,
       "slot_sign": 0,
-      "slot_line": "jump 27 always 0 \"AI-Generated:Mlogent:MAI:3e02ceeac5d7:enjaq1YqU7Iy1lFKVrKKjtVRylWyqlYqyc_PUbJS8s3JT0_NK1HSUSpLLSrOzM8DihnqWegZAEWKUgvygdyMkpKCYit9_fTMkozSJL3k_Fx917zUorzEHM-czMSiSn2EGYmlJRn5RSBjHT2VamsBqagmTQ\"",
-      "slot_end_kept": false,
-      "terminal_sign": 0,
-      "terminal_line": "jump 0 always 0 \"AI-Generated:Mlogent:MAI:5c8a0ba4f813:enjaq1YqU7Iy1lFKVrKKjtVRylWyqlYqyc_PUbJS8s3JT0_NK1HSUSpLLSrOzM8DihnqWegZAEWKUgvygdyMkpKCYit9_fTMkozSJL3k_Fx917zUorzEHM-czMSiSn2EGYmlJRn5RSBjHT2VamsBqagmTQ\"",
+      "slot_line": "jump 27 always 0 \"AI-Generated:Mlogent:MAI:3e02ceeac5d7:enjaRcyxCoMwFEbhd_nnkLQ49W4ODg59guKQSjCBmCvXq1DEd2-cHM83nAM7qDEYQZ_BYAYdUOYMwjvzFIrCYA-yJi7VnvZlH1UkLFwzqi4rOTcljdvXjjy7rgQpPvc5efm5--E3jSzXtu1xnn-p7yZO\"",
+      "slot_end_kept": true,
+      "terminal_sign": 1,
+      "terminal_line": "print x",
+      "terminal_rejected": true,
       "comments_sign": 0,
       "comments_body_has_none": true,
       "comments_extract": [
@@ -625,7 +626,8 @@
       "comments_restore": 0,
       "comments_lines": [
         1,
-        3
+        3,
+        7
       ],
       "comments_verify": 0,
       "gen_rc": 0,
