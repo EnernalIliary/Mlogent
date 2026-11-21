@@ -173,7 +173,7 @@ def test_tool_surface() -> None:
     ok("feed" in props["world_arm"], "world_arm takes the feed the director watches")
     ok("radius" in props["world_spawn"] and "count" in props["world_spawn"],
        "world_spawn takes what the scene writer would pass")
-    ok(props["world_status"] == {}, "world_status needs no arguments")
+    ok(set(props["world_status"]) == {"cache"}, "world_status exposes only its cache selector")
     ok("createdAt" not in props.get("world_projstat", {}),
        "projstat stays an argument-free read")
 

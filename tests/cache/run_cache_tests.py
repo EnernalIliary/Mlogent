@@ -26,6 +26,7 @@ sys.path.insert(0, os.path.join(ROOT, "tools"))
 
 import cache as C          # noqa: E402
 import mlog_eval as E      # noqa: E402
+from world_cache import ResponseCache  # noqa: E402
 
 FAILS: list[str] = []
 SKIPPED: list[str] = []
@@ -146,6 +147,20 @@ def test_mindcode_cache() -> None:
         again_bad = M.compile_source("print(1)\n")
         ok(again_bad["ok"] is False and again_bad["diagnostics"],
            "the cached failure still carries diagnostics")
+
+
+def test_world_response_cache() -> None:
+    cache = ResponseCache(ttl=10, limit=1)
+    cache.put(("world_status", "{}"), {"ok": True, "value": 1})
+    value = cache.get(("world_status", "{}"))
+    value["value"] = 2
+    ok(cache.get(("world_status", "{}"))["value"] == 1,
+       "world cache returns isolated copies")
+    cache.put(("world_status", "next"), {"ok": True})
+    ok(cache.get(("world_status", "{}")) is None and cache.stats()["entries"] == 1,
+       "world cache evicts the oldest entry at its bound")
+    cache.clear()
+    ok(cache.stats()["entries"] == 0, "world cache invalidates all entries")
 
 
 def main() -> int:

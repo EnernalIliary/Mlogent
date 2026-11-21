@@ -22,6 +22,7 @@ if str(HERE) not in sys.path:
     sys.path.insert(0, str(HERE))
 
 import world_client as _wc  # noqa: E402
+from world_cache import ResponseCache  # noqa: E402
 
 try:
     sys.stdin.reconfigure(encoding="utf-8", errors="replace")
@@ -33,6 +34,13 @@ except Exception:  # pragma: no cover
 PROTO = "2024-11-05"
 NAME = "mindustry-world"
 VERSION = "0.1.0"
+
+_READ_CACHEABLE = frozenset({
+    "world_status", "world_players", "world_units", "world_unit",
+    "world_buildings", "world_building", "world_logic", "world_logic_code",
+    "world_logic_graph", "world_logic_snapshot", "world_logic_vars",
+})
+_READ_CACHE = ResponseCache(ttl=0.75, limit=256)
 
 SERVER = str(HERE / "world_server.py")
 
@@ -1023,6 +1031,10 @@ def tool_stop(_args):
     return _wc.call({"op": "shutdown"}, timeout=20)
 
 
+def tool_cache_stats(_args):
+    return {"ok": True, "cache": _READ_CACHE.stats(), "cacheable_tools": sorted(_READ_CACHEABLE)}
+
+
 HANDLERS = {
     "world_status": tool_status,
     "world_players": tool_players,
@@ -1073,7 +1085,20 @@ HANDLERS = {
     "world_js": tool_js,
     "world_start": tool_start,
     "world_stop": tool_stop,
+    "world_cache_stats": tool_cache_stats,
 }
+
+TOOLS.append({
+    "name": "world_cache_stats",
+    "description": "读取真实世界 MCP 只读查询缓存的命中、未命中、TTL 和容量统计。",
+    "inputSchema": {"type": "object", "additionalProperties": False, "properties": {}},
+})
+for _tool in TOOLS:
+    if _tool["name"] in _READ_CACHEABLE:
+        _tool["inputSchema"].setdefault("properties", {})["cache"] = {
+            "type": "string", "enum": ["auto", "fresh"],
+            "description": "auto 使用 0.75 秒进程缓存，fresh 绕过缓存并刷新结果。",
+        }
 
 
 from world_abort import install as _install_veto
@@ -1112,7 +1137,18 @@ def handle(req):
         if fn is None:
             return _reply(rid, error={"code": -32602, "message": f"unknown tool {name}"})
         try:
-            out = fn(params.get("arguments") or {})
+            arguments = dict(params.get("arguments") or {})
+            cache_mode = arguments.pop("cache", "auto")
+            cache_key = json.dumps(arguments, ensure_ascii=False, sort_keys=True, default=str)
+            if name in _READ_CACHEABLE and cache_mode not in ("auto", "fresh"):
+                raise ValueError("cache must be auto or fresh")
+            out = _READ_CACHE.get((name, cache_key)) if name in _READ_CACHEABLE and cache_mode == "auto" else None
+            if out is None:
+                if name not in _READ_CACHEABLE:
+                    _READ_CACHE.clear()
+                out = fn(arguments)
+                if name in _READ_CACHEABLE and isinstance(out, dict) and out.get("ok"):
+                    _READ_CACHE.put((name, cache_key), out)
             if isinstance(out, dict) and "ok" in out and not out.get("ok"):
                 raise RuntimeError(out.get("error") or "world_server 返回失败")
             return _reply(rid, {"content": [{"type": "text",
