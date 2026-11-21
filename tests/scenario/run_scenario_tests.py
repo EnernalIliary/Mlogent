@@ -727,6 +727,28 @@ def test_mcp_power_profile() -> None:
            "MCP observes brownout, outage and restored full supply in one run")
 
 
+def test_uploaded_power_scene() -> None:
+    import mlog_mcp
+
+    scene_data = {"buildings": [
+        {"name": "lamp", "block": "illuminator", "x": 10, "y": 10},
+        {"name": "other", "block": "illuminator", "x": 12, "y": 9},
+    ]}
+    args = {
+        "scene_json": json.dumps(scene_data),
+        "power_target": "lamp",
+        "power_profile": [{"tick": 1, "power_per_second": 1.5}],
+        "ticks": 30,
+        "logic": ("getblock building lamp 10 10\nsensor eff lamp @efficiency\n"
+                  "getblock building other 12 9\nsensor otherEff other @efficiency\nend"),
+    }
+    result = mlog_mcp.tool_sim(args)
+    source = result["scene"]["power_source"]
+    ok(source["added"] and source["target"] == "lamp" and result["vars"]["eff"] == "0.5"
+       and result["vars"]["otherEff"] == "0",
+       "uploaded scene adds a native power connection to just the selected grid")
+
+
 def main(argv: list[str] | None = None) -> int:
     args = list(sys.argv[1:] if argv is None else argv)
     fast = "--fast" in args
@@ -750,6 +772,7 @@ def main(argv: list[str] | None = None) -> int:
         test_pacing_extends_default_js_timeout()
         test_grid_power_from_save()
         test_mcp_power_profile()
+        test_uploaded_power_scene()
     else:
         skip("simulation tests (%s)" % ("--fast" if fast else "no JVM/jar"))
 

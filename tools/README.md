@@ -218,6 +218,13 @@ python tools/mlog_mcp.py          # stdio JSON-RPC，供 DSH / Claude Desktop �
 
 `vars` 返回程序结束时的变量。要判断中间阶段是否发生过，可以在 Mlog 中把观测结果累计到变量里。
 
+网页可以读取上传的 `.json` 文件，将文件文本或解析后的对象传到 `mlog_sim.scene_json`。
+上传场景中的处理器代码用 `code_inline` 提供。上传默认启用原版电网，模拟器会识别用电建筑，
+在可用位置添加沙盒电源并调用原版节点配置接口接线。目标电网已有启用的沙盒电源时会直接复用。
+如果有多张独立电网，用 `power_target` 填目标建筑的 `name`。供电曲线仍通过
+`power_profile` 指定。`scene.power_source` 返回电源坐标和接线目标，`scene_probe` 返回
+场景内处理器的变量和检查结果。上传入口与 `scene`、`save` 和投影参数互斥。
+
 DSH 侧配置片段：
 
 ```yaml

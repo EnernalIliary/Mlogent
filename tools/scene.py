@@ -85,7 +85,8 @@ def _abs(path: str, base: str = ROOT) -> str:
     return path if os.path.isabs(path) else os.path.join(base, path)
 
 
-def load(path: str, base: str | None = None, *, workspace_root: str | None = None) -> dict:
+def load(path: str, base: str | None = None, *, workspace_root: str | None = None,
+         inline_only: bool = False) -> dict:
     """Read a scene file, with optional containment for server-side references."""
     base = base or ROOT
     full = _abs(path, base)
@@ -122,6 +123,8 @@ def load(path: str, base: str | None = None, *, workspace_root: str | None = Non
         "project": None,
         "frame": None,
     }
+    if inline_only:
+        sc["inline_only"] = True
     if raw.get("frame"):
         frame = raw["frame"]
         if not (isinstance(frame, list) and len(frame) == 4):
@@ -149,6 +152,10 @@ def load(path: str, base: str | None = None, *, workspace_root: str | None = Non
         if not (isinstance(clear, list) and len(clear) == 4):
             raise SceneError("clear must be [x, y, w, h]")
         sc["clear"] = [int(v) for v in clear]
+        x, y, w, h = sc["clear"]
+        size = sc["world"]["size"]
+        if inline_only and not (0 <= x <= x + w <= size and 0 <= y <= y + h <= size):
+            raise SceneError("uploaded scene clear rectangle must fit within the world")
 
     by_name: dict[str, dict] = {}
     for i, b in enumerate(raw.get("buildings") or []):
@@ -158,11 +165,18 @@ def load(path: str, base: str | None = None, *, workspace_root: str | None = Non
         if unknown:
             raise SceneError("buildings[%d] has unknown key(s): %s" % (i, ", ".join(sorted(unknown))))
         name = b.get("name") or ("b%d" % i)
+        if inline_only and (not isinstance(name, str) or not name.isprintable() or len(name) > 128):
+            raise SceneError("uploaded scene building names must be printable and at most 128 characters")
         if name in by_name:
             raise SceneError("duplicate building name: %s" % name)
         code_text = None
         code_src = None
+        if inline_only and "code" in b:
+            raise SceneError("uploaded scene buildings must use code_inline instead of file references")
         if b.get("code_inline") is not None:
+            if inline_only and (not isinstance(b["code_inline"], str)
+                    or len(b["code_inline"].encode("utf-8")) > 100 * 1024):
+                raise SceneError("uploaded scene code_inline must be text of at most 100 KiB")
             code_text = str(b["code_inline"])
             code_src = "inline"
         elif b.get("code"):
@@ -265,7 +279,7 @@ def load(path: str, base: str | None = None, *, workspace_root: str | None = Non
         sc["project"] = {"units": units_mode, "anchor": anchor, "at": where}
 
     errors = validate(sc)
-    if root is not None and sum(u["count"] for u in sc["units"]) > 64:
+    if (root is not None or inline_only) and sum(u["count"] for u in sc["units"]) > 64:
         errors.append("at most 64 units can be spawned by an MCP scene")
     if errors:
         raise SceneError("; ".join(errors))
@@ -452,9 +466,11 @@ def _code_path(sc: dict, b: dict) -> str:
     """Absolute path the JVM can read, for both flavors."""
     if b.get("code_src") and b["code_src"] != "inline":
         return b["code_src"]
-    outdir = os.path.join(ROOT, "out", "_scene")
+    outdir = sc["dir"] if sc.get("inline_only") else os.path.join(ROOT, "out", "_scene")
     os.makedirs(outdir, exist_ok=True)
     safe = "".join(ch if ch.isalnum() or ch in "-_." else "_" for ch in b["name"])
+    if sc.get("inline_only"):
+        safe = str(sc["buildings"].index(b))
     path = os.path.join(outdir, "%s__%s.mlog" % (os.path.splitext(os.path.basename(sc["path"]))[0], safe))
     with open(path, "w", encoding="utf-8", newline="\n") as fh:
         fh.write(b["code"])

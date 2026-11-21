@@ -236,6 +236,13 @@ TOOLS = [
                           "description": "v1 scene JSON to load (its processors, units and "
                                          "buildings); the scene is also recorded in the "
                                          "projection feed so the world can rebuild it"},
+                "scene_json": {
+                    "oneOf": [{"type": "object"}, {"type": "string"}],
+                    "description": "Upload a self-contained v1 scene as a JSON object or file text. "
+                                   "Defaults to grid mode and adds a power-source to the selected grid.",
+                },
+                "power_target": {"type": "string", "minLength": 1, "maxLength": 128,
+                                 "description": "Uploaded scene building name. Required when there are multiple consumer grids."},
                 "project": {"type": "string",
                             "description": "JSON feed under out/_proj or out/_world/feeds, or out/_world/feed.json"},
                 "project_every": {"type": "integer",
@@ -1015,13 +1022,14 @@ def _sim_subprocess(args):
     if "ticks" in args and "steps" in args:
         raise ValueError("choose ticks or steps")
     has_profile = "power_profile" in args
-    power = args.get("power", "grid" if has_profile else "full")
+    uploaded = "scene_json" in args
+    power = args.get("power", "grid" if has_profile or uploaded else "full")
     if power not in ("full", "none", "grid"):
         raise ValueError("power must be full, none or grid")
     if has_profile and power != "grid":
         raise ValueError("power_profile requires power=grid")
     ticks = "ticks" in args or ("steps" not in args and
-                                bool(args.get("project") or args.get("rt") or power == "grid"))
+                                bool(args.get("project") or args.get("rt") or power == "grid" or uploaded))
     key = "ticks" if ticks else "steps"
     limit = 1200 if ticks else 2400
     names = _trace_vars(args["trace_vars"]) if "trace_vars" in args else None
@@ -1035,6 +1043,24 @@ def _sim_subprocess(args):
     if power == "grid" and (not ticks or args.get("update", "all") != "all"):
         raise ValueError("power=grid requires a tick run with update=all")
     profile = _sim.validate_power_profile(args["power_profile"], count) if has_profile else None
+    target = args.get("power_target")
+    if "power_target" in args and (not uploaded or power != "grid"
+            or not isinstance(target, str) or not target.strip() or len(target) > 128
+            or not target.isprintable()):
+        raise ValueError("power_target requires scene_json in grid mode and a printable building name")
+    if uploaded:
+        if any(key in args for key in ("scene", "save", "project")):
+            raise ValueError("scene_json cannot be combined with scene, save or project")
+        upload = args["scene_json"]
+        if isinstance(upload, str):
+            if len(upload.encode("utf-8")) > _MCP_SIM_INPUT_LIMITS[".json"]:
+                raise ValueError("scene_json exceeds the simulation input size limit")
+            upload = json.loads(upload.lstrip("\ufeff"))
+        if not isinstance(upload, dict):
+            raise ValueError("scene_json must be a scene JSON object or its file text")
+        scene_text = json.dumps(upload, ensure_ascii=False, allow_nan=False)
+        if len(scene_text.encode("utf-8")) > _MCP_SIM_INPUT_LIMITS[".json"]:
+            raise ValueError("scene_json exceeds the simulation input size limit")
 
     files = {}
     for field, suffixes in (("path", (".mlog", ".msch")), ("scene", (".json",)), ("save", (".msav",))):
@@ -1048,15 +1074,15 @@ def _sim_subprocess(args):
             if path.stat().st_size > _MCP_SIM_INPUT_LIMITS[path.suffix.lower()]:
                 raise ValueError(f"{field} exceeds the simulation input size limit")
             files[field] = path
-    if power == "grid" and "path" in files and files["path"].suffix.lower() == ".msch":
+    if (power == "grid" or uploaded) and "path" in files and files["path"].suffix.lower() == ".msch":
         raise ValueError("power=grid requires a layout with power links; use save instead of a .msch file")
     logic = args.get("logic")
     if "logic" in args and (not isinstance(logic, str) or not logic.strip()):
         raise ValueError("logic must be non-empty text")
     if logic and "path" in files:
         raise ValueError("choose logic or path")
-    if not logic and not ({"path", "scene"} & files.keys()):
-        raise ValueError("path, logic or scene required")
+    if not logic and not uploaded and not ({"path", "scene"} & files.keys()):
+        raise ValueError("path, logic, scene or scene_json required")
     if logic and len(logic.encode("utf-8")) > 100 * 1024:
         raise ValueError("inline logic exceeds the 100 KiB input limit")
 
@@ -1073,7 +1099,7 @@ def _sim_subprocess(args):
         raise ValueError("pacing and projection require a tick run with mlog or a scene")
     if rt and count > 60 * rt * (_MCP_SIM_JS_TIMEOUT - 5):
         raise ValueError("realtime pacing exceeds the MCP simulation budget; use fewer ticks or a faster rt")
-    if names is not None and (project or rt or "scene" in files or "save" in files
+    if names is not None and (project or rt or uploaded or "scene" in files or "save" in files
             or any(args.get(k) for k in ("units", "unit_pos", "core_items"))
             or ("path" in files and files["path"].suffix.lower() != ".mlog")):
         raise ValueError("trace_vars supports inline or .mlog input without scene options")
@@ -1111,6 +1137,12 @@ def _sim_subprocess(args):
                f"--workspace-root={HERE.parent}", f"--power={power}", "--json"]
         if profile is not None:
             cmd.append("--power-profile=" + json.dumps(profile, allow_nan=False, separators=(",", ":")))
+        if uploaded:
+            scene_file = work / "scene.json"
+            scene_file.write_text(scene_text, encoding="utf-8")
+            cmd.append(f"--uploaded-scene={scene_file}")
+            if target is not None:
+                cmd.append(f"--power-target={target}")
         for field in ("scene", "save"):
             if field in files:
                 cmd.append(f"--{field}={files[field]}")
@@ -1285,7 +1317,7 @@ def tool_sim(args):
         "processor": rec.get("processor"),
         "links": rec.get("links", []),
     }
-    if "power" in args or "power_profile" in args:
+    if any(key in args for key in ("power", "power_profile", "scene_json")):
         out["power"] = args.get("power", "grid")
     if trace_ref is not None:
         out["trace_ref"] = trace_ref
@@ -1293,6 +1325,8 @@ def tool_sim(args):
         out["results_ref"] = _stash(json.dumps(records, ensure_ascii=False))
     if rec.get("scene"):
         out["scene"] = rec["scene"]
+    if rec.get("scene_probe") is not None:
+        out["scene_probe"] = rec["scene_probe"]
     if project:
         out["projection"] = {
             "feed": str(project),

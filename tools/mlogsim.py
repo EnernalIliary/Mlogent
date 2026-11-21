@@ -585,9 +585,20 @@ class Server:
             # a scene brings its own buildings/units, so --units is ignored here
             import scene as _scene
             self._scene_report = _scene.apply_sim(self, self._scene)
+            if self._scene.get("inline_only") and self._scene_report["errors"]:
+                raise SimError("uploaded scene: " + self._scene_report["errors"][0])
         elif self._unit_spec:
             wx, wy = self._unit_pos or (self.base[0] * 8 + 4, self.base[1] * 8 + 4)
             self.js(UNIT_JS % {"spec": json.dumps(self._unit_spec), "wx": wx, "wy": wy})
+        if getattr(self, "_auto_power_source", False):
+            candidates = [[b["name"], b["x"], b["y"]] for b in self._scene["buildings"]
+                          if self._power_target is None or b["name"] == self._power_target]
+            lines = self.js(AUTO_POWER_SOURCE_JS % json.dumps(
+                [candidates, self._power_target is not None, list(self.base)], ensure_ascii=True))
+            result = next((line[11:] for line in lines if line.startswith("AUTO_POWER ")), None)
+            if result is None:
+                raise SimError("automatic power connection returned no result")
+            self._scene_report["power_source"] = json.loads(result)
         if self._weather_specs:
             for wname, wint in self._weather_specs:
                 self.js(weather_js(wname, wint))
@@ -1415,6 +1426,62 @@ def _push_js(path: str, every: int, anchor=None, scene=None, label=None) -> str:
             " if(i %% %d == 0) _pushNow();" % max(1, int(every)))
 
 
+AUTO_POWER_SOURCE_JS = """
+(function(){
+    var input = %s, entries = input[0], named = input[1], base = input[2];
+    var world = Vars.world, target = null, targetName = null;
+    for(var i = 0; i < entries.length; i++){
+        var entry = entries[i], build = world.build(entry[1], entry[2]);
+        if(build == null || build.power == null || (!named && !build.block.consumesPower)) continue;
+        if(target != null && target.power.graph != build.power.graph)
+            throw new Error("scene has multiple power grids; specify power_target");
+        if(target == null){ target = build; targetName = entry[0]; }
+    }
+    if(target == null) throw new Error("no powered target found; specify a powered scene building with power_target");
+    function report(source, added){
+        print("AUTO_POWER " + JSON.stringify({x: source.tileX(), y: source.tileY(), target: targetName, added: added}));
+    }
+    var producers = target.power.graph.producers;
+    for(var p = 0; p < producers.size; p++){
+        var source = producers.get(p);
+        if(source.block == Blocks.powerSource && source.enabled){ report(source, false); return; }
+    }
+    var links = java.lang.reflect.Array.newInstance(java.lang.Class.forName("arc.math.geom.Point2"), 1);
+    var directions = [[1,0],[-1,0],[0,1],[0,-1]];
+    for(var r = 1; r <= Math.ceil(Blocks.powerSource.laserRange); r++){
+        for(var dx = -r; dx <= r; dx++){
+            for(var dy = -r; dy <= r; dy++){
+                if(Math.max(Math.abs(dx), Math.abs(dy)) != r) continue;
+                var x = target.tileX() + dx, y = target.tileY() + dy;
+                if(x == base[0] && y == base[1]) continue;
+                var tile = world.tile(x, y);
+                if(tile == null || tile.block() != Blocks.air || tile.floor().isLiquid || tile.floor().solid) continue;
+                var separateGrid = false;
+                for(var d = 0; d < directions.length; d++){
+                    var neighbor = world.build(x + directions[d][0], y + directions[d][1]);
+                    if(neighbor != null && neighbor.team == target.team && neighbor.power != null &&
+                       neighbor.power.graph != target.power.graph){ separateGrid = true; break; }
+                }
+                if(separateGrid) continue;
+                tile.setBlock(Blocks.powerSource, target.team);
+                var source = tile.build;
+                if(source.block.linkValid(source, target)){
+                    links[0] = new Packages.arc.math.geom.Point2(-dx, -dy);
+                    source.configured(null, links);
+                    if(source.power.links.contains(target.pos()) && source.power.graph == target.power.graph){
+                        report(source, true);
+                        return;
+                    }
+                }
+                tile.setBlock(Blocks.air);
+            }
+        }
+    }
+    throw new Error("no free tile in range for an automatic power-source");
+})();
+"""
+
+
 def _power_profile_js(profile: list[dict]) -> str:
     # Only validated numeric pairs enter JS. Check the layout after it has
     # loaded, since a scene can place the source as well as a save.
@@ -2071,6 +2138,8 @@ def main(argv=None):
                     help="kill simulator JVMs left behind by killed runs, then exit")
     ap.add_argument("--json", action="store_true")
     ap.add_argument("--workspace-root", help=argparse.SUPPRESS)
+    ap.add_argument("--uploaded-scene", help=argparse.SUPPRESS)
+    ap.add_argument("--power-target", help=argparse.SUPPRESS)
     ap.add_argument("--rt", type=float, default=0.0, metavar="X",
                     help="simulation speed multiplier (1 = realtime, 3 = about 3x, 0 = unthrottled)")
     args = ap.parse_args(argv)
@@ -2120,11 +2189,13 @@ def main(argv=None):
         sys.exit(f"missing server jar: {args.jar}")
 
     scene_obj = None
-    if getattr(args, "scene", None):
+    if args.scene or args.uploaded_scene:
         import scene as _scene_mod
         try:
-            scene_obj = _scene_mod.load(args.scene, workspace_root=args.workspace_root)
-        except _scene_mod.SceneError as exc:
+            scene_obj = _scene_mod.load(args.scene or args.uploaded_scene,
+                                        workspace_root=args.workspace_root if args.scene else None,
+                                        inline_only=bool(args.uploaded_scene))
+        except (ValueError, TypeError, OverflowError) as exc:
             sys.exit(f"scene invalid: {exc}")
         if args.world is None:
             args.world = scene_obj["world"]["size"]
@@ -2144,10 +2215,11 @@ def main(argv=None):
     configure_server(srv, args)
     if scene_obj is not None:
         srv._scene = scene_obj
+        srv._auto_power_source = bool(args.uploaded_scene and args.power == "grid")
+        srv._power_target = args.power_target
         # 路径与名字留给 --push: feed 里带上出处, 世界侧只拿 feed 也能补出建筑
-        srv._scene_path = os.path.abspath(args.scene)
-        srv._scene_name = scene_obj.get("name") or os.path.splitext(
-            os.path.basename(str(args.scene)))[0]
+        srv._scene_path = os.path.abspath(args.scene) if args.scene else None
+        srv._scene_name = scene_obj["name"]
     results = []
     scene_probe = None
     try:
@@ -2184,7 +2256,7 @@ def main(argv=None):
                                         pad_water=args.pad_water, pad_drain=args.pad_drain,
                                         pad_refill=args.pad_refill,
                                          push_file=args.push, push_every=args.push_every, rt=args.rt))
-        if scene_obj is not None and getattr(args, "scene_probe", False):
+        if scene_obj is not None and (args.scene_probe or args.uploaded_scene):
             import scene as _scene_probe_mod
             scene_probe = _scene_probe_mod.probe_sim(srv, scene_obj)
     except FileNotFoundError as e:
@@ -2259,7 +2331,7 @@ def main(argv=None):
         print(f"TRACE  {len(trace_rows)} row(s) -> {args.trace}", file=diagnostic_stream)
     if scene_report and scene_report["errors"]:
         failed += len(scene_report["errors"])
-    if scene_probe:
+    if scene_probe and not args.uploaded_scene:
         failed += sum(0 if c["ok"] else 1 for c in scene_probe["checks"])
     return 3 if failed else 0
 
