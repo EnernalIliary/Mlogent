@@ -22,6 +22,7 @@ import uuid
 
 import mlogcheck as _check
 import msch
+from mlogent.logic.cleanup import clean as clean_parameters
 
 
 @dataclass(frozen=True)
@@ -38,6 +39,7 @@ class BlueprintContext:
 def has_signature_slot(code: str) -> bool:
     import aigenerated
     from mlogent.logic.slots import find_slot
+    code, _ = clean_parameters(code)
     return find_slot(aigenerated._body(code).splitlines()) is not None
 
 
@@ -54,6 +56,7 @@ def generate(args, *, context: BlueprintContext):
     existing = aigenerated._find(logic)
     if existing and aigenerated.verify_text(logic):
         raise ValueError("input contains an invalid signature")
+    logic, cleanup = clean_parameters(logic)
     signed_author = existing[0].group(1) if existing else ""
     author = signed_author or supplied_author or context.get_author()
     auto_unsigned = not existing and not has_signature_slot(logic)
@@ -84,11 +87,14 @@ def generate(args, *, context: BlueprintContext):
         raise RuntimeError(message[:2000])
     code = (p.stdout or "").strip().splitlines()[-1].strip()
     signed = bool(existing) or (bool(author) and not allow_unsigned)
-    return {"blueprint_base64": code, "signed": signed,
+    response = {"blueprint_base64": code, "signed": signed,
             "warning": None if signed else ("no safe signature slot; delivered unsigned without adding instructions"
                                              if auto_unsigned else "no signature requested"),
             "binary": args.get("out"),
             "stderr": (p.stderr or "").strip()[:500]}
+    if cleanup:
+        response["parameter_cleanup"] = cleanup
+    return response
 
 
 def _blueprint_bytes(code: str) -> bytes:
@@ -349,6 +355,9 @@ def inject(args, *, context: BlueprintContext):
     existing = aigenerated._find(source)
     if existing and aigenerated.verify_text(source):
         raise ValueError("replacement contains an invalid signature")
+    source, cleanup = clean_parameters(source)
+    if cleanup:
+        response["parameter_cleanup"] = cleanup
     signed_author = existing[0].group(1) if existing else ""
     author = signed_author or supplied_author or context.get_author()
     allow_unsigned = bool(args.get("allow_unsigned", False)) or (not existing and not has_signature_slot(source))

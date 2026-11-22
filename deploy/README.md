@@ -155,6 +155,14 @@ in a form can be submitted without an author and are labeled unsigned. Repeated
 submission of the same request/author returns the saved delivery. Form authors
 do not alter the process-wide author defaults used by legacy tools.
 
+Generation and injection remove known editor placeholders only from provably
+unused trailing operand positions: the exact unquoted tokens `true`, `false`,
+`a`, and `b`. Other names may be declarations, so they are retained, as are
+numbers, strings, unknown commands, interior operands and signed programs.
+Cleanup does not add/remove instructions or change jump destinations. Results
+report removals in `parameter_cleanup`; a signature form snapshots and displays
+the cleaned code before confirmation.
+
 Example call to open a form (it creates no blueprint until submission):
 
 ```json

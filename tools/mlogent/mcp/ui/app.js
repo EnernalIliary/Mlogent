@@ -59,6 +59,9 @@
         }
         $('source-summary').textContent = `查看 ${data.lines} 行代码${data.preview_truncated ? '（预览已截断）' : ''}`;
         $('source').textContent = data.code_preview;
+        $('cleanup-note').hidden = !data.parameter_cleanup?.length;
+        $('cleanup-note').textContent = data.parameter_cleanup?.length ?
+          '已移除无效占位参数：' + data.parameter_cleanup.map(c => `第 ${c.line} 行 (${c.removed.join(', ')})`).join('；') : '';
         if (document.activeElement !== $('author')) $('author').value = data.author || '';
         $('author').readOnly = data.author_locked;
         $('author').required = requiresAuthor;

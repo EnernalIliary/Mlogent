@@ -15,9 +15,40 @@ import aigenerated
 from mlogent.logic import source
 from mlogent.logic import labels
 from mlogent.logic import payload, signature, slots
+from mlogent.logic.cleanup import clean
 
 
 class SourceTests(unittest.TestCase):
+    def test_cleanup_removes_only_ignored_editor_default_suffixes(self):
+        examples = {
+            'jump 7 always a b\n': 'jump 7 always\n',
+            'op abs result x b\n': 'op abs result x\n',
+            'ucontrol move x y false a b\n': 'ucontrol move x y\n',
+            'draw clear true false a b true false\n': 'draw clear\n',
+            'print "two words" a b\n': 'print "two words"\n',
+            'end true false a b\n': 'end\n',
+            '  entry:\r\n  print "hello" a b\r\n': '  entry:\r\n  print "hello"\r\n',
+        }
+        for before, expected in examples.items():
+            with self.subTest(before=before):
+                after, changes = clean(before)
+                self.assertEqual(after, expected)
+                self.assertTrue(changes)
+                self.assertEqual(len(after.splitlines()), len(before.splitlines()))
+                self.assertEqual(clean(after), (after, []))
+
+    def test_cleanup_preserves_meaningful_values_declarations_and_unknown_syntax(self):
+        for text in ('op add result a b\n', 'set a b\n', 'jump 0 equal a b\n',
+                     'jump 0 always 0 0\n', 'jump 0 always a customDeclaration\n',
+                     'print x b customDeclaration\n', 'print x "a"\n',
+                     'modded x a b\n', 'op unknown result a b\n',
+                     'ucontrol unknown a b\n', 'end a b # a\n', 'end; set x a\n'):
+            with self.subTest(text=text):
+                self.assertEqual(clean(text), (text, []))
+        signed, _ = signature.sign_text('op abs out x b\njump 0 always 0\n', 'Iliary')
+        self.assertEqual(clean(signed), (signed, []))
+        self.assertFalse(signature.verify_text(signed))
+
     def test_full_unconditional_jump_reuses_zero_placeholder_without_moving_targets(self):
         for text in ('set x 1\njump 0 always 0 0\n',
                      'jump 3 equal x 1\nset x 1\njump 1 always 0 0\nend\n'):

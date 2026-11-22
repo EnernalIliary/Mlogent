@@ -697,6 +697,23 @@ class AppsContracts(unittest.TestCase):
         return self.apps.request({"operation": "mlog_gen", "arguments": self.arguments, **changes},
                                  "alice", lambda name: True)
 
+    def test_editor_defaults_are_cleaned_before_the_form_snapshot_and_delivery(self):
+        source = 'op abs result x b\njump 0 always a b\n'
+        pending = self.request(arguments={"logic": source})
+        self.assertEqual(pending["code_preview"], 'op abs result x\njump 0 always\n')
+        self.assertEqual(pending["parameter_cleanup"], [
+            {"line": 1, "removed": ["b"]}, {"line": 2, "removed": ["a", "b"]}])
+        self.assertTrue(pending["signature_required"])
+        out = self.apps.submit({"request_id": pending["request_id"], "author": "Iliary"}, "alice", lambda name: True)
+        code = mlog_mcp.msch.parse_bytes(base64.b64decode(out["result"]["blueprint_base64"])).logic_tiles()[0].logic.code
+        self.assertIn('op abs result x\n', code)
+        self.assertTrue(out["signed"])
+        delivered = mlog_mcp.tool_gen({"logic": 'print "hello" a b\nend\n'})
+        self.assertFalse(delivered["signed"])
+        self.assertEqual(delivered["parameter_cleanup"], [{"line": 1, "removed": ["a", "b"]}])
+        code = mlog_mcp.msch.parse_bytes(base64.b64decode(delivered["blueprint_base64"])).logic_tiles()[0].logic.code
+        self.assertEqual(code.strip(), 'print "hello"\nend')
+
     def test_full_jump_signs_in_form_and_no_slot_is_delivered_unsigned(self):
         pending = self.request(arguments={"logic": "set x 1\njump 0 always 0 0\n"})
         reply = self.apps.handle({"jsonrpc": "2.0", "id": 97, "method": "tools/call", "params": {

@@ -196,12 +196,16 @@ class Apps:
         context = self.mcp._blueprint_context()
         context = replace(context, get_author=lambda: None, set_author=lambda value: None)
         target = None
+        cleanup = []
         if operation == "mlog_gen":
             if bool(payload.get("logic")) == bool(payload.get("source")):
                 raise ValueError("provide exactly one of logic or source")
             if payload.get("source"):
                 payload["logic"] = context.workspace_input_path(payload.pop("source"), (".mlog",)).read_text(encoding="utf-8-sig")
             code = payload.get("logic")
+            if isinstance(code, str):
+                code, cleanup = self.mcp._blueprints.clean_parameters(code)
+                payload["logic"] = code
         else:
             if bool(payload.get("path")) == bool(payload.get("blueprint_code")):
                 raise ValueError("provide exactly one of blueprint_code or path")
@@ -210,6 +214,9 @@ class Apps:
                 payload["blueprint_code"] = (base64.b64encode(raw).decode() if raw.startswith(b"msch")
                                              else raw.decode("utf-8-sig"))
             code = payload.get("mlog")
+            if isinstance(code, str):
+                code, cleanup = self.mcp._blueprints.clean_parameters(code)
+                payload["mlog"] = code
             # Reuse the original preview to check target selection and expected revision.
             preview = self.mcp._blueprints.inject({**payload, "author": "pending", "preview": True}, context=context)
             if not preview.get("ok"):
@@ -232,6 +239,8 @@ class Apps:
                 "author": existing_author or str(payload.get("author") or ""),
                 "author_locked": bool(existing_author)}
         view["signature_required"] = bool(hits) or self.mcp._blueprints.has_signature_slot(code)
+        if cleanup:
+            view["parameter_cleanup"] = cleanup
         if target is not None:
             view["target"] = target
         with self.lock:

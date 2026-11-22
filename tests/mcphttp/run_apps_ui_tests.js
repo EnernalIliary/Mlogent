@@ -37,7 +37,7 @@ const root = path.resolve(__dirname, '../..');
     const call = (name, args) => rpc('tools/call', {name, arguments: args});
     // Calling the original tool without an author must open the same form.
     const signature = await call('mlog_gen', {
-      logic: 'set n 42\njump 0 always 0 0\n', name: '<img src=x onerror=alert(1)>'});
+      logic: 'set n 42\nop abs out n b\njump 0 always a b\n', name: '<img src=x onerror=alert(1)>'});
     assert.equal(signature.isError, false);
     const dashboard = {structuredContent: {kind: 'dashboard', ok: true,
       status: {ok: true, map: '测试世界', mode: 'survival', wave: 4, players: 1,
@@ -95,6 +95,7 @@ const root = path.resolve(__dirname, '../..');
     await frame.locator('#review').waitFor({state: 'visible'});
     assert.equal(await frame.locator('#name').textContent(), '<img src=x onerror=alert(1)>');
     assert.equal(await frame.locator('#name img').count(), 0);
+    assert.match(await frame.locator('#cleanup-note').textContent(), /第 2 行 \(b\)/);
     await frame.locator('#author').fill('浏览器测试作者');
     await page.screenshot({path: path.join(require('node:os').tmpdir(), 'mlogent-signature-ui.png')});
     await frame.locator('#submit').click();
