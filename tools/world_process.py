@@ -7,7 +7,7 @@ import subprocess
 import threading
 import time
 
-from mlogsim import _win_kill_with_parent
+from mlogent.simulation.process import bind_to_parent as _win_kill_with_parent
 
 
 def _release_job(job):

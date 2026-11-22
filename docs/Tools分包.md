@@ -19,6 +19,11 @@
 - `tools/mlogent/mcp/tasks.py`：任务查看、列表、恢复、备注与清理。
 - `tools/mlogent/mcp/queries.py`：知识检索与模拟器能力查询。
 - `tools/mlogent/mcp/experiments.py`：场景运行、差分、观测对比和探索适配。
+- `tools/mlogent/simulation/process.py`：模拟 JVM 启动、控制台队列、命令等待、退出回收和孤儿进程清理。
+- `tools/mlogent/simulation/scripts.py`：世界、场景、单位、电网与投影的 JS 模板及构造函数。
+- `tools/mlogent/simulation/results.py`：处理器结果、单位轨迹、停机坪状态解析与轨迹断言输出。
+- `tools/mlogent/scenario/schema.py`：场景 v1/v2 读取、规范化、字段校验与 modifier 上下文。
+- `tools/mlogent/scenario/scoring.py`：采样聚合、值比较、v1/v2/世界副作用断言、诊断与报告文本。
 - `tools/mlog_mcp.py`：协议路由、程序读取、artifact 缓存和进程生命周期；保留原工具函数作为委托入口。
 
 analysis 模块通过参数接收程序读取器和 artifact 存储器，不反向导入 MCP 入口，不持有服务端缓存。
@@ -56,6 +61,34 @@ MCP 注入的审阅源码也使用该模块。签名编码、哈希和安全槽�
 签名测试覆盖内部模块独立导入、安全槽扫描不改输入、无比较值跳转的哈希一致性、
 Unicode 载荷往返及重复标签拒绝；载荷格式、哈希算法和拒签规则保持不变。
 
+## 模拟进程
+
+`mlogsim.Server` 继承内部 `SimulatorProcess`，保留原构造参数、proc/workdir/lines/all、
+send/wait_for/js/close 等接口。世界初始化、JS 控制台协议、执行编排和 CLI 暂留 `mlogsim.py`。
+进程层只接收工作区路径和启动选项，不反向导入模拟器或 CLI。
+
+Windows job 绑定、存活实例列表与 atexit 清理各只有一份；旧 helper 保留别名。
+world 后端直接导入共享 Windows 绑定函数，不再为了该函数加载整个 mlogsim。
+孤儿进程清理的筛选规则与 dry-run 保持不变。
+
+进程层在启动中途失败时回收已创建的子进程；关闭命令写入失败也会 kill 并 wait，
+重复 close 不重复释放资源。`tests/simulation/run_process_tests.py` 使用自有假进程
+覆盖生命周期和超时，不启动 JVM、不操作真实孤儿进程，同时接入 gate 与技能隔离验证。
+纯 JS 构造与结果解析已经分离，可独立导入而不加载进程层。旧模板常量、构造函数和解析函数
+继续由 mlogsim 导出；场景锚点/路径等读取运行状态的 helper 仍留在执行编排层。
+`tests/simulation/run_data_tests.py` 覆盖多处理器记录隔离、类型、轨迹、停机坪和原版电网更新顺序。
+
+## 场景工作流
+
+`scenario.load/validate/warnings` 保留入口与错误类型；schema 层不加载场景执行器或 JVM。
+读取时显式传入工作区根目录和 v1 shadow 目录，保持场景目录优先、工作区回退的代码路径解析。
+旧入口每次读取当前 ROOT/SHADOW_DIR，调用方仍能重定向临时文件。
+断言与报告已迁入 scoring.py，消费已有执行记录，不读取文件、不加载执行后端。
+旧 aggregate/compare 与断言 helper 保留导出；sim/world 后端仍留在 scenario.py。
+`tests/scenario/run_schema_tests.py` 覆盖独立导入、路径优先级、v1 列表源码和校验错误汇总。
+`tests/scenario/run_scoring_tests.py` 覆盖观测优先级、旧 checks、世界副作用、缺失值和报告。
+诊断优先显示断言显式选中的观测及样本，避免把同变量的其他观测误当作判定依据。
+
 ## 构建与验证
 
 `build_skills.py` 保留原有顶层载荷，并递归复制 `tools/mlogent/` 下的 Python 和 JSON 文件，
@@ -68,10 +101,10 @@ release 的 toolchain 和 mcp 文件筛选本就覆盖 tools 子目录，skills 
 `gate.py` 的 packages 步骤覆盖包导入、路径计算、公共 MCP 分析工具、蓝图回滚、编译诊断、
 artifact 回读、模拟图片返回、worker 输出限制、trace 缓存查询、任务生命周期与观测差异回读。
 
-## 后续迁移顺序
+## 后续整理边界
 
 1. MCP 的主要领域适配已拆出；剩余 schema、协议路由、共享状态和入口包装先保留在原文件。
-2. 已收敛源码转换入口；接下来可迁移 logic 与 blueprint 的低层实现。
-3. 迁移 simulation、world 和 knowledge；每次保留旧入口，并验证独立技能包。
+2. 已收敛源码转换入口；logic 与 blueprint 的剩余低层实现按实际维护需求再迁移。
+3. 模拟进程、JS 构造和结果解析已迁移；场景 schema 与评分报告已独立。sim/world 执行编排暂留原入口，后续新增能力时再按需提取，不为缩短文件继续搬迁。
 
 不为每个目录发布独立版本，也不同时改工具 schema 或返回格式。
