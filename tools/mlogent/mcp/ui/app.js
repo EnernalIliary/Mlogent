@@ -33,14 +33,18 @@
     data = output;
     notice();
     if (page === 'signature') {
-      const complete = data.status === 'complete';
-      $('state').textContent = complete ? '已签名' : '待确认';
+      const complete = data.status === 'complete' || data.status === 'preview';
+      const preview = data.status === 'preview';
+      const unsigned = data.signed === false;
+      $('state').textContent = preview ? '预览' : complete ? (unsigned ? '未签名' : '已签名') : '待确认';
       $('state').className = complete ? 'badge good' : 'badge';
       $('review').hidden = complete;
       $('delivery').hidden = !complete;
       if (complete) {
-        $('signed-author').textContent = '作者：' + data.author;
-        $('blueprint').value = data.result?.blueprint_base64 || '';
+        $('delivery-title').textContent = preview ? '蓝图预览' : unsigned ? '蓝图已生成（未签名）' : '蓝图已签名';
+        $('signed-author').textContent = preview ? '这是预览，尚未写入蓝图。' : '作者：' + (data.author || '未署名');
+        $('blueprint').value = data.result?.blueprint_base64 || JSON.stringify(data.result || {}, null, 2);
+        if (unsigned && data.result?.warning) notice(data.result.warning, true);
       } else {
         $('name').textContent = data.name;
         $('operation').textContent = data.operation === 'mlog_inject' ? '更新处理器' : '生成新蓝图';

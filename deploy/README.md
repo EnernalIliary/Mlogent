@@ -120,8 +120,13 @@ python tools/mlog_mcp_http_profiles.py --bind 127.0.0.1 --port 8765 \
   --token "$MLOG_MCP_TOKEN" --enable-ui
 ```
 
-The original tools keep their text-only responses. `mlog_signature_request`
-opens an author form for `mlog_gen` or `mlog_inject`; `world_dashboard` opens a
+Without the flag the original tools keep their existing responses. With UI
+enabled, `mlog_gen` and `mlog_inject` automatically open a pending author form
+when unsigned input has no explicit author. No blueprint is delivered until
+the form is submitted; an existing process-wide author default does not bypass
+this step. Explicit-author delivery and injection previews render their results
+in the same component. `mlog_signature_request` can also open a form directly
+or reopen the `request_id` returned in a pending result; `world_dashboard` opens a
 read-only status/player dashboard. `mlog_signature_submit` is app-only and
 signs the saved request after form submission. The simpler
 `mlog_mcp_http.py` also supports the flag and signature form; use the profiles
@@ -131,6 +136,11 @@ UI tools use the existing bearer/OAuth connection. A profile must permit the
 UI tool and its underlying operation: `mlog_gen`/`mlog_inject` for signing,
 both `world_status` and `world_players` for the dashboard. The `runner` profile
 with `tools: ["*"]` already permits them. No credentials are placed in HTML.
+
+Client tool catalogs must include the new definitions: `mlog_gen` has an
+`author` input and, with the flag enabled, signature UI metadata. Reading
+`mlog_doctor` only checks the backend; its result now names the available UI
+tools, while `world_dashboard` is the tool that opens the world interface.
 
 Signature requests expire after 15 minutes or a service restart. Inputs are
 snapshotted before displaying the form; submission cannot substitute a different

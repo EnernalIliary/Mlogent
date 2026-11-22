@@ -694,6 +694,39 @@ class AppsContracts(unittest.TestCase):
         return self.apps.request({"operation": "mlog_gen", "arguments": self.arguments, **changes},
                                  "alice", lambda name: True)
 
+    def test_original_generation_tool_routes_missing_author_to_reopenable_form(self):
+        for dispatch in (
+                lambda req: mlog_mcp_http.dispatch(req, apps=self.apps)[1],
+                lambda req: mlog_mcp_http_profiles.dispatch(req, principal="alice", apps=self.apps)[1]):
+            req = {"jsonrpc": "2.0", "id": 91, "method": "tools/call",
+                   "params": {"name": "mlog_gen", "arguments": dict(self.arguments)}}
+            with patch.object(mlog_mcp._blueprints, "generate") as generate:
+                reply = dispatch(req)
+                generate.assert_not_called()
+            result = reply["result"]
+            self.assertFalse(result["isError"])
+            self.assertEqual(result["structuredContent"]["status"], "pending")
+            self.assertEqual(result["_meta"]["ui"]["resourceUri"], SIGNATURE_URI)
+            followup = result["structuredContent"]["next_action"]
+            self.assertEqual(followup["tool"], "mlog_signature_request")
+            reopened = dispatch({"jsonrpc": "2.0", "id": 92, "method": "tools/call",
+                                 "params": {"name": followup["tool"], "arguments": followup["arguments"]}})
+            self.assertEqual(reopened["result"]["structuredContent"]["request_id"],
+                             result["structuredContent"]["request_id"])
+
+    def test_generation_descriptor_and_explicit_author_delivery_match_ui(self):
+        _, reply = mlog_mcp_http.dispatch({"jsonrpc": "2.0", "id": 93, "method": "tools/list"}, apps=self.apps)
+        tool = next(t for t in reply["result"]["tools"] if t["name"] == "mlog_gen")
+        self.assertIn("author", tool["inputSchema"]["properties"])
+        self.assertEqual(tool["_meta"]["ui"]["resourceUri"], SIGNATURE_URI)
+        self.assertIn("automatically", tool["description"])
+        _, reply = mlog_mcp_http.dispatch({"jsonrpc": "2.0", "id": 94, "method": "tools/call",
+            "params": {"name": "mlog_gen", "arguments": {**self.arguments, "author": "Alice"}}}, apps=self.apps)
+        data = reply["result"]["structuredContent"]
+        self.assertEqual(data["status"], "complete")
+        self.assertEqual(data["author"], "Alice")
+        self.assertTrue(data["result"]["signed"])
+
     def test_ui_is_absent_by_default_and_explicitly_enabled_over_http(self):
         for flags in ((), ("--enable-ui",)):
             server = Server(*flags)

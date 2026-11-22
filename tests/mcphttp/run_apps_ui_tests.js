@@ -35,8 +35,9 @@ const root = path.resolve(__dirname, '../..');
       return reply.result;
     };
     const call = (name, args) => rpc('tools/call', {name, arguments: args});
-    const signature = await call('mlog_signature_request', {operation: 'mlog_gen', arguments: {
-      logic: 'set n 42\njump 0 always 0\n', name: '<img src=x onerror=alert(1)>'}});
+    // Calling the original tool without an author must open the same form.
+    const signature = await call('mlog_gen', {
+      logic: 'set n 42\njump 0 always 0\n', name: '<img src=x onerror=alert(1)>'});
     assert.equal(signature.isError, false);
     const dashboard = {structuredContent: {kind: 'dashboard', ok: true,
       status: {ok: true, map: '测试世界', mode: 'survival', wave: 4, players: 1,

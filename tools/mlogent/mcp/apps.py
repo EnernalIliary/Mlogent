@@ -55,7 +55,7 @@ class Apps:
                   _object({"operation": {"type": "string", "enum": ["mlog_gen", "mlog_inject"]},
                            "arguments": {"type": "object", "description":
                                          "Arguments for the selected tool; output paths and unsigned delivery are not supported."}},
-                          ["operation", "arguments"]), SIGNATURE_URI),
+                          []), SIGNATURE_URI),
             _tool("mlog_signature_submit", "Submit the author for an existing signature request. "
                   "Uses the saved reviewed inputs; repeated submission returns the existing result.",
                   _object({"request_id": {"type": "string"},
@@ -66,6 +66,70 @@ class Apps:
             self.tools.append(_tool("world_dashboard", "Open or refresh the read-only world dashboard: "
                                     "live server status and online players. Does not change the game.",
                                     _object(), DASHBOARD_URI))
+        request_schema = self.tools[0]["inputSchema"]
+        request_schema["properties"]["request_id"] = {"type": "string", "description": "Reopen an existing pending form returned by mlog_gen/mlog_inject."}
+        request_schema["oneOf"] = [{"required": ["operation", "arguments"]},
+                                   {"required": ["request_id"]}]
+
+    def decorate(self, tools, allowed=lambda name: True):
+        """Bind legacy delivery tools too, so missing authors open the form directly."""
+        tools = deepcopy(tools)
+        can_sign = self.permitted("mlog_signature_request", allowed) and self.permitted("mlog_signature_submit", allowed)
+        for tool in tools:
+            if tool["name"] in ("mlog_gen", "mlog_inject") and can_sign and allowed(tool["name"]):
+                tool["_meta"] = _tool("", "", {}, SIGNATURE_URI)["_meta"]
+                tool["outputSchema"] = {"type": "object"}
+                tool["description"] += (" With UI enabled, omitting author on unsigned input automatically opens "
+                                         "the author signature form; wait for the user to submit it. "
+                                         "Do not invent an author. Pass author explicitly for text-only delivery.")
+            elif tool["name"] == "mlog_doctor":
+                tool["description"] += " For an interactive world status view use world_dashboard instead."
+        return tools
+
+    def _unsigned_without_author(self, name, args):
+        if args.get("author") or args.get("allow_unsigned") or args.get("preview"):
+            return False
+        code = args.get("logic" if name == "mlog_gen" else "mlog")
+        if name == "mlog_gen" and args.get("source"):
+            code = self.mcp._blueprint_context().workspace_input_path(args["source"], (".mlog",)).read_text(encoding="utf-8-sig")
+        if not isinstance(code, str) or not code.strip():
+            return False
+        import aigenerated
+        return not aigenerated._find(code)
+
+    def decorate_reply(self, payload, reply, allowed=lambda name: True):
+        if payload.get("method") != "tools/call" or not reply or "result" not in reply:
+            return reply
+        name = (payload.get("params") or {}).get("name")
+        result = reply["result"]
+        if result.get("isError"):
+            return reply
+        if name == "mlog_doctor":
+            data = json.loads(result["content"][0]["text"])
+            data["ui"] = {"enabled": True, "available_tools": [t["name"] for t in self.catalog(allowed)
+                           if "model" in t["_meta"]["ui"]["visibility"]],
+                          "hint": "Use world_dashboard for the interactive world view; unsigned mlog_gen/mlog_inject calls open the author form."}
+            result["content"][0]["text"] = json.dumps(data, ensure_ascii=False)
+            return reply
+        if name not in ("mlog_gen", "mlog_inject") or not self.permitted("mlog_signature_request", allowed):
+            return reply
+        if "structuredContent" not in result:
+            output = json.loads(result["content"][0]["text"])
+            if output.get("ok") is False:
+                return reply
+            author = (payload.get("params", {}).get("arguments") or {}).get("author", "")
+            if output.get("blueprint_base64") and output.get("signed"):
+                import aigenerated
+                schematic = self.mcp.msch.parse_bytes(base64.b64decode(output["blueprint_base64"]))
+                hits = [h for tile in schematic.logic_tiles() for h in aigenerated._find(tile.logic.code)]
+                if hits:
+                    author = hits[0].group(1)
+            data = {"kind": "signature", "status": "preview" if output.get("mode") == "preview" else "complete",
+                    "author": author, "signed": output.get("signed"), "result": output}
+            result["structuredContent"] = data
+            result["content"][0]["text"] = json.dumps(data, ensure_ascii=False)
+        result["_meta"] = {"ui": {"resourceUri": SIGNATURE_URI}, "openai/outputTemplate": SIGNATURE_URI}
+        return reply
 
     def permitted(self, name, allowed):
         if not allowed(name):
@@ -106,6 +170,15 @@ class Apps:
                 del self.requests[key]
 
     def request(self, args, principal, allowed):
+        if "request_id" in args:
+            if set(args) != {"request_id"}:
+                raise ValueError("request_id cannot be combined with new request arguments")
+            with self.lock:
+                self._prune()
+                record = self.requests.get(args["request_id"])
+                if not record or record["principal"] != principal or not allowed(record["operation"]):
+                    raise ValueError("signature request expired, not found or not permitted")
+                return deepcopy(record.get("result") or record["view"])
         operation = args.get("operation")
         if operation not in ("mlog_gen", "mlog_inject") or not allowed(operation):
             raise ValueError("operation is invalid or not permitted")
@@ -239,7 +312,8 @@ class Apps:
         if not isinstance(params, dict):
             return {"jsonrpc": "2.0", "id": rid, "error": {"code": -32602, "message": "params must be an object"}}
         name = params.get("name")
-        if method not in ("resources/list", "resources/read") and not (method == "tools/call" and name in NAMES):
+        legacy = method == "tools/call" and name in ("mlog_gen", "mlog_inject")
+        if method not in ("resources/list", "resources/read") and not (method == "tools/call" and name in NAMES) and not legacy:
             return None
         try:
             if method == "resources/list":
@@ -250,7 +324,16 @@ class Apps:
                 arguments = params.get("arguments", {})
                 if not isinstance(arguments, dict):
                     raise ValueError("arguments must be an object")
-                data = self.call(name, arguments, principal, allowed)
+                if legacy:
+                    if (not allowed(name) or not self.permitted("mlog_signature_request", allowed)
+                            or not self.permitted("mlog_signature_submit", allowed)
+                            or not self._unsigned_without_author(name, arguments)):
+                        return None
+                    data = self.request({"operation": name, "arguments": arguments}, principal, allowed)
+                    data["message"] = "Author signature required. Show the attached form and wait for user input; do not invent an author or retry generation. If the form is not shown, reopen it using next_action."
+                    data["next_action"] = {"tool": "mlog_signature_request", "arguments": {"request_id": data["request_id"]}}
+                else:
+                    data = self.call(name, arguments, principal, allowed)
                 result = {"content": [{"type": "text", "text": json.dumps(data, ensure_ascii=False)}],
                           "structuredContent": data, "isError": False}
             return {"jsonrpc": "2.0", "id": rid, "result": result}

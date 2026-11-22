@@ -182,6 +182,8 @@ def dispatch(payload, profile="runner", principal="static", apps=None):
             if apps is not None:
                 _res["tools"] = list(_res["tools"]) + apps.catalog(lambda name: ACL.allows(profile, name))
             _res["tools"] = ACL.filter_tools(profile, _res["tools"])
+            if apps is not None:
+                _res["tools"] = apps.decorate(_res["tools"], lambda name: ACL.allows(profile, name))
             if profile == "reader":
                 for index, tool in enumerate(_res["tools"]):
                     if tool.get("name") == "mlog_extract":
@@ -197,6 +199,8 @@ def dispatch(payload, profile="runner", principal="static", apps=None):
         _si = ((_reply.get("result") or {}).get("serverInfo"))
         if isinstance(_si, dict):
             _si["name"] = "Mlogent世界服务器"
+    if apps is not None:
+        _reply = apps.decorate_reply(payload, _reply, lambda name: ACL.allows(profile, name))
     return 200, _reply
 
 

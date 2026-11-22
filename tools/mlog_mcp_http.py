@@ -91,7 +91,7 @@ def dispatch(payload, apps=None):
         with _LOCK:
             special = apps.handle(payload)
         if special is not None:
-            return 200, special
+            return 200, apps.decorate_reply(payload, special)
     params = payload.get("params")
     if (payload["method"] == "tools/call" and isinstance(params, dict)
             and params.get("name") == "mlog_sim"):
@@ -110,9 +110,10 @@ def dispatch(payload, apps=None):
     reply = collected[0] if collected else None
     if apps is not None and reply is not None:
         if payload["method"] == "tools/list":
-            reply["result"]["tools"] = list(reply["result"]["tools"]) + apps.catalog()
+            reply["result"]["tools"] = apps.decorate(list(reply["result"]["tools"]) + apps.catalog())
         elif payload["method"] == "initialize":
             reply["result"]["capabilities"]["resources"] = {}
+        reply = apps.decorate_reply(payload, reply)
     return 200, reply
 
 
