@@ -609,8 +609,11 @@ class Simulation(unittest.TestCase):
             self.assertEqual(Path(command[-1]).read_text(encoding="utf-8"), "set n 42\nend\n")
             return json.dumps(records, indent=2)
 
-        with patch.object(mlog_mcp, "_bounded_sim_worker", side_effect=run):
-            result = mlog_mcp.tool_sim({"scene": "scenes/sim/sandbox-haul.json", "ticks": 8,
+        with tempfile.TemporaryDirectory(dir=ROOT) as directory, \
+                patch.object(mlog_mcp, "_bounded_sim_worker", side_effect=run):
+            scene_path = Path(directory) / "scene.json"
+            scene_path.write_text(json.dumps({"world": {"size": 16}}), encoding="utf-8")
+            result = mlog_mcp.tool_sim({"scene": str(scene_path), "ticks": 8,
                                         "logic": "\ufeffset n 42\nend\n"})
         self.assertEqual(result["vars"], records[0]["vars"])
         self.assertEqual(result["scene"], records[0]["scene"])

@@ -14,7 +14,7 @@ from .slots import find_slot
 
 DEFAULT_AUTHOR = "MAI"
 PROJECT_NAME = "Mlogent"
-PROJECT_VERSION = os.environ.get("MLOGENT_VERSION", "1.9.2")
+PROJECT_VERSION = os.environ.get("MLOGENT_VERSION", "1.10.0")
 PROJECT_REPO = "https://github.com/EnernalIliary/Mlogent"
 # the sidecar (tools/logicd.py, tools/jobqueue.py) signs with this one; the
 # environment override exists so a build can attribute a different author
