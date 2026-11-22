@@ -6,6 +6,11 @@
 ## 当前边界
 
 - `tools/mlogent/paths.py`：从实际安装位置计算工具目录与工作区目录，不依赖当前工作目录。
+- `tools/mlogent/logic/source.py`：编辑态、交付态、反编译输入和代码审阅的统一源码转换。
+- `tools/mlogent/logic/labels.py`：标签语法、统一行扫描、标签解析和跳转往返校验；不依赖签名或 CLI。
+- `tools/mlogent/logic/payload.py`：签名载荷编码与校验，以及共享的 SignError 类型。
+- `tools/mlogent/logic/slots.py`：从后向前选择安全槽，不修改输入、不迁移指令。
+- `tools/mlogent/logic/signature.py`：签名识别、正文规范化、哈希、挂载和验证。
 - `tools/mlogent/mcp/analysis.py`：静态检查、IR、变量分析的 MCP 结果适配。
 - `tools/mlogent/mcp/blueprints.py`：蓝图生成、提取、注入、预览和持久化 revision 回滚。
 - `tools/mlogent/mcp/compilation.py`：Mindcode 编译、可选源码映射、编译产物和 mlog 验证流程。
@@ -32,6 +37,25 @@ queries 和 experiments 延迟加载原实现，不增加独立缓存或持久�
 已移除没有调用方的旧进程内模拟器缓存和 `_run_code`，模拟仅走受限 worker 流程。
 检查算法暂时仍位于原模块；后续可以独立迁移，避免一次移动所有文件。
 
+## 源码转换
+
+`aigenerated.sign_delivery/restore_text`、`mlog_labelize.labelize_source` 和
+`mlog.render_extracted_logic` 保留原入口，委托给 `logic/source.py`。
+MCP 注入的审阅源码也使用该模块。签名编码、哈希和安全槽实现已迁入内部模块，
+`aigenerated.py` 保留旧符号导出、文件操作和 CLI。内部转换不反向导入它。
+低层标签重写已迁入 `logic/labels.py`，`aigenerated` 和 `mlog_labelize` 保留旧导出与错误类型。
+源码转换直接调用内部标签引擎，不反向导入 CLI；标签化预建指令到源码行的索引，避免逐目标重复扫描。
+
+- 编辑态恢复标签与注释，并在文件末尾保留一个签名注释。
+- 交付态解析标签，沿用作者和 payload，并将签名挂载到已有安全槽；没有槽仍拒签。
+- 反编译只移除签名操作数或签名注释，保留原有 jump 和包含类似签名前缀的用户字符串。
+- 恢复注释时按指令编号定位，标签和别名不占指令位置；尾部注释留在 end 之后。
+
+`tests/source/run_source_tests.py` 覆盖往返、注释锚点、反编译控制流和 CLI 错误处理，
+还覆盖标签引擎独立导入、别名、越界/未知跳转和多目标往返，同时接入 gate 与技能隔离验证。
+签名测试覆盖内部模块独立导入、安全槽扫描不改输入、无比较值跳转的哈希一致性、
+Unicode 载荷往返及重复标签拒绝；载荷格式、哈希算法和拒签规则保持不变。
+
 ## 构建与验证
 
 `build_skills.py` 保留原有顶层载荷，并递归复制 `tools/mlogent/` 下的 Python 和 JSON 文件，
@@ -47,7 +71,7 @@ artifact 回读、模拟图片返回、worker 输出限制、trace 缓存查询�
 ## 后续迁移顺序
 
 1. MCP 的主要领域适配已拆出；剩余 schema、协议路由、共享状态和入口包装先保留在原文件。
-2. 收敛编辑态与交付态源码转换，再迁移 logic 与 blueprint 实现。
+2. 已收敛源码转换入口；接下来可迁移 logic 与 blueprint 的低层实现。
 3. 迁移 simulation、world 和 knowledge；每次保留旧入口，并验证独立技能包。
 
 不为每个目录发布独立版本，也不同时改工具 schema 或返回格式。

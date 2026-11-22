@@ -165,15 +165,9 @@ def extract(args, *, context: BlueprintContext):
 
 
 def _inject_review_source(code: str) -> str:
-    import aigenerated
-    from mlog import render_extracted_logic
+    from mlogent.logic.source import review
 
-    try:
-        labelled, _ = render_extracted_logic(code)
-    except (ValueError, aigenerated.SignError):
-        # An existing malformed signature should not prevent fixing the program.
-        labelled = code
-    return aigenerated._body(labelled) if aigenerated._find(labelled) else labelled
+    return review(code)
 
 
 def _inject_checks(target: msch.LogicCodeTarget, code: str) -> dict:
