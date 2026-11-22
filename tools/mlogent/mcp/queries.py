@@ -35,15 +35,23 @@ def fidelity(args):
 def knowledge(args):
     """Lexical retrieval.  `kb.py` is the better index; this one runs anywhere."""
     import kb_grep
+    import official_terms
     query = (args.get("query") or "").strip()
     if not query:
         raise ValueError("query is required")
     k = max(1, min(int(args.get("k") or 6), 20))
     kind = args.get("kind") or "knowledge"
-    hits = kb_grep.search(query, k=k, include_docs=(kind == "all"))
+    names = official_terms.lookup(query, include_turrets=any(w in query for w in ("炮台", "炮塔")))
+    expanded = query + " " + " ".join(row['id'] for row in names if row['id'] in query or row['zh_CN'] in query)
+    hits = kb_grep.search(expanded, k=k, include_docs=(kind == "all"))
     return {"count": len(hits), "mode": "keyword",
             "note": "BM25 over knowledge/ sections, no embeddings. For semantic "
                     "search with rerank use tools/kb.py locally.",
-            "hits": hits}
+            "hits": hits,
+            "official_terms": names,
+            "terminology_source": official_terms.SOURCE,
+            "terminology_policy": "Use zh_CN for vanilla prose; preserve IDs in code. "
+                                  "Aliases are search aids, not official translations. "
+                                  "Mod content needs its own matching locale bundle."}
 
 
