@@ -25,13 +25,18 @@
 from __future__ import annotations
 
 import argparse
+import os
 import shutil
 import subprocess
 import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
-SCRIPTS_DIR = ROOT / "GriefToBan" / "scripts"
+sys.path.insert(0, str(ROOT / "tools"))
+from dependencies import project_dir
+
+MOD_ROOT = project_dir("GriefToBan")
+SCRIPTS_DIR = MOD_ROOT / "scripts"
 TESTS_DIR = ROOT / "tests" / "grief-to-ban"
 LIB_TESTS = TESTS_DIR / "run_lib_tests.js"
 PERF_TESTS = TESTS_DIR / "run_perf_static_tests.js"
@@ -78,9 +83,12 @@ def rel(path: Path) -> str:
 
 
 def run(argv: list[str]) -> subprocess.CompletedProcess:
+    env = os.environ.copy()
+    env["GTB_ROOT"] = str(MOD_ROOT)
     return subprocess.run(
         argv,
         cwd=str(ROOT),
+        env=env,
         capture_output=True,
         text=True,
         encoding="utf-8",

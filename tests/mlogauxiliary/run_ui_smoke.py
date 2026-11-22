@@ -893,9 +893,9 @@ def main():
             os.makedirs(fdir)
         fake = os.path.join(fdir, 'job_fake.json')
         with io.open(fake, 'w', encoding='utf-8') as fh:
-            fh.write(json.dumps({'clean': {'code': 'set n 0\nop add n n 1\nprint n\nend'},
-                                 'broken': {'code': 'jump 99 always x 0\nend'},
-                                 'hallucinated link': {'code': 'sensor x container9 @copper\nend'}},
+            fh.write(json.dumps({'clean': {'code': 'set n 0\nop add n n 1\nprint n\njump 4 always 0\nend'},
+                                 'broken': {'code': 'jump 99 always 0\nend'},
+                                 'hallucinated link': {'code': 'sensor x container9 @copper\njump 2 always 0\nend'}},
                                 ensure_ascii=False, indent=1))
         jdir = os.path.join(fdir, 'jobs')
         if os.path.isdir(jdir):

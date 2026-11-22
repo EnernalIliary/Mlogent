@@ -789,6 +789,31 @@ class ProfileOAuth(unittest.TestCase):
 
 
 class ProfilePolicy(unittest.TestCase):
+    def test_tool_call_waits_for_a_busy_mcp_worker(self):
+        lock = mlog_mcp_http_profiles._LOCK
+        self.assertTrue(lock.acquire(timeout=1))
+
+        def handle(payload, emit):
+            emit({"jsonrpc": "2.0", "id": payload.get("id"),
+                  "result": {"content": [{"type": "text", "text": "ok"}],
+                             "isError": False}})
+
+        request = {"jsonrpc": "2.0", "id": 91, "method": "tools/call",
+                   "params": {"name": "mlog_check", "arguments": {}}}
+        try:
+            with ThreadPoolExecutor(max_workers=1) as pool:
+                with patch.object(mlog_mcp_http_profiles.M, "handle", side_effect=handle):
+                    pending = pool.submit(mlog_mcp_http_profiles.dispatch, request)
+                    time.sleep(0.05)
+                    self.assertFalse(pending.done())
+                    lock.release()
+                    _, reply = pending.result(timeout=2)
+        finally:
+            if lock.locked():
+                lock.release()
+
+        self.assertFalse(reply["result"]["isError"])
+
     def test_tools_list_is_filtered_by_profile(self):
         profile_data = ({
             "reader": {"label": "reader", "rpm": 30,

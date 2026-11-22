@@ -9,10 +9,13 @@
 const path = require("path");
 
 const ROOT = path.resolve(__dirname, "..", "..");
+const GTB_ROOT = process.env.GTB_ROOT
+  ? path.resolve(process.env.GTB_ROOT)
+  : path.join(ROOT, "GriefToBan");
 // 默认只测仓库里的 gtb-lib.js；GTB_LIB_JS 只给测试自己用（拿临时副本验证断言真的会红）。
 const LIB_FILE = process.env.GTB_LIB_JS
   ? path.resolve(process.env.GTB_LIB_JS)
-  : path.join(ROOT, "GriefToBan", "scripts", "gtb-lib.js");
+  : path.join(GTB_ROOT, "scripts", "gtb-lib.js");
 
 let L = null;
 try {

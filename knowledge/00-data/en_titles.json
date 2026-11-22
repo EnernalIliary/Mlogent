@@ -307,6 +307,10 @@
   "en_summary": "Measured Mindcode 3.19.3 syntax rules for target 7.0 with optimization off, each paired with the mlog it compiles to.",
   "en_title": "Mindcode syntax cheatsheet (measured): every rule with its compiled mlog"
  },
+ "knowledge/06-mlog/M11-世界指令实战样例.md": {
+  "en_summary": "Observed world-processor instructions and argument patterns from real blueprints, with version and runtime caveats.",
+  "en_title": "World processor examples: observed commands, arguments and caveats"
+ },
  "knowledge/07-patterns/P01-architecture.md": {
   "en_summary": "Why architecture means fitting state size times loop frequency into the ipt x edelta budget before splitting processors, which adds communication cost.",
   "en_title": "Blueprint architecture overview: budget, layering and topology"

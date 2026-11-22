@@ -68,34 +68,34 @@ When a search finds nothing, swap the word in this order: official name,
 English id, legacy name, colloquial name. `tools/kb_grep.py` and `mlog_kb`
 match on the surface form, so swapping the word beats rewording the question.
 
-### 社区黑话与语境
+### Community slang and context
 
-本节参考玩家整理图《部分黑话对照》和 Mindustry 中文 Wiki 的社区用法。实体官方名以游戏中文文本为准。物品、方块、地形和单位要结合上下文判断。 [中文 Wiki《黑话》](https://mdtwiki.top/index.php?title=%E9%BB%91%E8%AF%9D&oldid=4376)
+This section draws on a player-made slang chart and the Mindustry Chinese Wiki. Official entity names follow the in-game text. Use context to distinguish items, blocks, terrain, and units. [Chinese Wiki: slang](https://mdtwiki.top/index.php?title=%E9%BB%91%E8%AF%9D&oldid=4376)
 
 | 黑话 | 官方名或含义 | 对照 |
 |---|---|---|
-| 光传 | 分类器、反向分类器、溢流门、反向溢流门 | 玩家对这组物流方块的合称。需要定位某个方块时应确认具体种类。 |
-| 炮 | 在物流语境中可指质量驱动器 | `mass-driver`。战斗语境中通常指炮塔。 |
-| 玻璃 | 钢化玻璃，有时借指生产它的窑炉 | 物品 `metaglass`，方块 `kiln`。 |
-| 塑钢、合金、爆混 | 可能指材料，也可能指生产设备 | 看上下文区分物品与塑钢压缩机、合金冶炼厂、爆炸物混合器。 |
-| 墨、废、布、金、孢、爆、硫 | 石墨、废料、相织布、巨浪合金、孢子荚、爆炸混合物、硫化物 | 依次对应 `graphite`、`scrap`、`phase-fabric`、`surge-alloy`、`spore-pod`、`blast-compound`、`pyratite`。 |
-| 渣、油、冷 | 矿渣、石油、冷冻液 | 液体 ID 依次是 `slag`、`oil`、`cryofluid`。地图上的同名地形另有方块 ID。 |
-| 浅水、深水 | 深浅及地表类型的口语分组 | 浅水组有 `shallow-water`、`tainted-water`、`darksand-tainted-water`、`sand-water`、`darksand-water`。深水组有 `deep-water`、`deep-tainted-water`。 |
-| 玄武 | 玄武岩或辅助舰船玄武 | 地形是 `basalt`，T4 海辅是 `aegires`。 |
-| T1–T5 | 单位阶级，也可指负责生产该阶单位的工厂 | 赛普罗 T1 有陆军、空军、海军工厂。赛普罗 T2 到 T5 依次为数增级、倍乘级、多幂级、无量级单位重构工厂。图中 T5 工厂名称按当前游戏文本修正。 |
-| S星、E星 | 塞普罗、埃里克尔 | 行星 ID 为 `serpulo`、`erekir`。 |
-| 小核、中核、大核 | 各星球由小到大的三级核心 | 塞普罗为初代、次代、终代（`core-shard`、`core-foundation`、`core-nucleus`）。埃里克尔为城堡、堡垒、卫城（`core-bastion`、`core-citadel`、`core-acropolis`）。 |
-| 世处图 | 含世界处理器的地图 | `world-processor` 是方块 ID。 |
-| 搬运豆 | 单位物流蓝图 | 逻辑控制星辉等单位在核心与投放点之间运送物品。 |
-| 零小 | 无初始资源的小核心开局 | 核心 ID 取决于所在星球。 |
-| 涡轮 | 多指涡轮发电机，也可能指涡轮冷凝器 | 分别为 `steam-generator`、`turbine-condenser`。先看上下文涉及哪个星球。 |
-| PLT、终端 | 塞普罗的行星发射终端 | 英文名 Planetary Launch Terminal。 |
-| 科P | 优先发展超速投影或超速穹顶的对战打法 | 涉及 `overdrive-projector` 和 `overdrive-dome`。 |
-| 爬爬、白爬 | 爬爬的含义随语境变化，白爬指埃里克尔天守系 | 对战里「爬爬」常指爬虫或其后续单位。 |
-| 蚊子、轰炸机、亡魂、死神 | 社区对战语境下的赛普罗空军俗称 | 在该 Wiki 条目中依次指星辉、天垠、苍穹、日蚀（`flare`、`horizon`、`zenith`、`eclipse`）。 |
-| 布修、布超 | 用相织布强化的修理投影、超速投影 | 仍是 `mend-projector` 和 `overdrive-projector`。 |
-| 贴核 | 紧邻核心布置设施 | 仓库或容器相邻是一种用法。工厂可借装卸器直接取用核心资源，接收台也可贴核交付。 |
-| 发射、接收 | 发射台、接收台 | 当前发射台为 `advanced-launch-pad`，旧版为 `launch-pad`，接收台为 `landing-pad`。 |
+| 光传 | 分类器、反向分类器、溢流门、反向溢流门 | A collective term for these logistics blocks. Confirm the exact block before locating it. |
+| 炮 | `mass-driver` in logistics | It usually means a turret in combat. |
+| 玻璃 | 钢化玻璃、窑炉 | Item `metaglass`; block `kiln`. |
+| 塑钢、合金、爆混 | 材料或生产设备 | Use context to distinguish materials from the plastanium compressor, surge smelter, or blast mixer. |
+| 墨、废、布、金、孢、爆、硫 | 石墨、废料、相织布、巨浪合金、孢子荚、爆炸混合物、硫化物 | Corresponding ids: `graphite`, `scrap`, `phase-fabric`, `surge-alloy`, `spore-pod`, `blast-compound`, `pyratite`. |
+| 渣、油、冷 | 矿渣、石油、冷冻液 | Liquid ids are `slag`, `oil`, and `cryofluid`. Same-named terrain uses block ids. |
+| 浅水、深水 | Shallow- and deep-water surface groups | Shallow ids: `shallow-water`, `tainted-water`, `darksand-tainted-water`, `sand-water`, `darksand-water`. Deep ids: `deep-water`, `deep-tainted-water`. |
+| 玄武 | 玄武岩、辅助舰船玄武 | Terrain id `basalt`; T4 naval support unit `aegires`. |
+| T1–T5 | Unit tiers or the factories that produce them | Serpulo T1 has ground, air, and naval factories. T2–T5 use additive, multiplicative, exponential, and infinite reconstructors. The T5 name follows current in-game text. |
+| S星、E星 | Serpulo, Erekir | Planet ids are `serpulo` and `erekir`. |
+| 小核、中核、大核 | The three core tiers on each planet | Serpulo: `core-shard`, `core-foundation`, `core-nucleus`. Erekir: `core-bastion`, `core-citadel`, `core-acropolis`. |
+| 世处图 | 含世界处理器的地图 | `world-processor` is the block id. |
+| 搬运豆 | Unit-logistics schematics | Logic commands units such as `flare` to move items between a core and a drop-off point. |
+| 零小 | A small-core start with no initial resources | The core id depends on the planet. |
+| 涡轮 | Usually the steam generator, sometimes the turbine condenser | Ids are `steam-generator` and `turbine-condenser`. Use the planet and context to disambiguate. |
+| PLT、终端 | The Serpulo planetary launch terminal | English name: Planetary Launch Terminal. |
+| 科P | A PvP strategy that prioritizes overdrive projectors or domes | Uses `overdrive-projector` and `overdrive-dome`. |
+| 爬爬、白爬 | Context-dependent crawler slang; 白爬 refers to Erekir's guardian line | In PvP, 爬爬 usually means crawlers and their upgrades. |
+| 蚊子、轰炸机、亡魂、死神 | Community slang for Serpulo air units | The wiki uses these for `flare`, `horizon`, `zenith`, and `eclipse`, respectively. |
+| 布修、布超 | Mend or overdrive projectors enhanced with phase fabric | Ids remain `mend-projector` and `overdrive-projector`. |
+| 贴核 | Facilities placed next to a core | Adjacent storage is one use. Factories can pull core items with unloaders, and landing pads can deliver beside a core. |
+| 发射、接收 | Launch and receiving pads | Current launch pad: `advanced-launch-pad`; legacy id: `launch-pad`; receiving pad: `landing-pad`. |
 
 <!-- AUTO:BEGIN - generated by knowledge/tools/gen_glossary.py; do not edit -->
 

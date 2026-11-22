@@ -21,6 +21,7 @@ from __future__ import annotations
 import os
 import queue
 import shutil
+import stat
 import subprocess
 import sys
 import threading
@@ -28,7 +29,10 @@ import time
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
-MOD_SRC = ROOT / "GriefToBan"
+sys.path.insert(0, str(ROOT / "tools"))
+from dependencies import project_dir
+
+MOD_SRC = Path(os.environ.get("GTB_ROOT") or project_dir("GriefToBan"))
 JAR = ROOT / "out" / "_server160.jar"
 JAVA_BUNDLED = ROOT / "out" / "jre21" / "jdk-21.0.5+11-jre" / "bin" / "java.exe"
 PROBE_DIR = ROOT / "out" / "_gtb_probe"
@@ -84,9 +88,14 @@ def ignore_pycache(_dir, names):
     return [n for n in names if n == "__pycache__" or n.endswith(".pyc")]
 
 
+def _remove_readonly(function, path, _error):
+    os.chmod(path, stat.S_IWRITE)
+    function(path)
+
+
 def prepare_workdir(layout: str) -> Path:
     """清空重建 out/_gtb_probe/，把模组拷到 <workdir>/<layout>/GriefToBan。"""
-    shutil.rmtree(str(PROBE_DIR), ignore_errors=True)
+    shutil.rmtree(str(PROBE_DIR), onerror=_remove_readonly)
     workdir = PROBE_DIR
     mods_root = workdir.joinpath(*layout.split("/"))
     mods_root.mkdir(parents=True, exist_ok=True)

@@ -70,6 +70,7 @@ START = time.time()
 #: One dict, many threads: serialise dispatch so a fetch cannot read a half
 #: written entry, and so two calls cannot pick the same artifact id.
 _LOCK = threading.Lock()
+_TOOL_LOCK_WAIT_SECONDS = 90
 
 
 def _json_body(obj: bytes) -> dict:
@@ -136,8 +137,7 @@ def dispatch(payload, profile="runner", principal="static"):
     # Metadata and ping do not mutate that state.
     needs_lock = _method == "tools/call"
     if needs_lock:
-        wait = 0 if LIMITS.category(_name) == "heavy" else 1
-        if not _LOCK.acquire(timeout=wait):
+        if not _LOCK.acquire(timeout=_TOOL_LOCK_WAIT_SECONDS):
             return 200, _rpc_error(payload, -32003, "MCP is busy; retry shortly.")
     try:
         if (W is not None and _method == "tools/call"

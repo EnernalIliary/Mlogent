@@ -116,7 +116,7 @@ Two conventions that survive translation:
 | [`U05-progression`](04-units/U05-progression.md) | Unit progression: no experience or levels, only tiers, wave tables and difficulty multipliers | Why neither v159.3 nor v160.7 has unit experience or levels, and which four real mechanics produce the felt progression. |
 | [`U06-name-units`](04-units/U06-name-units.md) | Unit name reference: English and Chinese names of 70 units (60 with official Simplified Chinese) | Lookup table of 70 unit English and Chinese names, 60 with official Simplified Chinese, bridging displayed names to blueprint and wave ids. |
 
-### `06-mlog/` — 10 articles
+### `06-mlog/` — 11 articles
 
 | Article | Title | What it says |
 |---|---|---|
@@ -130,6 +130,7 @@ Two conventions that survive translation:
 | [`M08-性能与限制`](06-mlog/M08-性能与限制.md) | Performance and limits: budget, latency, lag and hard caps | Why every slowdown, lag spike and logic delay reduces to the per-tick instruction budget, tick rate or wait granularity. |
 | [`M09-Mindcode`](06-mlog/M09-Mindcode.md) | Mindcode compile front end: .mnd -> mlog entry points, version arbitration and failure classification | How tools/mindcode.py finds the jar and JRE, runs cm and parses stderr into file:line:col for the CLI, Python API and MCP entries. |
 | [`M10-Mindcode-Syntax`](06-mlog/M10-Mindcode-Syntax.md) | Mindcode syntax cheatsheet (measured): every rule with its compiled mlog | Measured Mindcode 3.19.3 syntax rules for target 7.0 with optimization off, each paired with the mlog it compiles to. |
+| [`M11-世界指令实战样例`](06-mlog/M11-世界指令实战样例.md) | World processor examples: observed commands, arguments and caveats | Observed world-processor instructions and argument patterns from real blueprints, with version and runtime caveats. |
 
 ### `07-patterns/` — 9 articles
 

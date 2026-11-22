@@ -33,13 +33,16 @@ var path = require("path");
 var fs = require("fs");
 
 var ROOT = path.resolve(__dirname, "..", "..");
+var GTB_ROOT = process.env.GTB_ROOT
+  ? path.resolve(process.env.GTB_ROOT)
+  : path.join(ROOT, "GriefToBan");
 // 默认只查仓库里的 main.js；GTB_MAIN_JS 只给测试自己用（拿临时副本验证红线真的会红）。
 var MAIN_FILE = process.env.GTB_MAIN_JS
   ? path.resolve(process.env.GTB_MAIN_JS)
-  : path.join(ROOT, "GriefToBan", "scripts", "main.js");
+  : path.join(GTB_ROOT, "scripts", "main.js");
 var MAIN_REL = process.env.GTB_MAIN_JS
   ? String(process.env.GTB_MAIN_JS)
-  : "GriefToBan/scripts/main.js";
+  : path.relative(ROOT, MAIN_FILE);
 
 var passed = 0;
 var failures = [];
@@ -228,8 +231,12 @@ var clean = stripComments(src);
 
 // v0.1.5 起还守两处跨文件契约：gtb-lib.js 的开关表 / gtb-ui.js 的设置行。
 // GTB_LIB_JS / GTB_UI_JS 只给测试自己用（拿临时副本验证断言真的会红）。
-var LIB_REL = process.env.GTB_LIB_JS ? String(process.env.GTB_LIB_JS) : "GriefToBan/scripts/gtb-lib.js";
-var UI_REL = process.env.GTB_UI_JS ? String(process.env.GTB_UI_JS) : "GriefToBan/scripts/gtb-ui.js";
+var LIB_REL = process.env.GTB_LIB_JS
+  ? String(process.env.GTB_LIB_JS)
+  : path.join(GTB_ROOT, "scripts", "gtb-lib.js");
+var UI_REL = process.env.GTB_UI_JS
+  ? String(process.env.GTB_UI_JS)
+  : path.join(GTB_ROOT, "scripts", "gtb-ui.js");
 function readClean(rel) {
   var file = path.resolve(ROOT, rel);
   try {

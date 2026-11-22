@@ -1,19 +1,12 @@
 {
-  "slot-not-in-enum": [
-    "bool-param-zero.mlog",
-    "radar-filter-swapped.mlog",
-    "slot-enum-ext.mlog",
-    "slot-enum.mlog",
-    "under-arity-radar.mlog"
-  ],
-  "bool-param-constantly-zero": [
-    "bool-param-zero.mlog",
-    "slot-enum-ext.mlog"
-  ],
-  "constant-null-guard": [
-    "const-null-guard.mlog"
+  "unreachable-statement": [
+    "aigenerated.mlog",
+    "jump-range.mlog",
+    "label-index.mlog",
+    "unreachable-statement.mlog"
   ],
   "numeric-jump": [
+    "aigenerated.mlog",
     "const-null-guard.mlog",
     "counter-op.mlog",
     "jump-range.mlog",
@@ -27,12 +20,19 @@
     "slot-enum-ext.mlog",
     "virus-logic-clean.mlog"
   ],
-  "unreachable-statement": [
-    "counter-op.mlog",
-    "counter-set.mlog",
-    "jump-range.mlog",
-    "label-index.mlog",
-    "unreachable-statement.mlog"
+  "slot-not-in-enum": [
+    "bool-param-zero.mlog",
+    "radar-filter-swapped.mlog",
+    "slot-enum-ext.mlog",
+    "slot-enum.mlog",
+    "under-arity-radar.mlog"
+  ],
+  "bool-param-constantly-zero": [
+    "bool-param-zero.mlog",
+    "slot-enum-ext.mlog"
+  ],
+  "constant-null-guard": [
+    "const-null-guard.mlog"
   ],
   "self-read-undefined": [
     "declared-by-mention.mlog",
