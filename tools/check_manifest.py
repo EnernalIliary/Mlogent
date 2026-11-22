@@ -14,6 +14,7 @@ This manifest covers exactly that gap.
 Covered:
     tools/*.py, tools/*.json          (top level only)
     tools/corpus/*.py
+    tools/mlogent/**/*.py, tools/mlogent/**/*.json
     tests/**/*.py, tests/**/*.json, tests/cases/*.mlog
     rules/**/*.json
 
@@ -46,6 +47,8 @@ PATTERNS = (
     "tools/*.py",
     "tools/*.json",
     "tools/corpus/*.py",
+    "tools/mlogent/**/*.py",
+    "tools/mlogent/**/*.json",
     "tests/**/*.py",
     "tests/**/*.json",
     "tests/cases/*.mlog",

@@ -1,5 +1,6 @@
 """Source selection and overwrite protection for skill builds."""
 from pathlib import Path
+import hashlib
 import subprocess
 import sys
 import tempfile
@@ -20,6 +21,12 @@ class BuildTests(unittest.TestCase):
                 'mindustry-blueprint/SKILL.md': 'blueprint',
                 'mindustry-blueprint/tools/stale.py': 'old mirror',
                 'tools/canonical.py': 'value = 42\n',
+                'tools/mlogent/__init__.py': '',
+                'tools/mlogent/mcp/__init__.py': '',
+                'tools/mlogent/mcp/example.py': 'value = 7\n',
+                'tools/mlogent/mcp/data.json': '{}',
+                'tools/dev/private.py': 'development only',
+                'tools/corpus/private.py': 'corpus only',
                 'rules/example.json': '{}',
             }
             for name, text in files.items():
@@ -37,6 +44,15 @@ class BuildTests(unittest.TestCase):
                     self.assertEqual((skill / 'tools/canonical.py').read_text(), 'value = 42\n')
                     self.assertFalse((skill / 'tools/private.py').exists())
                     self.assertFalse((skill / 'tools/stale.py').exists())
+                    self.assertFalse((skill / 'tools/dev').exists())
+                    self.assertFalse((skill / 'tools/corpus').exists())
+                    self.assertTrue((skill / 'tools/mlogent/__init__.py').is_file())
+                    self.assertTrue((skill / 'tools/mlogent/mcp/data.json').is_file())
+                    nested = skill / 'tools/mlogent/mcp/example.py'
+                    self.assertEqual(nested.read_text(), 'value = 7\n')
+                    digest = hashlib.sha256(nested.read_bytes().replace(b'\r\n', b'\n')).hexdigest()
+                    manifest = (skill / 'tools/MANIFEST.sha256').read_text()
+                    self.assertIn(digest + '  mlogent/mcp/example.py\n', manifest)
                     self.assertTrue((skill / 'rules/example.json').is_file())
                 with self.assertRaises(FileExistsError):
                     build_skills.build(output)

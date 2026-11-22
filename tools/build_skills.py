@@ -62,18 +62,22 @@ def build(dest: Path) -> None:
         if source / 'SKILL.md' not in files:
             raise RuntimeError(f'missing tracked skill source: {source}/SKILL.md')
     dest.mkdir(parents=True, exist_ok=False)
-    payload = [p for p in files if p.parent == Path('tools')
-               and p.suffix in {'.py', '.json'} and not p.name.startswith('_')]
+    payload = [p for p in files
+               if p.suffix in {'.py', '.json'}
+               and ((p.parent == Path('tools') and not p.name.startswith('_'))
+                    or p.is_relative_to(Path('tools/mlogent')))]
     for name, source in sources.items():
         target = dest / name
         copy_sources(files, source, target)
         tools = target / 'tools'
         tools.mkdir()
         for relative in payload:
-            shutil.copyfile(ROOT / relative, tools / relative.name)
+            output = tools / relative.relative_to('tools')
+            output.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(ROOT / relative, output)
         manifest = ''.join(
-            f'{hashlib.sha256(p.read_bytes().replace(bytes([13, 10]), bytes([10]))).hexdigest()}  {p.name}\n'
-            for p in sorted(tools.iterdir()))
+            f'{hashlib.sha256(p.read_bytes().replace(bytes([13, 10]), bytes([10]))).hexdigest()}  {p.relative_to(tools).as_posix()}\n'
+            for p in sorted(tools.rglob('*')) if p.is_file())
         (tools / 'MANIFEST.sha256').write_text(manifest, encoding='utf-8')
         copy_sources(files, Path('rules'), target / 'rules')
 
@@ -97,7 +101,7 @@ def verify(dest: Path) -> None:
         shutil.copytree(ROOT / 'tests', skill / 'tests', copy_function=shutil.copyfile,
                         ignore=shutil.ignore_patterns('__pycache__', '*.pyc'))
         try:
-            for test in ('run_tests.py', 'service/run_service_tests.py', 'http/run_http_tests.py', 'runtime/run_runtime_tests.py', 'cli/run_cli_tests.py', 'world/run_transport_tests.py', 'world/run_process_tests.py', 'world/run_channel_tests.py', 'world/run_query_tests.py', 'world/run_edit_tests.py', 'world/run_schematic_tests.py', 'world/run_map_tests.py', 'world/run_scene_tests.py', 'world/run_projection_tests.py', 'world/run_projection_action_tests.py', 'world/run_display_tests.py', 'world/run_mirror_tests.py', 'world/run_door_tests.py', 'world/run_event_tests.py', 'world/run_runtime_tests.py', 'world/run_config_tests.py'):
+            for test in ('run_tests.py', 'service/run_service_tests.py', 'service/run_package_tests.py', 'http/run_http_tests.py', 'runtime/run_runtime_tests.py', 'cli/run_cli_tests.py', 'world/run_transport_tests.py', 'world/run_process_tests.py', 'world/run_channel_tests.py', 'world/run_query_tests.py', 'world/run_edit_tests.py', 'world/run_schematic_tests.py', 'world/run_map_tests.py', 'world/run_scene_tests.py', 'world/run_projection_tests.py', 'world/run_projection_action_tests.py', 'world/run_display_tests.py', 'world/run_mirror_tests.py', 'world/run_door_tests.py', 'world/run_event_tests.py', 'world/run_runtime_tests.py', 'world/run_config_tests.py'):
                 subprocess.run([sys.executable, '-X', 'utf8', '-I', '-B', str(skill / 'tests' / test)],
                                cwd=skill, check=True, env=child_env())
         finally:

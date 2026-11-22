@@ -162,6 +162,7 @@ def build_steps(full: bool, only: str | None) -> list[tuple[str, list[str] | Non
         ("skillbuild", ["tests/skillpack/run_build_tests.py"], ""),
         ("tests", ["tests/run_tests.py"], ""),
         ("service", ["tests/service/run_service_tests.py"], ""),
+        ("packages", ["tests/service/run_package_tests.py"], ""),
         ("http", ["tests/http/run_http_tests.py"], ""),
         ("runtime", ["tests/runtime/run_runtime_tests.py"], ""),
         ("cli", ["tests/cli/run_cli_tests.py"], ""),
