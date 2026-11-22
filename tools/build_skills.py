@@ -63,7 +63,7 @@ def build(dest: Path) -> None:
             raise RuntimeError(f'missing tracked skill source: {source}/SKILL.md')
     dest.mkdir(parents=True, exist_ok=False)
     payload = [p for p in files
-               if p.suffix in {'.py', '.json'}
+               if p.suffix in {'.py', '.json', '.html', '.js', '.css'}
                and ((p.parent == Path('tools') and not p.name.startswith('_'))
                     or p.is_relative_to(Path('tools/mlogent')))]
     for name, source in sources.items():

@@ -52,6 +52,7 @@ except Exception:  # pragma: no cover
     pass
 
 import mlog_mcp as M  # noqa: E402
+from mlogent.mcp.apps import Apps
 
 MAX_BODY = 8 * 1024 * 1024
 START = time.time()
@@ -68,7 +69,7 @@ def _json_body(obj: bytes) -> dict:
                       % obj[:120].decode("utf-8", "replace")}}
 
 
-def dispatch(payload):
+def dispatch(payload, apps=None):
     """Run one JSON-RPC object (or a batch) and return (status, reply_or_None)."""
     if isinstance(payload, list):
         if not payload:
@@ -76,7 +77,7 @@ def dispatch(payload):
                          "error": {"code": -32600, "message": "empty batch"}}
         replies = []
         for item in payload:
-            status, reply = dispatch(item)
+            status, reply = dispatch(item, apps=apps)
             if status == 400:
                 return status, reply
             if reply is not None:
@@ -86,6 +87,11 @@ def dispatch(payload):
         return 200, {"jsonrpc": "2.0", "id": payload.get("id") if isinstance(payload, dict) else None,
                      "error": {"code": -32600, "message": "not a JSON-RPC request"}}
     collected = []
+    if apps is not None:
+        with _LOCK:
+            special = apps.handle(payload)
+        if special is not None:
+            return 200, special
     params = payload.get("params")
     if (payload["method"] == "tools/call" and isinstance(params, dict)
             and params.get("name") == "mlog_sim"):
@@ -101,7 +107,13 @@ def dispatch(payload):
     else:
         with _LOCK:
             M.handle(payload, emit=collected.append)
-    return 200, (collected[0] if collected else None)
+    reply = collected[0] if collected else None
+    if apps is not None and reply is not None:
+        if payload["method"] == "tools/list":
+            reply["result"]["tools"] = list(reply["result"]["tools"]) + apps.catalog()
+        elif payload["method"] == "initialize":
+            reply["result"]["capabilities"]["resources"] = {}
+    return 200, reply
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -189,7 +201,7 @@ class Handler(BaseHTTPRequestHandler):
             self._send(400, _json_body(raw))
             return
 
-        status, reply = dispatch(payload)
+        status, reply = dispatch(payload, apps=self.server.apps)
         extra = {}
         head = payload[0] if isinstance(payload, list) and payload else payload
         if isinstance(head, dict) and head.get("method") == "initialize":
@@ -204,10 +216,11 @@ class Server(ThreadingHTTPServer):
     daemon_threads = True
     allow_reuse_address = True
 
-    def __init__(self, addr, handler, token="", quiet=False):
+    def __init__(self, addr, handler, token="", quiet=False, enable_ui=False):
         super().__init__(addr, handler)
         self.token = token
         self.quiet = quiet
+        self.apps = Apps(M) if enable_ui else None
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -220,6 +233,7 @@ def build_parser() -> argparse.ArgumentParser:
     ap.add_argument("--insecure", action="store_true",
                     help="allow a non-loopback bind without a token (do not do this)")
     ap.add_argument("--quiet", action="store_true", help="no access log")
+    ap.add_argument("--enable-ui", action="store_true", help="expose opt-in ChatGPT MCP Apps tools and resources")
     return ap
 
 
@@ -232,7 +246,8 @@ def main(argv=None) -> int:
               % args.bind, file=sys.stderr)
         return 2
     try:
-        httpd = Server((args.bind, args.port), Handler, token=args.token, quiet=args.quiet)
+        httpd = Server((args.bind, args.port), Handler, token=args.token, quiet=args.quiet,
+                       enable_ui=args.enable_ui)
     except OSError as exc:
         print("cannot listen on %s:%d: %s" % (args.bind, args.port, exc), file=sys.stderr)
         return 1

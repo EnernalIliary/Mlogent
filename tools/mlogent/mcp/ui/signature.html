@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Mlogent · 作者签名</title><style>/* APP_STYLE */</style></head>
+<body data-page="signature"><main>
+<header><div><span class="eyebrow">MLOGENT / 蓝图交付</span><h1>确认作者签名</h1></div><span class="badge" id="state">等待内容</span></header>
+<p class="muted">检查这次交付的代码，填写署名。确认后生成带作者签名的蓝图。</p>
+<div id="notice" role="status" aria-live="polite">正在连接…</div>
+<section id="review" hidden>
+  <div class="summary"><strong id="name"></strong><span id="operation" class="muted"></span></div>
+  <p id="digest" class="digest"></p>
+  <p id="target" class="muted small" hidden></p>
+  <details><summary id="source-summary">查看待签名代码</summary><pre id="source"></pre></details>
+  <form id="signature-form"><label for="author">作者名称</label><input id="author" name="author" maxlength="100" autocomplete="off" required placeholder="填写你希望显示的署名">
+  <p id="author-note" class="muted small">仅用于这次交付，不修改其他会话的默认署名。</p>
+  <button id="submit" type="submit">确认签名并生成蓝图</button></form>
+  <p class="muted small">请求有效期为 15 分钟。签名槽不可用时会提示错误，不会输出未签名蓝图。</p>
+</section>
+<section id="delivery" hidden><h2>蓝图已签名</h2><p id="signed-author"></p>
+<label for="blueprint">蓝图粘贴码</label><textarea id="blueprint" rows="4" readonly></textarea>
+<button id="copy" class="secondary" type="button">复制粘贴码</button></section>
+</main><script>/* APP_SCRIPT */</script></body></html>

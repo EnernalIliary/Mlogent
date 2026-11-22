@@ -42,6 +42,7 @@ import mlog_acl  # noqa: E402
 import mlog_mcp_http_profiles  # noqa: E402
 import mlog_oauth  # noqa: E402
 import mlog_resource_policy  # noqa: E402
+from mlogent.mcp.apps import Apps, SIGNATURE_URI, DASHBOARD_URI, MIME
 
 
 
@@ -682,6 +683,161 @@ class Auth(unittest.TestCase):
                             capture_output=True, text=True, timeout=60)
         self.assertEqual(cp.returncode, 2)
         self.assertIn("refusing to bind", cp.stderr)
+
+
+class AppsContracts(unittest.TestCase):
+    def setUp(self):
+        self.apps = Apps(mlog_mcp, mlog_mcp_http_profiles.W)
+        self.arguments = {"logic": "set n 42\njump 0 always 0\n", "name": "签名测试"}
+
+    def request(self, **changes):
+        return self.apps.request({"operation": "mlog_gen", "arguments": self.arguments, **changes},
+                                 "alice", lambda name: True)
+
+    def test_ui_is_absent_by_default_and_explicitly_enabled_over_http(self):
+        for flags in ((), ("--enable-ui",)):
+            server = Server(*flags)
+            try:
+                _, raw, _ = server.post({"jsonrpc": "2.0", "id": 1, "method": "tools/list"})
+                names = [t["name"] for t in json.loads(raw)["result"]["tools"]]
+                self.assertEqual("mlog_signature_request" in names, bool(flags))
+                _, raw, _ = server.post({"jsonrpc": "2.0", "id": 2, "method": "resources/read",
+                                          "params": {"uri": SIGNATURE_URI}})
+                reply = json.loads(raw)
+                if flags:
+                    resource = reply["result"]["contents"][0]
+                    self.assertEqual(resource["mimeType"], MIME)
+                    self.assertIn("确认作者签名", resource["text"])
+                else:
+                    self.assertIn("error", reply)
+            finally:
+                server.close()
+
+    def test_ui_resources_use_existing_http_authentication(self):
+        server = Server("--enable-ui", "--token", "apps-test-token")
+        try:
+            request = {"jsonrpc": "2.0", "id": 3, "method": "resources/read", "params": {"uri": SIGNATURE_URI}}
+            self.assertEqual(server.post(request)[0], 401)
+            self.assertEqual(server.post(request, token="apps-test-token")[0], 200)
+        finally:
+            server.close()
+
+    def test_signature_is_pending_until_submit_and_replay_is_idempotent(self):
+        before = mlog_mcp._cached_author()
+        with patch.object(mlog_mcp._blueprints, "generate", wraps=mlog_mcp._blueprints.generate) as generate:
+            pending = self.request()
+            generate.assert_not_called()
+            self.arguments["logic"] = "set n 99\n"
+            submit = {"request_id": pending["request_id"], "author": "测试作者"}
+            signed = self.apps.submit(submit, "alice", lambda name: True)
+            again = self.apps.submit(submit, "alice", lambda name: True)
+            self.assertEqual(generate.call_count, 1)
+            self.assertEqual(signed, again)
+        self.assertEqual(signed["status"], "complete")
+        self.assertTrue(signed["result"]["signed"])
+        schematic = mlog_mcp.msch.parse_bytes(base64.b64decode(signed["result"]["blueprint_base64"]))
+        code = schematic.logic_tiles()[0].logic.code
+        import aigenerated
+        self.assertEqual(aigenerated.verify_text(code), [])
+        self.assertIn("set n 42", code)
+        self.assertEqual(mlog_mcp._cached_author(), before)
+
+    def test_request_cannot_cross_principals_expire_or_lose_permissions(self):
+        pending = self.request()
+        args = {"request_id": pending["request_id"], "author": "Alice"}
+        with self.assertRaisesRegex(ValueError, "not found"):
+            self.apps.submit(args, "bob", lambda name: True)
+        with self.assertRaisesRegex(ValueError, "no longer permitted"):
+            self.apps.submit(args, "alice", lambda name: False)
+        self.apps.clock = lambda: time.monotonic() + 901
+        with self.assertRaisesRegex(ValueError, "expired"):
+            self.apps.submit(args, "alice", lambda name: True)
+
+    def test_inject_form_previews_without_an_author_and_confirms_the_saved_target(self):
+        import mschgen
+        blueprint = mschgen.Blueprint("form-inject")
+        blueprint.add_logic("set n 1\njump 0 always 0\n")
+        encoded = base64.b64encode(blueprint.build()).decode()
+        with tempfile.TemporaryDirectory(dir=ROOT) as directory, \
+                patch.dict(os.environ, {"MLOG_REVISION_DIR": directory}):
+            pending = self.request(operation="mlog_inject", arguments={"blueprint_code": encoded,
+                                   "index": 0, "mlog": self.arguments["logic"]})
+            self.assertEqual(list(Path(directory).iterdir()), [])
+            self.assertIn("target", pending)
+            signed = self.apps.submit({"request_id": pending["request_id"], "author": "Alice"},
+                                      "alice", lambda name: True)
+            self.assertTrue(signed["result"]["signed"])
+            self.assertTrue(signed["result"]["revision"])
+            code = mlog_mcp.msch.parse_bytes(base64.b64decode(signed["result"]["blueprint_base64"])).logic_tiles()[0].logic.code
+            self.assertIn("set n 42", code)
+
+    def test_existing_author_cannot_be_changed_and_failed_submission_can_retry(self):
+        import aigenerated
+        signed, _ = aigenerated.sign_text(self.arguments["logic"], "Original")
+        pending = self.request(arguments={"logic": signed})
+        self.assertTrue(pending["author_locked"])
+        with self.assertRaisesRegex(ValueError, "cannot be replaced"):
+            self.apps.submit({"request_id": pending["request_id"], "author": "Other"}, "alice", lambda name: True)
+        pending = self.request()
+        args = {"request_id": pending["request_id"], "author": "Alice"}
+        with patch.object(mlog_mcp._blueprints, "generate", side_effect=RuntimeError("worker failed")):
+            with self.assertRaisesRegex(RuntimeError, "worker failed"):
+                self.apps.submit(args, "alice", lambda name: True)
+        self.assertEqual(self.apps.requests[pending["request_id"]]["status"], "pending")
+        self.assertEqual(self.apps.submit(args, "alice", lambda name: True)["status"], "complete")
+
+    def test_signature_source_is_snapshotted_and_outputs_are_not_written(self):
+        with tempfile.TemporaryDirectory(dir=ROOT) as directory:
+            source = Path(directory) / "source.mlog"
+            source.write_text(self.arguments["logic"], encoding="utf-8")
+            pending = self.request(arguments={"source": str(source)})
+            source.write_text("set n 99\n", encoding="utf-8")
+            record = self.apps.requests[pending["request_id"]]
+            self.assertIn("set n 42", record["arguments"]["logic"])
+            self.assertNotIn("source", record["arguments"])
+        for key, value in (("out", "anything.msch"), ("allow_unsigned", True)):
+            with self.assertRaisesRegex(ValueError, "signed delivery"):
+                self.request(arguments={**self.arguments, key: value})
+
+    def test_profile_filters_resources_tools_and_underlying_permissions(self):
+        request = {"jsonrpc": "2.0", "id": 4, "method": "tools/list"}
+        for profile in ("reader", "runner"):
+            _, reply = mlog_mcp_http_profiles.dispatch(request, profile=profile, apps=self.apps)
+            tools = reply["result"]["tools"]
+            ui_tools = [t for t in tools if t["name"] == "mlog_signature_request"]
+            self.assertEqual(bool(ui_tools), profile == "runner")
+            _, resources = mlog_mcp_http_profiles.dispatch(
+                {"jsonrpc": "2.0", "id": 5, "method": "resources/list"}, profile=profile, apps=self.apps)
+            self.assertEqual(bool(resources["result"]["resources"]), profile == "runner")
+        allowed = lambda name: name in {"mlog_signature_request", "mlog_signature_submit"}
+        self.assertEqual(self.apps.catalog(allowed), [])
+        with self.assertRaisesRegex(ValueError, "not permitted"):
+            self.apps.read_resource(SIGNATURE_URI, allowed)
+        self.assertTrue(all("_meta" not in t for t in mlog_mcp.TOOLS))
+
+    def test_resources_are_self_contained_and_unknown_uris_are_refused(self):
+        for uri in (SIGNATURE_URI, DASHBOARD_URI):
+            resource = self.apps.read_resource(uri, lambda name: True)["contents"][0]
+            self.assertNotIn("APP_SCRIPT", resource["text"])
+            self.assertNotIn("APP_STYLE", resource["text"])
+            self.assertNotIn("<script src=", resource["text"])
+            self.assertEqual(resource["_meta"]["ui"]["csp"]["connectDomains"], [])
+        with self.assertRaises(ValueError):
+            self.apps.read_resource("ui://mlogent/../../secret", lambda name: True)
+
+    def test_dashboard_is_read_only_and_reports_partial_failure(self):
+        status, players = unittest.mock.Mock(return_value={"ok": True, "map": "测试", "players": 1}), \
+            unittest.mock.Mock(return_value={"ok": True, "rows": [{"name": "Alice"}]})
+        with patch.dict(self.apps.world.HANDLERS, {"world_status": status, "world_players": players}):
+            out = self.apps.dashboard()
+            self.assertTrue(out["ok"])
+            self.assertEqual(out["players"][0]["name"], "Alice")
+            status.assert_called_once_with({})
+            players.assert_called_once_with({})
+            players.side_effect = RuntimeError("control port refused")
+            out = self.apps.dashboard()
+            self.assertTrue(out["ok"])
+            self.assertIn("control port refused", out["errors"][0])
 
 
 class ProfileOAuth(unittest.TestCase):

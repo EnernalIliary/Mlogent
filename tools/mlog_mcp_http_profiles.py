@@ -57,6 +57,7 @@ except Exception:  # pragma: no cover
     pass
 
 import mlog_mcp as M  # noqa: E402
+from mlogent.mcp.apps import Apps
 
 try:
     import world_mcp as W  # noqa: E402  (42 个 world_* 工具，薄壳直连活世界 daemon)
@@ -84,7 +85,7 @@ def _rpc_error(payload, code, message):
             "error": {"code": code, "message": message}}
 
 
-def dispatch(payload, profile="runner", principal="static"):
+def dispatch(payload, profile="runner", principal="static", apps=None):
     """Run one JSON-RPC object (or a batch) and return (status, reply_or_None)."""
     if isinstance(payload, list):
         if not payload:
@@ -95,7 +96,7 @@ def dispatch(payload, profile="runner", principal="static"):
                 "code": -32600, "message": "Use a flat batch of at most 16 requests."}}
         replies = []
         for item in payload:
-            status, reply = dispatch(item, profile, principal)
+            status, reply = dispatch(item, profile, principal, apps=apps)
             if status == 400:
                 return status, reply
             if reply is not None:
@@ -140,7 +141,10 @@ def dispatch(payload, profile="runner", principal="static"):
         if not _LOCK.acquire(timeout=_TOOL_LOCK_WAIT_SECONDS):
             return 200, _rpc_error(payload, -32003, "MCP is busy; retry shortly.")
     try:
-        if (W is not None and _method == "tools/call"
+        special = apps.handle(payload, principal, lambda name: ACL.allows(profile, name)) if apps else None
+        if special is not None:
+            collected.append(special)
+        elif (W is not None and _method == "tools/call"
                 and _name in getattr(W, "HANDLERS", {})):
             _buf = io.StringIO()
             with contextlib.redirect_stdout(_buf):
@@ -175,6 +179,8 @@ def dispatch(payload, profile="runner", principal="static"):
         if isinstance(_res, dict) and isinstance(_res.get("tools"), list):
             if W is not None:
                 _res["tools"] = _res["tools"] + list(W.TOOLS)
+            if apps is not None:
+                _res["tools"] = list(_res["tools"]) + apps.catalog(lambda name: ACL.allows(profile, name))
             _res["tools"] = ACL.filter_tools(profile, _res["tools"])
             if profile == "reader":
                 for index, tool in enumerate(_res["tools"]):
@@ -186,6 +192,8 @@ def dispatch(payload, profile="runner", principal="static"):
                             **schema, "properties": fields}}
                         break
     if _method == "initialize" and isinstance(_reply, dict):
+        if apps is not None:
+            _reply["result"]["capabilities"]["resources"] = {}
         _si = ((_reply.get("result") or {}).get("serverInfo"))
         if isinstance(_si, dict):
             _si["name"] = "Mlogent世界服务器"
@@ -324,7 +332,7 @@ class Handler(BaseHTTPRequestHandler):
             return
 
         status, reply = dispatch(payload, getattr(self, "_profile", "runner"),
-                                getattr(self, "_user", "anon"))
+                                getattr(self, "_user", "anon"), apps=self.server.apps)
         extra = {}
         head = payload[0] if isinstance(payload, list) and payload else payload
         if isinstance(head, dict) and head.get("method") == "initialize":
@@ -339,10 +347,11 @@ class Server(ThreadingHTTPServer):
     daemon_threads = True
     allow_reuse_address = True
 
-    def __init__(self, addr, handler, token="", quiet=False):
+    def __init__(self, addr, handler, token="", quiet=False, enable_ui=False):
         super().__init__(addr, handler)
         self.token = token
         self.quiet = quiet
+        self.apps = Apps(M, W) if enable_ui else None
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -355,6 +364,7 @@ def build_parser() -> argparse.ArgumentParser:
     ap.add_argument("--insecure", action="store_true",
                     help="allow a non-loopback bind without a token (do not do this)")
     ap.add_argument("--quiet", action="store_true", help="no access log")
+    ap.add_argument("--enable-ui", action="store_true", help="expose opt-in ChatGPT MCP Apps tools and resources")
     return ap
 
 
@@ -367,7 +377,8 @@ def main(argv=None) -> int:
               % args.bind, file=sys.stderr)
         return 2
     try:
-        httpd = Server((args.bind, args.port), Handler, token=args.token, quiet=args.quiet)
+        httpd = Server((args.bind, args.port), Handler, token=args.token, quiet=args.quiet,
+                       enable_ui=args.enable_ui)
     except OSError as exc:
         print("cannot listen on %s:%d: %s" % (args.bind, args.port, exc), file=sys.stderr)
         return 1

@@ -4,6 +4,7 @@ import json
 LIGHT = frozenset({
     "mlog_doctor", "mlog_kb", "mlog_fetch", "mlog_fidelity",
     "world_status", "world_players", "world_maps", "world_schematics",
+    "world_dashboard",
 })
 HEAVY = frozenset({
     "mindcode_compile", "mlog_sim", "mlog_trace", "mlog_diff", "mlog_explore",

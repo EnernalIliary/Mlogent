@@ -110,6 +110,63 @@ location / {
 
 ## Client side
 
+### Optional ChatGPT interfaces
+
+UI is disabled by default. Add `--enable-ui` to the HTTP service command to
+expose separate MCP Apps tools and HTML resources:
+
+```bash
+python tools/mlog_mcp_http_profiles.py --bind 127.0.0.1 --port 8765 \
+  --token "$MLOG_MCP_TOKEN" --enable-ui
+```
+
+The original tools keep their text-only responses. `mlog_signature_request`
+opens an author form for `mlog_gen` or `mlog_inject`; `world_dashboard` opens a
+read-only status/player dashboard. `mlog_signature_submit` is app-only and
+signs the saved request after form submission. The simpler
+`mlog_mcp_http.py` also supports the flag and signature form; use the profiles
+entry point for the world dashboard, which needs its world tools.
+
+UI tools use the existing bearer/OAuth connection. A profile must permit the
+UI tool and its underlying operation: `mlog_gen`/`mlog_inject` for signing,
+both `world_status` and `world_players` for the dashboard. The `runner` profile
+with `tools: ["*"]` already permits them. No credentials are placed in HTML.
+
+Signature requests expire after 15 minutes or a service restart. Inputs are
+snapshotted before displaying the form; submission cannot substitute a different
+program, change an existing signed author, or opt into unsigned output. Repeated
+submission of the same request/author returns the saved delivery. Form authors
+do not alter the process-wide author defaults used by legacy tools.
+
+Example call to open a form (it creates no blueprint until submission):
+
+```json
+{
+  "name": "mlog_signature_request",
+  "arguments": {
+    "operation": "mlog_gen",
+    "arguments": {
+      "logic": "set n 42\njump 0 always 0\n",
+      "name": "Example"
+    }
+  }
+}
+```
+
+Clients that support MCP Apps read `ui://` resources and render them in a
+sandbox. Text-only clients still receive the pending request and can call the
+original generation tools. The HTTP authentication gate covers resources too;
+turning on UI does not grant additional world or generation permissions.
+
+Validation: `python tests/mcphttp/run_mcp_http_tests.py` covers transport,
+permissions, request expiry, snapshotting and signed delivery.
+`node tests/mcphttp/run_apps_ui_tests.js` exercises a real browser against the
+local HTTP server (requires Playwright; set `CHROMIUM_PATH` and `PYTHON` when
+needed). Its host harness tests MCP Apps messaging, not the ChatGPT product UI.
+
+Protocol references: [MCP Apps](https://apps.extensions.modelcontextprotocol.io/api/documents/overview.html),
+[ChatGPT UI](https://developers.openai.com/plugins/build/chatgpt-ui).
+
 Any MCP client that speaks streamable HTTP needs just the URL and the header:
 
 ```json

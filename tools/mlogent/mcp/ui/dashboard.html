@@ -1,0 +1,13 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Mlogent · 世界仪表盘</title><style>/* APP_STYLE */</style></head>
+<body data-page="dashboard"><main>
+<header><div><span class="eyebrow">MLOGENT / 实时世界</span><h1>世界仪表盘</h1></div><span class="badge" id="state">连接中</span></header>
+<div class="summary"><p id="updated" class="muted small">尚未更新</p><button id="refresh" class="secondary" type="button">刷新</button></div>
+<div id="notice" role="status" aria-live="polite">正在连接…</div>
+<section class="metrics" id="metrics" aria-label="世界状态"></section>
+<section><div class="summary"><h2>在线玩家</h2><span id="player-count" class="muted"></span></div>
+<div class="table-wrap"><table><thead><tr><th>玩家</th><th>队伍</th><th>位置</th><th>身份</th></tr></thead><tbody id="players"></tbody></table></div>
+<p id="empty" class="muted">等待玩家列表</p></section>
+<footer class="muted small">只读视图 · 刷新会查询当前世界，不会修改游戏状态。</footer>
+</main><script>/* APP_SCRIPT */</script></body></html>
