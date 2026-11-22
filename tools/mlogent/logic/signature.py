@@ -191,8 +191,9 @@ def sign_text(text: str, author: str = DEFAULT_AUTHOR, force: bool = False,
     sig = f'"AI-Generated:Mlogent:{author}:{pid}{payload}"'
     if slot is None:
         raise SignError(
-            "no safe signature slot in the final logic statement; "
-            "add an unconditional jump with an unused compare slot")
+            "no safe signature slot: an existing unconditional jump with an unused "
+            "compare slot is required (jump <target> always 0 or jump <target> always 0 0); "
+            "instructions are not appended automatically")
     lines[slot.index] = f"{slot.prefix} {sig}"
     return "\n".join(lines) + "\n", pid
 

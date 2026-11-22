@@ -122,9 +122,15 @@ python tools/mlog_mcp_http_profiles.py --bind 127.0.0.1 --port 8765 \
 
 Without the flag the original tools keep their existing responses. With UI
 enabled, `mlog_gen` and `mlog_inject` automatically open a pending author form
-when unsigned input has no explicit author. No blueprint is delivered until
-the form is submitted; an existing process-wide author default does not bypass
-this step. Explicit-author delivery and injection previews render their results
+when unsigned input has a safe signature slot but no explicit author. Such
+requests are delivered only after form submission; a process-wide author default
+does not bypass this step. Inputs with no safe signature slot are generated or
+injected directly without a signature, even if no author was supplied. The
+result has `signed: false` and a warning, and the UI labels it unsigned. No
+signature-carrier instructions are appended. A full `jump <target> always 0 0`
+can reuse the final zero placeholder; custom nonzero/string operands are not
+overwritten. Invalid existing signatures still fail instead of being bypassed.
+Explicit-author delivery and injection previews render their results
 in the same component. `mlog_signature_request` can also open a form directly
 or reopen the `request_id` returned in a pending result; `world_dashboard` opens a
 read-only status/player dashboard. `mlog_signature_submit` is app-only and
@@ -144,7 +150,8 @@ tools, while `world_dashboard` is the tool that opens the world interface.
 
 Signature requests expire after 15 minutes or a service restart. Inputs are
 snapshotted before displaying the form; submission cannot substitute a different
-program, change an existing signed author, or opt into unsigned output. Repeated
+program or change an existing signed author. No-slot inputs opened explicitly
+in a form can be submitted without an author and are labeled unsigned. Repeated
 submission of the same request/author returns the saved delivery. Form authors
 do not alter the process-wide author defaults used by legacy tools.
 

@@ -114,7 +114,8 @@ TOOLS = [
     {
         "name": "mlog_gen",
         "description": "Turn mlog source into a blueprint paste code (base64 .msch). "
-                       "Signs the embedded program and optionally writes a binary schematic.",
+                       "Signs the embedded program when a safe slot exists, otherwise delivers unsigned "
+                       "with a warning. Optionally writes a binary schematic.",
         "inputSchema": {
             "type": "object",
             "properties": {
@@ -122,7 +123,7 @@ TOOLS = [
                 "logic": {"type": "string", "description": "inline mlog code"},
                 "name": {"type": "string"},
                 "author": {"type": "string", "minLength": 1,
-                            "description": "author required when the input has no valid signature"},
+                            "description": "author required for unsigned input with a safe signature slot; no-slot code is delivered unsigned"},
                 "allow_unsigned": {"type": "boolean", "default": False,
                                    "description": "allow writing when no safe signature slot exists"},
                 "links": {"type": "array", "items": {"type": "string"},
@@ -179,7 +180,7 @@ TOOLS = [
                 "expected_sha256": {"type": "string", "pattern": "^[0-9a-fA-F]{64}$",
                                     "description": "expected source_sha256 from a previous preview"},
                 "author": {"type": "string", "minLength": 1,
-                            "description": "author required when the replacement has no valid signature"},
+                            "description": "author required when the replacement has a safe signature slot but no valid signature; no-slot code is delivered unsigned"},
                 "allow_unsigned": {"type": "boolean", "default": False,
                                    "description": "allow writing when no safe signature slot exists"},
             },

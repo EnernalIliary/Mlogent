@@ -35,6 +35,12 @@ class BlueprintContext:
     set_author: Callable[[str], None]
 
 
+def has_signature_slot(code: str) -> bool:
+    import aigenerated
+    from mlogent.logic.slots import find_slot
+    return find_slot(aigenerated._body(code).splitlines()) is not None
+
+
 def generate(args, *, context: BlueprintContext):
     root = context.workspace_root
     cmd = [sys.executable, str(context.tools_root / "mlog.py"), "gen"]
@@ -50,7 +56,8 @@ def generate(args, *, context: BlueprintContext):
         raise ValueError("input contains an invalid signature")
     signed_author = existing[0].group(1) if existing else ""
     author = signed_author or supplied_author or context.get_author()
-    allow_unsigned = bool(args.get("allow_unsigned", False))
+    auto_unsigned = not existing and not has_signature_slot(logic)
+    allow_unsigned = bool(args.get("allow_unsigned", False)) or auto_unsigned
     if not author and not allow_unsigned:
         raise ValueError("author is required when mlog has no valid signature")
     if supplied_author:
@@ -61,6 +68,7 @@ def generate(args, *, context: BlueprintContext):
         cmd += ["--author", author]
     if allow_unsigned and not existing:
         cmd += ["--no-sign"]
+        logic, _, _ = aigenerated._resolve_labels(logic, strict=True)
     for link in args.get("links") or []:
         cmd += ["--link", link]
     for b in args.get("blocks") or []:
@@ -70,11 +78,15 @@ def generate(args, *, context: BlueprintContext):
     p = subprocess.run(cmd, cwd=str(root), input=logic, capture_output=True, text=True,
                        encoding="utf-8", errors="replace")
     if p.returncode != 0:
-        raise RuntimeError((p.stderr or p.stdout).strip()[:2000])
+        message = (p.stderr or p.stdout).strip()
+        if "Traceback (most recent call last):" in message:
+            message = message.splitlines()[-1]
+        raise RuntimeError(message[:2000])
     code = (p.stdout or "").strip().splitlines()[-1].strip()
     signed = bool(existing) or (bool(author) and not allow_unsigned)
     return {"blueprint_base64": code, "signed": signed,
-            "warning": None if signed else "no signature requested",
+            "warning": None if signed else ("no safe signature slot; delivered unsigned without adding instructions"
+                                             if auto_unsigned else "no signature requested"),
             "binary": args.get("out"),
             "stderr": (p.stderr or "").strip()[:500]}
 
@@ -339,7 +351,7 @@ def inject(args, *, context: BlueprintContext):
         raise ValueError("replacement contains an invalid signature")
     signed_author = existing[0].group(1) if existing else ""
     author = signed_author or supplied_author or context.get_author()
-    allow_unsigned = bool(args.get("allow_unsigned", False))
+    allow_unsigned = bool(args.get("allow_unsigned", False)) or (not existing and not has_signature_slot(source))
     if not author and not allow_unsigned:
         raise ValueError("author is required when replacement has no valid signature")
     if supplied_author:
@@ -350,7 +362,7 @@ def inject(args, *, context: BlueprintContext):
     except aigenerated.SignError as exc:
         if not allow_unsigned or "no safe signature slot" not in str(exc):
             raise
-        code, _, _ = aigenerated.resolve_labels(source.lstrip("\ufeff"))
+        code, _, _ = aigenerated._resolve_labels(source.lstrip("\ufeff"), strict=True)
         signed = False
     updated = target.replace(code, preview=preview)
     before = _inject_review_source(original).splitlines()

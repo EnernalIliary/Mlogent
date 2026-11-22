@@ -36,13 +36,16 @@
       const complete = data.status === 'complete' || data.status === 'preview';
       const preview = data.status === 'preview';
       const unsigned = data.signed === false;
+      const requiresAuthor = data.signature_required !== false;
+      $('title').textContent = complete ? (preview ? '蓝图预览' : unsigned ? '蓝图交付' : '签名完成') : requiresAuthor ? '确认作者签名' : '确认蓝图交付';
       $('state').textContent = preview ? '预览' : complete ? (unsigned ? '未签名' : '已签名') : '待确认';
       $('state').className = complete ? 'badge good' : 'badge';
       $('review').hidden = complete;
       $('delivery').hidden = !complete;
       if (complete) {
+        $('intro').textContent = preview ? '检查处理器更新预览。' : unsigned ? '代码没有安全签名槽，已保留原有指令并生成未签名蓝图。' : '蓝图已生成，可以复制到游戏中使用。';
         $('delivery-title').textContent = preview ? '蓝图预览' : unsigned ? '蓝图已生成（未签名）' : '蓝图已签名';
-        $('signed-author').textContent = preview ? '这是预览，尚未写入蓝图。' : '作者：' + (data.author || '未署名');
+        $('signed-author').textContent = preview ? '这是预览，尚未写入蓝图。' : unsigned ? '该蓝图不含作者签名。' : '作者：' + (data.author || '未署名');
         $('blueprint').value = data.result?.blueprint_base64 || JSON.stringify(data.result || {}, null, 2);
         if (unsigned && data.result?.warning) notice(data.result.warning, true);
       } else {
@@ -58,6 +61,10 @@
         $('source').textContent = data.code_preview;
         if (document.activeElement !== $('author')) $('author').value = data.author || '';
         $('author').readOnly = data.author_locked;
+        $('author').required = requiresAuthor;
+        for (const id of ['author', 'author-label', 'author-note']) $(id).hidden = !requiresAuthor;
+        $('submit').textContent = requiresAuthor ? '确认签名并生成蓝图' : '直接生成（不签名）';
+        $('intro').textContent = requiresAuthor ? '检查这次交付的代码，填写署名。确认后生成带作者签名的蓝图。' : '代码没有可用签名槽，将保留原有指令并生成未签名蓝图。';
         $('author-note').textContent = data.author_locked ? '保留原有有效签名的作者名称。' : '仅用于这次交付，不修改其他会话的默认署名。';
         $('submit').disabled = !ready || busy;
       }

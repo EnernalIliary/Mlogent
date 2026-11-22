@@ -18,6 +18,19 @@ from mlogent.logic import payload, signature, slots
 
 
 class SourceTests(unittest.TestCase):
+    def test_full_unconditional_jump_reuses_zero_placeholder_without_moving_targets(self):
+        for text in ('set x 1\njump 0 always 0 0\n',
+                     'jump 3 equal x 1\nset x 1\njump 1 always 0 0\nend\n'):
+            signed, _ = signature.sign_text(text, 'Iliary')
+            self.assertEqual(signature.verify_text(signed), [])
+            self.assertEqual(signature.sign_text(signed, 'Iliary')[0], signed)
+            expected = signature._body(text).replace('always 0 0', 'always 0')
+            self.assertEqual(signature._body(signed), expected)
+            self.assertEqual(len(signature._body(signed).splitlines()), len(expected.splitlines()))
+            delivered, *_ = source.to_delivery(text, 'Iliary')
+            self.assertEqual(signature.verify_text(delivered), [])
+            self.assertEqual(signature._body(delivered), expected)
+
     def test_roundtrip_keeps_control_flow_author_and_context(self):
         text = 'set n 0\nretry:\nop add n n 1\njump retry lessThan n 3\njump 0 always 0\nend\n'
         signed, _ = aigenerated.sign_text(text, 'source-test', meta={'job': 'source-context'})

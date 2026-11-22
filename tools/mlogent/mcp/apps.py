@@ -57,10 +57,11 @@ class Apps:
                                          "Arguments for the selected tool; output paths and unsigned delivery are not supported."}},
                           []), SIGNATURE_URI),
             _tool("mlog_signature_submit", "Submit the author for an existing signature request. "
+                  "Author is optional for inputs without a safe signature slot; those are delivered unsigned. "
                   "Uses the saved reviewed inputs; repeated submission returns the existing result.",
                   _object({"request_id": {"type": "string"},
-                           "author": {"type": "string", "minLength": 1, "maxLength": 100}},
-                          ["request_id", "author"]), readonly=False, app_only=True),
+                           "author": {"type": "string", "maxLength": 100}},
+                          ["request_id"]), readonly=False, app_only=True),
         ]
         if world is not None:
             self.tools.append(_tool("world_dashboard", "Open or refresh the read-only world dashboard: "
@@ -81,6 +82,7 @@ class Apps:
                 tool["outputSchema"] = {"type": "object"}
                 tool["description"] += (" With UI enabled, omitting author on unsigned input automatically opens "
                                          "the author signature form; wait for the user to submit it. "
+                                         "Inputs without a safe signature slot are delivered unsigned directly. "
                                          "Do not invent an author. Pass author explicitly for text-only delivery.")
             elif tool["name"] == "mlog_doctor":
                 tool["description"] += " For an interactive world status view use world_dashboard instead."
@@ -95,7 +97,7 @@ class Apps:
         if not isinstance(code, str) or not code.strip():
             return False
         import aigenerated
-        return not aigenerated._find(code)
+        return not aigenerated._find(code) and self.mcp._blueprints.has_signature_slot(code)
 
     def decorate_reply(self, payload, reply, allowed=lambda name: True):
         if payload.get("method") != "tools/call" or not reply or "result" not in reply:
@@ -229,6 +231,7 @@ class Apps:
                 "preview_truncated": len(code) > 6000, "expires_in": self.ttl,
                 "author": existing_author or str(payload.get("author") or ""),
                 "author_locked": bool(existing_author)}
+        view["signature_required"] = bool(hits) or self.mcp._blueprints.has_signature_slot(code)
         if target is not None:
             view["target"] = target
         with self.lock:
@@ -241,8 +244,8 @@ class Apps:
         return deepcopy(view)
 
     def submit(self, args, principal, allowed):
-        author = args.get("author")
-        if (not isinstance(author, str) or not author.strip() or len(author) > 100
+        author = args.get("author", "")
+        if (not isinstance(author, str) or len(author) > 100
                 or any(ord(c) < 32 or ord(c) == 127 or c in ':"' for c in author)):
             raise ValueError('author must contain 1–100 printable characters without colon or double quote')
         author = author.strip()
@@ -254,6 +257,8 @@ class Apps:
             if not allowed(record["operation"]):
                 raise ValueError("signature operation is no longer permitted")
             view = record["view"]
+            if view.get("signature_required", True) and not author:
+                raise ValueError("an author is required for this signature request")
             if view["author_locked"] and author != view["author"]:
                 raise ValueError("existing signed author cannot be replaced")
             if record["status"] == "complete":
@@ -270,9 +275,9 @@ class Apps:
             fn = (self.mcp._blueprints.generate if record["operation"] == "mlog_gen"
                   else self.mcp._blueprints.inject)
             output = fn({**record["arguments"], "author": author, "allow_unsigned": False}, context=context)
-            if output.get("ok") is False or output.get("signed") is False:
+            if output.get("ok") is False or (output.get("signed") is False and view.get("signature_required", True)):
                 raise ValueError(output.get("message") or output.get("warning") or "signature failed")
-            result = {**view, "status": "complete", "author": author, "result": output}
+            result = {**view, "status": "complete", "author": author, "signed": output.get("signed"), "result": output}
         except Exception:
             with self.lock:
                 record["status"] = "pending"
@@ -338,7 +343,11 @@ class Apps:
                           "structuredContent": data, "isError": False}
             return {"jsonrpc": "2.0", "id": rid, "result": result}
         except Exception as exc:
+            message = str(exc)
+            if "no safe signature slot" in message:
+                message = ("无法签名：代码中没有可复用的无条件跳转签名槽。支持 jump <目标> always 0 "
+                           "和 jump <目标> always 0 0。请保持原有控制流后重新提交代码；不会自动追加指令。")
             if method == "tools/call":
                 return {"jsonrpc": "2.0", "id": rid, "result": {
-                    "content": [{"type": "text", "text": str(exc)}], "isError": True}}
-            return {"jsonrpc": "2.0", "id": rid, "error": {"code": -32602, "message": str(exc)}}
+                    "content": [{"type": "text", "text": message}], "isError": True}}
+            return {"jsonrpc": "2.0", "id": rid, "error": {"code": -32602, "message": message}}

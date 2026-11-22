@@ -694,6 +694,55 @@ class AppsContracts(unittest.TestCase):
         return self.apps.request({"operation": "mlog_gen", "arguments": self.arguments, **changes},
                                  "alice", lambda name: True)
 
+    def test_full_jump_signs_in_form_and_no_slot_is_delivered_unsigned(self):
+        pending = self.request(arguments={"logic": "set x 1\njump 0 always 0 0\n"})
+        reply = self.apps.handle({"jsonrpc": "2.0", "id": 97, "method": "tools/call", "params": {
+            "name": "mlog_signature_submit", "arguments": {"request_id": pending["request_id"], "author": "Iliary"}}}, principal="alice")
+        self.assertFalse(reply["result"]["isError"])
+        self.assertEqual(reply["result"]["structuredContent"]["status"], "complete")
+        pending = self.request(arguments={"logic": "set x 1\nend\n"})
+        reply = self.apps.handle({"jsonrpc": "2.0", "id": 98, "method": "tools/call", "params": {
+            "name": "mlog_signature_submit", "arguments": {"request_id": pending["request_id"], "author": "Iliary"}}}, principal="alice")
+        self.assertFalse(reply["result"]["isError"])
+        data = reply["result"]["structuredContent"]
+        self.assertFalse(data["signed"])
+        self.assertEqual(data["status"], "complete")
+        self.assertIn("no safe signature slot", data["result"]["warning"])
+
+    def test_no_slot_skips_author_form_without_adding_or_changing_instructions(self):
+        original = "set x 1\nend\n"
+        before = len(self.apps.requests)
+        _, reply = mlog_mcp_http_profiles.dispatch({"jsonrpc": "2.0", "id": 99, "method": "tools/call",
+            "params": {"name": "mlog_gen", "arguments": {"logic": original}}}, apps=self.apps)
+        self.assertFalse(reply["result"]["isError"])
+        data = reply["result"]["structuredContent"]
+        self.assertEqual(data["status"], "complete")
+        self.assertFalse(data["signed"])
+        code = mlog_mcp.msch.parse_bytes(base64.b64decode(data["result"]["blueprint_base64"])).logic_tiles()[0].logic.code
+        self.assertEqual(code.strip(), original.strip())
+        self.assertEqual(len(self.apps.requests), before)
+        pending = self.request(arguments={"logic": original})
+        self.assertFalse(pending["signature_required"])
+        self.assertFalse(self.apps.submit({"request_id": pending["request_id"]}, "alice", lambda name: True)["signed"])
+
+    def test_unsigned_fallback_preserves_revision_checks_and_rejects_tampered_signatures(self):
+        import mschgen, aigenerated
+        blueprint = mschgen.Blueprint("unsigned-inject")
+        blueprint.add_logic("set n 1\nend\n")
+        encoded = base64.b64encode(blueprint.build()).decode()
+        with tempfile.TemporaryDirectory(dir=ROOT) as directory, patch.dict(os.environ, {"MLOG_REVISION_DIR": directory}):
+            out = mlog_mcp.tool_inject({"blueprint_code": encoded, "index": 0, "mlog": "set x 1\nend\n"})
+            self.assertFalse(out["signed"])
+            self.assertTrue(out["revision"])
+            code = mlog_mcp.msch.parse_bytes(base64.b64decode(out["blueprint_base64"])).logic_tiles()[0].logic.code
+            self.assertEqual(code.strip(), "set x 1\nend")
+            conflict = mlog_mcp.tool_inject({"blueprint_code": encoded, "index": 0, "mlog": "set x 1\nend\n", "expected_sha256": "0"*64})
+            self.assertEqual(conflict["failure_type"], "source_conflict")
+        signed, _ = aigenerated.sign_text(self.arguments["logic"], "Iliary")
+        tampered = signed.replace("set n 42", "set n 43")
+        with self.assertRaisesRegex(ValueError, "invalid signature"):
+            mlog_mcp.tool_gen({"logic": tampered})
+
     def test_original_generation_tool_routes_missing_author_to_reopenable_form(self):
         for dispatch in (
                 lambda req: mlog_mcp_http.dispatch(req, apps=self.apps)[1],
