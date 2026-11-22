@@ -92,7 +92,7 @@ class ProcessTests(unittest.TestCase):
                 try:
                     command = spawn.call_args.args[0]
                     self.assertEqual(command[0], 'java')
-                    self.assertEqual(command[-1], str(Path('game.jar').resolve()))
+                    self.assertEqual(Path(command[-1]).resolve(), Path('game.jar').resolve())
                     self.assertIn('-Djava.awt.headless=true', command)
                     self.assertEqual(spawn.call_args.kwargs['cwd'], server.workdir)
                     self.assertTrue(Path(server.workdir).is_relative_to(Path(directory)))

@@ -92,8 +92,6 @@ def load(path: str, base: str | None = None, *, workspace_root: str | None = Non
     full = _abs(path, base)
     root = Path(workspace_root).resolve() if workspace_root is not None else None
     if root is not None:
-        if not Path(os.path.abspath(full)).is_relative_to(root):
-            raise SceneError("scene must be a .json file within the server workspace")
         resolved = Path(full).resolve()
         if not resolved.is_relative_to(root) or resolved.suffix.lower() != ".json":
             raise SceneError("scene must be a .json file within the server workspace")
@@ -189,11 +187,9 @@ def load(path: str, base: str | None = None, *, workspace_root: str | None = Non
             if root is not None:
                 guarded = []
                 for candidate in cands:
-                    path = Path(os.path.abspath(candidate))
-                    if path.is_relative_to(root):
-                        resolved = path.resolve()
-                        if resolved.is_relative_to(root) and resolved.suffix.lower() == ".mlog":
-                            guarded.append(str(resolved))
+                    resolved = Path(candidate).resolve()
+                    if resolved.is_relative_to(root) and resolved.suffix.lower() == ".mlog":
+                        guarded.append(str(resolved))
                 if not guarded:
                     raise SceneError("scene code must be a .mlog file within the server workspace")
                 cands = guarded
