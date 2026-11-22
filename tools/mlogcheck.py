@@ -287,7 +287,7 @@ def tokenize(line: str) -> list[str]:
 
 
 def jump_parts(code: str):
-    """(target, cond, value, value2) for a `jump` line, or None.
+    r"""(target, cond, value, value2) for a `jump` line, or None.
 
     Tokenized, not a bounded anchored regex: LParser reads the four fields it
     knows and ignores whatever follows, so `jump 3 always x 0 <junk>` is still
