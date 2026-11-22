@@ -27,7 +27,7 @@ def to_editable(text: str, prefix: str = "L", *, sign: bool = False):
         comments, meta = aigenerated.collect_comments(text), None
 
     out_text, total, njumps, labels = labelize(
-        text, prefix, preferred_labels=saved_labels, preserve_always=signed)
+        text, prefix, preferred_labels=saved_labels)
     signature = None
     if signed or sign:
         out_text, pid = aigenerated.sign_text(
@@ -69,6 +69,9 @@ def to_delivery(text: str, author: str) -> tuple[str, str, int, int]:
     if comments is None:
         comments = aigenerated.collect_comments(text)
     signed, pid = aigenerated.sign_text(numeric, author, force=True, comments=comments, meta=meta, labels=labels)
+    from .controlflow import difference
+    if not difference(numeric, signed)["instruction_semantics_preserved"]:
+        raise aigenerated.SignError("signing changed instruction semantics; delivery refused")
     return signed, pid, len(declarations), rewritten
 
 

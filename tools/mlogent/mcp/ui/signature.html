@@ -14,7 +14,7 @@
   <form id="signature-form"><label for="author" id="author-label">作者名称</label><input id="author" name="author" maxlength="100" autocomplete="off" required placeholder="填写你希望显示的署名">
   <p id="author-note" class="muted small">仅用于这次交付，不修改其他会话的默认署名。</p>
   <button id="submit" type="submit">确认签名并生成蓝图</button></form>
-  <p class="muted small">请求有效期为 15 分钟。没有安全签名槽的代码会直接交付，并标记为未签名。</p>
+  <p class="muted small">请求有效期为 15 分钟。签名失败时不交付蓝图；未签名交付须通过工具显式设置 allow_unsigned=true。</p>
 </section>
 <section id="delivery" hidden><h2 id="delivery-title">蓝图已签名</h2><p id="signed-author"></p>
 <label for="blueprint">蓝图粘贴码</label><textarea id="blueprint" rows="4" readonly></textarea>

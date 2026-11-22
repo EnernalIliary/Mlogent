@@ -348,8 +348,6 @@ def check_labelize() -> None:
             ("duplicate", "foo:\nset n 0\nfoo:\nset n 1\njump 0 always 0 0\n",
              [], "duplicate label"),
             ("prefix", source, ["--prefix", "bad label"], "invalid label prefix"),
-            ("captured_reference", "set n 0\njump 0 always 0 0\njump L0 always 0 0\n",
-             [], "labelization changed jump"),
         ):
             src.write_text(text, encoding="utf-8")
             dst.write_text("existing output", encoding="utf-8")
@@ -380,7 +378,13 @@ def check_labelize() -> None:
                     and out_meta.get("repo") == signature.PROJECT_REPO
                 )
             results[case] = result
-        for case in ("duplicate", "prefix", "captured_reference"):
+        # Unknown targets are preserved; generated labels must not capture them.
+        src.write_text('set n 0\njump 0 always 0 0\njump L0 always 0 0\n', encoding='utf-8')
+        subprocess.run(command, capture_output=True, check=True)
+        captured = dst.read_text(encoding='utf-8')
+        if 'L0_2:' not in captured or 'jump L0 always 0 0' not in captured:
+            raise AssertionError('label generation captured an unresolved reference')
+        for case in ("duplicate", "prefix"):
             if results[case] != [1, True, True]:
                 raise AssertionError(f"labelize accepted invalid input: {case}: {results[case]}")
         for case in ("plain", "signed"):
@@ -458,10 +462,12 @@ def check_saved_labels() -> None:
                 or "jump retry lessThan n 3" not in recovered or sig.verify_text(recovered)):
             raise AssertionError("gen/parse and standalone labelize did not recover the same name")
         run("post", delivered.with_suffix(".labels.mlog"), "-o", delivered)
-        if delivered.read_text(encoding="utf-8") != code:
+        if (sig._body(delivered.read_text(encoding="utf-8")) != sig._body(code)
+                or sig.verify_text(delivered.read_text(encoding="utf-8"))):
             raise AssertionError("post → labelize → post did not preserve the delivered program")
 
         # Incompressible names make the actual processor config exceed the game limit.
+        previous_delivery = delivered.read_text(encoding="utf-8")
         rows = []
         for index in range(600):
             name = "L" + hashlib.sha256(str(index).encode("ascii")).hexdigest()
@@ -469,7 +475,7 @@ def check_saved_labels() -> None:
         src.write_text("\n".join(rows) + "\njump 0 always 0\nend\n", encoding="utf-8")
         oversized = run("post", src, "-o", delivered, check=False)
         if (oversized.returncode != 1 or "compressed bytes" not in oversized.stderr
-                or delivered.read_text(encoding="utf-8") != code):
+                or delivered.read_text(encoding="utf-8") != previous_delivery):
             raise AssertionError("oversized label payload reached the output file")
 
 

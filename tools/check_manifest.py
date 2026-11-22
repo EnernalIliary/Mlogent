@@ -56,6 +56,7 @@ PATTERNS = (
     "tests/**/*.py",
     "tests/**/*.json",
     "tests/cases/*.mlog",
+    "tests/source/fixtures/*.mlog",
     "rules/**/*.json",
 )
 

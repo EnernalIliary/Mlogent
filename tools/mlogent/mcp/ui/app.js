@@ -69,6 +69,7 @@
         $('submit').textContent = requiresAuthor ? '确认签名并生成蓝图' : '直接生成（不签名）';
         $('intro').textContent = requiresAuthor ? '检查这次交付的代码，填写署名。确认后生成带作者签名的蓝图。' : '代码没有可用签名槽，将保留原有指令并生成未签名蓝图。';
         $('author-note').textContent = data.author_locked ? '保留原有有效签名的作者名称。' : '仅用于这次交付，不修改其他会话的默认署名。';
+        if (data.signature_slot_available === false) notice('没有安全签名槽，签名会失败，且不会交付未签名蓝图。', true);
         $('submit').disabled = !ready || busy;
       }
     } else {
@@ -129,7 +130,7 @@
       if (busy || !ready || !data || data.status !== 'pending') return;
       busy = true; $('submit').disabled = true; notice('正在签名并生成蓝图…');
       try { await call('mlog_signature_submit', {request_id: data.request_id, author: $('author').value.trim()}); }
-      catch (error) { notice(error.message, true); }
+      catch (error) { $('state').textContent = '签名失败'; $('state').className = 'badge'; notice(error.message + '（未交付蓝图）', true); }
       finally { busy = false; $('submit').disabled = false; }
     });
     $('copy').addEventListener('click', async () => {

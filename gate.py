@@ -324,6 +324,7 @@ def build_steps(full: bool, only: str | None) -> list[tuple[str, list[str] | Non
         ("cjken", ["tests/cjken/run_cjken_tests.py"], ""),
     ]
     if full:
+        steps.append(("source-roundtrip", ["tests/source/run_roundtrip_simulation.py"], ""))
         steps.append(("selftest", ["tools/mlog.py", "selftest"], ""))
         # runtime truth: probes need a JRE and the versioned jars under out/,
         # which are not in git, so a fresh clone SKIPs rather than fails.

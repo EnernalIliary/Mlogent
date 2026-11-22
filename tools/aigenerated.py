@@ -35,8 +35,8 @@ so deleting it or changing the logic both fail.  Re-sign after an intentional
 edit with `sign --force`; that produces a new id.
 
 The id is the first 12 hex of SHA-256 over `author + "\\n" + body`, with the
-body normalised to LF, the signature operand/comment removed, and a trailing `end`
-guaranteed (so signing is idempotent even for programs that omitted it).
+body normalised to LF and the signature operand/comment removed. Every original
+instruction address is preserved; signing never appends a trailing `end`.
 """
 import argparse
 import sys
@@ -47,7 +47,7 @@ from mlogent.logic.labels import JUMP_LABEL_RE, LabelError, resolve as _resolve_
 
 from mlogent.logic.signature import (
     DEFAULT_AUTHOR, PROJECT_NAME, PROJECT_VERSION, PROJECT_REPO, SIGN_AUTHOR,
-    SIG_LINE, SIG_RE, SIG_COMMENT_RE, SIG_PARTS_RE, OLD_MARK_RE, OLD_TAIL_RE,
+    SIG_LINE, SIG_RE, SIG_COMMENT_RE, SIG_PARTS_RE,
     SignError, PAYLOAD_V, META_KEYS, project_meta, _meta_text, meta_of_job,
     encode_comments, decode_signature_payload, decode_payload, decode_comments, decode_meta,
     _clean, _canonical, _body, collect_comments, _hash, _find, sign_text, verify_text,

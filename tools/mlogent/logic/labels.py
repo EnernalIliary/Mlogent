@@ -9,7 +9,7 @@ import re
 
 LABEL_NAME_RE = re.compile(r"[A-Za-z_][\w.\-]*")
 LABEL_RE = re.compile(r"^\s*(" + LABEL_NAME_RE.pattern + r"):\s*$")
-JUMP_RE = re.compile(r"^(\s*jump\s+)(-?\d+)(\s+.*)?$", re.I)
+JUMP_RE = re.compile(r"^(\s*jump\s+)([+-]?\d+)(\s+.*)?$", re.I)
 JUMP_LABEL_RE = re.compile(r"^(\s*jump\s+)([A-Za-z_][\w.\-]*)(\s+.*)?$", re.I)
 
 
@@ -54,24 +54,28 @@ def check_jump_targets(before: str, after: str):
     def destinations(text):
         program = mlogir.parse(text)
         jumps = {}
+        counters = {}
         for index, stmt in enumerate(program.stmts):
             if stmt.mnemonic == "jump":
                 target = stmt.jump_target()
                 jumps[index] = target if target is not None else stmt.arg_text(0)
-        return len(program.stmts), jumps
+            if "@counter" in stmt.defs or "@counter" in stmt.uses:
+                counters[index] = (stmt.mnemonic, tuple(arg.text for arg in stmt.args))
+        return len(program.stmts), jumps, counters
 
-    before_count, before_jumps = destinations(before)
-    after_count, after_jumps = destinations(after)
+    before_count, before_jumps, before_counters = destinations(before)
+    after_count, after_jumps, after_counters = destinations(after)
     if before_count != after_count or before_jumps.keys() != after_jumps.keys():
         raise ValueError("labelization changed the statement layout")
     for index, target in before_jumps.items():
         if after_jumps[index] != target:
             raise ValueError(f"labelization changed jump at instruction {index}: "
                              f"{target!r} -> {after_jumps[index]!r}")
+    if before_counters != after_counters:
+        raise ValueError("labelization changed @counter control flow")
 
 
-def labelize(text: str, prefix: str = "L", *, preferred_labels: dict[int, str] | None = None,
-            preserve_always: bool = False):
+def labelize(text: str, prefix: str = "L", *, preferred_labels: dict[int, str] | None = None):
     if not LABEL_NAME_RE.fullmatch(prefix):
         raise ValueError(f"invalid label prefix: {prefix!r}")
 
@@ -85,14 +89,20 @@ def labelize(text: str, prefix: str = "L", *, preferred_labels: dict[int, str] |
             raise ValueError(f"duplicate label {name!r} on line {line_no}")
         used.add(name)
 
+    # Reserve operands too: a generated label must not shadow a program variable
+    # or an unresolved jump target. Tokenization excludes quoted string contents.
+    from mlogir import tokenize
+    for line, (kind, _) in zip(lines, kinds):
+        if kind == "stmt":
+            used.update(token.text for token in tokenize(line)
+                        if LABEL_NAME_RE.fullmatch(token.text))
+
     jumps = []          # (line_no, target)
     for i, (kind, idx) in enumerate(kinds):
         if kind != "stmt":
             continue
-        # Keep the signed delivery mount point numeric in editable output.
-        if preserve_always and re.match(
-                r"^\s*jump\s+\S+\s+always(?:\s+\S+)?(?:\s+.*)?$", lines[i], re.I):
-            continue
+        # Unconditional jumps, including the signature carrier, are ordinary
+        # static edges. Label declarations never consume instruction addresses.
         m = JUMP_RE.match(lines[i])
         if not m:
             continue

@@ -114,7 +114,7 @@ TOOLS = [
     {
         "name": "mlog_gen",
         "description": "Turn mlog source into a blueprint paste code (base64 .msch). "
-                       "Signs the embedded program when a safe slot exists, otherwise delivers unsigned "
+                       "Requires author signing by default; signing failure returns an error. Only explicit allow_unsigned=true permits unsigned delivery "
                        "with a warning. Optionally writes a binary schematic.",
         "inputSchema": {
             "type": "object",
@@ -123,7 +123,7 @@ TOOLS = [
                 "logic": {"type": "string", "description": "inline mlog code"},
                 "name": {"type": "string"},
                 "author": {"type": "string", "minLength": 1,
-                            "description": "author required for unsigned input with a safe signature slot; no-slot code is delivered unsigned"},
+                            "description": "author required for input without a valid signature"},
                 "allow_unsigned": {"type": "boolean", "default": False,
                                    "description": "allow writing when no safe signature slot exists"},
                 "links": {"type": "array", "items": {"type": "string"},
@@ -137,6 +137,8 @@ TOOLS = [
     {
         "name": "mlog_extract",
         "description": "Extract editable labelled mlog or a partial Mindcode draft. "
+                       "Mlog output labels valid static targets and includes diagnostics for unresolved jumps, "
+                       "dynamic @counter operations and address-preserving recompilation. "
                        "Supply blueprint_code, mlog or a server workspace path. "
                        "For a multi-processor blueprint, omit index/all for the inventory and signed comment previews. "
                        "Use mlog_fetch for referenced output. Mindcode drafts need manual "
@@ -180,7 +182,7 @@ TOOLS = [
                 "expected_sha256": {"type": "string", "pattern": "^[0-9a-fA-F]{64}$",
                                     "description": "expected source_sha256 from a previous preview"},
                 "author": {"type": "string", "minLength": 1,
-                            "description": "author required when the replacement has a safe signature slot but no valid signature; no-slot code is delivered unsigned"},
+                            "description": "author required when the replacement has no valid signature"},
                 "allow_unsigned": {"type": "boolean", "default": False,
                                    "description": "allow writing when no safe signature slot exists"},
             },

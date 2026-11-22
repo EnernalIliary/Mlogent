@@ -16,9 +16,69 @@ from mlogent.logic import source
 from mlogent.logic import labels
 from mlogent.logic import payload, signature, slots
 from mlogent.logic.cleanup import clean
+from mlogent.logic.controlflow import difference, extraction_diagnostics
 
 
 class SourceTests(unittest.TestCase):
+    def test_impact_startup_signature_extraction_roundtrip_preserves_all_86_addresses(self):
+        original = (Path(__file__).parent / 'fixtures' / 'impact-startup.mlog').read_text(encoding='utf-8')
+        self.assertEqual(labels.split_lines(original)[2], 86)
+        delivered, *_ = source.to_delivery(original, 'Iliary')
+        self.assertFalse(signature.verify_text(delivered))
+        self.assertEqual(labels.split_lines(delivered)[2], 86)
+        self.assertEqual(delivered.splitlines()[-1], 'op add @counter return 1')
+        editable, *_ = source.to_editable(delivered)
+        report = extraction_diagnostics(delivered, editable)
+        self.assertEqual(report['static_jumps'], report['labeled_jumps'])
+        self.assertEqual(report['unconverted_jumps'], [])
+        self.assertTrue(report['safe_to_recompile'])
+        self.assertTrue(report['address_sensitive'])
+        self.assertEqual([x['instruction'] for x in report['counter_writes']], [85])
+        self.assertEqual([x['instruction'] for x in report['counter_reads']], [15, 43])
+        for target in (20, 21, 34, 63, 64, 67):
+            self.assertIn(f'L{target}:\n', editable)
+        self.assertEqual(editable.count('L67:'), 1)
+        self.assertEqual(editable.count('jump L67 always'), 2)
+        rebuilt, *_ = source.to_delivery(editable, 'ignored')
+        self.assertTrue(difference(original, rebuilt)['instruction_semantics_preserved'])
+        self.assertEqual(difference(original, rebuilt)['jump_target_changes'], [])
+        self.assertFalse(signature.verify_text(rebuilt))
+
+    def test_label_namespace_and_boundary_diagnostics(self):
+        original = 'set L2 9\njump 2 always 0\njump 2 equal L2 9\njump 4 always 0\n'
+        editable, *_ = source.to_editable(original)
+        self.assertIn('L2_2:\n', editable)
+        self.assertEqual(editable.count('L2_2:'), 1)
+        report = extraction_diagnostics(original, editable)
+        self.assertEqual(report['labeled_jumps'], 2)
+        self.assertEqual(report['unconverted_jumps'][0]['target'], 4)
+        self.assertFalse(report['safe_to_recompile'])
+        self.assertTrue(report['conversion']['instruction_semantics_preserved'])
+        original = 'jump missing always 0\njump -1 always 0\n'
+        editable, *_ = source.to_editable(original)
+        self.assertEqual(len(extraction_diagnostics(original, editable)['unconverted_jumps']), 2)
+
+    def test_signature_no_longer_adds_end_and_detects_appended_instructions(self):
+        original = 'set return @counter\njump 3 always 0 false\nend\nop add @counter return 1\n'
+        signed, _ = signature.sign_text(original, 'Iliary')
+        self.assertEqual(labels.split_lines(signed)[2], 4)
+        self.assertTrue(difference(original, signed)['instruction_semantics_preserved'])
+        self.assertTrue(signature.verify_text(signed + 'end\n'))
+
+    def test_conversion_guard_rejects_layout_target_and_counter_changes(self):
+        original = 'set return @counter\njump 3 always 0\nend\nop add @counter return 1\n'
+        for changed in (original + 'end\n', original.replace('jump 3', 'jump 2'),
+                        original.replace('return 1', 'return 2')):
+            self.assertFalse(difference(original, changed)['instruction_semantics_preserved'])
+        with self.assertRaisesRegex(ValueError, '@counter'):
+            labels.check_jump_targets(original, original.replace('return 1', 'return 2'))
+
+    def test_old_marker_like_variable_is_an_instruction_not_legacy_metadata(self):
+        original = 'set aigenerated.abcdef123456 7\njump 0 always 0\n'
+        signed, *_ = source.to_delivery(original, 'Iliary')
+        self.assertEqual(signature._body(signed), original)
+        self.assertEqual(labels.split_lines(signed)[2], 2)
+
     def test_cleanup_removes_only_ignored_editor_default_suffixes(self):
         examples = {
             'jump 7 always a b\n': 'jump 7 always\n',
@@ -72,7 +132,7 @@ class SourceTests(unittest.TestCase):
         numeric, *_ = aigenerated.resolve_labels(aigenerated._body(editable))
         self.assertEqual(numeric, aigenerated._body(delivered))
         restored, *_ = source.to_delivery(editable, 'ignored')
-        self.assertEqual(restored, delivered)
+        self.assertEqual(aigenerated._body(restored), aigenerated._body(delivered))
         token = aigenerated._find(restored)[0]
         self.assertEqual(aigenerated.decode_meta(token.group(3))['job'], 'source-context')
 
@@ -95,7 +155,7 @@ class SourceTests(unittest.TestCase):
         self.assertEqual(diagnostic, 'draft')
         compiler.assert_called_once_with(draft, timeout=5)
         self.assertIn('print "AI-Generated:Mlogent:example"', draft)
-        self.assertIn('jump 3 always 0', draft)
+        self.assertIn('jump L3 always 0', draft)
         self.assertFalse(aigenerated._find(draft))
         numeric, *_ = aigenerated.resolve_labels(draft)
         self.assertEqual(numeric, aigenerated._body(delivered))

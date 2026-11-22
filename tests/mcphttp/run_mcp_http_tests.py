@@ -96,6 +96,30 @@ class Server:
 
 
 class Protocol(unittest.TestCase):
+    def test_impact_roundtrip_diagnostics_survive_artifact_fetch(self):
+        original = (Path(ROOT) / 'tests/source/fixtures/impact-startup.mlog').read_text(encoding='utf-8')
+        generated = mlog_mcp.tool_gen({"logic": original, "author": "Iliary"})
+        self.assertTrue(generated['signed'])
+        self.assertEqual(generated['signing_changes']['original_instructions'], 86)
+        self.assertEqual(generated['signing_changes']['output_instructions'], 86)
+        self.assertEqual(generated['signing_changes']['jump_target_changes'], [])
+        self.assertEqual(len(generated['parameter_cleanup']), 3)
+        extracted = mlog_mcp.tool_extract({"blueprint_code": generated['blueprint_base64']})
+        processor = extracted['processors'][0]
+        report = processor['diagnostics']
+        self.assertEqual(report['signature_status'], 'valid')
+        self.assertTrue(report['safe_to_recompile'])
+        self.assertEqual(report['static_jumps'], report['labeled_jumps'])
+        if 'code_ref' in processor:
+            editable = mlog_mcp.tool_fetch({'ref': processor['code_ref']['artifact_ref']})['text']
+        else:
+            editable = processor['code']
+        self.assertIn('L67:', editable)
+        self.assertIn('jump L67 always', editable)
+        restored = mlog_mcp.tool_gen({"logic": editable})
+        self.assertTrue(restored['signed'])
+        self.assertTrue(restored['signing_changes']['instruction_semantics_preserved'])
+
     @classmethod
     def setUpClass(cls):
         revisions = tempfile.TemporaryDirectory(prefix="mlog-revisions-test-")
@@ -708,42 +732,45 @@ class AppsContracts(unittest.TestCase):
         code = mlog_mcp.msch.parse_bytes(base64.b64decode(out["result"]["blueprint_base64"])).logic_tiles()[0].logic.code
         self.assertIn('op abs result x\n', code)
         self.assertTrue(out["signed"])
-        delivered = mlog_mcp.tool_gen({"logic": 'print "hello" a b\nend\n'})
+        delivered = mlog_mcp.tool_gen({"logic": 'print "hello" a b\nend\n', "allow_unsigned": True})
         self.assertFalse(delivered["signed"])
         self.assertEqual(delivered["parameter_cleanup"], [{"line": 1, "removed": ["a", "b"]}])
         code = mlog_mcp.msch.parse_bytes(base64.b64decode(delivered["blueprint_base64"])).logic_tiles()[0].logic.code
         self.assertEqual(code.strip(), 'print "hello"\nend')
 
-    def test_full_jump_signs_in_form_and_no_slot_is_delivered_unsigned(self):
-        pending = self.request(arguments={"logic": "set x 1\njump 0 always 0 0\n"})
-        reply = self.apps.handle({"jsonrpc": "2.0", "id": 97, "method": "tools/call", "params": {
-            "name": "mlog_signature_submit", "arguments": {"request_id": pending["request_id"], "author": "Iliary"}}}, principal="alice")
-        self.assertFalse(reply["result"]["isError"])
-        self.assertEqual(reply["result"]["structuredContent"]["status"], "complete")
-        pending = self.request(arguments={"logic": "set x 1\nend\n"})
-        reply = self.apps.handle({"jsonrpc": "2.0", "id": 98, "method": "tools/call", "params": {
-            "name": "mlog_signature_submit", "arguments": {"request_id": pending["request_id"], "author": "Iliary"}}}, principal="alice")
-        self.assertFalse(reply["result"]["isError"])
-        data = reply["result"]["structuredContent"]
-        self.assertFalse(data["signed"])
-        self.assertEqual(data["status"], "complete")
-        self.assertIn("no safe signature slot", data["result"]["warning"])
+    def test_full_jump_signs_and_no_slot_form_fails_without_delivery(self):
+        for logic, success in (("set x 1\njump 0 always 0 0\n", True),
+                               ("set x 1\nend\n", False)):
+            pending = self.request(arguments={"logic": logic})
+            self.assertTrue(pending["signature_required"])
+            reply = self.apps.handle({"jsonrpc": "2.0", "id": 97, "method": "tools/call", "params": {
+                "name": "mlog_signature_submit", "arguments": {"request_id": pending["request_id"], "author": "Iliary"}}}, principal="alice")
+            self.assertEqual(reply["result"]["isError"], not success)
+            if success:
+                data = reply["result"]["structuredContent"]
+                self.assertEqual(data["status"], "complete")
+                self.assertTrue(data["signed"])
+            else:
+                self.assertNotIn("blueprint_base64", json.dumps(reply))
+                self.assertEqual(self.apps.requests[pending["request_id"]]["status"], "pending")
 
-    def test_no_slot_skips_author_form_without_adding_or_changing_instructions(self):
+    def test_no_slot_requires_explicit_unsigned_permission(self):
+        import aigenerated
         original = "set x 1\nend\n"
-        before = len(self.apps.requests)
+        with self.assertRaisesRegex(ValueError, 'must be a boolean'):
+            mlog_mcp.tool_gen({"logic": original, "allow_unsigned": "false"})
+        for args in ({"logic": original}, {"logic": original, "author": "Iliary"}):
+            with self.assertRaisesRegex(aigenerated.SignError, "no safe signature slot"):
+                mlog_mcp.tool_gen(args)
         _, reply = mlog_mcp_http_profiles.dispatch({"jsonrpc": "2.0", "id": 99, "method": "tools/call",
             "params": {"name": "mlog_gen", "arguments": {"logic": original}}}, apps=self.apps)
-        self.assertFalse(reply["result"]["isError"])
-        data = reply["result"]["structuredContent"]
-        self.assertEqual(data["status"], "complete")
-        self.assertFalse(data["signed"])
-        code = mlog_mcp.msch.parse_bytes(base64.b64decode(data["result"]["blueprint_base64"])).logic_tiles()[0].logic.code
+        self.assertEqual(reply["result"]["structuredContent"]["status"], "pending")
+        output = mlog_mcp.tool_gen({"logic": original, "allow_unsigned": True})
+        self.assertFalse(output["signed"])
+        code = mlog_mcp.msch.parse_bytes(base64.b64decode(output["blueprint_base64"])).logic_tiles()[0].logic.code
         self.assertEqual(code.strip(), original.strip())
-        self.assertEqual(len(self.apps.requests), before)
-        pending = self.request(arguments={"logic": original})
-        self.assertFalse(pending["signature_required"])
-        self.assertFalse(self.apps.submit({"request_id": pending["request_id"]}, "alice", lambda name: True)["signed"])
+        signed = mlog_mcp.tool_gen({"logic": "jump 0 always 0", "author": "Iliary", "allow_unsigned": True})
+        self.assertTrue(signed["signed"])
 
     def test_unsigned_fallback_preserves_revision_checks_and_rejects_tampered_signatures(self):
         import mschgen, aigenerated
@@ -751,7 +778,11 @@ class AppsContracts(unittest.TestCase):
         blueprint.add_logic("set n 1\nend\n")
         encoded = base64.b64encode(blueprint.build()).decode()
         with tempfile.TemporaryDirectory(dir=ROOT) as directory, patch.dict(os.environ, {"MLOG_REVISION_DIR": directory}):
-            out = mlog_mcp.tool_inject({"blueprint_code": encoded, "index": 0, "mlog": "set x 1\nend\n"})
+            with self.assertRaisesRegex(aigenerated.SignError, "no safe signature slot"):
+                mlog_mcp.tool_inject({"blueprint_code": encoded, "index": 0,
+                                      "mlog": "set x 1\nend\n", "author": "Iliary"})
+            self.assertEqual(os.listdir(directory), [])
+            out = mlog_mcp.tool_inject({"blueprint_code": encoded, "index": 0, "mlog": "set x 1\nend\n", "allow_unsigned": True})
             self.assertFalse(out["signed"])
             self.assertTrue(out["revision"])
             code = mlog_mcp.msch.parse_bytes(base64.b64decode(out["blueprint_base64"])).logic_tiles()[0].logic.code

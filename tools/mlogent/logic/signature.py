@@ -28,15 +28,10 @@ SIG_COMMENT_RE = re.compile(
     r'^#\s*AI-Generated:Mlogent:([^":]+):([0-9a-f]{12})'
     r'(?::([A-Za-z0-9_-]+))?\s*$')
 SIG_PARTS_RE = re.compile(r'^jump\s+(\S+)\s+always\s+(\S+)\s+"AI-Generated:Mlogent:')
-# older releases used a comment header + unreachable set; drop those on re-sign
-OLD_MARK_RE = re.compile(
-    r"^(?:# @aigenerated(?:-end)?\b.*|set aigenerated\.[0-9a-f]{12}\b.*)$")
-# release 0.9 put the token after `end`; normalise that back to a plain `end`
-OLD_TAIL_RE = re.compile(r'^end\s+"AI-Generated:Mlogent:[^"]*"\s*$')
 
 
 def _clean(text: str) -> list[str]:
-    """Normalise newlines and drop every existing signature / legacy mark."""
+    """Normalise newlines and remove current signature metadata only."""
     text = text.replace("\r\n", "\n").replace("\r", "\n")
     out = []
     for line in text.split("\n"):
@@ -48,33 +43,17 @@ def _clean(text: str) -> list[str]:
                 # Signature always occupies an existing jump's compare slot.
                 out.append(f"jump {m.group(1)} always {m.group(2)}")
             continue
-        if OLD_MARK_RE.match(line):
-            continue
-        if OLD_TAIL_RE.match(line.strip()):
-            out.append("end")
-            continue
         out.append(line)
     return out
 
 
 def _canonical(lines: list[str]) -> str:
-    """Signature-free body, guaranteed to end with a single `end`."""
+    # Labels/comments occupy no addresses; executable statements must never be
+    # added, removed or reordered just to obtain a signature hash.
     lines = list(lines)
     while lines and not lines[-1].strip():
         lines.pop()
-    last = -1
-    for i in range(len(lines) - 1, -1, -1):
-        s = lines[i].strip()
-        if s and not s.startswith("#"):
-            last = i
-            break
-    if last < 0:
-        return ""
-    trailing = [l for l in lines[last + 1:] if l.strip().startswith("#")]
-    head = lines[:last + 1]
-    if head[last].strip() == "end":
-        head = head[:last]
-    return "\n".join(head + trailing + ["end"]) + "\n"
+    return "\n".join(lines) + "\n" if lines else ""
 
 
 def _body(text: str) -> str:
@@ -139,6 +118,9 @@ def sign_text(text: str, author: str = DEFAULT_AUTHOR, force: bool = False,
     landed). The id hashes the canonical code body and saved label table.
     """
     hits = _find(text)
+    if not hits:
+        from .cleanup import clean
+        text, _ = clean(text)
     body = _body(text)
     # Empty input has no existing instruction on which to mount a signature.
     if not body and not hits:

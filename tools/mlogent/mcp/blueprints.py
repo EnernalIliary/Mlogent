@@ -43,9 +43,16 @@ def has_signature_slot(code: str) -> bool:
     return find_slot(aigenerated._body(code).splitlines()) is not None
 
 
+def _allow_unsigned(args) -> bool:
+    value = args.get("allow_unsigned", False)
+    if type(value) is not bool:
+        raise ValueError("allow_unsigned must be a boolean")
+    return value
+
+
 def generate(args, *, context: BlueprintContext):
     root = context.workspace_root
-    cmd = [sys.executable, str(context.tools_root / "mlog.py"), "gen"]
+    cmd = [sys.executable, "-X", "utf8", str(context.tools_root / "mlog.py"), "gen"]
     source, logic = args.get("source"), args.get("logic")
     import aigenerated
     supplied_author = str(args.get("author") or "").strip()
@@ -56,11 +63,15 @@ def generate(args, *, context: BlueprintContext):
     existing = aigenerated._find(logic)
     if existing and aigenerated.verify_text(logic):
         raise ValueError("input contains an invalid signature")
+    input_logic = logic
     logic, cleanup = clean_parameters(logic)
     signed_author = existing[0].group(1) if existing else ""
     author = signed_author or supplied_author or context.get_author()
-    auto_unsigned = not existing and not has_signature_slot(logic)
-    allow_unsigned = bool(args.get("allow_unsigned", False)) or auto_unsigned
+    allow_unsigned = _allow_unsigned(args)
+    no_slot = not existing and not has_signature_slot(logic)
+    if no_slot and not allow_unsigned:
+        raise aigenerated.SignError("no safe signature slot; signing is required unless allow_unsigned=true")
+    unsigned = not existing and allow_unsigned and (no_slot or not author)
     if not author and not allow_unsigned:
         raise ValueError("author is required when mlog has no valid signature")
     if supplied_author:
@@ -69,7 +80,7 @@ def generate(args, *, context: BlueprintContext):
         cmd += ["--name", args["name"]]
     if author:
         cmd += ["--author", author]
-    if allow_unsigned and not existing:
+    if unsigned:
         cmd += ["--no-sign"]
         logic, _, _ = aigenerated._resolve_labels(logic, strict=True)
     for link in args.get("links") or []:
@@ -86,12 +97,16 @@ def generate(args, *, context: BlueprintContext):
             message = message.splitlines()[-1]
         raise RuntimeError(message[:2000])
     code = (p.stdout or "").strip().splitlines()[-1].strip()
-    signed = bool(existing) or (bool(author) and not allow_unsigned)
+    signed = not unsigned
     response = {"blueprint_base64": code, "signed": signed,
-            "warning": None if signed else ("no safe signature slot; delivered unsigned without adding instructions"
-                                             if auto_unsigned else "no signature requested"),
+            "warning": None if signed else "explicit allow_unsigned=true; delivered unsigned",
             "binary": args.get("out"),
             "stderr": (p.stderr or "").strip()[:500]}
+    from mlogent.logic.controlflow import difference
+    delivered = msch.parse_bytes(_blueprint_bytes(code)).logic_tiles()[0].logic.code
+    response["signing_changes"] = difference(input_logic, delivered)
+    if not response["signing_changes"]["instruction_semantics_preserved"]:
+        raise aigenerated.SignError("signing changed instruction semantics; blueprint withheld")
     if cleanup:
         response["parameter_cleanup"] = cleanup
     return response
@@ -165,6 +180,9 @@ def extract(args, *, context: BlueprintContext):
             return {**response, "ok": False, "index": info["index"],
                     "failure_type": exc.kind, "message": str(exc)}
         detail = {**info, "code": draft}
+        if output_format == "mlog":
+            from mlogent.logic.controlflow import extraction_diagnostics
+            detail["diagnostics"] = extraction_diagnostics(code, draft)
         if diagnostic:
             detail["diagnostic"] = diagnostic
         result.append(detail)
@@ -355,24 +373,32 @@ def inject(args, *, context: BlueprintContext):
     existing = aigenerated._find(source)
     if existing and aigenerated.verify_text(source):
         raise ValueError("replacement contains an invalid signature")
+    input_source = source
     source, cleanup = clean_parameters(source)
     if cleanup:
         response["parameter_cleanup"] = cleanup
     signed_author = existing[0].group(1) if existing else ""
     author = signed_author or supplied_author or context.get_author()
-    allow_unsigned = bool(args.get("allow_unsigned", False)) or (not existing and not has_signature_slot(source))
+    allow_unsigned = _allow_unsigned(args)
     if not author and not allow_unsigned:
         raise ValueError("author is required when replacement has no valid signature")
     if supplied_author:
         context.set_author(supplied_author)
-    signed = True
-    try:
-        code, _, _, _ = sign_delivery(source.lstrip("\ufeff"), author)
-    except aigenerated.SignError as exc:
-        if not allow_unsigned or "no safe signature slot" not in str(exc):
-            raise
+    signed = not (allow_unsigned and not author)
+    if not signed:
         code, _, _ = aigenerated._resolve_labels(source.lstrip("\ufeff"), strict=True)
-        signed = False
+    else:
+        try:
+            code, _, _, _ = sign_delivery(source.lstrip("\ufeff"), author)
+        except aigenerated.SignError as exc:
+            if not allow_unsigned or "no safe signature slot" not in str(exc):
+                raise
+            code, _, _ = aigenerated._resolve_labels(source.lstrip("\ufeff"), strict=True)
+            signed = False
+    from mlogent.logic.controlflow import difference
+    response["signing_changes"] = difference(input_source, code)
+    if not response["signing_changes"]["instruction_semantics_preserved"]:
+        raise aigenerated.SignError("signing changed instruction semantics; blueprint withheld")
     updated = target.replace(code, preview=preview)
     before = _inject_review_source(original).splitlines()
     after = _inject_review_source(code)
@@ -382,7 +408,7 @@ def inject(args, *, context: BlueprintContext):
     response["replacement_sha256"] = hashlib.sha256(code.encode("utf-8")).hexdigest()
     response["signed"] = signed
     if not signed:
-        response["warning"] = "no safe signature slot; written unsigned"
+        response["warning"] = "explicit allow_unsigned=true; written unsigned"
     checks = _inject_checks(target, after)
     if updated is not None:
         info = {key: response[key] for key in ("processor", "source_sha256", "replacement_sha256")}

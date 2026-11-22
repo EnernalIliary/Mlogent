@@ -122,11 +122,11 @@ python tools/mlog_mcp_http_profiles.py --bind 127.0.0.1 --port 8765 \
 
 Without the flag the original tools keep their existing responses. With UI
 enabled, `mlog_gen` and `mlog_inject` automatically open a pending author form
-when unsigned input has a safe signature slot but no explicit author. Such
+when unsigned input has no explicit author (unless `allow_unsigned=true`). Such
 requests are delivered only after form submission; a process-wide author default
-does not bypass this step. Inputs with no safe signature slot are generated or
-injected directly without a signature, even if no author was supplied. The
-result has `signed: false` and a warning, and the UI labels it unsigned. No
+does not bypass this step. Signing is strict by default: inputs without a safe
+slot return an error and no blueprint. Only explicit `allow_unsigned=true`
+permits unsigned delivery, marked with `signed: false` and a warning. No
 signature-carrier instructions are appended. A full `jump <target> always 0 0`
 can reuse the final zero placeholder; custom nonzero/string operands are not
 overwritten. Invalid existing signatures still fail instead of being bypassed.
@@ -150,8 +150,8 @@ tools, while `world_dashboard` is the tool that opens the world interface.
 
 Signature requests expire after 15 minutes or a service restart. Inputs are
 snapshotted before displaying the form; submission cannot substitute a different
-program or change an existing signed author. No-slot inputs opened explicitly
-in a form can be submitted without an author and are labeled unsigned. Repeated
+program or change an existing signed author. Form submissions require an author;
+no-slot submissions display a signing failure without delivering a blueprint. Repeated
 submission of the same request/author returns the saved delivery. Form authors
 do not alter the process-wide author defaults used by legacy tools.
 

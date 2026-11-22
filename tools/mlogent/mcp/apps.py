@@ -57,11 +57,11 @@ class Apps:
                                          "Arguments for the selected tool; output paths and unsigned delivery are not supported."}},
                           []), SIGNATURE_URI),
             _tool("mlog_signature_submit", "Submit the author for an existing signature request. "
-                  "Author is optional for inputs without a safe signature slot; those are delivered unsigned. "
+                  "Signing is strict; a missing safe slot fails without delivering a blueprint. "
                   "Uses the saved reviewed inputs; repeated submission returns the existing result.",
                   _object({"request_id": {"type": "string"},
-                           "author": {"type": "string", "maxLength": 100}},
-                          ["request_id"]), readonly=False, app_only=True),
+                           "author": {"type": "string", "minLength": 1, "maxLength": 100}},
+                          ["request_id", "author"]), readonly=False, app_only=True),
         ]
         if world is not None:
             self.tools.append(_tool("world_dashboard", "Open or refresh the read-only world dashboard: "
@@ -82,7 +82,7 @@ class Apps:
                 tool["outputSchema"] = {"type": "object"}
                 tool["description"] += (" With UI enabled, omitting author on unsigned input automatically opens "
                                          "the author signature form; wait for the user to submit it. "
-                                         "Inputs without a safe signature slot are delivered unsigned directly. "
+                                         "Signing failures never silently deliver unsigned blueprints. "
                                          "Do not invent an author. Pass author explicitly for text-only delivery.")
             elif tool["name"] == "mlog_doctor":
                 tool["description"] += " For an interactive world status view use world_dashboard instead."
@@ -97,7 +97,7 @@ class Apps:
         if not isinstance(code, str) or not code.strip():
             return False
         import aigenerated
-        return not aigenerated._find(code) and self.mcp._blueprints.has_signature_slot(code)
+        return not aigenerated._find(code)
 
     def decorate_reply(self, payload, reply, allowed=lambda name: True):
         if payload.get("method") != "tools/call" or not reply or "result" not in reply:
@@ -238,7 +238,8 @@ class Apps:
                 "preview_truncated": len(code) > 6000, "expires_in": self.ttl,
                 "author": existing_author or str(payload.get("author") or ""),
                 "author_locked": bool(existing_author)}
-        view["signature_required"] = bool(hits) or self.mcp._blueprints.has_signature_slot(code)
+        view["signature_required"] = True
+        view["signature_slot_available"] = bool(hits) or self.mcp._blueprints.has_signature_slot(code)
         if cleanup:
             view["parameter_cleanup"] = cleanup
         if target is not None:

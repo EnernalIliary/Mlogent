@@ -1,0 +1,86 @@
+jump 20 notEqual E.need null
+set threshold 100
+print "阈值，预计给起冲时电网波动留的余量。"
+set Comsumption.addionalps 0
+print "起冲时的额外耗电，比如你冲反启动的时候才有冷厂运作。-不可用"
+printflush "you"
+set k 0.06
+op add Eo(0) 1500 Comsumption.addionalps
+op sub b 7800 Eo(0)
+op div b b k
+op div -1/k 1 k
+op sub -1/k 0 -1/k
+op div h0 Eo(0) 7800
+op pow h0 h0 .2
+set h h0
+set return @counter
+jump 67 always 0 false
+set t0 t
+set E.need E
+print "常量计算"
+set i 0
+getlink imptr i
+sensor b.ty imptr @type
+jump 34 strictEqual b.ty @impact-reactor
+jump 63 strictEqual E.imptr 0
+sensor PI imptr @powerNetIn
+sensor PO imptr @powerNetOut
+sensor tsc imptr @timescale
+op sub PI PI PO
+op div PI PI tsc
+select E.b.tres equal E.b 1 0 1500
+op greaterThan E.b PI E.b.tres
+control enabled imptr E.b 0 0 0
+jump 64 always 0 false
+sensor h imptr @heat
+jump 64 greaterThanEq h h0
+sensor PI imptr @powerNetIn
+sensor PO imptr @powerNetOut
+op sub PI PI PO
+sensor PS imptr @powerNetStored
+sensor Enad.imptr imptr @enabled
+sensor Eff.imptr imptr @efficiency
+sensor tsc imptr @timescale
+set return @counter
+jump 67 always 0 false
+op sub E(h) E.need E
+op sub t(h) t0 t
+op div t(h) t(h) tsc
+op mul 7800h^5 7800 h^5
+op sub PO.imptr Eo(0) 7800h^5
+op mul PO.imptr PO.imptr Enad.imptr
+op mul PO.imptr PO.imptr tsc
+op add PI.cac PI PO.imptr
+op mul P.E PI.cac t(h)
+op add P.E P.E PS
+op sub Delta P.E E(h)
+select E.tres equal Enad.imptr 1 0 threshold
+op greaterThan E.imptr Delta E.tres
+jump 63 notEqual E.imptr 1
+sensor PI.now imptr @powerNetIn
+sensor PO imptr @powerNetOut
+op sub PI.now PI.now PO
+jump 64 lessThan PI.now PI
+control enabled imptr E.imptr 0 0 0
+op add i i 1
+jump 21 lessThan i @links
+end
+op pow h^5 h 5
+op div h^5/5 h^5 5
+op pow h^4 h 4
+op div h^4/4 h^4 4
+op pow h^3 h 3
+op div h^3/3 h^3 3
+op pow h^2 h 2
+op div h^2/2 h^2 2
+op add P(h) h h^2/2
+op add P(h) P(h) h^3/3
+op add P(h) P(h) h^4/4
+op add P(h) P(h) h^5/5
+op sub 1-h 1 h
+op log ln(1-h) 1-h h
+op mul bln(1-h) b ln(1-h)
+op mul t -1/k ln(1-h)
+op mul 130000P(h) 130000 P(h)
+op add E 130000P(h) bln(1-h)
+op add @counter return 1

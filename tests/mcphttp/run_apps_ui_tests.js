@@ -39,6 +39,8 @@ const root = path.resolve(__dirname, '../..');
     const signature = await call('mlog_gen', {
       logic: 'set n 42\nop abs out n b\njump 0 always a b\n', name: '<img src=x onerror=alert(1)>'});
     assert.equal(signature.isError, false);
+    const noSlot = await call('mlog_gen', {logic: 'set x 1\nend\n'});
+    assert.equal(noSlot.structuredContent.signature_required, true);
     const dashboard = {structuredContent: {kind: 'dashboard', ok: true,
       status: {ok: true, map: '测试世界', mode: 'survival', wave: 4, players: 1,
         units: 18, buildings: 749, gamePort: 6567, uptime: 1234, paused: false},
@@ -73,7 +75,7 @@ const root = path.resolve(__dirname, '../..');
         if (req.url.startsWith('/frame/')) {
           res.setHeader('Content-Type', 'text/html; charset=utf-8'); res.end(resources[kind]); return;
         }
-        const initial = kind === 'signature' ? signature : dashboard;
+        const initial = kind === 'signature' ? (req.url.includes('failure') ? noSlot : signature) : dashboard;
         res.setHeader('Content-Type', 'text/html; charset=utf-8');
         res.end('<!doctype html><meta charset="utf-8"><style>body{margin:0}iframe{border:0;width:100%;height:1100px}</style>' +
           '<iframe title="MCP App" src="/frame/' + kind + '"></iframe><script>window.initialResult=' +
@@ -103,6 +105,13 @@ const root = path.resolve(__dirname, '../..');
     assert.match(await frame.locator('#blueprint').inputValue(), /^bXNja/);
     assert.match(await frame.locator('#signed-author').textContent(), /浏览器测试作者/);
     await frame.locator('#copy').click();
+    await page.goto(base + '/signature-failure');
+    await frame.locator('#review').waitFor({state: 'visible'});
+    await frame.locator('#author').fill('Iliary');
+    await frame.locator('#submit').click();
+    await frame.locator('#state').filter({hasText: '签名失败'}).waitFor();
+    assert.equal(await frame.locator('#delivery').isVisible(), false);
+    assert.match(await frame.locator('#notice').textContent(), /未交付蓝图/);
     await page.goto(base + '/dashboard');
     await frame.locator('.metric').first().waitFor();
     assert.equal(await frame.locator('.metric').count(), 9);
@@ -115,7 +124,7 @@ const root = path.resolve(__dirname, '../..');
     await page.setViewportSize({width: 390, height: 1000});
     assert.equal(await frame.locator('body').evaluate(body => body.scrollWidth <= innerWidth), true);
     assert.deepEqual(errors, []);
-    console.log('MCP Apps browser tests passed: author submission, delivery, safe text, refresh, mobile layout.');
+    console.log('MCP Apps browser tests passed: signing, strict failure without delivery, safe text, refresh, mobile layout.');
   } finally {
     if (browser) await browser.close();
     if (host) await new Promise(resolve => host.close(resolve));
