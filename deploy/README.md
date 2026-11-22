@@ -29,6 +29,32 @@ curl -s -H "Authorization: Bearer $TOKEN" http://127.0.0.1:8765/health
 `systemctl status` and `journalctl -u mlogent-mcp -f` are the two commands you
 will use; the unit logs one line per request unless `--quiet`.
 
+## Versioned releases
+
+When MCP code runs from `/opt/mlogent-releases/<release>` while the live world
+and runtime data stay under `/opt/mlogent`, link each release's `out/` to the
+shared runtime directory before starting or switching the service. The world
+tools resolve `out/` relative to their installed code, so `WorkingDirectory`
+alone does not make a versioned release see the live world's handshake, server
+jar, or saved runtime data.
+
+```bash
+RELEASE=/opt/mlogent-releases/<release>
+test -d "$RELEASE/tools" && test -d /opt/mlogent/out
+if [ -L "$RELEASE/out" ]; then
+  test "$(readlink -f "$RELEASE/out")" = "$(readlink -f /opt/mlogent/out)"
+elif [ -e "$RELEASE/out" ]; then
+  echo "refusing to replace existing release out/" >&2
+  exit 1
+else
+  ln -s /opt/mlogent/out "$RELEASE/out"
+fi
+test "$(readlink -f "$RELEASE/out")" = "$(readlink -f /opt/mlogent/out)"
+```
+
+Keep this link when activating each new release; do not copy or duplicate
+`out/`, since the world server and MCP process must share the same live state.
+
 ## Container
 
 ```bash
