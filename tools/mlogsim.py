@@ -147,6 +147,7 @@ import subprocess
 import sys
 import tempfile
 import time
+import uuid
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 TOOLS = os.path.join(ROOT, "mindustry-blueprint", "tools")
@@ -198,7 +199,7 @@ def sweep_orphans(dry_run=False):
     return _process.sweep_orphans(dry_run, query_processes=_ps_json)
 
 
-_JS_CONSOLE_END = re.compile(r"\[[A-Z]\]\s+undefined\s*$")
+_CONSOLE_ANSI = re.compile(r"\x1b\[[0-9;]*m")
 _JS_CONSOLE_ERROR = re.compile(
     r"\[[A-Z]\]\s+(?:JavaScriptException|EcmaError|EvaluatorException|WrappedException):"
 )
@@ -287,14 +288,26 @@ class Server(SimulatorProcess):
         self.buffer.clear()
         # the console reads one line per command: multi-line scripts would be
         # parsed as separate console commands
-        self.send("js " + " ".join(script.splitlines()))
+        # Console return-value formatting varies by JAR and ANSI settings.
+        # Only our own printed marker proves that this command completed.
+        marker = "MLOGEND" + uuid.uuid4().hex
+        self.send("js " + " ".join(script.splitlines()) + ";print(" + json.dumps(marker) + ");")
         if timeout is None:
             timeout = self.js_timeout
-        lines = self.wait_for("JS result", timeout, terminal=lambda line: (
-            _JS_CONSOLE_END.search(line) or _JS_CONSOLE_ERROR.search(line)))
+        def terminal(line):
+            line = _CONSOLE_ANSI.sub("", line)
+            return (
+                ("[none/base.js]:" in line
+                 and line.split("[none/base.js]:", 1)[1].strip() == marker)
+                or _JS_CONSOLE_ERROR.search(line))
+
+        lines = self.wait_for(marker, timeout, terminal=terminal)
+        lines = [_CONSOLE_ANSI.sub("", line) for line in lines]
         if _JS_CONSOLE_ERROR.search(lines[-1]):
             raise SimError(lines[-1])
-        return [ln.split("[none/base.js]:", 1)[1].strip() for ln in lines if "[none/base.js]:" in ln]
+        return [ln.split("[none/base.js]:", 1)[1].strip() for ln in lines
+                if "[none/base.js]:" in ln
+                and ln.split("[none/base.js]:", 1)[1].strip() != marker]
 
     def fill_cores(self, spec: str) -> list[dict]:
         """Stock our team's cores; if there is none, drop a core-shard next to base.

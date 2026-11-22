@@ -39,6 +39,33 @@ class Child:
 
 
 class ProcessTests(unittest.TestCase):
+    def test_js_completion_is_explicit_and_ignores_console_colors_and_user_text(self):
+        server = mlogsim.Server.__new__(mlogsim.Server)
+        server.buffer = []
+        server.js_timeout = 2
+        marker = 'MLOGENDfixed'
+        lines = [
+            '\x1b[90m[I]\x1b[0m undefined',
+            '[I] [none/base.js]: undefined',
+            '[I] [none/base.js]: Error: user text',
+            '\x1b[90m[I]\x1b[0m [none/base.js]: ' + marker + '\x1b[0m',
+        ]
+
+        def wait_for(needle, timeout, *, terminal):
+            self.assertEqual(needle, marker)
+            self.assertEqual(timeout, 2)
+            self.assertEqual([bool(terminal(line)) for line in lines],
+                             [False, False, False, True])
+            self.assertTrue(terminal('[I] EcmaError: intentional failure'))
+            return lines
+
+        with patch.object(mlogsim.uuid, 'uuid4') as uid, \
+                patch.object(server, 'send') as send, \
+                patch.object(server, 'wait_for', side_effect=wait_for):
+            uid.return_value.hex = 'fixed'
+            self.assertEqual(server.js('print(1)'), ['undefined', 'Error: user text'])
+            self.assertIn('print("' + marker + '")', send.call_args.args[0])
+
     def test_process_layer_imports_without_game_or_cli(self):
         script = (
             'import sys; sys.path.insert(0, sys.argv[1]); '
