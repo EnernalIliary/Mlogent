@@ -13,7 +13,7 @@ Chinese keyword queries). Everything runs locally through
     python tools/kb.py serve                 # MCP server on stdio
     python tools/kb.py stats
 
-Corpus = 旧的固定文档清单 + docs/游戏速查 + tools/*.py + **knowledge/ 全库**
+Corpus = 旧的固定文档清单 + tools/*.py + tools/mlogent/**/*.py + **knowledge/ 全库**
 （knowledge/**/*.md 文章、00-data/*.json 的 schema 摘要、KB.md/CONVENTIONS.md/
 VERSION.md 契约文档）。knowledge 根可用 KB_KNOWLEDGE 覆盖（默认 <repo>/knowledge）。
 
@@ -76,7 +76,7 @@ DOC_FILES = [
     "knowledge/CONVENTIONS.md",
     "knowledge/VERSION.md",
 ]
-CODE_GLOBS = ["tools/*.py", "tests/run_tests.py"]
+CODE_GLOBS = ["tools/*.py", "tools/mlogent/**/*.py", "tests/run_tests.py"]
 # 2026-11-17: docs/游戏速查/ 的薄投影已删（数值母本在 knowledge/00-data/*.json）。
 # 保留这个开关是为了以后还要索引"非 knowledge 的文档"时不必改逻辑。
 DOC_GLOBS: list[str] = []
