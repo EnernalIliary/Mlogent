@@ -42,7 +42,8 @@ def knowledge(args):
     k = max(1, min(int(args.get("k") or 6), 20))
     kind = args.get("kind") or "knowledge"
     names = official_terms.lookup(query, include_turrets=any(w in query for w in ("炮台", "炮塔")))
-    expanded = query + " " + " ".join(row['id'] for row in names if row['id'] in query or row['zh_CN'] in query)
+    extra_ids = [row['id'] for row in names if row['id'] in query or row['zh_CN'] in query]
+    expanded = " ".join([query, *extra_ids])
     hits = kb_grep.search(expanded, k=k, include_docs=(kind == "all"))
     return {"count": len(hits), "mode": "keyword",
             "note": "BM25 over knowledge/ sections, no embeddings. For semantic "
