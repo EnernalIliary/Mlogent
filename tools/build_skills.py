@@ -80,6 +80,7 @@ def build(dest: Path) -> None:
             for p in sorted(tools.rglob('*')) if p.is_file())
         (tools / 'MANIFEST.sha256').write_text(manifest, encoding='utf-8')
         copy_sources(files, Path('rules'), target / 'rules')
+        copy_sources(files, Path('data/game'), target / 'data/game')
 
 
 def remove_generated(path: Path, skill: Path) -> None:
