@@ -31,6 +31,36 @@ will use; the unit logs one line per request unless `--quiet`.
 
 ## Versioned releases
 
+### Empty-world MCP work
+
+`autoPause=true` remains the idle policy. Read-only queries and isolated
+`mlog_sim` calls do not wake or change the online map. MCP world execution
+handlers, world-backed scenarios/explorations and differential tests hold an
+execution lease. On an empty server the lease saves the current world before
+switching to `大肥鱼的调试世界` (only if not already there), then runs the world.
+The map switch rechecks player count on the game thread; online players prevent
+automatic switching. Explicit lifecycle/map/pause commands retain their own
+semantics, and destructive handlers acquire their lease only after the existing
+veto buffer finishes. Once a task returns or throws, its lease is released and
+the empty world pauses. The game owns a 60-second expiry renewed every 15 seconds,
+so a crashed MCP worker cannot hold the world awake forever. A lease covers
+the tool's execution lifetime, not arbitrary background game logic after return.
+The selected debug map remains loaded after the task; the previous map has a
+timestamped `config/saves/mcp-before-work-*.msav` backup.
+
+The public `reader` profile may additionally allow inline `mlog_gen`,
+`mlog_inject` and `mlog_sim`. Set `rpm: 30`, `work_rpm: 10` and
+`simulation_limits: {"ticks": 600, "steps": 1200}` in its private users.json
+profile. Generation, injection and simulation share the work bucket; other
+tools use the independent normal bucket. Signature form opening uses the
+normal bucket, while submission uses the work bucket. Enable
+`mlog_signature_request` and `mlog_signature_submit` for the author form.
+Limits apply per principal; public guest OAuth sessions share the guest quota.
+These public work tools reject server input/output paths, scene uploads and
+live-world projection feeds. Runner permissions and its total quota are
+unchanged. Tool discovery advertises the same inline-only inputs and limits
+enforced at dispatch.
+
 When MCP code runs from `/opt/mlogent-releases/<release>` while the live world
 and runtime data stay under `/opt/mlogent`, link each release's `out/` to the
 shared runtime directory before starting or switching the service. The world
@@ -217,3 +247,115 @@ but if the client runs on the same machine, prefer stdio directly
 * No per-user isolation. One token, one process, one scratch directory. If you
   need tenants, run one container per tenant.
 * No rate limiting. Put it in the proxy if you need it (`limit_req` in nginx).
+# On-demand game world (Linux)
+
+`tools/world_sleep.py` can own `world_server.py` instead of keeping the JVM
+running. Defaults: public TCP/UDP 6567, private backend 16567, 300 seconds empty
+before saving and stopping. It retains the five newest generated hibernation
+saves. Existing manual saves are untouched.
+
+Install the firewall helper from Mlogent-Ops as `/etc/mlogent/world-sleep-firewall.sh`
+and run it as root on every service start: the native
+backend binds wildcard addresses and must not be reachable externally. The
+provided script blocks remote IPv4/IPv6 TCP/UDP access to 16567 while allowing
+loopback. Keep that script consistent with `--backend-port` if changing it.
+
+Example systemd service override (adjust Python/Java and checkout paths):
+
+```ini
+[Service]
+Type=notify
+NotifyAccess=main
+WorkingDirectory=/opt/mlogent
+ExecStartPre=+/bin/sh /etc/mlogent/world-sleep-firewall.sh
+ExecStart=
+ExecStart=/opt/uv-python/cpython-3.12-linux-x86_64-gnu/bin/python3.12 /opt/mlogent/tools/world_sleep.py --java /opt/jre21/bin/java --idle-seconds 300
+KillMode=mixed
+TimeoutStopSec=75
+```
+
+Before migration, validate an empty-world save and seed `out/_world/sleep-state.json`
+with its `save` basename, cached status/maps, and serialized kick packet. Do not
+replace a live service with players online. A cold supervisor with no saved state
+hosts the default debug map on the first request.
+
+The frontend immediately performs the ArcNet TCP/UDP handshake, waits for the
+shared background boot, performs the backend handshake with its own ID, restores
+the real peer IP in `NetConnection.address`, then relays opaque game packets.
+The backend's private port is never advertised. Test the active Mindustry build
+after upgrading: the packet IDs/handshake are version-sensitive.
+
+Clients can usually stay on the original connection. The proxy's boot wait is
+24 seconds, leaving time within the vanilla client's approximately 30-second
+world-loading deadline; slower startup returns the configured custom kick.
+An individual client's timeout does not cancel shared startup. Vanilla clients
+queue ordinary UI messages until loading completes, so the waking text is
+available in server discovery and the timeout kick, not a custom loading overlay.
+
+Exact discovery/kick wording is defined in `world_sleep_protocol.py`:
+
+- Sleeping title: `[gray]world.execute(Mindustry);[]`
+- Running title: `world.execute(Mindustry);`, one `[#rrggbb]` color tag per character, interpolated from `#8abcd1` to `#ffb6c1`. The proxy preserves the full name despite the native 100-byte name truncation.
+- Sleeping description: `大肥鱼休眠中，可发起连接请求以唤醒。首次连接需要约 20 秒。`
+- Map: the actual map cached before hibernation (default debug map only if no cached name exists).
+- Waking/timeout: `正在唤醒大肥鱼，这通常需要几十秒，如果链接超时，可以稍等再次尝试链接。`
+
+Private control is `out/_world/sleep.sock` (Unix, mode 0600). `world_client` uses
+it automatically; supplying an explicit handshake bypasses it for the owner.
+Status/maps/player queries are cached while asleep and never wake the JVM.
+World work wakes it; the existing `world_work` game lease controls ticking and
+empty-only debug-map selection. Players, connecting clients, work leases, and
+pending `/abort` actions prevent idle shutdown. Saving/occupancy checks/closing
+the game listener run together on the game thread. Failed inspection/save keeps
+the game running. Native `SaveIO.load` restores the snapshot instead of Wayzer's
+overridden console `load`, which treats saves as maps and loses their names.
+`world_start` without overrides wakes a manually stopped managed world.
+
+`world_stop` atomically stops an already sleeping managed world immediately,
+without starting the JVM or registering an in-game veto. A running world keeps
+the 60-second player veto period. Once approved, shutdown validates a new snapshot
+and publishes it as the next startup's recovery point before terminating the JVM.
+Save failure leaves the game running; recovery-pointer publication failure keeps
+the previous pointer and reopens the listener. A completed stop returns
+`status: stopped`, `manualStop: true`, and (for a running world) the recovery save
+basename. Repeated stops of a sleeping/stopped world are immediate and idempotent.
+
+Normal service termination checkpoints the active world before stopping its
+owned process group. `KillMode=mixed` is essential: `control-group` sends SIGTERM
+to the JVM before the supervisor can save. MCP-only updates need not restart the
+world supervisor. Background work that outlives its MCP handler still requires
+an explicit managed lease; enabling a map processor alone does not pin the JVM.
+
+Private administrative requests (same OS user/root only):
+
+```python
+import world_sleep_client as control
+control.request({'op': 'supervisor_status'})
+control.request({'op': 'idle_policy', 'idleSeconds': 300})  # runtime only, >=10
+```
+
+Rollback: remove the supervisor service override, stop the supervisor gracefully,
+restore the original `world_server.py` ExecStart and restart. Remove the MCP
+override too if reverting its source. Preserve `sleep-state.json` and its latest
+snapshot; the original world entry point otherwise hosts the configured map
+instead of resuming that snapshot. Frontend-only health probes do not prove the
+world JVM is awake; use `world_status.sleepState`.
+
+### Optional server-operations extension
+
+Server maintenance lives in the independent Mlogent-Ops project: synchronization
+policies, traffic/pressure diagnostics, incident-only flight recording, world
+resource/heap drop-ins, firewall deployment helpers and benchmark reports.
+The MCP/API/runtime and sleep protocol remain in this project.
+
+`tools/world_ops_bridge.py` is the only policy-loading boundary. Install the
+`mlogent-ops` package or set `MLOGENT_OPS_ROOT=/opt/mlogent-ops`. The owned
+`out/_world/snapshot-profile.json` may also set `opsRoot` to that directory,
+so an already-running supervisor's next wake finds the extension. Missing or
+broken optional operations code falls back to native synchronization; it must
+not prevent the core world service from starting.
+
+Deploy the operations recorder and world resource settings from Mlogent-Ops,
+not from this release's `tools/` or `deploy/`. The recorder uses the existing
+local daemon protocol and never wakes an idle world just to collect data.
+Operational thresholds and retention policy are documented in Mlogent-Ops.

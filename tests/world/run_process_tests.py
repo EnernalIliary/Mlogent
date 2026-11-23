@@ -1,11 +1,12 @@
 """JVM lifecycle contracts using owned fake processes and temporary paths."""
 import io
+import os
 from pathlib import Path
 import subprocess
 import sys
 import tempfile
 import unittest
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / 'tools'))
 from world_process import WorldProcess
@@ -38,6 +39,40 @@ class Process:
 
 
 class ProcessTests(unittest.TestCase):
+    def test_managed_boot_waits_for_explicit_game_thread_result(self):
+        for resume in ('', 'mcp-hibernate-123'):
+            with self.subTest(resume=resume), tempfile.TemporaryDirectory() as root:
+                world = world_server.World.__new__(world_server.World)
+                world.map_name = 'debug map'
+                world.game_port = 16567
+                world.paths = WorldPaths.from_root(root)
+                world._wait = Mock()
+                world.console = Mock(return_value={'lines': ['[ContentPatcher] warning']})
+                world.js = Mock(side_effect=lambda body, **kw: ['managed-host-ready']
+                                if 'managed-host-not-ready' in body else ['installed'])
+                with patch.dict(os.environ, {'MLOG_WORLD_SLEEP_MANAGED': '1',
+                                             'MLOG_WORLD_RESUME_SAVE': resume}):
+                    world._boot(host=True, paused=False, server_name=None)
+                self.assertTrue(world.hosted)
+                self.assertFalse(any(c.args[0].startswith('js ') for c in world.console.call_args_list))
+                hosts = [c for c in world.js.call_args_list if 'managed-host-not-ready' in c.args[0]]
+                self.assertEqual(len(hosts), 1)
+                self.assertEqual(hosts[0].kwargs['timeout'], 180)
+                self.assertIn('SaveIO.load' if resume else 'Vars.world.loadMap', hosts[0].args[0])
+
+    def test_managed_boot_does_not_accept_unopened_server(self):
+        world = world_server.World.__new__(world_server.World)
+        world.map_name = 'debug map'
+        world.game_port = 16567
+        world._wait = Mock()
+        world.console = Mock(return_value={'lines': []})
+        world.js = Mock(return_value=['managed-host-not-ready'])
+        world.close = Mock()
+        with patch.dict(os.environ, {'MLOG_WORLD_SLEEP_MANAGED': '1', 'MLOG_WORLD_RESUME_SAVE': ''}):
+            with self.assertRaisesRegex(SystemExit, 'managed-host-not-ready'):
+                world._boot(host=True, paused=False, server_name=None)
+        world.close.assert_called_once()
+
     def test_graceful_exit_reaps_and_closes_resources_once(self):
         with tempfile.TemporaryDirectory() as root:
             fake = Process('loaded\n中文\n')

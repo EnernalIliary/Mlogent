@@ -70,7 +70,10 @@ def run(argv=None, *, default_jar, paths, services):
 
     services.configure_chat(bool(a.chat_log), a.chat_prefix)
 
-    game_port, port_note = services.pick_port(a.game_port)
+    if os.environ.get('MLOG_WORLD_SLEEP_MANAGED'):
+        game_port, port_note = a.game_port, None
+    else:
+        game_port, port_note = services.pick_port(a.game_port)
     if port_note:
         print("[warn] " + port_note, file=sys.stderr)
     w = services.create_world(java, jar, map_name=a.map, host=not a.no_host, paused=a.paused,

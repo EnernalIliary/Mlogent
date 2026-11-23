@@ -120,6 +120,14 @@ def _finish(client, key, delay, fn, args):
 
 
 def schedule(client, name, fn, args):
+    if name == 'world_stop':
+        # Occupancy and the state change are checked under the owner's lock.
+        # Never install the in-game veto queue just to stop a sleeping JVM.
+        stop_sleeping = getattr(client, 'stop_if_sleeping', None)
+        if stop_sleeping is not None:
+            stopped = stop_sleeping()
+            if stopped is not None:
+                return stopped
     delay = delay_for(name, args)
     if not delay:
         return fn(args)
@@ -173,4 +181,6 @@ def install(handlers, tools, client):
                   'inputSchema': {'type': 'object', 'properties': {'action_id': {'type': 'string'}}, 'required': ['action_id'], 'additionalProperties': False}})
     for tool in tools:
         if tool['name'] in DESTRUCTIVE or tool['name'] == 'world_push_action':
-            tool['description'] += ' Destructive operations are staged for player veto; scheduled is not success. Use world_action_status to confirm.'
+            tool['description'] += (' Sleeping-world shutdown is immediate without waking it; running-world shutdown saves a recovery checkpoint after its 60-second player veto period.'
+                                    if tool['name'] == 'world_stop' else '')
+            tool['description'] += ' Destructive operations on a running world are staged for player veto; scheduled is not success. Use world_action_status to confirm staged operations.'

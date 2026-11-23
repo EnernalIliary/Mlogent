@@ -2,7 +2,8 @@
 import importlib.util
 import pathlib
 import unittest
-from unittest.mock import patch
+from unittest.mock import patch, Mock
+from types import SimpleNamespace
 
 spec = importlib.util.spec_from_file_location('world_abort', pathlib.Path(__file__).resolve().parents[1] / 'tools/world_abort.py')
 guard = importlib.util.module_from_spec(spec)
@@ -52,6 +53,23 @@ class VetoTests(unittest.TestCase):
             self.assertEqual(result['delay_seconds'], 60)
             self.assertEqual(calls, [])
             thread.return_value.start.assert_called_once()
+
+    def test_sleeping_shutdown_is_immediate_without_game_veto_or_handler(self):
+        stopped = {'ok': True, 'handled': True, 'status': 'stopped', 'manualStop': True}
+        client = SimpleNamespace(stop_if_sleeping=Mock(return_value=stopped))
+        handler = Mock()
+        with patch.object(guard, '_js') as js, patch.object(guard.threading, 'Thread') as thread:
+            self.assertEqual(guard.schedule(client, 'world_stop', handler, {}), stopped)
+            js.assert_not_called()
+            thread.assert_not_called()
+            handler.assert_not_called()
+
+    def test_running_managed_shutdown_retains_sixty_second_veto(self):
+        client = SimpleNamespace(stop_if_sleeping=Mock(return_value=None))
+        with patch.object(guard, '_js', side_effect=['ready', 'queued']), patch.object(guard, '_record'), patch.object(guard.threading, 'Thread'):
+            result = guard.schedule(client, 'world_stop', Mock(), {})
+        self.assertEqual(result['status'], 'scheduled')
+        self.assertEqual(result['delay_seconds'], 60)
 
 
 if __name__ == '__main__':

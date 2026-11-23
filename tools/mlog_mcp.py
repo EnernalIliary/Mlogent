@@ -738,11 +738,19 @@ def tool_task(args):
 
 
 def tool_scenario_run(args):
+    if args.get("via") == "world":
+        import world_client
+        from world_work import awake
+        with awake(world_client):
+            return _experiments.scenario_run(args)
     return _experiments.scenario_run(args)
 
 
 def tool_diff(args):
-    return _experiments.diff(args)
+    import world_client
+    from world_work import awake
+    with awake(world_client):
+        return _experiments.diff(args)
 
 
 def tool_fidelity(args):
@@ -754,6 +762,11 @@ def tool_observe(args):
 
 
 def tool_explore(args):
+    if args.get("via") == "world":
+        import world_client
+        from world_work import awake
+        with awake(world_client):
+            return _experiments.explore(args)
     return _experiments.explore(args)
 
 

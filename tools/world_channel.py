@@ -2,14 +2,16 @@
 from __future__ import annotations
 
 import threading
+import base64
 import os
 import time
 import uuid
 
 
 class WorldChannel:
-    def __init__(self, process):
+    def __init__(self, process, *, inline_limit=2048):
         self.process = process
+        self.inline_limit = inline_limit
 
     def console(self, cmd, quiet=0.30, timeout=8.0):
         process = self.process
@@ -60,21 +62,44 @@ class WorldChannel:
         timeout = timeout or getattr(process, 'js_timeout', 60.0)
         result = 'res-%s.txt' % uuid.uuid4().hex[:12]
         path = os.path.join(process.data_dir, result)
+        # ScriptAgent's console tokenizer consumes backslash escapes. Transport
+        # the complete function as UTF-8/base64, preserving strings and comments.
+        source_text = '(function(){\n' + body + '\n})();'
+        source_file = None
+        if len(source_text.encode('utf-8')) > self.inline_limit:
+            # ScriptAgent/JLine handles long console lines with substantial
+            # temporary allocation. Keep the console command bounded; the
+            # complete UTF-8 program is read only when its turn executes.
+            source_file = self.put_file(source_text, prefix='js-source')
+            evaluate = ("eval(String(new java.lang.String(java.nio.file.Files.readAllBytes("
+                        "new java.io.File('" + source_file + "').toPath()),'UTF-8')));")
+        else:
+            source = base64.b64encode(source_text.encode('utf-8')).decode('ascii')
+            evaluate = ("eval(String(new java.lang.String(java.util.Base64.getDecoder().decode('"
+                        + source + "'),'UTF-8')));")
         script = (
             'var sb = new java.lang.StringBuilder();'
-            ' try { (function(){ ' + ' '.join(body.splitlines()) + ' })(); }'
-            " catch (e) { sb.append('ERR\t' + e); }"
-            " var __w = new java.io.PrintWriter('%s', 'UTF-8');"
-            '__w.print(sb.toString()); __w.close();' % result
+            " try { " + evaluate + " }"
+            " catch (e) { sb.append('ERR'+String.fromCharCode(9)+e); }"
+            " var __w = new java.io.PrintWriter('%s.tmp', 'UTF-8');"
+            "__w.print(sb.toString()); __w.close();new java.io.File('%s.tmp').renameTo(new java.io.File('%s'));"
+            % (result, result, result)
         )
         with process._lock:
             seq = process.seq
             process.send('js ' + ' '.join(script.splitlines()))
             text = self._read_result(path, time.monotonic() + timeout)
             if text is not None:
+                if source_file:
+                    try:
+                        os.remove(os.path.join(process.data_dir, source_file))
+                    except OSError:
+                        pass
                 if text.startswith('ERR\t') and '\n' not in text:
                     raise RuntimeError(text[4:])
                 return text.splitlines()
+            # On timeout retain the source: a queued game-thread evaluation may
+            # still need it. It also provides evidence for timeout diagnosis.
             with process._cv:
                 tail = [line for index, line in process.lines if index > seq][-12:]
         raise RuntimeError('js 超时 (%.0fs): %s' % (timeout, ' | '.join(tail)))

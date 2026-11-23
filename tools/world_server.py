@@ -41,6 +41,9 @@ import uuid
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from mlogsim import sweep_orphans  # noqa: E402
 from world_process import WorldProcess
+from world_ops_bridge import load_script as load_ops_script, running_description, player_limit
+SNAPSHOT_POLICY_INSTALL_JS = load_ops_script()
+from world_sleep_protocol import RUNNING_DESCRIPTION
 from world_projection import projection_director as _run_projection_director
 from world_projection import CONTROL_OPERATIONS as PROJECTION_CONTROL_OPS, control as projection_control
 import world_projection_actions as _projection_actions_module
@@ -200,17 +203,53 @@ class World(WorldProcess):
             self.console("name " + server_name, quiet=0.2, timeout=4)
         if self.game_port:
             self.console("config port %d" % self.game_port, quiet=0.2, timeout=4)
+        if os.environ.get('MLOG_WORLD_SLEEP_MANAGED'):
+            description = base64.b64encode(running_description(RUNNING_DESCRIPTION).encode('utf-8')).decode('ascii')
+            self.js("Packages.mindustry.net.Administration.Config.desc.set(new java.lang.String("
+                    "java.util.Base64.getDecoder().decode('" + description + "'),'UTF-8'));"
+                    "sb.append('description configured');")
+            limit = player_limit()
+            if limit is not None:
+                self.js("Vars.netServer.admins.setPlayerLimit("+str(limit)+");sb.append('player limit configured');")
         if not host:
             self.hosted = False
             return
         cmd = "host" + ((" " + self.map_name) if self.map_name else "")
+        resume = os.environ.get('MLOG_WORLD_RESUME_SAVE') if os.environ.get('MLOG_WORLD_SLEEP_MANAGED') else None
+        if resume:
+            if not re.fullmatch(r'mcp-hibernate-[0-9]+', resume):
+                raise ValueError('Invalid managed resume save name')
+            # ScriptAgent/Wayzer override the console's load command and treat
+            # saves as maps (losing map metadata). Use native save restoration.
+            cmd = ("js Packages.mindustry.io.SaveIO.load(new Packages.arc.files.Fi('config/saves/"
+                   + resume + ".msav'));Vars.state.rules.sector=null;"
+                   "Vars.state.set(Packages.mindustry.core.GameState.State.playing);Vars.netServer.openServer();")
+        elif os.environ.get('MLOG_WORLD_SLEEP_MANAGED') and self.map_name:
+            # Wayzer overrides `host` with a numeric map-ID command.
+            encoded_name = base64.b64encode(self.map_name.encode('utf-8')).decode('ascii')
+            wanted = ("String(new java.lang.String(java.util.Base64.getDecoder().decode('"
+                      + encoded_name + "'),'UTF-8'))")
+            cmd = ("js var m=Vars.maps.all().find(function(m){return String(m.name())==="
+                   + wanted + ";});if(m==null)throw new Error('Managed default map missing');"
+                   "Vars.logic.reset();Vars.world.loadMap(m,m.applyRules(Packages.mindustry.game.Gamemode.sandbox));"
+                   "Vars.logic.play();Vars.netServer.openServer();")
         for attempt in range(10):
-            res = self.console(cmd, quiet=1.0, timeout=180)
-            out = res["lines"]
+            if os.environ.get('MLOG_WORLD_SLEEP_MANAGED') and cmd.startswith('js '):
+                # Map loading may pause console output for several seconds.
+                # Wait for the game-thread result, not a one-second log gap.
+                out = self.js(cmd[3:] + "sb.append(Vars.net.server()?'managed-host-ready':'managed-host-not-ready');",
+                              timeout=180)
+                if 'managed-host-ready' in out:
+                    break
+            else:
+                res = self.console(cmd, quiet=1.0, timeout=180)
+                out = res["lines"]
             text = "\n".join(out)
             if "Opened a server" in text:
                 break
             if "already in use" in text and attempt < 9:
+                if os.environ.get('MLOG_WORLD_SLEEP_MANAGED'):
+                    raise RuntimeError('Managed backend port is busy; refusing automatic port change')
                 # 端口的 TIME_WAIT / 上一个实例还没退干净: 换一个真的空闲端口重试
                 self.game_port, _ = pick_port(self.game_port + 1)
                 self.console("config port %d" % self.game_port, quiet=0.25, timeout=5)
@@ -255,6 +294,10 @@ class World(WorldProcess):
         except Exception as exc:
             print("[warn] 变更日志监听安装失败: %s" % exc, flush=True)
         # 门的动作本体: 只定义一次, TapEvent 监听与 door_enter 共用
+        try:
+            self.js(SNAPSHOT_POLICY_INSTALL_JS)
+        except Exception as exc:
+            print('[warn] snapshot policy installation failed: %s' % exc, flush=True)
         try:
             from world_abort import GAME_INSTALL
             self.js(GAME_INSTALL)

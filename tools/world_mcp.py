@@ -641,7 +641,7 @@ TOOLS = [
     },
     {
         "name": "world_stop",
-        "description": "优雅关服(存档不会自动保存, 先 world_save)。",
+        "description": "关闭游戏世界。休眠时直接转为手动关闭，不唤醒；托管运行时经 60 秒否决期后保存恢复存档再关服。非托管世界仍需先 world_save。",
         "inputSchema": {"type": "object", "properties": {}},
     },
 ]
@@ -973,6 +973,9 @@ def tool_js(a):
 
 
 def tool_start(a):
+    import world_sleep_client
+    if world_sleep_client.available():
+        return world_sleep_client.request({'op': 'start', 'arguments': a}, timeout=120)
     if _alive() and not a.get("restart"):
         return {"ok": False, "error": "已有世界在跑; 传 restart=true 才会重开",
                 "handshake": _wc.handshake()}
@@ -1103,6 +1106,9 @@ for _tool in TOOLS:
 
 
 from world_abort import install as _install_veto
+from world_work import wrap as _with_world_work
+for _work_name, _work_handler in list(HANDLERS.items()):
+    HANDLERS[_work_name] = _with_world_work(_work_name, _work_handler, _wc)
 _install_veto(HANDLERS, TOOLS, _wc)
 
 

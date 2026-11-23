@@ -32,6 +32,15 @@ class WorldError(RuntimeError):
     pass
 
 
+def stop_if_sleeping():
+    """Atomically stop an already sleeping managed world, without waking it."""
+    import world_sleep_client
+    if not world_sleep_client.available():
+        return None
+    result = world_sleep_client.request({'op': 'stop_if_sleeping'}, timeout=20)
+    return result if result.get('handled') else None
+
+
 def handshake() -> dict:
     if not os.path.isfile(HANDSHAKE):
         raise WorldError("没有运行中的世界: 先 python tools/world_server.py --map Fork"
@@ -44,6 +53,10 @@ def handshake() -> dict:
 
 
 def call(req: dict, timeout: float = 180.0, hs: dict | None = None) -> dict:
+    if hs is None:
+        import world_sleep_client
+        if world_sleep_client.available():
+            return world_sleep_client.request({'op': 'call', 'request': req}, timeout=max(timeout, 120))
     hs = hs or handshake()
     port = int(hs["apiPort"])
     try:
