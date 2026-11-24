@@ -4,6 +4,7 @@ from __future__ import annotations
 import threading
 import base64
 import os
+import re
 import time
 import uuid
 
@@ -123,6 +124,14 @@ class WorldChannel:
         while time.monotonic() < deadline:
             with process._cv:
                 hit = [line for _, line in process.lines if needle in line]
+                if not hit and needle == 'Server loaded.':
+                    # A plugin logger can write a complete timestamped record
+                    # between two native writes, splitting the startup banner.
+                    text = '\n'.join(line for _, line in process.lines)
+                    text = re.sub(r'\x1b\[[0-9;]*m', '', text)
+                    text = re.sub(r'\[\d{4}-\d{2}-\d{2} \| [^\n]*\n', '', text)
+                    if needle in text:
+                        hit = [needle]
                 if hit:
                     return hit
                 if process.eof:

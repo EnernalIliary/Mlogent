@@ -48,7 +48,8 @@ class ProcessTests(unittest.TestCase):
                 world.paths = WorldPaths.from_root(root)
                 world._wait = Mock()
                 world.console = Mock(return_value={'lines': ['[ContentPatcher] warning']})
-                world.js = Mock(side_effect=lambda body, **kw: ['managed-host-ready']
+                world.js = Mock(side_effect=lambda body, **kw: ['mlogent-runtime-ready']
+                                if 'mlogent-runtime-ready' in body else ['managed-host-ready']
                                 if 'managed-host-not-ready' in body else ['installed'])
                 with patch.dict(os.environ, {'MLOG_WORLD_SLEEP_MANAGED': '1',
                                              'MLOG_WORLD_RESUME_SAVE': resume}):
@@ -66,12 +67,26 @@ class ProcessTests(unittest.TestCase):
         world.game_port = 16567
         world._wait = Mock()
         world.console = Mock(return_value={'lines': []})
-        world.js = Mock(return_value=['managed-host-not-ready'])
+        world.js = Mock(side_effect=lambda body, **kw: ['mlogent-runtime-ready']
+                        if 'mlogent-runtime-ready' in body else ['managed-host-not-ready'])
         world.close = Mock()
         with patch.dict(os.environ, {'MLOG_WORLD_SLEEP_MANAGED': '1', 'MLOG_WORLD_RESUME_SAVE': ''}):
             with self.assertRaisesRegex(SystemExit, 'managed-host-not-ready'):
                 world._boot(host=True, paused=False, server_name=None)
         world.close.assert_called_once()
+
+    def test_startup_checks_runtime_after_the_initialization_banner(self):
+        world = world_server.World.__new__(world_server.World)
+        world.game_port = 0
+        world.js = Mock(return_value=['mlogent-runtime-ready'])
+        world._wait = Mock()
+        world._boot(host=False, paused=False, server_name=None)
+        self.assertFalse(world.hosted)
+        world._wait.assert_called_once_with('Server loaded.', 90)
+        world.js.assert_called_once_with("sb.append('mlogent-runtime-ready');", timeout=20)
+        world.js.return_value = ['unexpected']
+        with self.assertRaisesRegex(RuntimeError, 'confirm readiness'):
+            world._boot(host=False, paused=False, server_name=None)
 
     def test_graceful_exit_reaps_and_closes_resources_once(self):
         with tempfile.TemporaryDirectory() as root:

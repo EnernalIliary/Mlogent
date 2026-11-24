@@ -76,6 +76,18 @@ class Process:
 
 
 class ChannelTests(unittest.TestCase):
+    def test_startup_banner_survives_interleaved_plugin_log(self):
+        with tempfile.TemporaryDirectory() as root:
+            process = Process(root)
+            process.emit('[I] Server lo[2026-11-24 | 20:48:17 | INFO] [console] Overwrite input')
+            process.emit("aded. Type 'help' for help.")
+            self.assertEqual(WorldChannel(process).wait_for('Server loaded.', .2), ['Server loaded.'])
+            process.lines.clear()
+            process.emit('[INFO] plugin initialized')
+            process.eof = True
+            with self.assertRaises(SystemExit):
+                WorldChannel(process).wait_for('Server loaded.', .2)
+
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
         self.process = Process(self.temp.name)

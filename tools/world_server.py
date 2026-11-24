@@ -203,6 +203,9 @@ class World(WorldProcess):
             self.console("name " + server_name, quiet=0.2, timeout=4)
         if self.game_port:
             self.console("config port %d" % self.game_port, quiet=0.2, timeout=4)
+        # Probe only after initialization and console handover have completed.
+        if self.js("sb.append('mlogent-runtime-ready');", timeout=20) != ['mlogent-runtime-ready']:
+            raise RuntimeError('Game runtime did not confirm readiness')
         if os.environ.get('MLOG_WORLD_SLEEP_MANAGED'):
             description = base64.b64encode(running_description(RUNNING_DESCRIPTION).encode('utf-8')).decode('ascii')
             self.js("Packages.mindustry.net.Administration.Config.desc.set(new java.lang.String("
