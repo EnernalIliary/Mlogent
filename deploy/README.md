@@ -294,8 +294,8 @@ available in server discovery and the timeout kick, not a custom loading overlay
 
 Exact discovery/kick wording is defined in `world_sleep_protocol.py`:
 
-- Sleeping title: `[gray]world.execute(Mindustry);[]`
-- Running title: `world.execute(Mindustry);`, one `[#rrggbb]` color tag per character, interpolated from `#8abcd1` to `#ffb6c1`. The proxy preserves the full name despite the native 100-byte name truncation.
+- Sleeping title: `[gray]Mlogent.execute(Mindustry);[]`
+- Running title: `Mlogent.execute(Mindustry);`, with `[#rrggbb]` colors interpolated from `#8abcd1` to `#ffb6c1`. Letters retain individual colors; punctuation inherits the preceding color when needed to fit the 255-byte discovery-name limit. The proxy preserves the full name despite the native 100-byte name truncation.
 - Sleeping description: `大肥鱼休眠中，可发起连接请求以唤醒。首次连接需要约 20 秒。`
 - Map: the actual map cached before hibernation (default debug map only if no cached name exists).
 - Waking/timeout: `正在唤醒大肥鱼，这通常需要几十秒，如果链接超时，可以稍等再次尝试链接。`

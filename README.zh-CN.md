@@ -110,7 +110,13 @@ python tools/build_skills.py --verify-only
 和 [变更记录](CHANGELOG.md)。项目采用 [MIT 许可](LICENSE)。
 
 
-## 语言支持
+## 发布包构建
+
+运行 `python tools/build_release.py <version>` 生成 toolchain、knowledge、skills、mcp
+四类发布包和 `SHA256SUMS.txt`，输出到 `dist/release/v<version>/`。
+可选 Java 运行时需另外配置。
+
+## 中英文界面
 
 项目网站与授权页支持简体中文和英文，可根据浏览器语言选择。网站也可使用语言切换入口。
 

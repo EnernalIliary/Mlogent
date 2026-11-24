@@ -932,7 +932,8 @@ class AppsContracts(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "signed delivery"):
                 self.request(arguments={**self.arguments, key: value})
 
-    def test_profile_filters_resources_tools_and_underlying_permissions(self):
+    @patch.object(mlog_acl, "_table", return_value=(mlog_acl.DEFAULT_PROFILES, [], "runner"))
+    def test_profile_filters_resources_tools_and_underlying_permissions(self, _table):
         request = {"jsonrpc": "2.0", "id": 4, "method": "tools/list"}
         for profile in ("reader", "runner"):
             _, reply = mlog_mcp_http_profiles.dispatch(request, profile=profile, apps=self.apps)
@@ -1137,6 +1138,94 @@ class ProfilePolicy(unittest.TestCase):
                 self.assertEqual(mlog_acl.static_profile(), "reader")
                 self.assertTrue(mlog_acl.allows("runner", "world_js"))
                 self.assertFalse(mlog_acl.allows("reader", "world_js"))
+
+
+class PublicWorkQuota(unittest.TestCase):
+    def setUp(self):
+        mlog_acl._BUCKETS.clear()
+        self.profiles = ({
+            "reader": {"label": "public", "rpm": 30, "work_rpm": 10,
+                       "simulation_limits": {"ticks": 600, "steps": 1200},
+                       "tools": ["mlog_gen", "mlog_inject", "mlog_sim", "mlog_kb",
+                                 "mlog_signature_request", "mlog_signature_submit"]},
+            "runner": {"label": "owner", "rpm": 120, "tools": ["*"]},
+        }, [], "runner")
+        patcher = patch.object(mlog_acl, "_table", return_value=self.profiles)
+        patcher.start()
+        self.addCleanup(patcher.stop)
+        self.addCleanup(mlog_acl._BUCKETS.clear)
+
+    def call(self, name, arguments=None, *, apps=None):
+        if arguments is None:
+            arguments = {"logic": "set x 1\njump 0 always 0\n", "author": "test"} if name == "mlog_gen" else {"logic": "set x 1"}
+            if name == "mlog_inject":
+                arguments = {"blueprint_code": "test", "index": 0, "mlog": "set x 1"}
+        request = {"jsonrpc": "2.0", "id": 1, "method": "tools/call",
+                   "params": {"name": name, "arguments": arguments}}
+        def fake(payload, emit):
+            emit({"jsonrpc": "2.0", "id": 1, "result": {
+                "content": [{"type": "text", "text": "{}"}], "isError": False}})
+        with patch.object(mlog_mcp_http_profiles.M, "handle", side_effect=fake):
+            return mlog_mcp_http_profiles.dispatch(request, profile="reader", principal="guest", apps=apps)[1]
+
+    def test_generation_injection_simulation_share_ten_without_using_read_quota(self):
+        for i in range(10):
+            self.assertNotIn("error", self.call(("mlog_gen", "mlog_inject", "mlog_sim")[i % 3]))
+        self.assertEqual(self.call("mlog_sim")["error"]["code"], -32002)
+        for _ in range(30):
+            self.assertNotIn("error", self.call("mlog_kb", {"query": "logic"}))
+        self.assertEqual(self.call("mlog_kb", {"query": "logic"})["error"]["code"], -32002)
+
+    def test_read_quota_exhaustion_does_not_block_work(self):
+        for _ in range(30):
+            self.call("mlog_kb", {"query": "logic"})
+        self.assertNotIn("error", self.call("mlog_gen"))
+
+    def test_simulation_boundary_is_enforced_before_worker(self):
+        for field, maximum in (("ticks", 600), ("steps", 1200)):
+            self.assertNotIn("error", self.call("mlog_sim", {"logic": "end", field: maximum}))
+            for bad in (maximum + 1, 0, True):
+                self.assertEqual(self.call("mlog_sim", {"logic": "end", field: bad})["error"]["code"], -32602)
+
+    def test_inline_only_inputs_and_nested_ui_requests_cannot_write_world_feeds(self):
+        for field in ("path", "scene", "scene_json", "save", "project", "project_every"):
+            self.assertEqual(self.call("mlog_sim", {"logic": "end", field: "out/_world/feed.json"})["error"]["code"], -32602)
+        for field in ("source", "out"):
+            self.assertEqual(self.call("mlog_gen", {"logic": "end", field: "test.mlog"})["error"]["code"], -32602)
+            args = {"operation": "mlog_gen", "arguments": {"logic": "end", field: "test.mlog"}}
+            self.assertEqual(self.call("mlog_signature_request", args)["error"]["code"], -32602)
+        self.assertEqual(self.call("mlog_inject", {"path": "test.msch", "index": 0, "mlog": "end"})["error"]["code"], -32602)
+
+    def test_tools_list_matches_runtime_limits_without_mutating_owner_schema(self):
+        _, reply = mlog_mcp_http_profiles.dispatch({"jsonrpc": "2.0", "id": 1, "method": "tools/list"}, profile="reader")
+        tools = {t['name']: t for t in reply['result']['tools']}
+        sim = tools['mlog_sim']['inputSchema']
+        self.assertEqual(sim['required'], ['logic'])
+        self.assertEqual(sim['properties']['ticks']['maximum'], 600)
+        self.assertEqual(sim['properties']['steps']['maximum'], 1200)
+        self.assertNotIn('project', sim['properties'])
+        self.assertNotIn('source', tools['mlog_gen']['inputSchema']['properties'])
+        self.assertEqual(tools['mlog_inject']['inputSchema']['required'], ['blueprint_code', 'index', 'mlog'])
+        original = next(t for t in mlog_mcp.TOOLS if t['name'] == 'mlog_sim')
+        self.assertIn('project', original['inputSchema']['properties'])
+        self.assertEqual(original['inputSchema']['properties']['ticks']['maximum'], 1200)
+
+    def test_runner_retains_its_existing_total_quota_and_arguments(self):
+        for name in ('mlog_sim', 'world_js', 'mlog_kb'):
+            self.assertEqual(mlog_acl.rpm('runner', name), 120)
+            self.assertEqual(mlog_acl.quota_bucket('runner', name), 'default')
+        self.assertIsNone(mlog_acl.argument_refusal('runner', 'mlog_sim', {'project': 'out/_world/feed.json'}))
+
+    def test_ui_form_and_submission_do_not_double_charge_work_quota(self):
+        apps = Apps(mlog_mcp, mlog_mcp_http_profiles.W)
+        request = self.call('mlog_gen', {'logic': 'set x 1\njump 0 always 0\n'}, apps=apps)
+        pending = json.loads(request['result']['content'][0]['text'])
+        self.assertEqual(pending['status'], 'pending')
+        for _ in range(9):
+            self.assertNotIn('error', self.call('mlog_gen'))
+        submitted = self.call('mlog_signature_submit', {'request_id': pending['request_id'], 'author': 'test'}, apps=apps)
+        self.assertFalse(submitted['result']['isError'])
+        self.assertEqual(self.call('mlog_sim')['error']['code'], -32002)
 
 
 if __name__ == "__main__":

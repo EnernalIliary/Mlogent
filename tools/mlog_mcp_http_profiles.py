@@ -118,21 +118,32 @@ def dispatch(payload, profile="runner", principal="static", apps=None):
                          "result": {"content": [{"type": "text",
                                                  "text": ACL.deny_message(profile, _name)}],
                                     "isError": True}}
-        _ok, _wait = ACL.allow(principal, profile)
-        if not _ok:
-            return 200, {"jsonrpc": "2.0", "id": payload.get("id"),
-                         "error": {"code": -32002,
-                                   "message": "请求太快，%d 秒后再试（%s 档每分钟 %d 次）"
-                                              % (_wait, ACL.get(profile).get("label") or profile,
-                                                 ACL.rpm(profile))}}
         arguments = _params.get("arguments", {})
         if not isinstance(arguments, dict):
             return 200, _rpc_error(payload, -32602, "Tool arguments must be an object.")
         if profile == "reader" and _name == "mlog_extract" and arguments.get("format", "mlog") != "mlog":
             return 200, _rpc_error(payload, -32602, "The reader profile supports mlog extraction only.")
+        refusal = ACL.argument_refusal(profile, _name, arguments)
+        if refusal:
+            return 200, _rpc_error(payload, -32602, refusal)
         refusal = LIMITS.refusal(_name, arguments)
         if refusal:
             return 200, _rpc_error(payload, -32602, refusal)
+        quota_tool = _name
+        # Opening an author form is a normal request. Its actual submission
+        # consumes the work quota, so UI generation is not charged twice.
+        if (apps and _name in ("mlog_gen", "mlog_inject")
+                and apps.permitted("mlog_signature_request", lambda name: ACL.allows(profile, name))
+                and apps._unsigned_without_author(_name, arguments)):
+            quota_tool = "mlog_signature_request"
+        _ok, _wait = ACL.allow(principal, profile, quota_tool)
+        if not _ok:
+            label = "处理额度" if ACL.quota_bucket(profile, quota_tool) == "work" else "普通额度"
+            return 200, {"jsonrpc": "2.0", "id": payload.get("id"),
+                         "error": {"code": -32002,
+                                   "message": "请求太快，%d 秒后再试（%s，%s每分钟 %d 次）"
+                                              % (_wait, ACL.get(profile).get("label") or profile,
+                                                 label, ACL.rpm(profile, quota_tool))}}
     # The simulator and artifact store share process state. Allow one tool
     # call at a time, with a short wait for non-heavy calls.
     # Metadata and ping do not mutate that state.
@@ -185,6 +196,7 @@ def dispatch(payload, profile="runner", principal="static", apps=None):
             if apps is not None:
                 _res["tools"] = apps.decorate(_res["tools"], lambda name: ACL.allows(profile, name))
             if profile == "reader":
+                _res["tools"] = [ACL.public_tool(tool) for tool in _res["tools"]]
                 for index, tool in enumerate(_res["tools"]):
                     if tool.get("name") == "mlog_extract":
                         schema = tool["inputSchema"]

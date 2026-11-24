@@ -11,19 +11,32 @@ import secrets
 import struct
 import time
 
-SERVER_TITLE = '[gray]world.execute(Mindustry);[]'
-TITLE_TEXT = 'world.execute(Mindustry);'
+TITLE_TEXT = 'Mlogent.execute(Mindustry);'
+SERVER_TITLE = '[gray]' + TITLE_TEXT + '[]'
 
 
-def gradient_title(text, start='#8abcd1', end='#ffb6c1'):
+def gradient_title(text, start='#8abcd1', end='#ffb6c1', max_bytes=None):
+    parts = list(text)
+    if max_bytes is not None and len(text.encode('utf-8')) + len(parts) * 9 + 2 > max_bytes:
+        # Discovery names have a one-byte length. Keep every letter colored;
+        # punctuation can inherit its preceding letter's color to fit the wire.
+        parts = []
+        for char in text:
+            if parts and char in '.();':
+                parts[-1] += char
+            else:
+                parts.append(char)
     first = tuple(bytes.fromhex(start.lstrip('#')))
     last = tuple(bytes.fromhex(end.lstrip('#')))
-    colors = (''.join('%02x' % round(a + (b - a) * i / max(1, len(text) - 1))
-                      for a, b in zip(first, last)) for i in range(len(text)))
-    return ''.join('[#' + color + ']' + char for color, char in zip(colors, text)) + '[]'
+    colors = (''.join('%02x' % round(a + (b - a) * i / max(1, len(parts) - 1))
+                      for a, b in zip(first, last)) for i in range(len(parts)))
+    result = ''.join('[#' + color + ']' + part for color, part in zip(colors, parts)) + '[]'
+    if max_bytes is not None and len(result.encode('utf-8')) > max_bytes:
+        raise ValueError('Gradient title exceeds discovery name byte limit')
+    return result
 
 
-RUNNING_TITLE = gradient_title(TITLE_TEXT)
+RUNNING_TITLE = gradient_title(TITLE_TEXT, max_bytes=255)
 RUNNING_DESCRIPTION = '[highlight]Mlogent[white]附属服务器,点个star吧！\n[gray]EnernalIliary/Mlogent'
 
 
@@ -155,6 +168,7 @@ class Session:
                 raise ValueError('Unexpected packet before game registration')
 
     async def attach(self):
+        attached = False
         try:
             # Leave time for the original client's ~30s world-data deadline.
             await asyncio.wait_for(self.proxy.owner.ensure_awake(), 24)
@@ -185,6 +199,7 @@ class Session:
             self.backend_writer = writer
             writer.write(frame(self.join_packet))
             await writer.drain()
+            attached = True
             logging.info('player bridge attached peer=%s id=%s', self.address[0], backend_id)
             while True:
                 self.send(await read_packet(reader))
@@ -193,7 +208,9 @@ class Session:
             raise
         except Exception as exc:
             logging.warning('player bridge unavailable peer=%s: %s', self.address[0], exc)
-            if self.proxy.owner.kick_packet:
+            # EOF after a real game session (including a native kick) must not
+            # append the unrelated wake-up kick and replace its actual reason.
+            if not attached and self.proxy.owner.kick_packet:
                 self.send(self.proxy.owner.kick_packet)
                 await self.writer.drain()
                 await asyncio.sleep(.2)

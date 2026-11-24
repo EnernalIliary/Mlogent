@@ -160,6 +160,10 @@ Verify downloads with `SHA256SUMS.txt`. Game and Mindcode Java runtimes are not
 bundled. Codex discovers project skills under `.agents/skills/`; DSH packages are
 built from the same root tools.
 
+Build the four release packages and `SHA256SUMS.txt` with
+`python tools/build_release.py <version>`. Outputs are written to
+`dist/release/v<version>/`; optional Java runtimes are supplied separately.
+
 ```bash
 python gate.py
 python tools/check_manifest.py

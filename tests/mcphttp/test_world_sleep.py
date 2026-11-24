@@ -5,6 +5,7 @@ import asyncio
 import base64
 import json
 import random
+import re
 from pathlib import Path
 import socket
 import struct
@@ -21,6 +22,21 @@ from world_sleep_protocol import Proxy, DISCOVER, KEEPALIVE, SLEEP_TEXT, WAKE_TE
 
 
 class RunningDiscoveryTests(unittest.TestCase):
+    def test_mlogent_titles_keep_full_name_and_gradient_within_wire_limit(self):
+        import world_sleep_protocol as protocol
+        title = 'Mlogent.execute(Mindustry);'
+        self.assertEqual(protocol.SERVER_TITLE, '[gray]' + title + '[]')
+        self.assertEqual(re.sub(r'\[[^\]]*\]', '', protocol.RUNNING_TITLE), title)
+        self.assertTrue(protocol.RUNNING_TITLE.startswith('[#8abcd1]M'))
+        self.assertTrue(protocol.RUNNING_TITLE.endswith('[#ffb6c1]y);[]'))
+        self.assertLessEqual(len(protocol.RUNNING_TITLE.encode('utf-8')), 255)
+        packet = running_discovery(discovery('unchanged notice', 16567), 6567)
+        self.assertEqual(packet[1:1+packet[0]].decode('utf-8'), protocol.RUNNING_TITLE)
+        self.assertIn(b'unchanged notice', packet)
+        self.assertLessEqual(len(packet), 500)
+        with self.assertRaises(ValueError):
+            protocol.gradient_title('X' * 30, max_bytes=255)
+
     def test_full_runtime_message_replaces_native_truncation_without_changing_map_stats(self):
         message='[highlight]Mlogent[white]附属服务器、点个[yellow]\ue809[]吧！\n[gray]\uf308：EnernalIliary/Mlogent'
         native=discovery('native-truncated',16567,map_name='test map')
@@ -122,6 +138,8 @@ class SleepProxyTests(unittest.IsolatedAsyncioTestCase):
             writer.write(frame(b'world-stream:' + login)); await writer.drain()
             later = await read_packet(reader)
             writer.write(frame(later)); await writer.drain()
+            writer.write(frame(b'actual-kick-reason')); await writer.drain()
+            writer.close()
         class BackUDP(asyncio.DatagramProtocol):
             def connection_made(inner, transport): inner.transport = transport
             def datagram_received(inner, data, addr):
@@ -143,11 +161,14 @@ class SleepProxyTests(unittest.IsolatedAsyncioTestCase):
         writer.write(frame(b'\x03\x00\x01\x00X')); await writer.drain()
         self.assertEqual(await asyncio.wait_for(read_packet(reader), 2), b'world-stream:\x03\x00\x01\x00X')
         self.owner.restore_peer.assert_awaited_once_with(901, '127.0.0.1')
-        writer.write(frame(b'game-update')); await writer.drain()
-        self.assertEqual(await read_packet(reader), b'game-update')
         self.transport.sendto(b'udp-update', ('127.0.0.1', self.proxy.port))
         data, _ = await asyncio.wait_for(self.udp.received.get(), 1)
         self.assertEqual(data, b'echo:udp-update')
+        writer.write(frame(b'game-update')); await writer.drain()
+        self.assertEqual(await read_packet(reader), b'game-update')
+        self.assertEqual(await read_packet(reader), b'actual-kick-reason')
+        # A normal backend close cannot append the proxy's fake wake kick.
+        self.assertEqual(await asyncio.wait_for(reader.read(), 1), b'')
 
     async def test_failed_boot_returns_configured_kick_and_closes(self):
         self.owner.ensure_awake.side_effect = RuntimeError('boot failed')

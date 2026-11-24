@@ -218,16 +218,16 @@ function linkTarget(link, b){
     };
 }
 function stateFor(b, code, links){
-    var rows = links.map(function(link){
+    var stateLinks = links.map(function(link){
         return {name:link.name, x:link.x, y:link.y, target:linkTarget(link,b)};
     });
-    var sourceHash = hash(code), linksHash = hash(JSON.stringify(rows));
+    var sourceHash = hash(code), linksHash = hash(JSON.stringify(stateLinks));
     var scope = [java.lang.System.identityHashCode(Vars.state),
                  java.lang.System.identityHashCode(world.tiles), b.id, b.tileX(), b.tileY()];
     return {ok:true, x:b.tileX(), y:b.tileY(), code:code, processor:String(b.block.name),
             ipt:b.executor.ipt == null ? null : b.executor.ipt.numval,
             instructions_per_tick:b.ipt, source_sha256:sourceHash, links_sha256:linksHash,
-            revision:hash(JSON.stringify([scope, sourceHash, linksHash])), links:rows};
+            revision:hash(JSON.stringify([scope, sourceHash, linksHash])), links:stateLinks};
 }
 function linksFor(b){
     var links = [];
@@ -389,9 +389,9 @@ function batchPlan(item){
 }
 
 function batchPreview(){
-    var rows=[], all=true;
-    req.processors.forEach(function(item){ var row=batchPlan(item); rows.push(row); if(!row.ok) all=false; });
-    return {ok:all,processors:rows};
+    var previewRows=[], all=true;
+    req.processors.forEach(function(item){ var row=batchPlan(item); previewRows.push(row); if(!row.ok) all=false; });
+    return {ok:all,processors:previewRows};
 }
 
 function batchSet(){
