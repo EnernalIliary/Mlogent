@@ -62,6 +62,10 @@ curl -s -H "Authorization: Bearer $TOKEN" http://127.0.0.1:8765/health
 
 ## 客户端接法
 
+公开服务使用 `https://mcp.iliary.life/mcp`，OAuth issuer 为 `https://mcp.iliary.life`。
+客户端填写正式接入地址，账号、令牌与权限配置沿用现有服务。
+游戏内 `/mcp` 打开客户端原生链接确认，确认后前往介绍网站；服务端控制台 `mcpguide` 打印公开接入说明，不输出任何账号密码或实际令牌。
+
 ```json
 {
   "mcpServers": {

@@ -299,6 +299,11 @@ class World(WorldProcess):
         except Exception as exc:
             print('[warn] snapshot policy installation failed: %s' % exc, flush=True)
         try:
+            from world_mcp_guide import GAME_INSTALL as MCP_GUIDE_INSTALL
+            self.js(MCP_GUIDE_INSTALL)
+        except Exception as exc:
+            print('[warn] MCP connection guide installation failed: %s' % exc, flush=True)
+        try:
             from world_abort import GAME_INSTALL
             self.js(GAME_INSTALL)
             self.js(DOOR_ACT_JS)

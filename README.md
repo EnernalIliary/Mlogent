@@ -1,27 +1,70 @@
+<img src="docs/assets/mlogent-icon.png" alt="Mlogent world processor icon" width="64" height="64">
+
 # Mlogent
 
-Mlogent 是一套 Mindustry 逻辑和蓝图工具。它能从复杂蓝图里取出指定处理器的 mlog，
-恢复可读的跳转标签，检查并替换代码，再输出可以粘回游戏的蓝图。也可以用 Mindustry
-执行器跑测试、查看指令轨迹，或通过 MCP 把这些操作交给编辑器和代码助理。
+**English** · [简体中文](README.zh-CN.md)
 
-电网调试支持原版电网与外部供电曲线。MCP `mlog_sim` 使用 `power: "grid"` 或
-`power_profile` 可以验证电池备用、欠电和恢复供电。参数与逐 tick 对照范围见
-[电网说明](tools/README.md#电网--power-grid)。
+**Logic and blueprint tools for Mindustry, available through a CLI and MCP.**
 
-世处脚本可通过 MCP `mlog_sim` 的 `marker_preview` 返回指定 tick 的 marker 状态和 PNG。
-也可以先用 `marker_from_svg` 将简单 SVG 转为世处 Mlog，再运行预览。
-[单帧预览](tools/README.md#世处-marker-单帧预览) · [静态 SVG 转换](tools/README.md#静态-svg-转世处-marker)
+Inspect processors inside an existing blueprint, recover readable jump labels,
+check or simulate the code, preview an edit, and generate a new blueprint with
+a revision you can inspect or roll back.
 
-世处调试可以用 `mlog_sim.world_probe` 查看指定 tick 后的地格、建筑、任务旗标和地图规则，
-并检查读数是否符合预期。
-[地图状态检查](tools/README.md#世处地图状态检查)
+[Website & connection guide](https://mcp.iliary.life/?lang=en) ·
+[Examples](https://mcp.iliary.life/?lang=en#examples) ·
+[Releases](https://github.com/EnernalIliary/Mlogent/releases) ·
+[Tool reference](tools/README.md)
 
-在线调试世界支持读取带标签源码、源码哈希、处理器类型、`@ipt` 和链接目标，按 revision
-安全修改单台处理器，写后回读并生成可回滚快照。
+## What you can do
 
-## 快速开始
+- **Inspect blueprints:** list processors, coordinates, links and signed comment previews. Extract one processor or all of them as editable, labelled mlog.
+- **Make targeted edits:** preview diffs, diagnostics and link checks, then replace a selected processor while preserving other blocks and configuration. A source hash protects against stale edits; successful injection creates a revision record.
+- **Check and debug logic:** run static analysis, inspect control flow, execute programs with the Mindustry executor, and capture or compare instruction traces.
+- **Explore mechanics:** search the included knowledge base and retrieve long results on demand.
+- **Test power and world-processor behavior:** use native power grids, external supply curves, marker previews and scoped world-state probes.
+- **Work with an online world:** supported deployments can inspect processor source, links and revisions, apply guarded edits and read back the result. Live-world tools use a separate entry point and depend on account permissions.
 
-需要 Python 3.11 或更新版本。静态检查、蓝图解析和生成不需要安装 Python 第三方包，也不需要 Java。
+## Connect through MCP
+
+### Hosted service
+
+Use this **Streamable HTTP** endpoint in a compatible MCP client:
+
+```text
+https://mcp.iliary.life/mcp
+```
+
+Follow the client’s OAuth flow and use an available sign-in method. Tools and
+limits depend on the account and deployed version. The website links to official
+ChatGPT, Claude and Gemini CLI guides and includes copyable agent setup prompts.
+
+In the game, `/mcp` opens a confirmation dialog linking to the website. The server
+console command `mcpguide` prints connection instructions.
+
+### Local stdio
+
+Configure your client to launch `python tools/mlog_mcp.py` from a local checkout.
+Generic configuration; use the format supported by your client:
+
+```json
+{
+  "mcpServers": {
+    "mlogent": {
+      "command": "/absolute/path/to/python",
+      "args": ["/absolute/path/to/Mlogent/tools/mlog_mcp.py"]
+    }
+  }
+}
+```
+
+Local stdio needs no remote OAuth or Bearer token. After connecting, call
+`mlog_doctor` to inspect the runtime. For hosting, authentication, permissions and
+rollback, see the [MCP deployment guide](docs/MCP部署.md).
+
+## Quick start with the CLI
+
+Use **Python 3.11 or newer**. Static checks, blueprint parsing and generation
+need no third-party Python packages or Java.
 
 ```bash
 git clone https://github.com/EnernalIliary/Mlogent.git
@@ -32,10 +75,11 @@ python tools/mlog.py check demo.msch --cost
 python tools/mlog.py extract-logic demo.msch -o demo-extracted.mlog
 ```
 
-`gen` 会为出图代码签名。标签会在交付时转成数字跳转，标签名随签名载荷保存，下次提取时可恢复。
-`gen` 也会在终端返回蓝图粘贴码。
+`gen` returns a blueprint paste code as well as the requested file. Named labels
+become numeric jumps for delivery; their names are preserved in the signature
+payload for later extraction.
 
-## 编辑已有蓝图
+To inspect existing work:
 
 ```bash
 python tools/mlog.py parse demo.msch --labelize
@@ -43,55 +87,78 @@ python tools/mlog.py extract-logic demo.msch --index 0 -o processor.mlog
 python tools/mlog.py extract-logic demo.msch --all --out-dir extracted
 ```
 
-`extract-logic` 接受 `.msch` 文件、蓝图粘贴码或 `.mlog` 文件，也支持用 `-` 读标准输入。
-处理器索引从 0 开始。多处理器蓝图要用 `--index` 选一段，或用 `--all` 全部导出。
+`extract-logic` accepts a `.msch` file, blueprint paste code or `.mlog` file, and
+`-` for standard input. Processor indices start at zero. Use `--index` or `--all`
+for multi-processor blueprints.
 
-要把改好的代码放回原蓝图，用下方的 MCP 流程。它只替换选中处理器的代码，保留链接、其他方块和蓝图配置。
+## A blueprint editing workflow
 
-## MCP
+| Step | MCP tool | Purpose |
+| --- | --- | --- |
+| Inspect | `mlog_extract` | Read the processor inventory or extract labelled source. |
+| Preview | `mlog_inject` with `preview: true` | Inspect the diff, diagnostics and link checks. |
+| Apply | `mlog_inject` with `expected_sha256` | Pass the preview’s `source_sha256` back as a version guard; receive a new paste code and revision. |
+| Review or roll back | `mlog_revision` | Inspect original code and checks, or recover the original paste code when the current blueprint matches the revision. |
 
-本地客户端可用 stdio 启动服务：
+Injection replaces one chosen processor, preserving the rest of the blueprint.
+Revision records can contain original blueprints and source; keep their storage
+private and persistent across upgrades.
+
+## Simulation and Mindcode
+
+| Capability | Additional requirements |
+| --- | --- |
+| Run mlog with the Mindustry executor | Mindustry server jar and Java 21+. Configure `MLOGSIM_JAR` and `MLOGSIM_JAVA` as needed. |
+| Compile Mindcode | Mindcode jar and compatible Java. The preferred verified version is Mindcode 3.19.3, requiring Java 22+. Configure `MINDCODE_JAR` and `MINDCODE_JAVA`. |
+| Extract a Mindcode draft | Mindcode runtime. Decompiled jumps may need manual restructuring before recompilation. |
 
 ```bash
-python tools/mlog_mcp.py
+python tools/mlogsim.py program.mlog --ticks 120
+python tools/mindcode.py doctor
+python tools/mindcode.py decompile program.mlog -o draft.mnd
 ```
 
-远程客户端使用 HTTP `/mcp`。部署方式、鉴权、运行时和版本回滚见 [MCP 部署](docs/MCP部署.md)。
+MCP `mlog_sim` supports `power: "grid"` for native power networks,
+`power_profile` for scheduled supply, `marker_preview` for marker state and PNG
+output, `world_probe` for selected world state, and `trace_vars` for instruction
+traces that can be inspected with `mlog_trace`. Simple SVGs can be converted to
+world-processor marker code using `marker_from_svg`.
 
-| 任务 | 工具 |
+Simulation checks have a defined scope; they do not prove correct behavior in
+every multiplayer world. Read the [observation contract](docs/观察与差分-契约.md),
+[tool reference](tools/README.md) and [Mindcode integration notes](docs/Mindcode集成.md).
+Missing optional runtimes leave static tools available.
+
+## Languages
+
+The project website and authorization pages support Simplified Chinese and
+English. The website has a language switch; authorization language follows the
+browser and is retained through provider sign-in.
+
+On the hosted game server, Mlogent messages follow the client locale: Chinese
+uses Simplified Chinese and other languages fall back to English. Use
+`/language zh`, `/language en` or `/language auto` for Mlogent messages.
+Wayzer uses its separate `/lang zh` or `/lang en` preference. Map names and
+third-party map scripts are not automatically translated. Some plugin menus
+contain hardcoded Chinese text and still display their original wording.
+
+Detailed mechanism and tool documentation currently includes Chinese material;
+this English README does not mean every document is translated.
+
+## Downloads and development
+
+[Releases](https://github.com/EnernalIliary/Mlogent/releases) provide four packages:
+
+| Package | Contents |
 | --- | --- |
-| 找到要修改的代码 | `mlog_extract` 接受蓝图粘贴码或工作区文件。多处理器时可先列出索引、坐标、链接和注释预览。 |
-| 预览并应用改动 | `mlog_inject` 传 `preview: true` 查看差异、静态诊断和链接检查。确认后传回 `expected_sha256` 作为版本保护，获取新蓝图粘贴码与 `revision`。 |
-| 查阅或回退 | `mlog_revision` 可查原代码与检查结果。回退时用当前蓝图核对生成版本，匹配后返回原粘贴码。 |
-| 检查与调试 | `mlog_check`、`mlog_validate`、`mlog_sim`、`mlog_trace`。轨迹可按标签和变量筛选，并和另一条轨迹比较。 |
-| 查机制和指令 | `mlog_kb` 可在包含知识库的部署包里检索，长结果用 `mlog_fetch` 读取。 |
+| `toolchain` | Local CLI, rules, tests and documentation |
+| `knowledge` | Mindustry mechanics, data tables and verification evidence |
+| `skills` | Two independently installable DSH skills with generated tools |
+| `mcp` | MCP server, knowledge base and deployment configuration |
 
-MCP 的接口版本可在 HTTP `/health` 或初始化响应查看。线上部署应保留上一份可回滚的产物，
-并把蓝图版本目录放到持久存储。实时游戏世界使用独立的 `tools/world_mcp.py` 入口。
-
-## 模拟与 Mindcode
-
-- **运行 mlog**需要 Mindustry 服务端 jar 和 Java 21+。可用 `MLOGSIM_JAR`、`MLOGSIM_JAVA` 指定环境。
-  `python tools/mlogsim.py program.mlog --ticks 120`。模拟结果的适用范围见 [观察与差分](docs/观察与差分-契约.md)。
-- **编译 Mindcode**需要 Mindcode jar 和兼容的 Java。默认优先选择已验证的 Mindcode 3.19.3，
-  可用 `MINDCODE_JAR`、`MINDCODE_JAVA` 指定。先用 `python tools/mindcode.py doctor` 检查环境。
-- **部分反编译**可用 `python tools/mindcode.py decompile program.mlog -o draft.mnd`，
-  或用 `extract-logic --format mindcode` 直接从蓝图提取。结果是编辑草稿，其中的跳转通常要重写成循环或条件才能重新编译。
-  见 [Mindcode 集成](docs/Mindcode集成.md)。
-
-## 下载与开发
-
-[GitHub Releases](https://github.com/EnernalIliary/Mlogent/releases) 提供四类压缩包：
-
-| 包 | 用途 |
-| --- | --- |
-| `toolchain` | 本地 CLI、规则、测试和文档 |
-| `knowledge` | Mindustry 机制、数据表和验证证据 |
-| `skills` | 两份可独立安装的 DSH 技能，随包提供生成的工具 |
-| `mcp` | MCP 服务、知识库和部署配置 |
-
-每份 Release 附 `SHA256SUMS.txt`。发布包不含游戏或 Mindcode 的 Java 运行时。
-Codex 从仓库的 `.agents/skills/` 发现项目技能；DSH 技能发布包从同一份根目录工具自动打包。
+Verify downloads with `SHA256SUMS.txt`. Game and Mindcode Java runtimes are not
+bundled. Codex discovers project skills under `.agents/skills/`; DSH packages are
+built from the same root tools.
 
 ```bash
 python gate.py
@@ -99,5 +166,13 @@ python tools/check_manifest.py
 python tools/build_skills.py --verify-only
 ```
 
-缺少可选运行时的测试会在门禁中标为跳过。更多入口见 [工具手册](tools/README.md)、[文档索引](docs/README.md)
-和 [变更记录](CHANGELOG.md)。项目采用 [MIT 许可](LICENSE)。
+Checks requiring unavailable optional runtimes are reported as skipped. More
+details: [documentation index](docs/README.md), [tool reference](tools/README.md),
+[changelog](CHANGELOG.md).
+
+## License and icon
+
+Mlogent is licensed under [MIT](LICENSE). The project icon is the user-selected
+Mindustry world-processor sprite from
+[Anuken/Mindustry](https://github.com/Anuken/Mindustry/blob/master/core/assets-raw/sprites/blocks/logic/world-processor.png);
+upstream artwork remains subject to its upstream terms.
