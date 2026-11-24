@@ -296,6 +296,11 @@ class World(WorldProcess):
                 print("[warn] 变更日志监听安装失败: %r" % (r,), flush=True)
         except Exception as exc:
             print("[warn] 变更日志监听安装失败: %s" % exc, flush=True)
+        try:
+            from game_push_reply import installation as push_installation
+            self.js(push_installation(os.path.join(self.paths.data, 'push.jsonl')))
+        except Exception as exc:
+            print('[warn] server Agent push handler installation failed: %s' % exc, flush=True)
         # 门的动作本体: 只定义一次, TapEvent 监听与 door_enter 共用
         try:
             self.js(SNAPSHOT_POLICY_INSTALL_JS)

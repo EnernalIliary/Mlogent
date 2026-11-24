@@ -41,6 +41,10 @@ ChatGPT, Claude and Gemini CLI guides and includes copyable agent setup prompts.
 In the game, `/mcp` opens a confirmation dialog linking to the website. The server
 console command `mcpguide` prints connection instructions.
 
+On deployments with a server Agent, administrators can use `/push <request>`
+to queue a task and receive a private in-game reply. This requires the Ops inbox
+relay and Agent integration; it does not automatically broadcast to a chat group.
+
 ### Local stdio
 
 Configure your client to launch `python tools/mlog_mcp.py` from a local checkout.

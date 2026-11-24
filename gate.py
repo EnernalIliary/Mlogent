@@ -316,6 +316,7 @@ def build_steps(full: bool, only: str | None) -> list[tuple[str, list[str] | Non
         ("worldwork", ["tests/mcphttp/test_world_work.py"], ""),
         ("worldsleep", ["tests/mcphttp/test_world_sleep.py"], ""),
         ("worldguide", ["tests/world/run_mcp_guide_tests.py"], ""),
+        ("worldpush", ["tests/world/run_push_agent_tests.py"], ""),
         # `mlog_kb` is the only tool that reads the knowledge base, and it must
         # stay dependency-free: if it ever grows an embedder, a deployed server
         # stops answering facts.  The tests pin ranking *and* the import set.

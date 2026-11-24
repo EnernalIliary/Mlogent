@@ -1105,6 +1105,14 @@ for _tool in TOOLS:
         }
 
 
+from world_push_reply import SCHEMA as _PUSH_REPLY_SCHEMA, ACTION_SCHEMA as _PUSH_ACTION_SCHEMA
+from world_push_reply import reply as _push_reply, action as _push_action
+from world_wayzer_maps import MAPS_SCHEMA as _WAYZER_MAPS_SCHEMA, maps as _wayzer_maps
+TOOLS.extend([_PUSH_REPLY_SCHEMA, _PUSH_ACTION_SCHEMA, _WAYZER_MAPS_SCHEMA])
+HANDLERS['world_push_reply'] = lambda args: _push_reply(_wc, args)
+HANDLERS['world_push_action'] = lambda args: _push_action(_wc, args)
+HANDLERS['world_wayzer_maps'] = lambda args: _wayzer_maps(_wc, args)
+
 from world_abort import install as _install_veto
 from world_work import wrap as _with_world_work
 for _work_name, _work_handler in list(HANDLERS.items()):
