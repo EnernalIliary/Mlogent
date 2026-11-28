@@ -21,13 +21,13 @@ if(!this._mcpVeto){
     var j=q.jobs[q.order[i]];
     if(j&&j.state==='pending'){j.state='cancelled';n++;if(!all)break;}
    }
-   if(n) Call.sendMessage('[accent][MCP][] '+player.plainName()+' 否决了 '+n+' 项待执行操作。');
-   else player.sendMessage('[accent][MCP][] 没有可否决的待执行操作。');
+    if(n) Call.sendMessage('[accent][MCP][] '+player.plainName()+' \u5426\u51b3\u4e86 '+n+' \u9879\u5f85\u6267\u884c\u64cd\u4f5c');
+    else player.sendMessage('[accent][MCP][] \u6ca1\u6709\u53ef\u5426\u51b3\u7684\u5f85\u6267\u884c\u64cd\u4f5c');
   }
  });
  var thisScope=this;
  Vars.netServer.clientCommands.removeCommand('abort');
- Vars.netServer.clientCommands.register('abort','[all]','否决最近一项 MCP 操作；all 否决全部（所有人可用）',runner);
+ Vars.netServer.clientCommands.register('abort','[all]','\u5426\u51b3\u6700\u8fd1\u4e00\u9879 MCP \u64cd\u4f5c\uff1ball \u5426\u51b3\u5168\u90e8\uff08\u6240\u6709\u4eba\u53ef\u7528\uff09',runner);
 }
 sb.append('ready');
 """
@@ -44,34 +44,58 @@ _owner = uuid.uuid4().hex
 
 def describe_action(name, args):
     labels = {
-        'world_stop': '关闭游戏服务器', 'world_load': '载入世界存档',
-        'world_reset': '重置当前世界', 'world_switch_map': '切换游戏地图',
-        'world_clear': '清除指定区域', 'world_clear_buildings': '清除建筑',
-        'world_kill_units': '清除单位', 'world_place': '放置或替换建筑',
-        'world_spawn': '生成单位', 'world_logic_set': '修改逻辑处理器程序',
-        'world_logic_rollback': '回滚逻辑处理器程序和链接',
-        'world_scene': '部署场景并修改世界', 'world_console': '执行服务器控制台操作',
-        'world_js': '执行修改世界的脚本', 'world_push_action': '切换游戏地图',
+        'world_stop': '\u5173\u95ed\u6e38\u620f\u670d\u52a1\u5668',
+        'world_load': '\u52a0\u8f7d\u6307\u5b9a\u5b58\u6863',
+        'world_reset': '\u91cd\u7f6e\u5f53\u524d\u4e16\u754c',
+        'world_switch_map': '\u5207\u6362\u6e38\u620f\u5730\u56fe',
+        'world_clear': '\u6e05\u9664\u6307\u5b9a\u683c\u5efa\u7b51',
+        'world_clear_buildings': '\u6e05\u9664\u5efa\u7b51',
+        'world_kill_units': '\u6e05\u9664\u5355\u4f4d',
+        'world_place': '\u653e\u7f6e\u6216\u66ff\u6362\u5efa\u7b51',
+        'world_spawn': '\u751f\u6210\u5355\u4f4d',
+        'world_logic_set': '\u4fee\u6539\u903b\u8f91\u5904\u7406\u5668\u4ee3\u7801',
+        'world_logic_rollback': '\u56de\u6eda\u903b\u8f91\u5904\u7406\u5668\u4fee\u6539',
+        'world_scene': '\u90e8\u7f72\u573a\u666f\u5e76\u4fee\u6539\u4e16\u754c',
+        'world_console': '\u6267\u884c\u670d\u52a1\u5668\u63a7\u5236\u53f0\u547d\u4ee4',
+        'world_js': '\u6267\u884c\u4fee\u6539\u4e16\u754c\u7684\u811a\u672c',
+        'world_push_action': '\u66f4\u6539\u6e38\u620f\u4e16\u754c',
     }
-    label = labels.get(name, '修改游戏世界')
+    label = labels.get(name, '\u4fee\u6539\u6e38\u620f\u4e16\u754c')
     if name in {'world_console', 'world_js'} and delay_for(name, args) == 60:
-        label = '执行可能关闭游戏服务器的操作'
+        label = '\u6267\u884c\u53ef\u80fd\u5173\u95ed\u6e38\u620f\u670d\u52a1\u5668\u7684\u64cd\u4f5c'
+    purpose = normalize_purpose(args.get('purpose'))
     details = []
-    for key, title in (('map_id', '地图编号'), ('map', '地图'), ('name', '名称'),
-                       ('unit', '单位类型'), ('count', '数量'), ('x', '横坐标'),
-                       ('y', '纵坐标'), ('radius', '范围半径')):
+    for key, title in (('map_id', '\u5730\u56fe\u7f16\u53f7'), ('map', '\u5730\u56fe'), ('name', '\u5b58\u6863\u540d'),
+                       ('unit', '\u5355\u4f4d\u7c7b\u578b'), ('count', '\u6570\u91cf'), ('x', '\u5750\u6807X'),
+                       ('y', '\u5750\u6807Y'), ('radius', '\u5f71\u54cd\u534a\u5f84')):
         if key in args:
-            value = ' '.join(str(args[key]).split())[:80].replace('[', '［').replace(']', '］')
-            details.append(title + '：' + value)
-    return label + ('（' + '，'.join(details) + '）' if details else '')
+            value = ' '.join(str(args[key]).split())[:80].replace('[', '\uff3b').replace(']', '\uff3d')
+            details.append(title + '\uff1a' + value)
+    parts = [label]
+    if purpose:
+        parts.append('\u4f5c\u7528\uff1a' + purpose)
+    if details:
+        parts.append('\u53c2\u6570\uff1a' + '\uff1b'.join(details))
+    return '\n'.join(parts)
 
+
+def normalize_purpose(value):
+    if not isinstance(value, str):
+        return ''
+    value = ' '.join(value.split()).strip()
+    return value[:240].replace('[', '\uff3b').replace(']', '\uff3d')
 
 def delay_for(name, args):
     if name == 'world_stop':
         return 60
-    if name in {'world_console', 'world_js'} and re.search(
-            r'\b(?:exit|quit|shutdown|stop)\b|closeServer|System\s*\.\s*exit',
-            json.dumps(args), re.IGNORECASE):
+    if name == 'world_console':
+        command = str(args.get('cmd', '')).strip()
+        if re.match(r'^(?:exit|quit|stop|shutdown)(?:\s|$)', command, re.IGNORECASE) or re.search(
+                r'closeServer|System\s*\.\s*exit', command, re.IGNORECASE):
+            return 60
+    if name == 'world_js' and re.search(
+            r'(?:Vars\s*\.\s*net\s*\.\s*closeServer\s*\(|System\s*\.\s*exit\s*\(|Core\s*\.\s*app\s*\.\s*exit\s*\()',
+            str(args.get('code', '')), re.IGNORECASE):
         return 60
     if name in DESTRUCTIVE:
         return 15
@@ -120,6 +144,11 @@ def _finish(client, key, delay, fn, args):
 
 
 def schedule(client, name, fn, args):
+    delay = delay_for(name, args)
+    purpose = normalize_purpose(args.get('purpose'))
+    if delay and len(purpose) < 8:
+        raise ValueError('A concise purpose is required so players can review the pending world change in-game')
+    action_args = {key: value for key, value in args.items() if key != 'purpose'}
     if name == 'world_stop':
         # Occupancy and the state change are checked under the owner's lock.
         # Never install the in-game veto queue just to stop a sleeping JVM.
@@ -128,15 +157,14 @@ def schedule(client, name, fn, args):
             stopped = stop_sleeping()
             if stopped is not None:
                 return stopped
-    delay = delay_for(name, args)
     if not delay:
-        return fn(args)
+        return fn(action_args)
     key = uuid.uuid4().hex
     # Install is idempotent and does not replace pending veto state.
     if _js(client, GAME_INSTALL) != 'ready':
         raise RuntimeError('Could not install /abort; operation not executed')
     label = describe_action(name, args)
-    message = '[MCP] ' + label + ' 将在 ' + str(delay) + ' 秒后执行。任何玩家可输入 /abort 否决，/abort all 否决全部。'
+    message = '[MCP] ' + label + ' \u5c06\u5728 ' + str(delay) + ' \u79d2\u540e\u6267\u884c\u3002\u4efb\u4f55\u73a9\u5bb6\u90fd\u53ef\u4ee5\u8f93\u5165 /abort \u5426\u51b3\uff0c/abort all \u5426\u51b3\u5168\u90e8\u3002'
     # Transport ASCII only: the world console rewrites unicode escapes.
     import base64
     encoded = base64.b64encode(message.encode()).decode()
@@ -146,9 +174,10 @@ def schedule(client, name, fn, args):
             'Call.sendMessage(new java.lang.String(java.util.Base64.getDecoder().decode("' + encoded + '"),java.nio.charset.StandardCharsets.UTF_8));sb.append("queued");')
     if _js(client, code) != 'queued':
         raise RuntimeError('Could not announce pending operation; not executed')
-    _record(key, state='pending', tool=name, delay_seconds=delay, arguments=args)
-    threading.Thread(target=_finish, args=(client, key, delay, fn, copy.deepcopy(args)), daemon=True).start()
+    _record(key, state='pending', tool=name, purpose=purpose, delay_seconds=delay, arguments=action_args)
+    threading.Thread(target=_finish, args=(client, key, delay, fn, copy.deepcopy(action_args)), daemon=True).start()
     return {'ok': True, 'status': 'scheduled', 'action_id': key, 'delay_seconds': delay,
+            'purpose': purpose,
             'message': 'Not executed yet. Any player can veto with /abort.',
             'status_tool': 'world_action_status'}
 
@@ -181,6 +210,17 @@ def install(handlers, tools, client):
                   'inputSchema': {'type': 'object', 'properties': {'action_id': {'type': 'string'}}, 'required': ['action_id'], 'additionalProperties': False}})
     for tool in tools:
         if tool['name'] in DESTRUCTIVE or tool['name'] == 'world_push_action':
+            schema = tool.setdefault('inputSchema', {})
+            properties = schema.setdefault('properties', {})
+            properties['purpose'] = {
+                'type': 'string', 'minLength': 8, 'maxLength': 240,
+                'description': 'Required: concise Chinese explanation of what this operation changes and why; shown to players in-game during the veto period.'
+            }
+            if tool['name'] != 'world_push_action':
+                required = schema.setdefault('required', [])
+                if 'purpose' not in required:
+                    required.append('purpose')
+            tool['description'] += ' Supply purpose in concise Chinese; it is displayed in-game with the pending action during the veto period.'
             tool['description'] += (' Sleeping-world shutdown is immediate without waking it; running-world shutdown saves a recovery checkpoint after its 60-second player veto period.'
                                     if tool['name'] == 'world_stop' else '')
             tool['description'] += ' Destructive operations on a running world are staged for player veto; scheduled is not success. Use world_action_status to confirm staged operations.'
