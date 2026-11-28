@@ -80,6 +80,8 @@ class Supervisor:
         self.manual_off = False
         self.last_activity = time.monotonic()
         self.last_error = None
+        self.control_failures = 0
+        self.thread_dumped = False
         self.state_path = WORLD / 'sleep-state.json'
         try:
             self.persisted = json.loads(self.state_path.read_text(encoding='utf-8'))
@@ -253,6 +255,8 @@ if(!found){throw new Error('Proxy peer connection not found');}sb.append('ready'
             if self.state != 'running':
                 return False
             inspect = json.loads(await self.js(INSPECT))
+            self.control_failures = 0
+            self.thread_dumped = False
             if inspect.get('discovery'):
                 self.real_discovery = running_discovery(base64.b64decode(inspect['discovery']), self.args.port,
                                                         running_description(RUNNING_DESCRIPTION))
@@ -289,9 +293,53 @@ if(!found){throw new Error('Proxy peer connection not found');}sb.append('ready'
             logging.info('empty world saved and sleeping: %s', name)
             return True
 
+    def dump_java_threads(self):
+        """Ask every Java descendant in the owned process tree for a JVM dump.
+
+        SIGQUIT writes the dump to the JVM's existing stdout/stderr log. Keep the
+        world alive: a failed control request does not prove that unsaved game
+        state can be discarded safely.
+        """
+        child = self.child
+        if not child or child.poll() is not None or not Path('/proc').is_dir():
+            return False
+        parents = {}
+        commands = {}
+        for entry in Path('/proc').iterdir():
+            if not entry.name.isdigit():
+                continue
+            try:
+                stat = (entry / 'stat').read_text()
+                tail = stat[stat.rfind(')') + 2:].split()
+                parents[int(entry.name)] = int(tail[1])
+                commands[int(entry.name)] = (entry / 'cmdline').read_bytes().replace(b'\\0', b' ').decode(errors='replace')
+            except (OSError, ValueError, IndexError):
+                continue
+        descendants = {child.pid}
+        changed = True
+        while changed:
+            more = {pid for pid, ppid in parents.items() if ppid in descendants}
+            changed = not more.issubset(descendants)
+            descendants.update(more)
+        java_pids = [pid for pid in descendants if 'java' in commands.get(pid, '').lower()]
+        for pid in java_pids:
+            try:
+                os.kill(pid, signal.SIGQUIT)
+            except ProcessLookupError:
+                continue
+        if java_pids:
+            logging.error('control API failed %d consecutive times; SIGQUIT thread dump requested for JVM pid(s) %s; world left running to protect unsaved progress',
+                          self.control_failures, ','.join(map(str, java_pids)))
+            return True
+        logging.error('control API failed %d consecutive times; could not find JVM for thread dump; world left running',
+                      self.control_failures)
+        return False
+
     async def monitor(self):
         while True:
-            await asyncio.sleep(5)
+            # Status/discovery probing is intentionally low frequency; MCP
+            # requests remain on demand and player wake-up stays immediate.
+            await asyncio.sleep(15)
             try:
                 if self.state == 'running':
                     if not self.child or self.child.poll() is not None:
@@ -303,6 +351,10 @@ if(!found){throw new Error('Proxy peer connection not found');}sb.append('ready'
             except Exception:
                 # Fail closed: unknown occupancy / failed save never authorizes stop.
                 logging.exception('idle inspection failed; leaving world running')
+                self.control_failures += 1
+                if self.control_failures >= 3 and not self.thread_dumped:
+                    self.dump_java_threads()
+                    self.thread_dumped = True
 
     async def dispatch(self, payload):
         op = payload.get('op')
